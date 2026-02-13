@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sercotel Guadiana - Panel de Gestión de Grupos</title>
+    <title>Nexus Groups - Panel de Gestión Estratégica</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -146,12 +146,15 @@
             return (
                 <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50">
                     <div className="flex flex-col items-center mb-8 px-2 space-y-6">
-                        <div className="grid grid-cols-2 gap-4 w-full">
+                        <div className="w-full flex justify-center p-4">
+                            <img src="Nexus Groups/Nexus_Groups-removebg-preview.png" className="h-20 w-auto object-contain" alt="Nexus Groups Logo" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
                             <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center">
-                                <img src="Logos/Sercotel Guadiana.jpg" className="h-10 w-auto object-contain" alt="Logo Guadiana" />
+                                <img src="Logos/Sercotel Guadiana.jpg" className="h-8 w-auto object-contain" alt="Logo Guadiana" />
                             </div>
                             <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center">
-                                <img src="Logos/Cumbria Spa&Hotel.jpg" className="h-10 w-auto object-contain" alt="Logo Cumbria" />
+                                <img src="Logos/Cumbria Spa&Hotel.jpg" className="h-8 w-auto object-contain" alt="Logo Cumbria" />
                             </div>
                         </div>
                         <div className="h-[1px] w-full bg-slate-100"></div>
@@ -191,7 +194,7 @@
             <div className="space-y-8 animate-fade-in">
                 <div className="flex justify-between items-end">
                     <div>
-                        <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Panel de Control <span className="text-[#2d5a43]">Multihotel</span></h2>
+                        <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Nexus <span className="text-[#2d5a43]">Groups</span></h2>
                         <p className="text-slate-500 mt-1">Gestión unificada de grupos y análisis predictivo con Gemini 1.5 Flash.</p>
                     </div>
                     <div className="text-right bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
@@ -448,32 +451,22 @@
                         const next15Days = new Date();
                         next15Days.setDate(now.getDate() + 15);
 
-                        const arrivalsList = parsed.filter(p => {
-                            let entrada = p["Entrada"];
-                            if (!entrada) return false;
-
-                            if (typeof entrada !== 'string') {
-                                if (entrada instanceof Date) {
-                                    entrada = entrada.toLocaleDateString('es-ES');
-                                } else {
-                                    entrada = String(entrada);
-                                }
+                        const parseDate = (val) => {
+                            if (!val) return new Date(8640000000000000);
+                            if (val instanceof Date) return val;
+                            const str = String(val);
+                            const parts = str.split(/[\/-]/);
+                            if (parts.length === 3) {
+                                if (parts[0].length === 4) return new Date(parts[0], parts[1] - 1, parts[2]); // YYYY-MM-DD
+                                return new Date(parts[2], parts[1] - 1, parts[0]); // DD-MM-YYYY
                             }
+                            return new Date(str);
+                        };
 
-                            const parts = entrada.split(/[\/-]/);
-                            if (parts.length < 3) return false;
-
-                            const entryDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                        const arrivalsList = parsed.filter(p => {
+                            const entryDate = parseDate(p["Entrada"]);
                             return entryDate >= now && entryDate <= next15Days;
-                        }).sort((a, b) => {
-                            const getVal = (v) => {
-                                let entry = v["Entrada"];
-                                if (entry instanceof Date) return entry;
-                                const p2 = String(entry).split(/[\/-]/);
-                                return new Date(p2[2], p2[1] - 1, p2[0]);
-                            };
-                            return getVal(a) - getVal(b);
-                        }).slice(0, 10);
+                        }).sort((a, b) => parseDate(a["Entrada"]) - parseDate(b["Entrada"])).slice(0, 10);
 
                         setArrivals(arrivalsList);
                     }

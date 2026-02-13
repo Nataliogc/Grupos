@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión y Análisis de Grupos Hotel + IA</title>
+    <title>Nexus Groups - Gestión Inteligente</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -670,9 +670,17 @@
 
                 // Ordenar por fecha de entrada antes de guardar
                 const sortedData = mergedData.sort((a, b) => {
-                    const dateA = (a["Entrada"] || "").split(/[\/-]/).reverse().join("-");
-                    const dateB = (b["Entrada"] || "").split(/[\/-]/).reverse().join("-");
-                    return dateA.localeCompare(dateB);
+                    const getIsoDate = (val) => {
+                        if (!val) return "9999-12-31";
+                        const str = String(val);
+                        const parts = str.split(/[\/-]/);
+                        if (parts.length === 3) {
+                            if (parts[0].length === 4) return str; // YYYY-MM-DD
+                            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`; // DD-MM-YYYY
+                        }
+                        return str;
+                    };
+                    return getIsoDate(a["Entrada"]).localeCompare(getIsoDate(b["Entrada"]));
                 });
 
                 setData(sortedData);
@@ -840,10 +848,12 @@
                                 <a href="Admin.html" className="p-2 hover:bg-slate-700 rounded-lg transition-colors mr-2" title="Volver al Admin">
                                     <IconChevronLeft size={20} />
                                 </a>
-                                <img src="Logos/Sercotel Guadiana.jpg" className="h-10 w-auto object-contain rounded-lg bg-white p-1" alt="Logo" />
+                                <div className="bg-white rounded-lg p-1 shadow-sm">
+                                    <img src="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-10 w-auto object-contain" alt="Logo Nexus" />
+                                </div>
                                 <div>
-                                    <h1 className="text-xl font-bold">Gestión de Grupos</h1>
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Sercotel Guadiana</p>
+                                    <h1 className="text-xl font-bold">Nexus Groups</h1>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Inteligencia Hotelera</p>
                                 </div>
                             </div>
 
@@ -936,7 +946,7 @@
                                     onClick={() => setActiveTab('dashboard')}
                                     className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'dashboard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
                                 >
-                                    <IconChart size={18} /> Global Dashboard
+                                    <IconChart size={18} /> Resumen General
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('segments')}

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Groups - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #2d5a43 0%, #1e3a2c 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .input-focus:focus {
+            border-color: #2d5a43;
+            box-shadow: 0 0 0 4px rgba(45, 90, 67, 0.1);
+        }
+
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="relative w-full max-w-md px-4">
+        <!-- Decoración de fondo -->
+        <div class="absolute -top-20 -left-20 w-64 h-64 bg-emerald-200/30 rounded-full blur-3xl animate-pulse"></div>
+        <div
+            class="absolute -bottom-20 -right-20 w-64 h-64 bg-blue-200/30 rounded-full blur-3xl animate-pulse delay-700">
+        </div>
+
+        <div class="glass-card rounded-[2.5rem] p-10 relative z-10">
+            <div class="text-center mb-10">
+                <div
+                    class="w-24 h-24 bg-white/50 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl shadow-emerald-900/10 animate-float overflow-hidden p-2">
+                    <img src="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png" class="w-full h-full object-contain"
+                        alt="Nexus Groups Logo">
+                </div>
+                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Nexus <span
+                        class="gradient-text">Groups</span></h1>
+                <p class="text-slate-500 text-sm mt-2">Inteligencia Hotelera Estratégica</p>
+            </div>
+
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Pin de
+                        Acceso</label>
+                    <div class="relative">
+                        <i data-lucide="lock"
+                            class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                        <input type="password" id="pin" placeholder="····" maxlength="4"
+                            class="w-full pl-12 pr-4 py-4 bg-white/50 border border-slate-200 rounded-2xl text-center text-2xl tracking-[1em] font-bold text-slate-800 input-focus transition-all outline-none"
+                            required>
+                    </div>
+                </div>
+
+                <div id="errorMessage"
+                    class="hidden text-red-500 text-xs font-bold text-center bg-red-50 py-2 rounded-xl border border-red-100 italic">
+                    Pin incorrecto. Solicítalo al administrador.
+                </div>
+
+                <button type="submit"
+                    class="w-full bg-[#2d5a43] hover:bg-[#1e3a2c] text-white py-4 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                    Entrar al Centro de Control
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </form>
+
+            <div class="mt-10 pt-8 border-t border-slate-100 flex justify-between items-center opacity-40">
+                <img src="Logos/Sercotel Guadiana.jpg" class="h-6 grayscale object-contain" alt="Guadiana">
+                <img src="Logos/Cumbria Spa&Hotel.jpg" class="h-6 grayscale object-contain" alt="Cumbria">
+            </div>
+        </div>
+
+        <p class="text-center text-slate-400 text-[10px] mt-8 font-medium uppercase tracking-[0.2em]">Nexus Groups v1.0
+            • Sistema Unificado Cloud 2026</p>
+    </div>
+
+    <script>
+        // Inicializar iconos Lucide
+        lucide.createIcons();
+
+        const loginForm = document.getElementById('loginForm');
+        const pinInput = document.getElementById('pin');
+        const errorMsg = document.getElementById('errorMessage');
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            // He configurado un PIN de prueba básico (1234)
+            // En producción podrías usar Firebase Auth, pero para este sistema rápido es funcional
+            if (pinInput.value === "1234") {
+                window.location.href = 'Admin.html';
+            } else {
+                errorMsg.classList.remove('hidden');
+                pinInput.value = "";
+                pinInput.focus();
+
+                // Animación de error
+                loginForm.animate([
+                    { transform: 'translateX(0)' },
+                    { transform: 'translateX(-10px)' },
+                    { transform: 'translateX(10px)' },
+                    { transform: 'translateX(0)' }
+                ], { duration: 300 });
+            }
+        });
+    </script>
+</body>
+
+</html>
