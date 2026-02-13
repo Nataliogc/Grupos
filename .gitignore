@@ -1,0 +1,21 @@
+# Firebase
+.firebase/
+firestore-debug.log
+ui-debug.log
+
+# Node
+node_modules/
+functions/node_modules/
+npm-debug.log
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel backup (optional, if you don't want them in GitHub)
+*.xlsx
+*.xls

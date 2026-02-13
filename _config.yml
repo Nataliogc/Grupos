@@ -1,0 +1,7 @@
+exclude:
+  - functions
+  - node_modules
+  - .firebase
+  - firestore.rules
+  - firebase.json
+  - .firebaserc
