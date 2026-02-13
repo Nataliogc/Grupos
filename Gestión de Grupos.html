@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión y Análisis de Grupos Hotel + IA</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React & ReactDOM (Versión 18) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Prop Types (Requerido para Recharts UMD) -->
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+
+    <!-- Recharts (Versión Fija y Estable) -->
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+
+    <!-- PapaParse (CSV Parsing) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- SheetJS (Excel Parsing) -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Markdown Parser (marked) para mostrar la respuesta de la IA bonita -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Firebase SDK (Compat mode) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes blynk {
+
+            0%,
+            100% {
+                opacity: 1;
+                filter: brightness(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                filter: brightness(1.1);
+            }
+        }
+
+        .animate-blynk {
+            animation: blynk 1.5s ease-in-out infinite;
+        }
+
+        .prose h1,
+        .prose h2,
+        .prose h3 {
+            color: #1e293b;
+            font-weight: 700;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        .prose ul {
+            list-style-type: disc;
+            padding-left: 1.5em;
+            margin-bottom: 1em;
+        }
+
+        .prose p {
+            margin-bottom: 1em;
+            line-height: 1.6;
+        }
+
+        .prose strong {
+            color: #0f172a;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Aseguramos que las librerías estén disponibles
+        const { useState, useEffect, useMemo } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = window.Recharts;
+
+        // --- CONFIGURACIÓN FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGYS50O1IjJxZXH-x5S3k3GXcqrVQedXQ",
+            authDomain: "grupos-a05d1.firebaseapp.com",
+            projectId: "grupos-a05d1",
+            storageBucket: "grupos-a05d1.firebasestorage.app",
+            messagingSenderId: "491110779784",
+            appId: "1:491110779784:web:7697495884f9545a57883d"
+        };
+
+        // Inicialización robusta
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        // --- PRUEBA TÉCNICA OBLIGATORIA (Escritura inicial) ---
+        db.collection("test").add({
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            test: true,
+            userMessage: "Verificación de conexión desde App"
+        }).then(docRef => {
+            console.log("✅ Conexión Firestore EXITOSA. Doc ID:", docRef.id);
+        }).catch(err => {
+            console.error("❌ Error de conexión Firestore:", err);
+        });
+
+        // --- CONFIGURACIÓN IA (CONEXIÓN SEGURA) ---
+        async function callGemini(customPrompt) {
+            const CLOUD_FUNCTION_URL = "https://analizargruposia-nls6pa6unq-uc.a.run.app";
+
+            try {
+                const response = await fetch(CLOUD_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: customPrompt })
+                });
+
+                if (!response.ok) {
+                    const errorMsg = await response.text();
+                    throw new Error(`Error en servidor IA: ${errorMsg}`);
+                }
+
+                const result = await response.json();
+                return result.informe;
+            } catch (err) {
+                console.error("Error en llamada IA segura:", err);
+                return "Hubo un error al conectar con la IA estratégica. Por favor, intenta de nuevo.";
+            }
+        }
+
+        // Datos iniciales de ejemplo
+        const INITIAL_DATA = [
+            { "Reserva": "196215", "Nombre del Grupo": "ORGANIZACIÓN SALSEA", "Entrada": "2026-01-16", "Salida": "2026-01-18", "Noches": "2", "Pax.": "15", "Pernoct.": "30", "Empresa/Agencia": "SALSEA 2026", "Segment.": "GRUPOS", "Régimen": "HD", "Importe(*)": "1514", "Garantía": "ANTES 18:00" },
+            { "Reserva": "196215", "Nombre del Grupo": "ORGANIZACIÓN SALSEA", "Entrada": "2026-01-16", "Salida": "2026-01-18", "Noches": "2", "Pax.": "7", "Pernoct.": "14", "Empresa/Agencia": "SALSEA 2026", "Segment.": "GRUPOS", "Régimen": "HA", "Importe(*)": "536", "Garantía": "ANTES 18:00" },
+            { "Reserva": "202263", "Nombre del Grupo": "TABLAO Y TUMBAO", "Entrada": "2026-01-16", "Salida": "2026-01-18", "Noches": "2", "Pax.": "60", "Pernoct.": "120", "Empresa/Agencia": "SALSEA 2026/TABLAO", "Segment.": "DIRECTO OFFLINE", "Régimen": "HA", "Importe(*)": "3732", "Garantía": "FLEXIBLE" },
+            { "Reserva": "205249", "Nombre del Grupo": "BM BENFICA", "Entrada": "2026-01-23", "Salida": "2026-01-24", "Noches": "1", "Pax.": "22", "Pernoct.": "22", "Empresa/Agencia": "C.D. BENFICA", "Segment.": "DEPORTIVO", "Régimen": "PC", "Importe(*)": "2100", "Garantía": "PAGADO" }
+        ];
+
+        const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff5722', '#795548'];
+
+        const App = () => {
+            const [data, setData] = useState(INITIAL_DATA);
+            const [columns, setColumns] = useState(Object.keys(INITIAL_DATA[0]));
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [searchTerm, setSearchTerm] = useState('');
+            const [newColumnName, setNewColumnName] = useState('');
+            const [showColumnModal, setShowColumnModal] = useState(false);
+            const [expandedGroup, setExpandedGroup] = useState(null);
+
+            // Estados para IA
+            const [isAiLoading, setIsAiLoading] = useState(false);
+            const [aiResult, setAiResult] = useState(null);
+            const [showAiModal, setShowAiModal] = useState(false);
+
+            // Estados para Añadir Grupo
+            const [showAddGroupModal, setShowAddGroupModal] = useState(false);
+            const [newGroup, setNewGroup] = useState({
+                "Nombre del Grupo": "",
+                "Entrada": new Date().toISOString().split('T')[0],
+                "Salida": "",
+                "Pax.": "0",
+                "Empresa/Agencia": "",
+                "Segment.": "GRUPOS",
+                "Régimen": "HD",
+                "Importe(*)": "0",
+                "Reserva": Math.floor(Math.random() * 900000 + 100000).toString(),
+                "Estado": "Confirmada"
+            });
+
+            // --- Filtros y Ordenación ---
+            const [filterStatus, setFilterStatus] = useState('all'); // all, confirmada, anulada
+            const [filterTime, setFilterTime] = useState('future'); // all, future, past
+            const [sortConfig, setSortConfig] = useState({ key: 'Entrada', direction: 'asc' });
+
+            // --- Procesamiento de Datos (Filtrado y Ordenación) ---
+            const processedData = useMemo(() => {
+                if (!data) return [];
+
+                let filtered = [...data];
+                const today = new Date().toISOString().split('T')[0];
+
+                // 1. Filtro de Estado
+                if (filterStatus !== 'all') {
+                    filtered = filtered.filter(row => {
+                        const state = (row["Estado"] || "").toLowerCase();
+                        if (filterStatus === 'confirmada') return !state.includes('anulada') && !state.includes('cancelada');
+                        if (filterStatus === 'anulada') return state.includes('anulada') || state.includes('cancelada');
+                        return true;
+                    });
+                }
+
+                // 2. Filtro de Tiempo
+                if (filterTime !== 'all') {
+                    filtered = filtered.filter(row => {
+                        let dateStr = row["Entrada"];
+                        if (dateStr) {
+                            dateStr = dateStr.toString();
+                            if (dateStr.includes('/') && dateStr.length === 10) {
+                                const [d, m, y] = dateStr.split('/');
+                                dateStr = `${y}-${m}-${d}`;
+                            }
+                        }
+
+                        if (!dateStr) return false;
+                        if (filterTime === 'future') return dateStr >= today;
+                        if (filterTime === 'past') return dateStr < today;
+                        return true;
+                    });
+                }
+
+                // 3. Ordenación
+                if (sortConfig.key) {
+                    filtered.sort((a, b) => {
+                        let valA = a[sortConfig.key] || "";
+                        let valB = b[sortConfig.key] || "";
+
+                        // Tratamiento especial fechas
+                        if (sortConfig.key === 'Entrada' || sortConfig.key === 'Salida') {
+                            const strA = valA.toString();
+                            const strB = valB.toString();
+                            if (strA.includes('/')) valA = strA.split('/').reverse().join('-');
+                            if (strB.includes('/')) valB = strB.split('/').reverse().join('-');
+                        }
+                        // Tratamiento números
+                        if (sortConfig.key === 'Importe(*)' || sortConfig.key === 'Pax.') {
+                            valA = parseFloat(valA.toString().replace('.', '').replace(',', '.')) || 0;
+                            valB = parseFloat(valB.toString().replace('.', '').replace(',', '.')) || 0;
+                        }
+
+                        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                        return 0;
+                    });
+                }
+
+                return filtered;
+            }, [data, filterStatus, filterTime, sortConfig]);
+
+            // --- Cálculos de Estadísticas Globales (Reemplazado por lógica nueva) ---
+            // Se usa stats calculado más abajo basado en processedData
+
+            // --- Agrupación de Datos por "Nombre del Grupo" (Filtrados) ---
+            const groupedData = useMemo(() => {
+                const groups = {};
+
+                processedData.forEach(row => {
+                    const groupName = row["Nombre del Grupo"] || "Sin Nombre";
+                    if (!groups[groupName]) {
+                        groups[groupName] = {
+                            name: groupName,
+                            agency: row["Empresa/Agencia"] || "",
+                            arrival: row["Entrada"],
+                            departure: row["Salida"],
+                            status: row["Estado"] || "Confirmada",
+                            totalPax: 0,
+                            totalRevenue: 0,
+                            totalNights: 0,
+                            records: []
+                        };
+                    }
+
+                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                    const pax = parseInt(row["Pax."] || 0);
+                    const noches = parseInt(row["Noches"] || 0);
+
+                    if (!isNaN(importe)) groups[groupName].totalRevenue += importe;
+                    if (!isNaN(pax)) groups[groupName].totalPax += pax;
+                    if (!isNaN(noches)) groups[groupName].totalNights += noches;
+
+                    groups[groupName].records.push(row);
+                });
+
+                return Object.values(groups).sort((a, b) => b.totalRevenue - a.totalRevenue);
+            }, [processedData]);
+
+            // --- Análisis detallado por Segmentos (Filtrados) ---
+            const segmentStats = useMemo(() => {
+                const segments = {};
+
+                processedData.forEach(row => {
+                    const segName = row["Segment."] || "Sin Segmento";
+                    if (!segments[segName]) {
+                        segments[segName] = { name: segName, revenue: 0, pax: 0, nights: 0, count: 0 };
+                    }
+
+                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                    const pax = parseInt(row["Pax."] || 0);
+                    const noches = parseInt(row["Noches"] || 0);
+
+                    if (!isNaN(importe)) segments[segName].revenue += importe;
+                    if (!isNaN(pax)) segments[segName].pax += pax;
+                    if (!isNaN(noches)) segments[segName].nights += noches;
+                    segments[segName].count += 1;
+                });
+
+                return Object.values(segments).sort((a, b) => b.revenue - a.revenue);
+            }, [processedData]);
+
+            // --- Datos para Gráficos Globales (Filtrados) ---
+            const chartData = useMemo(() => {
+                const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+                const revenueByMonth = {};
+
+                processedData.forEach(row => {
+                    let dateStr = row["Entrada"];
+                    if (dateStr) {
+                        dateStr = dateStr.toString();
+                        if (dateStr.includes('/') && dateStr.length === 10) {
+                            dateStr = dateStr.split('/').reverse().join('-');
+                        }
+                    }
+
+                    if (dateStr) {
+                        const date = new Date(dateStr);
+                        if (!isNaN(date)) {
+                            const key = `${monthNames[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
+                            const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                            revenueByMonth[key] = (revenueByMonth[key] || 0) + (isNaN(importe) ? 0 : importe);
+                        }
+                    }
+                });
+
+                const barData = Object.keys(revenueByMonth).map(key => ({
+                    name: key,
+                    Ingresos: revenueByMonth[key]
+                }));
+
+                return { barData };
+            }, [processedData]);
+
+            // --- Top Grupos Chart ---
+            const topGroupsData = useMemo(() => {
+                return groupedData.slice(0, 10).map(g => ({
+                    name: g.name.length > 15 ? g.name.substring(0, 15) + '...' : g.name,
+                    fullDate: g.name,
+                    Ingresos: g.totalRevenue
+                }));
+            }, [groupedData]);
+
+
+            // --- Funciones IA ---
+            const handleConsultantClick = async () => {
+                setIsAiLoading(true);
+                setShowAiModal(true);
+                setAiResult(null);
+
+                // Preparamos el resumen para la IA incluyendo datos de segmentación
+                const summary = {
+                    totalRevenue: stats.revenue,
+                    totalGroups: stats.count,
+                    topSegments: segmentStats.slice(0, 3).map(s => `${s.name} (${s.revenue.toFixed(0)}€)`).join(', '),
+                    topMonths: chartData.barData.sort((a, b) => b.Ingresos - a.Ingresos).slice(0, 3).map(m => m.name).join(', ')
+                };
+
+                const prompt = `Actúa como un analista de Revenue Management experto para un hotel. 
+                Analiza estos datos resumidos de grupos:
+                - Ingresos Totales: ${summary.totalRevenue}
+                - Total Grupos: ${summary.totalGroups}
+                - Top 3 Segmentos (Ingresos): ${summary.topSegments}
+                - Top Meses: ${summary.topMonths}
+                
+                Dame 3 conclusiones estratégicas breves y 1 recomendación de acción. Usa formato Markdown.
+                Enfócate mucho en la rentabilidad de los segmentos. ¿Qué segmento deberíamos potenciar?`;
+
+                const result = await callGemini(prompt);
+                setAiResult({ title: "Análisis Estratégico", content: result });
+                setIsAiLoading(false);
+            };
+
+            const handleEmailClick = async (group) => {
+                setIsAiLoading(true);
+                setShowAiModal(true);
+                setAiResult(null);
+
+                const prompt = `Escribe un email formal y acogedor para el organizador del grupo "${group.name}".
+                Detalles:
+                - Agencia: ${group.agency}
+                - Llegada: ${group.arrival}
+                - Salida: ${group.departure}
+                - Pax: ${group.totalPax}
+                - Importe total estimado: ${group.totalRevenue}€
+                
+                El objetivo es confirmar los detalles y dar la bienvenida. Menciona que estamos a su disposición para cualquier petición especial (dietas, salones, etc). Firma como "Dpto. de Grupos". Usa formato Markdown.`;
+
+                const result = await callGemini(prompt);
+                setAiResult({ title: `Borrador Email: ${group.name}`, content: result });
+                setIsAiLoading(false);
+            };
+
+            // --- Persistencia FIREBASE ---
+            useEffect(() => {
+                const unsubscribe = db.collection("groups").onSnapshot((snapshot) => {
+                    const roomData = [];
+                    snapshot.forEach((doc) => {
+                        roomData.push(doc.data());
+                    });
+
+                    if (roomData.length > 0) {
+                        // Ordenar por fecha de entrada antes de guardar en el estado
+                        const sorted = roomData.sort((a, b) => {
+                            const dateA = (a["Entrada"] || "").split(/[\/-]/).reverse().join("-");
+                            const dateB = (b["Entrada"] || "").split(/[\/-]/).reverse().join("-");
+                            return dateA.localeCompare(dateB);
+                        });
+                        setData(sorted);
+
+                        const allKeys = new Set();
+                        roomData.forEach(r => Object.keys(r).forEach(k => {
+                            if (!["_diff", "updatedAt"].includes(k)) allKeys.add(k);
+                        }));
+                        setColumns(Array.from(allKeys));
+                    } else {
+                        setData([]);
+                    }
+                }, (error) => {
+                    console.error("Error en tiempo real Firebase:", error);
+                });
+
+                return () => unsubscribe();
+            }, []);
+
+
+
+            // Actualizar estadísticas basadas en datos filtrados
+            const stats = useMemo(() => {
+                let totalRevenue = 0;
+                let totalPax = 0;
+                let totalNights = 0;
+
+                processedData.forEach(row => {
+                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                    const pax = parseInt(row["Pax."] || 0);
+                    const noches = parseInt(row["Noches"] || 0);
+
+                    if (!isNaN(importe)) totalRevenue += importe;
+                    if (!isNaN(pax)) totalPax += pax;
+                    if (!isNaN(noches)) totalNights += noches;
+                });
+
+                return {
+                    revenue: totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+                    revenueRaw: totalRevenue,
+                    pax: totalPax,
+                    avgStay: totalPax > 0 ? (totalNights / processedData.length).toFixed(1) : 0,
+                    count: new Set(processedData.map(d => d["Nombre del Grupo"])).size
+                };
+            }, [processedData]);
+
+            const requestSort = (key) => {
+                let direction = 'asc';
+                if (sortConfig.key === key && sortConfig.direction === 'asc') {
+                    direction = 'desc';
+                }
+                setSortConfig({ key, direction });
+            };
+
+            // Estados para Selección de Hotel en Importación
+            const [isHotelModalOpen, setIsHotelModalOpen] = useState(false);
+            const [pendingFile, setPendingFile] = useState(null);
+
+            // --- Funciones de Archivo (Parser Recargado) ---
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                setPendingFile(file);
+                setIsHotelModalOpen(true);
+            };
+
+            const confirmHotelAndProcess = (hotelName) => {
+                const file = pendingFile;
+                setIsHotelModalOpen(false);
+                setPendingFile(null);
+
+                const reader = new FileReader();
+
+                const processMatrixData = (rows) => {
+                    let headerRowIndex = -1;
+                    const validData = [];
+                    let currentStatus = "Confirmada"; // Estado por defecto
+                    let headers = [];
+
+                    // Barrido completo para detectar bloques
+                    for (let i = 0; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (!row) continue;
+                        const rowStr = JSON.stringify(row).toLowerCase();
+
+                        // Detectar cambios de sección exactos según requerimiento
+                        if (rowStr.includes("reservas de grupos anuladas") || rowStr.includes("anuladas")) {
+                            currentStatus = "Anulada";
+                        } else if (rowStr.includes("reservas de grupos confirmadas") || rowStr.includes("confirmadas")) {
+                            currentStatus = "Confirmada";
+                        }
+
+                        // Detectar cabecera (Si encontramos "Reserva" y "Grupo")
+                        if (rowStr.includes("reserva") && rowStr.includes("nombre del grupo")) {
+                            headerRowIndex = i;
+                            // Actualizamos headers por si cambian
+                            if (Array.isArray(row)) headers = row.map(h => (h || "").toString().trim());
+                            continue;
+                        }
+
+                        // Si tenemos headers, procesamos la fila
+                        if (headerRowIndex !== -1 && headers.length > 0) {
+                            // Ignorar filas vacías o repetidas cabeceras
+                            if (row.length === 0) continue;
+
+                            const obj = {};
+                            let hasData = false;
+
+                            headers.forEach((header, idx) => {
+                                if (header) {
+                                    obj[header] = row[idx] || "";
+                                    if (obj[header]) hasData = true;
+                                }
+                            });
+
+                            if (hasData) {
+                                const reservaVal = (obj["Reserva"] || "").toString().toLowerCase();
+                                // Ignorar si parece otra cabecera
+                                if (reservaVal.includes("reserva")) continue;
+
+                                // Inyectar Estado detectado
+                                obj["Estado"] = currentStatus;
+                                obj["Hotel_Asignado"] = hotelName;
+
+                                if (reservaVal.length > 0 || (obj["Nombre del Grupo"] && obj["Nombre del Grupo"].length > 0)) {
+                                    validData.push(obj);
+                                }
+                            }
+                        }
+                    }
+
+                    if (validData.length > 0) {
+                        sanitizeAndSetData(validData);
+                    } else {
+                        alert("No se encontraron datos válidos.");
+                    }
+                };
+
+                if (file.name.endsWith('.csv')) {
+                    reader.onload = (e) => {
+                        Papa.parse(e.target.result, {
+                            header: false,
+                            skipEmptyLines: false,
+                            complete: (res) => processMatrixData(res.data)
+                        });
+                    };
+                    reader.readAsText(file);
+                }
+                else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    reader.onload = (e) => {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[sheetName];
+                        const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                        processMatrixData(matrix);
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    alert("Formato no soportado.");
+                }
+            };
+
+            const sanitizeAndSetData = (rawData) => {
+                const incomingRows = rawData.map(row => {
+                    const cleanRow = {};
+                    Object.keys(row).forEach(k => {
+                        if (k && k.trim() !== "") cleanRow[k.trim()] = row[k];
+                    });
+                    return cleanRow;
+                });
+
+                // Copia profunda de los datos actuales para el merge
+                const mergedData = [...data];
+
+                // 1. Procesar registros entrantes
+                incomingRows.forEach(newRow => {
+                    const resID = newRow["Reserva"];
+                    const existingIdx = mergedData.findIndex(r => r["Reserva"] === resID);
+
+                    if (existingIdx === -1) {
+                        // Es un grupo nuevo
+                        mergedData.push({ ...newRow, "_diff": "new" });
+                    } else {
+                        // Es un grupo existente, verificar cambios
+                        const existingRow = mergedData[existingIdx];
+                        let diffType = null;
+
+                        // Cambio a Anulada
+                        if (newRow["Estado"] === "Anulada" && existingRow["Estado"] !== "Anulada") {
+                            diffType = "cancelled";
+                        }
+                        // Verificación de cambios en valores clave
+                        else {
+                            const oldImporte = (existingRow["Importe(*)"] || "0").toString();
+                            const newImporte = (newRow["Importe(*)"] || "0").toString();
+                            const oldPax = (existingRow["Pax."] || "0").toString();
+                            const newPax = (newRow["Pax."] || "0").toString();
+
+                            if (oldImporte !== newImporte || oldPax !== newPax) {
+                                diffType = "modified";
+                            }
+                        }
+
+                        // Actualizar la fila en el array de merge
+                        const updatedRow = { ...existingRow, ...newRow, "_diff": diffType || (existingRow._diff || null) };
+                        mergedData[existingIdx] = updatedRow;
+                    }
+                });
+
+                // Asegurar que 'Estado' esté en las columnas
+                const allKeys = new Set();
+                mergedData.forEach(r => Object.keys(r).forEach(k => allKeys.add(k)));
+
+                // Ordenar por fecha de entrada antes de guardar
+                const sortedData = mergedData.sort((a, b) => {
+                    const dateA = (a["Entrada"] || "").split(/[\/-]/).reverse().join("-");
+                    const dateB = (b["Entrada"] || "").split(/[\/-]/).reverse().join("-");
+                    return dateA.localeCompare(dateB);
+                });
+
+                setData(sortedData);
+                setColumns(Array.from(allKeys).filter(k => k !== "_diff" && k !== "Hotel_Asignado"));
+
+                // Guardar en Firebase (Batch Set con Merge)
+                const batch = db.batch();
+                sortedData.forEach(row => {
+                    const resID = String(row["Reserva"]);
+                    const docRef = db.collection("groups").doc(resID);
+                    batch.set(docRef, {
+                        ...row,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                });
+
+                batch.commit().then(() => {
+                    alert(`Sincronización profesional en NUBE completada exitosamente.`);
+                }).catch(err => {
+                    console.error("Error batch Firebase:", err);
+                    alert("Error al sincronizar con la nube.");
+                });
+            };
+
+            const acceptChanges = () => {
+                const batch = db.batch();
+                data.forEach(row => {
+                    if (row._diff) {
+                        const { _diff, ...rest } = row;
+                        const docRef = db.collection("groups").doc(String(row["Reserva"]));
+                        batch.set(docRef, {
+                            ...rest,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    }
+                });
+                batch.commit();
+            };
+
+            const exportCSV = () => {
+                const csv = Papa.unparse(data);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'Analisis_Grupos_Editado.csv');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // --- Funciones de Edición ---
+            const handleCellChange = (rowIndex, column, value) => {
+                const row = data[rowIndex];
+                const resID = String(row["Reserva"]);
+
+                // Actualización optimista
+                const newData = [...data];
+                newData[rowIndex][column] = value;
+                setData(newData);
+
+                // Actualizar Firebase con merge y timestamp
+                db.collection("groups").doc(resID).set({
+                    [column]: value,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true }).catch(err => console.error("Error editando celda:", err));
+            };
+
+            const addNewColumn = () => {
+                if (!newColumnName) return;
+                const newData = data.map(row => ({ ...row, [newColumnName]: "" }));
+                setData(newData);
+                setColumns([...columns, newColumnName]);
+                setNewColumnName('');
+                setShowColumnModal(false);
+            };
+
+            // Estados para Ficha de Grupo
+            const [showFichaModal, setShowFichaModal] = useState(false);
+            const [selectedGroupFicha, setSelectedGroupFicha] = useState(null);
+
+            const openFicha = (group) => {
+                setSelectedGroupFicha(group);
+                setShowFichaModal(true);
+            };
+
+            const updateGroupMetadata = (name, field, value) => {
+                const rowsToUpdate = data.filter(r => r["Nombre del Grupo"] === name);
+
+                const batch = db.batch();
+                rowsToUpdate.forEach(row => {
+                    const docRef = db.collection("groups").doc(String(row["Reserva"]));
+                    batch.set(docRef, {
+                        [field]: value,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                });
+
+                batch.commit();
+            };
+
+            const addNewRow = () => {
+                const emptyRow = {};
+                columns.forEach(col => emptyRow[col] = "");
+                emptyRow["Entrada"] = new Date().toISOString().split('T')[0];
+                setData([emptyRow, ...data]);
+            };
+
+            const toggleGroupExpand = (groupName) => {
+                if (expandedGroup === groupName) setExpandedGroup(null);
+                else setExpandedGroup(groupName);
+            };
+
+            const registerNewGroup = () => {
+                if (!newGroup["Nombre del Grupo"]) {
+                    alert("Por favor, introduce el nombre del grupo.");
+                    return;
+                }
+
+                // Calcular noches automáticamente si hay entrada y salida
+                let noches = "0";
+                if (newGroup.Entrada && newGroup.Salida) {
+                    const diffTime = Math.abs(new Date(newGroup.Salida) - new Date(newGroup.Entrada));
+                    noches = Math.ceil(diffTime / (1000 * 60 * 60 * 24)).toString();
+                }
+
+                const groupToSave = { ...newGroup, "Noches": noches, "Pernoct.": (parseInt(newGroup["Pax."]) * parseInt(noches)).toString() };
+                setData([groupToSave, ...data]);
+                setShowAddGroupModal(false);
+                setNewGroup({
+                    "Nombre del Grupo": "",
+                    "Entrada": new Date().toISOString().split('T')[0],
+                    "Salida": "",
+                    "Pax.": "0",
+                    "Empresa/Agencia": "",
+                    "Segment.": "GRUPOS",
+                    "Régimen": "HD",
+                    "Importe(*)": "0",
+                    "Reserva": Math.floor(Math.random() * 900000 + 100000).toString(),
+                    "Estado": "Confirmada"
+                });
+            };
+
+            // Icons
+            const IconUpload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>;
+            const IconDownload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>;
+            const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
+            const IconTable = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" /></svg>;
+            const IconChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
+            const IconGroup = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+            const IconPieChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>;
+            const IconChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>;
+            const IconChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>;
+            const IconChevronLeft = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>;
+            const IconSparkles = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>;
+            const IconMail = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>;
+            const IconBrain = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" /><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" /></svg>;
+
+            return (
+                <div className="min-h-screen pb-10">
+                    {/* Header */}
+                    <header className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-20">
+                        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <a href="Admin.html" className="p-2 hover:bg-slate-700 rounded-lg transition-colors mr-2" title="Volver al Admin">
+                                    <IconChevronLeft size={20} />
+                                </a>
+                                <img src="Logos/Sercotel Guadiana.jpg" className="h-10 w-auto object-contain rounded-lg bg-white p-1" alt="Logo" />
+                                <div>
+                                    <h1 className="text-xl font-bold">Gestión de Grupos</h1>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Sercotel Guadiana</p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setShowAddGroupModal(true)}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 text-sm"
+                                >
+                                    <IconPlus size={16} /> Dar de Alta Grupo
+                                </button>
+                                <label className="bg-white hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-bold shadow-sm border border-blue-200 transition-all flex items-center gap-2 cursor-pointer text-sm">
+                                    <IconUpload size={16} /> Importar (CSV/XLS)
+                                    <input type="file" className="hidden" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} />
+                                </label>
+                                <button
+                                    onClick={exportCSV}
+                                    className="bg-white hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg font-bold shadow-sm border border-slate-200 transition-all flex items-center gap-2 text-sm"
+                                >
+                                    <IconDownload size={16} /> Exportar
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="container mx-auto mt-6 px-4">
+                        {/* KPI Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            {/* ... cards ... */}
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+                                <p className="text-sm text-gray-500 font-semibold">Total Ingresos Est.</p>
+                                <p className="text-2xl font-bold text-slate-800">{stats.revenue}</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+                                <p className="text-sm text-gray-500 font-semibold">Total Pax</p>
+                                <p className="text-2xl font-bold text-slate-800">{stats.pax}</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
+                                <p className="text-sm text-gray-500 font-semibold">Grupos Únicos</p>
+                                <p className="text-2xl font-bold text-slate-800">{stats.count}</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
+                                <p className="text-sm text-gray-500 font-semibold">Estancia Media (días)</p>
+                                <p className="text-2xl font-bold text-slate-800">{stats.avgStay}</p>
+                            </div>
+                        </div>
+
+                        {/* --- FILTERS TOOLBAR --- */}
+                        <div className="bg-white p-3 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-center">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-gray-600">Estado:</span>
+                                <select
+                                    className="border rounded p-1 text-sm bg-gray-50"
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                >
+                                    <option value="all">Todos</option>
+                                    <option value="confirmada">Confirmados</option>
+                                    <option value="anulada">Anulados</option>
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-gray-600">Tiempo:</span>
+                                <select
+                                    className="border rounded p-1 text-sm bg-gray-50"
+                                    value={filterTime}
+                                    onChange={(e) => setFilterTime(e.target.value)}
+                                >
+                                    <option value="all">Historico Completo</option>
+                                    <option value="future">Futuros (Desde hoy)</option>
+                                    <option value="past">Pasados</option>
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-auto">
+                                <span className="text-sm font-semibold text-gray-600">Ordenar por:</span>
+                                <button onClick={() => requestSort('Entrada')} className={`text-xs px-2 py-1 rounded border ${sortConfig.key === 'Entrada' ? 'bg-blue-100 border-blue-300 font-bold' : 'bg-gray-50'}`}>
+                                    📅 Fecha {sortConfig.key === 'Entrada' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </button>
+                                <button onClick={() => requestSort('Importe(*)')} className={`text-xs px-2 py-1 rounded border ${sortConfig.key === 'Importe(*)' ? 'bg-blue-100 border-blue-300 font-bold' : 'bg-gray-50'}`}>
+                                    💰 Importe {sortConfig.key === 'Importe(*)' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Navigation Tabs */}
+                        <div className="flex gap-4 mb-4 border-b border-gray-300 overflow-x-auto items-center justify-between">
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setActiveTab('dashboard')}
+                                    className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'dashboard' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
+                                >
+                                    <IconChart size={18} /> Global Dashboard
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('segments')}
+                                    className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'segments' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
+                                >
+                                    <IconPieChart size={18} /> Segmentación
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('groups')}
+                                    className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'groups' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
+                                >
+                                    <IconGroup size={18} /> Por Grupos
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('table')}
+                                    className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'table' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
+                                >
+                                    <IconTable size={18} /> Datos Brutos
+                                </button>
+                            </div>
+                            {/* AI Main Button */}
+                            {activeTab !== 'table' && (
+                                <button
+                                    onClick={handleConsultantClick}
+                                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold transition transform hover:scale-105 mb-2 md:mb-0"
+                                >
+                                    <IconBrain size={18} /> Consultor Virtual
+                                    <IconSparkles size={14} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* --- CONTENT AREA --- */}
+
+                        {/* 1. GLOBAL DASHBOARD */}
+                        {activeTab === 'dashboard' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                                <div className="bg-white p-6 rounded-lg shadow h-96">
+                                    <h3 className="text-lg font-bold mb-4 text-slate-700">Ingresos por Mes</h3>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData.barData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                            <Tooltip formatter={(value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value)} />
+                                            <Bar dataKey="Ingresos" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="bg-white p-6 rounded-lg shadow h-96">
+                                    <h3 className="text-lg font-bold mb-4 text-slate-700">Top Segmentos (Resumen)</h3>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={segmentStats}
+                                                dataKey="revenue"
+                                                nameKey="name"
+                                                cx="50%"
+                                                cy="50%"
+                                                outerRadius={100}
+                                                fill="#8884d8"
+                                                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                                            >
+                                                {segmentStats.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip formatter={(value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value)} />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 2. SEGMENTATION ANALYSIS (NEW) */}
+                        {activeTab === 'segments' && (
+                            <div className="animate-fade-in space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-white p-6 rounded-lg shadow h-80">
+                                        <h3 className="text-lg font-bold mb-4 text-slate-700">Ingresos por Segmento</h3>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={segmentStats} layout="vertical" margin={{ left: 20 }}>
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                <XAxis type="number" hide />
+                                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} interval={0} />
+                                                <Tooltip formatter={(value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value)} />
+                                                <Bar dataKey="revenue" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                                                    {segmentStats.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-lg shadow h-80">
+                                        <h3 className="text-lg font-bold mb-4 text-slate-700">Distribución de Pax (Volumen)</h3>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={segmentStats}
+                                                    dataKey="pax"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={80}
+                                                    label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                                                >
+                                                    {segmentStats.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Detailed Table */}
+                                <div className="bg-white rounded-lg shadow overflow-hidden">
+                                    <div className="p-4 border-b bg-slate-50">
+                                        <h3 className="text-lg font-bold text-slate-700">Tabla de Rentabilidad por Segmento</h3>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-xs">
+                                                <tr>
+                                                    <th className="p-3">Segmento</th>
+                                                    <th className="p-3 text-right"># Grupos</th>
+                                                    <th className="p-3 text-right">Pax Total</th>
+                                                    <th className="p-3 text-right">Noches Totales</th>
+                                                    <th className="p-3 text-right">Ingresos Totales</th>
+                                                    <th className="p-3 text-right">ADR Medio (por noche/hab)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {segmentStats.map((seg, idx) => (
+                                                    <tr key={idx} className="hover:bg-slate-50">
+                                                        <td className="p-3 font-medium text-slate-800 flex items-center gap-2">
+                                                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                                                            {seg.name}
+                                                        </td>
+                                                        <td className="p-3 text-right">{seg.count}</td>
+                                                        <td className="p-3 text-right">{seg.pax}</td>
+                                                        <td className="p-3 text-right">{seg.nights}</td>
+                                                        <td className="p-3 text-right font-bold text-slate-700">
+                                                            {seg.revenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                                                        </td>
+                                                        <td className="p-3 text-right text-green-600 font-medium">
+                                                            {(seg.nights > 0 ? (seg.revenue / seg.nights) : 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. GROUP ANALYSIS */}
+                        {activeTab === 'groups' && (
+                            <div className="animate-fade-in space-y-6">
+                                {/* Top Groups Chart */}
+                                <div className="bg-white p-6 rounded-lg shadow">
+                                    <h3 className="text-lg font-bold mb-4 text-slate-700">Top 10 Grupos por Ingresos</h3>
+                                    <div className="h-72">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={topGroupsData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                                <XAxis type="number" />
+                                                <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
+                                                <Tooltip formatter={(value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value)} />
+                                                <Bar dataKey="Ingresos" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Aggregated Groups List */}
+                                <div className="bg-white rounded-lg shadow">
+                                    <div className="p-4 border-b">
+                                        <h3 className="text-lg font-bold text-slate-700">Listado Detallado de Grupos</h3>
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar grupo..."
+                                            className="mt-2 border rounded px-3 py-2 w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-xs">
+                                                <tr>
+                                                    <th className="p-3 w-10"></th>
+                                                    <th className="p-3">Nombre del Grupo</th>
+                                                    <th className="p-3">Entrada</th>
+                                                    <th className="p-3 text-right">Pax Total</th>
+                                                    <th className="p-3 text-right">Ingresos Totales</th>
+                                                    <th className="p-3 text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {groupedData
+                                                    .filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                    .map((group, idx) => (
+                                                        <React.Fragment key={idx}>
+                                                            <tr className="hover:bg-slate-50 transition-colors">
+                                                                <td className="p-3 text-center text-gray-400 cursor-pointer" onClick={() => toggleGroupExpand(group.name)}>
+                                                                    {expandedGroup === group.name ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+                                                                </td>
+                                                                <td className="p-3 font-medium text-slate-800 cursor-pointer" onClick={() => toggleGroupExpand(group.name)}>{group.name}</td>
+                                                                <td className="p-3 text-gray-600">{group.arrival}</td>
+                                                                <td className="p-3 text-right font-medium">{group.totalPax}</td>
+                                                                <td className="p-3 text-right font-bold text-green-600">
+                                                                    {group.totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                                                                </td>
+                                                                <td className="p-3 text-center flex justify-center gap-2">
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); openFicha(group); }}
+                                                                        className="text-emerald-600 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition text-xs font-bold flex items-center gap-1"
+                                                                        title="Ficha del Grupo"
+                                                                    >
+                                                                        <IconTable size={14} /> Ficha
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleEmailClick(group); }}
+                                                                        className="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition"
+                                                                        title="Redactar Email con IA"
+                                                                    >
+                                                                        <div className="flex items-center gap-1"><IconMail size={14} /> <IconSparkles size={10} /></div>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                            {expandedGroup === group.name && (
+                                                                <tr className="bg-slate-50">
+                                                                    <td colSpan="6" className="p-4 pl-12">
+                                                                        <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Desglose de Reservas</div>
+                                                                        <table className="w-full text-xs bg-white rounded border shadow-sm">
+                                                                            <thead>
+                                                                                <tr className="bg-gray-100 border-b">
+                                                                                    <th className="p-2">Reserva ID</th>
+                                                                                    <th className="p-2">Régimen</th>
+                                                                                    <th className="p-2">Segmento</th>
+                                                                                    <th className="p-2 text-right">Pax</th>
+                                                                                    <th className="p-2 text-right">Importe</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {group.records.map((rec, rIdx) => (
+                                                                                    <tr key={rIdx} className="border-b last:border-0">
+                                                                                        <td className="p-2">{rec["Reserva"]}</td>
+                                                                                        <td className="p-2">{rec["Régimen"]}</td>
+                                                                                        <td className="p-2">{rec["Segment."]}</td>
+                                                                                        <td className="p-2 text-right">{rec["Pax."]}</td>
+                                                                                        <td className="p-2 text-right">{rec["Importe(*)"]} €</td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </React.Fragment>
+                                                    ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 4. RAW DATA EDITOR */}
+                        {activeTab === 'table' && (
+                            <div className="bg-white rounded-lg shadow flex flex-col h-[70vh] animate-fade-in">
+                                {/* Table Toolbar */}
+                                <div className="p-4 border-b flex flex-wrap gap-4 justify-between items-center">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar en todos los campos..."
+                                        className="border rounded px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    <div className="flex gap-2">
+                                        {data.some(r => r._diff) && (
+                                            <button onClick={acceptChanges} className="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition-all animate-bounce flex items-center gap-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                                ACEPTAR ACTUALIZACIONES
+                                            </button>
+                                        )}
+                                        <button onClick={addNewRow} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 rounded text-sm font-medium transition flex items-center gap-1">
+                                            <IconPlus /> Fila
+                                        </button>
+                                        <button onClick={() => setShowColumnModal(true)} className="bg-purple-50 text-purple-600 hover:bg-purple-100 px-3 py-2 rounded text-sm font-medium transition flex items-center gap-1">
+                                            <IconPlus /> Columna
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Table Container */}
+                                <div className="flex-1 overflow-auto custom-scrollbar">
+                                    <table className="w-full text-left text-sm border-collapse">
+                                        <thead className="bg-slate-50 text-slate-600 sticky top-0 z-10 shadow-sm">
+                                            <tr>
+                                                {columns.map((col, idx) => (
+                                                    <th key={idx} className="p-3 font-semibold border-b whitespace-nowrap min-w-[120px]">
+                                                        {col}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {data
+                                                .filter(row => JSON.stringify(Object.values(row)).toLowerCase().includes(searchTerm.toLowerCase()))
+                                                .map((row, rIdx) => {
+                                                    let rowClass = "hover:bg-slate-50 transition-colors group";
+                                                    let highlightColor = "";
+
+                                                    if (row._diff === "new") {
+                                                        rowClass += " animate-blynk bg-green-50";
+                                                        highlightColor = "border-l-4 border-green-500";
+                                                    } else if (row._diff === "cancelled") {
+                                                        rowClass += " animate-blynk bg-red-50";
+                                                        highlightColor = "border-l-4 border-red-500";
+                                                    } else if (row._diff === "modified") {
+                                                        rowClass += " animate-blynk bg-blue-50";
+                                                        highlightColor = "border-l-4 border-blue-500";
+                                                    }
+
+                                                    return (
+                                                        <tr key={rIdx} className={rowClass}>
+                                                            {columns.map((col, cIdx) => (
+                                                                <td key={`${rIdx}-${cIdx}`} className={`p-1 border-b ${cIdx === 0 ? highlightColor : ''}`}>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={row[col] || ''}
+                                                                        onChange={(e) => handleCellChange(rIdx, col, e.target.value)}
+                                                                        className="w-full bg-transparent px-2 py-1 rounded hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none truncate font-medium"
+                                                                        style={{ color: row._diff ? 'inherit' : 'unset' }}
+                                                                    />
+                                                                </td>
+                                                            ))}
+                                                        </tr>
+                                                    );
+                                                })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="p-2 border-t text-xs text-gray-500 text-center">
+                                    Mostrando {data.length} registros. Edita las celdas directamente.
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Modal Añadir Columna */}
+                    {showColumnModal && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                            <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+                                <h3 className="text-lg font-bold mb-4">Añadir Nueva Columna</h3>
+                                <input
+                                    type="text"
+                                    placeholder="Nombre (ej. Estado, Notas)"
+                                    className="w-full border p-2 rounded mb-4"
+                                    value={newColumnName}
+                                    onChange={(e) => setNewColumnName(e.target.value)}
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => setShowColumnModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
+                                    <button onClick={addNewColumn} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Añadir</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal Añadir Grupo Manual */}
+                    {showAddGroupModal && (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl animate-fade-in overflow-hidden">
+                                <div className="bg-[#2d5a43] p-6 text-white flex justify-between items-center">
+                                    <div>
+                                        <h3 className="text-xl font-bold">Registro de Nuevo Grupo</h3>
+                                        <p className="text-emerald-100/70 text-xs">Introduce los detalles de la reserva manual</p>
+                                    </div>
+                                    <button onClick={() => setShowAddGroupModal(false)} className="text-white/60 hover:text-white transition-colors">
+                                        <IconPlus className="rotate-45" size={24} />
+                                    </button>
+                                </div>
+                                <div className="p-8 grid grid-cols-2 gap-6">
+                                    <div className="col-span-2">
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nombre del Grupo</label>
+                                        <input
+                                            type="text"
+                                            className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold transition-colors"
+                                            placeholder="Ej: Boda Familia García / Congreso Médico"
+                                            value={newGroup["Nombre del Grupo"]}
+                                            onChange={(e) => setNewGroup({ ...newGroup, "Nombre del Grupo": e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entrada</label>
+                                        <input
+                                            type="date"
+                                            className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
+                                            value={newGroup.Entrada}
+                                            onChange={(e) => setNewGroup({ ...newGroup, Entrada: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Salida</label>
+                                        <input
+                                            type="date"
+                                            className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
+                                            value={newGroup.Salida}
+                                            onChange={(e) => setNewGroup({ ...newGroup, Salida: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pax Totales</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
+                                            value={newGroup["Pax."]}
+                                            onChange={(e) => setNewGroup({ ...newGroup, "Pax.": e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Importe Total (€)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
+                                            placeholder="0,00"
+                                            value={newGroup["Importe(*)"]}
+                                            onChange={(e) => setNewGroup({ ...newGroup, "Importe(*)": e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="col-span-1">
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Agencia / Empresa</label>
+                                        <input
+                                            type="text"
+                                            className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
+                                            value={newGroup["Empresa/Agencia"]}
+                                            onChange={(e) => setNewGroup({ ...newGroup, "Empresa/Agencia": e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Segmento</label>
+                                        <select
+                                            className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
+                                            value={newGroup["Segment."]}
+                                            onChange={(e) => setNewGroup({ ...newGroup, "Segment.": e.target.value })}
+                                        >
+                                            <option value="GRUPOS">GRUPOS</option>
+                                            <option value="DEPORTIVO">DEPORTIVO</option>
+                                            <option value="TOUR-OPERACIÓN">TOUR-OPERACIÓN</option>
+                                            <option value="BODA/CELEBRACIÓN">BODA/CELEBRACIÓN</option>
+                                            <option value="CONGRESO">CONGRESO</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="p-6 bg-slate-50 border-t flex gap-3">
+                                    <button
+                                        onClick={() => setShowAddGroupModal(false)}
+                                        className="flex-1 py-4 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-100 transition-all uppercase text-xs tracking-widest"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={registerNewGroup}
+                                        className="flex-[2] py-4 bg-[#2d5a43] text-white font-bold rounded-xl hover:bg-[#1e3a2c] transition-all shadow-lg shadow-emerald-900/10 uppercase text-xs tracking-widest"
+                                    >
+                                        Confirmar Alta
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal Resultados IA */}
+                    {showAiModal && (
+                        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col animate-fade-in">
+                                <div className="p-4 border-b bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-t-lg flex justify-between items-center">
+                                    <h3 className="font-bold flex items-center gap-2">
+                                        <IconBrain className="text-purple-300" />
+                                        {aiResult ? aiResult.title : "Analizando datos..."}
+                                    </h3>
+                                    <button onClick={() => setShowAiModal(false)} className="text-slate-400 hover:text-white">&times;</button>
+                                </div>
+                                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                                    {isAiLoading ? (
+                                        <div className="flex flex-col items-center justify-center py-10">
+                                            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                                            <p className="text-slate-500 animate-pulse-slow text-center">
+                                                Gemini está analizando tus reservas... <br />
+                                                <span className="text-xs">Buscando patrones y rentabilidad.</span>
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="prose prose-sm max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: marked.parse(aiResult?.content || "") }}></div>
+                                    )}
+                                </div>
+                                <div className="p-4 border-t bg-slate-50 text-right rounded-b-lg">
+                                    <button onClick={() => setShowAiModal(false)} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition">Cerrar</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* Modal Ficha de Grupo */}
+                    {showFichaModal && selectedGroupFicha && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-fade-in">
+                                <div className="p-6 border-b flex justify-between items-start bg-slate-50">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">Ficha Oficial</span>
+                                            <h3 className="text-2xl font-bold text-slate-800">{selectedGroupFicha.name}</h3>
+                                        </div>
+                                        <p className="text-sm text-slate-500">Gestión integral, depósitos y seguimiento del grupo.</p>
+                                    </div>
+                                    <button onClick={() => setShowFichaModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+                                    {/* KPIS RAPIDOS */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Ingresos</p>
+                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</p>
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Pax</p>
+                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.totalPax}</p>
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entrada</p>
+                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.arrival}</p>
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Reservas</p>
+                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.records.length}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {/* GESTIÓN DE DEPÓSITOS */}
+                                        <div className="space-y-6">
+                                            <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b pb-2">
+                                                <div className="w-6 h-6 bg-emerald-100 text-emerald-600 rounded flex items-center justify-center"><IconTable size={14} /></div>
+                                                Control de Depósitos
+                                            </h4>
+
+                                            <div className="space-y-4">
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="text-xs font-bold text-slate-600 uppercase">Primer Depósito (30%)</span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedGroupFicha.records[0]?.["Dep1_Status"] === "Cobrado"}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep1_Status", e.target.checked ? "Cobrado" : "Pendiente")}
+                                                            className="w-4 h-4 text-emerald-600 rounded"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Importe €"
+                                                            className="bg-white border p-2 rounded-lg text-sm"
+                                                            value={selectedGroupFicha.records[0]?.["Dep1_Importe"] || (selectedGroupFicha.totalRevenue * 0.3).toFixed(2)}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep1_Importe", e.target.value)}
+                                                        />
+                                                        <input
+                                                            type="date"
+                                                            className="bg-white border p-2 rounded-lg text-sm"
+                                                            value={selectedGroupFicha.records[0]?.["Dep1_Fecha"] || ""}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep1_Fecha", e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="text-xs font-bold text-slate-600 uppercase">Segundo Depósito (70%)</span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedGroupFicha.records[0]?.["Dep2_Status"] === "Cobrado"}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep2_Status", e.target.checked ? "Cobrado" : "Pendiente")}
+                                                            className="w-4 h-4 text-emerald-600 rounded"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Importe €"
+                                                            className="bg-white border p-2 rounded-lg text-sm"
+                                                            value={selectedGroupFicha.records[0]?.["Dep2_Importe"] || (selectedGroupFicha.totalRevenue * 0.7).toFixed(2)}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep2_Importe", e.target.value)}
+                                                        />
+                                                        <input
+                                                            type="date"
+                                                            className="bg-white border p-2 rounded-lg text-sm"
+                                                            value={selectedGroupFicha.records[0]?.["Dep2_Fecha"] || ""}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep2_Fecha", e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* SEGUIMIENTO Y NOTAS */}
+                                        <div className="space-y-6">
+                                            <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b pb-2">
+                                                <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded flex items-center justify-center"><IconSparkles size={14} /></div>
+                                                Notas y Seguimiento
+                                            </h4>
+                                            <textarea
+                                                className="w-full h-[180px] p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+                                                placeholder="Ej: Pendiente de confirmar horarios de cena, requieren 2 plazas de parking..."
+                                                value={selectedGroupFicha.records[0]?.["Notas_Seguimiento"] || ""}
+                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Notas_Seguimiento", e.target.value)}
+                                            ></textarea>
+
+                                            <div className="flex flex-col gap-2">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Acciones Rápidas</p>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            localStorage.setItem('selectedGroup', JSON.stringify(selectedGroupFicha.records[0]));
+                                                            window.location.href = 'Fac Prof.html';
+                                                        }}
+                                                        className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg"
+                                                    >
+                                                        <IconTable size={14} /> Generar Proforma
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleEmailClick(selectedGroupFicha)}
+                                                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg"
+                                                    >
+                                                        <IconMail size={14} /> Email IA
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* LISTADO DE RESERVAS ASOCIADAS */}
+                                    <div className="pt-4">
+                                        <h4 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-tight">Desglose de Bloqueos</h4>
+                                        <div className="overflow-hidden border rounded-2xl border-slate-100">
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-slate-50 text-slate-500 font-bold border-b">
+                                                    <tr>
+                                                        <th className="px-4 py-3 text-left">Reserva</th>
+                                                        <th className="px-4 py-3 text-left">Régimen</th>
+                                                        <th className="px-4 py-3 text-right">Pax</th>
+                                                        <th className="px-4 py-3 text-right">Importe</th>
+                                                        <th className="px-4 py-3 text-center">Estado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {selectedGroupFicha.records.map((rec, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50/50">
+                                                            <td className="px-4 py-3 font-semibold text-slate-700">{rec["Reserva"]}</td>
+                                                            <td className="px-4 py-3">{rec["Régimen"]}</td>
+                                                            <td className="px-4 py-3 text-right font-bold">{rec["Pax."]}</td>
+                                                            <td className="px-4 py-3 text-right font-bold text-slate-600">{rec["Importe(*)"]} €</td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${rec["Estado"]?.includes('Conf') ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{rec["Estado"]}</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 bg-slate-50 border-t flex justify-end">
+                                    <button
+                                        onClick={() => setShowFichaModal(false)}
+                                        className="px-8 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-600 text-sm hover:bg-slate-100 transition-all shadow-sm"
+                                    >
+                                        Cerrar Ficha
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* Modal Selección de Hotel para Importación */}
+                    {isHotelModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-fade-in text-center">
+                                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                    <IconUpload size={32} />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-2">¿A qué hotel pertenecen estos datos?</h3>
+                                <p className="text-sm text-slate-500 mb-8">Selecciona el hotel para asignar correctamente las reservas importadas.</p>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                    <button
+                                        onClick={() => confirmHotelAndProcess("Sercotel Guadiana")}
+                                        className="py-4 bg-slate-50 border-2 border-slate-100 hover:border-emerald-500 hover:bg-emerald-50 rounded-2xl font-bold text-slate-700 transition-all flex flex-col items-center gap-1 group"
+                                    >
+                                        <span className="text-emerald-600">Sercotel Guadiana</span>
+                                        <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest">Hotel Principal</span>
+                                    </button>
+                                    <button
+                                        onClick={() => confirmHotelAndProcess("Cumbria Spa & Hotel")}
+                                        className="py-4 bg-slate-50 border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 rounded-2xl font-bold text-slate-700 transition-all flex flex-col items-center gap-1 group"
+                                    >
+                                        <span className="text-blue-600">Cumbria Spa & Hotel</span>
+                                        <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest">Hotel Asociado</span>
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={() => { setIsHotelModalOpen(false); setPendingFile(null); }}
+                                    className="mt-6 text-slate-400 hover:text-slate-600 text-sm font-bold uppercase tracking-widest"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+
+</html>
