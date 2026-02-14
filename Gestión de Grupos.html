@@ -7,32 +7,34 @@
     <title>Nexus Groups - Gestión Inteligente</title>
     <link rel="icon" type="image/png" href="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Static Styles (Tailwind Compiled) -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
 
     <!-- React & ReactDOM (Versión 18) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
-    <!-- Prop Types (Requerido para Recharts UMD) -->
+    <!-- Prop Types -->
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 
-    <!-- Recharts (Versión Fija y Estable) -->
+    <!-- Recharts -->
     <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
 
-    <!-- PapaParse (CSV Parsing) -->
+    <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-    <!-- SheetJS (Excel Parsing) -->
+    <!-- SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Babel for JSX -->
+    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Markdown Parser (marked) para mostrar la respuesta de la IA bonita -->
+    <!-- Markdown Parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- Firebase SDK (Compat mode) -->
@@ -40,11 +42,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -61,22 +58,6 @@
 
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
-        }
-
-        .animate-fade-in {
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         @keyframes blynk {
@@ -96,31 +77,6 @@
         .animate-blynk {
             animation: blynk 1.5s ease-in-out infinite;
         }
-
-        .prose h1,
-        .prose h2,
-        .prose h3 {
-            color: #1e293b;
-            font-weight: 700;
-            margin-top: 1em;
-            margin-bottom: 0.5em;
-        }
-
-        .prose ul {
-            list-style-type: disc;
-            padding-left: 1.5em;
-            margin-bottom: 1em;
-        }
-
-        .prose p {
-            margin-bottom: 1em;
-            line-height: 1.6;
-        }
-
-        .prose strong {
-            color: #0f172a;
-            font-weight: 600;
-        }
     </style>
 </head>
 
@@ -134,12 +90,12 @@
 
         // --- CONFIGURACIÓN FIREBASE ---
         const firebaseConfig = {
-            apiKey: "AIzaSyBGYS50O1IjJxZXH-x5S3k3GXcqrVQedXQ",
-            authDomain: "grupos-a05d1.firebaseapp.com",
-            projectId: "grupos-a05d1",
-            storageBucket: "grupos-a05d1.firebasestorage.app",
-            messagingSenderId: "491110779784",
-            appId: "1:491110779784:web:7697495884f9545a57883d"
+            apiKey: "AIzaSyDsuddNZks-A9CQBGGrbsiyzM6Z4wydevY",
+            authDomain: "gest-grupos-hotel.firebaseapp.com",
+            projectId: "gest-grupos-hotel",
+            storageBucket: "gest-grupos-hotel.firebasestorage.app",
+            messagingSenderId: "323336953379",
+            appId: "1:323336953379:web:cf6288c624520859001b96"
         };
 
         // Inicialización robusta

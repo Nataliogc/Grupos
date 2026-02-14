@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generador de Facturas - Hotel Guadiana</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Static Styles (Tailwind Compiled) -->
+    <link rel="stylesheet" href="style.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Montserrat:wght@300;400;700&family=Courier+Prime:wght@400;700&display=swap');
 
@@ -564,7 +565,7 @@
             }
         };
 
-        const apiKey = "";
+        const apiKey = "AIzaSyDsuddNZks-A9CQBGGrbsiyzM6Z4wydevY";
         let currentTemplate = 'confirmacion';
         let currentHotel = 'guadiana';
 
@@ -594,7 +595,7 @@
         setInterval(syncFields, 1000);
 
         async function callGemini(prompt) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: "Eres un asistente de recepción de un hotel de lujo (Hotel Guadiana). Tu tono es profesional, cortés y servicial. Siempre respondes en español." }] }
@@ -603,7 +604,7 @@
                 const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await response.json();
                 return data.candidates[0].content.parts[0].text;
-            } catch (e) { return "Error de conexión."; }
+            } catch (e) { return "Error de conexión con la IA."; }
         }
 
         async function generateAIEmail() {
