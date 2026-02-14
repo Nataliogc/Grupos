@@ -369,7 +369,8 @@
                                 <div>Pag.</div>
                             </div>
                             <div class="proforma-box-row">
-                                <div class="border-r border-black font-bold text-xs">PROVISIONAL</div>
+                                <div class="border-r border-black font-bold text-[10px]" id="reserva-id-2">PROVISIONAL
+                                </div>
                                 <div class="border-r border-black text-xs"><span class="editable" id="fecha-proforma-2"
                                         contenteditable="true">12-02-2026</span></div>
                                 <div class="text-xs">1</div>
@@ -630,6 +631,71 @@
             document.getElementById('ai-modal').style.display = 'flex';
         }
         function closeAIModal() { document.getElementById('ai-modal').style.display = 'none'; }
+
+        function loadSelectedGroup() {
+            const saved = localStorage.getItem('selectedGroup');
+            if (!saved) return;
+
+            const formatDate = (val) => {
+                if (!val) return "-";
+                const str = val.toString().trim();
+                const num = parseFloat(str);
+                if (!isNaN(num) && num > 40000 && num < 60000) {
+                    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+                    return date.toLocaleDateString('es-ES');
+                }
+                return val;
+            };
+
+            try {
+                const group = JSON.parse(saved);
+
+                // 1. Vincular Hotel
+                if ((group["Hotel_Asignado"] || "").toLowerCase().includes('cumb')) {
+                    updateHotel('cumbria');
+                } else {
+                    updateHotel('guadiana');
+                }
+
+                // 2. Poblar campos de texto
+                const mapping = {
+                    'reserva-id': group["Reserva"] || '',
+                    'solicitante-org': group["Empresa/Agencia"] || group["Nombre del Grupo"] || '',
+                    'solicitante-nombre': group["Nombre del Grupo"] || '',
+                    'reserva-personas': group["Pax."] || '',
+                    'reserva-entrada': formatDate(group["Entrada"]),
+                    'reserva-salida': formatDate(group["Salida"]),
+                    'fecha-proforma': new Date().toLocaleDateString('es-ES')
+                };
+
+                Object.keys(mapping).forEach(id => {
+                    const el1 = document.getElementById(id + '-1');
+                    const el2 = document.getElementById(id + '-2');
+                    if (el1) el1.innerText = mapping[id];
+                    if (el2) el2.innerText = mapping[id];
+                });
+
+                // 3. Crear item inicial con el importe del grupo
+                const importe = parseFloat((group["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                if (!isNaN(importe)) {
+                    items = [{
+                        fecha: formatDate(group["Entrada"]),
+                        hab: '',
+                        cant: group["Pax."] || '1',
+                        concepto: `ESTANCIA GRUPO: ${group["Nombre del Grupo"]}`,
+                        precio: importe,
+                        iva: 10
+                    }];
+                }
+            } catch (e) {
+                console.error("Error cargando grupo seleccionado:", e);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSelectedGroup();
+            renderItems();
+        });
         function copyAIContent() {
             navigator.clipboard.writeText(document.getElementById('ai-content').innerText);
             const btn = document.getElementById('btn-copy');
@@ -688,8 +754,10 @@
         function renderItems() {
             const h = HOTELS[currentHotel];
             const now = new Date();
-            document.getElementById('timestamp-date').innerText = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
-            document.getElementById('timestamp-time').innerText = now.getHours() + "." + String(now.getMinutes()).padStart(2, '0');
+            const tsDate = document.getElementById('timestamp-date');
+            const tsTime = document.getElementById('timestamp-time');
+            if (tsDate) tsDate.innerText = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            if (tsTime) tsTime.innerText = now.getHours() + "." + String(now.getMinutes()).padStart(2, '0');
 
             const containers = document.querySelectorAll('.invoice-items');
             const footer = document.getElementById('footer-totals');
@@ -760,6 +828,7 @@
                         </div>
                     </div>`;
             } else {
+
                 // Cálculo de fechas automático
                 const entradaStr = document.getElementById('reserva-entrada-2')?.innerText || '21-04-2026';
                 const [d, m, y] = entradaStr.split('-').map(Number);
@@ -853,7 +922,7 @@
             }
         }
 
-        window.onload = renderItems;
+
     </script>
 </body>
 

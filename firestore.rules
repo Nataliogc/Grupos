@@ -2,13 +2,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Reglas para la colección 'groups'
-    match /groups/{groupID} {
-      allow read, write: if true; // En producción deberías restringir esto a usuarios autenticados
-    }
-    
-    // Reglas para la colección 'test' de verificación
-    match /test/{docID} {
+    // Permitir lectura y escritura en TODO mientras estamos en desarrollo
+    match /{document=**} {
       allow read, write: if true;
     }
   }

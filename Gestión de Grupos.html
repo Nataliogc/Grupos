@@ -152,11 +152,23 @@
         const App = () => {
             const [data, setData] = useState(INITIAL_DATA);
             const [columns, setColumns] = useState(Object.keys(INITIAL_DATA[0]));
+
+            const formatDate = (val) => {
+                if (!val) return "-";
+                const str = val.toString().trim();
+                const num = parseFloat(str);
+                if (!isNaN(num) && num > 40000 && num < 60000) {
+                    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+                    return date.toLocaleDateString('es-ES');
+                }
+                return val;
+            };
             const [activeTab, setActiveTab] = useState('dashboard');
             const [searchTerm, setSearchTerm] = useState('');
             const [newColumnName, setNewColumnName] = useState('');
             const [showColumnModal, setShowColumnModal] = useState(false);
             const [expandedGroup, setExpandedGroup] = useState(null);
+            const [expandedSegment, setExpandedSegment] = useState(null);
 
             // Estados para IA
             const [isAiLoading, setIsAiLoading] = useState(false);
@@ -290,8 +302,17 @@
 
                 processedData.forEach(row => {
                     const segName = row["Segment."] || "Sin Segmento";
+                    const groupName = row["Nombre del Grupo"] || "Sin Nombre";
+
                     if (!segments[segName]) {
-                        segments[segName] = { name: segName, revenue: 0, pax: 0, nights: 0, count: 0 };
+                        segments[segName] = {
+                            name: segName,
+                            revenue: 0,
+                            pax: 0,
+                            nights: 0,
+                            count: 0,
+                            groupList: new Set()
+                        };
                     }
 
                     const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
@@ -302,9 +323,14 @@
                     if (!isNaN(pax)) segments[segName].pax += pax;
                     if (!isNaN(noches)) segments[segName].nights += noches;
                     segments[segName].count += 1;
+                    segments[segName].groupList.add(groupName);
                 });
 
-                return Object.values(segments).sort((a, b) => b.revenue - a.revenue);
+                return Object.values(segments).map(s => ({
+                    ...s,
+                    groupCount: s.groupList.size,
+                    groups: Array.from(s.groupList).sort()
+                })).sort((a, b) => b.revenue - a.revenue);
             }, [processedData]);
 
             // --- Datos para Gráficos Globales (Filtrados) ---
@@ -398,6 +424,22 @@
                 setIsAiLoading(false);
             };
 
+            const handleProformaClick = (group) => {
+                // Tomar datos agregados del grupo y pasarlos como un registro único
+                const firstRec = group.records[0] || {};
+                const groupData = {
+                    ...firstRec,
+                    "Nombre del Grupo": group.name,
+                    "Empresa/Agencia": group.agency,
+                    "Importe(*)": group.totalRevenue.toString(),
+                    "Pax.": group.totalPax.toString(),
+                    "Entrada": group.arrival,
+                    "Salida": group.departure
+                };
+                localStorage.setItem('selectedGroup', JSON.stringify(groupData));
+                window.location.href = 'Fac Prof.html';
+            };
+
             // --- Persistencia FIREBASE ---
             useEffect(() => {
                 const unsubscribe = db.collection("groups").onSnapshot((snapshot) => {
@@ -408,10 +450,18 @@
 
                     if (roomData.length > 0) {
                         // Ordenar por fecha de entrada antes de guardar en el estado
+                        const getIsoDate = (val) => {
+                            if (!val) return "9999-12-31";
+                            const str = String(val);
+                            const parts = str.split(/[\/-]/);
+                            if (parts.length === 3) {
+                                if (parts[0].length === 4) return str; // YYYY-MM-DD
+                                return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`; // DD-MM-YYYY
+                            }
+                            return str;
+                        };
                         const sorted = roomData.sort((a, b) => {
-                            const dateA = (a["Entrada"] || "").split(/[\/-]/).reverse().join("-");
-                            const dateB = (b["Entrada"] || "").split(/[\/-]/).reverse().join("-");
-                            return dateA.localeCompare(dateB);
+                            return getIsoDate(a["Entrada"]).localeCompare(getIsoDate(b["Entrada"]));
                         });
                         setData(sorted);
 
@@ -453,9 +503,20 @@
                     revenueRaw: totalRevenue,
                     pax: totalPax,
                     avgStay: totalPax > 0 ? (totalNights / processedData.length).toFixed(1) : 0,
-                    count: new Set(processedData.map(d => d["Nombre del Grupo"])).size
                 };
             }, [processedData]);
+
+            // Auto-abrir Ficha si se detecta bandera en localStorage
+            useEffect(() => {
+                const groupToOpen = localStorage.getItem('openGroupFicha');
+                if (groupToOpen && groupedData.length > 0) {
+                    const found = groupedData.find(g => g.name === groupToOpen);
+                    if (found) {
+                        openFicha(found);
+                        localStorage.removeItem('openGroupFicha');
+                    }
+                }
+            }, [groupedData]);
 
             const requestSort = (key) => {
                 let direction = 'asc';
@@ -484,30 +545,37 @@
 
                 const reader = new FileReader();
 
-                const processMatrixData = (rows) => {
+                const processMatrixData = (rows, defaultStatus) => {
                     let headerRowIndex = -1;
                     const validData = [];
-                    let currentStatus = "Confirmada"; // Estado por defecto
+                    let currentStatus = defaultStatus;
                     let headers = [];
 
                     // Barrido completo para detectar bloques
                     for (let i = 0; i < rows.length; i++) {
                         const row = rows[i];
-                        if (!row) continue;
-                        const rowStr = JSON.stringify(row).toLowerCase();
+                        if (!row || row.length === 0) continue;
+                        const rowStr = row.join(" ").toLowerCase();
 
-                        // Detectar cambios de sección exactos según requerimiento
+                        // Detectar cambios de sección internos (por si acaso vienen en la misma hoja)
                         if (rowStr.includes("reservas de grupos anuladas") || rowStr.includes("anuladas")) {
                             currentStatus = "Anulada";
                         } else if (rowStr.includes("reservas de grupos confirmadas") || rowStr.includes("confirmadas")) {
                             currentStatus = "Confirmada";
                         }
 
-                        // Detectar cabecera (Si encontramos "Reserva" y "Grupo")
-                        if (rowStr.includes("reserva") && rowStr.includes("nombre del grupo")) {
+                        // Detectar cabecera (Flexible: Si encontramos "Reserva" y algo que suene a "Grupo" o "Nombre")
+                        const hasReserva = rowStr.includes("reserva");
+                        const hasGrupo = rowStr.includes("grupo") || rowStr.includes("nombre del g");
+
+                        if (hasReserva && hasGrupo) {
                             headerRowIndex = i;
-                            // Actualizamos headers por si cambian
-                            if (Array.isArray(row)) headers = row.map(h => (h || "").toString().trim());
+                            if (Array.isArray(row)) headers = row.map(h => {
+                                const val = (h || "").toString().trim();
+                                // Normalizar nombre de columna para el sistema
+                                if (val.toLowerCase().includes("nombre del g")) return "Nombre del Grupo";
+                                return val;
+                            });
                             continue;
                         }
 
@@ -542,11 +610,7 @@
                         }
                     }
 
-                    if (validData.length > 0) {
-                        sanitizeAndSetData(validData);
-                    } else {
-                        alert("No se encontraron datos válidos.");
-                    }
+                    return validData;
                 };
 
                 if (file.name.endsWith('.csv')) {
@@ -563,10 +627,25 @@
                     reader.onload = (e) => {
                         const data = new Uint8Array(e.target.result);
                         const workbook = XLSX.read(data, { type: 'array' });
-                        const sheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[sheetName];
-                        const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-                        processMatrixData(matrix);
+                        let allDetectedData = [];
+
+                        workbook.SheetNames.forEach(sheetName => {
+                            const worksheet = workbook.Sheets[sheetName];
+                            const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                            // Determinamos estado por nombre de hoja
+                            let defaultStatus = "Confirmada";
+                            if (sheetName.toLowerCase().includes("anula")) defaultStatus = "Anulada";
+
+                            const sheetData = processMatrixData(matrix, defaultStatus);
+                            allDetectedData = [...allDetectedData, ...sheetData];
+                        });
+
+                        if (allDetectedData.length > 0) {
+                            sanitizeAndSetData(allDetectedData);
+                        } else {
+                            alert("No se encontraron datos en el Excel.");
+                        }
                     };
                     reader.readAsArrayBuffer(file);
                 } else {
@@ -589,35 +668,44 @@
                 // 1. Procesar registros entrantes
                 incomingRows.forEach(newRow => {
                     const resID = newRow["Reserva"];
-                    const existingIdx = mergedData.findIndex(r => r["Reserva"] === resID);
+                    if (!resID) return;
+
+                    const existingIdx = mergedData.findIndex(r => String(r["Reserva"]) === String(resID));
 
                     if (existingIdx === -1) {
-                        // Es un grupo nuevo
+                        // Es un grupo nuevo (No estaba en DB)
                         mergedData.push({ ...newRow, "_diff": "new" });
                     } else {
                         // Es un grupo existente, verificar cambios
                         const existingRow = mergedData[existingIdx];
                         let diffType = null;
 
-                        // Cambio a Anulada
+                        // Caso A: Cambio a Anulada (Cancelación Detectada)
                         if (newRow["Estado"] === "Anulada" && existingRow["Estado"] !== "Anulada") {
                             diffType = "cancelled";
                         }
-                        // Verificación de cambios en valores clave
+                        // Caso B: Reactivación (Estaba anulado y ahora viene como confirmado)
+                        else if (newRow["Estado"] === "Confirmada" && existingRow["Estado"] === "Anulada") {
+                            diffType = "new"; // O "restored"
+                        }
+                        // Caso C: Verificación de cambios en cualquier valor
                         else {
-                            const oldImporte = (existingRow["Importe(*)"] || "0").toString();
-                            const newImporte = (newRow["Importe(*)"] || "0").toString();
-                            const oldPax = (existingRow["Pax."] || "0").toString();
-                            const newPax = (newRow["Pax."] || "0").toString();
+                            const hasChanges = Object.keys(newRow).some(key => {
+                                if (key.startsWith("_") || key === "updatedAt") return false;
+                                return String(newRow[key]) !== String(existingRow[key] || "");
+                            });
 
-                            if (oldImporte !== newImporte || oldPax !== newPax) {
+                            if (hasChanges) {
                                 diffType = "modified";
                             }
                         }
 
-                        // Actualizar la fila en el array de merge
-                        const updatedRow = { ...existingRow, ...newRow, "_diff": diffType || (existingRow._diff || null) };
-                        mergedData[existingIdx] = updatedRow;
+                        // Actualizar la fila conservando datos que no vienen en el excel pero están en DB
+                        mergedData[existingIdx] = {
+                            ...existingRow,
+                            ...newRow,
+                            "_diff": diffType || existingRow._diff || null
+                        };
                     }
                 });
 
@@ -725,18 +813,53 @@
             };
 
             const updateGroupMetadata = (name, field, value) => {
-                const rowsToUpdate = data.filter(r => r["Nombre del Grupo"] === name);
+                // Actualizar estado local para feedback inmediato
+                setData(prevData => {
+                    const newData = prevData.map(r => {
+                        if (r["Nombre del Grupo"] === name) {
+                            const updatedRow = { ...r, [field]: value };
+                            // Sincronizar Hotel con Hotel_Asignado para Proforma
+                            if (field === "Hotel") {
+                                updatedRow["Hotel_Asignado"] = value;
+                            }
+                            return updatedRow;
+                        }
+                        return r;
+                    });
 
+                    if (selectedGroupFicha && selectedGroupFicha.name === name) {
+                        const updatedRecords = newData.filter(r => r["Nombre del Grupo"] === name);
+                        setSelectedGroupFicha(prev => ({
+                            ...prev,
+                            records: updatedRecords
+                        }));
+                    }
+                    return newData;
+                });
+
+                // Actualizar en Firebase
+                const rowsToUpdate = data.filter(r => r["Nombre del Grupo"] === name);
                 const batch = db.batch();
                 rowsToUpdate.forEach(row => {
                     const docRef = db.collection("groups").doc(String(row["Reserva"]));
-                    batch.set(docRef, {
+                    const updateData = {
                         [field]: value,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                });
+                    };
+                    if (field === "Hotel") updateData["Hotel_Asignado"] = value;
 
+                    batch.set(docRef, updateData, { merge: true });
+                });
                 batch.commit();
+            };
+
+            const calculateDeposits = (group) => {
+                const total = group.totalRevenue || 0;
+                const dep1 = (total * 0.3).toFixed(2);
+                const final = (total * 0.7).toFixed(2);
+
+                updateGroupMetadata(group.name, "Dep1_Importe", dep1 + " €");
+                updateGroupMetadata(group.name, "Dep2_Importe", final + " €");
             };
 
             const addNewRow = () => {
@@ -782,19 +905,24 @@
             };
 
             // Icons
-            const IconUpload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>;
-            const IconDownload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>;
+
             const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
-            const IconTable = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" /></svg>;
-            const IconChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
-            const IconGroup = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
-            const IconPieChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>;
-            const IconChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>;
-            const IconChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>;
-            const IconChevronLeft = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>;
-            const IconSparkles = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>;
-            const IconMail = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>;
+            const IconTable = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" /></svg>;
+            const IconX = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>;
+            const IconBuilding = ({ size = 16, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="16" height="20" x="4" y="2" rx="2" /><path d="M9 22v-4h6v4" /><path d="M8 6h.01" /><path d="M16 6h.01" /><path d="M8 10h.01" /><path d="M16 10h.01" /><path d="M8 14h.01" /><path d="M16 14h.01" /></svg>;
+            const IconChart = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
+            const IconGroup = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+            const IconPieChart = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>;
+            const IconChevronDown = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9l6 6 6-6" /></svg>;
+            const IconChevronUp = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 15l-6-6-6 6" /></svg>;
+            const IconChevronRight = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6" /></svg>;
+            const IconChevronLeft = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6" /></svg>;
+            const IconSparkles = ({ size = 18, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${className} text-yellow-400`}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>;
+            const IconMail = ({ size = 16, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>;
             const IconBrain = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" /><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" /></svg>;
+            const IconUsers = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+            const IconUpload = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>;
+            const IconDownload = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>;
 
             return (
                 <div className="min-h-screen pb-10">
@@ -1032,31 +1160,58 @@
                                         <table className="w-full text-left text-sm">
                                             <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-xs">
                                                 <tr>
+                                                    <th className="p-3 w-10"></th>
                                                     <th className="p-3">Segmento</th>
                                                     <th className="p-3 text-right"># Grupos</th>
                                                     <th className="p-3 text-right">Pax Total</th>
                                                     <th className="p-3 text-right">Noches Totales</th>
                                                     <th className="p-3 text-right">Ingresos Totales</th>
-                                                    <th className="p-3 text-right">ADR Medio (por noche/hab)</th>
+                                                    <th className="p-3 text-right">ADR Medio</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {segmentStats.map((seg, idx) => (
-                                                    <tr key={idx} className="hover:bg-slate-50">
-                                                        <td className="p-3 font-medium text-slate-800 flex items-center gap-2">
-                                                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
-                                                            {seg.name}
-                                                        </td>
-                                                        <td className="p-3 text-right">{seg.count}</td>
-                                                        <td className="p-3 text-right">{seg.pax}</td>
-                                                        <td className="p-3 text-right">{seg.nights}</td>
-                                                        <td className="p-3 text-right font-bold text-slate-700">
-                                                            {seg.revenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                                                        </td>
-                                                        <td className="p-3 text-right text-green-600 font-medium">
-                                                            {(seg.nights > 0 ? (seg.revenue / seg.nights) : 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                                                        </td>
-                                                    </tr>
+                                                    <React.Fragment key={idx}>
+                                                        <tr className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setExpandedSegment(expandedSegment === seg.name ? null : seg.name)}>
+                                                            <td className="p-3 text-center text-gray-400">
+                                                                {expandedSegment === seg.name ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+                                                            </td>
+                                                            <td className="p-3 font-medium text-slate-800 flex items-center gap-2">
+                                                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                                                                {seg.name}
+                                                            </td>
+                                                            <td className="p-3 text-right font-bold text-blue-600">{seg.groupCount}</td>
+                                                            <td className="p-3 text-right">{seg.pax}</td>
+                                                            <td className="p-3 text-right">{seg.nights}</td>
+                                                            <td className="p-3 text-right font-bold text-slate-700">
+                                                                {seg.revenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                                                            </td>
+                                                            <td className="p-3 text-right text-emerald-600 font-bold">
+                                                                {(seg.nights > 0 ? (seg.revenue / seg.nights) : 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                                                            </td>
+                                                        </tr>
+                                                        {expandedSegment === seg.name && (
+                                                            <tr>
+                                                                <td colSpan="7" className="p-0 bg-slate-50">
+                                                                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                                        {seg.groups.map((groupName, gIdx) => {
+                                                                            const groupObj = groupedData.find(g => g.name === groupName);
+                                                                            return (
+                                                                                <div
+                                                                                    key={gIdx}
+                                                                                    onClick={() => groupObj && openFicha(groupObj)}
+                                                                                    className="bg-white p-2 rounded border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex justify-between items-center group"
+                                                                                >
+                                                                                    <span className="text-xs font-bold text-slate-700 group-hover:text-blue-600 truncate">{groupName}</span>
+                                                                                    <IconChevronRight size={12} className="text-slate-300 group-hover:text-blue-500" />
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </React.Fragment>
                                                 ))}
                                             </tbody>
                                         </table>
@@ -1078,7 +1233,17 @@
                                                 <XAxis type="number" />
                                                 <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
                                                 <Tooltip formatter={(value) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value)} />
-                                                <Bar dataKey="Ingresos" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
+                                                <Bar
+                                                    dataKey="Ingresos"
+                                                    fill="#10b981"
+                                                    radius={[0, 4, 4, 0]}
+                                                    barSize={20}
+                                                    onClick={(data_point) => {
+                                                        const found = groupedData.find(g => g.name === data_point.fullDate);
+                                                        if (found) openFicha(found);
+                                                    }}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -1117,10 +1282,10 @@
                                                                 <td className="p-3 text-center text-gray-400 cursor-pointer" onClick={() => toggleGroupExpand(group.name)}>
                                                                     {expandedGroup === group.name ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
                                                                 </td>
-                                                                <td className="p-3 font-medium text-slate-800 cursor-pointer" onClick={() => toggleGroupExpand(group.name)}>{group.name}</td>
-                                                                <td className="p-3 text-gray-600">{group.arrival}</td>
-                                                                <td className="p-3 text-right font-medium">{group.totalPax}</td>
-                                                                <td className="p-3 text-right font-bold text-green-600">
+                                                                <td className="p-3 font-medium text-slate-800 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => openFicha(group)}>{group.name}</td>
+                                                                <td className="p-3 text-gray-600 cursor-pointer" onClick={() => openFicha(group)}>{formatDate(group.arrival)}</td>
+                                                                <td className="p-3 text-right font-medium cursor-pointer" onClick={() => openFicha(group)}>{group.totalPax}</td>
+                                                                <td className="p-3 text-right font-bold text-green-600 cursor-pointer" onClick={() => openFicha(group)}>
                                                                     {group.totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                                                                 </td>
                                                                 <td className="p-3 text-center flex justify-center gap-2">
@@ -1130,6 +1295,13 @@
                                                                         title="Ficha del Grupo"
                                                                     >
                                                                         <IconTable size={14} /> Ficha
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleProformaClick(group); }}
+                                                                        className="text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition text-xs font-bold flex items-center gap-1"
+                                                                        title="Generar Proforma"
+                                                                    >
+                                                                        <IconDownload size={14} /> Proforma
                                                                     </button>
                                                                     <button
                                                                         onClick={(e) => { e.stopPropagation(); handleEmailClick(group); }}
@@ -1415,188 +1587,297 @@
                             </div>
                         </div>
                     )}
-                    {/* Modal Ficha de Grupo */}
                     {showFichaModal && selectedGroupFicha && (
                         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-fade-in">
-                                <div className="p-6 border-b flex justify-between items-start bg-slate-50">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">Ficha Oficial</span>
-                                            <h3 className="text-2xl font-bold text-slate-800">{selectedGroupFicha.name}</h3>
+                            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col animate-fade-in border border-slate-200">
+                                {/* CENTRO DE MANDO NEXUS (Header + Acciones) */}
+                                <div className="bg-[#0f172a] text-white p-3 border-b border-white/10 shrink-0">
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div className="flex gap-3">
+                                            <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+                                                <IconUsers size={20} />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-xl font-black tracking-tight leading-none text-emerald-400">{selectedGroupFicha.name}</h3>
+                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${(selectedGroupFicha.records[0]?.["Estado"] || "").toLowerCase().includes('conf') ? 'bg-emerald-400 text-slate-900' : 'bg-orange-400 text-slate-900'}`}>
+                                                        {selectedGroupFicha.records[0]?.["Estado"] || 'PROSPECTO'}
+                                                    </span>
+                                                    <span className="bg-white/10 px-2 py-0.5 rounded text-[8px] font-black text-white/80 uppercase">
+                                                        {selectedGroupFicha.records[0]?.["Régimen"] || 'HD'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest mt-1">
+                                                    {selectedGroupFicha.records[0]?.["Empresa/Agencia"] || 'VENTA DIRECTA'} • {selectedGroupFicha.totalPax} PAX • REF: {selectedGroupFicha.records[0]?.["Reserva"]}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-slate-500">Gestión integral, depósitos y seguimiento del grupo.</p>
+
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    const proformaData = {
+                                                        ...selectedGroupFicha.records[0],
+                                                        "Importe(*)": selectedGroupFicha.totalRevenue,
+                                                        "Pax.": selectedGroupFicha.totalPax,
+                                                        "Hotel_Asignado": selectedGroupFicha.records[0]?.["Hotel"] || "Guadiana"
+                                                    };
+                                                    localStorage.setItem('selectedGroup', JSON.stringify(proformaData));
+                                                    window.location.href = 'Fac Prof.html';
+                                                }}
+                                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-black text-[10px] transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                                            >
+                                                <IconTable size={12} /> PROFORMA / FACTURA
+                                            </button>
+                                            <button
+                                                onClick={() => handleEmailClick(selectedGroupFicha)}
+                                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-black text-[10px] transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20"
+                                            >
+                                                <IconMail size={12} /> REDACTAR EMAIL IA
+                                            </button>
+                                            <button
+                                                onClick={() => setShowFichaModal(false)}
+                                                className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-black text-[10px] transition-all flex items-center gap-2 shadow-lg shadow-red-500/20"
+                                            >
+                                                <IconX size={12} /> SALIR
+                                            </button>
+                                        </div>
                                     </div>
-                                    <button onClick={() => setShowFichaModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                    </button>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                                    {/* KPIS RAPIDOS */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Ingresos</p>
-                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</p>
-                                        </div>
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Pax</p>
-                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.totalPax}</p>
-                                        </div>
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entrada</p>
-                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.arrival}</p>
-                                        </div>
-                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Reservas</p>
-                                            <p className="text-xl font-bold text-slate-800">{selectedGroupFicha.records.length}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        {/* GESTIÓN DE DEPÓSITOS */}
-                                        <div className="space-y-6">
-                                            <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b pb-2">
-                                                <div className="w-6 h-6 bg-emerald-100 text-emerald-600 rounded flex items-center justify-center"><IconTable size={14} /></div>
-                                                Control de Depósitos
-                                            </h4>
-
-                                            <div className="space-y-4">
-                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                                                    <div className="flex justify-between items-center mb-3">
-                                                        <span className="text-xs font-bold text-slate-600 uppercase">Primer Depósito (30%)</span>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedGroupFicha.records[0]?.["Dep1_Status"] === "Cobrado"}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep1_Status", e.target.checked ? "Cobrado" : "Pendiente")}
-                                                            className="w-4 h-4 text-emerald-600 rounded"
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Importe €"
-                                                            className="bg-white border p-2 rounded-lg text-sm"
-                                                            value={selectedGroupFicha.records[0]?.["Dep1_Importe"] || (selectedGroupFicha.totalRevenue * 0.3).toFixed(2)}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep1_Importe", e.target.value)}
-                                                        />
-                                                        <input
-                                                            type="date"
-                                                            className="bg-white border p-2 rounded-lg text-sm"
-                                                            value={selectedGroupFicha.records[0]?.["Dep1_Fecha"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep1_Fecha", e.target.value)}
-                                                        />
-                                                    </div>
+                                <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-slate-50/50">
+                                    {/* DASHBOARD COMERCIAL HORIZONTAL - FORZADO CON GRID INLINE */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '8px' }}>
+                                        {/* Bloque 1: Estrategia y Control */}
+                                        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Tarifa Neta</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-slate-800"
+                                                        value={selectedGroupFicha.records[0]?.["Com_Precio"] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Precio", e.target.value)}
+                                                        placeholder="0.00 €"
+                                                    />
                                                 </div>
-
-                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                                                    <div className="flex justify-between items-center mb-3">
-                                                        <span className="text-xs font-bold text-slate-600 uppercase">Segundo Depósito (70%)</span>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedGroupFicha.records[0]?.["Dep2_Status"] === "Cobrado"}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep2_Status", e.target.checked ? "Cobrado" : "Pendiente")}
-                                                            className="w-4 h-4 text-emerald-600 rounded"
-                                                        />
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Importe €"
-                                                            className="bg-white border p-2 rounded-lg text-sm"
-                                                            value={selectedGroupFicha.records[0]?.["Dep2_Importe"] || (selectedGroupFicha.totalRevenue * 0.7).toFixed(2)}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep2_Importe", e.target.value)}
-                                                        />
-                                                        <input
-                                                            type="date"
-                                                            className="bg-white border p-2 rounded-lg text-sm"
-                                                            value={selectedGroupFicha.records[0]?.["Dep2_Fecha"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Dep2_Fecha", e.target.value)}
-                                                        />
-                                                    </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Release %</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-slate-800"
+                                                        value={selectedGroupFicha.records[0]?.["Com_Relix"] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Relix", e.target.value)}
+                                                        placeholder="0%"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Pick-up PAX</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-emerald-600 text-center"
+                                                        value={selectedGroupFicha.records[0]?.["Com_Pickup"] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Pickup", e.target.value)}
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Fase Comercial</label>
+                                                    <select
+                                                        className="w-full bg-slate-100 border border-slate-200 rounded p-1 text-[9px] font-black text-slate-700 uppercase"
+                                                        value={selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "Prospecto"}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Estado_Interno", e.target.value)}
+                                                    >
+                                                        <option>PROSPECTO</option>
+                                                        <option>ENVIADO</option>
+                                                        <option>SEGUIMIENTO</option>
+                                                        <option>CONFIRMADO</option>
+                                                        <option>CONTRATO OK</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Régimen</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-slate-800 text-center uppercase"
+                                                        value={selectedGroupFicha.records[0]?.["Régimen"] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Régimen", e.target.value)}
+                                                        placeholder="HD..."
+                                                    />
+                                                </div>
+                                            </div>
+                                            {/* Más Datos Comerciales */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Rentabilidad</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[10px] font-black text-emerald-600"
+                                                        value={selectedGroupFicha.records[0]?.["Com_Rentabilidad"] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Rentabilidad", e.target.value)}
+                                                        placeholder="0.00 €"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Vto. Release</label>
+                                                    <input
+                                                        type="date"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[10px] font-bold text-red-500"
+                                                        value={selectedGroupFicha.records[0]?.["Com_Vencimiento_Rel"] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Vencimiento_Rel", e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Email</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[10px] font-medium text-slate-600"
+                                                        value={selectedGroupFicha.records[0]?.["Com_Email_Contacto"] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Email_Contacto", e.target.value)}
+                                                        placeholder="Email..."
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Hotel</label>
+                                                    <select
+                                                        className="w-full bg-slate-100 border border-slate-200 rounded p-1 text-[10px] font-black text-slate-600 uppercase"
+                                                        value={selectedGroupFicha.records[0]?.["Hotel"] || "Guadiana"}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Hotel", e.target.value)}
+                                                    >
+                                                        <option>Guadiana</option>
+                                                        <option>Cumbria</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* SEGUIMIENTO Y NOTAS */}
-                                        <div className="space-y-6">
-                                            <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b pb-2">
-                                                <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded flex items-center justify-center"><IconSparkles size={14} /></div>
-                                                Notas y Seguimiento
-                                            </h4>
+                                        {/* Bloque 2: Información Operativa (Timing + Noches) */}
+                                        <div className="bg-[#2d5a43] px-3 py-2 rounded-lg text-white shadow-md flex items-center justify-between gap-4 h-fit self-start mt-2">
+                                            <div className="flex-1 space-y-0.5">
+                                                <div className="flex justify-between items-center text-[7px] font-bold border-b border-white/10 pb-0.5">
+                                                    <span className="opacity-60">IN</span>
+                                                    <span className="font-black text-[11px]">{formatDate(selectedGroupFicha.arrival)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-[7px] font-bold pt-0.5">
+                                                    <span className="opacity-60">OUT</span>
+                                                    <span className="font-black text-[11px]">{formatDate(selectedGroupFicha.departure)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="pl-3 border-l border-white/20 text-center">
+                                                <p className="text-[7px] font-black opacity-60 uppercase leading-none">Noches</p>
+                                                <p className="text-xl font-black leading-none mt-0.5">{selectedGroupFicha.totalNights}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* INVENTARIO COMPACTO */}
+                                    <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
+                                        <div className="px-2 border-r border-slate-100 text-[8px] font-black text-slate-400 uppercase shrink-0">Inv Hab:</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                { label: "D.STD", key: "Room_DSTD", color: "border-emerald-500" },
+                                                { label: "D.SUP", key: "Room_DSUP", color: "border-blue-500" },
+                                                { label: "SUI", key: "Room_SUI", color: "border-purple-500" },
+                                                { label: "S.SUP", key: "Room_SSUP", color: "border-indigo-500" },
+                                                { label: "CUA", key: "Room_CUA", color: "border-orange-500" }
+                                            ].map((item) => (
+                                                <div key={item.key} className={`flex items-center bg-slate-50 border-l-2 ${item.color} rounded px-1.5 py-0.5`}>
+                                                    <span className="text-[7px] font-black text-slate-500 mr-1 uppercase">{item.label}</span>
+                                                    <input
+                                                        type="number"
+                                                        className="w-8 bg-transparent border-none p-0 text-[10px] font-black text-slate-800 text-center"
+                                                        value={selectedGroupFicha.records[0]?.[item.key] || ""}
+                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, item.key, e.target.value)}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* FINANZAS Y BITÁCORA SIDE-BY-SIDE INTEGRADO */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '8px' }}>
+                                        {/* Tesorería Compacta */}
+                                        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tesorería</p>
+                                                <button
+                                                    onClick={() => calculateDeposits(selectedGroupFicha)}
+                                                    className="text-[7px] bg-emerald-50 text-emerald-600 font-black px-1.5 py-0.5 rounded border border-emerald-100 transition-colors"
+                                                >
+                                                    AUTOCALCULAR (30/70%)
+                                                </button>
+                                            </div>
+                                            {[
+                                                { label: "DEP 1 (30%)", key: "Dep1", color: "text-emerald-600" },
+                                                { label: "FINAL (70%)", key: "Dep2", color: "text-blue-600" }
+                                            ].map((dep) => (
+                                                <div key={dep.key} className="flex items-center justify-between bg-slate-50 p-1.5 rounded border border-slate-100">
+                                                    <div className="text-left">
+                                                        <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">{dep.label}</p>
+                                                        <input
+                                                            type="text"
+                                                            className="bg-transparent border-none p-0 text-[11px] font-black text-slate-800 w-20"
+                                                            value={selectedGroupFicha.records[0]?.[`${dep.key}_Importe`] || ""}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, `${dep.key}_Importe`, e.target.value)}
+                                                            placeholder="0.00 €"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={() => updateGroupMetadata(selectedGroupFicha.name, `${dep.key}_Status`, selectedGroupFicha.records[0]?.[`${dep.key}_Status`] === "Cobrado" ? "Pendiente" : "Cobrado")}
+                                                        className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${selectedGroupFicha.records[0]?.[`${dep.key}_Status`] === "Cobrado" ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}
+                                                    >
+                                                        {selectedGroupFicha.records[0]?.[`${dep.key}_Status`] || 'PND'}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Bitácora / Notas Operativas */}
+                                        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col">
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Notas de Control Comercial / Operativo</p>
                                             <textarea
-                                                className="w-full h-[180px] p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
-                                                placeholder="Ej: Pendiente de confirmar horarios de cena, requieren 2 plazas de parking..."
-                                                value={selectedGroupFicha.records[0]?.["Notas_Seguimiento"] || ""}
-                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Notas_Seguimiento", e.target.value)}
+                                                className="flex-1 w-full min-h-[60px] bg-slate-50 border border-slate-100 rounded p-2 text-[10px] font-medium text-slate-700 focus:outline-none resize-none"
+                                                placeholder="Añadir seguimiento aquí..."
+                                                value={selectedGroupFicha.records[0]?.["Com_Notas"] || ""}
+                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Notas", e.target.value)}
                                             ></textarea>
-
-                                            <div className="flex flex-col gap-2">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Acciones Rápidas</p>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            localStorage.setItem('selectedGroup', JSON.stringify(selectedGroupFicha.records[0]));
-                                                            window.location.href = 'Fac Prof.html';
-                                                        }}
-                                                        className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-lg"
-                                                    >
-                                                        <IconTable size={14} /> Generar Proforma
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleEmailClick(selectedGroupFicha)}
-                                                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg"
-                                                    >
-                                                        <IconMail size={14} /> Email IA
-                                                    </button>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* LISTADO DE RESERVAS ASOCIADAS */}
-                                    <div className="pt-4">
-                                        <h4 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-tight">Desglose de Bloqueos</h4>
-                                        <div className="overflow-hidden border rounded-2xl border-slate-100">
-                                            <table className="w-full text-xs">
-                                                <thead className="bg-slate-50 text-slate-500 font-bold border-b">
-                                                    <tr>
-                                                        <th className="px-4 py-3 text-left">Reserva</th>
-                                                        <th className="px-4 py-3 text-left">Régimen</th>
-                                                        <th className="px-4 py-3 text-right">Pax</th>
-                                                        <th className="px-4 py-3 text-right">Importe</th>
-                                                        <th className="px-4 py-3 text-center">Estado</th>
+                                    {/* REGISTROS ARCHIVO (Opcional scrollable) */}
+                                    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                                        <table className="w-full text-[9px] leading-tight">
+                                            <thead className="bg-[#0f172a] text-white font-black uppercase">
+                                                <tr>
+                                                    <th className="px-3 py-1.5 text-left">Reserva</th>
+                                                    <th className="px-3 py-1.5 text-left">Periodo</th>
+                                                    <th className="px-3 py-1.5 text-right">Hab</th>
+                                                    <th className="px-3 py-1.5 text-right">Importe</th>
+                                                    <th className="px-3 py-1.5 text-center">Estado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {selectedGroupFicha.records.map((rec, idx) => (
+                                                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                                        <td className="px-3 py-1.5 font-bold text-slate-900">{rec["Reserva"]}</td>
+                                                        <td className="px-3 py-1.5 text-slate-600">{formatDate(rec["Entrada"])} - {formatDate(rec["Salida"])}</td>
+                                                        <td className="px-3 py-1.5 text-right font-bold">{rec["Hab."] || '-'}</td>
+                                                        <td className="px-3 py-1.5 text-right font-black text-emerald-600">{rec["Importe(*)"]} €</td>
+                                                        <td className="px-3 py-1.5 text-center">
+                                                            <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${rec["Estado"]?.toLowerCase().includes('conf') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                                {rec["Estado"] || '???'}
+                                                            </span>
+                                                        </td>
                                                     </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-50">
-                                                    {selectedGroupFicha.records.map((rec, idx) => (
-                                                        <tr key={idx} className="hover:bg-slate-50/50">
-                                                            <td className="px-4 py-3 font-semibold text-slate-700">{rec["Reserva"]}</td>
-                                                            <td className="px-4 py-3">{rec["Régimen"]}</td>
-                                                            <td className="px-4 py-3 text-right font-bold">{rec["Pax."]}</td>
-                                                            <td className="px-4 py-3 text-right font-bold text-slate-600">{rec["Importe(*)"]} €</td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${rec["Estado"]?.includes('Conf') ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{rec["Estado"]}</span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-
-                                <div className="p-6 bg-slate-50 border-t flex justify-end">
-                                    <button
-                                        onClick={() => setShowFichaModal(false)}
-                                        className="px-8 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-600 text-sm hover:bg-slate-100 transition-all shadow-sm"
-                                    >
-                                        Cerrar Ficha
-                                    </button>
                                 </div>
                             </div>
                         </div>
                     )}
+
                     {/* Modal Selección de Hotel para Importación */}
                     {isHotelModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">

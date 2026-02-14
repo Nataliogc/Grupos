@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Groups - Configuración del Sistema</title>
+    <link rel="icon" type="image/png" href="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png">
+
+    <!-- Static Styles (Tailwind Compiled) -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar-item-active {
+            background: #2d5a43;
+            color: white;
+            box-shadow: 0 4px 12px rgba(45, 90, 67, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- CONFIGURACIÓN FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsuddNZks-A9CQBGGrbsiyzM6Z4wydevY",
+            authDomain: "gest-grupos-hotel.firebaseapp.com",
+            projectId: "gest-grupos-hotel",
+            storageBucket: "gest-grupos-hotel.firebasestorage.app",
+            messagingSenderId: "323336953379",
+            appId: "1:323336953379:web:cf6288c624520859001b96"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        const App = () => {
+            const [activeHotel, setActiveHotel] = useState('guadiana');
+            const [loading, setLoading] = useState(false);
+            const [message, setMessage] = useState(null);
+            const [config, setConfig] = useState({
+                guadiana: {
+                    name: "Hotel",
+                    subname: "Guadiana",
+                    company: "SWEETMOON DESARROLLOS S.L.",
+                    nif: "B87067302",
+                    address: "C/ Guadalupe, 6",
+                    cp: "13003",
+                    city: "Ciudad Real",
+                    tel: "926 22 33 13",
+                    email: "info@hotelguadiana.es",
+                    iban: "ES30 3190 3953 1851 8526 3521"
+                },
+                cumbria: {
+                    name: "Hotel",
+                    subname: "Cumbria",
+                    company: "MOON FREE PORT, S.L.",
+                    nif: "B87895058",
+                    address: "Ctra. Fuencaliente, s/n",
+                    cp: "13004",
+                    city: "Ciudad Real",
+                    tel: "926 25 10 25",
+                    email: "recepcion@hotelcumbria.es",
+                    iban: "ES19 3081 0601 0850 0004 8966"
+                },
+                system: {
+                    pin: "1234",
+                    geminiModel: "gemini-1.5-flash",
+                    iaStatus: "Online"
+                }
+            });
+
+            useEffect(() => {
+                // Cargar config desde Firestore si existe
+                db.collection("settings").doc("main").get().then(doc => {
+                    if (doc.exists) {
+                        setConfig(prev => ({ ...prev, ...doc.data() }));
+                    }
+                });
+                setTimeout(() => lucide.createIcons(), 100);
+            }, []);
+
+            const saveConfig = async () => {
+                setLoading(true);
+                try {
+                    await db.collection("settings").doc("main").set(config);
+                    setMessage({ type: 'success', text: 'Configuración guardada correctamente en la nube.' });
+                } catch (e) {
+                    setMessage({ type: 'error', text: 'Error al persistir datos. Revisa permisos.' });
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(null), 3000);
+            };
+
+            const handleChange = (hotel, field, value) => {
+                setConfig(prev => ({
+                    ...prev,
+                    [hotel]: {
+                        ...prev[hotel],
+                        [field]: value
+                    }
+                }));
+            };
+
+            return (
+                <div className="flex min-h-screen">
+                    {/* Sidebar duplicado para consistencia */}
+                    <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-xl">
+                        <div className="flex flex-col items-center mb-10 px-2 space-y-6">
+                            <img src="Nexus Groups/Nexus_Groups-removebg-preview.png" className="h-16 w-auto object-contain" alt="Logo" />
+                            <div className="h-[1px] w-full bg-slate-100"></div>
+                        </div>
+
+                        <nav className="flex-1 space-y-2">
+                            <button onClick={() => window.location.href = 'Admin.html'} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
+                                <i data-lucide="layout-dashboard" className="w-5 h-5"></i>
+                                Volver al Panel
+                            </button>
+                            <div className="pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4">Entidades</div>
+                            <button onClick={() => setActiveHotel('guadiana')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'guadiana' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                <i data-lucide="hotel" className="w-5 h-5"></i>
+                                Sercotel Guadiana
+                            </button>
+                            <button onClick={() => setActiveHotel('cumbria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'cumbria' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                <i data-lucide="palmtree" className="w-5 h-5"></i>
+                                Cumbria Spa&Hotel
+                            </button>
+                            <button onClick={() => setActiveHotel('system')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'system' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                <i data-lucide="cpu" className="w-5 h-5"></i>
+                                Sistema e IA
+                            </button>
+                        </nav>
+
+                        <button
+                            onClick={saveConfig}
+                            disabled={loading}
+                            className="mt-auto w-full bg-[#2d5a43] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3a2c] transition-all flex items-center justify-center gap-2 "
+                        >
+                            <i data-lucide="save" className="w-4 h-4"></i>
+                            {loading ? 'Guardando...' : 'Guardar Todo'}
+                        </button>
+                    </div>
+
+                    {/* Contenido Principal */}
+                    <main className="ml-64 p-12 w-full max-w-5xl">
+                        <header className="mb-12 flex justify-between items-end">
+                            <div>
+                                <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Centro de <span className="text-[#2d5a43]">Configuración</span></h1>
+                                <p className="text-slate-500 mt-2">Mantenimiento de bases de datos maestras y parámetros globales.</p>
+                            </div>
+                            {message && (
+                                <div className={`px-6 py-3 rounded-2xl border text-xs font-bold animate-fade-in ${message.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}>
+                                    {message.text}
+                                </div>
+                            )}
+                        </header>
+
+                        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="bg-slate-50 p-8 border-b border-slate-100 flex items-center gap-4">
+                                <div className="p-4 bg-white rounded-2xl shadow-sm">
+                                    <i data-lucide={activeHotel === 'system' ? 'settings-2' : 'building-2'} className="w-6 h-6 text-[#2d5a43]"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-900 uppercase">
+                                        {activeHotel === 'system' ? 'Parámetros del Sistema' : `Configuración ${activeHotel.charAt(0).toUpperCase() + activeHotel.slice(1)}`}
+                                    </h3>
+                                    <p className="text-xs text-slate-400">Edita los valores que aparecerán en las facturas y documentos oficiales.</p>
+                                </div>
+                            </div>
+
+                            <div className="p-10">
+                                {activeHotel !== 'system' ? (
+                                    <div className="grid grid-cols-2 gap-8">
+                                        <div className="space-y-6">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Razón Social</label>
+                                                <input type="text" value={config[activeHotel].company} onChange={(e) => handleChange(activeHotel, 'company', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">NIF / CIF</label>
+                                                <input type="text" value={config[activeHotel].nif} onChange={(e) => handleChange(activeHotel, 'nif', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">IBAN de Cobro</label>
+                                                <input type="text" value={config[activeHotel].iban} onChange={(e) => handleChange(activeHotel, 'iban', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-emerald-700 font-bold" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-6">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Dirección Física</label>
+                                                <input type="text" value={config[activeHotel].address} onChange={(e) => handleChange(activeHotel, 'address', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">C.P.</label>
+                                                    <input type="text" value={config[activeHotel].cp} onChange={(e) => handleChange(activeHotel, 'cp', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Ciudad</label>
+                                                    <input type="text" value={config[activeHotel].city} onChange={(e) => handleChange(activeHotel, 'city', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email de Contacto</label>
+                                                <input type="email" value={config[activeHotel].email} onChange={(e) => handleChange(activeHotel, 'email', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="max-w-xl space-y-8">
+                                        <div className="bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                                            <i data-lucide="cpu" className="absolute right-[-10px] bottom-[-10px] w-32 h-32 opacity-10"></i>
+                                            <div className="relative z-10">
+                                                <h4 className="font-bold text-lg mb-2 flex items-center gap-2">
+                                                    Motor IA Estratégica
+                                                    <span className="bg-emerald-400 text-[#2d5a43] px-2 py-0.5 rounded text-[8px] uppercase tracking-widest">Activo</span>
+                                                </h4>
+                                                <p className="text-xs text-emerald-50 opacity-70 mb-6">Configuración del conector para análisis de riesgos y proyecciones.</p>
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Modelo Seleccionado</label>
+                                                        <select value={config.system.geminiModel} onChange={(e) => handleChange('system', 'geminiModel', e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-bold outline-none focus:bg-white/20 transition-all">
+                                                            <option className="text-slate-800" value="gemini-1.5-flash">Gemini 1.5 Flash (Recomendado)</option>
+                                                            <option className="text-slate-800" value="gemini-1.5-pro">Gemini 1.5 Pro (Alta Precisión)</option>
+                                                            <option className="text-slate-800" value="gemini-2.0-flash-preview">Gemini 2.0 Flash Preview</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">PIN de Acceso</label>
+                                                <input type="password" value={config.system.pin} onChange={(e) => handleChange('system', 'pin', e.target.value)} maxLength="4" className="w-full text-2xl font-bold tracking-[0.5em] text-center border-b border-slate-100 py-2 outline-none focus:border-[#2d5a43] transition-all" />
+                                                <p className="text-[9px] text-slate-400 mt-2 italic text-center text-wrap">Este PIN se usará en la pantalla de login unificada.</p>
+                                            </div>
+                                            <div className="p-6 bg-slate-900 rounded-3xl text-white flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Backup Cloud</p>
+                                                <p className="text-xs opacity-70 leading-relaxed">Los cambios se guardan automáticamente en tu servidor Firestore de nivel industrial.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <footer className="mt-12 pt-8 border-t border-slate-200 flex justify-between items-center opacity-40">
+                            <p className="text-[10px] font-bold uppercase tracking-widest">Nexus Groups Deployment v1.2</p>
+                            <img src="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-8 w-8 grayscale" />
+                        </footer>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
