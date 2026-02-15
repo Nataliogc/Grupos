@@ -267,6 +267,10 @@
         </div>
 
         <div class="flex gap-2">
+            <button onclick="saveAndExit()"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold text-[10px] uppercase border border-blue-500 transition-all flex items-center gap-1 shadow-md">
+                💾 Guardar y Salir
+            </button>
             <button onclick="generateAIEmail()"
                 class="bg-emerald-50 hover:bg-emerald-100 text-[#2d5a43] px-3 py-2 rounded-lg font-bold text-[10px] uppercase border border-emerald-200 transition-all flex items-center gap-1">
                 ✨ Redactar Email
@@ -332,9 +336,8 @@
                         <th class="p-2 text-left">Concepto</th>
                         <th class="p-2 text-center w-8">Reg</th>
                         <th class="p-2 text-center w-8">Días</th>
-                        <th class="p-2 text-right w-16">Precio</th>
-                        <th class="p-2 text-center w-12">IVA</th>
-                        <th class="p-2 text-right w-20">Importe</th>
+                        <th class="p-2 text-right w-16">Precio/U</th>
+                        <th class="p-2 text-right w-20">Total</th>
                         <th class="p-2 w-4 no-print"></th>
                     </tr>
                 </thead>
@@ -382,13 +385,14 @@
                             <div class="flex justify-between items-start mb-1">
                                 <span class="editable uppercase" id="solicitante-org-2"
                                     contenteditable="true">EAPN-ES</span>
-                                <span class="editable" contenteditable="true">42583</span>
+                                <span class="editable" contenteditable="true"></span>
                             </div>
-                            <div class="editable" contenteditable="true">CALLE MELQUIADES BIEINCINTO 7</div>
-                            <div class="editable" contenteditable="true">28053 MADRID</div>
+                            <div class="editable" id="client-address" contenteditable="true">CALLE MELQUIADES BIEINCINTO
+                                7</div>
+                            <div class="editable" id="client-city" contenteditable="true">28053 MADRID</div>
                             <div class="mt-8">
                                 <span class="font-bold">N.I.F. : </span>
-                                <span class="editable" contenteditable="true">G45556586</span>
+                                <span class="editable" id="client-nif" contenteditable="true">G45556586</span>
                             </div>
                         </div>
                     </td>
@@ -596,8 +600,15 @@
                     if (document.activeElement !== el2) el2.innerText = el1.innerText;
                 }
             });
+            // Auto-guardado
+            syncWithFicha();
         }
-        setInterval(syncFields, 1000);
+        setInterval(syncFields, 3000);
+
+        function saveAndExit() {
+            syncWithFicha();
+            window.location.href = 'Gestión de Grupos.html';
+        }
 
         async function callGemini(prompt) {
             const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -670,7 +681,7 @@
                 const num = parseFloat(str);
                 if (!isNaN(num) && num > 40000 && num < 60000) {
                     const date = new Date(Math.round((num - 25569) * 86400 * 1000));
-                    return date.toLocaleDateString('es-ES');
+                    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
                 }
                 return val;
             };
@@ -688,36 +699,79 @@
                 // 2. Poblar campos de texto
                 const mapping = {
                     'reserva-id': group["Reserva"] || '',
-                    'solicitante-org': group["Empresa/Agencia"] || group["Nombre del Grupo"] || '',
+                    'solicitante-org': group["Fiscal_RazonSocial"] || group["Empresa/Agencia"] || group["Nombre del Grupo"] || '',
                     'solicitante-nombre': group["Nombre del Grupo"] || '',
                     'reserva-personas': group["Pax."] || '',
                     'reserva-entrada': formatDate(group["Entrada"]),
                     'reserva-salida': formatDate(group["Salida"]),
-                    'fecha-proforma': new Date().toLocaleDateString('es-ES')
+                    'fecha-proforma': new Date().toLocaleDateString('es-ES'),
+                    // Fiscal Data
+                    'client-address': group["Fiscal_Direccion"] || '',
+                    'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || ''),
+                    'client-nif': group["Fiscal_CIF"] || ''
                 };
 
                 Object.keys(mapping).forEach(id => {
-                    const el1 = document.getElementById(id + '-1');
-                    const el2 = document.getElementById(id + '-2');
+                    const el1 = document.getElementById(id + '-1'); // Check if ID with -1 suffix exists (mostly for first template)
+                    const el2 = document.getElementById(id + '-2'); // Check for -2 suffix
+                    const elExact = document.getElementById(id); // Check for exact ID match
+
                     if (el1) el1.innerText = mapping[id];
                     if (el2) el2.innerText = mapping[id];
+                    if (elExact) elExact.innerText = mapping[id];
                 });
 
-                // 3. Crear item inicial con el importe del grupo
-                const importe = parseFloat((group["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
-                if (!isNaN(importe)) {
-                    items = [{
-                        fecha: formatDate(group["Entrada"]),
-                        hab: '',
-                        cant: group["Pax."] || '1',
-                        concepto: `ESTANCIA GRUPO: ${group["Nombre del Grupo"]}`,
-                        precio: importe,
-                        iva: 10
-                    }];
+                // 3. Cargar Items Guardados o Crear Inicial
+                if (group.ProformaItems && Array.isArray(group.ProformaItems) && group.ProformaItems.length > 0) {
+                    items = group.ProformaItems;
+                } else {
+                    const importe = parseFloat((group["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                    if (!isNaN(importe)) {
+                        items = [{
+                            fecha: formatDate(group["Entrada"]),
+                            hab: '',
+                            cant: group["Pax."] || '1',
+                            concepto: `ESTANCIA GRUPO: ${group["Nombre del Grupo"]}`,
+                            precio: importe,
+                            iva: 10,
+                            regimen: 'AD'
+                        }];
+                    }
                 }
             } catch (e) {
                 console.error("Error cargando grupo seleccionado:", e);
             }
+        }
+
+        function saveAndExit() {
+            // 1. Gather current data from DOM to update the 'group' object
+            const saved = localStorage.getItem('selectedGroup');
+            if (saved) {
+                let group = JSON.parse(saved);
+
+                // Update Proforma Items
+                group.ProformaItems = items;
+
+                // Save back to selectedGroup (for persistence)
+                localStorage.setItem('selectedGroup', JSON.stringify(group));
+
+                // Update the main database (nexus_groups_data)
+                const allGroupsStr = localStorage.getItem('nexus_groups_data');
+                if (allGroupsStr) {
+                    const allGroups = JSON.parse(allGroupsStr);
+                    const idx = allGroups.findIndex(g => g["Reserva"] === group["Reserva"]);
+                    if (idx !== -1) {
+                        allGroups[idx] = { ...allGroups[idx], ...group };
+                        localStorage.setItem('nexus_groups_data', JSON.stringify(allGroups));
+                    }
+                }
+
+                // Set flag to re-open this ficha in Gestion de Grupos
+                localStorage.setItem('openGroupFicha', group["Nombre del Grupo"]);
+            }
+
+            // Redirect
+            window.location.href = 'Gestión de Grupos.html';
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -741,6 +795,12 @@
             document.getElementById('btn-confirmacion').className = tpl === 'confirmacion' ? 'pb-2 px-2 tab-active transition-all uppercase text-xs tracking-widest' : 'pb-2 px-2 text-gray-400 transition-all uppercase text-xs tracking-widest';
             document.getElementById('btn-proforma').className = tpl === 'proforma' ? 'pb-2 px-2 tab-active transition-all uppercase text-xs tracking-widest' : 'pb-2 px-2 text-gray-400 transition-all uppercase text-xs tracking-widest';
             renderItems();
+        }
+
+        function formatNum(num) {
+            let n = parseFloat(num);
+            if (isNaN(n)) return "0,00";
+            return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
         function updateHotel(hotelKey) {
@@ -796,7 +856,11 @@
             containers.forEach(c => c.innerHTML = '');
 
             items.forEach((item, index) => {
-                const subtotal = parseFloat(item.precio) || 0;
+                const precioUnitario = parseFloat(item.precio) || 0;
+                const cantidad = parseFloat(item.cant) || 1;
+                const dias = parseFloat(item.dias) || 1;
+                const subtotal = precioUnitario * cantidad * dias;
+
                 total += subtotal;
                 runningTotal += subtotal;
 
@@ -811,38 +875,49 @@
                     iva21 += (subtotal - base);
                 }
 
+                // Date handling
+                const dateVal = toInputDate(item.fecha);
+
+                const draggables = `draggable="true" ondragstart="dragStart(event, ${index})" ondragover="allowDrop(event)" ondrop="drop(event, ${index})" style="cursor: grab;"`;
+
                 if (currentTemplate === 'confirmacion') {
                     const row = `
-                        <tr class="border-b">
-                            <td class="p-2 text-gray-400"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'fecha', this.innerText)">${item.fecha}</span></td>
+                        <tr class="border-b" ${draggables}>
+                            <td class="p-2">
+                                <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit text-gray-500 w-24 outline-none text-[10px]">
+                            </td>
                             <td class="p-2 text-center"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || ''}</span></td>
                             <td class="p-2"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span></td>
-                            <td class="p-2 text-center">-</td>
+                            <td class="p-2 text-center text-gray-400">
+                                <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)" placeholder="-">${item.regimen || '-'}</span>
+                            </td>
                             <td class="p-2 text-center">1</td>
-                            <td class="p-2 text-right"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(subtotal)}</span></td>
-                            <td class="p-2 text-center">${ivaVal}%</td>
+                            <td class="p-2 text-right"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
                             <td class="p-2 text-right font-bold">${formatNum(subtotal)}</td>
-                            <td class="p-2 no-print"><button onclick="removeItem(${index})" class="text-red-300 hover:text-red-600">✕</button></td>
+                            <td class="p-2 no-print text-center"><button onclick="removeItem(${index})" class="text-red-300 hover:text-red-600">✕</button></td>
                         </tr>`;
                     document.querySelector('#tpl-confirmacion .invoice-items').insertAdjacentHTML('beforeend', row);
                 } else {
                     const row = `
-                        <tr class="h-6">
-                            <td class="align-top">${item.fecha}</td>
+                        <tr class="h-6" ${draggables}>
+                            <td class="align-top">
+                                <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit w-24 outline-none">
+                            </td>
                             <td class="align-top text-center"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'hab', this.innerText)">${item.hab || ''}</span></td>
                             <td class="align-top text-center"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || ''}</span></td>
                             <td class="align-top uppercase font-bold text-[10px]">
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span>
                             </td>
-                            <td class="align-top text-right font-bold"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(subtotal)}</span></td>
+                            <td class="align-top text-right font-bold"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
                             <td class="align-top text-right"></td>
-                            <td class="align-top text-right font-bold">${formatNum(runningTotal)}</td>
+                            <td class="align-top text-right font-bold">${formatNum(subtotal)}</td>
                             <td class="no-print align-top text-center"><button onclick="removeItem(${index})" class="text-red-300 hover:text-red-600">✕</button></td>
                         </tr>`;
                     document.querySelector('#tpl-proforma .invoice-items').insertAdjacentHTML('beforeend', row);
                 }
             });
 
+            // Footer Logic (Confirmacion)
             if (currentTemplate === 'confirmacion') {
                 footer.innerHTML = `
                     <div class="flex flex-col items-end mt-4">
@@ -850,30 +925,23 @@
                             <p class="text-[8px] uppercase tracking-widest border-b border-emerald-800 mb-1 text-left">Total Factura (IVA inc.)</p>
                             <p class="text-xl font-bold text-right">${formatNum(total)} €</p>
                         </div>
-                        <div class="text-right text-[9px] text-gray-500 mr-1">
-                            ${base10 > 0 ? `<p>I.V.A. 10% sobre ${formatNum(base10)} = ${formatNum(iva10)} ya incluido.</p>` : ''}
-                            ${base21 > 0 ? `<p>I.V.A. 21% sobre ${formatNum(base21)} = ${formatNum(iva21)} ya incluido.</p>` : ''}
-                        </div>
                     </div>`;
             } else {
-
-                // Cálculo de fechas automático
+                // Footer Logic (Proforma) - Calculation logic kept same but ensured
                 const entradaStr = document.getElementById('reserva-entrada-2')?.innerText || '21-04-2026';
+                // ... rest of footer generation ...
                 const [d, m, y] = entradaStr.split('-').map(Number);
-                const fechaEntrada = new Date(y, m - 1, d);
+                const fechaEntrada = (d && m && y) ? new Date(y, m - 1, d) : new Date();
 
                 const fRelease = new Date(fechaEntrada);
-                fRelease.setDate(fRelease.getDate() - 7);
+                fRelease.setDate(fRelease.getDate() - (parseInt(JSON.parse(localStorage.getItem('selectedGroup') || '{}')["Com_Relix"]) || 22));
 
                 const fDeposito1 = new Date(fechaEntrada);
                 fDeposito1.setDate(fDeposito1.getDate() - 60);
-
                 const fDeposito2 = new Date(fechaEntrada);
                 fDeposito2.setDate(fDeposito2.getDate() - 30);
 
-                const formatDate = (date) => {
-                    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-                };
+                const formatDate = (date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
                 footer.innerHTML = `
                     <div class="mt-4 flex flex-col items-end font-pro text-[11px]">
@@ -916,14 +984,56 @@
                         </div>
                     </div>`;
             }
+
+            syncWithFicha();
         }
 
-        function formatNum(n) {
-            return new Number(n).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // --- Drag and Drop Helpers ---
+        function dragStart(ev, index) {
+            ev.dataTransfer.setData("text/plain", index);
+            ev.dataTransfer.effectAllowed = "move";
+        }
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+        function drop(ev, targetIndex) {
+            ev.preventDefault();
+            const sourceIndex = parseInt(ev.dataTransfer.getData("text/plain"));
+            if (sourceIndex === targetIndex) return;
+
+            const movedItem = items[sourceIndex];
+            items.splice(sourceIndex, 1);
+            items.splice(targetIndex, 0, movedItem);
+            renderItems();
         }
 
+        // --- Date Helpers ---
+        function toInputDate(dateStr) {
+            if (!dateStr) return '';
+            // Detect ISO
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr;
+            // Parse DD-MM-YYYY or DD/MM/YYYY
+            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+            if (parts.length < 3) return '';
+            let d = parts[0], m = parts[1], y = parts[2];
+            if (d.length === 4) { [y, m, d] = parts; } // Handle YYYY-MM-DD passed as others
+            if (y && y.length === 2) y = '20' + y;
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+        function formatDateForDisplay(isoDate) {
+            if (!isoDate) return '';
+            const d = new Date(isoDate);
+            if (isNaN(d.getTime())) return isoDate;
+            return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        // --- Update Item Logic ---
         function updateItem(index, key, val) {
-            if (['concepto', 'fecha', 'hab', 'cant'].includes(key)) {
+            if (key === 'fecha') {
+                // Input date returns YYYY-MM-DD
+                // Store as is or format? Let's format to DD-MM-YYYY for consistency with legacy
+                items[index][key] = formatDateForDisplay(val).replace(/\//g, '-');
+            } else if (['concepto', 'hab', 'cant', 'regimen'].includes(key)) {
                 items[index][key] = val;
             } else {
                 items[index][key] = parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
@@ -932,10 +1042,77 @@
         }
 
         function addRow() {
-            items.push({ fecha: '24-04-26', hab: '', cant: '1', concepto: 'Nuevo Concepto', precio: 0, iva: 10 });
+            items.push({ fecha: formatDateForDisplay(new Date().toISOString().split('T')[0]).replace(/\//g, '-'), hab: '', cant: '1', concepto: 'Nuevo Concepto', precio: 0, iva: 10, regimen: '' });
             renderItems();
         }
         function removeItem(index) { items.splice(index, 1); renderItems(); }
+
+        function syncWithFicha() {
+            const saved = localStorage.getItem('selectedGroup');
+            if (!saved) return;
+
+            let group = JSON.parse(saved);
+
+            // 1. Calcular Totales desde Items
+            const totalRevenue = items.reduce((acc, curr) => acc + (parseFloat(curr.precio) || 0), 0);
+            const totalPax = items.reduce((acc, curr) => acc + (parseInt(curr.cant) || 0), 0);
+
+            // 2. Fechas
+            const entrada = document.getElementById('reserva-entrada-1')?.innerText || group["Entrada"];
+            const salida = document.getElementById('reserva-salida-1')?.innerText || group["Salida"];
+
+            // 3. Hotel
+            const hotel = currentHotel === 'cumbria' ? 'Cumbria' : 'Guadiana';
+
+            // 4. Actualizar Objeto Grupo
+            group["Importe(*)"] = totalRevenue;
+            group["Pax."] = document.getElementById('reserva-personas-1')?.innerText || group["Pax."];
+            group["Entrada"] = entrada;
+            group["Salida"] = salida;
+            group["Hotel_Asignado"] = hotel;
+
+            // GUARDAR ITEMS DE LA PROFORMA
+            group["ProformaItems"] = items;
+
+            // Sincronizar Depósitos
+            group["Dep1_Importe"] = (totalRevenue * 0.3).toFixed(2);
+            group["Dep2_Importe"] = (totalRevenue * 0.7).toFixed(2);
+
+            // Sincronizar Release (7 días antes de entrada por defecto)
+            if (entrada) {
+                const parts = entrada.includes('/') ? entrada.split('/') : entrada.split('-');
+                if (parts.length === 3) {
+                    // Asumimos formato dd/mm/yyyy o yyyy-mm-dd
+                    let d, m, y;
+                    if (parts[0].length === 4) { [y, m, d] = parts; } else { [d, m, y] = parts; }
+
+                    const fechaEntrada = new Date(y, m - 1, d);
+                    const fechaRelease = new Date(fechaEntrada);
+
+                    // Cálculo dinámico si tenemos los días de release
+                    const diasRelease = parseInt(group["Com_Relix"]) || 22; // Por defecto 22 días
+                    fechaRelease.setDate(fechaRelease.getDate() - diasRelease);
+
+                    group["Com_Vencimiento_Rel"] = fechaRelease.toISOString().split('T')[0];
+                }
+            }
+            if (!group["Com_Relix"]) group["Com_Relix"] = "22"; // Default Release Days
+
+            // Guardar en LocalStorage para que Gestión de Grupos lo lea
+            localStorage.setItem('selectedGroup', JSON.stringify(group));
+
+            // También actualizar la lista principal 'nexus_groups_data' si es posible (simulación)
+            // En un entorno real, esto sería una llamada a Firebase updateDoc
+            const allGroupsStr = localStorage.getItem('nexus_groups_data');
+            if (allGroupsStr) {
+                const allGroups = JSON.parse(allGroupsStr);
+                const idx = allGroups.findIndex(g => g["Reserva"] === group["Reserva"]);
+                if (idx !== -1) {
+                    allGroups[idx] = { ...allGroups[idx], ...group };
+                    localStorage.setItem('nexus_groups_data', JSON.stringify(allGroups));
+                }
+            }
+        }
 
         function handleLogoUpload(input) {
             if (input.files && input.files[0]) {

@@ -374,78 +374,142 @@
             </div>
         );
 
-        const GroupsManager = ({ data }) => (
-            <div className="animate-fade-in space-y-6">
-                <div className="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800">Directorio de Grupos</h2>
-                        <p className="text-slate-500 text-sm italic">Accede a las herramientas de análisis y facturación.</p>
-                    </div>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => window.location.href = 'Gestión de Grupos.html'}
-                            className="bg-[#2d5a43] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#1e3a2c] transition-all text-sm"
-                        >
-                            <i data-lucide="table" className="w-4 h-4"></i>
-                            Gestor Avanzado
-                        </button>
-                    </div>
-                </div>
+        const GroupsManager = ({ data }) => {
+            const [searchTerm, setSearchTerm] = React.useState("");
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {data.slice(0, 9).map((group, i) => (
-                        <div key={i} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between group hover:border-[#2d5a43]/30 transition-all">
-                            <div>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-[#2d5a43]/10 transition-colors">
-                                        <i data-lucide="users" className="w-5 h-5 text-[#2d5a43]"></i>
-                                    </div>
-                                    <span className="text-xs font-bold text-slate-400">{formatDate(group["Entrada"])}</span>
-                                </div>
-                                <h4 className="font-bold text-slate-800 mb-1 cursor-pointer hover:text-[#2d5a43] transition-colors"
-                                    onClick={() => {
-                                        localStorage.setItem('openGroupFicha', group["Nombre del Grupo"]);
-                                        window.location.href = 'Gestión de Grupos.html';
-                                    }}
-                                >
-                                    {group["Nombre del Grupo"]}
-                                </h4>
-                                <p className="text-xs text-slate-400 mb-4">{group["Empresa/Agencia"]}</p>
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <div className="p-3 bg-slate-50 rounded-2xl">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Revenue</p>
-                                        <p className="font-bold text-slate-700">{group["Importe(*)"]}€</p>
-                                    </div>
-                                    <div className="p-3 bg-slate-50 rounded-2xl">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Pax</p>
-                                        <p className="font-bold text-slate-700">{group["Pax."]}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        localStorage.setItem('selectedGroup', JSON.stringify(group));
-                                        window.location.href = 'Fac Prof.html';
-                                    }}
-                                    className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <i data-lucide="file-text" className="w-3 h-3"></i>
-                                    Proforma
-                                </button>
-                                <button
-                                    onClick={() => window.location.href = 'Gestión de Grupos.html'}
-                                    className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center justify-center"
-                                >
-                                    <i data-lucide="pencil" className="w-4 h-4"></i>
-                                </button>
-                            </div>
+            const filteredData = data.filter(group => {
+                const term = searchTerm.toLowerCase();
+                const name = (group["Nombre del Grupo"] || "").toLowerCase();
+                const agency = (group["Empresa/Agencia"] || "").toLowerCase();
+                return name.includes(term) || agency.includes(term);
+            });
+
+            return (
+                <div className="animate-fade-in space-y-6">
+                    <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100 gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800">Directorio de Grupos</h2>
+                            <p className="text-slate-500 text-sm italic">Accede a las herramientas de análisis y facturación.</p>
                         </div>
-                    ))}
-                    {data.length === 0 && <p className="col-span-3 text-center py-20 text-slate-400">No hay grupos cargados. Ve al Gestor para importar.</p>}
+                        <div className="flex gap-3 w-full md:w-auto">
+                            <div className="relative w-full md:w-64">
+                                <i data-lucide="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por nombre o agencia..."
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-[#2d5a43] transition-colors"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <button
+                                onClick={() => window.location.href = 'Gestión de Grupos.html'}
+                                className="bg-[#2d5a43] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#1e3a2c] transition-all text-sm shrink-0"
+                            >
+                                <i data-lucide="table" className="w-4 h-4"></i>
+                                Gestor
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {filteredData.map((group, i) => (
+                            <div key={i} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between group hover:border-[#2d5a43]/30 transition-all relative overflow-hidden h-full">
+
+                                {/* Status Badge */}
+                                <div className={`absolute top-0 right-0 px-2 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-widest ${(group["Estado"] || "").toLowerCase().includes('cancel') || (group["Estado"] || "").toLowerCase().includes('anul')
+                                    ? 'bg-red-50 text-red-500'
+                                    : 'bg-emerald-50 text-emerald-600'
+                                    }`}>
+                                    {group["Estado"] || "Activo"}
+                                </div>
+
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <img
+                                            src={(group["Hotel_Asignado"] || "").includes('Cumb') ? 'Logos/Cumbria Spa&Hotel.jpg' : 'Logos/Sercotel Guadiana.jpg'}
+                                            alt="Logo"
+                                            className="h-6 object-contain"
+                                        />
+                                    </div>
+
+                                    <div className="mb-2">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">{formatDate(group["Entrada"])}</span>
+                                        <h4 className="font-bold text-slate-800 mb-1 cursor-pointer hover:text-[#2d5a43] transition-colors text-xs leading-tight line-clamp-2 min-h-[2.5em]"
+                                            onClick={() => {
+                                                localStorage.setItem('openGroupFicha', group["Nombre del Grupo"]);
+                                                window.location.href = 'Gestión de Grupos.html';
+                                            }}
+                                            title={group["Nombre del Grupo"]}
+                                        >
+                                            {group["Nombre del Grupo"]}
+                                        </h4>
+                                        <p className="text-[9px] text-slate-400 truncate">{group["Empresa/Agencia"]}</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 mb-2 bg-slate-50 p-2 rounded-xl">
+                                        <div className="text-center">
+                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">Revenue</p>
+                                            <p className="font-bold text-slate-700 text-xs">{group["Importe(*)"]}€</p>
+                                        </div>
+                                        <div className="text-center border-l border-slate-200">
+                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">Pax</p>
+                                            <p className="font-bold text-slate-700 text-xs">{group["Pax."]}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {/* Internal Phase Badge */}
+                                        {group["Com_Estado_Interno"] && (
+                                            <div className="flex items-center gap-1 text-[8px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 max-w-full">
+                                                <i data-lucide="briefcase" className="w-2.5 h-2.5 shrink-0"></i>
+                                                <span className="font-bold truncate">{group["Com_Estado_Interno"]}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Release Date Warning */}
+                                        {group["Com_Vencimiento_Rel"] && (
+                                            <div className="flex items-center gap-1 text-[8px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100 max-w-full">
+                                                <i data-lucide="clock" className="w-2.5 h-2.5 shrink-0"></i>
+                                                <span className="truncate">Rel: <span className="font-bold">{formatDate(group["Com_Vencimiento_Rel"])}</span></span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Avisos Manuales */}
+                                    {group["Com_Notas"] && (
+                                        <div className="mb-2 text-[8px] bg-yellow-50 text-yellow-800 p-1.5 rounded-lg border border-yellow-100 flex items-start gap-1 leading-tight">
+                                            <i data-lucide="alert-circle" className="w-3 h-3 shrink-0 text-yellow-600"></i>
+                                            <span className="line-clamp-2" title={group["Com_Notas"]}>{group["Com_Notas"]}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-2 pt-2 border-t border-slate-50 mt-auto">
+                                    <button
+                                        onClick={() => {
+                                            localStorage.setItem('selectedGroup', JSON.stringify(group));
+                                            window.location.href = 'Fac Prof.html';
+                                        }}
+                                        className="flex-1 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold text-[9px] hover:bg-slate-50 transition-all flex items-center justify-center gap-1"
+                                    >
+                                        <i data-lucide="file-text" className="w-3 h-3"></i>
+                                        Proforma
+                                    </button>
+                                    <button
+                                        onClick={() => window.location.href = 'Gestión de Grupos.html'}
+                                        className="p-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all flex items-center justify-center"
+                                    >
+                                        <i data-lucide="pencil" className="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {filteredData.length === 0 && <p className="col-span-full text-center py-20 text-slate-400">No se encontraron grupos coincidiendo con tu búsqueda.</p>}
+                    </div>
                 </div>
-            </div>
-        );
+            );
+        };
 
         const App = () => {
             const [activeTab, setActiveTab] = useState('dashboard');
@@ -583,7 +647,7 @@
                                     </div>
                                     <h2 className="text-3xl font-bold text-slate-900 mb-4">Análisis Estratégico IA</h2>
                                     <p className="text-slate-500 max-w-lg mx-auto mb-10">
-                                        Utiliza la potencia de Gemini 1.5 Flash para obtener una visión profunda de la rentabilidad, riesgos y oportunidades de tus grupos actuales.
+                                        Utiliza la potencia de Gemini 2.5 Flash para obtener una visión profunda de la rentabilidad, riesgos y oportunidades de tus grupos actuales.
                                     </p>
                                     <button
                                         onClick={runStrategicAnalysis}
@@ -624,7 +688,7 @@
                                         </div>
                                         <div>
                                             <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Análisis Estratégico IA</h3>
-                                            <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">Motor: Gemini 1.5 Flash</p>
+                                            <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">Motor: Gemini 2.5 Flash</p>
                                         </div>
                                     </div>
                                     <button

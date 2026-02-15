@@ -9,6 +9,7 @@
 
     <!-- Static Styles (Tailwind Compiled) -->
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Google Fonts -->
     <link
@@ -90,6 +91,45 @@
         // Aseguramos que las librerías estén disponibles
         const { useState, useEffect, useMemo } = React;
         const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = window.Recharts;
+
+        // Definición de Iconos (SVG Manual para estabilidad)
+        // Definición de Iconos (SVG Manual para estabilidad)
+        const Icon = ({ path, size = 24, ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+                <g dangerouslySetInnerHTML={{ __html: path }} />
+            </svg>
+        );
+
+        const IconCheck = (p) => <Icon path='<polyline points="20 6 9 17 4 12"></polyline>' {...p} />;
+        const IconClock = (p) => <Icon path='<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>' {...p} />;
+        const IconX = (p) => <Icon path='<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>' {...p} />;
+        const IconChart = (p) => <Icon path='<line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line>' {...p} />;
+        const IconBrain = (p) => <Icon path='<path d="m12 14 4-4"></path><path d="M3.34 17a10 10 0 1 1 17.32 0"></path>' {...p} />; // Simple brain
+        const IconUsers = (p) => <Icon path='<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>' {...p} />;
+        const IconTable = (p) => <Icon path='<rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><line x1="3" x2="21" y1="9" y2="9"></line><line x1="3" x2="21" y1="15" y2="15"></line><line x1="9" x2="9" y1="3" y2="21"></line><line x1="15" x2="15" y1="3" y2="21"></line>' {...p} />;
+        const IconMail = (p) => <Icon path='<rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>' {...p} />;
+        const IconChevronDown = (p) => <Icon path='<path d="m6 9 6 6 6-6"></path>' {...p} />;
+        const IconArrowRight = (p) => <Icon path='<path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>' {...p} />;
+        const IconCalendar = (p) => <Icon path='<rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path>' {...p} />;
+        const IconFile = (p) => <Icon path='<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline>' {...p} />;
+        const IconTrash = (p) => <Icon path='<path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' {...p} />;
+        const IconPlus = (p) => <Icon path='<path d="M5 12h14"></path><path d="M12 5v14"></path>' {...p} />;
+        const IconRefresh = (p) => <Icon path='<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path>' {...p} />;
+        const IconMore = (p) => <Icon path='<circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle>' {...p} />;
+        const IconSave = (p) => <Icon path='<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline>' {...p} />;
+        const IconSearch = (p) => <Icon path='<circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path>' {...p} />;
+        const IconFilter = (p) => <Icon path='<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>' {...p} />;
+        const IconPrinter = (p) => <Icon path='<polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect width="12" height="8" x="6" y="14"></rect>' {...p} />;
+        const IconDownload = (p) => <Icon path='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line>' {...p} />;
+        const IconBed = (p) => <Icon path='<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"></path><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path>' {...p} />;
+        const IconChevronLeft = (p) => <Icon path='<path d="m15 18-6-6 6-6"></path>' {...p} />;
+        const IconChevronRight = (p) => <Icon path='<path d="m9 18 6-6-6-6"></path>' {...p} />;
+        const IconChevronUp = (p) => <Icon path='<path d="m18 15-6-6-6 6"></path>' {...p} />;
+        const IconSparkles = (p) => <Icon path='<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>' {...p} className={`${p.className || ""} text-yellow-400`} />;
+        const IconUpload = (p) => <Icon path='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>' {...p} />;
+        const IconPieChart = (p) => <Icon path='<path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path>' {...p} />;
+        const IconGroup = (p) => <Icon path='<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>' {...p} />;
+        const IconEdit = (p) => <Icon path='<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>' {...p} />;
 
         // --- CONFIGURACIÓN FIREBASE ---
         // Se carga desde js/firebase-config.js
@@ -175,8 +215,41 @@
             const [aiResult, setAiResult] = useState(null);
             const [showAiModal, setShowAiModal] = useState(false);
 
+            // Sincronización automática desde Proforma (LocalStorage -> Firestore)
+            useEffect(() => {
+                const syncFromProforma = async () => {
+                    const saved = localStorage.getItem('selectedGroup');
+                    if (saved) {
+                        try {
+                            const localGroup = JSON.parse(saved);
+                            if (localGroup.Reserva) {
+                                // Asegurar formato correcto para Firestore
+                                const updatePayload = {
+                                    "Importe(*)": localGroup["Importe(*)"],
+                                    "Pax.": localGroup["Pax."],
+                                    "Entrada": localGroup["Entrada"],
+                                    "Salida": localGroup["Salida"],
+                                    "Hotel_Asignado": localGroup["Hotel_Asignado"],
+                                    "Dep1_Importe": localGroup["Dep1_Importe"],
+                                    "Dep2_Importe": localGroup["Dep2_Importe"],
+                                    "Com_Relix": localGroup["Com_Relix"],
+                                    "Com_Vencimiento_Rel": localGroup["Com_Vencimiento_Rel"],
+                                    "ProformaItems": localGroup["ProformaItems"] || [],
+                                    "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+                                };
+                                await db.collection("groups").doc(String(localGroup.Reserva)).set(updatePayload, { merge: true });
+                            }
+                        } catch (e) {
+                            console.error("Error sincronizando proforma:", e);
+                        }
+                    }
+                };
+                syncFromProforma();
+            }, []);
+
             // Estados para Añadir Grupo
             const [showAddGroupModal, setShowAddGroupModal] = useState(false);
+            const [showClientData, setShowClientData] = useState(false); // New state for client data popup
             const [newGroup, setNewGroup] = useState({
                 "Nombre del Grupo": "",
                 "Entrada": new Date().toISOString().split('T')[0],
@@ -200,6 +273,10 @@
                 if (!data) return [];
 
                 let filtered = [...data];
+
+                // 0. Filtro de Validez (Reserva obligatoria)
+                filtered = filtered.filter(row => row["Reserva"] && row["Reserva"].toString().trim() !== "" && row["Reserva"].toString().trim() !== "-");
+
                 const today = new Date().toISOString().split('T')[0];
 
                 // 1. Filtro de Estado
@@ -231,7 +308,20 @@
                     });
                 }
 
-                // 3. Ordenación
+                // 3. Filtro de Texto (Global Search)
+                if (searchTerm) {
+                    const lowerTerm = searchTerm.toLowerCase();
+                    filtered = filtered.filter(row => {
+                        return (
+                            (row["Nombre del Grupo"] || "").toLowerCase().includes(lowerTerm) ||
+                            (row["Empresa/Agencia"] || "").toLowerCase().includes(lowerTerm) ||
+                            (row["Com_Comercial"] || "").toLowerCase().includes(lowerTerm) ||
+                            (row["Reserva"] || "").toString().toLowerCase().includes(lowerTerm)
+                        );
+                    });
+                }
+
+                // 4. Ordenación
                 if (sortConfig.key) {
                     filtered.sort((a, b) => {
                         let valA = a[sortConfig.key] || "";
@@ -491,27 +581,47 @@
 
 
 
-            // Actualizar estadísticas basadas en datos filtrados
+            // Actualizar estadísticas: ENFOQUE COMERCIAL (Grupos, Estados, Pax)
             const stats = useMemo(() => {
                 let totalRevenue = 0;
                 let totalPax = 0;
-                let totalNights = 0;
+
+                let activeCount = 0;
+                let prospectCount = 0;
+                let cancelledCount = 0;
+
+                const uniqueGroups = new Set();
 
                 processedData.forEach(row => {
-                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                    // Sumas económicas (asumiendo que cada fila suma al total)
+                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace(/\./g, '').replace(',', '.')) || 0;
                     const pax = parseInt(row["Pax."] || 0);
-                    const noches = parseInt(row["Noches"] || 0);
+                    totalRevenue += importe;
+                    totalPax += pax;
 
-                    if (!isNaN(importe)) totalRevenue += importe;
-                    if (!isNaN(pax)) totalPax += pax;
-                    if (!isNaN(noches)) totalNights += noches;
+                    // Conteo de Grupos Únicos por Estado
+                    const groupId = row["Reserva"] || row["Nombre del Grupo"];
+                    if (groupId && !uniqueGroups.has(groupId)) {
+                        uniqueGroups.add(groupId);
+                        const status = (row["Estado"] || "PROSPECTO").toUpperCase();
+
+                        if (status.includes("CONF") || status.includes("BLOQ") || status.includes("OK") || status.includes("CERR")) {
+                            activeCount++;
+                        } else if (status.includes("CANC") || status.includes("ANUL") || status.includes("NO")) {
+                            cancelledCount++;
+                        } else {
+                            // Prospectos, Pre-reservas, Tentativos, Sin estado
+                            prospectCount++;
+                        }
+                    }
                 });
 
                 return {
                     revenue: totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
-                    revenueRaw: totalRevenue,
-                    pax: totalPax,
-                    avgStay: totalPax > 0 ? (totalNights / processedData.length).toFixed(1) : 0,
+                    active: activeCount,
+                    prospects: prospectCount,
+                    cancelled: cancelledCount,
+                    pax: totalPax
                 };
             }, [processedData]);
 
@@ -816,6 +926,17 @@
             const [showFichaModal, setShowFichaModal] = useState(false);
             const [selectedGroupFicha, setSelectedGroupFicha] = useState(null);
 
+            // State for Room Manager Form
+            const [roomManagerForm, setRoomManagerForm] = useState({
+                type: 'Habitación Doble (DBL)',
+                dateIn: '', // Will init when modal opens
+                dateOut: '',
+                qty: 1,
+                regime: 'AD',
+                price: 0
+            });
+            const [editingId, setEditingId] = useState(null);
+
             const openFicha = (group) => {
                 setSelectedGroupFicha(group);
                 setShowFichaModal(true);
@@ -862,13 +983,52 @@
                 batch.commit();
             };
 
-            const calculateDeposits = (group) => {
-                const total = group.totalRevenue || 0;
-                const dep1 = (total * 0.3).toFixed(2);
-                const final = (total * 0.7).toFixed(2);
+            const calculateDeposits = (group, distribution = [30, 40, 30]) => {
+                const rawImporte = group.records[0]["Importe(*)"];
+                const total = typeof rawImporte === 'number'
+                    ? rawImporte
+                    : parseFloat(String(rawImporte || "0").replace(/\./g, '').replace(',', '.')) || 0;
 
-                updateGroupMetadata(group.name, "Dep1_Importe", dep1 + " €");
-                updateGroupMetadata(group.name, "Dep2_Importe", final + " €");
+                const entrada = group.records[0]["Entrada"];
+                let dateEntrada = new Date();
+
+                if (entrada) {
+                    const parts = entrada.includes('/') ? entrada.split('/') : entrada.split('-');
+                    if (parts.length === 3) {
+                        let d, m, y;
+                        if (parts[0].length === 4) { [y, m, d] = parts; } else { [d, m, y] = parts; }
+                        dateEntrada = new Date(y, m - 1, d);
+                    }
+                }
+
+                const defaults = [
+                    { label: "Pago Inicial", days: 60 },
+                    { label: "Pago Intermedio", days: 30 },
+                    { label: "Pago Final", days: 15 }
+                ];
+
+                ['Dep1', 'Dep2', 'Dep3'].forEach(k => {
+                    updateGroupMetadata(group.name, `${k}_Label`, "");
+                    updateGroupMetadata(group.name, `${k}_Percent`, "");
+                    updateGroupMetadata(group.name, `${k}_Importe`, "");
+                    updateGroupMetadata(group.name, `${k}_Fecha`, "");
+                });
+
+                distribution.forEach((pct, index) => {
+                    if (index > 2) return;
+                    const key = `Dep${index + 1}`;
+                    const amount = (total * (pct / 100)).toFixed(2);
+                    const def = defaults[index];
+
+                    const date = new Date(dateEntrada);
+                    date.setDate(date.getDate() - def.days);
+                    const formattedDate = date.toISOString().split('T')[0];
+
+                    updateGroupMetadata(group.name, `${key}_Label`, def.label);
+                    updateGroupMetadata(group.name, `${key}_Percent`, pct + "%");
+                    updateGroupMetadata(group.name, `${key}_Importe`, amount);
+                    updateGroupMetadata(group.name, `${key}_Fecha`, formattedDate);
+                });
             };
 
             const addNewRow = () => {
@@ -876,6 +1036,71 @@
                 columns.forEach(col => emptyRow[col] = "");
                 emptyRow["Entrada"] = new Date().toISOString().split('T')[0];
                 setData([emptyRow, ...data]);
+            };
+
+            // --- Room Manager Logic ---
+            const addRoomBlock = () => {
+                if (!selectedGroupFicha) return;
+
+                const currentRecord = selectedGroupFicha.records[0] || {};
+                let currentList = [];
+                try {
+                    currentList = JSON.parse(currentRecord["RoomingList_JSON"] || "[]");
+                } catch (e) { currentList = []; }
+
+                let nights = 1;
+                if (roomManagerForm.dateIn && roomManagerForm.dateOut) {
+                    const diff = new Date(roomManagerForm.dateOut) - new Date(roomManagerForm.dateIn);
+                    nights = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                    if (nights < 1) nights = 1;
+                }
+
+                const newItem = {
+                    id: editingId || Date.now(),
+                    type: roomManagerForm.type,
+                    dateIn: roomManagerForm.dateIn || currentRecord["Entrada"],
+                    dateOut: roomManagerForm.dateOut || currentRecord["Salida"],
+                    qty: parseInt(roomManagerForm.qty),
+                    regime: roomManagerForm.regime,
+                    price: parseFloat(roomManagerForm.price),
+                    nights: nights,
+                    total: (parseFloat(roomManagerForm.price) * parseInt(roomManagerForm.qty) * nights).toFixed(2)
+                };
+
+                let newList;
+                if (editingId) {
+                    newList = currentList.map(item => item.id === editingId ? newItem : item);
+                    setEditingId(null);
+                } else {
+                    newList = [...currentList, newItem];
+                }
+
+                updateGroupMetadata(selectedGroupFicha.name, "RoomingList_JSON", JSON.stringify(newList));
+                setRoomManagerForm(prev => ({ ...prev, qty: 1, price: 0 }));
+            };
+
+            const handleEditRoomBlock = (item) => {
+                setRoomManagerForm({
+                    type: item.type,
+                    dateIn: item.dateIn,
+                    dateOut: item.dateOut,
+                    qty: item.qty,
+                    regime: item.regime,
+                    price: item.price
+                });
+                setEditingId(item.id);
+            };
+
+            const removeRoomBlock = (id) => {
+                if (!selectedGroupFicha) return;
+                const currentRecord = selectedGroupFicha.records[0] || {};
+                let currentList = [];
+                try {
+                    currentList = JSON.parse(currentRecord["RoomingList_JSON"] || "[]");
+                } catch (e) { return; }
+
+                const newList = currentList.filter(item => item.id !== id);
+                updateGroupMetadata(selectedGroupFicha.name, "RoomingList_JSON", JSON.stringify(newList));
             };
 
             const toggleGroupExpand = (groupName) => {
@@ -889,14 +1114,13 @@
                     return;
                 }
 
-                // Calcular noches automáticamente si hay entrada y salida
-                let noches = "0";
+                let nights = "0";
                 if (newGroup.Entrada && newGroup.Salida) {
                     const diffTime = Math.abs(new Date(newGroup.Salida) - new Date(newGroup.Entrada));
-                    noches = Math.ceil(diffTime / (1000 * 60 * 60 * 24)).toString();
+                    nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)).toString();
                 }
 
-                const groupToSave = { ...newGroup, "Noches": noches, "Pernoct.": (parseInt(newGroup["Pax."]) * parseInt(noches)).toString() };
+                const groupToSave = { ...newGroup, "Noches": nights, "Pernoct.": (parseInt(newGroup["Pax."]) * parseInt(nights)).toString() };
                 setData([groupToSave, ...data]);
                 setShowAddGroupModal(false);
                 setNewGroup({
@@ -913,25 +1137,7 @@
                 });
             };
 
-            // Icons
 
-            const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
-            const IconTable = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" /></svg>;
-            const IconX = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>;
-            const IconBuilding = ({ size = 16, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="16" height="20" x="4" y="2" rx="2" /><path d="M9 22v-4h6v4" /><path d="M8 6h.01" /><path d="M16 6h.01" /><path d="M8 10h.01" /><path d="M16 10h.01" /><path d="M8 14h.01" /><path d="M16 14h.01" /></svg>;
-            const IconChart = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
-            const IconGroup = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
-            const IconPieChart = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>;
-            const IconChevronDown = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9l6 6 6-6" /></svg>;
-            const IconChevronUp = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 15l-6-6-6 6" /></svg>;
-            const IconChevronRight = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6" /></svg>;
-            const IconChevronLeft = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6" /></svg>;
-            const IconSparkles = ({ size = 18, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${className} text-yellow-400`}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>;
-            const IconMail = ({ size = 16, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>;
-            const IconBrain = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" /><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" /></svg>;
-            const IconUsers = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
-            const IconUpload = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>;
-            const IconDownload = ({ size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>;
 
             return (
                 <div className="min-h-screen pb-10">
@@ -973,29 +1179,72 @@
                     </header>
 
                     <div className="container mx-auto mt-6 px-4">
-                        {/* KPI Cards */}
+                        {/* KPI Cards: ENFOQUE COMERCIAL */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                            {/* ... cards ... */}
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
-                                <p className="text-sm text-gray-500 font-semibold">Total Ingresos Est.</p>
-                                <p className="text-2xl font-bold text-slate-800">{stats.revenue}</p>
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-emerald-500 hover:shadow-lg transition-shadow">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Grupos Activos</p>
+                                        <p className="text-3xl font-black text-emerald-600 mt-1">{stats.active}</p>
+                                    </div>
+                                    <div className="p-2 bg-emerald-100 rounded text-emerald-600">
+                                        <IconCheck size={20} />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-2 font-medium">Confirmados / Bloqueados</p>
                             </div>
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
-                                <p className="text-sm text-gray-500 font-semibold">Total Pax</p>
-                                <p className="text-2xl font-bold text-slate-800">{stats.pax}</p>
+
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-amber-500 hover:shadow-lg transition-shadow">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">En Prospección</p>
+                                        <p className="text-3xl font-black text-amber-600 mt-1">{stats.prospects}</p>
+                                    </div>
+                                    <div className="p-2 bg-amber-100 rounded text-amber-600">
+                                        <IconClock size={20} />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-2 font-medium">Tentativos / Pendientes</p>
                             </div>
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
-                                <p className="text-sm text-gray-500 font-semibold">Grupos Únicos</p>
-                                <p className="text-2xl font-bold text-slate-800">{stats.count}</p>
+
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500 hover:shadow-lg transition-shadow">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Anulados</p>
+                                        <p className="text-3xl font-black text-red-600 mt-1">{stats.cancelled}</p>
+                                    </div>
+                                    <div className="p-2 bg-red-100 rounded text-red-600">
+                                        <IconX size={20} />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-2 font-medium">Cancelados / No Materializados</p>
                             </div>
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
-                                <p className="text-sm text-gray-500 font-semibold">Estancia Media (días)</p>
-                                <p className="text-2xl font-bold text-slate-800">{stats.avgStay}</p>
+
+                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-600 hover:shadow-lg transition-shadow">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Forecast Total</p>
+                                        <p className="text-xl font-black text-blue-700 mt-2 truncate">{stats.revenue}</p>
+                                    </div>
+                                    <div className="p-2 bg-blue-100 rounded text-blue-600">
+                                        <IconChart size={20} />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-2 font-medium">{stats.pax} Pax Total</p>
                             </div>
                         </div>
 
                         {/* --- FILTERS TOOLBAR --- */}
                         <div className="bg-white p-3 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-center">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Buscar grupo, agencia, comercial..."
+                                    className="border rounded px-2 py-1 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold text-gray-600">Estado:</span>
                                 <select
@@ -1209,10 +1458,16 @@
                                                                                 <div
                                                                                     key={gIdx}
                                                                                     onClick={() => groupObj && openFicha(groupObj)}
-                                                                                    className="bg-white p-2 rounded border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex justify-between items-center group"
+                                                                                    className="bg-white p-2 rounded border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
                                                                                 >
-                                                                                    <span className="text-xs font-bold text-slate-700 group-hover:text-blue-600 truncate">{groupName}</span>
-                                                                                    <IconChevronRight size={12} className="text-slate-300 group-hover:text-blue-500" />
+                                                                                    <div className="flex justify-between items-center mb-1">
+                                                                                        <span className="text-[10px] font-black text-slate-400 tracking-wider">#{groupObj?.records[0]?.["Reserva"] || "-"}</span>
+                                                                                        <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded uppercase">{groupObj?.records[0]?.["Hotel"] || groupObj?.records[0]?.["Hotel_Asignado"] || "S/H"}</span>
+                                                                                    </div>
+                                                                                    <div className="flex justify-between items-center">
+                                                                                        <span className="text-xs font-bold text-slate-800 group-hover:text-blue-600 truncate">{groupName}</span>
+                                                                                        <IconChevronRight size={14} className="text-slate-300 group-hover:text-blue-500" />
+                                                                                    </div>
                                                                                 </div>
                                                                             );
                                                                         })}
@@ -1597,8 +1852,8 @@
                         </div>
                     )}
                     {showFichaModal && selectedGroupFicha && (
-                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col animate-fade-in border border-slate-200">
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-2">
+                            <div className="bg-white rounded-xl shadow-2xl w-[98vw] h-[95vh] overflow-hidden flex flex-col animate-fade-in border border-slate-200 text-sm">
                                 {/* CENTRO DE MANDO NEXUS (Header + Acciones) */}
                                 <div className="bg-[#0f172a] text-white p-3 border-b border-white/10 shrink-0">
                                     <div className="flex justify-between items-start gap-4">
@@ -1608,12 +1863,15 @@
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <h3 className="text-xl font-black tracking-tight leading-none text-emerald-400">{selectedGroupFicha.name}</h3>
+                                                    <h3 className="text-xl font-black tracking-tight leading-none text-emerald-400">{selectedGroupFicha.name || "NOMBRE DEL GRUPO"}</h3>
                                                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${(selectedGroupFicha.records[0]?.["Estado"] || "").toLowerCase().includes('conf') ? 'bg-emerald-400 text-slate-900' : 'bg-orange-400 text-slate-900'}`}>
                                                         {selectedGroupFicha.records[0]?.["Estado"] || 'PROSPECTO'}
                                                     </span>
                                                     <span className="bg-white/10 px-2 py-0.5 rounded text-[8px] font-black text-white/80 uppercase">
                                                         {selectedGroupFicha.records[0]?.["Régimen"] || 'HD'}
+                                                    </span>
+                                                    <span className="bg-blue-500/20 px-2 py-0.5 rounded text-[8px] font-black text-blue-200 uppercase border border-blue-500/30">
+                                                        {selectedGroupFicha.records[0]?.["Segment."] || 'GRUPOS'}
                                                     </span>
                                                 </div>
                                                 <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest mt-1">
@@ -1625,12 +1883,39 @@
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => {
+                                                    // Ensure we are passing the most up-to-date record which contains all metadata updates
+                                                    const baseRecord = selectedGroupFicha.records[0] || {};
+
+                                                    // Recalculate Forecast for Proforma to ensure sync with Tarifa Neta
+                                                    const neto = parseFloat(baseRecord["Com_Precio"] || "0");
+                                                    const pax = parseInt(selectedGroupFicha.totalPax || 0);
+                                                    const noches = parseInt(selectedGroupFicha.totalNights || 1);
+                                                    const calculatedImporte = neto > 0 ? (neto * pax * noches).toFixed(2) : (selectedGroupFicha.totalRevenue || baseRecord["Importe(*)"]);
+
                                                     const proformaData = {
-                                                        ...selectedGroupFicha.records[0],
-                                                        "Importe(*)": selectedGroupFicha.totalRevenue,
-                                                        "Pax.": selectedGroupFicha.totalPax,
-                                                        "Hotel_Asignado": selectedGroupFicha.records[0]?.["Hotel"] || "Guadiana"
+                                                        ...baseRecord,
+                                                        "Importe(*)": calculatedImporte,
+                                                        "Pax.": selectedGroupFicha.totalPax || baseRecord["Pax."],
+                                                        "Hotel_Asignado": baseRecord["Hotel_Asignado"] || baseRecord["Hotel"] || "Guadiana"
                                                     };
+
+                                                    // Map Room Manager items to Proforma Items if they exist
+                                                    try {
+                                                        const roomList = JSON.parse(baseRecord["RoomingList_JSON"] || "[]");
+                                                        if (roomList.length > 0) {
+                                                            const mappedItems = roomList.map(r => ({
+                                                                fecha: r.dateIn,
+                                                                hab: r.qty.toString(),
+                                                                cant: '',
+                                                                concepto: `${r.type} (${r.regime})`,
+                                                                precio: parseFloat(r.price),
+                                                                iva: 10
+                                                            }));
+                                                            proformaData["ProformaItems"] = mappedItems;
+                                                            proformaData["Importe(*)"] = roomList.reduce((acc, r) => acc + parseFloat(r.total), 0).toFixed(2);
+                                                        }
+                                                    } catch (e) { console.error("Error mapping room list", e); }
+
                                                     localStorage.setItem('selectedGroup', JSON.stringify(proformaData));
                                                     window.location.href = 'Fac Prof.html';
                                                 }}
@@ -1656,200 +1941,379 @@
 
                                 <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-slate-50/50">
                                     {/* DASHBOARD COMERCIAL HORIZONTAL - FORZADO CON GRID INLINE */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '8px' }}>
-                                        {/* Bloque 1: Estrategia y Control */}
-                                        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Tarifa Neta</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-slate-800"
-                                                        value={selectedGroupFicha.records[0]?.["Com_Precio"] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Precio", e.target.value)}
-                                                        placeholder="0.00 €"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Release %</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-slate-800"
-                                                        value={selectedGroupFicha.records[0]?.["Com_Relix"] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Relix", e.target.value)}
-                                                        placeholder="0%"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Pick-up PAX</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-emerald-600 text-center"
-                                                        value={selectedGroupFicha.records[0]?.["Com_Pickup"] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Pickup", e.target.value)}
-                                                        placeholder="0"
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Fase Comercial</label>
-                                                    <select
-                                                        className="w-full bg-slate-100 border border-slate-200 rounded p-1 text-[9px] font-black text-slate-700 uppercase"
-                                                        value={selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "Prospecto"}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Estado_Interno", e.target.value)}
-                                                    >
-                                                        <option>PROSPECTO</option>
-                                                        <option>ENVIADO</option>
-                                                        <option>SEGUIMIENTO</option>
-                                                        <option>CONFIRMADO</option>
-                                                        <option>CONTRATO OK</option>
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Régimen</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[11px] font-black text-slate-800 text-center uppercase"
-                                                        value={selectedGroupFicha.records[0]?.["Régimen"] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Régimen", e.target.value)}
-                                                        placeholder="HD..."
-                                                    />
+                                    {/* DASHBOARD INTELIGENTE */}
+                                    {(() => {
+                                        const now = new Date();
+                                        let daysToArrival = 0;
+
+                                        // Robust Date Parsing for Arrival
+                                        if (selectedGroupFicha.arrival) {
+                                            const d = new Date(selectedGroupFicha.arrival);
+                                            if (!isNaN(d.getTime())) {
+                                                const diffTime = d - now;
+                                                daysToArrival = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                            }
+                                        }
+
+                                        const releaseDateStr = selectedGroupFicha.records[0]?.["Com_Vencimiento_Rel"];
+                                        let daysToRelease = null;
+                                        if (releaseDateStr) {
+                                            const releaseDate = new Date(releaseDateStr);
+                                            if (!isNaN(releaseDate.getTime())) {
+                                                daysToRelease = Math.ceil((releaseDate - now) / (1000 * 60 * 60 * 24));
+                                            }
+                                        }
+
+                                        const neto = parseFloat(selectedGroupFicha.records[0]?.["Com_Precio"] || "0");
+                                        const pax = parseInt(selectedGroupFicha.totalPax || 0);
+                                        const noches = parseInt(selectedGroupFicha.totalNights || 1);
+                                        // Auto-calculate forecast if Net Rate is input, otherwise use Importe(*)
+                                        const forecastVal = neto > 0 ? (neto * pax * noches).toFixed(2) : selectedGroupFicha.totalRevenue;
+
+                                        return (
+                                            <div className="flex flex-col gap-2 mb-2">
+                                                {/* HEADER COMPACTO: ESTADO Y DATOS CLAVE */}
+                                                <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                                    {/* Estado */}
+                                                    {/* Estado */}
+                                                    <div className="w-40 relative">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Estado del Grupo</label>
+                                                        <div className="relative h-10 w-full">
+                                                            <select
+                                                                className={`w-full h-full pl-3 pr-8 text-xs font-black uppercase rounded-lg text-white appearance-none outline-none border-2 border-transparent transition-all shadow-md cursor-pointer ${(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "Prospecto") === 'CONFIRMADO' ? 'bg-emerald-500 hover:bg-emerald-600' :
+                                                                    (selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "Prospecto") === 'BLOQUEADO' ? 'bg-indigo-500 hover:bg-indigo-600' :
+                                                                        (selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "Prospecto") === 'ENVIADO' ? 'bg-amber-400 hover:bg-amber-500 text-amber-900' :
+                                                                            (selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "Prospecto") === 'CANCELADO' ? 'bg-red-500 hover:bg-red-600' :
+                                                                                'bg-slate-500 hover:bg-slate-600'
+                                                                    }`}
+                                                                value={selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "Prospecto"}
+                                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Estado_Interno", e.target.value)}
+                                                                style={{ WebkitAppearance: 'none', MozAppearance: 'none' }} // Force appearance-none
+                                                            >
+                                                                <option className="bg-white text-slate-800 font-bold" value="PROSPECTO">PROSPECTO</option>
+                                                                <option className="bg-white text-slate-800 font-bold" value="ENVIADO">ENVIADO</option>
+                                                                <option className="bg-white text-indigo-600 font-bold" value="BLOQUEADO">BLOQUEADO</option>
+                                                                <option className="bg-white text-emerald-600 font-bold" value="CONFIRMADO">CONFIRMADO</option>
+                                                                <option className="bg-white text-red-600 font-bold" value="CANCELADO">CANCELADO</option>
+                                                            </select>
+                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/80">
+                                                                <IconChevronDown size={14} stroke={3} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Botón Datos Cliente */}
+                                                    {/* Botón Datos Cliente + Segmentación */}
+                                                    <div className="flex-1 flex gap-2">
+                                                        <button
+                                                            onClick={() => setShowClientData(true)}
+                                                            className="flex-1 flex flex-col justify-center px-3 py-1 bg-white border border-blue-200 hover:border-blue-400 rounded group transition-all relative overflow-hidden"
+                                                        >
+                                                            {/* Segmentación como Marca de Agua / Etiqueta Flotante */}
+                                                            <div className="absolute top-0 right-0 bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-bl shadow-sm border-b border-l border-blue-200 uppercase tracking-wider">
+                                                                {selectedGroupFicha.records[0]?.["Segment."] || 'GRUPOS'}
+                                                            </div>
+
+                                                            <div className="flex items-center gap-1.5 mt-2">
+                                                                <div className="bg-blue-100 p-1 rounded-full text-blue-600">
+                                                                    <IconUsers size={12} />
+                                                                </div>
+                                                                <div className="text-left w-full overflow-hidden">
+                                                                    <div className="text-[9px] font-black text-slate-400 uppercase leading-none mb-0.5">
+                                                                        Cliente / Agencia
+                                                                    </div>
+                                                                    <div className="text-xs font-bold text-slate-800 truncate w-full pr-16" title={selectedGroupFicha.records[0]?.["Fiscal_RazonSocial"] || selectedGroupFicha.records[0]?.["Empresa/Agencia"] || "Sin Datos"}>
+                                                                        {selectedGroupFicha.records[0]?.["Fiscal_RazonSocial"] || selectedGroupFicha.records[0]?.["Empresa/Agencia"] || "Indefinido"}
+                                                                    </div>
+                                                                </div>
+                                                                <IconMore size={16} className="text-slate-300 group-hover:text-blue-500 ml-auto" />
+                                                            </div>
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Forecast & Release - Compacted */}
+                                                    <div className="flex gap-2">
+                                                        <div className="w-20 text-right">
+                                                            <label className="text-[8px] font-black text-slate-400 uppercase block">Forecast</label>
+                                                            <span className="text-xs font-black text-emerald-600 font-mono tracking-tight">{forecastVal} €</span>
+                                                        </div>
+                                                        <div className="w-16 text-center">
+                                                            <label className="text-[8px] font-black text-slate-400 uppercase block">Release</label>
+                                                            <span className={`text-[10px] font-bold px-1 rounded ${daysToRelease < 7 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                                {daysToRelease !== null ? daysToRelease + 'd' : '-'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            {/* Más Datos Comerciales */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Rentabilidad</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[10px] font-black text-emerald-600"
-                                                        value={selectedGroupFicha.records[0]?.["Com_Rentabilidad"] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Rentabilidad", e.target.value)}
-                                                        placeholder="0.00 €"
-                                                    />
+                                        );
+                                    })()}
+
+                                    {/* GESTOR DE HABITACIONES & INVENTARIO (REDISEÑADO) */}
+                                    <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-1.5 bg-blue-100/50 rounded-lg text-blue-600">
+                                                    <IconBed size={16} stroke={2.5} />
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Vto. Release</label>
-                                                    <input
-                                                        type="date"
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[10px] font-bold text-red-500"
-                                                        value={selectedGroupFicha.records[0]?.["Com_Vencimiento_Rel"] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Vencimiento_Rel", e.target.value)}
-                                                    />
+                                                <div>
+                                                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wide">Gestión de Habitaciones</h4>
+                                                    <p className="text-[10px] text-slate-400 font-medium leading-none">Inventario y Tarifas por Tipo</p>
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Email</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-[10px] font-medium text-slate-600"
-                                                        value={selectedGroupFicha.records[0]?.["Com_Email_Contacto"] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Email_Contacto", e.target.value)}
-                                                        placeholder="Email..."
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[8px] font-black text-slate-400 uppercase">Hotel</label>
-                                                    <select
-                                                        className="w-full bg-slate-100 border border-slate-200 rounded p-1 text-[10px] font-black text-slate-600 uppercase"
-                                                        value={selectedGroupFicha.records[0]?.["Hotel"] || "Guadiana"}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Hotel", e.target.value)}
-                                                    >
-                                                        <option>Guadiana</option>
-                                                        <option>Cumbria</option>
-                                                    </select>
-                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Forecast Real</span>
+                                                <span className="text-sm font-black text-emerald-600 font-mono bg-white px-2 py-0.5 rounded border border-emerald-100 shadow-sm">
+                                                    {(JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]").reduce((acc, i) => acc + parseFloat(i.total), 0)).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                                                </span>
                                             </div>
                                         </div>
 
-                                        {/* Bloque 2: Información Operativa (Timing + Noches) */}
-                                        <div className="bg-[#2d5a43] px-3 py-2 rounded-lg text-white shadow-md flex items-center justify-between gap-4 h-fit self-start mt-2">
-                                            <div className="flex-1 space-y-0.5">
-                                                <div className="flex justify-between items-center text-[7px] font-bold border-b border-white/10 pb-0.5">
-                                                    <span className="opacity-60">IN</span>
-                                                    <span className="font-black text-[11px]">{formatDate(selectedGroupFicha.arrival)}</span>
+                                        {/* Formulario de Entrada - Diseño Compacto */}
+                                        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm mb-3">
+                                            <div className="flex items-end gap-3 flex-wrap xl:flex-nowrap">
+                                                <div className="flex-grow min-w-[200px]">
+                                                    <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Producto / Habitación</label>
+                                                    <div className="relative">
+                                                        <select
+                                                            className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                                                            value={roomManagerForm.type}
+                                                            onChange={e => setRoomManagerForm({ ...roomManagerForm, type: e.target.value })}
+                                                        >
+                                                            <option>Habitación Doble (DBL)</option>
+                                                            <option>Habitación Twin (TWI)</option>
+                                                            <option>Habitación Individual (DUI)</option>
+                                                            <option>Habitación Triple (TRI)</option>
+                                                            <option>Junior Suite (JSU)</option>
+                                                            <option>Doble Superior (DSUP)</option>
+                                                        </select>
+                                                        <IconChevronDown className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={14} />
+                                                    </div>
                                                 </div>
-                                                <div className="flex justify-between items-center text-[7px] font-bold pt-0.5">
-                                                    <span className="opacity-60">OUT</span>
-                                                    <span className="font-black text-[11px]">{formatDate(selectedGroupFicha.departure)}</span>
-                                                </div>
-                                            </div>
-                                            <div className="pl-3 border-l border-white/20 text-center">
-                                                <p className="text-[7px] font-black opacity-60 uppercase leading-none">Noches</p>
-                                                <p className="text-xl font-black leading-none mt-0.5">{selectedGroupFicha.totalNights}</p>
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    {/* INVENTARIO COMPACTO */}
-                                    <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3">
-                                        <div className="px-2 border-r border-slate-100 text-[8px] font-black text-slate-400 uppercase shrink-0">Inv Hab:</div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {[
-                                                { label: "D.STD", key: "Room_DSTD", color: "border-emerald-500" },
-                                                { label: "D.SUP", key: "Room_DSUP", color: "border-blue-500" },
-                                                { label: "SUI", key: "Room_SUI", color: "border-purple-500" },
-                                                { label: "S.SUP", key: "Room_SSUP", color: "border-indigo-500" },
-                                                { label: "CUA", key: "Room_CUA", color: "border-orange-500" }
-                                            ].map((item) => (
-                                                <div key={item.key} className={`flex items-center bg-slate-50 border-l-2 ${item.color} rounded px-1.5 py-0.5`}>
-                                                    <span className="text-[7px] font-black text-slate-500 mr-1 uppercase">{item.label}</span>
-                                                    <input
-                                                        type="number"
-                                                        className="w-8 bg-transparent border-none p-0 text-[10px] font-black text-slate-800 text-center"
-                                                        value={selectedGroupFicha.records[0]?.[item.key] || ""}
-                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, item.key, e.target.value)}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* FINANZAS Y BITÁCORA SIDE-BY-SIDE INTEGRADO */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '8px' }}>
-                                        {/* Tesorería Compacta */}
-                                        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tesorería</p>
-                                                <button
-                                                    onClick={() => calculateDeposits(selectedGroupFicha)}
-                                                    className="text-[7px] bg-emerald-50 text-emerald-600 font-black px-1.5 py-0.5 rounded border border-emerald-100 transition-colors"
-                                                >
-                                                    AUTOCALCULAR (30/70%)
-                                                </button>
-                                            </div>
-                                            {[
-                                                { label: "DEP 1 (30%)", key: "Dep1", color: "text-emerald-600" },
-                                                { label: "FINAL (70%)", key: "Dep2", color: "text-blue-600" }
-                                            ].map((dep) => (
-                                                <div key={dep.key} className="flex items-center justify-between bg-slate-50 p-1.5 rounded border border-slate-100">
-                                                    <div className="text-left">
-                                                        <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">{dep.label}</p>
+                                                <div className="flex gap-2">
+                                                    <div className="w-28">
+                                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Llegada</label>
                                                         <input
-                                                            type="text"
-                                                            className="bg-transparent border-none p-0 text-[11px] font-black text-slate-800 w-20"
-                                                            value={selectedGroupFicha.records[0]?.[`${dep.key}_Importe`] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, `${dep.key}_Importe`, e.target.value)}
-                                                            placeholder="0.00 €"
+                                                            type="date"
+                                                            className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-medium text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                                            value={roomManagerForm.dateIn}
+                                                            onChange={e => setRoomManagerForm({ ...roomManagerForm, dateIn: e.target.value })}
                                                         />
                                                     </div>
-                                                    <button
-                                                        onClick={() => updateGroupMetadata(selectedGroupFicha.name, `${dep.key}_Status`, selectedGroupFicha.records[0]?.[`${dep.key}_Status`] === "Cobrado" ? "Pendiente" : "Cobrado")}
-                                                        className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${selectedGroupFicha.records[0]?.[`${dep.key}_Status`] === "Cobrado" ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}
-                                                    >
-                                                        {selectedGroupFicha.records[0]?.[`${dep.key}_Status`] || 'PND'}
-                                                    </button>
+                                                    <div className="w-28">
+                                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1">Salida</label>
+                                                        <input
+                                                            type="date"
+                                                            className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-medium text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                                            value={roomManagerForm.dateOut}
+                                                            onChange={e => setRoomManagerForm({ ...roomManagerForm, dateOut: e.target.value })}
+                                                        />
+                                                    </div>
                                                 </div>
-                                            ))}
+
+                                                <div className="w-16">
+                                                    <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center">Cant.</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg text-center text-xs font-black text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                                                        value={roomManagerForm.qty}
+                                                        onChange={e => setRoomManagerForm({ ...roomManagerForm, qty: e.target.value })}
+                                                    />
+                                                </div>
+
+                                                <div className="w-20">
+                                                    <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center">Régimen</label>
+                                                    <select
+                                                        className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-1 text-center text-xs font-bold text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 appearance-none"
+                                                        value={roomManagerForm.regime}
+                                                        onChange={e => setRoomManagerForm({ ...roomManagerForm, regime: e.target.value })}
+                                                    >
+                                                        <option>AD</option>
+                                                        <option>MP</option>
+                                                        <option>PC</option>
+                                                        <option>SA</option>
+                                                        <option>TI</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="w-24">
+                                                    <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-right">Precio/U</label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-6 text-right text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                                                            value={roomManagerForm.price}
+                                                            onChange={e => setRoomManagerForm({ ...roomManagerForm, price: e.target.value })}
+                                                        />
+                                                        <span className="absolute right-2 top-2.5 text-[10px] text-slate-400 font-bold">€</span>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={addRoomBlock}
+                                                    className={`h-9 px-6 ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'} text-white rounded-lg shadow-md active:scale-95 transition-all flex items-center gap-2`}
+                                                >
+                                                    {editingId ? <IconRefresh size={14} stroke={3} /> : <span className="text-sm font-bold">+</span>}
+                                                    <span className="text-xs font-bold uppercase">{editingId ? 'Actualizar' : 'Añadir'}</span>
+                                                </button>
+                                                {editingId && (
+                                                    <button onClick={() => { setEditingId(null); setRoomManagerForm(prev => ({ ...prev, qty: 1, price: 0 })); }} className="px-2 text-slate-400 hover:text-slate-600">
+                                                        <IconX size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Tabla de Resultados - Clean UI */}
+                                        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <thead className="bg-slate-50 border-b border-slate-200">
+                                                    <tr>
+                                                        <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider">Producto</th>
+                                                        <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider">Fechas</th>
+                                                        <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Noches</th>
+                                                        <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Hab</th>
+                                                        <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Rég.</th>
+                                                        <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right">P. Unit</th>
+                                                        <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right bg-slate-100/50">Total</th>
+                                                        <th className="py-2.5 px-3 w-8"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {(JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]")).map((item) => (
+                                                        <tr key={item.id} className="hover:bg-blue-50/50 transition-colors group">
+                                                            <td className="py-2 px-3 font-bold text-slate-700">{item.type}</td>
+                                                            <td className="py-2 px-3">
+                                                                <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-fit">
+                                                                    <span>{new Date(item.dateIn).toLocaleDateString()}</span>
+                                                                    <IconArrowRight size={10} className="text-slate-300" />
+                                                                    <span>{new Date(item.dateOut).toLocaleDateString()}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-2 px-3 text-center">
+                                                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">{item.nights}</span>
+                                                            </td>
+                                                            <td className="py-2 px-3 text-center font-bold text-slate-800">{item.qty}</td>
+                                                            <td className="py-2 px-3 text-center">
+                                                                <span className="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-1.5 py-0.5 rounded">{item.regime}</span>
+                                                            </td>
+                                                            <td className="py-2 px-3 text-right font-medium text-slate-600">{parseFloat(item.price).toFixed(2)} €</td>
+                                                            <td className="py-1 px-2 text-right font-black text-emerald-600 bg-emerald-50/30">{parseFloat(item.total).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
+                                                            <td className="py-1 px-2 text-center flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button
+                                                                    onClick={() => handleEditRoomBlock(item)}
+                                                                    className="p-1 hover:bg-amber-100 text-slate-300 hover:text-amber-500 rounded transition-colors"
+                                                                    title="Editar"
+                                                                >
+                                                                    <IconEdit size={14} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => removeRoomBlock(item.id)}
+                                                                    className="p-1 hover:bg-rose-100 text-slate-300 hover:text-rose-500 rounded transition-colors"
+                                                                    title="Eliminar"
+                                                                >
+                                                                    <IconTrash size={14} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {(JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]")).length === 0 && (
+                                                        <tr>
+                                                            <td colSpan="8" className="py-8 text-center">
+                                                                <div className="flex flex-col items-center justify-center text-slate-300">
+                                                                    <IconBed size={32} stroke={1} className="mb-2 opacity-50" />
+                                                                    <p className="text-xs font-medium italic">No hay habitaciones asignadas.</p>
+                                                                    <p className="text-[10px]">Usa el formulario superior para añadir inventario.</p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* FINANZAS Y BITÁCORA - Premium Layout */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                        {/* Tesorería - Horizontal Cards */}
+                                        <div className="lg:col-span-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                                            <div className="flex justify-between items-center mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="bg-emerald-100 p-1 rounded text-emerald-600">
+                                                        <IconPieChart size={14} />
+                                                    </div>
+                                                    <h4 className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Plan de Tesorería</h4>
+                                                </div>
+                                                <div className="flex bg-slate-100 rounded-lg p-0.5">
+                                                    <button onClick={() => calculateDeposits(selectedGroupFicha, [30, 70])} className="px-2 py-0.5 text-[9px] font-bold text-slate-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm rounded transition-all">30/70</button>
+                                                    <button onClick={() => calculateDeposits(selectedGroupFicha, [50, 50])} className="px-2 py-0.5 text-[9px] font-bold text-slate-600 hover:bg-white hover:text-blue-600 hover:shadow-sm rounded transition-all">50/50</button>
+                                                    <button onClick={() => calculateDeposits(selectedGroupFicha, [100])} className="px-2 py-0.5 text-[9px] font-bold text-slate-600 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded transition-all">100%</button>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                    { key: "Dep1", label: "Inicial", color: "blue" },
+                                                    { key: "Dep2", label: "2º Pago", color: "indigo" },
+                                                    { key: "Dep3", label: "Final", color: "emerald" }
+                                                ].map((dep) => {
+                                                    const isPaid = selectedGroupFicha.records[0]?.[`${dep.key}_Status`] === "Cobrado";
+                                                    const percent = selectedGroupFicha.records[0]?.[`${dep.key}_Percent`] || "0%";
+                                                    const amount = selectedGroupFicha.records[0]?.[`${dep.key}_Importe`] || "0";
+
+                                                    return (
+                                                        <div key={dep.key} className={`relative p-1.5 rounded-lg border ${isPaid ? `bg-${dep.color}-50 border-${dep.color}-200` : 'bg-slate-50 border-slate-100'} transition-all hover:shadow-md group`}>
+                                                            <div className="flex justify-between items-center mb-0.5">
+                                                                <span className={`text-[8px] font-black uppercase ${isPaid ? `text-${dep.color}-700` : 'text-slate-400'}`}>{dep.label}</span>
+                                                                <span className="text-[8px] font-bold text-slate-400 bg-white/50 px-1 rounded">{percent}</span>
+                                                            </div>
+
+                                                            <div className="text-center py-0.5 mb-1">
+                                                                <span className={`text-xs font-black tracking-tight ${isPaid ? `text-${dep.color}-700` : 'text-slate-700'}`}>{amount} €</span>
+                                                            </div>
+
+                                                            <div className="flex gap-1">
+                                                                <input
+                                                                    type="date"
+                                                                    className={`flex-1 min-w-0 bg-white/50 border border-transparent hover:border-slate-200 rounded px-1 py-0.5 text-[8px] font-bold text-slate-600 text-center focus:outline-none`}
+                                                                    value={selectedGroupFicha.records[0]?.[`${dep.key}_Fecha`] || ""}
+                                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, `${dep.key}_Fecha`, e.target.value)}
+                                                                />
+                                                                <button
+                                                                    onClick={() => updateGroupMetadata(selectedGroupFicha.name, `${dep.key}_Status`, isPaid ? "Pendiente" : "Cobrado")}
+                                                                    className={`flex-1 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${isPaid ? `bg-${dep.color}-500 text-white shadow-sm` : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}`}
+                                                                >
+                                                                    {isPaid ? <IconCheck size={8} stroke={4} /> : null}
+                                                                    {isPaid ? 'OK' : 'PND'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
 
                                         {/* Bitácora / Notas Operativas */}
-                                        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col">
-                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Notas de Control Comercial / Operativo</p>
-                                            <textarea
-                                                className="flex-1 w-full min-h-[60px] bg-slate-50 border border-slate-100 rounded p-2 text-[10px] font-medium text-slate-700 focus:outline-none resize-none"
-                                                placeholder="Añadir seguimiento aquí..."
-                                                value={selectedGroupFicha.records[0]?.["Com_Notas"] || ""}
-                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Notas", e.target.value)}
-                                            ></textarea>
+                                        <div className="lg:col-span-1 bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-2 opacity-5">
+                                                <IconFile size={60} />
+                                            </div>
+                                            <div className="flex items-center gap-2 mb-2 z-10">
+                                                <div className="bg-amber-100 p-1 rounded text-amber-600">
+                                                    <IconEdit size={14} />
+                                                </div>
+                                                <h4 className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Notas de Control</h4>
+                                            </div>
+                                            <div className="flex-1 z-10">
+                                                <textarea
+                                                    className="w-full h-full bg-amber-50/50 border border-amber-100 rounded-lg p-2 text-[10px] font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none leading-relaxed placeholder-amber-300"
+                                                    placeholder="Escribe aquí notas operativas, recordatorios o detalles importantes del grupo..."
+                                                    value={selectedGroupFicha.records[0]?.["Com_Notas"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Notas", e.target.value)}
+                                                ></textarea>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1885,45 +2349,160 @@
                                 </div>
                             </div>
                         </div>
-                    )}
+                    )
+                    }
 
-                    {/* Modal Selección de Hotel para Importación */}
-                    {isHotelModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-                            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-fade-in text-center">
-                                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                                    <IconUpload size={32} />
+                    {/* Popup Datos Cliente - Desacoplado con Z-Index Corregido */}
+                    {showClientData && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100]">
+                            <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-2xl border border-slate-200 overflow-hidden animate-fade-in">
+                                <div className="bg-slate-100 p-3 border-b flex justify-between items-center">
+                                    <h3 className="font-black text-slate-700 uppercase text-xs flex items-center gap-2">
+                                        <IconUsers size={16} /> Datos de Cliente, Operativa y Fiscal
+                                    </h3>
+                                    <button onClick={() => setShowClientData(false)} className="text-slate-400 hover:text-red-500"><IconX size={18} /></button>
                                 </div>
-                                <h3 className="text-xl font-bold text-slate-800 mb-2">¿A qué hotel pertenecen estos datos?</h3>
-                                <p className="text-sm text-slate-500 mb-8">Selecciona el hotel para asignar correctamente las reservas importadas.</p>
+                                <div className="p-4 space-y-4">
+                                    {/* Operativa */}
+                                    <div>
+                                        <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2 border-b border-blue-100 pb-1">Operativa</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <div className="col-span-2">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Email Contacto</label>
+                                                <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
+                                                    value={selectedGroupFicha.records[0]?.["Com_Email_Contacto"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Email_Contacto", e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Régimen</label>
+                                                <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
+                                                    value={selectedGroupFicha.records[0]?.["Régimen"] || "HD"}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Régimen", e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Hotel</label>
+                                                <select className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
+                                                    value={selectedGroupFicha.records[0]?.["Hotel"] || "Guadiana"}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Hotel", e.target.value)}
+                                                >
+                                                    <option>Guadiana</option>
+                                                    <option>Cumbria</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Comercial Asignado</label>
+                                                <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
+                                                    value={selectedGroupFicha.records[0]?.["Com_Comercial"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Comercial", e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Pickup</label>
+                                                <input type="text" className="w-full bg-emerald-50 border border-emerald-100 rounded px-2 py-1.5 text-xs font-black text-emerald-600 text-center"
+                                                    value={selectedGroupFicha.records[0]?.["Com_Pickup"] || "0"}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Pickup", e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Release (Días)</label>
+                                                <div className="flex gap-2">
+                                                    <input type="text" className="w-12 bg-slate-50 border border-slate-200 rounded px-1 text-center font-bold text-slate-700" value={selectedGroupFicha.records[0]?.["Com_Relix"] || "22"} onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Relix", e.target.value)} />
+                                                    <input type="date" className="flex-1 bg-slate-50 border border-slate-200 rounded px-1 text-[10px]" value={selectedGroupFicha.records[0]?.["Com_Vencimiento_Rel"] || ""} onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Vencimiento_Rel", e.target.value)} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                <div className="grid grid-cols-1 gap-4">
-                                    <button
-                                        onClick={() => confirmHotelAndProcess("Sercotel Guadiana")}
-                                        className="py-4 bg-slate-50 border-2 border-slate-100 hover:border-emerald-500 hover:bg-emerald-50 rounded-2xl font-bold text-slate-700 transition-all flex flex-col items-center gap-1 group"
-                                    >
-                                        <span className="text-emerald-600">Sercotel Guadiana</span>
-                                        <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest">Hotel Principal</span>
-                                    </button>
-                                    <button
-                                        onClick={() => confirmHotelAndProcess("Cumbria Spa & Hotel")}
-                                        className="py-4 bg-slate-50 border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 rounded-2xl font-bold text-slate-700 transition-all flex flex-col items-center gap-1 group"
-                                    >
-                                        <span className="text-blue-600">Cumbria Spa & Hotel</span>
-                                        <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest">Hotel Asociado</span>
-                                    </button>
+                                    {/* Fiscal */}
+                                    <div>
+                                        <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2 border-b border-emerald-100 pb-1">Datos Fiscales (Facturación)</h4>
+                                        <div className="grid grid-cols-12 gap-3">
+                                            <div className="col-span-8">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Razón Social</label>
+                                                <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold text-slate-800 focus:ring-2 ring-emerald-100"
+                                                    value={selectedGroupFicha.records[0]?.["Fiscal_RazonSocial"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_RazonSocial", e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-4">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">CIF / NIF</label>
+                                                <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
+                                                    value={selectedGroupFicha.records[0]?.["Fiscal_CIF"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_CIF", e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-12">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Dirección Completa</label>
+                                                <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-600"
+                                                    value={selectedGroupFicha.records[0]?.["Fiscal_Direccion"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_Direccion", e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">CP</label>
+                                                <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-600"
+                                                    value={selectedGroupFicha.records[0]?.["Fiscal_CP"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_CP", e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="col-span-9">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase">Población / Provincia</label>
+                                                <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-600"
+                                                    value={selectedGroupFicha.records[0]?.["Fiscal_Poblacion"] || ""}
+                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_Poblacion", e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-
-                                <button
-                                    onClick={() => { setIsHotelModalOpen(false); setPendingFile(null); }}
-                                    className="mt-6 text-slate-400 hover:text-slate-600 text-sm font-bold uppercase tracking-widest"
-                                >
-                                    Cancelar
-                                </button>
+                                <div className="p-3 bg-slate-50 border-t flex justify-end">
+                                    <button onClick={() => setShowClientData(false)} className="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-700">Guardar y Cerrar</button>
+                                </div>
                             </div>
                         </div>
                     )}
-                </div>
+
+                    {/* Modal Selección de Hotel para Importación */}
+                    {
+                        isHotelModalOpen && (
+                            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+                                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-fade-in text-center">
+                                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                        <IconUpload size={32} />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-2">¿A qué hotel pertenecen estos datos?</h3>
+                                    <p className="text-sm text-slate-500 mb-8">Selecciona el hotel para asignar correctamente las reservas importadas.</p>
+
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <button
+                                            onClick={() => confirmHotelAndProcess("Sercotel Guadiana")}
+                                            className="py-4 bg-slate-50 border-2 border-slate-100 hover:border-emerald-500 hover:bg-emerald-50 rounded-2xl font-bold text-slate-700 transition-all flex flex-col items-center gap-1 group"
+                                        >
+                                            <span className="text-emerald-600">Sercotel Guadiana</span>
+                                            <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest">Hotel Principal</span>
+                                        </button>
+                                        <button
+                                            onClick={() => confirmHotelAndProcess("Cumbria Spa & Hotel")}
+                                            className="py-4 bg-slate-50 border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 rounded-2xl font-bold text-slate-700 transition-all flex flex-col items-center gap-1 group"
+                                        >
+                                            <span className="text-blue-600">Cumbria Spa & Hotel</span>
+                                            <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest">Hotel Asociado</span>
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        onClick={() => { setIsHotelModalOpen(false); setPendingFile(null); }}
+                                        className="mt-6 text-slate-400 hover:text-slate-600 text-sm font-bold uppercase tracking-widest"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        )
+                    }
+                </div >
             );
         };
 

@@ -98,7 +98,7 @@
                 },
                 system: {
                     pin: "1234",
-                    geminiModel: "gemini-1.5-flash",
+                    geminiModel: "gemini-2.5-flash",
                     iaStatus: "Online"
                 }
             });
@@ -253,8 +253,8 @@
                                                     <div>
                                                         <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Modelo Seleccionado</label>
                                                         <select value={config.system.geminiModel} onChange={(e) => handleChange('system', 'geminiModel', e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-bold outline-none focus:bg-white/20 transition-all">
-                                                            <option className="text-slate-800" value="gemini-1.5-flash">Gemini 1.5 Flash (Recomendado)</option>
-                                                            <option className="text-slate-800" value="gemini-1.5-pro">Gemini 1.5 Pro (Alta Precisión)</option>
+                                                            <option className="text-slate-800" value="gemini-2.5-flash">Gemini 2.5 Flash (Recomendado)</option>
+                                                            <option className="text-slate-800" value="gemini-2.5-pro">Gemini 2.5 Pro (Alta Precisión)</option>
                                                             <option className="text-slate-800" value="gemini-2.0-flash-preview">Gemini 2.0 Flash Preview</option>
                                                         </select>
                                                     </div>
