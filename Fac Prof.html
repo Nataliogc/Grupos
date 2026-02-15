@@ -600,7 +600,7 @@
         setInterval(syncFields, 1000);
 
         async function callGemini(prompt) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: "Eres un asistente de recepción de un hotel de lujo (Hotel Guadiana). Tu tono es profesional, cortés y servicial. Siempre respondes en español." }] }
