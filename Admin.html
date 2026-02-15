@@ -127,26 +127,35 @@
         };
 
         // --- MÓDULO IA (CONEXIÓN SEGURA) ---
+        // --- MÓDULO IA ESTRATÉGICA (GEMINI 1.5 FLASH) ---
         async function analizarGrupos(datos) {
-            // URL de tu función desplegada (Ajustar según tu despliegue)
-            const CLOUD_FUNCTION_URL = "https://analizargruposia-nls6pa6unq-uc.a.run.app";
+            const apiKey = window.firebaseConfig.apiKey;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            const prompt = `
+            Actúa como un experto analista de Revenue Management hotelero.
+            Analiza los siguientes datos de grupos y dame un informe estratégico breve en Markdown:
+            ${JSON.stringify(datos)}
+            `;
 
             try {
-                const response = await fetch(CLOUD_FUNCTION_URL, {
+                const response = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ datos: datos })
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
                 });
 
                 if (!response.ok) {
                     const errorDetails = await response.text();
-                    throw new Error(`Error en Cloud Function: ${errorDetails}`);
+                    throw new Error(`Error en API Gemini: ${errorDetails}`);
                 }
 
-                const result = await response.json();
-                return result.informe;
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
             } catch (error) {
-                console.error("Error llamando a la IA Segura:", error);
+                console.error("Error llamando a Gemini:", error);
                 throw error;
             }
         }

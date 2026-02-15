@@ -112,15 +112,18 @@
             console.error("❌ Error de conexión Firestore:", err);
         });
 
-        // --- CONFIGURACIÓN IA (CONEXIÓN SEGURA) ---
+        // --- CONFIGURACIÓN IA (CONEXIÓN DIRECTA) ---
         async function callGemini(customPrompt) {
-            const CLOUD_FUNCTION_URL = "https://analizargruposia-nls6pa6unq-uc.a.run.app";
+            const apiKey = window.firebaseConfig.apiKey;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
             try {
-                const response = await fetch(CLOUD_FUNCTION_URL, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: customPrompt })
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: customPrompt }] }]
+                    })
                 });
 
                 if (!response.ok) {
@@ -128,10 +131,10 @@
                     throw new Error(`Error en servidor IA: ${errorMsg}`);
                 }
 
-                const result = await response.json();
-                return result.informe;
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
             } catch (err) {
-                console.error("Error en llamada IA segura:", err);
+                console.error("Error en llamada IA:", err);
                 return "Hubo un error al conectar con la IA estratégica. Por favor, intenta de nuevo.";
             }
         }
