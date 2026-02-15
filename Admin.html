@@ -467,7 +467,7 @@
                     setAiResult(analysis);
                 } catch (error) {
                     console.error("Error en análisis IA:", error);
-                    setAiResult("### Error en la conexión\nNo se pudo completar el análisis. Por favor, verifica tu API Key y conexión a internet.");
+                    setAiResult(`### Error Detectado\n**Detalles técnicos:** ${error.message}\n\n*Posible solución:* Verifica que la API Key tenga activada la "Generative Language API" y que las restricciones de sitio web incluyan tu URL actual.`);
                 } finally {
                     setIsAiLoading(false);
                 }

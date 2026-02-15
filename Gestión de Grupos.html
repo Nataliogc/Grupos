@@ -399,8 +399,17 @@
                 Dame 3 conclusiones estratégicas breves y 1 recomendación de acción. Usa formato Markdown.
                 Enfócate mucho en la rentabilidad de los segmentos. ¿Qué segmento deberíamos potenciar?`;
 
-                const result = await callGemini(prompt);
-                setAiResult({ title: "Análisis Estratégico", content: result });
+                try {
+                    const result = await callGemini(prompt);
+                    // Check if result is an error message
+                    if (result && (result.includes("Error") || result.includes("Hubo un error"))) {
+                        setAiResult({ title: "Error Detectado", content: `**Detalles:** ${result}\n\n*Nota:* Si usas el archivo local (file://), la restricción de API web puede bloquearlo.` });
+                    } else {
+                        setAiResult({ title: "Análisis Estratégico", content: result });
+                    }
+                } catch (e) {
+                    setAiResult({ title: "Error Crítico", content: e.message });
+                }
                 setIsAiLoading(false);
             };
 
