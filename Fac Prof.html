@@ -524,6 +524,9 @@
         </div>
     </div>
 
+    <!-- Configuración Centralizada -->
+    <script src="js/firebase-config.js"></script>
+
     <script>
         const HOTELS = {
             guadiana: {
@@ -566,7 +569,8 @@
             }
         };
 
-        const apiKey = "AIzaSyDsuddNZks-A9CQBGGrbsiyzM6Z4wydevY";
+        // Se carga desde js/firebase-config.js
+        const apiKey = window.firebaseConfig ? window.firebaseConfig.apiKey : "";
         let currentTemplate = 'confirmacion';
         let currentHotel = 'guadiana';
 
