@@ -189,21 +189,52 @@
         ];
 
         const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff5722', '#795548'];
+        const COMMERCIALS = ["NATALIO", "SERGIO", "OSCAR"];
 
         const App = () => {
             const [data, setData] = useState(INITIAL_DATA);
             const [columns, setColumns] = useState(Object.keys(INITIAL_DATA[0]));
             const authorizingIds = useRef(new Set()); // Para evitar que onSnapshot restaure diffs en proceso de guardado
 
-            const formatDate = (val) => {
-                if (!val) return "-";
-                const str = val.toString().trim();
+            const toInputDate = (val) => {
+                if (!val) return "";
+                const str = String(val).trim();
+
+                // Caso 1: Excel Serial (ej: 46129)
                 const num = parseFloat(str);
                 if (!isNaN(num) && num > 40000 && num < 60000) {
                     const date = new Date(Math.round((num - 25569) * 86400 * 1000));
-                    return date.toLocaleDateString('es-ES');
+                    return date.toISOString().split('T')[0];
                 }
-                return val;
+
+                // Caso 2: DD/MM/YYYY -> YYYY-MM-DD
+                if (str.includes('/')) {
+                    const parts = str.split('/');
+                    if (parts.length === 3) {
+                        const [d, m, y] = parts;
+                        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                    }
+                }
+
+                // Caso 3: YYYY-MM-DD o DD-MM-YYYY
+                if (str.includes('-')) {
+                    const parts = str.split(/[-T ]/);
+                    if (parts[0].length === 4) return parts.slice(0, 3).join('-'); // YYYY-MM-DD
+                    if (parts[2].length === 4) { // DD-MM-YYYY
+                        const [d, m, y] = parts;
+                        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                    }
+                }
+
+                return str;
+            };
+
+            const formatDate = (val) => {
+                if (!val) return "-";
+                const iso = toInputDate(val);
+                if (!iso || !iso.includes('-')) return val;
+                const [y, m, d] = iso.split('-');
+                return `${d}/${m}/${y}`;
             };
             const [activeTab, setActiveTab] = useState('calendar');
             const [searchTerm, setSearchTerm] = useState('');
@@ -229,8 +260,9 @@
                         try {
                             const localGroup = JSON.parse(saved);
                             if (localGroup.Reserva) {
-                                // Asegurar formato correcto para Firestore
-                                const updatePayload = {
+                                // Sanitize payload: remove undefined values
+                                const updatePayload = {};
+                                const fields = {
                                     "Importe(*)": localGroup["Importe(*)"],
                                     "Pax.": localGroup["Pax."],
                                     "Entrada": localGroup["Entrada"],
@@ -240,9 +272,15 @@
                                     "Dep2_Importe": localGroup["Dep2_Importe"],
                                     "Com_Relix": localGroup["Com_Relix"],
                                     "Com_Vencimiento_Rel": localGroup["Com_Vencimiento_Rel"],
-                                    "ProformaItems": localGroup["ProformaItems"] || [],
-                                    "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+                                    "ProformaItems": localGroup["ProformaItems"] || []
                                 };
+
+                                Object.keys(fields).forEach(key => {
+                                    if (fields[key] !== undefined) updatePayload[key] = fields[key];
+                                });
+
+                                updatePayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
                                 await db.collection("groups").doc(String(localGroup.Reserva)).set(updatePayload, { merge: true });
                             }
                         } catch (e) {
@@ -389,8 +427,36 @@
                     groups[groupName].records.push(row);
                 });
 
-                return Object.values(groups).sort((a, b) => b.totalRevenue - a.totalRevenue);
-            }, [processedData]);
+                return Object.values(groups).sort((a, b) => {
+                    const key = sortConfig.key || 'totalRevenue';
+                    const dir = sortConfig.direction === 'asc' ? 1 : -1;
+
+                    let valA = a[key];
+                    let valB = b[key];
+
+                    // Fallback to record fields if not in group object top-level
+                    if (valA === undefined) valA = a.records[0]?.[key] || "";
+                    if (valB === undefined) valB = b.records[0]?.[key] || "";
+
+                    // Special date handling
+                    if (key === 'arrival' || key === 'Entrada') {
+                        const getIso = (v) => {
+                            if (!v) return "9999";
+                            const s = v.toString();
+                            if (s.includes('/')) return s.split('/').reverse().join('-');
+                            return s;
+                        };
+                        return getIso(valA).localeCompare(getIso(valB)) * dir;
+                    }
+
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+
+                    if (valA < valB) return -1 * dir;
+                    if (valA > valB) return 1 * dir;
+                    return 0;
+                });
+            }, [processedData, sortConfig]);
 
             // --- Análisis detallado por Segmentos (Filtrados) ---
             const segmentStats = useMemo(() => {
@@ -552,73 +618,65 @@
                     const roomData = [];
                     snapshot.forEach((doc) => {
                         const d = doc.data();
-                        // Garantizar que Reserva esté presente y sea fiel al ID del documento
                         roomData.push({ ...d, Reserva: d.Reserva || doc.id });
                     });
 
-                    if (roomData.length > 0) {
-                        // Ordenar por fecha de entrada antes de guardar en el estado
-                        const getIsoDate = (val) => {
-                            if (!val) return "9999-12-31";
-                            const str = String(val);
-                            const parts = str.split(/[\/-]/);
-                            if (parts.length === 3) {
-                                if (parts[0].length === 4) return str; // YYYY-MM-DD
-                                return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`; // DD-MM-YYYY
+                    // Utility inside snapshot to normalize date comparisons
+                    const toStandardDate = (v) => {
+                        if (!v) return "";
+                        const str = String(v).trim();
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                            const [y, m, d] = str.split('-');
+                            return `${d}/${m}/${y}`;
+                        }
+                        return str;
+                    };
+
+                    const getIsoDate = (val) => {
+                        if (!val) return "9999-12-31";
+                        const str = String(val);
+                        const parts = str.split(/[\/-]/);
+                        if (parts.length === 3) {
+                            if (parts[0].length === 4) return str;
+                            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                        }
+                        return str;
+                    };
+
+                    const sorted = roomData.sort((a, b) => {
+                        return getIsoDate(a["Entrada"]).localeCompare(getIsoDate(b["Entrada"]));
+                    });
+
+                    setData(prevData => {
+                        const merged = sorted.map(dbRow => {
+                            const resID = String(dbRow.Reserva || "").trim();
+
+                            if (authorizingIds.current.has(resID)) return dbRow;
+
+                            const localMatch = prevData.find(p => String(p.Reserva || "").trim() === resID);
+                            if (localMatch && localMatch._diff) {
+                                return { ...dbRow, _diff: localMatch._diff, _changes: localMatch._changes };
                             }
-                            return str;
-                        };
-                        const sorted = roomData.sort((a, b) => {
-                            return getIsoDate(a["Entrada"]).localeCompare(getIsoDate(b["Entrada"]));
+                            return dbRow;
                         });
 
-                        setData(prevData => {
-                            // Si no hay diffs en el estado anterior ni estamos autorizando nada, usamos los datos de Firestore directos
-                            if (!prevData.some(r => r._diff) && authorizingIds.current.size === 0) return sorted;
-
-                            const merged = sorted.map(dbRow => {
-                                const resID = String(dbRow.Reserva || "").trim();
-                                if (authorizingIds.current.has(resID)) {
-                                    // Esta fila se acaba de autorizar, NO restaurar diffs
-                                    return dbRow;
-                                }
-
-                                const localMatch = prevData.find(p => String(p.Reserva || "").trim() === resID);
-
-                                if (localMatch && localMatch._diff) {
-                                    // Si los datos ya coinciden en los campos clave, ya no hay diff real
-                                    const relevantKeys = ["Estado", "Entrada", "Salida", "Pax.", "Importe(*)", "Régimen", "Segment.", "Nombre del Grupo"];
-                                    const dataMatches = relevantKeys.every(k => String(dbRow[k] || "").trim() === String(localMatch[k] || "").trim());
-
-                                    if (dataMatches) return dbRow; // Limpiar diff automáticamente si ya está en DB
-
-                                    return { ...dbRow, _diff: localMatch._diff, _changes: localMatch._changes };
-                                }
-                                return dbRow;
-                            });
-
-                            // Añadir filas locales que son nuevas y aún no existen en el servidor
-                            prevData.forEach(p => {
-                                const pID = String(p.Reserva || "").trim();
-                                if (p._diff === 'new' &&
-                                    !authorizingIds.current.has(pID) &&
-                                    !sorted.some(s => String(s.Reserva || "").trim() === pID)) {
-                                    merged.push(p);
-                                }
-                            });
-
-                            return merged.sort((a, b) => getIsoDate(a["Entrada"]).localeCompare(getIsoDate(b["Entrada"])));
+                        // Preservar registros totalmente nuevos que no están en DB aún
+                        const localNews = prevData.filter(p => p._diff === 'new' && !authorizingIds.current.has(String(p.Reserva).trim()));
+                        localNews.forEach(p => {
+                            if (!merged.some(m => String(m.Reserva).trim() === String(p.Reserva).trim())) {
+                                merged.push(p);
+                            }
                         });
 
-                        const allKeys = new Set();
-                        roomData.forEach(r => Object.keys(r).forEach(k => {
-                            if (!["_diff", "updatedAt"].includes(k)) allKeys.add(k);
-                        }));
-                        setColumns(Array.from(allKeys));
-                    } else {
-                        // Si no hay datos en Firestore pero hay locales con _diff, preservarlos
-                        setData(prev => prev.filter(r => r._diff));
-                    }
+                        console.log(`[Sync] Fusionados: DB(${sorted.length}) + LocalNews(${localNews.length})`);
+                        return merged.sort((a, b) => getIsoDate(a["Entrada"]).localeCompare(getIsoDate(b["Entrada"])));
+                    });
+
+                    const allKeys = new Set();
+                    roomData.forEach(r => Object.keys(r).forEach(k => {
+                        if (!["_diff", "updatedAt"].includes(k)) allKeys.add(k);
+                    }));
+                    setColumns(Array.from(allKeys));
                 }, (error) => {
                     console.error("Error en tiempo real Firebase:", error);
                 });
@@ -741,8 +799,7 @@
                                 const lower = val.toLowerCase();
                                 // Normalizar nombre de columna para el sistema
                                 if (lower.includes("nombre del g")) return "Nombre del Grupo";
-                                if (lower.includes("segmen")) return "Segment.";
-                                if (lower.includes("segmento")) return "Segment.";
+                                if (lower.includes("segm") || lower.includes("mercado")) return "Segment.";
                                 if (lower.includes("entrada")) return "Entrada";
                                 if (lower.includes("salida")) return "Salida";
                                 if (lower.includes("importe")) return "Importe(*)";
@@ -829,25 +886,33 @@
                 // Helper to normalize Excel Dates to YYYY-MM-DD
                 const normalizeDate = (val) => {
                     if (!val) return "";
+                    let d, m, y;
+
                     // Handle Excel Serial Date
-                    if (typeof val === 'number' || /^\d{5}$/.test(val)) {
+                    if (typeof val === 'number' || (!isNaN(parseFloat(val)) && /^\d{5}$/.test(val))) {
                         const serial = parseInt(val, 10);
-                        if (serial > 25569) { // Reasonable date check
-                            const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
-                            return date.toISOString().split('T')[0];
+                        const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+                        d = date.getDate();
+                        m = date.getMonth() + 1;
+                        y = date.getFullYear();
+                    } else {
+                        const str = String(val).trim();
+                        // Handle DD/MM/YYYY or DD-MM-YYYY
+                        if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(str)) {
+                            const parts = str.split(/[\/-]/);
+                            [d, m, y] = parts.map(Number);
+                        }
+                        // Handle YYYY-MM-DD
+                        else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                            const [year, month, day] = str.split('-').map(Number);
+                            [d, m, y] = [day, month, year];
                         }
                     }
-                    // Handle DD/MM/YYYY or DD-MM-YYYY
-                    const str = String(val).trim();
-                    if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(str)) {
-                        const parts = str.split(/[\/-]/); // [DD, MM, YYYY]
-                        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+
+                    if (d && m && y) {
+                        return `${d.toString().padStart(2, '0')}/${m.toString().padStart(2, '0')}/${y}`;
                     }
-                    // Handle YYYY-MM-DD (already ISO)
-                    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-                        return str;
-                    }
-                    return str; // Return as is if unknown format
+                    return String(val).trim();
                 };
 
                 const incomingRows = rawData.map(row => {
@@ -869,11 +934,13 @@
                 const mergedData = [...data];
 
                 // 1. Procesar registros entrantes
-                incomingRows.forEach(newRow => {
-                    const resID = newRow["Reserva"];
-                    if (!resID) return;
-
-                    const existingIdx = mergedData.findIndex(r => String(r["Reserva"]) === String(resID));
+                incomingRows.forEach((newRow, idx) => {
+                    // Generate a temp ID if Reserva is missing to avoid overwriting all empty reserva rows
+                    if (!newRow["Reserva"]) {
+                        newRow["Reserva"] = `TEMP-${Date.now()}-${idx}`;
+                    }
+                    const resID = String(newRow["Reserva"]).trim();
+                    const existingIdx = mergedData.findIndex(r => String(r["Reserva"]).trim() === resID);
 
                     if (existingIdx === -1) {
                         // Es un grupo nuevo (No estaba en DB)
@@ -1058,6 +1125,18 @@
                     }
                 }
 
+                // Initialize Room Manager Form with group dates
+                if (group.records && group.records[0]) {
+                    const rec = group.records[0];
+                    setRoomManagerForm(prev => ({
+                        ...prev,
+                        hotel: rec["Hotel_Asignado"] || rec["Hotel"] || "",
+                        dateIn: rec["Entrada"] || "",
+                        dateOut: rec["Salida"] || "",
+                        price: 0 // Reset price
+                    }));
+                }
+
                 // Auto-generate Rooming List if empty
                 if (group.records && group.records.length > 0) {
                     const firstRecord = group.records[0];
@@ -1173,9 +1252,59 @@
                 setShowFichaModal(true);
             };
 
-            const updateGroupMetadata = (name, field, value, hotelFilter = null) => {
-                // ... existing implementation ...
-                // (I will not touch updateGroupMetadata in this block as it is long, I will jump to addRoomBlock)
+            const updateGroupMetadata = async (groupName, field, value, hotelFilter = null) => {
+                console.log(`Update: ${groupName} -> ${field} = ${value}`);
+
+                // 1. Optimistic UI Update
+                setData(prevData => {
+                    return prevData.map(row => {
+                        const matchesGroup = (row["Nombre del Grupo"] || "") === groupName;
+                        const matchesHotel = !hotelFilter || (row["Hotel_Asignado"] || row["Hotel"]) === hotelFilter;
+
+                        if (matchesGroup && matchesHotel) {
+                            return { ...row, [field]: value };
+                        }
+                        return row;
+                    });
+                });
+
+                // 2. Update selectedGroupFicha if it matches
+                setSelectedGroupFicha(prev => {
+                    if (!prev || prev.name !== groupName) return prev;
+                    const updatedRecords = prev.records.map(r => {
+                        const matchesHotel = !hotelFilter || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter;
+                        if (matchesHotel) {
+                            return { ...r, [field]: value };
+                        }
+                        return r;
+                    });
+                    return { ...prev, records: updatedRecords };
+                });
+
+                // 3. Persist to Firestore
+                try {
+                    const batch = db.batch();
+                    const groupRows = data.filter(r =>
+                        (r["Nombre del Grupo"] || "") === groupName &&
+                        (!hotelFilter || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter)
+                    );
+
+                    groupRows.forEach(row => {
+                        const resID = String(row.Reserva).trim();
+                        if (resID) {
+                            const docRef = db.collection("groups").doc(resID);
+                            batch.set(docRef, {
+                                [field]: value,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true });
+                        }
+                    });
+
+                    await batch.commit();
+                    console.log("✅ Update committed to Firestore");
+                } catch (err) {
+                    console.error("❌ Error updating metadata:", err);
+                }
             };
 
             // ... (skipping updateGroupMetadata implementation here as I can't easily match large block without context, I will do separate edits if needed) ...
@@ -1192,8 +1321,12 @@
 
                 let nights = 1;
                 if (roomManagerForm.dateIn && roomManagerForm.dateOut) {
-                    const diff = new Date(roomManagerForm.dateOut) - new Date(roomManagerForm.dateIn);
-                    nights = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                    const dIn = new Date(toInputDate(roomManagerForm.dateIn));
+                    const dOut = new Date(toInputDate(roomManagerForm.dateOut));
+                    if (!isNaN(dIn) && !isNaN(dOut)) {
+                        const diff = dOut - dIn;
+                        nights = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                    }
                     if (nights < 1) nights = 1;
                 }
 
@@ -1846,10 +1979,7 @@
                                                 onChange={(e) => setFilterDirCommercial(e.target.value)}
                                             >
                                                 <option value="">Todos los Comerciales</option>
-                                                {[...new Set(groupedData.map(g => {
-                                                    const c = g.records[0]?.["Com_Comercial"];
-                                                    return c ? (c.charAt(0).toUpperCase() + c.slice(1).toLowerCase()) : null;
-                                                }).filter(Boolean))].sort().map(c => (
+                                                {COMMERCIALS.map(c => (
                                                     <option key={c} value={c}>{c}</option>
                                                 ))}
                                             </select>
@@ -1864,6 +1994,7 @@
                                             <tr className="bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-400 uppercase tracking-wider">
                                                 <th className="px-6 py-4 font-black">Hotel</th>
                                                 <th className="px-6 py-4 font-black">Grupo / ID</th>
+                                                <th className="px-6 py-4 font-black">Comercial</th>
                                                 <th className="px-6 py-4 font-black">Entrada</th>
                                                 <th className="px-6 py-4 font-black">Salida</th>
                                                 <th className="px-6 py-4 font-black text-center">Pax</th>
@@ -1875,8 +2006,15 @@
                                         <tbody className="divide-y divide-slate-100">
                                             {groupedData
                                                 .filter(g => {
-                                                    // 1. Buscador Texto
-                                                    if (searchTerm && !g.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+                                                    // 1. Buscador Texto (Optimizado: ya filtrado en processedData, pero aseguramos coherencia)
+                                                    if (searchTerm) {
+                                                        const lowerTerm = searchTerm.toLowerCase();
+                                                        const matches = g.name.toLowerCase().includes(lowerTerm) ||
+                                                            g.agency.toLowerCase().includes(lowerTerm) ||
+                                                            (g.records[0]?.["Reserva"] || "").toString().toLowerCase().includes(lowerTerm) ||
+                                                            (g.records[0]?.["Com_Comercial"] || "").toLowerCase().includes(lowerTerm);
+                                                        if (!matches) return false;
+                                                    }
 
                                                     const status = (g.records[0]?.["Com_Estado_Interno"] || g.status || "").toUpperCase();
                                                     // 2. Excluir Cancelados/Anulados
@@ -1938,6 +2076,16 @@
                                                                     <div className="text-[10px] font-bold text-slate-400 mt-0.5">
                                                                         ID: {group.records[0]?.["Reserva"] || "---"}
                                                                     </div>
+                                                                </div>
+                                                            </td>
+
+                                                            {/* COMERCIAL */}
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                                                                    <span className="text-[10px] font-bold text-slate-600 uppercase">
+                                                                        {group.records[0]?.["Com_Comercial"] || "Sin Asignar"}
+                                                                    </span>
                                                                 </div>
                                                             </td>
 
@@ -2104,13 +2252,13 @@
                                                                                     // Guardar estado previo para posible rollback
                                                                                     const rowStateBefore = { ...row };
 
-                                                                                    // OPTIMISTIC UPDATE: Quitar el diff inmediatamente
+                                                                                    // OPTIMISTIC UPDATE: Quitar el diff inmediatamente usando el índice absoluto
                                                                                     setData(prevData => {
-                                                                                        return prevData.map(r =>
-                                                                                            String(r.Reserva).trim() === reservaID.trim()
-                                                                                                ? { ...r, _diff: null, _changes: null }
-                                                                                                : r
-                                                                                        );
+                                                                                        const newData = [...prevData];
+                                                                                        if (newData[absIndex]) {
+                                                                                            newData[absIndex] = { ...newData[absIndex], _diff: null, _changes: null };
+                                                                                        }
+                                                                                        return newData;
                                                                                     });
 
                                                                                     const batch = db.batch();
@@ -2159,13 +2307,12 @@
                                                                         <button
                                                                             onClick={() => {
                                                                                 if (window.confirm("¿Descartar este cambio sugerido?")) {
-                                                                                    const reservaID = String(row["Reserva"]);
                                                                                     setData(prevData => {
-                                                                                        return prevData.map(r =>
-                                                                                            String(r.Reserva) === reservaID
-                                                                                                ? { ...r, _diff: null, _changes: null }
-                                                                                                : r
-                                                                                        );
+                                                                                        const newData = [...prevData];
+                                                                                        if (newData[absIndex]) {
+                                                                                            newData[absIndex] = { ...newData[absIndex], _diff: null, _changes: null };
+                                                                                        }
+                                                                                        return newData;
                                                                                     });
                                                                                 }
                                                                             }}
@@ -2270,7 +2417,7 @@
                                         <input
                                             type="date"
                                             className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                            value={newGroup.Entrada}
+                                            value={toInputDate(newGroup.Entrada)}
                                             onChange={(e) => setNewGroup({ ...newGroup, Entrada: e.target.value })}
                                         />
                                     </div>
@@ -2279,7 +2426,7 @@
                                         <input
                                             type="date"
                                             className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                            value={newGroup.Salida}
+                                            value={toInputDate(newGroup.Salida)}
                                             onChange={(e) => setNewGroup({ ...newGroup, Salida: e.target.value })}
                                         />
                                     </div>
@@ -2527,6 +2674,27 @@
                                                         </div>
                                                     </div>
 
+                                                    {/* Comercial Asignado */}
+                                                    <div className="w-32 relative">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Comercial</label>
+                                                        <div className="relative h-10 w-full">
+                                                            <select
+                                                                className="w-full h-full pl-3 pr-8 text-[10px] font-black uppercase rounded-lg bg-white border-2 border-slate-200 text-slate-700 appearance-none outline-none hover:border-blue-400 transition-all shadow-sm cursor-pointer"
+                                                                value={selectedGroupFicha.records[0]?.["Com_Comercial"] || ""}
+                                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Comercial", e.target.value)}
+                                                                style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                                                            >
+                                                                <option value="">SIN ASIGNAR</option>
+                                                                {COMMERCIALS.map(name => (
+                                                                    <option key={name} value={name}>{name}</option>
+                                                                ))}
+                                                            </select>
+                                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                                <IconChevronDown size={12} stroke={3} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                     {/* Botón Datos Cliente */}
                                                     {/* Botón Datos Cliente + Segmentación */}
                                                     <div className="flex-1 flex gap-2">
@@ -2665,7 +2833,7 @@
                                                         <input
                                                             type="date"
                                                             className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-medium text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                                            value={roomManagerForm.dateIn}
+                                                            value={toInputDate(roomManagerForm.dateIn)}
                                                             onChange={e => setRoomManagerForm({ ...roomManagerForm, dateIn: e.target.value })}
                                                         />
                                                     </div>
@@ -2674,7 +2842,7 @@
                                                         <input
                                                             type="date"
                                                             className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-medium text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                                                            value={roomManagerForm.dateOut}
+                                                            value={toInputDate(roomManagerForm.dateOut)}
                                                             onChange={e => setRoomManagerForm({ ...roomManagerForm, dateOut: e.target.value })}
                                                         />
                                                     </div>
@@ -2763,9 +2931,9 @@
                                                             <td className="py-2 px-3 font-bold text-slate-700">{item.type}</td>
                                                             <td className="py-2 px-3">
                                                                 <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-fit">
-                                                                    <span>{new Date(item.dateIn).toLocaleDateString()}</span>
+                                                                    <span>{formatDate(item.dateIn)}</span>
                                                                     <IconArrowRight size={10} className="text-slate-300" />
-                                                                    <span>{new Date(item.dateOut).toLocaleDateString()}</span>
+                                                                    <span>{formatDate(item.dateOut)}</span>
                                                                 </div>
                                                             </td>
                                                             <td className="py-2 px-3 text-center">
@@ -2886,7 +3054,7 @@
                                                                                         <input
                                                                                             type="date"
                                                                                             className={`flex-1 min-w-0 bg-white/50 border border-transparent hover:border-slate-200 rounded px-1 py-0.5 text-[8px] font-bold text-slate-600 text-center focus:outline-none`}
-                                                                                            value={hotelRecord[`${dep.key}_Fecha`] || ""}
+                                                                                            value={toInputDate(hotelRecord[`${dep.key}_Fecha`] || "")}
                                                                                             onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, `${dep.key}_Fecha`, e.target.value, hotelName)}
                                                                                         />
                                                                                         <button
