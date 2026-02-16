@@ -742,6 +742,7 @@
                                 // Normalizar nombre de columna para el sistema
                                 if (lower.includes("nombre del g")) return "Nombre del Grupo";
                                 if (lower.includes("segmen")) return "Segment.";
+                                if (lower.includes("segmento")) return "Segment.";
                                 if (lower.includes("entrada")) return "Entrada";
                                 if (lower.includes("salida")) return "Salida";
                                 if (lower.includes("importe")) return "Importe(*)";
@@ -2042,6 +2043,7 @@
                                                 <th className="p-3 font-semibold border-b">ENTRADA</th>
                                                 <th className="p-3 font-semibold border-b">ESTADO</th>
                                                 <th className="p-3 font-semibold border-b text-center">PAX</th>
+                                                <th className="p-3 font-semibold border-b">SEGMENTO</th>
                                                 <th className="p-3 font-semibold border-b text-right">IMPORTE</th>
                                             </tr>
                                         </thead>
@@ -2186,6 +2188,7 @@
                                                             <td className="p-3 border-b text-xs align-top">{formatDate(row["Entrada"])}</td>
                                                             <td className="p-3 border-b text-xs font-bold align-top">{row["Estado"]}</td>
                                                             <td className="p-3 border-b text-center text-xs align-top">{row["Pax."]}</td>
+                                                            <td className="p-3 border-b text-xs align-top font-semibold text-slate-600 uppercase">{row["Segment."]}</td>
                                                             <td className="p-3 border-b text-right text-xs font-mono align-top">{row["Importe(*)"]}</td>
                                                         </tr>
                                                     );
