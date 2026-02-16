@@ -380,19 +380,14 @@
                             </div>
                         </div>
                     </td>
-                    <td width="45%" class="align-top pt-4">
-                        <div class="text-[12px] leading-tight font-bold">
-                            <div class="flex justify-between items-start mb-1">
-                                <span class="editable uppercase" id="solicitante-org-2"
-                                    contenteditable="true">EAPN-ES</span>
-                                <span class="editable" contenteditable="true"></span>
-                            </div>
-                            <div class="editable" id="client-address" contenteditable="true">CALLE MELQUIADES BIEINCINTO
-                                7</div>
-                            <div class="editable" id="client-city" contenteditable="true">28053 MADRID</div>
-                            <div class="mt-8">
-                                <span class="font-bold">N.I.F. : </span>
-                                <span class="editable" id="client-nif" contenteditable="true">G45556586</span>
+                    <td width="45%" class="align-top pt-2">
+                        <div class="bg-slate-50 p-4 rounded-lg shadow-sm text-xs font-mono text-gray-600">
+                            <div class="font-bold text-black uppercase text-sm editable" id="solicitante-org-2"
+                                contenteditable="true">RAZÓN SOCIAL</div>
+                            <div class="editable" id="client-address" contenteditable="true">Calle Dirección</div>
+                            <div class="editable" id="client-city" contenteditable="true">CP, Ciudad</div>
+                            <div class="mt-4 font-bold text-black">
+                                N.I.F.: <span class="editable" id="client-nif" contenteditable="true">B00000000</span>
                             </div>
                         </div>
                     </td>
@@ -708,7 +703,8 @@
                     // Fiscal Data
                     'client-address': group["Fiscal_Direccion"] || '',
                     'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || ''),
-                    'client-nif': group["Fiscal_CIF"] || ''
+                    'client-nif': group["Fiscal_CIF"] || '',
+                    'solicitante-email': group["Email"] || group["Fiscal_Email"] || ''
                 };
 
                 Object.keys(mapping).forEach(id => {

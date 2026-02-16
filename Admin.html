@@ -163,7 +163,7 @@
         const Sidebar = ({ activeTab, setActiveTab }) => {
             const items = [
                 { id: 'dashboard', icon: 'layout-dashboard', label: 'Resumen' },
-                { id: 'groups', icon: 'users', label: 'Directorio de Grupos' },
+                { id: 'groups', icon: 'users', label: 'Gestión de Grupos' },
                 { id: 'invoices', icon: 'file-text', label: 'Facturas Proforma' },
                 { id: 'analytics', icon: 'bar-chart-3', label: 'Análisis IA' },
                 { id: 'settings', icon: 'settings', label: 'Configuración' }
@@ -191,7 +191,8 @@
                             <button
                                 key={item.id}
                                 onClick={() => {
-                                    if (item.id === 'invoices') window.location.href = 'Fac Prof.html';
+                                    if (item.id === 'groups') window.location.href = 'Gestión de Grupos.html';
+                                    else if (item.id === 'invoices') window.location.href = 'Fac Prof.html';
                                     else if (item.id === 'settings') window.location.href = 'Configuracion.html';
                                     else setActiveTab(item.id);
                                 }}
@@ -590,7 +591,9 @@
 
                         const arrivalsList = parsed.filter(p => {
                             const entryDate = parseDate(p["Entrada"]);
-                            return entryDate >= today && entryDate <= rangeLimit;
+                            const status = (p["Estado"] || "").toLowerCase();
+                            const isCancelled = status.includes('anul') || status.includes('cancel');
+                            return entryDate >= today && entryDate <= rangeLimit && !isCancelled;
                         }).sort((a, b) => parseDate(a["Entrada"]) - parseDate(b["Entrada"])).slice(0, 15);
 
                         setArrivals(arrivalsList);
