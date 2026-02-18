@@ -18,6 +18,8 @@
             body {
                 background: white;
                 padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
 
             .page-container {
@@ -40,17 +42,13 @@
                 padding: 0;
             }
 
-            .print-bg-green {
-                background-color: #2d5a43 !important;
-                color: white !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-
-            .print-bg-gray {
-                background-color: #f3f4f6 !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+            /* Forzar impresión de sombras y fondos */
+            .shadow-lg,
+            .shadow-md,
+            .shadow-sm,
+            [style*="box-shadow"] {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
         }
 
@@ -345,19 +343,22 @@
                         <span class="text-gray-500">Salida:</span> <span class="editable font-bold"
                             id="reserva-salida-1" contenteditable="true">24-04-2026</span>
                     </div>
+                    <!-- Nuevo Contenedor IVA corporativo -->
+                    <div id="iva-summary-confirmacion" class="mt-4"></div>
                 </div>
             </div>
 
             <table class="w-full text-[10px] mb-6 border-collapse">
                 <thead>
                     <tr class="bg-gray-50 text-[#2d5a43] border-b-2 border-[#2d5a43] uppercase text-[8px] font-bold">
-                        <th class="p-2 text-left">Fecha</th>
+                        <th class="p-2 text-left w-20">Fecha</th>
                         <th class="p-2 text-center w-8">Cant.</th>
                         <th class="p-2 text-left">Concepto</th>
-                        <th class="p-2 text-center w-8">Reg</th>
+                        <th class="p-2 text-center w-8">Reg.</th>
                         <th class="p-2 text-center w-8">Días</th>
                         <th class="p-2 text-right w-16">Precio/U</th>
                         <th class="p-2 text-right w-20">Total</th>
+                        <th class="p-2 text-right w-20">Acumulado</th>
                         <th class="p-2 w-4 no-print"></th>
                     </tr>
                 </thead>
@@ -417,80 +418,80 @@
             </table>
 
             <!-- Caja Datos Ocupante -->
-            <div class="border border-black p-2 mb-6 text-[11px] leading-relaxed relative" id="ocupante-box">
+            <div class="border border-black p-2 mb-6 text-[11px] leading-relaxed relative flex justify-between gap-4"
+                id="ocupante-box">
                 <button
                     class="no-print absolute -top-3 -right-3 bg-emerald-500 text-white rounded-full w-5 h-5 text-[9px] font-bold shadow hover:bg-emerald-600 transition hidden"
                     id="ocupante-restore"
                     onclick="document.querySelectorAll('.ocupante-row').forEach(r=>r.classList.remove('hidden'));this.classList.add('hidden');"
                     title="Restaurar campos ocultos">↺</button>
-                <div class="mb-2 ocupante-row flex items-center gap-1">
-                    <span><strong>Ocupante :</strong> <span class="editable min-w-[200px]"
-                            contenteditable="true">EAPN</span></span>
-                    <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                        onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                        title="Ocultar">✕</button>
-                </div>
-                <div class="grid grid-cols-[1fr_1fr_1fr] gap-x-2">
-                    <div>
+
+                <div class="flex-1">
+                    <div class="mb-1 ocupante-row flex items-center gap-1">
+                        <span><strong>Ocupante :</strong> <span class="editable min-w-[200px]" contenteditable="true"
+                                id="f-pax-name">---</span></span>
+                        <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                            onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                            title="Ocultar">✕</button>
+                    </div>
+                    <div class="ocupante-row flex items-center gap-1">
+                        <span class="w-24"><strong>Habitación :</strong></span>
+                        <span class="editable flex-1" contenteditable="true" id="f-room-summary">---</span>
+                        <button class="no-print text-red-300 hover:text-red-600 text-[10px]"
+                            onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                            title="Ocultar">✕</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-4">
                         <div class="ocupante-row flex items-center gap-1">
-                            <span><strong>Habitación :</strong> <span class="editable w-16"
-                                    contenteditable="true"></span></span>
+                            <span class="w-24"><strong>Nro. Personas :</strong></span>
+                            <span class="editable" contenteditable="true" id="f-pax-count">62</span>
                             <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
                                 onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
                                 title="Ocultar">✕</button>
                         </div>
                         <div class="ocupante-row flex items-center gap-1">
-                            <span><strong>Nro. Personas :</strong> <span class="editable font-bold"
-                                    id="reserva-personas-2" contenteditable="true">70</span></span>
+                            <span class="w-24"><strong>Nº Bono :</strong></span>
+                            <span class="editable" contenteditable="true" id="f-voucher">---</span>
+                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                                title="Ocultar">✕</button>
+                        </div>
+                        <div class="ocupante-row flex items-center gap-1">
+                            <span class="w-24"><strong>Entrada :</strong></span>
+                            <span class="editable" contenteditable="true" id="f-date-in">22-04-2026</span>
+                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                                title="Ocultar">✕</button>
+                        </div>
+                        <div class="ocupante-row flex items-center gap-1">
+                            <span class="w-24"><strong>Salida :</strong></span>
+                            <span class="editable" contenteditable="true" id="f-date-out">24-04-2026</span>
                             <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
                                 onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
                                 title="Ocultar">✕</button>
                         </div>
                     </div>
-                    <div>
-                        <div class="ocupante-row flex items-center gap-1">
-                            <span><strong>Entrada :</strong> <span class="editable font-bold" id="reserva-entrada-2"
-                                    contenteditable="true">21-04-2026</span></span>
-                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                                title="Ocultar">✕</button>
-                        </div>
-                        <div class="ocupante-row flex items-center gap-1">
-                            <span><strong>Salida :</strong> <span class="editable font-bold" id="reserva-salida-2"
-                                    contenteditable="true">24-04-2026</span></span>
-                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                                title="Ocultar">✕</button>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="ocupante-row flex items-center gap-1">
-                            <span><strong>Nº Bono :</strong> <span class="editable"
-                                    contenteditable="true">42583</span></span>
-                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                                title="Ocultar">✕</button>
-                        </div>
+                    <div
+                        class="mt-1 border-t border-dotted border-gray-300 pt-1 text-[9px] text-gray-500 no-print flex gap-2">
+                        <button onclick="addOcupanteField()" class="hover:text-black uppercase font-bold">+
+                            Campo</button>
                     </div>
                 </div>
-                <div class="no-print mt-2 text-center">
-                    <button onclick="addOcupanteField()"
-                        class="text-[9px] uppercase tracking-widest font-bold text-gray-400 hover:text-emerald-600 transition">+
-                        Añadir campo</button>
-                </div>
+
+                <!-- Espacio para Desglose (Eliminado de aquí para moverlo bajo el total) -->
+                <div id="iva-summary-proforma" class="hidden"></div>
             </div>
 
             <!-- Tabla de Conceptos -->
             <table class="w-full text-[11px] proforma-table mb-2">
                 <thead>
-                    <tr class="border-y border-black">
-                        <th width="12%" class="text-left font-bold py-1">FECHA</th>
-                        <th width="8%" class="text-left font-bold py-1">HAB.</th>
-                        <th width="8%" class="text-left font-bold py-1">CANT.</th>
-                        <th width="32%" class="text-left font-bold py-1">CONCEPTO</th>
-                        <th width="13%" class="text-right font-bold py-1 uppercase">Cargos</th>
-                        <th width="13%" class="text-right font-bold py-1 uppercase">Abonos</th>
-                        <th width="14%" class="text-right font-bold py-1 uppercase">Saldo</th>
+                    <tr class="border-y border-black font-black uppercase text-[9px]">
+                        <th width="12%" class="text-left py-1.5">FECHA</th>
+                        <th width="8%" class="text-center py-1.5">CANT.</th>
+                        <th width="40%" class="text-left py-1.5">CONCEPTO</th>
+                        <th width="10%" class="text-right py-1.5">PRECIO/U</th>
+                        <th width="15%" class="text-right py-1.5">TOTAL</th>
+                        <th width="15%" class="text-right py-1.5">ACUMULADO</th>
                         <th class="w-4 no-print border-none"></th>
                     </tr>
                 </thead>
@@ -511,52 +512,70 @@
             <div id="footer-totals" class="w-full"></div>
 
             <!-- Políticas de Reserva (Solo en Confirmación) -->
-            <div id="tpl-policies" class="mt-8 text-[10px] leading-relaxed border-t border-gray-100 pt-4 hidden">
-                <div class="grid grid-cols-2 gap-8">
-                    <div>
-                        <h5 class="font-bold text-[#2d5a43] uppercase mb-2">Políticas de Cancelación</h5>
-                        <p class="editable" contenteditable="true">Cancelación gratuita hasta 7 días antes de la
-                            llegada. Entre 7 y 3 días, cargo de la 1ª noche. Menos de 72 horas o No-Show, cargo del 100%
-                            de la estancia.</p>
+            <div id="tpl-policies" class="mt-12 text-[10px] leading-relaxed border-t border-slate-100 pt-6 hidden">
+                <div class="grid grid-cols-2 gap-12 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+                    <div class="border-r border-slate-200 pr-6">
+                        <h5
+                            class="font-black text-[#2d5a43] uppercase mb-3 tracking-widest text-[9px] flex items-center gap-2">
+                            <span class="w-2 h-2 bg-[#2d5a43] rounded-full"></span> Políticas de Cancelación
+                        </h5>
+                        <p class="editable text-slate-600 leading-relaxed italic" contenteditable="true">
+                            Para garantizar la exclusividad de su estancia, la cancelación gratuita se permite hasta 7
+                            días antes de la llegada.
+                            Entre 7 y 3 días, se aplicará el cargo de la primera noche. Para cancelaciones con menos de
+                            72 horas o No-Show, se facturará el 100% de la estancia reservada.
+                        </p>
                     </div>
                     <div>
-                        <h5 class="font-bold text-[#2d5a43] uppercase mb-2">Garantía y Pago</h5>
-                        <p class="editable" contenteditable="true">Para confirmar la reserva se requiere el cumplimiento
-                            de los plazos de depósito indicados. El resto del pago se realizará en el check-in o según
-                            acuerdo comercial.</p>
+                        <h5
+                            class="font-black text-[#2d5a43] uppercase mb-3 tracking-widest text-[9px] flex items-center gap-2">
+                            <span class="w-2 h-2 bg-[#10b981] rounded-full"></span> Garantía y Pago
+                        </h5>
+                        <p class="editable text-slate-600 leading-relaxed" contenteditable="true">
+                            La confirmación definitiva queda supeditada al cumplimiento de los plazos de depósito
+                            indicados en este documento.
+                            El importe restante será abonado durante el proceso de Check-in o mediante transferencia
+                            bancaria previa según acuerdo comercial establecido.
+                        </p>
                     </div>
                 </div>
-
             </div>
 
-            <!-- Footer con diseño verde -->
-            <div id="common-footer" class="mt-20 pt-4 border-t border-black text-[10px] font-pro">
-                <div class="flex justify-between items-end">
-                    <div class="flex gap-8">
-                        <div>
-                            <span class="text-[#2d5a43] font-bold hotel-address-footer">C/GUADIANA 36</span><br>
-                            <span class="text-[#22c55e] font-bold hotel-cp-footer">13002</span> <span
-                                class="hotel-city-footer">Ciudad Real</span>
+            <!-- Footer Premium -->
+            <div id="common-footer" class="mt-20 pt-6 border-t border-slate-200 text-[10px] font-pro">
+                <div class="flex justify-between items-start">
+                    <div class="flex gap-12">
+                        <div class="space-y-1">
+                            <p class="text-[#2d5a43] font-bold tracking-widest text-[8px] uppercase">Sede Social</p>
+                            <p class="hotel-address-footer text-slate-700 font-medium">C/ Guadalupe, 6</p>
+                            <p class="text-slate-500"><span
+                                    class="hotel-cp-footer font-bold text-[#10b981]">13002</span> <span
+                                    class="hotel-city-footer uppercase tracking-tighter">Ciudad Real</span></p>
                         </div>
-                        <div>
-                            <span class="text-[#2d5a43] font-bold">E-mail:</span> <span
-                                class="hotel-email-footer">info@hotelguadiana.es</span><br>
-                            <span class="text-[#22c55e] font-bold">Web:</span> <span
-                                class="hotel-web-footer">www.hotelguadiana.es</span>
+                        <div class="space-y-1">
+                            <p class="text-[#2d5a43] font-bold tracking-widest text-[8px] uppercase">Contacto Digital
+                            </p>
+                            <p class="text-slate-700 italic flex items-center gap-1">✉️ <span
+                                    class="hotel-email-footer">info@hotelguadiana.es</span></p>
+                            <p class="text-slate-500 font-bold flex items-center gap-1">🌐 <span
+                                    class="hotel-web-footer">www.hotelguadiana.es</span></p>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <span class="text-[#2d5a43] font-bold">Tel:</span> <span class="hotel-tel-footer">926 22 33
-                            13</span><br>
-                        <span class="text-[#22c55e] font-bold">Fax:</span> <span class="hotel-fax-footer">926 27 30
-                            57</span>
+                    <div class="text-right space-y-1">
+                        <p class="text-[#2d5a43] font-bold tracking-widest text-[8px] uppercase">Atención 24h</p>
+                        <p class="text-slate-800 font-black text-xs flex items-center justify-end gap-1">📞 <span
+                                class="hotel-tel-footer">926 22 33 13</span></p>
+                        <p class="text-slate-400 text-[7px] italic mt-1">ID: <span
+                                class="hotel-legal-footer opacity-60">CR-00035559</span></p>
                     </div>
                 </div>
-                <!-- Hora y Fecha pie de página -->
-                <div class="mt-8 flex justify-between text-gray-400 text-[9px]">
+                <div
+                    class="mt-10 flex justify-between items-center text-slate-300 text-[8px] border-t border-slate-50 pt-2">
                     <div class="flex gap-4">
-                        <span id="timestamp-date">12-02-26</span>
-                        <span id="timestamp-time">16.50</span>
+                        <span id="timestamp-date">18-02-26</span>
+                        <span id="timestamp-time">17:22</span>
+                    </div>
+                    <div class="tracking-widest opacity-50 uppercase">Original Document • Compiled with Nexus AI 2.5
                     </div>
                 </div>
             </div>
@@ -632,21 +651,31 @@
             }
         };
 
+        // --- CARGAR CONFIGURACIÓN DESDE CLOUD ---
+        async function refreshConfigFromCloud() {
+            try {
+                if (typeof db === 'undefined') return;
+                const doc = await db.collection("settings").doc("main").get();
+                if (doc.exists) {
+                    const cloudData = doc.data();
+                    if (cloudData.guadiana) Object.assign(HOTELS.guadiana, cloudData.guadiana);
+                    if (cloudData.cumbria) Object.assign(HOTELS.cumbria, cloudData.cumbria);
+                    console.log("✅ Configuración de hoteles sincronizada desde Cloud");
+                    // Re-render si ya cargó
+                    updateHotel(currentHotel);
+                }
+            } catch (e) {
+                console.warn("⚠️ Error cargando config cloud:", e);
+            }
+        }
+
         // Se carga desde js/firebase-config.js
         const apiKey = window.firebaseConfig ? window.firebaseConfig.apiKey : "";
         let currentTemplate = 'confirmacion';
         let currentHotel = 'guadiana';
 
-        // Datos iniciales actualizados para coincidir con la imagen
-        let items = [
-            { fecha: '21-04-26', hab: '8', cant: '', concepto: 'HABITACION D.STD Y DESAYUNO', precio: 475.52, iva: 10 },
-            { fecha: '21-04-26', hab: '', cant: '70', concepto: 'PICNIC', precio: 1050.00, iva: 10 },
-            { fecha: '22-04-26', hab: '', cant: '70', concepto: 'HABITACION D.STD Y MEDIA PENSI', precio: 5902.40, iva: 10 },
-            { fecha: '22-04-26', hab: '', cant: '70', concepto: 'PICNIC', precio: 1050.00, iva: 10 },
-            { fecha: '23-04-26', hab: '', cant: '70', concepto: 'HABITACION D.STD Y MEDIA PENSI', precio: 5902.40, iva: 10 },
-            { fecha: '23-04-26', hab: '', cant: '70', concepto: 'PICNIC', precio: 1050.00, iva: 10 },
-            { fecha: '24-04-26', hab: '', cant: '', concepto: 'SALONES/ALQUILER', precio: 100.00, iva: 21 }
-        ];
+        // Datos iniciales vacíos para permitir creación manual
+        let items = [];
 
         // Sincronización de datos comunes
         function syncFields() {
@@ -671,39 +700,50 @@
         }
 
         async function callGemini(prompt) {
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            let dynamicKey = window.firebaseConfig?.apiKey || "";
+            let model = "gemini-1.5-flash";
 
-            // Incorporamos la instrucción del sistema en el prompt para cumplir con el formato estricto solicitado
+            try {
+                if (typeof db !== 'undefined') {
+                    const settingsDoc = await db.collection("settings").doc("main").get();
+                    if (settingsDoc.exists) {
+                        const s = settingsDoc.data().system || {};
+                        if (s.geminiApiKey) dynamicKey = s.geminiApiKey;
+                        if (s.geminiModel) model = s.geminiModel;
+                    }
+                }
+            } catch (e) {
+                console.warn("Fallback to config key.");
+            }
+
+            if (!dynamicKey || dynamicKey === "TU_API_KEY_AQUI") {
+                return "⚠️ ERROR: No se ha configurado la API Key en el panel de Configuración.";
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${dynamicKey}`;
             const fullPrompt = "Eres un asistente de recepción de un hotel de lujo (Hotel Guadiana). Tu tono es profesional, cortés y servicial. Siempre respondes en español.\n\n" + prompt;
 
             try {
                 const response = await fetch(url, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                parts: [
-                                    { text: fullPrompt }
-                                ]
-                            }
-                        ]
-                    })
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
                 });
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error("Error API Gemini:", errorText);
-                    throw new Error("Error en la llamada a la API");
+                    const error = await response.json();
+                    const msg = error.error?.message || "";
+                    if (msg.includes("blocked") || msg.includes("PERMISSION_DENIED")) {
+                        return "🚫 ACCESO DENEGADO: Tu API Key está bloqueada o no tiene los permisos necesarios (Generative Language API) en Google Cloud Console.";
+                    }
+                    throw new Error(msg || "Error en la llamada a la API");
                 }
 
                 const data = await response.json();
                 return data.candidates[0].content.parts[0].text;
             } catch (e) {
                 console.error(e);
-                return "Error de conexión con la IA.";
+                return `Error de conexión con la IA: ${e.message}`;
             }
         }
 
@@ -733,7 +773,31 @@
 
         function loadSelectedGroup() {
             const saved = localStorage.getItem('selectedGroup');
-            if (!saved) return;
+            const today = new Date().toLocaleDateString('es-ES');
+
+            console.log("📦 Cargando datos de Proforma desde LocalStorage...");
+
+            if (!saved) {
+                console.warn("⚠️ No se encontraron datos en 'selectedGroup'");
+                // MODO MANUAL: Limpiar todos los campos del DOM y resetear items
+                items = [];
+                const idsToClear = [
+                    'reserva-id', 'solicitante-org', 'solicitante-nombre', 'solicitante-tel', 'solicitante-email',
+                    'reserva-personas', 'reserva-entrada', 'reserva-salida', 'client-address', 'client-city',
+                    'client-nif', 'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary'
+                ];
+                idsToClear.forEach(id => {
+                    const el1 = document.getElementById(id + '-1');
+                    const el2 = document.getElementById(id + '-2');
+                    const elExact = document.getElementById(id);
+                    if (el1) el1.innerText = (id === 'reserva-id') ? 'MANUAL' : '';
+                    if (el2) el2.innerText = (id === 'reserva-id') ? 'PROFORMA' : '';
+                    if (elExact) elExact.innerText = '';
+                });
+                // Fechas hoy por defecto
+                document.querySelectorAll('[id^="fecha-proforma-"]').forEach(el => el.innerText = today);
+                return;
+            }
 
             const formatDate = (val) => {
                 if (!val) return "-";
@@ -743,11 +807,27 @@
                     const date = new Date(Math.round((num - 25569) * 86400 * 1000));
                     return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
                 }
+                // Si ya parece una fecha ISO o formato ES, devolverla tal cual
                 return val;
+            };
+
+            const parseMoney = (val) => {
+                if (val === undefined || val === null) return 0;
+                if (typeof val === 'number') return val;
+                const str = val.toString().trim();
+                // Heurística: Si tiene coma Y punto, es formato ES (1.234,56). 
+                // Si tiene punto al final (.XX) y no hay comas, es decimal standard (1234.56)
+                if (str.includes(',') && str.includes('.')) {
+                    return parseFloat(str.replace(/\./g, '').replace(',', '.'));
+                } else if (str.includes(',')) {
+                    return parseFloat(str.replace(',', '.'));
+                }
+                return parseFloat(str) || 0;
             };
 
             try {
                 const group = JSON.parse(saved);
+                console.log("✅ Datos recuperados:", group);
 
                 // 1. Vincular Hotel
                 if ((group["Hotel_Asignado"] || "").toLowerCase().includes('cumb')) {
@@ -770,16 +850,21 @@
                     // Fiscal Data
                     'client-address': group["Fiscal_Direccion"] || '',
                     'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || ''),
-                    'client-nif': group["Fiscal_CIF"] || ''
+                    'client-nif': group["Fiscal_CIF"] || '',
+                    // New Proforma Box IDs
+                    'f-pax-name': group["Nombre del Grupo"] || '',
+                    'f-pax-count': group["Pax."] || '',
+                    'f-date-in': formatDate(group["Entrada"]),
+                    'f-date-out': formatDate(group["Salida"]),
+                    'f-room-summary': group["RoomSummary"] || '---'
                 };
 
                 Object.keys(mapping).forEach(id => {
-                    const el1 = document.getElementById(id + '-1'); // Check if ID with -1 suffix exists (mostly for first template)
-                    const el2 = document.getElementById(id + '-2'); // Check for -2 suffix
-                    const elExact = document.getElementById(id); // Check for exact ID match
+                    const el1 = document.getElementById(id + '-1');
+                    const el2 = document.getElementById(id + '-2');
+                    const elExact = document.getElementById(id);
 
                     if (el1) el1.innerText = mapping[id];
-                    // Skip reserva-id-2 so proforma keeps "PROFORMA" text
                     if (el2 && id !== 'reserva-id') el2.innerText = mapping[id];
                     if (elExact) elExact.innerText = mapping[id];
                 });
@@ -788,8 +873,8 @@
                 if (group.ProformaItems && Array.isArray(group.ProformaItems) && group.ProformaItems.length > 0) {
                     items = group.ProformaItems;
                 } else {
-                    const importe = parseFloat((group["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
-                    if (!isNaN(importe)) {
+                    const importe = parseMoney(group["Importe(*)"]);
+                    if (importe > 0) {
                         items = [{
                             fecha: formatDate(group["Entrada"]),
                             hab: '',
@@ -802,7 +887,7 @@
                     }
                 }
             } catch (e) {
-                console.error("Error cargando grupo seleccionado:", e);
+                console.error("❌ Error cargando grupo seleccionado:", e);
             }
         }
 
@@ -837,7 +922,14 @@
             window.location.href = 'Gestión de Grupos.html';
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Inicializar Firebase (si no lo está)
+            if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+                firebase.initializeApp(window.firebaseConfig);
+            }
+            if (typeof firebase !== 'undefined') window.db = firebase.firestore();
+
+            await refreshConfigFromCloud();
             loadSelectedGroup();
             renderItems();
         });
@@ -869,6 +961,9 @@
         function updateHotel(hotelKey) {
             currentHotel = hotelKey;
             const h = HOTELS[hotelKey];
+            if (!h) return;
+
+            console.log(`🏨 Cambiando hotel a: ${h.subname}`);
 
             // Actualizar Logos
             const img1 = document.getElementById('logo-img-1');
@@ -877,8 +972,13 @@
             if (img2) img2.src = h.logo;
 
             // Actualizar Headers Text (Por si acaso se usan)
-            document.querySelectorAll('.hotel-name-display').forEach(el => el.innerHTML = `${h.name} <span class="stars-display text-[#eab308]">${h.stars}</span>`);
-            document.querySelectorAll('.hotel-name-display-2').forEach(el => el.innerHTML = `${h.name} <span class="stars-display-2 text-orange-400">${h.stars}</span>`);
+            document.querySelectorAll('.hotel-name-display').forEach(el => {
+                el.innerHTML = `${h.name} <span class="stars-display text-[#eab308]">${h.stars}</span>`;
+            });
+            document.querySelectorAll('.hotel-name-display-2').forEach(el => {
+                el.innerHTML = `${h.name} <span class="stars-display-2 text-orange-400">${h.stars}</span>`;
+            });
+
             document.querySelectorAll('.hotel-subname-display, .hotel-subname-display-2').forEach(el => el.innerText = h.subname);
             document.querySelectorAll('.hotel-brand-display, .hotel-brand-display-2').forEach(el => el.innerText = h.brand);
             document.querySelectorAll('.hotel-letter-display').forEach(el => el.innerText = h.letter);
@@ -890,14 +990,20 @@
                 legalSpan.innerHTML = `${h.company} &nbsp;&nbsp;&nbsp; ${h.legal} &nbsp;&nbsp;&nbsp; N.I.F. ${h.nif}`;
             }
 
-            // Actualizar Footer
-            document.querySelector('.hotel-address-footer').innerText = h.address.toUpperCase();
-            document.querySelector('.hotel-cp-footer').innerText = h.cp;
-            document.querySelector('.hotel-city-footer').innerText = h.city;
-            document.querySelector('.hotel-email-footer').innerText = h.email;
-            document.querySelector('.hotel-web-footer').innerText = h.web;
-            document.querySelector('.hotel-tel-footer').innerText = h.tel;
-            document.querySelector('.hotel-fax-footer').innerText = h.fax;
+            // Actualizar Footer (Robust search)
+            const updateField = (selector, val) => {
+                const el = document.querySelector(selector);
+                if (el) el.innerText = val;
+            };
+
+            updateField('.hotel-address-footer', (h.address || '').toUpperCase());
+            updateField('.hotel-cp-footer', h.cp || '');
+            updateField('.hotel-city-footer', h.city || '');
+            updateField('.hotel-email-footer', h.email || '');
+            updateField('.hotel-web-footer', h.web || '');
+            updateField('.hotel-tel-footer', h.tel || '');
+            updateField('.hotel-fax-footer', h.fax || '');
+            updateField('.hotel-legal-footer', h.legal || '');
 
             renderItems();
         }
@@ -945,42 +1051,51 @@
                 const draggables = `draggable="true" ondragstart="dragStart(event, ${index})" ondragover="allowDrop(event)" ondrop="drop(event, ${index})" style="cursor: grab;"`;
 
                 if (currentTemplate === 'confirmacion') {
+                    // Modelo 1: Reserva
                     const row = `
-                        <tr class="border-b" ${draggables}>
-                            <td class="p-2">
-                                <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit text-gray-500 w-24 outline-none text-[10px]">
+                        <tr class="border-b group" ${draggables}>
+                            <td class="p-1 flex items-center gap-1">
+                                <span class="no-print opacity-0 group-hover:opacity-40 cursor-grab">⋮⋮</span>
+                                <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit text-gray-500 w-22 outline-none text-[9px]">
                             </td>
-                            <td class="p-2 text-center"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || ''}</span></td>
-                            <td class="p-2"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span></td>
-                            <td class="p-2 text-center text-gray-400">
-                                <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)" placeholder="-">${item.regimen || '-'}</span>
+                            <td class="p-1 text-center font-bold text-gray-400 text-[10px]">${item.cant || '1'}</td>
+                            <td class="p-1 text-[11px] font-black text-gray-800">
+                                <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span>
                             </td>
-                            <td class="p-2 text-center">${item.dias || 1}</td>
-                            <td class="p-2 text-right"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
-                            <td class="p-2 text-right font-bold">${formatNum(subtotal)}</td>
-                            <td class="p-2 no-print text-center"><button onclick="removeItem(${index})" class="text-red-300 hover:text-red-600">✕</button></td>
+                            <td class="p-1 text-center text-gray-400">
+                                <span class="editable text-[9px]" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)" placeholder="-">${item.regimen || '-'}</span>
+                            </td>
+                            <td class="p-1 text-center text-[9px] text-gray-500">${item.dias || 1}</td>
+                            <td class="p-1 text-right text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
+                            <td class="p-1 text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
+                            <td class="p-1 text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
+                            <td class="p-1 no-print text-center">
+                                <button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </button>
+                            </td>
                         </tr>`;
                     document.querySelector('#tpl-confirmacion .invoice-items').insertAdjacentHTML('beforeend', row);
                 } else {
-                    const ivaVal = parseFloat(item.iva) || 10;
+                    // Modelo 2: Proforma / Factura (Sincronizado con el modelo visual solicitado)
                     const row = `
-                        <tr class="h-6" ${draggables}>
-                            <td class="align-top">
-                                <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit w-24 outline-none">
+                        <tr class="h-7 group border-b border-gray-100" ${draggables}>
+                            <td class="align-middle flex items-center gap-1 py-1">
+                                <span class="no-print opacity-0 group-hover:opacity-40 cursor-grab">⋮⋮</span>
+                                <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit w-20 outline-none text-[9px] text-gray-500">
                             </td>
-                            <td class="align-top text-center"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'hab', this.innerText)">${item.hab || ''}</span></td>
-                            <td class="align-top text-center"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || ''}</span></td>
-                            <td class="align-top uppercase font-bold text-[10px]">
+                            <td class="align-middle text-center font-bold text-gray-400 text-[10px]">${item.cant || '1'}</td>
+                            <td class="align-middle font-black text-gray-800 text-[11px] uppercase py-1">
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span>
-                                <select onchange="updateItem(${index}, 'iva', this.value)" class="no-print ml-1 text-[8px] bg-gray-100 border border-gray-300 rounded px-1 py-0.5 text-gray-500 cursor-pointer align-middle" title="Tipo IVA">
-                                    <option value="10" ${ivaVal === 10 ? 'selected' : ''}>10%</option>
-                                    <option value="21" ${ivaVal === 21 ? 'selected' : ''}>21%</option>
-                                </select>
                             </td>
-                            <td class="align-top text-right font-bold"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
-                            <td class="align-top text-right"></td>
-                            <td class="align-top text-right font-bold">${formatNum(subtotal)}</td>
-                            <td class="no-print align-top text-center"><button onclick="removeItem(${index})" class="text-red-300 hover:text-red-600">✕</button></td>
+                            <td class="align-middle text-right text-gray-600 text-[10px]">${formatNum(precioUnitario)}</td>
+                            <td class="align-middle text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
+                            <td class="align-middle text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
+                            <td class="no-print align-middle text-center py-1">
+                                <button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </button>
+                            </td>
                         </tr>`;
                     document.querySelector('#tpl-proforma .invoice-items').insertAdjacentHTML('beforeend', row);
                 }
@@ -1004,94 +1119,164 @@
                 const formatDate = (date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
                 footer.innerHTML = `
-                    <div class="flex flex-col items-end mt-4">
-                        <div class="bg-[#2d5a43] text-white p-4 w-64 shadow-lg mb-2">
-                            <p class="text-[8px] uppercase tracking-widest border-b border-emerald-800 mb-1 text-left">Total Factura (IVA inc.)</p>
-                            <p class="text-xl font-bold text-right">${formatNum(total)} €</p>
-                        </div>
-                    </div>
-                    <div class="mt-4 font-pro text-[11px]">
-                        <div class="flex w-full font-bold text-sm mb-4 px-4">
-                             <div class="w-1/2 text-left">
-                                <div class="text-[10px] font-normal mt-1 border border-gray-200 p-2 rounded no-print bg-gray-50 flex items-center gap-2 cursor-pointer hover:bg-emerald-50 transition" onclick="alert('Solicitando enlace de pago seguro Redsys...')">
-                                    <span class="text-emerald-600">💳</span> Solicitar enlace de pago seguro
-                                </div>
-                             </div>
-                             <div class="w-1/2 flex justify-between">
-                                 <span class="tracking-tighter">TOTAL a PAGAR</span>
-                                 <span>${formatNum(total)}</span>
+                    <div class="flex flex-col items-end mt-12 relative">
+                        <!-- Sello de Autenticidad Luxury -->
+                        <div class="absolute -left-6 top-0 opacity-[0.08] -rotate-12 pointer-events-none no-print">
+                             <div class="border-[6px] border-[#2d5a43] p-3 rounded-full flex items-center justify-center w-32 h-32">
+                                 <p class="text-[12px] font-black text-center leading-none text-[#2d5a43] uppercase tracking-tighter">Premium<br>Booking<br>Verified</p>
                              </div>
                         </div>
 
-                        <div class="w-full grid grid-cols-2 gap-8 px-4 mt-4">
-                            <div class="text-left leading-relaxed text-[10px]">
-                                <p class="font-bold text-sm mb-1">${h.subname === 'Cumbria' ? 'Cumbria Spa & Hotel' : 'Sercotel Guadiana'}</p>
-                                <p>${h.company} - ${h.nif}</p>
-                                <p class="font-bold italic text-emerald-800">IBAN ${h.subname === 'Cumbria' ? 'EUROCAJA RURAL' : 'GLOBALCAJA'}: ${h.iban}</p>
+                        <div class="bg-gradient-to-br from-[#2d5a43] to-[#1a3326] text-white p-5 w-64 shadow-2xl mb-6 rounded-2xl border border-white/10 ring-4 ring-[#2d5a43]/5">
+                            <p class="text-[7px] uppercase tracking-[0.3em] border-b border-white/10 pb-2 mb-3 text-left font-black opacity-60">Total Liquidación de Reserva</p>
+                            <div class="flex items-baseline justify-end gap-1">
+                                <p class="text-3xl font-black tabular-nums tracking-tighter">${formatNum(total)}</p>
+                                <span class="text-sm font-light opacity-50 uppercase">eur</span>
                             </div>
-                            <div class="text-right space-y-1">
-                                <p><strong>1er Depósito Requerido (30%):</strong> <span class="editable" contenteditable="true">${formatNum(total * 0.3)}</span> € (Vence: ${formatDate(fDeposito1)})</p>
-                                <p><strong>2º Depósito Requerido (70%):</strong> <span class="editable" contenteditable="true">${formatNum(total * 0.7)}</span> € (Vence: ${formatDate(fDeposito2)})</p>
-                                <p class="pt-2 text-[10px] text-gray-600 italic"><strong>Fecha de Release Final:</strong> ${formatDate(fRelease)}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 font-pro text-[10px]">
+                        <!-- Barra de Pago Estilizada -->
+                        <div class="flex w-full mb-8 px-5 bg-slate-100/80 backdrop-blur-sm border border-slate-200 py-3 rounded-2xl items-center justify-between">
+                             <div class="flex items-center gap-4">
+                                <button class="no-print bg-[#2d5a43] text-white px-4 py-1.5 rounded-full text-[9px] uppercase font-black hover:bg-[#1e3a2c] transition-all shadow-md flex items-center gap-2" onclick="alert('Iniciando pasarela de pago segura...')">
+                                    <span class="text-xs">🔒</span> Pagar Ahora
+                                </button>
+                                <div class="h-6 w-px bg-slate-300"></div>
+                                <span class="text-[9px] text-slate-500 font-medium">Transacción segura protegida por cifrado SSL 256-bit.</span>
+                             </div>
+                             <div class="flex items-center gap-4 py-1 px-4 bg-white rounded-xl border border-slate-200/50 shadow-sm">
+                                 <span class="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Saldo Pendiente</span>
+                                 <span class="text-base font-black text-slate-900">${formatNum(total)} €</span>
+                             </div>
+                        </div>
+
+                        <!-- Grid de Detalles Luxury -->
+                        <div class="w-full grid grid-cols-[45%_55%] gap-12 px-6 text-[9px] leading-relaxed">
+                            <div class="text-left py-2 pr-8 border-r border-slate-100/80">
+                                <p class="font-black text-[#2d5a43] text-[10px] mb-4 border-b border-[#2d5a43]/10 pb-1.5 tracking-[0.2em] uppercase">Datos de Facturación</p>
+                                <p class="font-black text-slate-900 text-[11px] mb-1 uppercase tracking-tight">${h.company}</p>
+                                <p class="text-slate-500 mb-4 font-bold">CIF: <span class="text-slate-800">${h.nif}</span></p>
+                                <p class="text-slate-500 leading-normal mb-6 italic">${h.address}<br>${h.cp} ${h.city}</p>
+                                
+                                <div class="bg-[#2d5a43]/5 p-3 rounded-xl border border-[#2d5a43]/10">
+                                     <p class="text-[7px] font-black text-[#2d5a43] uppercase mb-1 tracking-[0.2em] opacity-80">Cuenta de Abono Corriente</p>
+                                     <p class="font-black text-slate-900 text-[11px] tracking-tight tabular-nums">${h.iban}</p>
+                                </div>
+                            </div>
+                            <div class="text-right flex flex-col justify-center gap-4">
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-dotted border-slate-200">
+                                        <div class="text-left">
+                                            <p class="text-[7px] text-slate-400 font-black uppercase tracking-widest">1er Pago Garantía (30%)</p>
+                                            <p class="text-[9px] text-slate-500">Límite: <strong class="text-slate-800">${formatDate(fDeposito1)}</strong></p>
+                                        </div>
+                                        <span class="font-black text-base text-slate-900 tabular-nums">${formatNum(total * 0.3)} <span class="text-[10px] font-normal opacity-40">€</span></span>
+                                    </div>
+                                    
+                                    <div class="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-dotted border-slate-200">
+                                        <div class="text-left">
+                                            <p class="text-[7px] text-slate-400 font-black uppercase tracking-widest">Liquidación Final (70%)</p>
+                                            <p class="text-[9px] text-slate-500">Límite: <strong class="text-slate-800">${formatDate(fDeposito2)}</strong></p>
+                                        </div>
+                                        <span class="font-black text-base text-slate-900 tabular-nums">${formatNum(total * 0.7)} <span class="text-[10px] font-normal opacity-40">€</span></span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4 py-2 px-4 rounded-lg bg-emerald-50/50 border border-emerald-100 inline-block self-end">
+                                     <p class="text-[10px] text-[#2d5a43] font-black italic tracking-tight">
+                                         FECHA RELEASE FINAL: <span class="ml-2 underline decoration-[#2d5a43]/30 decoration-2">${formatDate(fRelease)}</span>
+                                     </p>
+                                </div>
                             </div>
                         </div>
                     </div>`;
             } else {
-                // Footer Logic (Proforma) - Final Premium Design with Inline Styles (No Tailwind required)
-                footer.innerHTML = `
-                    <div style="margin-top: 40px; width: 100%; display: flex; justify-content: flex-end;">
-                        <div style="width: 380px; font-family: 'Courier Prime', monospace;">
-                            <!-- IVA Breakdown Table -->
-                            <div style="border-top: 2px solid black; margin-bottom: 4px;"></div>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-transform: uppercase; letter-spacing: -0.2px;">
-                                <thead style="color: #9ca3af; font-weight: normal;">
-                                    <tr>
-                                        <th style="text-align: left; padding: 8px 0; font-weight: normal;">Tipo Impuesto</th>
-                                        <th style="text-align: right; padding: 8px 0; font-weight: normal;">Base Imp.</th>
-                                        <th style="text-align: right; padding: 8px 0; font-weight: normal;">Cuota IVA</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${base10 > 0 ? `
-                                    <tr style="color: #374151; border-bottom: 1px solid #f3f4f6;">
-                                        <td style="padding: 8px 0;">IVA REGR. (10%)</td>
-                                        <td style="text-align: right; padding: 8px 0;">${formatNum(base10)} €</td>
-                                        <td style="text-align: right; padding: 8px 0;">${formatNum(iva10)} €</td>
-                                    </tr>` : ''}
-                                    ${base21 > 0 ? `
-                                    <tr style="color: #374151; border-bottom: 1px solid #f3f4f6;">
-                                        <td style="padding: 8px 0;">IVA GRAL. (21%)</td>
-                                        <td style="text-align: right; padding: 8px 0;">${formatNum(base21)} €</td>
-                                        <td style="text-align: right; padding: 8px 0;">${formatNum(iva21)} €</td>
-                                    </tr>` : ''}
-                                </tbody>
-                            </table>
+                // IVA Breakdown HTML (Shared)
+                const breakdownHtml = `
+                    <div style="background-color: #2d5a43; color: white; padding: 10px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 8px; text-transform: uppercase;">
+                            <thead style="opacity: 0.7; border-bottom: 0.5px solid rgba(255,255,255,0.2);">
+                                <tr>
+                                    <th style="text-align: left; padding-bottom: 4px;">Tipo IVA</th>
+                                    <th style="text-align: right; padding-bottom: 4px;">Base</th>
+                                    <th style="text-align: right; padding-bottom: 4px;">Cuota</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${base10 > 0 ? `
+                                <tr>
+                                    <td style="padding-top: 4px;">REDUC. (10%)</td>
+                                    <td style="text-align: right; padding-top: 4px;">${formatNum(base10)} €</td>
+                                    <td style="text-align: right; padding-top: 4px;">${formatNum(iva10)} €</td>
+                                </tr>` : ''}
+                                ${base21 > 0 ? `
+                                <tr>
+                                    <td style="padding-top: 2px;">GRAL. (21%)</td>
+                                    <td style="text-align: right; padding-top: 2px;">${formatNum(base21)} €</td>
+                                    <td style="text-align: right; padding-top: 2px;">${formatNum(iva21)} €</td>
+                                </tr>` : ''}
+                                <tr style="border-top: 1px solid rgba(255,255,255,0.3); font-weight: bold;">
+                                    <td style="padding-top: 6px;">TOTAL NETO</td>
+                                    <td colspan="2" style="text-align: right; padding-top: 6px; font-size: 10px;">${formatNum(base10 + base21)} €</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
 
+                // Inyectar en paneles de reserva
+                const summaryConfirmacion = document.getElementById('iva-summary-confirmacion');
+                const summaryProforma = document.getElementById('iva-summary-proforma');
+                if (summaryConfirmacion) summaryConfirmacion.innerHTML = breakdownHtml;
+                if (summaryProforma) summaryProforma.innerHTML = breakdownHtml;
+
+                // Footer Logic (Proforma) - Only the black box and small text
+                footer.innerHTML = `
+                    <div style="margin-top: 20px; width: 100%; display: flex; justify-content: flex-end;">
+                        <div style="width: 320px; font-family: 'Montserrat', sans-serif;">
                             <!-- Total Section -->
-                            <div style="margin-top: 16px; display: flex; flex-direction: column; align-items: flex-end;">
-                                <div style="background-color: #000; color: #fff; padding: 16px 24px; width: 100%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                                    <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Total Factura Proforma</span>
-                                    <span style="font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums;">${formatNum(total)} <span style="font-size: 14px; font-weight: 400;">€</span></span>
-                                </div>
+                            <div style="background-color: #000; color: #fff; padding: 10px 16px; width: 100%; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; border-radius: 4px;">
+                                <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Total Factura Proforma</span>
+                                <span style="font-size: 18px; font-weight: 900;">${formatNum(total)} <span style="font-size: 12px; font-weight: 400;">€</span></span>
                             </div>
                             
-                            <div style="margin-top: 16px; text-align: right;">
-                                <p style="font-size: 9px; color: #9ca3af; font-style: italic; font-weight: 300; line-height: 1.5;">
+                            <!-- Discrete IVA Breakdown Section -->
+                            <div style="margin-top: 10px; border-top: 1px solid #f3f4f6; padding: 6px 0;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 7px; color: #6b7280; text-transform: uppercase;">
+                                    <tr>
+                                        <th style="text-align: left; opacity: 0.6; font-weight: 700;">Base Imponible</th>
+                                        <th style="text-align: center; opacity: 0.6; font-weight: 700;">IVA</th>
+                                        <th style="text-align: right; opacity: 0.6; font-weight: 700;">Cuota</th>
+                                    </tr>
+                                    ${base10 > 0 ? `
+                                    <tr>
+                                        <td style="padding: 2px 0;">${formatNum(base10)} €</td>
+                                        <td style="text-align: center; padding: 2px 0;">10%</td>
+                                        <td style="text-align: right; padding: 2px 0;">${formatNum(iva10)} €</td>
+                                    </tr>` : ''}
+                                    ${base21 > 0 ? `
+                                    <tr>
+                                        <td style="padding: 2px 0;">${formatNum(base21)} €</td>
+                                        <td style="text-align: center; padding: 2px 0;">21%</td>
+                                        <td style="text-align: right; padding: 2px 0;">${formatNum(iva21)} €</td>
+                                    </tr>` : ''}
+                                </table>
+                            </div>
+                            
+                            <div style="margin-top: 8px; text-align: right;">
+                                <p style="font-size: 8px; color: #9ca3af; font-style: italic; font-weight: 400; line-height: 1.3;">
                                     * Este documento es una liquidación provisional (Factura Proforma).<br>
                                     No tiene validez como factura ordinaria hasta su emisión definitiva.
                                 </p>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Digital Seal / Space for Signature -->
-                    <div style="margin-top: 32px; border-top: 1px dashed #e5e7eb; padding-top: 16px; display: flex; justify-content: space-between; align-items: flex-start; opacity: 0.6;">
-                        <div style="font-size: 8px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px;">
-                            Emisión: ${new Date().toLocaleDateString('es-ES')} - Nexus Designer System
-                        </div>
-                        <div style="width: 100px; height: 100px; border: 1px solid #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #d1d5db; text-align: center; text-transform: uppercase; letter-spacing: -0.5px; padding: 8px;">
-                            Sello / Firma<br>Establecimiento
-                        </div>
+                    <!-- Digital Seal -->
+                    <div style="margin-top: 32px; border-top: 1px solid #f3f4f6; padding-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-size: 7px; color: #9ca3af; text-transform: uppercase;">Nexus Designer • ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}</div>
+                        <div style="width: 80px; height: 80px; border: 1px solid #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #d1d5db; text-align: center; padding: 4px;">Sello<br>Digital</div>
                     </div>`;
             }
 
@@ -1105,9 +1290,9 @@
             const newRow = document.createElement('div');
             newRow.className = 'ocupante-row flex items-center gap-1 mt-1';
             newRow.innerHTML = `
-                <span><strong class="editable" contenteditable="true" style="display:inline-block;min-width:60px;">Campo</strong> : <span class="editable" contenteditable="true" style="display:inline-block;min-width:120px;">Valor</span></span>
-                <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto" onclick="this.parentElement.remove();if(!document.querySelector('.ocupante-row.hidden')){document.getElementById('ocupante-restore').classList.add('hidden');}" title="Eliminar">✕</button>
-            `;
+                    < span > <strong class="editable" contenteditable="true" style="display:inline-block;min-width:60px;">Campo</strong> : <span class="editable" contenteditable="true" style="display:inline-block;min-width:120px;">Valor</span></span >
+                        <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto" onclick="this.parentElement.remove();if(!document.querySelector('.ocupante-row.hidden')){document.getElementById('ocupante-restore').classList.add('hidden');}" title="Eliminar">✕</button>
+                `;
             box.insertBefore(newRow, addBtn);
         }
 
@@ -1155,10 +1340,10 @@
                 // Input date returns YYYY-MM-DD
                 // Store as is or format? Let's format to DD-MM-YYYY for consistency with legacy
                 items[index][key] = formatDateForDisplay(val).replace(/\//g, '-');
-            } else if (['concepto', 'hab', 'cant', 'regimen'].includes(key)) {
+            } else if (['concepto', 'hab', 'cant', 'regimen', 'dias'].includes(key)) {
                 items[index][key] = val;
             } else {
-                items[index][key] = parseFloat(val.toString().replace(/\./g, '').replace(',', '.')) || 0;
+                items[index][key] = parseMoney(val);
             }
             renderItems();
         }
@@ -1203,8 +1388,8 @@
             group["ProformaItems"] = items;
 
             // Sincronizar Depósitos
-            group["Dep1_Importe"] = (totalRevenue * 0.3).toFixed(2);
-            group["Dep2_Importe"] = (totalRevenue * 0.7).toFixed(2);
+            group["Dep1_Importe"] = parseFloat((totalRevenue * 0.3).toFixed(2));
+            group["Dep2_Importe"] = parseFloat((totalRevenue * 0.7).toFixed(2));
 
             // Sincronizar Release (7 días antes de entrada por defecto)
             if (entrada) {

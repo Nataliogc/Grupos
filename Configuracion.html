@@ -56,7 +56,27 @@
     <script src="js/firebase-config.js"></script>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
+
+        const LucideIcon = ({ name, size = 20, className = "" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (iconRef.current && window.lucide) {
+                    const icon = window.lucide.icons[name];
+                    if (icon) {
+                        const svgElement = window.lucide.createIcon(icon, {
+                            width: size,
+                            height: size,
+                            class: className,
+                            'stroke-width': 2
+                        });
+                        iconRef.current.innerHTML = '';
+                        iconRef.current.appendChild(svgElement);
+                    }
+                }
+            }, [name, size, className]);
+            return <span ref={iconRef} className={`inline-flex items-center justify-center ${className}`} />;
+        };
 
         // --- CONFIGURACIÓN FIREBASE ---
         // Se carga desde js/firebase-config.js
@@ -110,7 +130,7 @@
                         setConfig(prev => ({ ...prev, ...doc.data() }));
                     }
                 });
-                setTimeout(() => lucide.createIcons(), 100);
+                // Lucide se maneja ahora a través del componente LucideIcon
             }, []);
 
             const saveConfig = async () => {
@@ -146,20 +166,20 @@
 
                         <nav className="flex-1 space-y-2">
                             <button onClick={() => window.location.href = 'Admin.html'} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <i data-lucide="layout-dashboard" className="w-5 h-5"></i>
+                                <LucideIcon name="layout-dashboard" className="w-5 h-5" />
                                 Volver al Panel
                             </button>
                             <div className="pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4">Entidades</div>
                             <button onClick={() => setActiveHotel('guadiana')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'guadiana' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <i data-lucide="hotel" className="w-5 h-5"></i>
+                                <LucideIcon name="hotel" className="w-5 h-5" />
                                 Sercotel Guadiana
                             </button>
                             <button onClick={() => setActiveHotel('cumbria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'cumbria' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <i data-lucide="palmtree" className="w-5 h-5"></i>
+                                <LucideIcon name="palmtree" className="w-5 h-5" />
                                 Cumbria Spa&Hotel
                             </button>
                             <button onClick={() => setActiveHotel('system')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'system' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <i data-lucide="cpu" className="w-5 h-5"></i>
+                                <LucideIcon name="cpu" className="w-5 h-5" />
                                 Sistema e IA
                             </button>
                         </nav>
@@ -169,7 +189,7 @@
                             disabled={loading}
                             className="mt-auto w-full bg-[#2d5a43] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3a2c] transition-all flex items-center justify-center gap-2 "
                         >
-                            <i data-lucide="save" className="w-4 h-4"></i>
+                            <LucideIcon name="save" className="w-4 h-4" />
                             {loading ? 'Guardando...' : 'Guardar Todo'}
                         </button>
                     </div>
@@ -191,7 +211,7 @@
                         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
                             <div className="bg-slate-50 p-8 border-b border-slate-100 flex items-center gap-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-sm">
-                                    <i data-lucide={activeHotel === 'system' ? 'settings-2' : 'building-2'} className="w-6 h-6 text-[#2d5a43]"></i>
+                                    <LucideIcon name={activeHotel === 'system' ? 'settings-2' : 'building-2'} className="w-6 h-6 text-[#2d5a43]" />
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-bold text-slate-900 uppercase">
@@ -242,7 +262,7 @@
                                 ) : (
                                     <div className="max-w-xl space-y-8">
                                         <div className="bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
-                                            <i data-lucide="cpu" className="absolute right-[-10px] bottom-[-10px] w-32 h-32 opacity-10"></i>
+                                            <LucideIcon name="cpu" className="absolute right-[-10px] bottom-[-10px] w-32 h-32 opacity-10" />
                                             <div className="relative z-10">
                                                 <h4 className="font-bold text-lg mb-2 flex items-center gap-2">
                                                     Motor IA Estratégica
@@ -255,8 +275,19 @@
                                                         <select value={config.system.geminiModel} onChange={(e) => handleChange('system', 'geminiModel', e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-bold outline-none focus:bg-white/20 transition-all">
                                                             <option className="text-slate-800" value="gemini-2.5-flash">Gemini 2.5 Flash (Recomendado)</option>
                                                             <option className="text-slate-800" value="gemini-2.5-pro">Gemini 2.5 Pro (Alta Precisión)</option>
-                                                            <option className="text-slate-800" value="gemini-2.0-flash-preview">Gemini 2.0 Flash Preview</option>
+                                                            <option className="text-slate-800" value="gemini-1.5-flash">Gemini 1.5 Flash (Estándar)</option>
                                                         </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Gemini API Key (Privada)</label>
+                                                        <input
+                                                            type="password"
+                                                            value={config.system.geminiApiKey || ""}
+                                                            onChange={(e) => handleChange('system', 'geminiApiKey', e.target.value)}
+                                                            placeholder="Paste your API key here..."
+                                                            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm outline-none focus:bg-white/20 transition-all"
+                                                        />
+                                                        <p className="text-[9px] text-emerald-200/50 mt-1 italic">La clave se guarda encriptada en tu instancia privada de Firestore.</p>
                                                     </div>
                                                 </div>
                                             </div>
