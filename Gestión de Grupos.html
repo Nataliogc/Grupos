@@ -3035,14 +3035,26 @@
                                                         try {
                                                             const roomList = JSON.parse(baseRecord["RoomingList_JSON"] || "[]");
                                                             if (roomList.length > 0) {
-                                                                const mappedItems = roomList.map(r => ({
-                                                                    fecha: r.dateIn,
-                                                                    hab: r.qty.toString(),
-                                                                    cant: '',
-                                                                    concepto: `${r.type} (${r.regime})`,
-                                                                    precio: parseFloat(r.price),
-                                                                    iva: 10
-                                                                }));
+                                                                const mappedItems = [];
+                                                                roomList.forEach(r => {
+                                                                    const nights = parseInt(r.nights) || 1;
+                                                                    const dIn = new Date(toInputDate(r.dateIn));
+
+                                                                    for (let i = 0; i < nights; i++) {
+                                                                        const currentDay = new Date(dIn);
+                                                                        currentDay.setDate(currentDay.getDate() + i);
+
+                                                                        mappedItems.push({
+                                                                            fecha: formatDate(currentDay.toISOString().split('T')[0]),
+                                                                            hab: r.qty.toString(),
+                                                                            cant: '1',
+                                                                            concepto: `${r.type} (${r.regime})`,
+                                                                            precio: parseFloat(r.price),
+                                                                            iva: 10,
+                                                                            regimen: r.regime || ''
+                                                                        });
+                                                                    }
+                                                                });
                                                                 proformaData["ProformaItems"] = mappedItems;
                                                                 proformaData["Importe(*)"] = roomList.reduce((acc, r) => acc + parseFloat(r.total), 0).toFixed(2);
                                                             }
@@ -3626,6 +3638,20 @@
                                                         <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
                                                             value={selectedGroupFicha.records[0]?.["Com_Email_Contacto"] || selectedGroupFicha.records[0]?.["Email"] || selectedGroupFicha.records[0]?.["E-mail"] || selectedGroupFicha.records[0]?.["Correo"] || selectedGroupFicha.records[0]?.["Mail"] || ""}
                                                             onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Email_Contacto", e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Nombre de Contacto</label>
+                                                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
+                                                            value={selectedGroupFicha.records[0]?.["Com_Nombre_Contacto"] || ""}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Nombre_Contacto", e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Teléfono</label>
+                                                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
+                                                            value={selectedGroupFicha.records[0]?.["Com_Telefono_Contacto"] || ""}
+                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Telefono_Contacto", e.target.value)}
                                                         />
                                                     </div>
                                                     <div className="col-span-2">
