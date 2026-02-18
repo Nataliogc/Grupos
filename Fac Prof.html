@@ -99,7 +99,25 @@
         .tab-active {
             border-bottom: 3px solid #2d5a43;
             color: #2d5a43;
-            font-weight: bold;
+            font-weight: 700;
+        }
+
+        select.no-print {
+            border: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+            font-size: 8px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        select.no-print:hover {
+            border-color: #2d5a43;
+            color: #2d5a43;
+            background-color: #fff;
         }
 
         .logo-placeholder {
@@ -372,7 +390,7 @@
                                 <div>Pag.</div>
                             </div>
                             <div class="proforma-box-row">
-                                <div class="border-r border-black font-bold text-[10px]" id="reserva-id-2">PROVISIONAL
+                                <div class="border-r border-black font-bold text-[10px]" id="reserva-id-2">PROFORMA
                                 </div>
                                 <div class="border-r border-black text-xs"><span class="editable" id="fecha-proforma-2"
                                         contenteditable="true">12-02-2026</span></div>
@@ -383,9 +401,11 @@
                     <td width="45%" class="align-top pt-2">
                         <div class="bg-slate-50 p-4 rounded-lg shadow-sm text-xs font-mono text-gray-600">
                             <div class="font-bold text-black uppercase text-sm editable" id="solicitante-org-2"
-                                contenteditable="true">RAZÓN SOCIAL</div>
-                            <div class="editable" id="client-address" contenteditable="true">Calle Dirección</div>
-                            <div class="editable" id="client-city" contenteditable="true">CP, Ciudad</div>
+                                contenteditable="true" style="display:block;">RAZÓN SOCIAL</div>
+                            <div class="editable" id="client-address" contenteditable="true" style="display:block;">
+                                Calle Dirección</div>
+                            <div class="editable" id="client-city" contenteditable="true" style="display:block;">CP,
+                                Ciudad</div>
                             <div class="mt-4 font-bold text-black">
                                 N.I.F.: <span class="editable" id="client-nif" contenteditable="true">B00000000</span>
                             </div>
@@ -395,24 +415,66 @@
             </table>
 
             <!-- Caja Datos Ocupante -->
-            <div class="border border-black p-2 mb-6 text-[11px] leading-relaxed">
-                <div class="mb-2"><strong>Ocupante :</strong> <span class="editable min-w-[200px]"
-                        contenteditable="true">EAPN</span></div>
+            <div class="border border-black p-2 mb-6 text-[11px] leading-relaxed relative" id="ocupante-box">
+                <button
+                    class="no-print absolute -top-3 -right-3 bg-emerald-500 text-white rounded-full w-5 h-5 text-[9px] font-bold shadow hover:bg-emerald-600 transition hidden"
+                    id="ocupante-restore"
+                    onclick="document.querySelectorAll('.ocupante-row').forEach(r=>r.classList.remove('hidden'));this.classList.add('hidden');"
+                    title="Restaurar campos ocultos">↺</button>
+                <div class="mb-2 ocupante-row flex items-center gap-1">
+                    <span><strong>Ocupante :</strong> <span class="editable min-w-[200px]"
+                            contenteditable="true">EAPN</span></span>
+                    <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                        onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                        title="Ocultar">✕</button>
+                </div>
                 <div class="grid grid-cols-[1fr_1fr_1fr] gap-x-2">
                     <div>
-                        <strong>Habitación :</strong> <span class="editable w-16" contenteditable="true"></span><br>
-                        <strong>Nro. Personas :</strong> <span class="editable font-bold" id="reserva-personas-2"
-                            contenteditable="true">70</span>
+                        <div class="ocupante-row flex items-center gap-1">
+                            <span><strong>Habitación :</strong> <span class="editable w-16"
+                                    contenteditable="true"></span></span>
+                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                                title="Ocultar">✕</button>
+                        </div>
+                        <div class="ocupante-row flex items-center gap-1">
+                            <span><strong>Nro. Personas :</strong> <span class="editable font-bold"
+                                    id="reserva-personas-2" contenteditable="true">70</span></span>
+                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                                title="Ocultar">✕</button>
+                        </div>
                     </div>
                     <div>
-                        <strong>Entrada :</strong> <span class="editable font-bold" id="reserva-entrada-2"
-                            contenteditable="true">21-04-2026</span><br>
-                        <strong>Salida :</strong> <span class="editable font-bold" id="reserva-salida-2"
-                            contenteditable="true">24-04-2026</span>
+                        <div class="ocupante-row flex items-center gap-1">
+                            <span><strong>Entrada :</strong> <span class="editable font-bold" id="reserva-entrada-2"
+                                    contenteditable="true">21-04-2026</span></span>
+                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                                title="Ocultar">✕</button>
+                        </div>
+                        <div class="ocupante-row flex items-center gap-1">
+                            <span><strong>Salida :</strong> <span class="editable font-bold" id="reserva-salida-2"
+                                    contenteditable="true">24-04-2026</span></span>
+                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                                title="Ocultar">✕</button>
+                        </div>
                     </div>
                     <div>
-                        <strong>Nº Bono :</strong> <span class="editable" contenteditable="true">42583</span>
+                        <div class="ocupante-row flex items-center gap-1">
+                            <span><strong>Nº Bono :</strong> <span class="editable"
+                                    contenteditable="true">42583</span></span>
+                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
+                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
+                                title="Ocultar">✕</button>
+                        </div>
                     </div>
+                </div>
+                <div class="no-print mt-2 text-center">
+                    <button onclick="addOcupanteField()"
+                        class="text-[9px] uppercase tracking-widest font-bold text-gray-400 hover:text-emerald-600 transition">+
+                        Añadir campo</button>
                 </div>
             </div>
 
@@ -586,7 +648,8 @@
 
         // Sincronización de datos comunes
         function syncFields() {
-            const fields = ['reserva-id', 'fecha-proforma', 'solicitante-org', 'solicitante-nombre', 'solicitante-email', 'reserva-personas', 'reserva-entrada', 'reserva-salida'];
+            // Sync all fields EXCEPT reserva-id (proforma uses fixed "PROFORMA" text)
+            const fields = ['fecha-proforma', 'solicitante-org', 'solicitante-nombre', 'solicitante-email', 'reserva-personas', 'reserva-entrada', 'reserva-salida'];
             fields.forEach(f => {
                 const el1 = document.getElementById(f + '-1');
                 const el2 = document.getElementById(f + '-2');
@@ -713,7 +776,8 @@
                     const elExact = document.getElementById(id); // Check for exact ID match
 
                     if (el1) el1.innerText = mapping[id];
-                    if (el2) el2.innerText = mapping[id];
+                    // Skip reserva-id-2 so proforma keeps "PROFORMA" text
+                    if (el2 && id !== 'reserva-id') el2.innerText = mapping[id];
                     if (elExact) elExact.innerText = mapping[id];
                 });
 
@@ -894,6 +958,7 @@
                         </tr>`;
                     document.querySelector('#tpl-confirmacion .invoice-items').insertAdjacentHTML('beforeend', row);
                 } else {
+                    const ivaVal = parseFloat(item.iva) || 10;
                     const row = `
                         <tr class="h-6" ${draggables}>
                             <td class="align-top">
@@ -903,6 +968,10 @@
                             <td class="align-top text-center"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || ''}</span></td>
                             <td class="align-top uppercase font-bold text-[10px]">
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span>
+                                <select onchange="updateItem(${index}, 'iva', this.value)" class="no-print ml-1 text-[8px] bg-gray-100 border border-gray-300 rounded px-1 py-0.5 text-gray-500 cursor-pointer align-middle" title="Tipo IVA">
+                                    <option value="10" ${ivaVal === 10 ? 'selected' : ''}>10%</option>
+                                    <option value="21" ${ivaVal === 21 ? 'selected' : ''}>21%</option>
+                                </select>
                             </td>
                             <td class="align-top text-right font-bold"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
                             <td class="align-top text-right"></td>
@@ -913,21 +982,12 @@
                 }
             });
 
-            // Footer Logic (Confirmacion)
+            // Footer Logic (Confirmacion) - Full payment details
             if (currentTemplate === 'confirmacion') {
-                footer.innerHTML = `
-                    <div class="flex flex-col items-end mt-4">
-                        <div class="bg-[#2d5a43] text-white p-4 w-64 shadow-lg mb-2">
-                            <p class="text-[8px] uppercase tracking-widest border-b border-emerald-800 mb-1 text-left">Total Factura (IVA inc.)</p>
-                            <p class="text-xl font-bold text-right">${formatNum(total)} €</p>
-                        </div>
-                    </div>`;
-            } else {
-                // Footer Logic (Proforma) - Calculation logic kept same but ensured
-                const entradaStr = document.getElementById('reserva-entrada-2')?.innerText || '21-04-2026';
-                // ... rest of footer generation ...
-                const [d, m, y] = entradaStr.split('-').map(Number);
-                const fechaEntrada = (d && m && y) ? new Date(y, m - 1, d) : new Date();
+                const h = HOTELS[currentHotel];
+                const entradaStr = document.getElementById('reserva-entrada-1')?.innerText || '21-04-2026';
+                const [d, m, y] = entradaStr.split(/[-\/]/).map(Number);
+                const fechaEntrada = (d && m && y) ? new Date(y < 100 ? 2000 + y : y, m - 1, d) : new Date();
 
                 const fRelease = new Date(fechaEntrada);
                 fRelease.setDate(fRelease.getDate() - (parseInt(JSON.parse(localStorage.getItem('selectedGroup') || '{}')["Com_Relix"]) || 22));
@@ -940,20 +1000,13 @@
                 const formatDate = (date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
                 footer.innerHTML = `
-                    <div class="mt-4 flex flex-col items-end font-pro text-[11px]">
-                        <div class="flex w-full border-t border-black pt-2 mb-6 px-4">
-                            <div class="w-1/2"></div>
-                            <div class="w-1/2 flex justify-between">
-                                <span class="font-bold text-sm tracking-tighter">TOTAL FACTURA</span>
-                                <span class="font-bold text-sm">${formatNum(total)}</span>
-                            </div>
+                    <div class="flex flex-col items-end mt-4">
+                        <div class="bg-[#2d5a43] text-white p-4 w-64 shadow-lg mb-2">
+                            <p class="text-[8px] uppercase tracking-widest border-b border-emerald-800 mb-1 text-left">Total Factura (IVA inc.)</p>
+                            <p class="text-xl font-bold text-right">${formatNum(total)} €</p>
                         </div>
-                        
-                        <div class="w-1/2 pr-4 text-right space-y-1 mb-8">
-                            ${base10 > 0 ? `<p>I.V.A. 10% sobre ${formatNum(base10)} = ${formatNum(iva10)} ya Incluido.</p>` : ''}
-                            ${base21 > 0 ? `<p>I.V.A. 21% sobre ${formatNum(base21)} = ${formatNum(iva21)} ya Incluido.</p>` : ''}
-                        </div>
-
+                    </div>
+                    <div class="mt-4 font-pro text-[11px]">
                         <div class="flex w-full font-bold text-sm mb-4 px-4">
                              <div class="w-1/2 text-left">
                                 <div class="text-[10px] font-normal mt-1 border border-gray-200 p-2 rounded no-print bg-gray-50 flex items-center gap-2 cursor-pointer hover:bg-emerald-50 transition" onclick="alert('Solicitando enlace de pago seguro Redsys...')">
@@ -979,12 +1032,81 @@
                             </div>
                         </div>
                     </div>`;
+            } else {
+                // Footer Logic (Proforma) - Final Premium Design with Inline Styles (No Tailwind required)
+                footer.innerHTML = `
+                    <div style="margin-top: 40px; width: 100%; display: flex; justify-content: flex-end;">
+                        <div style="width: 380px; font-family: 'Courier Prime', monospace;">
+                            <!-- IVA Breakdown Table -->
+                            <div style="border-top: 2px solid black; margin-bottom: 4px;"></div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-transform: uppercase; letter-spacing: -0.2px;">
+                                <thead style="color: #9ca3af; font-weight: normal;">
+                                    <tr>
+                                        <th style="text-align: left; padding: 8px 0; font-weight: normal;">Tipo Impuesto</th>
+                                        <th style="text-align: right; padding: 8px 0; font-weight: normal;">Base Imp.</th>
+                                        <th style="text-align: right; padding: 8px 0; font-weight: normal;">Cuota IVA</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${base10 > 0 ? `
+                                    <tr style="color: #374151; border-bottom: 1px solid #f3f4f6;">
+                                        <td style="padding: 8px 0;">IVA REGR. (10%)</td>
+                                        <td style="text-align: right; padding: 8px 0;">${formatNum(base10)} €</td>
+                                        <td style="text-align: right; padding: 8px 0;">${formatNum(iva10)} €</td>
+                                    </tr>` : ''}
+                                    ${base21 > 0 ? `
+                                    <tr style="color: #374151; border-bottom: 1px solid #f3f4f6;">
+                                        <td style="padding: 8px 0;">IVA GRAL. (21%)</td>
+                                        <td style="text-align: right; padding: 8px 0;">${formatNum(base21)} €</td>
+                                        <td style="text-align: right; padding: 8px 0;">${formatNum(iva21)} €</td>
+                                    </tr>` : ''}
+                                </tbody>
+                            </table>
+
+                            <!-- Total Section -->
+                            <div style="margin-top: 16px; display: flex; flex-direction: column; align-items: flex-end;">
+                                <div style="background-color: #000; color: #fff; padding: 16px 24px; width: 100%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                                    <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Total Factura Proforma</span>
+                                    <span style="font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums;">${formatNum(total)} <span style="font-size: 14px; font-weight: 400;">€</span></span>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 16px; text-align: right;">
+                                <p style="font-size: 9px; color: #9ca3af; font-style: italic; font-weight: 300; line-height: 1.5;">
+                                    * Este documento es una liquidación provisional (Factura Proforma).<br>
+                                    No tiene validez como factura ordinaria hasta su emisión definitiva.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Digital Seal / Space for Signature -->
+                    <div style="margin-top: 32px; border-top: 1px dashed #e5e7eb; padding-top: 16px; display: flex; justify-content: space-between; align-items: flex-start; opacity: 0.6;">
+                        <div style="font-size: 8px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px;">
+                            Emisión: ${new Date().toLocaleDateString('es-ES')} - Nexus Designer System
+                        </div>
+                        <div style="width: 100px; height: 100px; border: 1px solid #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #d1d5db; text-align: center; text-transform: uppercase; letter-spacing: -0.5px; padding: 8px;">
+                            Sello / Firma<br>Establecimiento
+                        </div>
+                    </div>`;
             }
 
             syncWithFicha();
         }
 
         // --- Drag and Drop Helpers ---
+        function addOcupanteField() {
+            const box = document.getElementById('ocupante-box');
+            const addBtn = box.querySelector('.no-print.mt-2');
+            const newRow = document.createElement('div');
+            newRow.className = 'ocupante-row flex items-center gap-1 mt-1';
+            newRow.innerHTML = `
+                <span><strong class="editable" contenteditable="true" style="display:inline-block;min-width:60px;">Campo</strong> : <span class="editable" contenteditable="true" style="display:inline-block;min-width:120px;">Valor</span></span>
+                <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto" onclick="this.parentElement.remove();if(!document.querySelector('.ocupante-row.hidden')){document.getElementById('ocupante-restore').classList.add('hidden');}" title="Eliminar">✕</button>
+            `;
+            box.insertBefore(newRow, addBtn);
+        }
+
         function dragStart(ev, index) {
             ev.dataTransfer.setData("text/plain", index);
             ev.dataTransfer.effectAllowed = "move";

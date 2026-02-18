@@ -217,7 +217,7 @@
             );
         };
 
-        const Dashboard = ({ arrivals, stats, onRunAnalysis, timeRange, onRangeChange }) => (
+        const Dashboard = ({ arrivals, stats, alerts, onRunAnalysis, timeRange, onRangeChange }) => (
             <div className="space-y-8 animate-fade-in">
                 <div className="flex justify-between items-start">
                     <div>
@@ -352,14 +352,23 @@
                                 <h4 className="font-bold text-slate-800">Alertas Operativas</h4>
                             </div>
                             <div className="space-y-4">
-                                <div className="flex gap-4 p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
-                                    <div className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 shrink-0"></div>
-                                    <p className="text-xs text-slate-600 leading-snug">3 proformas del Hotel Cumbria vencen en menos de 48h.</p>
-                                </div>
-                                <div className="flex gap-4 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0"></div>
-                                    <p className="text-xs text-slate-600 leading-snug">Nueva importación exitosa: 12 grupos sincronizados.</p>
-                                </div>
+                                {alerts && alerts.length > 0 ? alerts.map((alert, idx) => (
+                                    <div key={idx} className={`flex gap-4 p-4 rounded-2xl border ${alert.type === 'warning' ? 'bg-orange-50/50 border-orange-100' :
+                                        alert.type === 'success' ? 'bg-emerald-50/50 border-emerald-100' :
+                                            'bg-blue-50/50 border-blue-100'
+                                        }`}>
+                                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${alert.type === 'warning' ? 'bg-orange-500' :
+                                            alert.type === 'success' ? 'bg-emerald-500' :
+                                                'bg-blue-500'
+                                            }`}></div>
+                                        <p className="text-xs text-slate-600 leading-snug">{alert.text}</p>
+                                    </div>
+                                )) : (
+                                    <div className="flex gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                        <div className="w-2 h-2 rounded-full bg-slate-400 mt-1.5 shrink-0"></div>
+                                        <p className="text-xs text-slate-400 leading-snug italic">No hay alertas operativas pendientes.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         {/* Pequeño banner IA discreto */}
@@ -382,7 +391,8 @@
                 const term = searchTerm.toLowerCase();
                 const name = (group["Nombre del Grupo"] || "").toLowerCase();
                 const agency = (group["Empresa/Agencia"] || "").toLowerCase();
-                return name.includes(term) || agency.includes(term);
+                const reserva = (group["Reserva"] || "").toString().toLowerCase();
+                return name.includes(term) || agency.includes(term) || reserva.includes(term);
             });
 
             return (
@@ -397,7 +407,7 @@
                                 <i data-lucide="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
                                 <input
                                     type="text"
-                                    placeholder="Buscar por nombre o agencia..."
+                                    placeholder="Buscar por nombre, agencia o reserva..."
                                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-[#2d5a43] transition-colors"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -418,12 +428,14 @@
                             <div key={i} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between group hover:border-[#2d5a43]/30 transition-all relative overflow-hidden h-full">
 
                                 {/* Status Badge */}
-                                <div className={`absolute top-0 right-0 px-2 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-widest ${(group["Estado"] || "").toLowerCase().includes('cancel') || (group["Estado"] || "").toLowerCase().includes('anul')
-                                    ? 'bg-red-50 text-red-500'
-                                    : 'bg-emerald-50 text-emerald-600'
-                                    }`}>
-                                    {group["Estado"] || "Activo"}
-                                </div>
+                                {(() => {
+                                    const st = getStatusProps(group["Estado"] || group["Com_Estado_Interno"]);
+                                    return (
+                                        <div className={`absolute top-0 right-0 px-2 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-widest ${st.text}`}>
+                                            {st.label}
+                                        </div>
+                                    );
+                                })()}
 
                                 <div className="flex-1">
                                     <div className="flex justify-between items-start mb-2">
@@ -462,7 +474,7 @@
                                     <div className="flex flex-wrap gap-1 mb-2">
                                         {/* Internal Phase Badge */}
                                         {group["Com_Estado_Interno"] && (
-                                            <div className="flex items-center gap-1 text-[8px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 max-w-full">
+                                            <div className={`flex items-center gap-1 text-[8px] px-1.5 py-0.5 rounded border max-w-full ${getStatusProps(group["Com_Estado_Interno"]).text} ${getStatusProps(group["Com_Estado_Interno"]).text.replace('bg-', 'border-').replace('text-', 'border-')}`}>
                                                 <i data-lucide="briefcase" className="w-2.5 h-2.5 shrink-0"></i>
                                                 <span className="font-bold truncate">{group["Com_Estado_Interno"]}</span>
                                             </div>
@@ -518,6 +530,65 @@
             const [arrivals, setArrivals] = useState([]);
             const [timeRange, setTimeRange] = useState(30);
             const [stats, setStats] = useState({ revenue: '0€', groups: 0, pending: 0, pax: 0 });
+
+            const getStatusProps = (statusRaw) => {
+                const s = (statusRaw || "").toString().toUpperCase();
+                if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA"))
+                    return { color: "bg-emerald-500", text: "bg-emerald-50 text-emerald-600", label: s || "CONFIRMADO" };
+                if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TIEMPO"))
+                    return { color: "bg-indigo-500", text: "bg-indigo-50 text-indigo-100", label: s || "BLOQUEADO" };
+                if (s.includes("ENVIAD") || s.includes("COTIZ") || s.includes("OFERT"))
+                    return { color: "bg-blue-400", text: "bg-blue-50 text-blue-100", label: s || "ENVIADO" };
+                if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA"))
+                    return { color: "bg-red-400 opacity-60", text: "bg-red-50 text-red-500", label: s || "CANCELADO" };
+                if (s.includes("PROSPEC") || s.includes("PENDIE") || s.includes("TENTA"))
+                    return { color: "bg-amber-500", text: "bg-amber-50 text-amber-600", label: s || "PROSPECTO" };
+                return { color: "bg-slate-400", text: "bg-slate-50 text-slate-500", label: s || "ACTIVO" };
+            };
+
+            // Generar Alertas Dinámicas
+            const alerts = useMemo(() => {
+                const list = [];
+                const now = new Date();
+                const fortyEightHours = 48 * 60 * 60 * 1000;
+
+                // 1. Alerta de Vencimiento de Proformas (basado en Com_Vencimiento_Rel)
+                const expiring = data.filter(g => {
+                    if (!g["Com_Vencimiento_Rel"]) return false;
+                    let d;
+                    const val = g["Com_Vencimiento_Rel"];
+                    const num = parseFloat(val);
+                    if (!isNaN(num) && num > 40000 && num < 60000) {
+                        d = new Date(Math.round((num - 25569) * 86400 * 1000));
+                    } else {
+                        const parts = String(val).split(/[\/-]/);
+                        if (parts.length === 3) {
+                            if (parts[0].length === 4) d = new Date(parts[0], parts[1] - 1, parts[2]);
+                            else d = new Date(parts[2], parts[1] - 1, parts[0]);
+                        } else d = new Date(val);
+                    }
+                    if (isNaN(d.getTime())) return false;
+                    const diff = d - now;
+                    return diff > 0 && diff < fortyEightHours;
+                });
+
+                if (expiring.length > 0) {
+                    list.push({ type: 'warning', text: `${expiring.length} proforma(s) vencen en menos de 48h (Cierre comercial).` });
+                }
+
+                // 2. Alerta de Sincronización Reciente
+                const recentCount = data.filter(g => {
+                    if (!g.updatedAt) return false;
+                    const updateDate = g.updatedAt.toDate ? g.updatedAt.toDate() : new Date(g.updatedAt);
+                    return (now - updateDate) < 15 * 60 * 1000; // Últimos 15 min
+                }).length;
+
+                if (recentCount > 0) {
+                    list.push({ type: 'success', text: `Sincronización reciente detectada: ${recentCount} registros actualizados.` });
+                }
+
+                return list;
+            }, [data]);
 
             // Estados para IA
             const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -636,6 +707,7 @@
                             <Dashboard
                                 arrivals={arrivals}
                                 stats={stats}
+                                alerts={alerts}
                                 onRunAnalysis={runStrategicAnalysis}
                                 timeRange={timeRange}
                                 onRangeChange={setTimeRange}
