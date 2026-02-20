@@ -97,11 +97,15 @@
                     subname: "Guadiana",
                     company: "SWEETMOON DESARROLLOS S.L.",
                     nif: "B87067302",
-                    address: "C/ Guadalupe, 6",
-                    cp: "13003",
+                    legal: "Inscrito en la hoja CR-00035559 del Registro Mercantil de Ciudad Real. Folio electrónico. Inscripción/anotación 4",
+                    irus: "1000292995580",
+                    address: "C/ Guadiana, 36",
+                    cp: "13002",
                     city: "Ciudad Real",
                     tel: "926 22 33 13",
                     email: "info@hotelguadiana.es",
+                    web: "www.hotelguadiana.es",
+                    bank: "Globalcaja",
                     iban: "ES30 3190 3953 1851 8526 3521"
                 },
                 cumbria: {
@@ -109,11 +113,15 @@
                     subname: "Cumbria",
                     company: "MOON FREE PORT, S.L.",
                     nif: "B87895058",
+                    legal: "Inscrito en el tomo 699 de libro 0 folio 2 hoja CR-32491 inscripción 2ª",
+                    irus: "",
                     address: "Ctra. Fuencaliente, s/n",
                     cp: "13004",
                     city: "Ciudad Real",
                     tel: "926 25 10 25",
                     email: "recepcion@hotelcumbria.es",
+                    web: "www.hotelcumbria.es",
+                    bank: "Caixabank",
                     iban: "ES19 3081 0601 0850 0004 8966"
                 },
                 system: {
@@ -231,31 +239,55 @@
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">NIF / CIF</label>
-                                                <input type="text" value={config[activeHotel].nif} onChange={(e) => handleChange(activeHotel, 'nif', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                                <input type="text" value={config[activeHotel].nif} onChange={(e) => handleChange(activeHotel, 'nif', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
                                             </div>
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">IBAN de Cobro</label>
-                                                <input type="text" value={config[activeHotel].iban} onChange={(e) => handleChange(activeHotel, 'iban', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-emerald-700 font-bold" />
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Inscripción Registro Mercantil</label>
+                                                <textarea rows="2" value={config[activeHotel].legal} onChange={(e) => handleChange(activeHotel, 'legal', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all resize-none" />
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Entidad Bancaria</label>
+                                                    <input type="text" value={config[activeHotel].bank || ""} onChange={(e) => handleChange(activeHotel, 'bank', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" placeholder="Nombre del Banco" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">IBAN de Cobro</label>
+                                                    <input type="text" value={config[activeHotel].iban} onChange={(e) => handleChange(activeHotel, 'iban', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-emerald-700 font-bold focus:border-[#2d5a43] outline-none transition-all tracking-tighter text-sm" />
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="space-y-6">
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Dirección Física</label>
-                                                <input type="text" value={config[activeHotel].address} onChange={(e) => handleChange(activeHotel, 'address', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                                <input type="text" value={config[activeHotel].address} onChange={(e) => handleChange(activeHotel, 'address', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="col-span-1">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">IRUS</label>
+                                                    <input type="text" value={config[activeHotel].irus || ""} onChange={(e) => handleChange(activeHotel, 'irus', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
+                                                </div>
+                                                <div className="col-span-1">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">C.P.</label>
+                                                    <input type="text" value={config[activeHotel].cp} onChange={(e) => handleChange(activeHotel, 'cp', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
+                                                </div>
+                                                <div className="col-span-1">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Ciudad</label>
+                                                    <input type="text" value={config[activeHotel].city} onChange={(e) => handleChange(activeHotel, 'city', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
+                                                </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">C.P.</label>
-                                                    <input type="text" value={config[activeHotel].cp} onChange={(e) => handleChange(activeHotel, 'cp', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email</label>
+                                                    <input type="email" value={config[activeHotel].email} onChange={(e) => handleChange(activeHotel, 'email', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Ciudad</label>
-                                                    <input type="text" value={config[activeHotel].city} onChange={(e) => handleChange(activeHotel, 'city', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Teléfono</label>
+                                                    <input type="text" value={config[activeHotel].tel} onChange={(e) => handleChange(activeHotel, 'tel', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email de Contacto</label>
-                                                <input type="email" value={config[activeHotel].email} onChange={(e) => handleChange(activeHotel, 'email', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold" />
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Web Oficial</label>
+                                                <input type="text" value={config[activeHotel].web || ""} onChange={(e) => handleChange(activeHotel, 'web', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
                                             </div>
                                         </div>
                                     </div>

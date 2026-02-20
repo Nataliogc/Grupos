@@ -844,7 +844,9 @@
                         const mappedItems = [];
                         roomList.forEach(r => {
                             const nights = parseInt(r.nights) || 1;
-                            const dIn = new Date(toInputDate(r.dateIn));
+                            const dInStr = toInputDate(r.dateIn);
+                            if (!dInStr) return;
+                            const dIn = new Date(dInStr);
 
                             for (let i = 0; i < nights; i++) {
                                 const currentDay = new Date(dIn);
@@ -853,17 +855,18 @@
                                 mappedItems.push({
                                     fecha: formatDate(currentDay.toISOString().split('T')[0]),
                                     hab: '1',
-                                    cant: r.qty.toString(),
-                                    concepto: `${r.type} (${r.regime})`,
-                                    precio: parseFloat(r.price),
+                                    cant: (r.qty || 1).toString(),
+                                    concepto: `${r.type}${r.regime ? ` (${r.regime})` : ''}`,
+                                    precio: parseFloat(r.price) || 0,
                                     iva: parseInt(r.iva || 10),
                                     regimen: r.regime || ''
                                 });
                             }
                         });
-                        groupData["RoomSummary"] = roomList.map(r => `${r.qty} ${r.type}`).join(', ');
-                        groupData["ProformaItems"] = mappedItems;
-                        groupData["Importe(*)"] = roomList.reduce((acc, r) => acc + parseFloat(r.total), 0).toFixed(2);
+                        if (mappedItems.length > 0) {
+                            groupData["ProformaItems"] = mappedItems;
+                            groupData["Importe(*)"] = roomList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0).toFixed(2);
+                        }
                     }
                 } catch (e) { console.error("Error mapping room list in list click", e); }
 
@@ -2750,15 +2753,37 @@
 
                                                             <td className="px-6 py-4 text-center">
                                                                 {(() => {
-                                                                    const today = new Date();
-                                                                    today.setHours(0, 0, 0, 0);
+                                                                    const now = new Date();
+                                                                    now.setHours(0, 0, 0, 0);
+
+                                                                    // Prioritize actual Release Date if set
+                                                                    const relDateStr = group.records[0]?.["Com_Vencimiento_Rel"];
+                                                                    if (relDateStr) {
+                                                                        const relDate = new Date(relDateStr);
+                                                                        if (!isNaN(relDate.getTime())) {
+                                                                            const diffRel = Math.ceil((relDate - now) / (1000 * 60 * 60 * 24));
+                                                                            return (
+                                                                                <div className="flex flex-col items-center">
+                                                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded shadow-sm ${diffRel <= 3 ? 'bg-rose-600 text-white animate-pulse' : (diffRel <= 7 ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white')}`}>
+                                                                                        {diffRel}d (REL)
+                                                                                    </span>
+                                                                                    <span className="text-[8px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Límite Contrato</span>
+                                                                                </div>
+                                                                            );
+                                                                        }
+                                                                    }
+
+                                                                    // Fallback to days to arrival
                                                                     const dIn = new Date(toInputDate(group.arrival));
                                                                     dIn.setHours(0, 0, 0, 0);
-                                                                    const diff = Math.ceil((dIn - today) / (1000 * 60 * 60 * 24));
+                                                                    const diffArr = Math.ceil((dIn - now) / (1000 * 60 * 60 * 24));
                                                                     return (
-                                                                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${diff <= 7 && diff > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                                            {diff > 0 ? `${diff}d` : (diff === 0 ? 'HOY' : 'PASADO')}
-                                                                        </span>
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${diffArr <= 7 && diffArr > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                                                {diffArr > 0 ? `${diffArr}d` : (diffArr === 0 ? 'HOY' : 'PASADO')}
+                                                                            </span>
+                                                                            <span className="text-[8px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">Días a Llegada</span>
+                                                                        </div>
                                                                     );
                                                                 })()}
                                                             </td>
@@ -3269,7 +3294,9 @@
                                                                 const mappedItems = [];
                                                                 roomList.forEach(r => {
                                                                     const nights = parseInt(r.nights) || 1;
-                                                                    const dIn = new Date(toInputDate(r.dateIn));
+                                                                    const dInStr = toInputDate(r.dateIn);
+                                                                    if (!dInStr) return;
+                                                                    const dIn = new Date(dInStr);
 
                                                                     for (let i = 0; i < nights; i++) {
                                                                         const currentDay = new Date(dIn);
@@ -3277,17 +3304,19 @@
 
                                                                         mappedItems.push({
                                                                             fecha: formatDate(currentDay.toISOString().split('T')[0]),
-                                                                            hab: r.qty.toString(),
-                                                                            cant: '1',
+                                                                            hab: '1',
+                                                                            cant: (r.qty || 1).toString(),
                                                                             concepto: `${r.type}${r.regime ? ` (${r.regime})` : ''}`,
-                                                                            precio: parseFloat(r.price),
+                                                                            precio: parseFloat(r.price) || 0,
                                                                             iva: parseInt(r.iva || 10),
                                                                             regimen: r.regime || ''
                                                                         });
                                                                     }
                                                                 });
-                                                                proformaData["ProformaItems"] = mappedItems;
-                                                                proformaData["Importe(*)"] = roomList.reduce((acc, r) => acc + parseFloat(r.total), 0).toFixed(2);
+                                                                if (mappedItems.length > 0) {
+                                                                    proformaData["ProformaItems"] = mappedItems;
+                                                                    proformaData["Importe(*)"] = roomList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0).toFixed(2);
+                                                                }
                                                             }
                                                         } catch (e) { console.error("Error mapping room list", e); }
 
@@ -3771,7 +3800,7 @@
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Rég.</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right">P. Unit</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">IVA</th>
-                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Release</th>
+
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right bg-slate-100/50">Total</th>
                                                             <th className="py-2.5 px-3 w-8"></th>
                                                         </tr>
@@ -3827,20 +3856,7 @@
                                                                         {item.iva || 10}%
                                                                     </span>
                                                                 </td>
-                                                                <td className="py-2 px-3 text-center">
-                                                                    {(() => {
-                                                                        const today = new Date();
-                                                                        today.setHours(0, 0, 0, 0);
-                                                                        const dIn = new Date(toInputDate(item.dateIn));
-                                                                        dIn.setHours(0, 0, 0, 0);
-                                                                        const diff = Math.ceil((dIn - today) / (1000 * 60 * 60 * 24));
-                                                                        return (
-                                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${diff <= 7 && diff > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                                                {diff > 0 ? `${diff}d` : (diff === 0 ? 'HOY' : 'PASADO')}
-                                                                            </span>
-                                                                        );
-                                                                    })()}
-                                                                </td>
+
                                                                 <td className="py-1 px-2 text-right font-black text-emerald-600 bg-emerald-50/30">{parseFloat(item.total).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
                                                                 <td className="py-1 px-2 text-center flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <button
@@ -3947,8 +3963,8 @@
                                                                         </div>
 
                                                                         <div className="space-y-1.5">
-                                                                            <div className="grid grid-cols-[20px_1fr_60px_90px_70px_85px_45px_20px] gap-1.5 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
-                                                                                <div></div><div className="pl-2">Concepto</div><div className="text-center">%</div><div className="text-right pr-2">Importe</div><div className="text-center">Ant.</div><div className="text-center">Fecha</div><div className="text-center">Estado</div><div></div>
+                                                                            <div className="grid grid-cols-[25px_60px_100px_85px_90px_60px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+                                                                                <div></div><div className="text-center">%</div><div className="text-right pr-4">Importe</div><div className="text-center pr-2">Release</div><div className="text-center">Fecha</div><div className="text-center">Estado</div><div></div><div></div>
                                                                             </div>
                                                                             {plan.map((dep, idx) => {
                                                                                 const isPaid = dep.status === "Cobrado";
@@ -3957,13 +3973,17 @@
                                                                                 const isWarning = !isPaid && Math.ceil((depDate - today) / (1000 * 60 * 60 * 24)) <= 2;
 
                                                                                 return (
-                                                                                    <div key={dep.id} className={`grid grid-cols-[20px_1fr_60px_90px_70px_85px_45px_20px] items-center gap-1.5 p-1 rounded border ${isPaid ? 'bg-emerald-50/40 border-emerald-100/50' : (isWarning ? 'bg-rose-50 border-rose-200 animate-pulse' : 'bg-white border-slate-100')} hover:border-slate-300 transition-all group shadow-sm`}>
+                                                                                    <div key={dep.id} className={`grid grid-cols-[25px_60px_100px_85px_90px_60px_60px_25px] items-center gap-1 p-1 rounded border ${isPaid ? 'bg-emerald-50/40 border-emerald-100/50' : (isWarning ? 'bg-rose-50 border-rose-200 animate-pulse' : 'bg-white border-slate-100')} hover:border-slate-300 transition-all group shadow-sm pl-1`}>
                                                                                         <div className="flex justify-center">{isWarning ? <IconAlertTriangle size={10} className="text-rose-500" /> : <div className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>}</div>
-                                                                                        <input type="text" className="bg-transparent border-none text-[10px] font-black text-slate-700 outline-none uppercase min-w-0" value={dep.label} onChange={(e) => handlePlanChange(idx, 'label', e.target.value)} />
                                                                                         <div className="flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[45px] h-5 border border-slate-100"><input type="number" className="bg-transparent border-none text-[10px] font-black text-slate-600 w-8 text-right outline-none" value={dep.percent} onChange={(e) => handlePlanChange(idx, 'percent', e.target.value)} /><span className="text-[8px] font-black text-slate-400 ml-0.5">%</span></div>
-                                                                                        <div className="text-right pr-1"><span className={`text-[12px] font-black tabular-nums ${isPaid ? 'text-emerald-700' : (isWarning ? 'text-rose-700' : 'text-slate-700')}`}>{parseFloat(dep.amount || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</span></div>
-                                                                                        <div className="flex items-center justify-center bg-blue-50 shadow-inner rounded px-1.5 min-w-[55px] h-6 border border-blue-100"><input type="number" className="bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none" value={dep.releaseDays} onChange={(e) => handlePlanChange(idx, 'releaseDays', e.target.value)} /><span className="text-[8px] font-black text-blue-400 ml-0.5 transition-colors">D</span></div>
+                                                                                        <div className="text-right pr-4"><span className={`text-[12px] font-black tabular-nums ${isPaid ? 'text-emerald-700' : (isWarning ? 'text-rose-700' : 'text-slate-700')}`}>{parseFloat(dep.amount || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</span></div>
+                                                                                        <div className="flex items-center justify-center bg-blue-50 shadow-inner rounded px-1.5 min-w-[55px] h-6 border border-blue-100 mx-auto"><input type="number" className="bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none" value={dep.releaseDays} onChange={(e) => handlePlanChange(idx, 'releaseDays', e.target.value)} /><span className="text-[8px] font-black text-blue-400 ml-0.5 transition-colors">D</span></div>
                                                                                         <div className={`text-[10px] font-bold tabular-nums text-center ${isWarning ? 'text-rose-600 font-black' : 'text-slate-500'}`}>{formatDate(dep.date)}</div>
+                                                                                        <div className="flex justify-center">{/* Badge Estado */}
+                                                                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm ${isPaid ? 'bg-emerald-100 text-emerald-700' : (isWarning ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500')}`}>
+                                                                                                {isPaid ? 'OK' : 'PND'}
+                                                                                            </span>
+                                                                                        </div>
                                                                                         <button onClick={() => handlePlanChange(idx, 'status', isPaid ? "Pendiente" : "Cobrado")} className={`h-5 w-full rounded text-[9px] font-black transition-all ${isPaid ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200' : 'bg-slate-100 text-slate-400'}`}>{isPaid ? <IconCheck size={10} stroke={4} className="mx-auto" /> : 'PND'}</button>
                                                                                         <button onClick={() => removePlanRow(idx)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-opacity flex justify-center"><IconTrash size={12} /></button>
                                                                                     </div>
