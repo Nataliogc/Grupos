@@ -1622,6 +1622,8 @@
             // Estados para Ficha de Grupo
             const [showFichaModal, setShowFichaModal] = useState(false);
             const [selectedGroupFicha, setSelectedGroupFicha] = useState(null);
+            // Ref con la última lista de inventario guardada (para PROFORMA, evita desincronía con el estado)
+            const lastRoomingListRef = useRef({ groupName: null, list: [] });
 
             // State for Room Manager Form
             const [roomManagerForm, setRoomManagerForm] = useState({
@@ -1784,13 +1786,27 @@
                     }
                 }
 
+                // Sincronizar ref de inventario para PROFORMA (al abrir ficha)
+                try {
+                    const rec = group.records && group.records[0];
+                    if (rec) {
+                        const list = JSON.parse(rec["RoomingList_JSON"] || "[]");
+                        if (Array.isArray(list) && list.length > 0)
+                            lastRoomingListRef.current = { groupName: group.name, list };
+                    }
+                } catch (e) {}
+
                 setSelectedGroupFicha(group);
                 setShowFichaModal(true);
             };
 
             const updateGroupMetadata = async (groupName, field, value, hotelFilter = null) => {
-                console.log(`Update: ${groupName} -> ${field} = ${value}`);
-
+                if (field === "RoomingList_JSON") {
+                    try {
+                        const list = typeof value === 'string' ? JSON.parse(value) : value;
+                        lastRoomingListRef.current = { groupName, list: Array.isArray(list) ? list : [] };
+                    } catch (e) { lastRoomingListRef.current = { groupName, list: [] }; }
+                }
                 // 1. Optimistic UI Update
                 setData(prevData => {
                     return prevData.map(row => {
@@ -3287,31 +3303,47 @@
                                                             "Salida": selectedGroupFicha.departure || baseRecord["Salida"]
                                                         };
 
-                                                        // Map Room Manager items to Proforma Items if they exist
+                                                        // Origen de líneas de cargo: 1) ref (última guardada), 2) records, 3) data
+                                                        let roomList = [];
+                                                        const groupNameForRoom = (selectedGroupFicha.name || "").trim();
+                                                        if (lastRoomingListRef.current && (lastRoomingListRef.current.groupName || "").trim() === groupNameForRoom && lastRoomingListRef.current.list.length > 0) {
+                                                            roomList = lastRoomingListRef.current.list;
+                                                        }
+                                                        if (roomList.length === 0) {
+                                                            try {
+                                                                const fromRecord = (rec) => { try { return JSON.parse(rec["RoomingList_JSON"] || "[]"); } catch (e) { return []; } };
+                                                                (selectedGroupFicha.records || []).forEach(r => {
+                                                                    const rl = fromRecord(r);
+                                                                    if (rl.length > roomList.length) roomList = rl;
+                                                                });
+                                                                if (roomList.length === 0 && Array.isArray(data)) {
+                                                                    data.filter(r => (r["Nombre del Grupo"] || "").trim() === groupNameForRoom).forEach(row => {
+                                                                        const rl = fromRecord(row);
+                                                                        if (rl.length > roomList.length) roomList = rl;
+                                                                    });
+                                                                }
+                                                            } catch (e) { console.error("Error reading room list", e); }
+                                                        }
                                                         try {
-                                                            const roomList = JSON.parse(baseRecord["RoomingList_JSON"] || "[]");
                                                             if (roomList.length > 0) {
                                                                 const mappedItems = [];
+                                                                const fallbackDate = selectedGroupFicha.arrival || baseRecord["Entrada"] || new Date().toISOString().split('T')[0];
                                                                 roomList.forEach(r => {
+                                                                    const dInStr = toInputDate(r.dateIn) || toInputDate(fallbackDate);
+                                                                    const fechaStr = dInStr && dInStr.includes('-') ? formatDate(dInStr) : formatDate(fallbackDate);
                                                                     const nights = parseInt(r.nights) || 1;
-                                                                    const dInStr = toInputDate(r.dateIn);
-                                                                    if (!dInStr) return;
-                                                                    const dIn = new Date(dInStr);
-
-                                                                    for (let i = 0; i < nights; i++) {
-                                                                        const currentDay = new Date(dIn);
-                                                                        currentDay.setDate(currentDay.getDate() + i);
-
-                                                                        mappedItems.push({
-                                                                            fecha: formatDate(currentDay.toISOString().split('T')[0]),
-                                                                            hab: '1',
-                                                                            cant: (r.qty || 1).toString(),
-                                                                            concepto: `${r.type}${r.regime ? ` (${r.regime})` : ''}`,
-                                                                            precio: parseFloat(r.price) || 0,
-                                                                            iva: parseInt(r.iva || 10),
-                                                                            regimen: r.regime || ''
-                                                                        });
-                                                                    }
+                                                                    const qty = parseInt(r.qty) || 1;
+                                                                    const price = parseFloat(r.price) || 0;
+                                                                    mappedItems.push({
+                                                                        fecha: fechaStr,
+                                                                        hab: '1',
+                                                                        cant: String(qty),
+                                                                        concepto: [r.type, r.regime].filter(Boolean).join(' ') || 'Concepto',
+                                                                        precio: price,
+                                                                        iva: parseInt(r.iva || 10),
+                                                                        regimen: r.regime || '',
+                                                                        dias: String(nights)
+                                                                    });
                                                                 });
                                                                 if (mappedItems.length > 0) {
                                                                     proformaData["ProformaItems"] = mappedItems;
@@ -3321,6 +3353,10 @@
                                                         } catch (e) { console.error("Error mapping room list", e); }
 
                                                         localStorage.setItem('selectedGroup', JSON.stringify(proformaData));
+                                                        // Pasar ítems por clave dedicada para que Fac Prof los reciba siempre (evita pérdida por estado/ref)
+                                                        const itemsToPass = proformaData["ProformaItems"] && proformaData["ProformaItems"].length > 0 ? proformaData["ProformaItems"] : [];
+                                                        localStorage.setItem('nexus_proforma_items', JSON.stringify(itemsToPass));
+                                                        localStorage.setItem('nexus_proforma_reserva', String(baseRecord["Reserva"] || selectedGroupFicha.records?.[0]?.["Reserva"] || ""));
                                                         window.location.href = 'Fac Prof.html';
                                                     }}
                                                     className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-black text-[10px] transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"

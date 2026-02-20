@@ -276,91 +276,77 @@
             );
         };
 
-        const Dashboard = ({ arrivals, stats, alerts, onRunAnalysis, timeRange, onRangeChange }) => (
-            <div className="space-y-8 animate-fade-in">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Nexus <span className="text-[#2d5a43]">Groups</span></h2>
-                        <p className="text-slate-500 mt-1">Gestión unificada de grupos y análisis predictivo.</p>
-                    </div>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={onRunAnalysis}
-                            className="bg-emerald-50 text-[#2d5a43] px-5 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-100 transition-all text-xs border border-emerald-100 shadow-sm"
-                        >
-                            <LucideIcon name="sparkles" className="w-4 h-4" />
-                            Consultor IA
-                        </button>
-                        <div className="text-right bg-white p-4 rounded-3xl shadow-sm border border-slate-100 min-w-[150px]">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Servidor Cloud</p>
-                            <p className="text-sm font-bold text-slate-800">{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        const Dashboard = ({ arrivals, stats, alerts, onRunAnalysis, timeRange, onRangeChange }) => {
+            const kpis = [
+                { label: 'Revenue', value: stats.revenue, trend: stats.revTrend || '+0%', cardClass: 'kpi-card-emerald', iconClass: 'bg-emerald-100 text-emerald-600', icon: 'trending-up', trendClass: 'text-emerald-600' },
+                { label: 'Reservas', value: stats.groups, trend: 'Activas', cardClass: 'kpi-card-blue', iconClass: 'bg-blue-100 text-blue-600', icon: 'check-circle', trendClass: 'text-blue-600' },
+                { label: 'Proformas', value: stats.pending, trend: '24h', cardClass: 'kpi-card-orange', iconClass: 'bg-orange-100 text-orange-600', icon: 'file-text', trendClass: 'text-orange-600' },
+                { label: 'Pax', value: stats.pax != null && stats.pax !== '' ? stats.pax : '—', trend: 'Total', cardClass: 'kpi-card-purple', iconClass: 'bg-purple-100 text-purple-600', icon: 'users', trendClass: 'text-purple-600' },
+                { label: 'Release', value: stats.releaseAlerts ?? 0, trend: '7 días', cardClass: 'kpi-card-rose', iconClass: 'bg-rose-100 text-rose-600', icon: 'alert-triangle', trendClass: 'text-rose-600', onClick: () => { localStorage.setItem('openGroupKpiFilter', 'release'); window.location.href = 'Gestión de Grupos.html'; } },
+                { label: 'Tareas', value: stats.followUpAlerts ?? 0, trend: 'Hoy', cardClass: 'kpi-card-indigo', iconClass: 'bg-indigo-100 text-indigo-600', icon: 'mail', trendClass: 'text-indigo-600', onClick: () => { localStorage.setItem('openGroupKpiFilter', 'followup'); window.location.href = 'Gestión de Grupos.html'; } }
+            ];
+            return (
+            <div className="space-y-6 animate-fade-in">
+                {/* Hero del inicio - compacto */}
+                <div className="dashboard-hero p-5 md:p-6">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+                                Nexus <span className="text-[#2d5a43]">Groups</span>
+                            </h1>
+                            <p className="text-slate-500 mt-1 text-xs max-w-md">Gestión unificada de grupos y análisis predictivo.</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <button
+                                onClick={onRunAnalysis}
+                                className="bg-gradient-to-r from-[#2d5a43] to-[#1e3a2c] text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:shadow-md hover:shadow-emerald-900/20 transition-all text-xs border-0"
+                            >
+                                <LucideIcon name="sparkles" className="w-3.5 h-3.5" />
+                                Consultor IA
+                            </button>
+                            <div className="bg-white/90 backdrop-blur-sm text-right px-4 py-2.5 rounded-xl shadow-sm border border-slate-100/80 min-w-[140px]">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Servidor Cloud</p>
+                                <p className="text-xs font-bold text-slate-800">{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                    {[
-                        { label: 'Revenue', value: stats.revenue, trend: stats.revTrend || '+0%', color: 'emerald', icon: 'trending-up' },
-                        { label: 'Reservas', value: stats.groups, trend: 'Activas', color: 'blue', icon: 'check-circle' },
-                        { label: 'Proformas', value: stats.pending, trend: '24h', color: 'orange', icon: 'file-text' },
-                        { label: 'Pax', value: stats.pax, trend: 'Total', color: 'purple', icon: 'users' },
-                        {
-                            label: 'Release',
-                            value: stats.releaseAlerts || 0,
-                            trend: '7 días',
-                            color: 'rose',
-                            icon: 'alert-triangle',
-                            onClick: () => {
-                                localStorage.setItem('openGroupKpiFilter', 'release');
-                                window.location.href = 'Gestión de Grupos.html';
-                            }
-                        },
-                        {
-                            label: 'Tareas',
-                            value: stats.followUpAlerts || 0,
-                            trend: 'Hoy',
-                            color: 'indigo',
-                            icon: 'mail',
-                            onClick: () => {
-                                localStorage.setItem('openGroupKpiFilter', 'followup');
-                                window.location.href = 'Gestión de Grupos.html';
-                            }
-                        }
-                    ].map((kpi, i) => (
+                {/* KPIs - compactos */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+                    {kpis.map((kpi, i) => (
                         <div
                             key={i}
                             onClick={kpi.onClick}
-                            className={`bg-white p-3 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${kpi.onClick ? 'cursor-pointer hover:border-' + kpi.color + '-200' : ''}`}
+                            className={`kpi-card opacity-0 animate-dash-up p-3 rounded-xl border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${kpi.cardClass} ${kpi.onClick ? 'cursor-pointer' : ''}`}
                         >
-                            <div className="flex justify-between items-start mb-2">
-                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-tighter line-clamp-1">{kpi.label}</p>
-                                <div className={`p-1 rounded-md bg-${kpi.color}-50 text-${kpi.color}-500 border border-${kpi.color}-50`}>
-                                    <LucideIcon name={kpi.icon} className="w-3 h-3 text-[10px]" />
+                            <div className="flex justify-between items-start mb-1.5">
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">{kpi.label}</p>
+                                <div className={`p-1 rounded-md ${kpi.iconClass}`}>
+                                    <LucideIcon name={kpi.icon} className="w-3 h-3" />
                                 </div>
                             </div>
-                            <div>
-                                <h3 className={`text-lg font-black ${kpi.color === 'rose' && kpi.value > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-900'} leading-none`}>
-                                    {kpi.value}
-                                </h3>
-                                <p className={`text-[7px] font-bold mt-1 uppercase text-${kpi.color}-500/80`}>{kpi.trend}</p>
-                            </div>
+                            <p className={`text-base md:text-lg font-black leading-tight ${kpi.cardClass === 'kpi-card-rose' && Number(kpi.value) > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-900'}`}>
+                                {kpi.value}
+                            </p>
+                            <p className={`text-[9px] font-bold mt-1 uppercase ${kpi.trendClass}`}>{kpi.trend}</p>
                         </div>
                     ))}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <div className="lg:col-span-3 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8">
-                        <div className="flex justify-between items-center mb-8">
+                    <div className="lg:col-span-3 bg-white rounded-[2.5rem] shadow-md border border-slate-100/80 p-8 overflow-hidden">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
                             <div>
                                 <h3 className="font-bold text-xl text-slate-900">Próximas Reservas</h3>
                                 <p className="text-xs text-slate-400 mt-1">Sincronizado con ambos hoteles</p>
                             </div>
-                            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100">
+                            <div className="flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-100">
                                 {[15, 30, 60].map(days => (
                                     <button
                                         key={days}
                                         onClick={() => onRangeChange(days)}
-                                        className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${timeRange === days ? 'bg-white text-[#2d5a43] shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                        className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${timeRange === days ? 'bg-[#2d5a43] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/80'}`}
                                     >
                                         {days} Días
                                     </button>
@@ -434,9 +420,9 @@
                     </div>
 
                     <div className="space-y-6 lg:col-span-1">
-                        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                        <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-md">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                                <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 rounded-xl flex items-center justify-center border border-blue-100">
                                     <LucideIcon name="bell" className="w-5 h-5" />
                                 </div>
                                 <h4 className="font-bold text-slate-800">Alertas Operativas</h4>
@@ -461,18 +447,20 @@
                                 )}
                             </div>
                         </div>
-                        {/* Pequeño banner IA discreto */}
-                        <div className="bg-slate-900 rounded-[2rem] p-6 text-white overflow-hidden relative group">
+                        {/* Banner IA */}
+                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2rem] p-6 text-white overflow-hidden relative group border border-slate-700/50">
+                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_70%_0%,rgba(16,185,129,0.15),transparent)]"></div>
                             <div className="relative z-10">
                                 <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 mb-2">IA Insights</p>
-                                <p className="text-[11px] text-slate-300 mb-4 opacity-80">Pulsa el botón superior para ver el análisis estratégico de Gemini.</p>
+                                <p className="text-[11px] text-slate-300 leading-relaxed opacity-90">Usa el botón <strong className="text-white">Consultor IA</strong> para el análisis estratégico con Gemini.</p>
                             </div>
-                            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full -mr-10 -mt-10 group-hover:scale-150 transition-all"></div>
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/20 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
                         </div>
                     </div>
                 </div>
             </div>
-        );
+            );
+        };
 
         const GroupsManager = ({ data }) => {
             const [searchTerm, setSearchTerm] = React.useState("");
@@ -818,12 +806,12 @@
                 <div className="min-h-screen">
                     <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-                    <main className="ml-64 p-12">
-                        {/* Header Superior Top-End */}
-                        <div className="flex justify-end mb-12 gap-4 no-print">
-                            <div className="flex items-center gap-6 bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm">
-                                <div className="flex items-center gap-2 border-r border-slate-100 pr-6">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                    <main className={`ml-64 p-8 md:p-12 ${activeTab === 'dashboard' ? 'bg-gradient-to-b from-slate-50/50 to-transparent' : ''}`}>
+                        {/* Header Superior */}
+                        <div className="flex justify-end mb-10 gap-4 no-print">
+                            <div className="flex items-center gap-6 bg-white/95 backdrop-blur-sm px-6 py-3.5 rounded-2xl border border-slate-100 shadow-sm">
+                                <div className="flex items-center gap-2.5 border-r border-slate-100 pr-6">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse"></div>
                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sincronización Multihotel Activa</span>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -831,7 +819,7 @@
                                         <p className="text-[10px] font-bold text-slate-900 leading-none">Recepcionista Turno</p>
                                         <p className="text-[9px] text-slate-400 font-medium">Acceso Staff Nivel 1</p>
                                     </div>
-                                    <div className="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center text-slate-600 border border-slate-300 shadow-inner">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center text-slate-600 border border-slate-200 shadow-sm">
                                         <LucideIcon name="user" className="w-5 h-5" />
                                     </div>
                                 </div>

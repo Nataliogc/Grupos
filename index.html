@@ -67,7 +67,7 @@
         <!-- Decoración de fondo -->
         <div class="absolute -top-20 -left-20 w-64 h-64 bg-emerald-200/30 rounded-full blur-3xl animate-pulse"></div>
         <div
-            class="absolute -bottom-20 -right-20 w-64 h-64 bg-blue-200/30 rounded-full blur-3xl animate-pulse delay-700">
+            class="absolute -bottom-20 -right-20 w-64 h-64 bg-blue-200/30 rounded-full blur-3xl animate-pulse animate-float-delayed">
         </div>
 
         <div class="glass-card rounded-[2.5rem] p-10 relative z-10">
@@ -82,29 +82,33 @@
                 <p class="text-slate-500 text-sm mt-2">Inteligencia Hotelera Estratégica</p>
             </div>
 
-            <form id="loginForm" class="space-y-6">
+            <form id="loginForm" class="space-y-6" novalidate>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Pin de
-                        Acceso</label>
+                    <label for="pin" class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Pin de Acceso</label>
                     <div class="relative">
-                        <i data-lucide="lock"
-                            class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                        <input type="password" id="pin" placeholder="····" maxlength="4"
+                        <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true"></i>
+                        <input type="password" id="pin" name="pin" placeholder="····" maxlength="4" inputmode="numeric" autocomplete="one-time-code"
+                            aria-label="Introduce el PIN de acceso de 4 dígitos"
+                            aria-describedby="errorMessage"
+                            aria-invalid="false"
                             class="w-full pl-12 pr-4 py-4 bg-white/50 border border-slate-200 rounded-2xl text-center text-2xl tracking-[1em] font-bold text-slate-800 input-focus transition-all outline-none"
                             required>
                     </div>
                 </div>
 
-                <div id="errorMessage"
+                <div id="errorMessage" role="alert"
                     class="hidden text-red-500 text-xs font-bold text-center bg-red-50 py-2 rounded-xl border border-red-100 italic">
                     Pin incorrecto. Solicítalo al administrador.
                 </div>
 
-                <button type="submit"
-                    class="w-full bg-[#2d5a43] hover:bg-[#1e3a2c] text-white py-4 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
-                    Entrar al Centro de Control
-                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </button>
+                <div class="relative">
+                    <button type="submit" id="submitBtn"
+                        class="w-full relative bg-[#2d5a43] hover:bg-[#1e3a2c] text-white py-4 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                        <span class="btn-text">Entrar al Centro de Control</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 btn-text" aria-hidden="true"></i>
+                        <span class="btn-spinner hidden" aria-hidden="true"></span>
+                    </button>
+                </div>
             </form>
 
             <div class="mt-10 pt-8 border-t border-slate-100 flex justify-between items-center opacity-40">
@@ -118,33 +122,69 @@
     </div>
 
     <script>
-        // Inicializar iconos Lucide
         lucide.createIcons();
 
         const loginForm = document.getElementById('loginForm');
         const pinInput = document.getElementById('pin');
         const errorMsg = document.getElementById('errorMessage');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnSpinner = submitBtn.querySelector('.btn-spinner');
 
-        loginForm.addEventListener('submit', (e) => {
+        // PIN: en producción sustituir por validación server-side (Firebase Auth, backend, etc.)
+        const VALID_PIN = "1234";
+        const REDIRECT_URL = "Admin.html";
+
+        function setLoading(loading) {
+            submitBtn.classList.toggle('btn-loading', loading);
+            submitBtn.disabled = loading;
+            if (btnSpinner) btnSpinner.classList.toggle('hidden', !loading);
+        }
+
+        function showError(show) {
+            errorMsg.classList.toggle('hidden', !show);
+            pinInput.setAttribute('aria-invalid', show ? 'true' : 'false');
+        }
+
+        pinInput.addEventListener('input', function () {
+            showError(false);
+        });
+
+        pinInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') loginForm.requestSubmit();
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            showError(false);
 
-            // He configurado un PIN de prueba básico (1234)
-            // En producción podrías usar Firebase Auth, pero para este sistema rápido es funcional
-            if (pinInput.value === "1234") {
-                window.location.href = 'Admin.html';
-            } else {
-                errorMsg.classList.remove('hidden');
-                pinInput.value = "";
+            const pin = pinInput.value.trim();
+            if (!pin) {
                 pinInput.focus();
-
-                // Animación de error
-                loginForm.animate([
-                    { transform: 'translateX(0)' },
-                    { transform: 'translateX(-10px)' },
-                    { transform: 'translateX(10px)' },
-                    { transform: 'translateX(0)' }
-                ], { duration: 300 });
+                return;
             }
+
+            setLoading(true);
+
+            // Pequeña pausa para que se vea el estado de carga (opcional)
+            await new Promise(r => setTimeout(r, 400));
+
+            if (pin === VALID_PIN) {
+                window.location.href = REDIRECT_URL;
+                return;
+            }
+
+            setLoading(false);
+            showError(true);
+            pinInput.value = "";
+            pinInput.focus();
+
+            loginForm.animate([
+                { transform: 'translateX(0)' },
+                { transform: 'translateX(-10px)' },
+                { transform: 'translateX(10px)' },
+                { transform: 'translateX(0)' }
+            ], { duration: 300 });
         });
     </script>
 </body>
