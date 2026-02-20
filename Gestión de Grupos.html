@@ -324,8 +324,16 @@
             const [columns, setColumns] = useState(Object.keys(INITIAL_DATA[0]));
             const authorizingIds = useRef(new Set()); // Para evitar que onSnapshot restaure diffs en proceso de guardado
 
-            const getStatusProps = (statusRaw) => {
+            const getStatusProps = (statusRaw, arrivalDate) => {
                 const s = (statusRaw || "").toString().toUpperCase();
+                const today = new Date().toISOString().split('T')[0];
+                const arrival = arrivalDate ? toInputDate(arrivalDate) : null;
+
+                // PASADO (Si la fecha de entrada ya pasó y no es una anulación)
+                if (arrival && arrival < today && !s.includes("CANC") && !s.includes("ANUL") && !s.includes("BAJA")) {
+                    return { color: "bg-slate-400", text: "bg-slate-100 text-slate-500", label: "PASADO" };
+                }
+
                 // CANCELADO / ANULADO (Priority 0)
                 if (s.includes("CANC") || s.includes("ANUL") || s.includes("BAJA"))
                     return { color: "bg-red-500/80", text: "bg-red-100 text-red-700", label: "CANCELADO" };
@@ -479,7 +487,7 @@
 
             // --- Filtros y Ordenación ---
             const [filterStatus, setFilterStatus] = useState('confirmada'); // all, confirmada, anulada
-            const [filterTime, setFilterTime] = useState('future'); // all, future, past
+            const [filterTime, setFilterTime] = useState('all'); // all, future, past
             const [kpiFilter, setKpiFilter] = useState(null); // 'active', 'prospect', 'release', 'followup'
             const [sortConfig, setSortConfig] = useState({ key: 'Entrada', direction: 'asc' });
 
@@ -600,10 +608,8 @@
 
                         // Tratamiento especial fechas
                         if (sortConfig.key === 'Entrada' || sortConfig.key === 'Salida') {
-                            const strA = valA.toString();
-                            const strB = valB.toString();
-                            if (strA.includes('/')) valA = strA.split('/').reverse().join('-');
-                            if (strB.includes('/')) valB = strB.split('/').reverse().join('-');
+                            valA = toInputDate(valA) || "9999-99-99";
+                            valB = toInputDate(valB) || "9999-99-99";
                         }
                         // Tratamiento números
                         if (sortConfig.key === 'Importe(*)' || sortConfig.key === 'Pax.') {
@@ -667,13 +673,7 @@
 
                     // Special date handling
                     if (key === 'arrival' || key === 'Entrada') {
-                        const getIso = (v) => {
-                            if (!v) return "9999";
-                            const s = v.toString();
-                            if (s.includes('/')) return s.split('/').reverse().join('-');
-                            return s;
-                        };
-                        return getIso(valA).localeCompare(getIso(valB)) * dir;
+                        return (toInputDate(valA) || "9999").localeCompare(toInputDate(valB) || "9999") * dir;
                     }
 
                     if (typeof valA === 'string') valA = valA.toLowerCase();
@@ -852,8 +852,8 @@
 
                                 mappedItems.push({
                                     fecha: formatDate(currentDay.toISOString().split('T')[0]),
-                                    hab: r.qty.toString(),
-                                    cant: '1',
+                                    hab: '1',
+                                    cant: r.qty.toString(),
                                     concepto: `${r.type} (${r.regime})`,
                                     precio: parseFloat(r.price),
                                     iva: parseInt(r.iva || 10),
@@ -861,6 +861,7 @@
                                 });
                             }
                         });
+                        groupData["RoomSummary"] = roomList.map(r => `${r.qty} ${r.type}`).join(', ');
                         groupData["ProformaItems"] = mappedItems;
                         groupData["Importe(*)"] = roomList.reduce((acc, r) => acc + parseFloat(r.total), 0).toFixed(2);
                     }
@@ -1335,8 +1336,10 @@
                 });
 
                 // Log import summary
+                const totalPaxFound = incomingRows.reduce((a, b) => a + parseNum(b["Pax."]), 0);
+                const totalImpFound = incomingRows.reduce((a, b) => a + parseNum(b["Importe(*)"]), 0);
                 const mergedCount = simpleRows.length - incomingRows.length;
-                console.log(`[Import] Resumen: ${simpleRows.length} filas brutas → ${incomingRows.length} registros únicos (${mergedCount} reservas fusionadas)`);
+                console.log(`[Import] Resumen: ${simpleRows.length} filas brutas → ${incomingRows.length} registros únicos (Pax: ${totalPaxFound}, Importe: ${totalImpFound.toFixed(2)})`);
 
                 // Copia profunda de los datos actuales para el merge
                 const mergedData = [...data];
@@ -1407,7 +1410,8 @@
                             if (d && m && y) {
                                 return `${String(y).padStart(4, '20')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                             }
-                            return s; // Fallback
+                            if (s !== "") console.warn(`[Import] Fecha no normalizable: "${s}" para reserva ${newRow["Reserva"]}`);
+                            return "";
                         };
 
                         const NUMERIC_KEYS = new Set(["Importe(*)", "Pax.", "Noches", "Pernoct."]);
@@ -1504,10 +1508,10 @@
                 const allKeys = new Set();
                 mergedData.forEach(r => Object.keys(r).forEach(k => allKeys.add(k)));
 
-                // Ordenar por fecha de entrada
+                // Ordenar por fecha de entrada (ISO)
                 const sortedData = [...mergedData].sort((a, b) => {
-                    const valA = String(a["Entrada"] || "9999-12-31");
-                    const valB = String(b["Entrada"] || "9999-12-31");
+                    const valA = toInputDate(a["Entrada"]) || "9999";
+                    const valB = toInputDate(b["Entrada"]) || "9999";
                     return valA.localeCompare(valB);
                 });
 
@@ -1516,9 +1520,11 @@
                 setColumns(Array.from(allKeys).filter(k => !k.startsWith("_") && k !== "Hotel_Asignado"));
 
                 // Alert user that review is needed
-                const changesCount = sortedData.filter(r => r._diff).length;
-                if (changesCount > 0) {
-                    alert(`Se han detectado ${changesCount} cambios/nuevos registros.\n\nPor favor, revise las filas resaltadas en la tabla 'Editor (Excel)' y AUTORICE los cambios uno a uno.`);
+                const newsCount = sortedData.filter(r => r._diff === 'new').length;
+                const modsCount = sortedData.filter(r => r._diff === 'modified' || r._diff === 'cancelled').length;
+
+                if (newsCount > 0 || modsCount > 0) {
+                    alert(`IMPORTACIÓN COMPLETADA:\n\n- ${newsCount} Nuevos Grupos\n- ${modsCount} Modificaciones detectadas\n\nPor favor, revise y AUTORICE los cambios en la pestaña 'Validación Importación'.`);
                     setActiveTab('table'); // Switch to editor view to see changes
                 } else {
                     alert("No se detectaron cambios respecto a la base de datos actual.");
@@ -2186,8 +2192,8 @@
                             <div className="flex items-center gap-2">
                                 <input
                                     type="text"
-                                    placeholder="🔍 Buscar grupo, agencia, comercial..."
-                                    className="border rounded px-2 py-1 text-sm w-60 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                                    placeholder="🔍 Buscar grupo, agencia, reserva..."
+                                    className="border rounded px-2 py-1 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -2242,7 +2248,7 @@
                                     onClick={() => setActiveTab('groups')}
                                     className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'groups' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
                                 >
-                                    <IconGroup size={18} /> Por Grupos
+                                    <IconGroup size={18} /> Por Grupos <span className="text-[10px] bg-slate-100 px-1.5 rounded-full">{groupedData.length}</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('segments')}
@@ -2254,7 +2260,7 @@
                                     onClick={() => setActiveTab('table')}
                                     className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'table' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
                                 >
-                                    <IconTable size={18} /> Validación Importación
+                                    <IconTable size={18} /> Validación Importación {data.filter(r => r._diff).length > 0 && <span className="ml-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
                                 </button>
                             </div>
                             {/* AI Main Button */}
@@ -2289,7 +2295,7 @@
                                         <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                         <input
                                             type="text"
-                                            placeholder="Buscar por nombre o reserva..."
+                                            placeholder="🔍 Buscar por nombre, agencia o reserva..."
                                             className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -2403,7 +2409,7 @@
                                                 const widthPercent = (displayDuration / 90) * 100;
 
                                                 // Color Logic
-                                                const st = getStatusProps(group["Com_Estado_Interno"] || group["Segment."] || group["Estado"]);
+                                                const st = getStatusProps(group["Com_Estado_Interno"] || group["Segment."] || group["Estado"], group["Entrada"]);
                                                 const colorClass = `${st.color} hover:brightness-110`;
 
                                                 return (
@@ -2688,7 +2694,7 @@
                                                     return true;
                                                 })
                                                 .map((group, idx) => {
-                                                    const st = getStatusProps(group.records?.[0]?.["Com_Estado_Interno"] || group.records?.[0]?.["Segment."] || group.status);
+                                                    const st = getStatusProps(group.records?.[0]?.["Com_Estado_Interno"] || group.records?.[0]?.["Segment."] || group.status, group.arrival);
                                                     const statusText = st.label;
                                                     const statusColor = st.text;
 
@@ -3212,7 +3218,7 @@
                                                     <div className="flex items-center gap-2">
                                                         <h3 className="text-xl font-black tracking-tight leading-none text-emerald-400">{selectedGroupFicha.name || "NOMBRE DEL GRUPO"}</h3>
                                                         {(() => {
-                                                            const st = getStatusProps(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || selectedGroupFicha.records[0]?.["Segment."] || selectedGroupFicha.records[0]?.["Estado"]);
+                                                            const st = getStatusProps(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || selectedGroupFicha.records[0]?.["Segment."] || selectedGroupFicha.records[0]?.["Estado"], selectedGroupFicha.arrival);
                                                             return (
                                                                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${st.text}`}>
                                                                     {st.label}
@@ -3441,7 +3447,7 @@
                                                             <div className="relative h-10 w-full">
                                                                 {(() => {
                                                                     const rawStatus = selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || selectedGroupFicha.records[0]?.["Segment."] || selectedGroupFicha.records[0]?.["Estado"] || "PROSPECTO";
-                                                                    const st = getStatusProps(rawStatus);
+                                                                    const st = getStatusProps(rawStatus, selectedGroupFicha.arrival);
 
                                                                     let selectVal = "PROSPECTO";
                                                                     const s = rawStatus.toUpperCase();
@@ -3759,9 +3765,9 @@
                                                             <th className="py-2.5 px-3 w-8"></th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider">Hotel</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider">Producto</th>
-                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider">Fechas</th>
+                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider">Fecha Cargo</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Noches</th>
-                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Hab</th>
+                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Cantidad</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Rég.</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right">P. Unit</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">IVA</th>
@@ -3806,8 +3812,6 @@
                                                                 <td className="py-2 px-3">
                                                                     <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-fit">
                                                                         <span>{formatDate(item.dateIn)}</span>
-                                                                        <IconArrowRight size={10} className="text-slate-300" />
-                                                                        <span>{formatDate(item.dateOut)}</span>
                                                                     </div>
                                                                 </td>
                                                                 <td className="py-2 px-3 text-center">
@@ -4007,7 +4011,7 @@
                                                         <th className="px-3 py-1.5 text-left">Reserva</th>
                                                         <th className="px-3 py-1.5 text-left">Hotel</th>
                                                         <th className="px-3 py-1.5 text-left">Periodo</th>
-                                                        <th className="px-3 py-1.5 text-right">Hab</th>
+                                                        <th className="px-3 py-1.5 text-right">Cantidad</th>
                                                         <th className="px-3 py-1.5 text-right">Importe</th>
                                                         <th className="px-3 py-1.5 text-center">Estado</th>
                                                     </tr>
