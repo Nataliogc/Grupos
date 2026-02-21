@@ -1400,9 +1400,9 @@
             const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
             if (parts.length < 3) return '';
             let d = parts[0], m = parts[1], y = parts[2];
-            if (d.length === 4) { [y, m, d] = parts; } // Handle YYYY-MM-DD passed as others
+            if (d.length === 4) { [y, m, d] = parts; } // Handle YYYY-MM-DD
             if (y && y.length === 2) y = '20' + y;
-            return `${y} -${m.padStart(2, '0')} -${d.padStart(2, '0')}`;
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
         }
         function formatDateForDisplay(isoDate) {
             if (!isoDate) return '';
@@ -1455,18 +1455,17 @@
             const hotel = currentHotel === 'cumbria' ? 'Cumbria' : 'Guadiana';
 
             // 4. Actualizar Objeto Grupo
-            group["Importe(*)"] = totalRevenue;
-            group["Pax."] = document.getElementById('reserva-personas-1')?.innerText || group["Pax."];
+            if (items.length > 0) {
+                group["Importe(*)"] = totalRevenue;
+                group["Pax."] = document.getElementById('reserva-personas-1')?.innerText || group["Pax."];
+                group["ProformaItems"] = items;
+                // Sincronizar Depósitos
+                group["Dep1_Importe"] = parseFloat((totalRevenue * 0.3).toFixed(2));
+                group["Dep2_Importe"] = parseFloat((totalRevenue * 0.7).toFixed(2));
+            }
             group["Entrada"] = entrada;
             group["Salida"] = salida;
             group["Hotel_Asignado"] = hotel;
-
-            // GUARDAR ITEMS DE LA PROFORMA
-            group["ProformaItems"] = items;
-
-            // Sincronizar Depósitos
-            group["Dep1_Importe"] = parseFloat((totalRevenue * 0.3).toFixed(2));
-            group["Dep2_Importe"] = parseFloat((totalRevenue * 0.7).toFixed(2));
 
             // Sincronizar Release (7 días antes de entrada por defecto)
             if (entrada) {

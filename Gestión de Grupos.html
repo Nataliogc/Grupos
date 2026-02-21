@@ -421,28 +421,29 @@
                         try {
                             const localGroup = JSON.parse(saved);
                             if (localGroup.Reserva) {
-                                // Sanitize payload: remove undefined values
-                                const updatePayload = {};
-                                const fields = {
-                                    "Importe(*)": localGroup["Importe(*)"],
-                                    "Pax.": localGroup["Pax."],
-                                    "Entrada": localGroup["Entrada"],
-                                    "Salida": localGroup["Salida"],
-                                    "Hotel_Asignado": localGroup["Hotel_Asignado"],
-                                    "Dep1_Importe": localGroup["Dep1_Importe"],
-                                    "Dep2_Importe": localGroup["Dep2_Importe"],
-                                    "Com_Relix": localGroup["Com_Relix"],
-                                    "Com_Vencimiento_Rel": localGroup["Com_Vencimiento_Rel"],
-                                    "ProformaItems": localGroup["ProformaItems"] || []
-                                };
+                                // Guard: Only sync if there's actual data to sync
+                                if (parseFloat(localGroup["Importe(*)"]) > 0 || (localGroup["ProformaItems"] && localGroup["ProformaItems"].length > 0)) {
+                                    const updatePayload = {};
+                                    const fields = {
+                                        "Importe(*)": localGroup["Importe(*)"],
+                                        "Pax.": localGroup["Pax."],
+                                        "Entrada": localGroup["Entrada"],
+                                        "Salida": localGroup["Salida"],
+                                        "Hotel_Asignado": localGroup["Hotel_Asignado"],
+                                        "Dep1_Importe": localGroup["Dep1_Importe"],
+                                        "Dep2_Importe": localGroup["Dep2_Importe"],
+                                        "Com_Relix": localGroup["Com_Relix"],
+                                        "Com_Vencimiento_Rel": localGroup["Com_Vencimiento_Rel"],
+                                        "ProformaItems": localGroup["ProformaItems"] || []
+                                    };
 
-                                Object.keys(fields).forEach(key => {
-                                    if (fields[key] !== undefined) updatePayload[key] = fields[key];
-                                });
+                                    Object.keys(fields).forEach(key => {
+                                        if (fields[key] !== undefined) updatePayload[key] = fields[key];
+                                    });
 
-                                updatePayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-
-                                await db.collection("groups").doc(String(localGroup.Reserva)).set(updatePayload, { merge: true });
+                                    updatePayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                                    await db.collection("groups").doc(String(localGroup.Reserva)).set(updatePayload, { merge: true });
+                                }
                             }
                         } catch (e) {
                             console.error("Error sincronizando proforma:", e);
@@ -839,27 +840,49 @@
 
                 // Mapping Room Manager items to ProformaItems if they exist
                 try {
-                    const roomList = JSON.parse(firstRec["RoomingList_JSON"] || "[]");
+                    // Aggregate RoomingList_JSON from all records to be safe
+                    let roomList = [];
+                    const processedIds = new Set();
+                    (group.records || []).forEach(r => {
+                        try {
+                            const list = JSON.parse(r["RoomingList_JSON"] || "[]");
+                            list.forEach(item => {
+                                if (item.id && !processedIds.has(item.id)) {
+                                    roomList.push(item);
+                                    processedIds.add(item.id);
+                                } else if (!item.id) {
+                                    roomList.push(item); // Fallback for items without ID
+                                }
+                            });
+                        } catch (e) { }
+                    });
+
                     if (roomList.length > 0) {
                         const mappedItems = [];
+                        const fallbackDate = group.arrival || firstRec["Entrada"] || new Date().toISOString().split('T')[0];
+
                         roomList.forEach(r => {
                             const nights = parseInt(r.nights) || 1;
-                            const dInStr = toInputDate(r.dateIn);
-                            if (!dInStr) return;
+                            const dInStr = toInputDate(r.dateIn) || toInputDate(fallbackDate);
                             const dIn = new Date(dInStr);
 
                             for (let i = 0; i < nights; i++) {
                                 const currentDay = new Date(dIn);
-                                currentDay.setDate(currentDay.getDate() + i);
+                                if (!isNaN(currentDay.getTime())) {
+                                    currentDay.setDate(currentDay.getDate() + i);
+                                }
+
+                                const finalIso = !isNaN(currentDay.getTime()) ? currentDay.toISOString().split('T')[0] : toInputDate(fallbackDate);
 
                                 mappedItems.push({
-                                    fecha: formatDate(currentDay.toISOString().split('T')[0]),
+                                    fecha: formatDate(finalIso),
                                     hab: '1',
-                                    cant: (r.qty || 1).toString(),
+                                    cant: (parseInt(r.qty) || 1).toString(),
                                     concepto: `${r.type}${r.regime ? ` (${r.regime})` : ''}`,
                                     precio: parseFloat(r.price) || 0,
                                     iva: parseInt(r.iva || 10),
-                                    regimen: r.regime || ''
+                                    regimen: r.regime || '',
+                                    dias: '1'
                                 });
                             }
                         });
@@ -871,6 +894,9 @@
                 } catch (e) { console.error("Error mapping room list in list click", e); }
 
                 localStorage.setItem('selectedGroup', JSON.stringify(groupData));
+                const itemsToPass = groupData["ProformaItems"] && groupData["ProformaItems"].length > 0 ? groupData["ProformaItems"] : [];
+                localStorage.setItem('nexus_proforma_items', JSON.stringify(itemsToPass));
+                localStorage.setItem('nexus_proforma_reserva', String(groupData["Reserva"] || ""));
                 window.location.href = 'Fac Prof.html';
             };
 
@@ -1794,7 +1820,7 @@
                         if (Array.isArray(list) && list.length > 0)
                             lastRoomingListRef.current = { groupName: group.name, list };
                     }
-                } catch (e) {}
+                } catch (e) { }
 
                 setSelectedGroupFicha(group);
                 setShowFichaModal(true);
@@ -3303,54 +3329,61 @@
                                                             "Salida": selectedGroupFicha.departure || baseRecord["Salida"]
                                                         };
 
-                                                        // Origen de líneas de cargo: 1) ref (última guardada), 2) records, 3) data
+                                                        // Origen de líneas de cargo: Agregación de todos los registros del grupo
                                                         let roomList = [];
-                                                        const groupNameForRoom = (selectedGroupFicha.name || "").trim();
-                                                        if (lastRoomingListRef.current && (lastRoomingListRef.current.groupName || "").trim() === groupNameForRoom && lastRoomingListRef.current.list.length > 0) {
-                                                            roomList = lastRoomingListRef.current.list;
-                                                        }
-                                                        if (roomList.length === 0) {
+                                                        const processedIds = new Set();
+                                                        (selectedGroupFicha.records || []).forEach(r => {
                                                             try {
-                                                                const fromRecord = (rec) => { try { return JSON.parse(rec["RoomingList_JSON"] || "[]"); } catch (e) { return []; } };
-                                                                (selectedGroupFicha.records || []).forEach(r => {
-                                                                    const rl = fromRecord(r);
-                                                                    if (rl.length > roomList.length) roomList = rl;
+                                                                const list = JSON.parse(r["RoomingList_JSON"] || "[]");
+                                                                list.forEach(item => {
+                                                                    if (item.id && !processedIds.has(item.id)) {
+                                                                        roomList.push(item);
+                                                                        processedIds.add(item.id);
+                                                                    } else if (!item.id) {
+                                                                        roomList.push(item);
+                                                                    }
                                                                 });
-                                                                if (roomList.length === 0 && Array.isArray(data)) {
-                                                                    data.filter(r => (r["Nombre del Grupo"] || "").trim() === groupNameForRoom).forEach(row => {
-                                                                        const rl = fromRecord(row);
-                                                                        if (rl.length > roomList.length) roomList = rl;
-                                                                    });
-                                                                }
-                                                            } catch (e) { console.error("Error reading room list", e); }
-                                                        }
+                                                            } catch (e) { }
+                                                        });
                                                         try {
+                                                            const mappedItems = [];
+                                                            const fallbackDate = selectedGroupFicha.arrival || baseRecord["Entrada"] || new Date().toISOString().split('T')[0];
+
                                                             if (roomList.length > 0) {
-                                                                const mappedItems = [];
-                                                                const fallbackDate = selectedGroupFicha.arrival || baseRecord["Entrada"] || new Date().toISOString().split('T')[0];
                                                                 roomList.forEach(r => {
-                                                                    const dInStr = toInputDate(r.dateIn) || toInputDate(fallbackDate);
-                                                                    const fechaStr = dInStr && dInStr.includes('-') ? formatDate(dInStr) : formatDate(fallbackDate);
                                                                     const nights = parseInt(r.nights) || 1;
-                                                                    const qty = parseInt(r.qty) || 1;
-                                                                    const price = parseFloat(r.price) || 0;
-                                                                    mappedItems.push({
-                                                                        fecha: fechaStr,
-                                                                        hab: '1',
-                                                                        cant: String(qty),
-                                                                        concepto: [r.type, r.regime].filter(Boolean).join(' ') || 'Concepto',
-                                                                        precio: price,
-                                                                        iva: parseInt(r.iva || 10),
-                                                                        regimen: r.regime || '',
-                                                                        dias: String(nights)
-                                                                    });
+                                                                    const dInStr = toInputDate(r.dateIn) || toInputDate(fallbackDate);
+                                                                    const dIn = new Date(dInStr);
+
+                                                                    for (let i = 0; i < nights; i++) {
+                                                                        const currentDay = new Date(dIn);
+                                                                        if (!isNaN(currentDay.getTime())) {
+                                                                            currentDay.setDate(currentDay.getDate() + i);
+                                                                        }
+
+                                                                        const finalIso = !isNaN(currentDay.getTime()) ? currentDay.toISOString().split('T')[0] : toInputDate(fallbackDate);
+
+                                                                        mappedItems.push({
+                                                                            fecha: formatDate(finalIso),
+                                                                            hab: '1',
+                                                                            cant: String(parseInt(r.qty) || 1),
+                                                                            concepto: `${r.type}${r.regime ? ` (${r.regime})` : ''}`,
+                                                                            precio: parseFloat(r.price) || 0,
+                                                                            iva: parseInt(r.iva || 10),
+                                                                            regimen: r.regime || '',
+                                                                            dias: '1'
+                                                                        });
+                                                                    }
                                                                 });
-                                                                if (mappedItems.length > 0) {
-                                                                    proformaData["ProformaItems"] = mappedItems;
-                                                                    proformaData["Importe(*)"] = roomList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0).toFixed(2);
-                                                                }
                                                             }
-                                                        } catch (e) { console.error("Error mapping room list", e); }
+
+                                                            if (mappedItems.length > 0) {
+                                                                proformaData["ProformaItems"] = mappedItems;
+                                                                proformaData["Importe(*)"] = roomList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0).toFixed(2);
+                                                            }
+                                                        } catch (e) {
+                                                            console.error("Error mapping room list", e);
+                                                        }
 
                                                         localStorage.setItem('selectedGroup', JSON.stringify(proformaData));
                                                         // Pasar ítems por clave dedicada para que Fac Prof los reciba siempre (evita pérdida por estado/ref)
