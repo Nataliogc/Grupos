@@ -245,6 +245,8 @@
         const IconAlertTriangle = (p) => <Icon path='<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>' {...p} />;
         const IconUser = (p) => <Icon path='<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>' {...p} />;
         const IconSettings = (p) => <Icon path='<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>' {...p} />;
+        const IconCircle = (p) => <Icon path='<circle cx="12" cy="12" r="10"></circle>' {...p} />;
+
 
         // --- CONFIGURACIÓN FIREBASE ---
         // Se carga desde js/firebase-config.js
@@ -558,12 +560,6 @@
                     }
                 };
                 syncFromProforma();
-
-                // Auto-open Add Group Modal if redirected from other screens
-                if (localStorage.getItem('openAddGroupModal') === 'true') {
-                    setShowAddGroupModal(true);
-                    localStorage.removeItem('openAddGroupModal');
-                }
             }, []);
 
             // --- ATAJO DE TECLADO: ESC cierra modales ---
@@ -571,11 +567,9 @@
                 const handleKeyDown = (e) => {
                     if (e.key === 'Escape') {
                         // Cerrar modales en orden de prioridad (el más interno primero)
-                        if (showClientData) { setShowClientData(false); return; }
                         if (showAiModal) { setShowAiModal(false); return; }
                         if (showFichaModal) { setShowFichaModal(false); return; }
                         if (showColumnModal) { setShowColumnModal(false); return; }
-                        if (showAddGroupModal) { setShowAddGroupModal(false); return; }
                         if (isHotelModalOpen) { setIsHotelModalOpen(false); setPendingFile(null); return; }
                     }
                 };
@@ -583,104 +577,10 @@
                 return () => document.removeEventListener('keydown', handleKeyDown);
             });
 
-            // Estados para Añadir Grupo
-            const [showAddGroupModal, setShowAddGroupModal] = useState(false);
-            const [showClientData, setShowClientData] = useState(false); // New state for client data popup
-            const [newGroup, setNewGroup] = useState({
-                "Nombre del Grupo": "",
-                "Entrada": new Date().toISOString().split('T')[0],
-                "Salida": "",
-                "Pax.": "0",
-                "Empresa/Agencia": "",
-                "Segment.": "GRUPOS",
-                "Régimen": "HD",
-                "Importe(*)": "0",
-                "Reserva": `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`,
-                "Estado": "Presupuesto",
-                "Com_Estado_Interno": "PRESUPUESTO",
-                "Hotel_Asignado": "Sercotel Guadiana",
-                "Com_Nombre_Contacto": "",
-                "Com_Email_Contacto": "",
-                "Com_Telefono_Contacto": "",
-                "Com_Notas": "",
-                "Fiscal_RazonSocial": "",
-                "Fiscal_CIF": "",
-                "Fiscal_Direccion": "",
-                "Fiscal_CP": "",
-                "Fiscal_Poblacion": ""
-            });
-            const [emailText, setEmailText] = useState("");
-            const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-            const handleAnalyzeEmail = async () => {
-                if (!emailText.trim()) return;
-                setIsAnalyzing(true);
-
-                const prompt = `Analiza el siguiente texto de un correo electrónico de reserva de grupo y extrae la información en formato JSON estrictamente. 
-                IMPORTANTE: Responde ÚNICAMENTE con el bloque JSON, sin introducciones ni bloques de código.
-
-                Campos requeridos (usa estos nombres exactos, si no encuentras el dato devuelve un string vacío ""):
-                - "Nombre del Grupo": nombre identificativo corto (ej. ADULTOS, JUBILADOS).
-                - "Entrada": fecha en formato YYYY-MM-DD.
-                - "Salida": fecha en formato YYYY-MM-DD.
-                - "Pax.": número total de personas (entero).
-                - "Empresa/Agencia": nombre de la empresa o agencia.
-                - "Régimen": (HD, MP, PC, SA, AD, TI).
-                - "Importe(*)": precio total estimado si se menciona, si no 0. Si se menciona precio por persona, calcula el total multiplicando por Pax.
-                - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
-                - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones. Es MUY IMPORTANTE.
-                - "Com_Nombre_Contacto": nombre de la persona que firma o envía el correo.
-                - "Com_Email_Contacto": correo electrónico si aparece en el texto.
-                - "Com_Telefono_Contacto": teléfono de contacto.
-                - "Fiscal_RazonSocial": Razón social para facturación si aparece.
-                - "Fiscal_CIF": CIF o NIF si aparece.
-                - "Fiscal_Direccion": Dirección completa (Calle, etc).
-                - "Fiscal_CP": Código Postal.
-                - "Fiscal_Poblacion": Población o Provincia.
-
-                TEXTO DEL EMAIL:
-                ${emailText}`;
-
-                try {
-                    const resultText = await callGemini(prompt);
-                    if (resultText.includes("ERROR") || resultText.includes("Hubo un error")) {
-                        throw new Error(resultText);
-                    }
-
-                    const cleanJson = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
-                    const parsed = JSON.parse(cleanJson);
-
-                    setNewGroup(prev => ({
-                        ...prev,
-                        "Nombre del Grupo": String(parsed["Nombre del Grupo"] || prev["Nombre del Grupo"]),
-                        "Entrada": String(parsed["Entrada"] || prev["Entrada"]),
-                        "Salida": String(parsed["Salida"] || prev["Salida"]),
-                        "Pax.": String(parsed["Pax."] || prev["Pax."]),
-                        "Empresa/Agencia": String(parsed["Empresa/Agencia"] || prev["Empresa/Agencia"]),
-                        "Régimen": String(parsed["Régimen"] || prev["Régimen"]),
-                        "Importe(*)": String(parsed["Importe(*)"] || prev["Importe(*)"]),
-                        "Hotel_Asignado": String(parsed.Hotel || "Sercotel Guadiana"),
-                        "Com_Notas": String(parsed.Observaciones || ""),
-                        "Com_Nombre_Contacto": String(parsed.Com_Nombre_Contacto || ""),
-                        "Com_Email_Contacto": String(parsed.Com_Email_Contacto || ""),
-                        "Com_Telefono_Contacto": String(parsed.Com_Telefono_Contacto || ""),
-                        "Fiscal_RazonSocial": String(parsed.Fiscal_RazonSocial || ""),
-                        "Fiscal_CIF": String(parsed.Fiscal_CIF || ""),
-                        "Fiscal_Direccion": String(parsed.Fiscal_Direccion || ""),
-                        "Fiscal_CP": String(parsed.Fiscal_CP || ""),
-                        "Fiscal_Poblacion": String(parsed.Fiscal_Poblacion || "")
-                    }));
-                    setEmailText("");
-                } catch (e) {
-                    console.error("Error Análisis IA:", e);
-                    alert("Error en el análisis IA: " + e.message);
-                } finally {
-                    setIsAnalyzing(false);
-                }
-            };
 
             // --- Filtros y Ordenación ---
-            const [filterStatus, setFilterStatus] = useState('all'); // all, confirmada, anulada
+            const [filterStatus, setFilterStatus] = useState('activos'); // all, activos, confirmada, anulada
             const [filterTime, setFilterTime] = useState('future'); // all, future, past
             const [kpiFilter, setKpiFilter] = useState(null); // 'active', 'prospect', 'release', 'followup'
             const [sortConfig, setSortConfig] = useState({ key: 'Entrada', direction: 'asc' });
@@ -785,8 +685,8 @@
                         if (kpiFilter === 'pendingQuotes') {
                             const extStatus = (row["Estado"] || "").toLowerCase();
                             const intStatus = (row["Com_Estado_Interno"] || "").toLowerCase();
-                            const isCancelled = extStatus.includes('anulada') || extStatus.includes('cancelada') || extStatus.includes('baja') ||
-                                intStatus.includes('anulada') || intStatus.includes('cancelada') || intStatus.includes('baja') ||
+                            const isCancelled = extStatus.includes('anul') || extStatus.includes('cancel') || extStatus.includes('baja') ||
+                                intStatus.includes('anul') || intStatus.includes('cancel') || intStatus.includes('baja') ||
                                 extStatus.includes('descart') || intStatus.includes('descart') ||
                                 extStatus.includes('rechaz') || intStatus.includes('rechaz');
 
@@ -795,7 +695,12 @@
                             const isPast = arrival && arrival < todayStr;
 
                             if (isCancelled || isPast) return false;
-                            return status.includes("PRESUP") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."));
+
+                            const importe = parseNum(row["Importe(*)"]);
+                            const rawImporte = String(row["Importe(*)"] || "0").trim();
+                            const isZero = importe === 0 || rawImporte === "" || rawImporte === "0" || rawImporte === "0,00" || rawImporte === "0.00";
+
+                            return (status.includes("PRESUP") || status.includes("PEND") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."))) && isZero;
                         }
                         if (kpiFilter === 'release') {
                             let isReleaseUrgent = false;
@@ -1179,8 +1084,20 @@
                             }
 
                             const localMatch = prevData.find(p => normalizeId(p.Reserva) === resID);
-                            if (localMatch && localMatch._diff) {
-                                return { ...dbRow, ...localMatch };
+                            if (localMatch) {
+                                if (localMatch._diff) {
+                                    // No sobreescribir estados de cancelación que vienen de Firestore
+                                    const dbStatus = (dbRow["Com_Estado_Interno"] || "").toUpperCase();
+                                    const isCancelledInDb = dbStatus.includes("CANCEL") || dbStatus.includes("ANUL") || dbStatus.includes("BAJA");
+                                    if (isCancelledInDb) {
+                                        // Firestore marca como cancelado: ignorar estado local, respetar Firestore
+                                        return { ...localMatch, ...dbRow, _diff: localMatch._diff, _changes: localMatch._changes };
+                                    }
+                                    return { ...dbRow, ...localMatch };
+                                }
+                                // Si no hay diff (datos limpios), debemos combinar local con firestore
+                                // para no perder columnas excel que firestore no tiene aún.
+                                return { ...localMatch, ...dbRow, _diff: null, _changes: null };
                             }
                             return { ...dbRow, _diff: null, _changes: null };
                         });
@@ -1227,6 +1144,7 @@
                 let activeCount = 0;
                 let prospectCount = 0;
                 let pendingQuotes = 0;
+                const uniquePendingGroups = new Set(); // Para deduplicar grupos multi-reserva en el KPI
                 let releaseAlerts = 0;
                 let followUpAlerts = 0;
                 let proforma24h = 0;
@@ -1242,8 +1160,8 @@
                 processedData.forEach(row => {
                     const extStatus = (row["Estado"] || "").toLowerCase();
                     const intStatus = (row["Com_Estado_Interno"] || "").toLowerCase();
-                    const isCancelled = extStatus.includes('anulada') || extStatus.includes('cancelada') || extStatus.includes('baja') ||
-                        intStatus.includes('anulada') || intStatus.includes('cancelada') || intStatus.includes('baja') ||
+                    const isCancelled = extStatus.includes('anul') || extStatus.includes('cancel') || extStatus.includes('baja') ||
+                        intStatus.includes('anul') || intStatus.includes('cancel') || intStatus.includes('baja') ||
                         extStatus.includes('descart') || intStatus.includes('descart') ||
                         extStatus.includes('rechaz') || intStatus.includes('rechaz');
 
@@ -1276,7 +1194,15 @@
                                 const isPast = arrival && arrival < todayStr;
                                 const isDiscarded = status.includes("DESCART") || status.includes("RECHAZ") || status.includes("ANUL") || status.includes("CANCEL");
 
-                                if ((status.includes("PRESUP") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."))) && !isPast && !isDiscarded) {
+                                // Siempre excluir pasados o sin fecha del KPI Por Cotizar
+                                // Deduplicar por nombre de grupo (un grupo con 2 reservas cuenta como 1)
+                                // Añadido: Sólo debe considerarse "Por Cotizar" si el importe es 0
+                                const groupLabel = row["Nombre del Grupo"] || groupId;
+                                const rawImporte = String(row["Importe(*)"] || "0").trim();
+                                const isZero = importe === 0 || rawImporte === "" || rawImporte === "0" || rawImporte === "0,00" || rawImporte === "0.00";
+
+                                if ((status.includes("PRESUP") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."))) && arrival && !isPast && !isDiscarded && isZero && !uniquePendingGroups.has(groupLabel)) {
+                                    uniquePendingGroups.add(groupLabel);
                                     pendingQuotes++;
                                 }
                             }
@@ -2167,6 +2093,17 @@
             const updateGroupMetadata = async (groupName, fieldOrUpdates, valueIfSingle = null, hotelFilter = null) => {
                 const updates = typeof fieldOrUpdates === 'object' ? fieldOrUpdates : { [fieldOrUpdates]: valueIfSingle };
 
+                // Si el usuario cambia a CANCELADO desde el dropdown, sincronizar también el campo Estado
+                if (updates["Com_Estado_Interno"] === "CANCELADO" && !updates["Estado"]) {
+                    updates["Estado"] = "ANULADA";
+                }
+
+                // Capturar las filas actuales ANTES del update optimista (para el batch de Firestore)
+                const currentGroupRows = data.filter(r =>
+                    (r["Nombre del Grupo"] || "") === groupName &&
+                    (!hotelFilter || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter)
+                );
+
                 // 1. Optimistic UI Update
                 setData(prevData => {
                     return prevData.map(row => {
@@ -2193,15 +2130,11 @@
                     return { ...prev, records: updatedRecords };
                 });
 
-                // 3. Persist to Firestore
+                // 3. Persist to Firestore (usa currentGroupRows capturados antes del update optimista)
                 try {
                     const batch = db.batch();
-                    const groupRows = data.filter(r =>
-                        (r["Nombre del Grupo"] || "") === groupName &&
-                        (!hotelFilter || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter)
-                    );
 
-                    groupRows.forEach(row => {
+                    currentGroupRows.forEach(row => {
                         const resID = String(row.Reserva).trim();
                         if (resID) {
                             const docRef = db.collection("groups").doc(resID);
@@ -2209,6 +2142,10 @@
                             batch.set(docRef, payload, { merge: true });
                         }
                     });
+
+                    if (currentGroupRows.length === 0) {
+                        console.warn("⚠️ updateGroupMetadata: No se encontraron filas para", groupName, "- el cambio puede no haberse guardado en Firestore.");
+                    }
 
                     await batch.commit();
                     console.log("✅ Update committed to Firestore", updates);
@@ -2270,7 +2207,12 @@
                     newList = [...currentList, newItem];
                 }
 
-                updateGroupMetadata(selectedGroupFicha.name, "RoomingList_JSON", JSON.stringify(newList));
+                const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+
+                updateGroupMetadata(selectedGroupFicha.name, {
+                    "RoomingList_JSON": JSON.stringify(newList),
+                    "Importe(*)": newTotalSum.toFixed(2)
+                });
                 setRoomManagerForm(prev => ({ ...prev, qty: 1, price: 0 })); // Keep hotel/dates for convenience
             };
 
@@ -2300,7 +2242,12 @@
                 const [moved] = newList.splice(sourceIndex, 1);
                 newList.splice(targetIndex, 0, moved);
 
-                updateGroupMetadata(selectedGroupFicha.name, "RoomingList_JSON", JSON.stringify(newList));
+                const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+
+                updateGroupMetadata(selectedGroupFicha.name, {
+                    "RoomingList_JSON": JSON.stringify(newList),
+                    "Importe(*)": newTotalSum.toFixed(2)
+                });
             };
 
             const calculateDeposits = (group, distribution = [100], hotelFilter = null) => {
@@ -2376,7 +2323,13 @@
                 } catch (e) { return; }
 
                 const newList = currentList.filter(item => item.id !== id);
-                updateGroupMetadata(selectedGroupFicha.name, "RoomingList_JSON", JSON.stringify(newList));
+
+                const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+
+                updateGroupMetadata(selectedGroupFicha.name, {
+                    "RoomingList_JSON": JSON.stringify(newList),
+                    "Importe(*)": newTotalSum.toFixed(2)
+                });
             };
 
             const toggleGroupExpand = (groupName) => {
@@ -2384,62 +2337,6 @@
                 else setExpandedGroup(groupName);
             };
 
-            const registerNewGroup = async () => {
-                if (!newGroup["Nombre del Grupo"]) {
-                    alert("Por favor, introduce el nombre del grupo.");
-                    return;
-                }
-
-                let nights = "0";
-                if (newGroup.Entrada && newGroup.Salida) {
-                    const diffTime = Math.abs(new Date(newGroup.Salida) - new Date(newGroup.Entrada));
-                    nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)).toString();
-                }
-
-                const groupToSave = {
-                    ...newGroup,
-                    "Noches": nights,
-                    "Pernoct.": (parseInt(newGroup["Pax."]) * parseInt(nights)).toString(),
-                    "updatedAt": firebase.firestore.FieldValue.serverTimestamp(),
-                    "createdAt": firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                try {
-                    // Try to save to Firestore so it persists
-                    await db.collection("groups").doc(String(groupToSave.Reserva)).set(groupToSave, { merge: true });
-                    setData([groupToSave, ...data]);
-                } catch (e) {
-                    console.error("Error saving manual group:", e);
-                    alert("No se pudo guardar online, guardando localmente.");
-                    setData([groupToSave, ...data]);
-                }
-
-                setShowAddGroupModal(false);
-                setNewGroup({
-                    "Nombre del Grupo": "",
-                    "Entrada": new Date().toISOString().split('T')[0],
-                    "Salida": "",
-                    "Pax.": "0",
-                    "Empresa/Agencia": "",
-                    "Segment.": "GRUPOS",
-                    "Régimen": "HD",
-                    "Importe(*)": "0",
-                    "Reserva": `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`,
-                    "Estado": "Presupuesto",
-                    "Com_Estado_Interno": "PRESUPUESTO",
-                    "Hotel_Asignado": "Sercotel Guadiana",
-                    "Com_Nombre_Contacto": "",
-                    "Com_Email_Contacto": "",
-                    "Com_Telefono_Contacto": "",
-                    "Com_Notas": "",
-                    "Fiscal_RazonSocial": "",
-                    "Fiscal_CIF": "",
-                    "Fiscal_Direccion": "",
-                    "Fiscal_CP": "",
-                    "Fiscal_Poblacion": ""
-                });
-                setEmailText("");
-            };
 
             const clearDatabase = async () => {
                 if (!window.confirm("⚠️ ATENCIÓN: ¿Estás ABSOLUTAMENTE seguro de que quieres BORRAR TODA la base de datos de grupos?\n\nEsta acción eliminará todos los registros en Firestore y NO se puede deshacer.")) {
@@ -2536,34 +2433,20 @@
                         {/* KPI Cards: ENFOQUE COMERCIAL */}
                         {/* KPI SECTION: Unificada en una sola línea elegante */}
                         <div className="flex flex-row flex-nowrap gap-3 mb-6 overflow-x-auto pb-2 custom-scrollbar">
-                            {/* REVENUE */}
-                            <div className="min-w-[200px] flex-1 bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+                            {/* PENDIENTES DE COTIZAR */}
+                            <div
+                                onClick={() => setKpiFilter('pendingQuotes')}
+                                className="min-w-[170px] flex-1 bg-rose-50 p-3 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-center cursor-pointer hover:bg-rose-100 transition-colors animate-pulse"
+                            >
                                 <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-1 h-3 bg-emerald-500 rounded-full"></div>
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Revenue</span>
+                                    <div className="w-1 h-3 bg-rose-600 rounded-full"></div>
+                                    <span className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">Por Cotizar</span>
                                 </div>
-                                <div className="flex items-end gap-2">
-                                    <span className="text-2xl font-black text-slate-800 tabular-nums leading-none tracking-tight">{stats.revenue}</span>
-                                    <span className="text-[10px] font-bold text-emerald-500 pb-0.5">+0%</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-black text-rose-700 tabular-nums leading-none">{stats.pendingQuotes}</span>
+                                    <span className="text-[10px] font-bold text-rose-500 uppercase">Grupos</span>
                                 </div>
                             </div>
-
-                            {/* PENDIENTES DE COTIZAR (Visible and flashing if > 0) */}
-                            {stats.pendingQuotes > 0 && (
-                                <div
-                                    onClick={() => setKpiFilter('pendingQuotes')}
-                                    className="min-w-[170px] flex-1 bg-rose-50 p-3 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-center cursor-pointer hover:bg-rose-100 transition-colors animate-pulse"
-                                >
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="w-1 h-3 bg-rose-600 rounded-full"></div>
-                                        <span className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">Por Cotizar</span>
-                                    </div>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-black text-rose-700 tabular-nums leading-none">{stats.pendingQuotes}</span>
-                                        <span className="text-[10px] font-bold text-rose-500 uppercase">Grupos</span>
-                                    </div>
-                                </div>
-                            )}
 
 
                             {/* RELEASE 7 DÍAS */}
@@ -2616,14 +2499,24 @@
                                     <button onClick={() => setKpiFilter(null)} className="text-amber-500 hover:text-amber-700 font-bold text-xs ring-1 ring-amber-200 rounded-full w-4 h-4 flex items-center justify-center bg-white">✕</button>
                                 </div>
                             )}
-                            <div className="flex items-center gap-2">
+                            {/* Buscador Global Unificado */}
+                            <div className="relative">
+                                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                 <input
                                     type="text"
                                     placeholder="🔍 Buscar grupo, agencia, reserva..."
-                                    className="border rounded px-2 py-1 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                                    className="border rounded-xl pl-9 pr-8 py-1.5 text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 font-bold"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
+                                {searchTerm && (
+                                    <button
+                                        onClick={() => setSearchTerm('')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+                                    >
+                                        <IconX size={14} />
+                                    </button>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold text-gray-600">Estado:</span>
@@ -2723,16 +2616,7 @@
                                             <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-red-400 opacity-50"></div> Cancelado</div>
                                         </div>
                                     </div>
-                                    <div className="relative w-full md:w-64">
-                                        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                        <input
-                                            type="text"
-                                            placeholder="🔍 Buscar por nombre, agencia o reserva..."
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                    </div>
+                                    {/* Buscador eliminado aquí por redundancia - Usar el global superior */}
                                 </div>
                                 <div className="overflow-auto relative pb-4 custom-scrollbar" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                                     <div className="min-w-[1200px]">
@@ -3018,8 +2902,8 @@
                                             <p className="text-sm text-slate-500 font-medium">Gestión unificada de grupos confirmados, bloqueados y enviados.</p>
                                         </div>
                                         <button
-                                            onClick={() => setShowAddGroupModal(true)}
-                                            className="bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-900/10 transition-all flex items-center gap-2"
+                                            onClick={() => window.location.href = 'AltaEmail.html'}
+                                            className="bg-[#2d5a43] text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-[#1e3a2c] transition-all shadow-lg shadow-emerald-900/10 active:scale-95 border border-emerald-800"
                                         >
                                             <IconPlus size={18} /> Nuevo Grupo
                                         </button>
@@ -3027,17 +2911,7 @@
 
                                     {/* Barra de Herramientas de Filtrado */}
                                     <div className="flex flex-col md:flex-row gap-3">
-                                        {/* Buscador */}
-                                        <div className="relative flex-1">
-                                            <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                            <input
-                                                type="text"
-                                                placeholder="Buscar por nombre, agencia o reserva..."
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2d5a43] transition-all"
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                            />
-                                        </div>
+                                        {/* Buscador eliminado de aquí por redundancia - El global superior ahora es visible */}
 
                                         {/* Filtro Hotel */}
                                         <div className="md:w-48">
@@ -3109,13 +2983,29 @@
 
                                                     const status = (g.records[0]?.["Com_Estado_Interno"] || g.status || "").toUpperCase();
 
-                                                    // 2. Filtro de Estado (Si hay búsqueda, mostramos todo)
-                                                    if (!searchTerm && (status.includes("ANUL") || status.includes("CANC")) && filterStatus !== 'anulada') return false;
+                                                    // 3. Filtro KPI activo (El más estricto)
+                                                    if (kpiFilter) {
+                                                        if (kpiFilter === 'pendingQuotes') {
+                                                            const isPresupuesto = status.includes("PRESUP") || (g.records[0]?.["Reserva"] && String(g.records[0]?.["Reserva"]).startsWith("PRES."));
+                                                            const isDiscarded = status.includes("DESCART") || status.includes("RECHAZ") || status.includes("ANUL") || status.includes("CANCEL");
+                                                            const arrivalIso = g.arrival ? toInputDate(g.arrival) : null;
+                                                            const today = new Date().toISOString().split('T')[0];
+                                                            const isPast = arrivalIso && arrivalIso < today;
+                                                            const importe = parseNum(g.records[0]?.["Importe(*)"]);
 
-                                                    // 3. Filtro de Fecha (Solo ocultamos pasados si NO hay búsqueda activa)
-                                                    // Eliminamos la restricción agresiva de salida para que aparezcan todos los gestionados
-                                                    // const today = new Date().toISOString().split('T')[0];
-                                                    // if (!searchTerm && g.departure < today) return false;
+                                                            if (!isPresupuesto || isDiscarded || isPast || importe > 0) return false;
+                                                        }
+                                                    } else {
+                                                        // 3.5. Filtro de Estado normal (Si hay búsqueda, mostramos todo)
+                                                        if (!searchTerm && (status.includes("ANUL") || status.includes("CANC")) && filterStatus !== 'anulada') return false;
+
+                                                        // 3.6 Filtro de Fecha normal: Ocultar grupos PASADOS salvo que se solicite explícitamente
+                                                        if (!searchTerm && filterStatus !== 'pasado') {
+                                                            const today = new Date().toISOString().split('T')[0];
+                                                            const arrivalIso = g.arrival ? toInputDate(g.arrival) : null;
+                                                            if (arrivalIso && arrivalIso < today) return false;
+                                                        }
+                                                    }
 
                                                     // 4. Filtro Hotel
                                                     if (filterDirHotel) {
@@ -3534,232 +3424,6 @@
                             </div>
                         )}
 
-                        {/* Modal Añadir Grupo Manual */}
-                        {showAddGroupModal && (
-                            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-fade-in overflow-hidden flex flex-col max-h-[90vh]">
-                                    <div className="bg-[#2d5a43] p-6 text-white flex justify-between items-center shrink-0">
-                                        <div>
-                                            <h3 className="text-xl font-bold flex items-center gap-2">Petición de Grupo <IconSparkles size={18} className="text-emerald-200" /></h3>
-                                            <p className="text-emerald-100/70 text-xs text-balance">Pega el correo para lectura IA o rellena manualmente los detalles para crear la ficha.</p>
-                                        </div>
-                                        <button onClick={() => setShowAddGroupModal(false)} className="text-white/60 hover:text-white transition-colors">
-                                            <IconX size={24} />
-                                        </button>
-                                    </div>
-
-                                    {/* SECCIÓN ESCÁNER IA */}
-                                    <div className="p-6 bg-slate-50 border-b border-slate-100 shrink-0">
-                                        <label className="block text-[10px] font-bold text-[#2d5a43] uppercase tracking-widest mb-2 flex items-center gap-1">
-                                            <IconMail size={12} /> Pegar Texto del Correo (IA)
-                                        </label>
-                                        <div className="flex gap-3">
-                                            <textarea
-                                                className="w-full flex-1 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-[#2d5a43] focus:ring-1 focus:ring-[#2d5a43] resize-none h-20 transition-all bg-white shadow-inner"
-                                                placeholder="Pega aquí el texto que te ha enviado la agencia o cliente... 
-Ej: Reserva para 25 personas, llegada el 15/05, régimen MP en el Guadiana..."
-                                                value={emailText}
-                                                onChange={(e) => setEmailText(e.target.value)}
-                                            ></textarea>
-                                            <button
-                                                onClick={handleAnalyzeEmail}
-                                                disabled={!emailText.trim() || isAnalyzing}
-                                                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-xl px-5 flex flex-col items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-200 shrink-0 w-32 group"
-                                            >
-                                                {isAnalyzing ? (
-                                                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                ) : (
-                                                    <>
-                                                        <div className="p-2 bg-white/10 rounded-lg group-hover:scale-110 transition-transform">
-                                                            <IconBrain size={24} />
-                                                        </div>
-                                                        <span className="text-[10px] font-black uppercase tracking-wider">Extraer IA</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* FORMULARIO MANUAL / REVISIÓN */}
-                                    <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-white">
-                                        {/* 1. Datos Principales */}
-                                        <section>
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="w-1 h-4 bg-[#2d5a43] rounded-full"></div>
-                                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Datos Principales</h4>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                                                <div className="col-span-2">
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nombre del Grupo / Evento</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-bold text-slate-700 transition-colors uppercase"
-                                                        placeholder="EJ: BODA FAMILIA GARCÍA"
-                                                        value={newGroup["Nombre del Grupo"]}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, "Nombre del Grupo": e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Empresa / Agencia</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold"
-                                                        value={newGroup["Empresa/Agencia"]}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, "Empresa/Agencia": e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hotel Asignado</label>
-                                                    <select
-                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold bg-transparent"
-                                                        value={newGroup.Hotel_Asignado}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Hotel_Asignado: e.target.value })}
-                                                    >
-                                                        <option value="Sercotel Guadiana">Sercotel Guadiana</option>
-                                                        <option value="Cumbria Spa & Hotel">Cumbria Spa & Hotel</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Llegada</label>
-                                                    <input
-                                                        type="date"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold"
-                                                        value={toInputDate(newGroup.Entrada)}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Entrada: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Salida</label>
-                                                    <input
-                                                        type="date"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold"
-                                                        value={toInputDate(newGroup.Salida)}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Salida: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pax Totales</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-bold text-indigo-600"
-                                                        value={newGroup["Pax."]}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, "Pax.": e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Importe Total Est. (€)</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-black text-emerald-600"
-                                                        placeholder="0,00"
-                                                        value={newGroup["Importe(*)"]}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, "Importe(*)": e.target.value })}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        {/* 2. Contacto Operativo */}
-                                        <section>
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
-                                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Contacto Operativo</h4>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nombre Contacto</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-blue-500 outline-none py-2 text-sm font-semibold"
-                                                        value={newGroup.Com_Nombre_Contacto}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Com_Nombre_Contacto: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Email</label>
-                                                    <input
-                                                        type="email"
-                                                        className="w-full border-b-2 border-slate-100 focus:border-blue-500 outline-none py-2 text-sm font-semibold"
-                                                        value={newGroup.Com_Email_Contacto}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Com_Email_Contacto: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notas / Observaciones</label>
-                                                    <textarea
-                                                        className="w-full border border-slate-100 rounded-lg p-2 text-xs font-medium bg-slate-50 min-h-[60px] outline-none focus:border-blue-500 transition-colors"
-                                                        placeholder="Cualquier detalle relevante extraído o añadido manualmente..."
-                                                        value={newGroup.Com_Notas}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Com_Notas: e.target.value })}
-                                                    ></textarea>
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        {/* 3. Datos Fiscales */}
-                                        <section className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
-                                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Facturación (Opcional)</h4>
-                                            </div>
-                                            <div className="grid grid-cols-12 gap-x-4 gap-y-4">
-                                                <div className="col-span-8">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase">Razón Social</label>
-                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
-                                                        value={newGroup.Fiscal_RazonSocial}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_RazonSocial: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="col-span-4">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase">CIF / NIF</label>
-                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
-                                                        value={newGroup.Fiscal_CIF}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_CIF: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="col-span-12">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase">Dirección</label>
-                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs"
-                                                        value={newGroup.Fiscal_Direccion}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_Direccion: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="col-span-4">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase">CP</label>
-                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs"
-                                                        value={newGroup.Fiscal_CP}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_CP: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="col-span-8">
-                                                    <label className="text-[9px] font-black text-slate-400 uppercase">Población</label>
-                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
-                                                        value={newGroup.Fiscal_Poblacion}
-                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_Poblacion: e.target.value })}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </section>
-                                    </div>
-
-                                    {/* ACCIONES FOOTER */}
-                                    <div className="p-6 bg-slate-50 border-t flex gap-4 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                                        <button
-                                            onClick={() => setShowAddGroupModal(false)}
-                                            className="flex-1 py-4 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-100 transition-all uppercase text-[10px] tracking-widest shadow-sm"
-                                        >
-                                            Descartar
-                                        </button>
-                                        <button
-                                            onClick={registerNewGroup}
-                                            className="flex-[2] py-4 bg-[#2d5a43] text-white font-black rounded-xl hover:bg-[#1e3a2c] transition-all shadow-xl shadow-emerald-900/10 uppercase text-[11px] tracking-widest flex items-center justify-center gap-2"
-                                        >
-                                            <IconCheck size={18} stroke={3} /> Confirmar y Guardar Ficha
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
 
                         {/* Modal Resultados IA */}
                         {showAiModal && (
@@ -3891,7 +3555,8 @@ Ej: Reserva para 25 personas, llegada el 15/05, régimen MP en el Guadiana..."
                                                                             precio: parseFloat(r.price) || 0,
                                                                             iva: parseInt(r.iva || 10),
                                                                             regimen: r.regime || '',
-                                                                            dias: '1'
+                                                                            dias: '1',
+                                                                            comision: r.comision
                                                                         });
                                                                     }
                                                                 });
@@ -3924,12 +3589,35 @@ Ej: Reserva para 25 personas, llegada el 15/05, régimen MP en el Guadiana..."
                                                 </button>
                                                 <button
                                                     onClick={async () => {
-                                                        if (window.confirm("¿Estás seguro de que quieres ANULAR este grupo? Esto marcará todas sus reservas como CANCELADAS.")) {
-                                                            await updateGroupMetadata(selectedGroupFicha.name, {
-                                                                "Com_Estado_Interno": "CANCELADO",
-                                                                "Estado": "ANULADA"
+                                                        // Directly perform annul without native confirm dialog
+                                                        const fichaRecords = selectedGroupFicha?.records || [];
+                                                        const fichaName = selectedGroupFicha?.name;
+
+                                                        setShowFichaModal(false);
+
+                                                        setData(prevData => prevData.map(row => {
+                                                            if ((row["Nombre del Grupo"] || "") === fichaName) {
+                                                                return { ...row, "Com_Estado_Interno": "CANCELADO", "Estado": "ANULADA" };
+                                                            }
+                                                            return row;
+                                                        }));
+
+                                                        try {
+                                                            const batch = db.batch();
+                                                            fichaRecords.forEach(rec => {
+                                                                const resID = String(rec["Reserva"] || "").trim();
+                                                                if (resID) {
+                                                                    batch.set(db.collection("groups").doc(resID), {
+                                                                        "Com_Estado_Interno": "CANCELADO",
+                                                                        "Estado": "ANULADA",
+                                                                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                                                    }, { merge: true });
+                                                                }
                                                             });
-                                                            setShowFichaModal(false);
+                                                            await batch.commit();
+                                                            console.log("✅ Anulado en Firestore:", fichaName);
+                                                        } catch (err) {
+                                                            console.error("❌ Error anulando:", err);
                                                         }
                                                     }}
                                                     className="px-3 py-1.5 bg-slate-700 hover:bg-red-600 text-white rounded-lg font-black text-[10px] transition-all flex items-center gap-2 shadow-lg shadow-black/20"
@@ -4702,102 +4390,6 @@ Ej: Reserva para 25 personas, llegada el 15/05, régimen MP en el Guadiana..."
                         )
                         }
 
-                        {/* Popup Datos Cliente - Desacoplado con Z-Index Corregido */}
-                        {
-                            showClientData && (
-                                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100]">
-                                    <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-2xl border border-slate-200 overflow-hidden animate-fade-in">
-                                        <div className="bg-slate-100 p-3 border-b flex justify-between items-center">
-                                            <h3 className="font-black text-slate-700 uppercase text-xs flex items-center gap-2">
-                                                <IconUsers size={16} /> Datos de Cliente, Operativa y Fiscal
-                                            </h3>
-                                            <button onClick={() => setShowClientData(false)} className="text-slate-400 hover:text-red-500"><IconX size={18} /></button>
-                                        </div>
-                                        <div className="p-4 space-y-4">
-                                            {/* Operativa */}
-                                            <div>
-                                                <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2 border-b border-blue-100 pb-1">Operativa</h4>
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                    <div className="col-span-2">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Email Contacto</label>
-                                                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
-                                                            value={selectedGroupFicha.records[0]?.["Com_Email_Contacto"] || selectedGroupFicha.records[0]?.["Email"] || selectedGroupFicha.records[0]?.["E-mail"] || selectedGroupFicha.records[0]?.["Correo"] || selectedGroupFicha.records[0]?.["Mail"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Email_Contacto", e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Nombre de Contacto</label>
-                                                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
-                                                            value={selectedGroupFicha.records[0]?.["Com_Nombre_Contacto"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Nombre_Contacto", e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Teléfono</label>
-                                                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
-                                                            value={selectedGroupFicha.records[0]?.["Com_Telefono_Contacto"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Telefono_Contacto", e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Comercial Asignado</label>
-                                                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-700"
-                                                            value={selectedGroupFicha.records[0]?.["Com_Comercial"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Comercial", e.target.value)}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Fiscal */}
-                                            <div>
-                                                <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2 border-b border-emerald-100 pb-1">Datos Fiscales (Facturación)</h4>
-                                                <div className="grid grid-cols-12 gap-3">
-                                                    <div className="col-span-8">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Razón Social</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold text-slate-800 focus:ring-2 ring-emerald-100"
-                                                            value={selectedGroupFicha.records[0]?.["Fiscal_RazonSocial"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_RazonSocial", e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-4">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">CIF / NIF</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
-                                                            value={selectedGroupFicha.records[0]?.["Fiscal_CIF"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_CIF", e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-12">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Dirección Completa</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-600"
-                                                            value={selectedGroupFicha.records[0]?.["Fiscal_Direccion"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_Direccion", e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-3">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">CP</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-600"
-                                                            value={selectedGroupFicha.records[0]?.["Fiscal_CP"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_CP", e.target.value)}
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-9">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase">Población / Provincia</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-600"
-                                                            value={selectedGroupFicha.records[0]?.["Fiscal_Poblacion"] || ""}
-                                                            onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Fiscal_Poblacion", e.target.value)}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="p-3 bg-slate-50 border-t flex justify-end">
-                                            <button onClick={() => setShowClientData(false)} className="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold text-xs uppercase hover:bg-slate-700">Guardar y Cerrar</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        }
 
                         {/* Modal de Comisión Unitario - Inteligencia por Unidad */}
                         {commissionModal.isOpen && (
@@ -5077,7 +4669,52 @@ Ej: Reserva para 25 personas, llegada el 15/05, régimen MP en el Guadiana..."
             );
         };
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+
+            componentDidCatch(error, errorInfo) {
+                console.error("ErrorBoundary caught an error:", error, errorInfo);
+            }
+
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center font-sans space-y-4">
+                            <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                            </div>
+                            <h1 className="text-2xl font-black text-slate-800 tracking-tight">¡Oops! Algo salió mal.</h1>
+                            <p className="text-slate-500 max-w-md text-sm leading-relaxed">
+                                Ha ocurrido un error inesperado en la interfaz. Hemos registrado el problema. Por favor, recarga la página para continuar.
+                            </p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800 transition-colors shadow-md"
+                            >
+                                Recargar Aplicación
+                            </button>
+                            <div className="mt-8 p-4 bg-white/50 border border-slate-200 rounded-lg text-left overflow-auto max-w-2xl w-full">
+                                <p className="text-xs font-mono text-slate-400 break-all">{this.state.error?.toString()}</p>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
     </script>
 </body>
 

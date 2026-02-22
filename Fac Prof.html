@@ -449,12 +449,12 @@
 
                         <!-- Caja Datos Factura -->
                         <div class="proforma-box w-[250px] border-black">
-                            <div class="proforma-box-header bg-gray-100 border-b border-black">
+                            <div class="proforma-box-header bg-gray-100 border-b border-black text-center">
                                 <div class="border-r border-black" id="proforma-header-label">Nº Factura</div>
                                 <div class="border-r border-black">Fecha</div>
                                 <div>Pag.</div>
                             </div>
-                            <div class="proforma-box-row">
+                            <div class="proforma-box-row text-center">
                                 <div class="border-r border-black font-bold text-[10px] editable" id="reserva-id-2"
                                     contenteditable="true">Proforma</div>
                                 <div class="border-r border-black text-xs"><span class="editable" id="fecha-proforma-2"
@@ -462,16 +462,20 @@
                                 <div class="text-xs">1</div>
                             </div>
                         </div>
+                    </td>
                     <td width="45%" class="align-top pt-2">
                         <div class="bg-slate-50 p-4 rounded-lg shadow-sm text-xs font-mono text-gray-600">
                             <div class="font-bold text-black uppercase text-sm editable" id="solicitante-org-2"
                                 contenteditable="true" style="display:block;">RAZÓN SOCIAL</div>
-                            <div class="editable" id="client-address" contenteditable="true" style="display:block;">
+                            <div class="editable uppercase" id="client-address" contenteditable="true"
+                                style="display:block;">
                                 Calle Dirección</div>
-                            <div class="editable" id="client-city" contenteditable="true" style="display:block;">CP,
+                            <div class="editable uppercase" id="client-city" contenteditable="true"
+                                style="display:block;">CP,
                                 Ciudad</div>
-                            <div class="mt-4 font-bold text-black">
-                                N.I.F.: <span class="editable" id="client-nif" contenteditable="true">B00000000</span>
+                            <div class="mt-4 font-bold text-black uppercase">
+                                N.I.F. / CIF: <span class="editable" id="client-nif"
+                                    contenteditable="true">B00000000</span>
                             </div>
                         </div>
                     </td>
@@ -1097,10 +1101,10 @@
                 const itemComision = (parseFloat(item.comision?.comision_unitaria) || 0) * habs * cantidad * dias;
 
                 totalComision += itemComision;
-                const netSubtotal = subtotal - itemComision;
+                const netSubtotal = subtotal - itemComision; // Se conserva para IVA si fuera necesario
 
-                total += netSubtotal;
-                runningTotal += netSubtotal;
+                total += subtotal; // Gross total (sumado al final de la tabla)
+                runningTotal += subtotal;
 
                 const ivaVal = parseFloat(item.iva) || 10;
                 if (ivaVal === 10) {
@@ -1135,7 +1139,7 @@
                             </td>
                             <td class="p-1 text-center text-[9px] text-gray-500">${item.dias || 1}</td>
                             <td class="p-1 text-right text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
-                            <td class="p-1 text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal - itemComision)}</td>
+                            <td class="p-1 text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
                             <td class="p-1 text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
                             <td class="p-1 no-print text-center">
                                 <button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">
@@ -1163,7 +1167,7 @@
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'dias', this.innerText)">${item.dias || 1}</span>
                             </td>
                             <td class="align-middle text-right text-gray-600 text-[10px]">${formatNum(precioUnitario)}</td>
-                            <td class="align-middle text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal - itemComision)}</td>
+                            <td class="align-middle text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
                             <td class="align-middle text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
                             <td class="no-print align-middle text-center py-1">
                                 <button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">
@@ -1187,7 +1191,7 @@
                         ? `<tr class="border-b bg-gray-50/50 italic text-gray-400">
                             <td class="p-1"></td>
                             <td class="p-1 text-center font-bold">1</td>
-                            <td class="p-1 text-[10px] uppercase font-bold">(-) COMISIÓN AGENCIA${percLabel}</td>
+                            <td class="p-1 text-[10px] uppercase font-bold">(-) COM/DTO${percLabel} SOBRE ${formatNum(total)}</td>
                             <td class="p-1"></td>
                             <td class="p-1"></td>
                             <td class="p-1 text-right text-[10px]">${formatNum(totalComision)}</td>
@@ -1198,7 +1202,7 @@
                         : `<tr class="h-7 border-b border-gray-100 italic text-gray-400 bg-gray-50/30">
                             <td class="py-1"></td>
                             <td class="text-center font-bold">1</td>
-                            <td class="font-bold py-1 text-[9px] uppercase">(-) COMISIÓN AGENCIA${percLabel}</td>
+                            <td class="font-bold py-1 text-[9px] uppercase">(-) COM/DTO${percLabel} SOBRE ${formatNum(total)}</td>
                             <td class="text-center"></td>
                             <td class="text-center"></td>
                             <td class="text-right text-[10px]">${formatNum(totalComision)}</td>
@@ -1233,65 +1237,88 @@
                 const fRelease = new Date(fechaEntrada);
                 fRelease.setDate(fRelease.getDate() - (parseInt(groupData["Com_Relix"]) || 22));
 
-                // If no plan, create a default 30/70 for display
+                const totalNetoPagar = total - totalComision;
+
+                // If no plan, create a default 30/70 for display based on totalNetoPagar
                 if (groupPlan.length === 0) {
                     const d1 = new Date(fechaEntrada); d1.setDate(d1.getDate() - 60);
                     const d2 = new Date(fechaEntrada); d2.setDate(d2.getDate() - 30);
                     groupPlan = [
-                        { label: "1er Pago Garantía", percent: 30, amount: (total * 0.3).toFixed(2), date: d1.toISOString().split('T')[0], status: "Pendiente" },
-                        { label: "Liquidación Final", percent: 70, amount: (total * 0.7).toFixed(2), date: d2.toISOString().split('T')[0], status: "Pendiente" }
+                        { label: "1er Pago Garantía", percent: 30, amount: (totalNetoPagar * 0.3).toFixed(2), date: d1.toISOString().split('T')[0], status: "Pendiente" },
+                        { label: "Liquidación Final", percent: 70, amount: (totalNetoPagar * 0.7).toFixed(2), date: d2.toISOString().split('T')[0], status: "Pendiente" }
                     ];
                 }
 
                 // Calculate paid/pending balance
                 const totalPaid = groupPlan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
-                const totalPending = total - totalPaid;
+                const totalPending = totalNetoPagar - totalPaid;
 
                 footer.innerHTML = `
-                    <div class="mt-8 border-t border-slate-100 pt-8 font-pro">
-                        <div class="grid grid-cols-[45%_1fr] gap-x-12">
-                            <!-- BLOQUE IZQUIERDO: FISCAL Y BANCO -->
-                            <div class="space-y-6">
-                                <div>
-                                    <h5 class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 border-b border-slate-100 pb-1">Datos de Facturación</h5>
-                                    <div class="text-[10px] space-y-1.5 leading-relaxed">
-                                        <p class="font-black text-slate-900 text-[11px] uppercase tracking-tighter">${h.company}</p>
-                                        <div class="flex gap-4 text-slate-500">
-                                            <p><strong class="text-slate-700">CIF:</strong> ${h.nif}</p>
-                                        </div>
-                                        <p class="text-slate-500 italic">${h.address}</p>
-                                        <p class="text-slate-500 italic">${h.cp} ${h.city}</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
-                                     <div class="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                    <div class="mt-8 border-t border-slate-200 pt-8 font-pro">
+                        <div class="grid grid-cols-[1fr_1.1fr] gap-x-8">
+                            <!-- BLOQUE IZQUIERDO: BANCO / TITULAR -->
+                            <div class="space-y-4">
+                                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden h-full flex flex-col justify-center">
+                                     <!-- Decorative background -->
+                                     <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-slate-200/50 to-transparent rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+                                     
+                                     <!-- Header -->
+                                     <div class="flex items-center gap-2.5 mb-5 relative z-10">
+                                         <div class="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center shadow-md">
+                                             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" class="text-white" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                                         </div>
+                                         <h5 class="text-[9px] font-black text-slate-800 uppercase tracking-[0.2em]">Pago por Transferencia</h5>
                                      </div>
-                                     <h5 class="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Cuenta de Abono Corriente</h5>
-                                     <p class="text-[12px] font-black text-slate-900 tracking-tighter tabular-nums">${h.iban}</p>
+                                     
+                                     <!-- Content Grid -->
+                                     <div class="relative z-10 space-y-3.5">
+                                         <!-- Beneficiario -->
+                                         <div>
+                                             <p class="text-[7.5px] font-black text-slate-400/80 uppercase tracking-[0.15em] mb-1">Beneficiario / Titular</p>
+                                             <div class="flex items-center justify-between gap-1 mt-0.5">
+                                                 <p class="font-bold text-slate-800 uppercase tracking-tight" style="font-size: 10px;">${h.company}</p>
+                                                 <p class="font-medium text-slate-500 tracking-tight whitespace-nowrap" style="font-size: 10px;">CIF: <span class="font-bold text-slate-800">${h.nif}</span></p>
+                                             </div>
+                                         </div>
+                                         
+                                         <!-- Cuenta -->
+                                         <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+                                            <div class="flex items-center justify-between mb-1.5 pt-0.5">
+                                                <p class="text-[8.5px] font-black text-slate-400 uppercase tracking-widest leading-none">${h.bank}</p>
+                                                <span class="text-[6.5px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded uppercase tracking-[0.2em] border border-emerald-100/60 shadow-sm leading-none" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">IBAN</span>
+                                            </div>
+                                            <p class="text-[14px] font-black text-slate-900 tracking-widest tabular-nums font-mono">${h.iban}</p>
+                                         </div>
+                                     </div>
                                 </div>
                             </div>
 
                             <!-- BLOQUE DERECHO: TOTALES Y PAGOS -->
                             <div class="space-y-4">
-                                <!-- TOTAL CARD COMPACTA -->
-                                <div class="relative p-5 rounded-3xl overflow-hidden shadow-xl shadow-slate-200" style="background-color: ${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
-                                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                                    <div class="flex justify-between items-end relative z-10">
+                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
+                                    <div class="absolute top-0 left-0 w-full h-1" style="background-color: ${currentHotel === 'cumbria' ? '#0f172a' : '#214732'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                                    <div class="p-6 flex justify-between items-center relative z-10 w-full min-h-[54px]">
                                         <div>
-                                            <span class="text-[8px] font-black text-white/50 uppercase tracking-[0.2em] block mb-1">Total Presupuestado</span>
-                                            <div class="flex items-baseline gap-1">
-                                                <span class="text-3xl font-black text-white tabular-nums tracking-tighter">${formatNum(total)}</span>
-                                                <span class="text-sm font-bold text-white/60">€</span>
+                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1">Total Presupuestado</span>
+                                            <div class="flex items-start gap-1">
+                                                <span class="text-4xl font-black text-slate-800 tabular-nums tracking-tighter leading-none">${formatNum(totalNetoPagar)}</span>
+                                                <span class="text-sm font-bold text-slate-400 mt-1">€</span>
                                             </div>
                                         </div>
-                                        ${totalPaid > 0 ? `
-                                        <div class="text-right border-l border-white/10 pl-6">
-                                            <span class="text-[7px] font-black text-white/40 uppercase block mb-0.5">Pendiente</span>
-                                            <span class="text-lg font-black text-emerald-400 tabular-nums">${formatNum(totalPending)} €</span>
+                                        ${totalPaid >= Math.abs(totalNetoPagar) ? `
+                                        <div class="text-right border-l border-slate-100 pl-6 flex flex-col items-end pt-1">
+                                            <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded text-[9px] font-black uppercase tracking-[0.1em] mb-1.5 whitespace-nowrap shadow-sm shadow-emerald-100" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1 -mt-0.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Pagado Total</span>
+                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest tabular-nums leading-none">0,00 € PENDIENTE</span>
                                         </div>
-                                        ` : ''}
+                                        ` : `
+                                        <div class="text-right border-l border-slate-100 pl-6 pt-1">
+                                            <span class="text-[9px] font-black ${currentHotel === 'cumbria' ? 'text-slate-800' : 'text-[#214732]'} uppercase tracking-[0.2em] block mb-1 whitespace-nowrap">Pendiente / Pagar</span>
+                                            <div class="flex items-end justify-end gap-1">
+                                                <span class="text-[22px] font-black ${currentHotel === 'cumbria' ? 'text-slate-800' : 'text-[#214732]'} tabular-nums leading-none">${formatNum(totalPending)}</span>
+                                                <span class="text-[11px] font-bold ${currentHotel === 'cumbria' ? 'text-slate-500' : 'text-[#214732]/70'} mb-0.5">€</span>
+                                            </div>
+                                        </div>
+                                        `}
                                     </div>
                                 </div>
 
@@ -1303,20 +1330,29 @@
                     const isPaid = dep.status === "Cobrado";
                     const depDate = dep.date ? new Date(dep.date) : null;
                     return `
-                                                <div class="p-3 rounded-2xl border ${isPaid ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-slate-100 shadow-sm'}" style="${isPaid ? 'background-color: #ecfdf5; border-color: #a7f3d0;' : '-webkit-print-color-adjust: exact; print-color-adjust: exact;'}">
-                                                    <div class="flex justify-between items-start mb-1.5">
-                                                        <span class="text-[7px] font-black ${isPaid ? 'text-emerald-700' : 'text-slate-400'} uppercase truncate pr-1">${dep.label}</span>
-                                                        <span class="text-[7px] font-bold text-slate-400 opacity-60">${dep.percent}%</span>
+                                                <div class="p-3 rounded-xl border relative overflow-hidden ${isPaid ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200 shadow-sm'}" style="${isPaid ? 'background-color: #ecfdf5; border-color: #a7f3d0; -webkit-print-color-adjust: exact; print-color-adjust: exact;' : '-webkit-print-color-adjust: exact; print-color-adjust: exact;'}">
+                                                    ${isPaid ? `
+                                                    <div class="absolute inset-0 flex items-center justify-center opacity-[0.07] pointer-events-none" style="color: #059669; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                                        <span class="text-4xl font-black -rotate-12 uppercase tracking-widest border-4 border-current px-2 py-1 rounded-lg">Pagado</span>
                                                     </div>
-                                                    <div class="flex justify-between items-end">
-                                                        <div>
-                                                            <p class="text-[7px] text-slate-400 uppercase tracking-tighter font-bold">Vence</p>
-                                                            <p class="text-[9px] font-black text-slate-700">${formatDateSafe(depDate)}</p>
-                                                        </div>
-                                                        <p class="text-[12px] font-black ${isPaid ? 'text-emerald-600' : 'text-slate-900'} tabular-nums" style="${isPaid ? 'color: #059669;' : ''}">${formatNum(dep.amount)}<span class="text-[8px] ml-0.5 opacity-30">€</span></p>
-                                                    </div>
-                                                </div>
-                                            `;
+                                                    ` : ''}
+                                                    <div class="relative z-10 flex justify-between items-start mb-1.5">
+                                                        <span class="text-[7.5px] font-black ${isPaid ? 'text-emerald-700' : 'text-slate-400'} uppercase truncate pr-1 flex items-center gap-1">
+                                                            ${isPaid ? '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> PAGADO: ' : ''}${dep.label}
+                                                        </span>
+                                                         <span class="text-[8px] font-bold text-slate-400 opacity-60">${dep.percent}%</span>
+                                                     </div>
+                                                     <div class="relative z-10 flex justify-between items-end">
+                                                         <div>
+                                                             <p class="text-[7px] ${isPaid ? 'text-emerald-600/60' : 'text-slate-400'} uppercase tracking-tighter font-bold">${isPaid ? 'Fecha' : 'Vence'}</p>
+                                                             <p class="text-[9px] font-black ${isPaid ? 'text-emerald-800' : 'text-slate-700'}">${formatDateSafe(depDate)}</p>
+                                                         </div>
+                                                         <div class="text-right">
+                                                             <p class="text-[13px] font-black ${isPaid ? 'text-emerald-700' : 'text-slate-900'} tabular-nums leading-none" style="${isPaid ? 'color: #047857;' : ''}">${formatNum(dep.amount)}<span class="text-[8px] ml-0.5 opacity-40">€</span></p>
+                                                         </div>
+                                                     </div>
+                                                 </div>
+                                             `;
                 }).join('')}
                                     </div>
                                 </div>

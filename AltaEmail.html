@@ -164,7 +164,8 @@
                 - "Salida": fecha en formato YYYY-MM-DD.
                 - "Pax.": número total de personas (entero).
                 - "Empresa/Agencia": nombre de la empresa o agencia.
-                - "Régimen": (HD, MP, PC, SA, AD, MP, TI).
+                - "Régimen": (HD, AD, MP, PC, TI, SA).
+                - "Habitaciones": descripción o distribución de habitaciones solicitadas (ej. 20 dobles, 5 individuales).
                 - "Importe(*)": precio unitario o total si se menciona, si no 0.
                 - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
                 - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones (ej. "Grupo para 30/35/40 pax. Régimen solicitado con agua y vino..."). Es MUY IMPORTANTE no perder detalles del texto.
@@ -197,13 +198,14 @@
                 if (!extractedData) return;
                 setSaveStatus('saving');
                 try {
-                    const reservaId = `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`;
+                    const reservaId = extractedData.Reserva || `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`;
 
                     const groupToSave = {
-                        "Nombre del Grupo": String(extractedData["Nombre del Grupo"] || "Sin Nombre"),
+                        "Nombre del Grupo": String(extractedData["Nombre del Grupo"] || "Sin Nombre").toUpperCase(),
                         "Entrada": String(extractedData["Entrada"] || ""),
                         "Salida": String(extractedData["Salida"] || ""),
                         "Pax.": String(extractedData["Pax."] || "0"),
+                        "Habitaciones": String(extractedData["Habitaciones"] || ""),
                         "Empresa/Agencia": String(extractedData["Empresa/Agencia"] || ""),
                         "Régimen": String(extractedData["Régimen"] || "HD"),
                         "Importe(*)": String(extractedData["Importe(*)"] || "0"),
@@ -212,7 +214,7 @@
                         "Com_Estado_Interno": "PRESUPUESTO",
                         "Segment.": "GRUPOS",
                         "Hotel_Asignado": String(extractedData.Hotel || "Sercotel Guadiana"),
-                        "Observaciones": String(extractedData.Observaciones || ""),
+                        "Com_Notas": String(extractedData.Observaciones || ""),
                         "Com_Nombre_Contacto": String(extractedData.Com_Nombre_Contacto || ""),
                         "Com_Email_Contacto": String(extractedData.Com_Email_Contacto || ""),
                         "Com_Telefono_Contacto": String(extractedData.Com_Telefono_Contacto || ""),
@@ -221,10 +223,11 @@
                         "Fiscal_Direccion": String(extractedData.Fiscal_Direccion || ""),
                         "Fiscal_CP": String(extractedData.Fiscal_CP || ""),
                         "Fiscal_Poblacion": String(extractedData.Fiscal_Poblacion || ""),
-                        "createdAt": firebase.firestore.FieldValue.serverTimestamp()
+                        "createdAt": firebase.firestore.FieldValue.serverTimestamp(),
+                        "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                     };
 
-                    await db.collection("groups").add(groupToSave);
+                    await db.collection("groups").doc(reservaId).set(groupToSave, { merge: true });
                     setSaveStatus('success');
                     setTimeout(() => window.location.href = 'Gestión de Grupos.html', 1500);
                 } catch (e) {
@@ -233,6 +236,11 @@
                     setSaveStatus(null);
                 }
             };
+
+            const updateField = (key, value) => {
+                setExtractedData(prev => ({ ...prev, [key]: value }));
+            };
+
 
             return (
                 <div className="min-h-screen bg-slate-100 flex flex-col">
@@ -247,146 +255,283 @@
                                     <LucideIcon name="chevron-left" className="w-6 h-6" />
                                 </a>
                                 <div>
-                                    <h1 className="text-2xl font-black tracking-tight">Alta Inteligente (IA)</h1>
+                                    <h1 className="text-2xl font-black tracking-tight">Petición de Grupo</h1>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <LucideIcon name="mail" className="w-3 h-3" /> Procesador de Correos
+                                        <LucideIcon name="mail" className="w-3 h-3" /> Alta de Ficha Directa
                                     </p>
                                 </div>
                             </div>
                             <div className="bg-white/10 px-4 py-2 rounded-2xl border border-white/10 backdrop-blur-md">
-                                <span className="text-xs font-black">Nexus AI Engine v1.5</span>
+                                <span className="text-xs font-black uppercase tracking-tighter text-emerald-400">Escáner IA Activado</span>
                             </div>
                         </div>
                     </header>
 
                     <div className="container mx-auto p-4 md:p-8 flex-1">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                            {/* Input Panel */}
-                            <div className="flex flex-col space-y-4">
-                                <div className="glass p-6 rounded-3xl shadow-sm space-y-4 flex flex-col h-[600px]">
+                            {/* Input Panel (Col 4) */}
+                            <div className="lg:col-span-4 flex flex-col space-y-4">
+                                <div className="glass p-6 rounded-3xl shadow-sm space-y-4 flex flex-col min-h-[400px]">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-lg font-black text-slate-700">Contenido del Email</h3>
-                                        <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full border border-indigo-100 uppercase">Pega el texto aquí</span>
+                                        <h3 className="text-lg font-black text-slate-700">Texto del Correo</h3>
+                                        <LucideIcon name="brain" className="text-indigo-500" />
                                     </div>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">Pega el mensaje recibido para extraer datos automáticamente</p>
                                     <textarea
-                                        className="flex-1 w-full p-6 bg-slate-50/50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm leading-relaxed resize-none font-medium text-slate-700"
-                                        placeholder="Estimados señores, queríamos realizar una reserva para el grupo 'Los Caminantes'..."
+                                        className="flex-1 w-full p-4 bg-slate-50/50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm leading-relaxed resize-none font-medium text-slate-700"
+                                        placeholder="Ej: Hola, necesito presupuesto para un grupo de 25 personas..."
                                         value={emailText}
                                         onChange={(e) => setEmailText(e.target.value)}
                                     ></textarea>
                                     <button
                                         onClick={handleAnalyze}
                                         disabled={isAnalyzing || !emailText.trim()}
-                                        className={`w-full py-4 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-lg shadow-indigo-900/10 ${isAnalyzing ? 'bg-slate-400' : 'btn-ia'}`}
+                                        className={`w-full py-4 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-lg shadow-indigo-900/10 transition-all active:scale-95 ${isAnalyzing ? 'bg-slate-400' : 'btn-ia'}`}
                                     >
                                         {isAnalyzing ? (
                                             <>
                                                 <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
-                                                <span>Analizando con IA...</span>
+                                                <span>Analizando...</span>
                                             </>
                                         ) : (
                                             <>
                                                 <LucideIcon name="sparkles" className="w-5 h-5" />
-                                                <span>Detectar Datos con IA</span>
+                                                <span>EXTRAER CON IA</span>
                                             </>
                                         )}
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Result Panel */}
-                            <div className="flex flex-col h-full">
-                                {isAnalyzing ? (
-                                    <div className="glass p-8 rounded-3xl h-[600px] flex flex-col space-y-6">
-                                        <div className="h-8 w-1/3 shimmer rounded-lg"></div>
-                                        <div className="space-y-4">
-                                            <div className="h-12 w-full shimmer rounded-xl"></div>
-                                            <div className="h-12 w-full shimmer rounded-xl"></div>
-                                            <div className="h-32 w-full shimmer rounded-xl"></div>
-                                            <div className="h-12 w-full shimmer rounded-xl"></div>
-                                        </div>
-                                    </div>
-                                ) : extractedData ? (
-                                    <div className="glass p-8 rounded-3xl h-[600px] flex flex-col space-y-6 animate-fade-in animate-once overflow-y-auto custom-scrollbar">
-                                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                                            <div>
-                                                <h3 className="text-xl font-black text-slate-800">Datos Detectados</h3>
-                                                <p className="text-xs text-slate-400 font-bold">Verifica la información antes de guardar</p>
+                            {/* Form Panel (Col 8) */}
+                            <div className="lg:col-span-8">
+                                <div className="glass p-8 rounded-3xl flex flex-col space-y-8 min-h-[600px] shadow-xl">
+                                    {!extractedData && !isAnalyzing ? (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40">
+                                            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                                                <LucideIcon name="clipboard-list" className="w-10 h-10 text-slate-300" />
                                             </div>
-                                            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-                                                <LucideIcon name="check-circle-2" className="w-6 h-6" />
+                                            <h3 className="text-lg font-black text-slate-400 uppercase tracking-widest">Formulario Pendiente</h3>
+                                            <p className="max-w-xs text-xs font-bold text-slate-300 mt-2">Usa la IA a la izquierda o empieza a escribir para rellenar la ficha del grupo.</p>
+                                            <button
+                                                onClick={() => setExtractedData({ "Nombre del Grupo": "", "Entrada": "", "Salida": "", "Pax.": "", "Habitaciones": "", "Régimen": "HD", "Hotel": "Sercotel Guadiana", "Empresa/Agencia": "", "Observaciones": "" })}
+                                                className="mt-6 px-6 py-3 bg-white border border-slate-200 text-slate-400 rounded-xl text-xs font-black uppercase hover:bg-slate-50 transition-all"
+                                            >
+                                                Rellenar Manualmente
+                                            </button>
+                                        </div>
+                                    ) : isAnalyzing ? (
+                                        <div className="space-y-8 py-4">
+                                            <div className="h-10 w-48 shimmer rounded-lg"></div>
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div className="h-16 w-full shimmer rounded-2xl"></div>
+                                                <div className="h-16 w-full shimmer rounded-2xl"></div>
+                                                <div className="h-16 w-full shimmer rounded-2xl col-span-2"></div>
+                                                <div className="h-32 w-full shimmer rounded-2xl col-span-2"></div>
                                             </div>
                                         </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h2 className="text-2xl font-black text-slate-800">Ficha del Grupo</h2>
+                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Confirmación de datos antes del alta</p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase border border-emerald-100 flex items-center gap-1.5">
+                                                        <LucideIcon name="check" size={12} /> Datos Listos
+                                                    </span>
+                                                </div>
+                                            </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Nombre del Grupo</label>
-                                                <input className="w-full bg-transparent text-lg font-black text-slate-800 outline-none" value={extractedData["Nombre del Grupo"]} onChange={(e) => setExtractedData({ ...extractedData, "Nombre del Grupo": e.target.value })} />
-                                            </div>
-                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Entrada</label>
-                                                <input type="date" className="w-full bg-transparent font-bold text-slate-700 outline-none" value={extractedData["Entrada"]} onChange={(e) => setExtractedData({ ...extractedData, "Entrada": e.target.value })} />
-                                            </div>
-                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Salida</label>
-                                                <input type="date" className="w-full bg-transparent font-bold text-slate-700 outline-none" value={extractedData["Salida"]} onChange={(e) => setExtractedData({ ...extractedData, "Salida": e.target.value })} />
-                                            </div>
-                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Pax</label>
-                                                <input type="number" className="w-full bg-transparent font-black text-slate-800 outline-none" value={extractedData["Pax."]} onChange={(e) => setExtractedData({ ...extractedData, "Pax.": e.target.value })} />
-                                            </div>
-                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Hotel</label>
-                                                <select className="w-full bg-transparent font-bold text-slate-700 outline-none appearance-none" value={extractedData["Hotel"]} onChange={(e) => setExtractedData({ ...extractedData, "Hotel": e.target.value })}>
-                                                    <option>Sercotel Guadiana</option>
-                                                    <option>Cumbria Spa & Hotel</option>
-                                                </select>
-                                            </div>
-                                            <div className="col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Empresa / Agencia</label>
-                                                <input className="w-full bg-transparent font-bold text-slate-700 outline-none" value={extractedData["Empresa/Agencia"]} onChange={(e) => setExtractedData({ ...extractedData, "Empresa/Agencia": e.target.value })} />
-                                            </div>
-                                            <div className="col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Observaciones</label>
-                                                <textarea className="w-full bg-transparent font-medium text-slate-600 outline-none h-20 resize-none" value={extractedData["Observaciones"]} onChange={(e) => setExtractedData({ ...extractedData, "Observaciones": e.target.value })}></textarea>
-                                            </div>
-                                        </div>
+                                            <div className="space-y-10 max-h-[1000px] overflow-visible">
+                                                {/* Sección 1: Datos Core */}
+                                                <section>
+                                                    <div className="flex items-center gap-2 mb-6">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Datos de la Reserva</h4>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                                                        <div className="col-span-2">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Nombre del Grupo</label>
+                                                            <input
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-slate-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all uppercase"
+                                                                value={extractedData["Nombre del Grupo"]}
+                                                                onChange={(e) => updateField("Nombre del Grupo", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Empresa / Agencia</label>
+                                                            <input
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                                                                value={extractedData["Empresa/Agencia"]}
+                                                                onChange={(e) => updateField("Empresa/Agencia", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Entrada</label>
+                                                            <input
+                                                                type="date"
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none"
+                                                                value={extractedData["Entrada"]}
+                                                                onChange={(e) => updateField("Entrada", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Salida</label>
+                                                            <input
+                                                                type="date"
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none"
+                                                                value={extractedData["Salida"]}
+                                                                onChange={(e) => updateField("Salida", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Pax</label>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-black text-indigo-600 outline-none"
+                                                                value={extractedData["Pax."]}
+                                                                onChange={(e) => updateField("Pax.", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Hotel Asignado</label>
+                                                            <select
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none appearance-none"
+                                                                value={extractedData["Hotel"]}
+                                                                onChange={(e) => updateField("Hotel", e.target.value)}
+                                                            >
+                                                                <option>Sercotel Guadiana</option>
+                                                                <option>Cumbria Spa & Hotel</option>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Régimen</label>
+                                                            <select
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none appearance-none"
+                                                                value={extractedData["Régimen"]}
+                                                                onChange={(e) => updateField("Régimen", e.target.value)}
+                                                            >
+                                                                <option value="HD">HD (Sólo Aloj.)</option>
+                                                                <option value="AD">AD (Aloj. y Desay.)</option>
+                                                                <option value="MP">MP (Media Pensión)</option>
+                                                                <option value="PC">PC (Pensión Comp.)</option>
+                                                                <option value="TI">TI (Todo Incl.)</option>
+                                                                <option value="SA">SA (Sin Alim.)</option>
+                                                            </select>
+                                                        </div>
+                                                        <div className="col-span-4">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Habitaciones / Distribución</label>
+                                                            <input
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                                                                placeholder="Ej: 15 DOBLES, 2 INDIVIDUALES..."
+                                                                value={extractedData["Habitaciones"] || ""}
+                                                                onChange={(e) => updateField("Habitaciones", e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </section>
 
-                                        <button
-                                            onClick={handleSave}
-                                            disabled={saveStatus === 'saving'}
-                                            className={`w-full py-4 mt-auto rounded-2xl font-black text-white shadow-xl transition-all flex items-center justify-center gap-3 ${saveStatus === 'success' ? 'bg-emerald-500' : 'bg-slate-900 hover:bg-black active:scale-[0.98]'}`}
-                                        >
-                                            {saveStatus === 'success' ? (
-                                                <>
-                                                    <LucideIcon name="check" className="w-5 h-5" />
-                                                    <span>Grupo Creado con Éxito</span>
-                                                </>
-                                            ) : saveStatus === 'saving' ? (
-                                                <>
-                                                    <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
-                                                    <span>Guardando...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <LucideIcon name="database" className="w-5 h-5" />
-                                                    <span>Confirmar y Dar de Alta</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="glass p-8 rounded-3xl h-[600px] flex flex-col items-center justify-center text-center space-y-6 opacity-40">
-                                        <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center">
-                                            <LucideIcon name="brain-circuit" className="w-12 h-12 text-slate-300" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-black text-slate-400 uppercase tracking-tighter">Esperando entrada...</h3>
-                                            <p className="text-sm font-bold text-slate-300">Los datos detectados aparecerán aquí</p>
-                                        </div>
-                                    </div>
-                                )}
+                                                {/* Sección 2: Operativa y Contacto */}
+                                                <section>
+                                                    <div className="flex items-center gap-2 mb-6">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contacto Operativo</h4>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Nombre Contacto</label>
+                                                            <input
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold"
+                                                                value={extractedData["Com_Nombre_Contacto"] || ""}
+                                                                onChange={(e) => updateField("Com_Nombre_Contacto", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Email</label>
+                                                            <input
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold"
+                                                                value={extractedData["Com_Email_Contacto"] || ""}
+                                                                onChange={(e) => updateField("Com_Email_Contacto", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Teléfono</label>
+                                                            <input
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold"
+                                                                value={extractedData["Com_Telefono_Contacto"] || ""}
+                                                                onChange={(e) => updateField("Com_Telefono_Contacto", e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="col-span-full">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Observaciones / Notas IA</label>
+                                                            <textarea
+                                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 outline-none h-24 resize-none leading-relaxed italic"
+                                                                value={extractedData["Observaciones"]}
+                                                                onChange={(e) => updateField("Observaciones", e.target.value)}
+                                                            ></textarea>
+                                                        </div>
+                                                    </div>
+                                                </section>
+
+                                                {/* Sección 3: Fiscal */}
+                                                <section className="bg-slate-50/50 p-6 rounded-3xl border border-slate-200/60">
+                                                    <div className="flex items-center gap-2 mb-6">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Datos Fiscales (Facturación)</h4>
+                                                    </div>
+                                                    <div className="grid grid-cols-12 gap-6">
+                                                        <div className="col-span-8">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Razón Social</label>
+                                                            <input className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" value={extractedData["Fiscal_RazonSocial"] || ""} onChange={(e) => updateField("Fiscal_RazonSocial", e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-4">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">CIF / NIF</label>
+                                                            <input className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" value={extractedData["Fiscal_CIF"] || ""} onChange={(e) => updateField("Fiscal_CIF", e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-12">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Dirección</label>
+                                                            <input className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" value={extractedData["Fiscal_Direccion"] || ""} onChange={(e) => updateField("Fiscal_Direccion", e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-4">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">CP</label>
+                                                            <input className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" value={extractedData["Fiscal_CP"] || ""} onChange={(e) => updateField("Fiscal_CP", e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-8">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Población</label>
+                                                            <input className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold" value={extractedData["Fiscal_Poblacion"] || ""} onChange={(e) => updateField("Fiscal_Poblacion", e.target.value)} />
+                                                        </div>
+                                                    </div>
+                                                </section>
+
+                                                <button
+                                                    onClick={handleSave}
+                                                    disabled={saveStatus === 'saving'}
+                                                    className={`w-full py-5 rounded-2xl font-black text-white shadow-2xl transition-all flex items-center justify-center gap-4 text-xs tracking-widest uppercase ${saveStatus === 'success' ? 'bg-emerald-500' : 'bg-[#0f172a] hover:bg-black active:scale-[0.98]'}`}
+                                                >
+                                                    {saveStatus === 'success' ? (
+                                                        <>
+                                                            <LucideIcon name="check" className="w-5 h-5" />
+                                                            <span>Grupo Registrado Correctamente</span>
+                                                        </>
+                                                    ) : saveStatus === 'saving' ? (
+                                                        <>
+                                                            <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                                            <span>Persistiendo en Base de Datos...</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <LucideIcon name="database" className="w-5 h-5" />
+                                                            <span>CONFIRMAR Y DAR DE ALTA</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

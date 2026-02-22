@@ -247,7 +247,7 @@
                                 key={item.id}
                                 onClick={() => {
                                     if (item.id === 'groups') window.location.href = 'Gestión de Grupos.html';
-                                    else if (item.id === 'alta-email') { localStorage.setItem('openAddGroupModal', 'true'); window.location.href = 'Gestión de Grupos.html'; }
+                                    else if (item.id === 'alta-email') window.location.href = 'AltaEmail.html';
                                     else if (item.id === 'invoices') {
                                         localStorage.removeItem('selectedGroup');
                                         window.location.href = 'Fac Prof.html';
@@ -278,7 +278,6 @@
 
         const Dashboard = ({ arrivals, stats, alerts, onRunAnalysis, timeRange, onRangeChange }) => {
             const kpis = [
-                { label: 'Revenue', value: stats.revenue, trend: stats.revTrend || '+0%', cardClass: 'kpi-card-emerald', iconClass: 'bg-emerald-100 text-emerald-600', icon: 'trending-up', trendClass: 'text-emerald-600' },
                 { label: 'Reservas', value: stats.groups, trend: 'Activas', cardClass: 'kpi-card-blue', iconClass: 'bg-blue-100 text-blue-600', icon: 'check-circle', trendClass: 'text-blue-600' },
                 { label: 'Proformas', value: stats.pending, trend: '24h', cardClass: 'kpi-card-orange', iconClass: 'bg-orange-100 text-orange-600', icon: 'file-text', trendClass: 'text-orange-600' },
                 { label: 'Pax', value: stats.pax != null && stats.pax !== '' ? stats.pax : '—', trend: 'Total', cardClass: 'kpi-card-purple', iconClass: 'bg-purple-100 text-purple-600', icon: 'users', trendClass: 'text-purple-600' },
@@ -287,50 +286,74 @@
             ];
             return (
                 <div className="space-y-6 animate-fade-in">
-                    {/* Hero del inicio - compacto */}
-                    <div className="dashboard-hero p-5 md:p-6">
-                        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                    {/* Hero Premium */}
+                    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/60 relative overflow-hidden">
+                        {/* Decorative background elements */}
+                        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-gradient-to-br from-emerald-50 to-emerald-100/40 rounded-full blur-3xl opacity-70 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-48 h-48 bg-gradient-to-tr from-blue-50 to-blue-100/40 rounded-full blur-3xl opacity-70 pointer-events-none"></div>
+
+                        <div className="flex flex-col xl:flex-row xl:justify-between xl:items-end gap-6 relative z-10 w-full">
                             <div>
-                                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-                                    Nexus <span className="text-[#2d5a43]">Groups</span>
-                                </h1>
-                                <p className="text-slate-500 mt-1 text-xs max-w-md">Gestión unificada de grupos y análisis predictivo.</p>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#2d5a43] to-[#1e3a2c] flex items-center justify-center shadow-lg shadow-emerald-900/20">
+                                        <LucideIcon name="building" className="w-5 h-5 text-white" />
+                                    </div>
+                                    <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight">
+                                        Nexus <span className="text-[#2d5a43] font-light">Groups</span>
+                                    </h1>
+                                </div>
+                                <p className="text-slate-500 text-sm md:text-base max-w-xl font-medium">Panel de mando ejecutivo. Gestión unificada y análisis predictivo de grupos hoteleros.</p>
                             </div>
-                            <div className="flex flex-wrap items-center gap-3">
+
+                            <div className="flex flex-wrap md:flex-nowrap items-center gap-3 w-full xl:w-auto mt-4 xl:mt-0">
+                                <div className="bg-slate-50 px-5 py-3 rounded-2xl border border-slate-200/80 flex items-center gap-4 shadow-inner flex-1 md:flex-none justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Servidor Cloud</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse hidden md:block"></div>
+                                            <p className="text-sm font-bold text-slate-700">{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                        </div>
+                                    </div>
+                                    <LucideIcon name="cloud-check" className="w-6 h-6 text-emerald-500 opacity-20" />
+                                </div>
+
                                 <button
                                     onClick={onRunAnalysis}
-                                    className="bg-gradient-to-r from-[#2d5a43] to-[#1e3a2c] text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:shadow-md hover:shadow-emerald-900/20 transition-all text-xs border-0"
+                                    className="bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-6 py-3.5 rounded-2xl font-bold flex justify-center items-center gap-2 shadow-lg shadow-[#2d5a43]/20 hover:shadow-xl hover:-translate-y-0.5 transition-all text-sm border border-[#2d5a43] w-full md:w-auto shrink-0 group"
                                 >
-                                    <LucideIcon name="sparkles" className="w-3.5 h-3.5" />
-                                    Consultor IA
+                                    <LucideIcon name="sparkles" className="w-4 h-4 text-emerald-300 group-hover:animate-pulse" />
+                                    <span>Consultor IA</span>
                                 </button>
-                                <div className="bg-white/90 backdrop-blur-sm text-right px-4 py-2.5 rounded-xl shadow-sm border border-slate-100/80 min-w-[140px]">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Servidor Cloud</p>
-                                    <p className="text-xs font-bold text-slate-800">{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* KPIs - compactos ajustados al contenido */}
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    {/* KPIs - Inline Flow Responsive (ideal para evitar saltos con números largos) */}
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                         {kpis.map((kpi, i) => (
                             <div
                                 key={i}
                                 onClick={kpi.onClick}
-                                className={`kpi-card opacity-0 animate-dash-up p-2.5 rounded-xl border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 w-auto min-w-[120px] ${kpi.cardClass} ${kpi.onClick ? 'cursor-pointer' : ''}`}
+                                className={`bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all duration-300 flex items-center gap-4 flex-1 min-w-[200px] max-w-full xl:max-w-max relative overflow-hidden group ${kpi.onClick ? 'cursor-pointer' : ''}`}
                             >
-                                <div className="flex items-center gap-2 mb-1">
-                                    <div className={`p-1 rounded-md ${kpi.iconClass}`}>
-                                        <LucideIcon name={kpi.icon} className="w-3 h-3" />
-                                    </div>
-                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider pr-2">{kpi.label}</p>
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-slate-50 to-transparent rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                                <div className={`p-2.5 rounded-xl shrink-0 relative z-10 ${kpi.iconClass}`}>
+                                    <LucideIcon name={kpi.icon} className="w-5 h-5" />
                                 </div>
-                                <div className="flex items-end gap-2">
-                                    <p className={`text-lg font-black tracking-tight leading-none ${kpi.cardClass === 'kpi-card-rose' && Number(kpi.value) > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-900'}`}>
-                                        {kpi.value}
-                                    </p>
-                                    <p className={`text-[9px] font-bold uppercase mb-0.5 ${kpi.trendClass}`}>{kpi.trend}</p>
+                                <div className="flex-1 min-w-0 relative z-10">
+                                    <div className="flex justify-between items-center mb-0.5">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate pr-2">{kpi.label}</p>
+                                        {kpi.onClick && <LucideIcon name="external-link" className="w-3 h-3 text-slate-200 group-hover:text-slate-400 transition-colors shrink-0" />}
+                                    </div>
+                                    <div className="flex items-baseline gap-2 truncate">
+                                        <p
+                                            className={`text-xl font-black tracking-tight truncate ${kpi.cardClass === 'kpi-card-rose' && Number(kpi.value) > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-800'}`}
+                                            title={kpi.value}
+                                        >
+                                            {kpi.value}
+                                        </p>
+                                        <p className={`text-[9px] font-bold uppercase shrink-0 ${kpi.trendClass}`}>{kpi.trend}</p>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -771,7 +794,16 @@
                         setStats({
                             revenue: new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalRev),
                             groups: new Set(parsed.map(p => p["Nombre del Grupo"])).size,
-                            pending: parsed.filter(p => (p["Estado"] || "").toLowerCase().includes('pend')).length,
+                            pending: parsed.filter(p => {
+                                const status = (p["Estado"] || "").toLowerCase() + " " + (p["Com_Estado_Interno"] || "").toLowerCase() + " " + (p["Segment."] || "").toLowerCase();
+                                const isCancelled = status.includes('anul') || status.includes('cancel') || status.includes('descart') || status.includes('rechaz');
+                                if (isCancelled) return false;
+
+                                const rawVal = String(p["Importe(*)"] || "0").trim();
+                                const isZero = rawVal === "" || rawVal === "0" || rawVal === "0,00" || rawVal === "0.00" || Number(rawVal) === 0;
+
+                                return (status.includes('presup') || status.includes('pend') || String(p["Reserva"]).startsWith("PRES.")) && isZero;
+                            }).length,
                             pax: parsed.reduce((acc, curr) => acc + (parseInt(curr["Pax."]) || 0), 0),
                             releaseAlerts,
                             followUpAlerts
