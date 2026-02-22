@@ -1264,24 +1264,31 @@
                             if (!isCancelled) activeCount++;
                         }
 
+
                         // 2. Release Alerts
                         let isReleaseUrgent = false;
-                        const roomListStr = row.RoomingList_JSON;
-                        if (roomListStr) {
-                            try {
-                                const roomList = JSON.parse(roomListStr);
-                                roomList.forEach(item => {
-                                    const dIn = new Date(toInputDate(item.dateIn));
-                                    if (!isNaN(dIn.getTime())) {
-                                        const diff = Math.ceil((dIn - now) / (1000 * 60 * 60 * 24));
-                                        if (diff > 0 && diff <= 7) isReleaseUrgent = true;
-                                    }
-                                });
-                            } catch (e) { }
-                        }
-                        const comRelease = row.Com_Vencimiento_Rel ? new Date(row.Com_Vencimiento_Rel) : null;
-                        if (comRelease && !isNaN(comRelease.getTime())) {
-                            if (comRelease <= sevenDaysFromNow) isReleaseUrgent = true;
+                        const manualPaidVal = parseNum(row["Com_Pagado"] || "0");
+                        const currentForecast = parseNum(row["Importe(*)"]);
+                        const isFullyPaid = manualPaidVal >= currentForecast - 0.01;
+
+                        if (!isFullyPaid) {
+                            const roomListStr = row.RoomingList_JSON;
+                            if (roomListStr) {
+                                try {
+                                    const roomList = JSON.parse(roomListStr);
+                                    roomList.forEach(item => {
+                                        const dIn = new Date(toInputDate(item.dateIn));
+                                        if (!isNaN(dIn.getTime())) {
+                                            const diff = Math.ceil((dIn - now) / (1000 * 60 * 60 * 24));
+                                            if (diff > 0 && diff <= 7) isReleaseUrgent = true;
+                                        }
+                                    });
+                                } catch (e) { }
+                            }
+                            const comRelease = row.Com_Vencimiento_Rel ? new Date(row.Com_Vencimiento_Rel) : null;
+                            if (comRelease && !isNaN(comRelease.getTime())) {
+                                if (comRelease <= sevenDaysFromNow) isReleaseUrgent = true;
+                            }
                         }
                         if (isReleaseUrgent) releaseAlerts++;
 
@@ -1753,6 +1760,7 @@
                             "Fiscal_RazonSocial", "Fiscal_CIF", "Fiscal_Direccion", "Fiscal_CP", "Fiscal_Poblacion", "Fiscal_Provincia", "Fiscal_Pais",
                             "Email", "Telefono", "Persona_Contacto",
                             "Proforma_NetRate", "Proforma_Rooms", "Proforma_RoomList",
+                            "Com_Pagado",
                             "updatedAt"
                         ]);
 
@@ -2157,7 +2165,7 @@
             };
 
             const updateGroupMetadata = async (groupName, fieldOrUpdates, valueIfSingle = null, hotelFilter = null) => {
-                const updates = typeof fieldOrUpdates === 'object' ? fieldOrUpdates : { [fieldOrUpdates]: valueIfSingle };
+                let updates = typeof fieldOrUpdates === 'object' ? fieldOrUpdates : { [fieldOrUpdates]: valueIfSingle };
 
                 // Si el usuario cambia a CANCELADO desde el dropdown, sincronizar también el campo Estado
                 if (updates["Com_Estado_Interno"] === "CANCELADO" && !updates["Estado"]) {
@@ -2169,6 +2177,62 @@
                     (r["Nombre del Grupo"] || "") === groupName &&
                     (!hotelFilter || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter)
                 );
+
+                if (currentGroupRows.length === 0) return;
+
+                // --- SYNC PAYMENT PLAN LOGIC (Apply to all affected rows) ---
+                if (updates["Com_Pagado"] !== undefined) {
+                    try {
+                        const firstRow = currentGroupRows[0];
+                        const manualPaid = parseNum(updates["Com_Pagado"]);
+                        const totalRevenue = parseNum(firstRow["Importe(*)"]);
+                        let currentPlan = [];
+                        try {
+                            currentPlan = JSON.parse(firstRow["PaymentPlan_JSON"] || "[]");
+                        } catch (e) { currentPlan = []; }
+
+                        // Remove old manual entries to avoid duplicates
+                        let filteredPlan = currentPlan.filter(p => !p.id.toString().startsWith("manual-") && p.label !== "Pago a Cuenta");
+
+                        const newPlan = [];
+                        if (manualPaid > 0) {
+                            newPlan.push({
+                                id: "manual-" + Date.now(),
+                                label: "Pago a Cuenta",
+                                percent: ((manualPaid / (totalRevenue || 1)) * 100).toFixed(1),
+                                amount: manualPaid.toFixed(2),
+                                releaseDays: 0,
+                                date: new Date().toISOString().split('T')[0],
+                                status: "Cobrado"
+                            });
+                        }
+
+                        // Adjust remaining segments
+                        let remainingToSubtract = manualPaid;
+                        filteredPlan.forEach(p => {
+                            let amt = parseNum(p.amount);
+                            if (remainingToSubtract > 0) {
+                                if (remainingToSubtract >= amt) {
+                                    remainingToSubtract -= amt;
+                                    return;
+                                } else {
+                                    amt -= remainingToSubtract;
+                                    remainingToSubtract = 0;
+                                }
+                            }
+                            if (amt > 0.01) {
+                                newPlan.push({
+                                    ...p,
+                                    amount: amt.toFixed(2),
+                                    percent: ((amt / (totalRevenue || 1)) * 100).toFixed(1)
+                                });
+                            }
+                        });
+                        updates["PaymentPlan_JSON"] = JSON.stringify(newPlan);
+                    } catch (err) {
+                        console.error("Error syncing PaymentPlan on Com_Pagado update", err);
+                    }
+                }
 
                 // 1. Optimistic UI Update
                 setData(prevData => {
@@ -2317,6 +2381,7 @@
                 });
             };
 
+
             const calculateDeposits = (group, distribution = [100], hotelFilter = null) => {
                 const records = hotelFilter
                     ? group.records.filter(r => (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter)
@@ -2324,14 +2389,15 @@
 
                 if (records.length === 0) return;
 
-                const roomingList = JSON.parse(group.records[0]?.["RoomingList_JSON"] || "[]");
+                const firstRec = records[0];
+                const roomingList = JSON.parse(firstRec?.["RoomingList_JSON"] || "[]");
                 const hotelRoomingItems = hotelFilter ? roomingList.filter(i => i.hotel === hotelFilter) : roomingList;
                 const total = hotelRoomingItems.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0) || records.reduce((acc, r) => {
                     const val = parseNum(r["Importe(*)"]);
                     return acc + val;
                 }, 0);
 
-                const entrada = records[0]?.["Entrada"];
+                const entrada = firstRec?.["Entrada"];
                 let dateEntrada = new Date();
                 if (entrada) {
                     const parts = entrada.includes('/') ? entrada.split('/') : entrada.split('-');
@@ -2350,22 +2416,55 @@
                     "100": { label: "Pago Único", days: 30 }
                 };
 
-                const newPlan = distribution.map(pct => {
+                const manualPaid = parseNum(firstRec["Com_Pagado"] || "0");
+                let remainingManual = manualPaid;
+                const newPlan = [];
+
+                // Si hay pago manual, lo ponemos como primer bloque si no hay uno previo que lo cubra
+                if (manualPaid > 0) {
+                    newPlan.push({
+                        id: "manual-" + Date.now(),
+                        label: "Pago a Cuenta",
+                        percent: ((manualPaid / total) * 100).toFixed(1),
+                        amount: manualPaid.toFixed(2),
+                        releaseDays: 0,
+                        date: new Date().toISOString().split('T')[0],
+                        status: "Cobrado"
+                    });
+                }
+
+                distribution.forEach(pct => {
                     const meta = presetMeta[pct.toString()] || { label: "Nuevo Pago", days: 30 };
                     const date = new Date(dateEntrada);
                     date.setDate(date.getDate() - meta.days);
-                    return {
-                        id: Date.now() + Math.random(),
-                        label: meta.label,
-                        percent: pct,
-                        amount: (total * (pct / 100)).toFixed(2),
-                        releaseDays: meta.days,
-                        date: date.toISOString().split('T')[0],
-                        status: "Pendiente"
-                    };
+
+                    let amount = total * (pct / 100);
+
+                    // Si el pago manual cubre parte o todo de este segmento, lo descontamos
+                    if (remainingManual > 0) {
+                        if (remainingManual >= amount) {
+                            remainingManual -= amount;
+                            return; // Este segmento ya está cubierto por el pago a cuenta
+                        } else {
+                            amount -= remainingManual;
+                            remainingManual = 0;
+                        }
+                    }
+
+                    if (amount > 0.01) {
+                        newPlan.push({
+                            id: Date.now() + Math.random(),
+                            label: meta.label,
+                            percent: ((amount / total) * 100).toFixed(1),
+                            amount: amount.toFixed(2),
+                            releaseDays: meta.days,
+                            date: date.toISOString().split('T')[0],
+                            status: "Pendiente"
+                        });
+                    }
                 });
 
-                updateGroupMetadata(group.name, "PaymentPlan_JSON", JSON.stringify(newPlan), hotelFilter);
+                updateGroupMetadata(group.name, { "PaymentPlan_JSON": JSON.stringify(newPlan) }, null, hotelFilter);
             };
 
             const updatePaymentPlan = (groupName, hotelFilter, plan) => {
@@ -3837,6 +3936,22 @@
                                             });
                                             const grandTotal = roomList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
 
+                                            // Cálculos de Cobros
+                                            let totalPaidFromPlan = 0;
+                                            selectedGroupFicha.records.forEach(r => {
+                                                try {
+                                                    const plan = JSON.parse(r.PaymentPlan_JSON || "[]");
+                                                    plan.forEach(p => {
+                                                        if (p.status === "Cobrado") {
+                                                            totalPaidFromPlan += parseFloat(p.amount) || 0;
+                                                        }
+                                                    });
+                                                } catch (e) { }
+                                            });
+                                            const manualPaid = parseNum(selectedGroupFicha.records[0]?.["Com_Pagado"] || "0");
+                                            const totalPaid = manualPaid > 0 ? manualPaid : totalPaidFromPlan;
+                                            const pendingAmount = Math.max(0, grandTotal - totalPaid);
+
                                             // Búsqueda de pagos urgentes (<= 2 días)
                                             const urgentPayments = [];
                                             const todayForAlert = new Date();
@@ -3877,7 +3992,7 @@
                                                         </div>
                                                     )}
                                                     {/* PANEL FINANCIERO CORPORATIVO */}
-                                                    <div className="bg-[#2d5a43] text-white p-3 rounded-lg shadow-lg flex justify-between items-center border border-emerald-800">
+                                                    <div className="bg-[#1e3a2c] text-white p-3 rounded-lg shadow-lg flex justify-between items-center border border-emerald-800">
                                                         <div className="flex gap-6">
                                                             <div>
                                                                 <p className="text-[8px] font-black uppercase opacity-60 mb-0.5">Base Imponible</p>
@@ -3887,12 +4002,21 @@
                                                                 <p className="text-[8px] font-black uppercase opacity-60 mb-0.5">Cuota IVA</p>
                                                                 <p className="text-sm font-black tabular-nums">{(totalI10 + totalI21).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</p>
                                                             </div>
-                                                            <div className="border-l border-white/20 pl-6">
-                                                                <p className="text-[8px] font-black uppercase opacity-60 mb-0.5">Desglose Detallado</p>
-                                                                <div className="flex gap-3 text-[9px] font-bold">
-                                                                    {totalB10 > 0 && <span className="bg-white/10 px-1.5 py-0.5 rounded">10%: {totalI10.toFixed(2)}€</span>}
-                                                                    {totalB21 > 0 && <span className="bg-white/10 px-1.5 py-0.5 rounded">21%: {totalI21.toFixed(2)}€</span>}
+                                                            <div className="border-l border-white/20 pl-6 flex gap-6">
+                                                                <div>
+                                                                    <p className="text-[8px] font-black uppercase opacity-60 mb-0.5">Total Cobrado</p>
+                                                                    <p className={`text-sm font-black tabular-nums ${totalPaid >= grandTotal - 0.01 && grandTotal > 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                                                        {totalPaid.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                                                                    </p>
                                                                 </div>
+                                                                {pendingAmount > 0.01 && (
+                                                                    <div className="animate-pulse">
+                                                                        <p className="text-[8px] font-black uppercase opacity-60 mb-1">Pendiente</p>
+                                                                        <p className="text-[10px] font-black bg-rose-500 text-white px-2 py-0.5 rounded shadow-sm">
+                                                                            -{pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                                                                        </p>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
@@ -4047,15 +4171,27 @@
                                                             </button>
                                                         </div>
 
-                                                        {/* Forecast & Release - Compacted */}
-                                                        <div className="flex gap-2">
+                                                        {/* Financial Data - Compacted */}
+                                                        <div className="flex gap-3 items-center border-l border-slate-200 pl-3">
                                                             <div className="w-20 text-right">
-                                                                <label className="text-[8px] font-black text-slate-400 uppercase block">Forecast</label>
-                                                                <span className="text-xs font-black text-emerald-600 font-mono tracking-tight">{grandTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                                                                <label className="text-[8px] font-black text-slate-400 uppercase block mb-0.5">Pagado (€)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    placeholder={(totalPaidFromPlan || 0).toFixed(0)}
+                                                                    className="w-full bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right text-[10px] font-black text-emerald-600 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                                                                    value={selectedGroupFicha.records[0]?.["Com_Pagado"] || ""}
+                                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Pagado", e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="w-20 text-right">
+                                                                <label className="text-[8px] font-black text-slate-400 uppercase block mb-0.5">Forecast</label>
+                                                                <span className="text-[11px] font-black text-slate-700 font-mono tracking-tight leading-none block pt-1">
+                                                                    {grandTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                                                                </span>
                                                             </div>
                                                             <div className="w-16 text-center">
-                                                                <label className="text-[8px] font-black text-slate-400 uppercase block">Release</label>
-                                                                <span className={`text-[10px] font-bold px-1 rounded ${daysToRelease < 7 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                                <label className="text-[8px] font-black text-slate-400 uppercase block mb-0.5">Release</label>
+                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${daysToRelease < 7 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>
                                                                     {daysToRelease !== null ? daysToRelease + 'd' : '-'}
                                                                 </span>
                                                             </div>
