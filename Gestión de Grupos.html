@@ -244,6 +244,7 @@
         const IconGripVertical = (p) => <Icon path='<circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle>' {...p} />;
         const IconAlertTriangle = (p) => <Icon path='<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>' {...p} />;
         const IconUser = (p) => <Icon path='<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>' {...p} />;
+        const IconSettings = (p) => <Icon path='<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>' {...p} />;
 
         // --- CONFIGURACIÓN FIREBASE ---
         // Se carga desde js/firebase-config.js
@@ -323,26 +324,47 @@
         const parseNum = (v) => {
             if (v === null || v === undefined || v === "") return 0;
             if (typeof v === 'number') return v;
-            let s = String(v).trim().replace(/[€$\s]/g, '');
-            if (s === "" || s === "-" || s === "---" || s === "N/A") return 0;
+            // Stronger sanitization for common currency artifacts (spaces, currency symbols, defined as string "undefined")
+            let s = String(v).trim().replace(/[€$\s]/g, '').replace(/\s+/g, '');
+            if (s === "" || s === "-" || s === "---" || s === "N/A" || s === "undefined") return 0;
 
-            const hasComma = s.includes(',');
-            const hasDot = s.includes('.');
+            const dotCount = (s.match(/\./g) || []).length;
+            const commaCount = (s.match(/,/g) || []).length;
 
-            if (hasComma && hasDot) {
+            // Mixed separators (e.g. 1.000,50 vs 1,000.50)
+            if (dotCount > 0 && commaCount > 0) {
                 if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+                    // Spanish/Europe: 1.234,56
                     s = s.replace(/\./g, '').replace(',', '.');
                 } else {
+                    // US/UK: 1,234.56
                     s = s.replace(/,/g, '');
                 }
-            } else if (hasComma) {
-                s = s.replace(',', '.');
-            } else if (hasDot) {
-                if (s.split('.').pop().length === 3 && s.length > 4) {
-                    s = s.replace(/\./g, '');
-                }
+            } else if (commaCount > 1) {
+                // Multiple commas (thousands separators)
+                s = s.replace(/,/g, '');
+            } else if (dotCount > 1) {
+                // Multiple dots (thousands separators detected)
+                s = s.replace(/\./g, '');
+            } else if (commaCount === 1) {
+                // Single comma: 1,234 (thousands) OR 1,23 (decimal)
+                if (s.split(',').pop().length === 3 && s.length > 4) s = s.replace(',', '');
+                else s = s.replace(',', '.');
+            } else if (dotCount === 1) {
+                // Single dot: 1.234 (thousands) OR 1.23 (decimal)
+                if (s.split('.').pop().length === 3 && s.length > 4) s = s.replace(/\./g, '');
             }
-            return parseFloat(s) || 0;
+
+            const res = parseFloat(s);
+            if (isNaN(res)) return 0;
+
+            // SHIELD for Barbaric Numbers: If amount > 100M, it's almost certainly a formatting glitch
+            // In hotel groups, 100M is a safe ceiling for error detection.
+            if (res > 100000000) {
+                console.error("Glitch Detected! Barbary amount suppressed:", res);
+                return 0; // Prevent garbage values from propagating
+            }
+            return res;
         };
 
         const normalizeId = (id) => {
@@ -575,7 +597,17 @@
                 "Importe(*)": "0",
                 "Reserva": `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`,
                 "Estado": "Presupuesto",
-                "Com_Estado_Interno": "PRESUPUESTO"
+                "Com_Estado_Interno": "PRESUPUESTO",
+                "Hotel_Asignado": "Sercotel Guadiana",
+                "Com_Nombre_Contacto": "",
+                "Com_Email_Contacto": "",
+                "Com_Telefono_Contacto": "",
+                "Com_Notas": "",
+                "Fiscal_RazonSocial": "",
+                "Fiscal_CIF": "",
+                "Fiscal_Direccion": "",
+                "Fiscal_CP": "",
+                "Fiscal_Poblacion": ""
             });
             const [emailText, setEmailText] = useState("");
             const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -584,33 +616,17 @@
                 if (!emailText.trim()) return;
                 setIsAnalyzing(true);
 
-                let apiKey = window.firebaseConfig?.apiKey;
-                let model = "gemini-1.5-flash";
+                const prompt = `Analiza el siguiente texto de un correo electrónico de reserva de grupo y extrae la información en formato JSON estrictamente. 
+                IMPORTANTE: Responde ÚNICAMENTE con el bloque JSON, sin introducciones ni bloques de código.
 
-                try {
-                    const settingsDoc = await db.collection("settings").doc("main").get();
-                    if (settingsDoc.exists) {
-                        const s = settingsDoc.data().system || {};
-                        if (s.geminiApiKey) apiKey = s.geminiApiKey;
-                        if (s.geminiModel) model = s.geminiModel;
-                    }
-                } catch (e) { console.warn("Fallback to config key."); }
-
-                if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
-                    alert("API Key no configurada.");
-                    setIsAnalyzing(false);
-                    return;
-                }
-
-                const prompt = `Analiza el siguiente texto de un correo electrónico de reserva de grupo y extrae la información en formato JSON estrictamente.
                 Campos requeridos (usa estos nombres exactos, si no encuentras el dato devuelve un string vacío ""):
                 - "Nombre del Grupo": nombre identificativo corto (ej. ADULTOS, JUBILADOS).
                 - "Entrada": fecha en formato YYYY-MM-DD.
                 - "Salida": fecha en formato YYYY-MM-DD.
                 - "Pax.": número total de personas (entero).
                 - "Empresa/Agencia": nombre de la empresa o agencia.
-                - "Régimen": (HD, MP, PC, SA, AD, MP, TI).
-                - "Importe(*)": precio unitario o total si se menciona, si no 0.
+                - "Régimen": (HD, MP, PC, SA, AD, TI).
+                - "Importe(*)": precio total estimado si se menciona, si no 0. Si se menciona precio por persona, calcula el total multiplicando por Pax.
                 - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
                 - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones. Es MUY IMPORTANTE.
                 - "Com_Nombre_Contacto": nombre de la persona que firma o envía el correo.
@@ -622,27 +638,16 @@
                 - "Fiscal_CP": Código Postal.
                 - "Fiscal_Poblacion": Población o Provincia.
 
-                Responde únicamente con el bloque JSON.
                 TEXTO DEL EMAIL:
                 ${emailText}`;
 
-                const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
-
                 try {
-                    const response = await fetch(url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                    });
-
-                    if (!response.ok) {
-                        const error = await response.json();
-                        throw new Error(error.error?.message || "Error API");
+                    const resultText = await callGemini(prompt);
+                    if (resultText.includes("ERROR") || resultText.includes("Hubo un error")) {
+                        throw new Error(resultText);
                     }
 
-                    const resultData = await response.json();
-                    const resultText = resultData.candidates[0].content.parts[0].text;
-                    const cleanJson = resultText.replace(/\\`\\`\\`json/g, "").replace(/\\`\\`\\`/g, "").trim();
+                    const cleanJson = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
                     const parsed = JSON.parse(cleanJson);
 
                     setNewGroup(prev => ({
@@ -665,8 +670,9 @@
                         "Fiscal_CP": String(parsed.Fiscal_CP || ""),
                         "Fiscal_Poblacion": String(parsed.Fiscal_Poblacion || "")
                     }));
-                    setEmailText(""); // Clear after success
+                    setEmailText("");
                 } catch (e) {
+                    console.error("Error Análisis IA:", e);
                     alert("Error en el análisis IA: " + e.message);
                 } finally {
                     setIsAnalyzing(false);
@@ -777,6 +783,18 @@
                             return status.includes("TANTEO") || status.includes("TENTA") || status.includes("PROSPEC") || status.includes("PRESUP");
                         }
                         if (kpiFilter === 'pendingQuotes') {
+                            const extStatus = (row["Estado"] || "").toLowerCase();
+                            const intStatus = (row["Com_Estado_Interno"] || "").toLowerCase();
+                            const isCancelled = extStatus.includes('anulada') || extStatus.includes('cancelada') || extStatus.includes('baja') ||
+                                intStatus.includes('anulada') || intStatus.includes('cancelada') || intStatus.includes('baja') ||
+                                extStatus.includes('descart') || intStatus.includes('descart') ||
+                                extStatus.includes('rechaz') || intStatus.includes('rechaz');
+
+                            const arrival = row["Entrada"] ? toInputDate(row["Entrada"]) : null;
+                            const todayStr = now.toISOString().split('T')[0];
+                            const isPast = arrival && arrival < todayStr;
+
+                            if (isCancelled || isPast) return false;
                             return status.includes("PRESUP") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."));
                         }
                         if (kpiFilter === 'release') {
@@ -824,8 +842,8 @@
                         }
                         // Tratamiento números
                         if (sortConfig.key === 'Importe(*)' || sortConfig.key === 'Pax.') {
-                            valA = parseFloat(valA.toString().replace('.', '').replace(',', '.')) || 0;
-                            valB = parseFloat(valB.toString().replace('.', '').replace(',', '.')) || 0;
+                            valA = parseNum(valA);
+                            valB = parseNum(valB);
                         }
 
                         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -861,7 +879,10 @@
                         };
                     }
 
-                    const importe = parseNum(row["Importe(*)"]);
+                    let importe = parseNum(row["Importe(*)"]);
+                    // Guard against corruption: Don't sum if it's already a glitch
+                    if (importe > 10000000) importe = 0;
+
                     const pax = parseInt(row["Pax."] || 0);
                     const noches = parseInt(row["Noches"] || 0);
 
@@ -1037,9 +1058,15 @@
 
             const handleProformaClick = (group) => {
                 // Tomar datos agregados del grupo y pasarlos como un registro único
-                const firstRec = group.records[0] || {};
+                const records = group.records || [];
+                const firstRec = records[0] || {};
+
+                // Buscar el primer record que tenga un PaymentPlan_JSON (por si acaso el primero no lo tiene)
+                const recWithPlan = records.find(r => r.PaymentPlan_JSON) || firstRec;
+
                 const groupData = {
                     ...firstRec,
+                    "PaymentPlan_JSON": recWithPlan.PaymentPlan_JSON || "[]",
                     "Nombre del Grupo": group.name,
                     "Empresa/Agencia": group.agency || firstRec["Empresa/Agencia"] || "",
                     "Importe(*)": group.totalRevenue,
@@ -1093,7 +1120,8 @@
                                     precio: parseFloat(r.price) || 0,
                                     iva: parseInt(r.iva || 10),
                                     regimen: r.regime || '',
-                                    dias: '1'
+                                    dias: '1',
+                                    comision: r.comision
                                 });
                             }
                         });
@@ -1144,21 +1172,19 @@
 
                     setData(prevData => {
                         let merged = roomData.map(dbRow => {
-                            const resID = normalizeId(dbRow.Reserva || doc.id);
+                            const resID = normalizeId(dbRow.Reserva);
 
-                            // If we are currently authorizing this ID, IGNORE any local changes and use the server state
                             if (authorizingIds.current.has(resID)) {
                                 return { ...dbRow, _diff: null, _changes: null };
                             }
 
                             const localMatch = prevData.find(p => normalizeId(p.Reserva) === resID);
                             if (localMatch && localMatch._diff) {
-                                return { ...dbRow, _diff: localMatch._diff, _changes: localMatch._changes };
+                                return { ...dbRow, ...localMatch };
                             }
                             return { ...dbRow, _diff: null, _changes: null };
                         });
 
-                        // Deduplicate composite IDs (e.g. "71375" and "71375_Hotel") in memory
                         const deduped = [];
                         const seenIds = new Set();
                         merged.forEach(row => {
@@ -1166,13 +1192,10 @@
                             if (!seenIds.has(baseId)) {
                                 seenIds.add(baseId);
                                 deduped.push(row);
-                            } else {
-                                console.log(`[Sync] Omitting duplicate composite ID: ${row.Reserva}`);
                             }
                         });
                         merged = deduped;
 
-                        // Preservar registros totalmente nuevos que no están en DB aún
                         const localNews = prevData.filter(p => p._diff === 'new' && !authorizingIds.current.has(String(p.Reserva).trim()));
                         localNews.forEach(p => {
                             if (!merged.some(m => String(m.Reserva).trim() === String(p.Reserva).trim())) {
@@ -1180,7 +1203,6 @@
                             }
                         });
 
-                        console.log(`[Sync] Fusionados: DB(${roomData.length}) + LocalNews(${localNews.length})`);
                         return merged;
                     });
 
@@ -1218,8 +1240,12 @@
                 const uniqueGroups = new Set();
 
                 processedData.forEach(row => {
-                    const rowStatus = (row["Estado"] || "").toLowerCase();
-                    const isCancelled = rowStatus.includes('anulada') || rowStatus.includes('cancelada') || rowStatus.includes('baja');
+                    const extStatus = (row["Estado"] || "").toLowerCase();
+                    const intStatus = (row["Com_Estado_Interno"] || "").toLowerCase();
+                    const isCancelled = extStatus.includes('anulada') || extStatus.includes('cancelada') || extStatus.includes('baja') ||
+                        intStatus.includes('anulada') || intStatus.includes('cancelada') || intStatus.includes('baja') ||
+                        extStatus.includes('descart') || intStatus.includes('descart') ||
+                        extStatus.includes('rechaz') || intStatus.includes('rechaz');
 
                     const importe = parseNum(row["Importe(*)"]);
                     // Solo sumar revenue/pax si NO está cancelado
@@ -1244,7 +1270,13 @@
                         if (status.includes("TANTEO") || status.includes("TENTA") || status.includes("PROSPEC") || status.includes("PRESUP")) {
                             if (!isCancelled) {
                                 prospectCount++;
-                                if (status.includes("PRESUPUESTO") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."))) {
+
+                                const arrival = row["Entrada"] ? toInputDate(row["Entrada"]) : null;
+                                const todayStr = now.toISOString().split('T')[0];
+                                const isPast = arrival && arrival < todayStr;
+                                const isDiscarded = status.includes("DESCART") || status.includes("RECHAZ") || status.includes("ANUL") || status.includes("CANCEL");
+
+                                if ((status.includes("PRESUP") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."))) && !isPast && !isDiscarded) {
                                     pendingQuotes++;
                                 }
                             }
@@ -1366,8 +1398,10 @@
                         }
 
                         // Detectar cabecera (Flexible: Si encontramos "Reserva" y algo que suene a "Grupo" o "Nombre")
-                        const hasReserva = rowStr.includes("reserva");
-                        const hasGrupo = rowStr.includes("grupo") || rowStr.includes("nombre del g") || rowStr.includes("titular");
+                        // Ampliamos variantes: id, ref, loc, localizador
+                        const rowStrLower = rowStr.toLowerCase();
+                        const hasReserva = rowStrLower.includes("reserva") || rowStrLower.includes(" ref") || rowStrLower.includes(" id ") || rowStrLower.includes("localiz") || rowStrLower.includes("cod.");
+                        const hasGrupo = rowStrLower.includes("grupo") || rowStrLower.includes("nombre del g") || rowStrLower.includes("titular") || rowStrLower.includes("cliente");
 
                         if (hasReserva && hasGrupo) {
                             headerRowIndex = i;
@@ -1568,7 +1602,7 @@
                         // 2. Sum Importe
                         const oldImp = parseNum(existing["Importe(*)"]);
                         const newImp = parseNum(row["Importe(*)"]);
-                        existing["Importe(*)"] = (oldImp + newImp).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        existing["Importe(*)"] = (oldImp + newImp).toFixed(2);
 
                         // 3. Keep earliest Entrada and latest Salida
                         const eIn = parseToDateObj(existing["Entrada"]);
@@ -1633,7 +1667,8 @@
                         let changes = {};
 
                         // Check specific fields for changes
-                        const relevantKeys = ["Estado", "Entrada", "Salida", "Pax.", "Importe(*)", "Régimen", "Segment.", "Nombre del Grupo", "Noches", "Pernoct.", "Empresa/Agencia"];
+                        // REGLA: Excluimos 'Estado' de la comparación para no generar diffs por algo que no vamos a sobreescribir (protección manual)
+                        const relevantKeys = ["Entrada", "Salida", "Pax.", "Importe(*)", "Régimen", "Segment.", "Nombre del Grupo", "Noches", "Pernoct.", "Empresa/Agencia"];
 
                         // --- ROBUST COMPARISON LOGIC ---
                         // Helper to parse any number format to a clean float
@@ -1716,10 +1751,6 @@
                             }
                         });
 
-                        // Logic for diff type
-                        const oldStatus = (existingRow["Estado"] || "").toLowerCase();
-                        const newStatus = (newRow["Estado"] || "").toLowerCase();
-
                         if (newStatus.includes("anul") && !oldStatus.includes("anul")) {
                             diffType = "cancelled";
                         }
@@ -1730,7 +1761,7 @@
                         // Actualizar la fila: SOLO sobreescribir campos que vienen del Excel
                         // Proteger campos editados en la app (metadata, comercial, depósitos, notas, etc.)
                         const APP_ONLY_FIELDS = new Set([
-                            "Com_Comercial", "Com_Estado_Interno", "Com_Notas", "Com_Seguimiento", "Com_Vencimiento_Rel", "Com_Precio",
+                            "Estado", "Com_Comercial", "Com_Estado_Interno", "Com_Notas", "Com_Seguimiento", "Com_Vencimiento_Rel", "Com_Precio",
                             "Dep1_Label", "Dep1_Percent", "Dep1_Importe", "Dep1_Fecha",
                             "Dep2_Label", "Dep2_Percent", "Dep2_Importe", "Dep2_Fecha",
                             "Dep3_Label", "Dep3_Percent", "Dep3_Importe", "Dep3_Fecha",
@@ -1743,15 +1774,45 @@
 
                         // Empezamos con la fila existente (DB), luego sobreescribimos SOLO con campos del Excel
                         const mergedRow = { ...existingRow };
+
+                        // DETECTOR DE GESTIÓN MANUAL: Si ya tiene RoomingList_JSON, protegemos campos core
+                        let hasManualRooming = false;
+                        try {
+                            const rList = JSON.parse(existingRow.RoomingList_JSON || "[]");
+                            if (Array.isArray(rList) && rList.length > 0) hasManualRooming = true;
+                        } catch (e) { }
+
+                        const CORE_FIELDS = new Set(["Importe(*)", "Pax.", "Entrada", "Salida", "Régimen", "Segment.", "Noches"]);
+
                         Object.keys(newRow).forEach(key => {
                             // No sobreescribir campos que son exclusivos de la app
                             if (APP_ONLY_FIELDS.has(key)) return;
+
+                            // REGLA DE PREVALENCIA: Si el grupo está gestionado manualmente (con líneas de precio),
+                            // NO sobreescribir campos CORE con los del Excel.
+                            if (hasManualRooming && CORE_FIELDS.has(key)) return;
+
                             // No sobreescribir con valor vacío si el Excel no trae ese campo
                             if (newRow[key] === "" || newRow[key] === undefined || newRow[key] === null) return;
-                            mergedRow[key] = newRow[key];
+
+                            // NORMALIZAR AL GUARDAR: Para evitar diffs fantasma por formato, guardamos en formato limpio
+                            if (NUMERIC_KEYS.has(key)) {
+                                mergedRow[key] = toNum(newRow[key]).toString();
+                            } else if (DATE_KEYS.has(key)) {
+                                mergedRow[key] = toIsoDate(newRow[key]);
+                            } else {
+                                mergedRow[key] = newRow[key];
+                            }
                         });
-                        mergedRow["_diff"] = diffType || (existingRow._diff ? existingRow._diff : null);
-                        mergedRow["_changes"] = Object.keys(changes).length > 0 ? changes : null;
+
+                        // Si no hay cambios reales detectados hoy, limpiamos el diff (evita diffs pegajosos)
+                        if (Object.keys(changes).length === 0) {
+                            mergedRow["_diff"] = null;
+                            mergedRow["_changes"] = null;
+                        } else {
+                            mergedRow["_diff"] = diffType || (existingRow._diff ? existingRow._diff : null);
+                            mergedRow["_changes"] = Object.keys(changes).length > 0 ? changes : null;
+                        }
                         mergedData[existingIdx] = mergedRow;
                     }
                 });
@@ -1776,10 +1837,10 @@
                 const modsCount = sortedData.filter(r => r._diff === 'modified' || r._diff === 'cancelled').length;
 
                 if (newsCount > 0 || modsCount > 0) {
-                    alert(`IMPORTACIÓN COMPLETADA:\n\n- ${newsCount} Nuevos Grupos\n- ${modsCount} Modificaciones detectadas\n\nPor favor, revise y AUTORICE los cambios en la pestaña 'Validación Importación'.`);
+                    alert(`✅ IMPORTACIÓN COMPLETADA:\n\n🚀 ${newsCount} Nuevos Grupos detectados\n📝 ${modsCount} Modificaciones encontradas\n\nPor favor, revise y AUTORICE los cambios en la pestaña 'Cambios'.`);
                     setActiveTab('table'); // Switch to editor view to see changes
                 } else {
-                    alert("No se detectaron cambios respecto a la base de datos actual.");
+                    alert("✨ TODO SINCRONIZADO: No se detectaron cambios ni grupos nuevos respecto a la base de datos actual.");
                 }
             };
 
@@ -1888,6 +1949,60 @@
             });
             const [editingId, setEditingId] = useState(null);
 
+            // State for Commission Modal
+            const [commissionModal, setCommissionModal] = useState({
+                isOpen: false,
+                itemIdx: null,
+                tempCom: null
+            });
+
+            const calculateDefaultCommission = (price, regime, qty, nights) => {
+                const p = parseFloat(price) || 0;
+                const q = parseInt(qty) || 1;
+                const n = parseInt(nights) || 1;
+                const r = (regime || "").toUpperCase();
+                let porcentaje = 10;
+
+                // Desglose unitario inicial (SA como base)
+                let desglose = {
+                    Alojamiento: { valor: p, comisionable: true },
+                    Desayuno: { valor: 0, comisionable: false },
+                    Almuerzo: { valor: 0, comisionable: false },
+                    Cena: { valor: 0, comisionable: false }
+                };
+
+                // Lógica de descompasado basada en régimen (Heurística unitaria)
+                if (r === 'AD') {
+                    desglose.Desayuno.valor = 5;
+                    desglose.Alojamiento.valor = Math.max(0, p - 5);
+                } else if (r === 'MP') {
+                    desglose.Desayuno.valor = 5;
+                    desglose.Almuerzo.valor = 10;
+                    desglose.Alojamiento.valor = Math.max(0, p - 15);
+                } else if (r === 'PC') {
+                    desglose.Desayuno.valor = 5;
+                    desglose.Almuerzo.valor = 10;
+                    desglose.Cena.valor = 10;
+                    desglose.Alojamiento.valor = Math.max(0, p - 25);
+                } else if (r === 'TI') {
+                    desglose.Desayuno.valor = 4;
+                    desglose.Almuerzo.valor = 8;
+                    desglose.Cena.valor = 8;
+                    desglose.Alojamiento.valor = Math.max(0, p - 20); // TI suele ser más complejo, dejamos esto como base
+                }
+
+                const baseUnitaria = Object.entries(desglose).reduce((acc, [k, c]) => acc + (c.comisionable ? c.valor : 0), 0);
+
+                return {
+                    porcentaje,
+                    modo: 'auto',
+                    desglose,
+                    base_unitaria: parseFloat(baseUnitaria.toFixed(2)),
+                    comision_unitaria: parseFloat((baseUnitaria * porcentaje / 100).toFixed(2)),
+                    total_comision: parseFloat((baseUnitaria * porcentaje / 100 * q * n).toFixed(2))
+                };
+            };
+
             const openFicha = (groupOrRow) => {
                 let group = groupOrRow;
 
@@ -1941,8 +2056,7 @@
                             const key = `${h}|${dIn}|${dOut}`;
 
                             // Numerical fixes for massive sums: detect if Importe is likely total and not additive
-                            const rawImp = (r["Importe(*)"] || "0").toString().replace(/\./g, '').replace(',', '.');
-                            const imp = parseFloat(rawImp) || 0;
+                            const imp = parseNum(r["Importe(*)"]);
                             const pax = parseInt(r["Pax."] || "0");
 
                             if (!uniqueSegments.has(key)) {
@@ -2050,13 +2164,9 @@
                 setShowFichaModal(true);
             };
 
-            const updateGroupMetadata = async (groupName, field, value, hotelFilter = null) => {
-                if (field === "RoomingList_JSON") {
-                    try {
-                        const list = typeof value === 'string' ? JSON.parse(value) : value;
-                        lastRoomingListRef.current = { groupName, list: Array.isArray(list) ? list : [] };
-                    } catch (e) { lastRoomingListRef.current = { groupName, list: [] }; }
-                }
+            const updateGroupMetadata = async (groupName, fieldOrUpdates, valueIfSingle = null, hotelFilter = null) => {
+                const updates = typeof fieldOrUpdates === 'object' ? fieldOrUpdates : { [fieldOrUpdates]: valueIfSingle };
+
                 // 1. Optimistic UI Update
                 setData(prevData => {
                     return prevData.map(row => {
@@ -2064,7 +2174,7 @@
                         const matchesHotel = !hotelFilter || (row["Hotel_Asignado"] || row["Hotel"]) === hotelFilter;
 
                         if (matchesGroup && matchesHotel) {
-                            return { ...row, [field]: value };
+                            return { ...row, ...updates };
                         }
                         return row;
                     });
@@ -2076,7 +2186,7 @@
                     const updatedRecords = prev.records.map(r => {
                         const matchesHotel = !hotelFilter || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter;
                         if (matchesHotel) {
-                            return { ...r, [field]: value };
+                            return { ...r, ...updates };
                         }
                         return r;
                     });
@@ -2095,15 +2205,13 @@
                         const resID = String(row.Reserva).trim();
                         if (resID) {
                             const docRef = db.collection("groups").doc(resID);
-                            batch.set(docRef, {
-                                [field]: value,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            }, { merge: true });
+                            const payload = { ...updates, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                            batch.set(docRef, payload, { merge: true });
                         }
                     });
 
                     await batch.commit();
-                    console.log("✅ Update committed to Firestore");
+                    console.log("✅ Update committed to Firestore", updates);
                 } catch (err) {
                     console.error("❌ Error updating metadata:", err);
                 }
@@ -2143,8 +2251,16 @@
                     price: parseFloat(roomManagerForm.price),
                     iva: parseInt(roomManagerForm.iva || 10),
                     nights: nights,
-                    total: (parseFloat(roomManagerForm.price) * parseInt(roomManagerForm.qty) * nights).toFixed(2)
+                    total: (parseFloat(roomManagerForm.price) * parseInt(roomManagerForm.qty) * nights).toFixed(2),
+                    comision: editingId
+                        ? (currentList.find(i => i.id === editingId)?.comision || calculateDefaultCommission(roomManagerForm.price, roomManagerForm.regime, roomManagerForm.qty, nights))
+                        : calculateDefaultCommission(roomManagerForm.price, roomManagerForm.regime, roomManagerForm.qty, nights)
                 };
+
+                // Si estamos editando y cambiamos precio/regimen/qty, recalculamos la comision auto si sigue en modo auto
+                if (editingId && newItem.comision.modo === 'auto') {
+                    newItem.comision = calculateDefaultCommission(roomManagerForm.price, roomManagerForm.regime, roomManagerForm.qty, nights);
+                }
 
                 let newList;
                 if (editingId) {
@@ -2197,7 +2313,7 @@
                 const roomingList = JSON.parse(group.records[0]?.["RoomingList_JSON"] || "[]");
                 const hotelRoomingItems = hotelFilter ? roomingList.filter(i => i.hotel === hotelFilter) : roomingList;
                 const total = hotelRoomingItems.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0) || records.reduce((acc, r) => {
-                    const val = parseFloat((r["Importe(*)"] || "0").toString().replace(/\./g, '').replace(',', '.')) || 0;
+                    const val = parseNum(r["Importe(*)"]);
                     return acc + val;
                 }, 0);
 
@@ -2310,7 +2426,17 @@
                     "Importe(*)": "0",
                     "Reserva": `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`,
                     "Estado": "Presupuesto",
-                    "Com_Estado_Interno": "PRESUPUESTO"
+                    "Com_Estado_Interno": "PRESUPUESTO",
+                    "Hotel_Asignado": "Sercotel Guadiana",
+                    "Com_Nombre_Contacto": "",
+                    "Com_Email_Contacto": "",
+                    "Com_Telefono_Contacto": "",
+                    "Com_Notas": "",
+                    "Fiscal_RazonSocial": "",
+                    "Fiscal_CIF": "",
+                    "Fiscal_Direccion": "",
+                    "Fiscal_CP": "",
+                    "Fiscal_Poblacion": ""
                 });
                 setEmailText("");
             };
@@ -3357,7 +3483,7 @@
                                                             <td className="p-3 border-b text-xs font-bold align-top">{row["Estado"]}</td>
                                                             <td className="p-3 border-b text-center text-xs align-top">{row["Pax."]}</td>
                                                             <td className="p-3 border-b text-xs align-top font-semibold text-slate-600 uppercase">{row["Segment."]}</td>
-                                                            <td className="p-3 border-b text-right text-xs font-mono align-top">{row["Importe(*)"]}</td>
+                                                            <td className="p-3 border-b text-right text-xs font-mono align-top">{parseNum(row["Importe(*)"]).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
                                                         </tr>
                                                     );
                                                 })}
@@ -3411,129 +3537,224 @@
                         {/* Modal Añadir Grupo Manual */}
                         {showAddGroupModal && (
                             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl animate-fade-in overflow-hidden">
-                                    <div className="bg-[#2d5a43] p-6 text-white flex justify-between items-center">
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-fade-in overflow-hidden flex flex-col max-h-[90vh]">
+                                    <div className="bg-[#2d5a43] p-6 text-white flex justify-between items-center shrink-0">
                                         <div>
                                             <h3 className="text-xl font-bold flex items-center gap-2">Petición de Grupo <IconSparkles size={18} className="text-emerald-200" /></h3>
-                                            <p className="text-emerald-100/70 text-xs">Pega el correo para lectura IA o rellena manualmente</p>
+                                            <p className="text-emerald-100/70 text-xs text-balance">Pega el correo para lectura IA o rellena manualmente los detalles para crear la ficha.</p>
                                         </div>
                                         <button onClick={() => setShowAddGroupModal(false)} className="text-white/60 hover:text-white transition-colors">
                                             <IconX size={24} />
                                         </button>
                                     </div>
-                                    <div className="p-6 bg-slate-50 border-b border-slate-100">
+
+                                    {/* SECCIÓN ESCÁNER IA */}
+                                    <div className="p-6 bg-slate-50 border-b border-slate-100 shrink-0">
                                         <label className="block text-[10px] font-bold text-[#2d5a43] uppercase tracking-widest mb-2 flex items-center gap-1">
                                             <IconMail size={12} /> Pegar Texto del Correo (IA)
                                         </label>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-3">
                                             <textarea
-                                                className="w-full flex-1 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-[#2d5a43] focus:ring-1 focus:ring-[#2d5a43] resize-none h-16 transition-all"
-                                                placeholder="Pega aquí el texto que te ha enviado la agencia o cliente..."
+                                                className="w-full flex-1 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-[#2d5a43] focus:ring-1 focus:ring-[#2d5a43] resize-none h-20 transition-all bg-white shadow-inner"
+                                                placeholder="Pega aquí el texto que te ha enviado la agencia o cliente... 
+Ej: Reserva para 25 personas, llegada el 15/05, régimen MP en el Guadiana..."
                                                 value={emailText}
                                                 onChange={(e) => setEmailText(e.target.value)}
                                             ></textarea>
                                             <button
                                                 onClick={handleAnalyzeEmail}
                                                 disabled={!emailText.trim() || isAnalyzing}
-                                                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-xl px-4 flex flex-col items-center justify-center gap-1 transition-all shadow-md shrink-0 w-28"
+                                                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-xl px-5 flex flex-col items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-200 shrink-0 w-32 group"
                                             >
                                                 {isAnalyzing ? (
-                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                    <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
                                                 ) : (
                                                     <>
-                                                        <IconBrain size={18} />
-                                                        <span className="text-[9px] font-bold uppercase tracking-wider">Extraer</span>
+                                                        <div className="p-2 bg-white/10 rounded-lg group-hover:scale-110 transition-transform">
+                                                            <IconBrain size={24} />
+                                                        </div>
+                                                        <span className="text-[10px] font-black uppercase tracking-wider">Extraer IA</span>
                                                     </>
                                                 )}
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="p-6 grid grid-cols-2 gap-4 h-[40vh] overflow-y-auto custom-scrollbar">
-                                        <div className="col-span-2">
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nombre del Grupo</label>
-                                            <input
-                                                type="text"
-                                                className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold transition-colors"
-                                                placeholder="Ej: Boda Familia García / Congreso Médico"
-                                                value={newGroup["Nombre del Grupo"]}
-                                                onChange={(e) => setNewGroup({ ...newGroup, "Nombre del Grupo": e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entrada</label>
-                                            <input
-                                                type="date"
-                                                className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                                value={toInputDate(newGroup.Entrada)}
-                                                onChange={(e) => setNewGroup({ ...newGroup, Entrada: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Salida</label>
-                                            <input
-                                                type="date"
-                                                className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                                value={toInputDate(newGroup.Salida)}
-                                                onChange={(e) => setNewGroup({ ...newGroup, Salida: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pax Totales</label>
-                                            <input
-                                                type="number"
-                                                className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                                value={newGroup["Pax."]}
-                                                onChange={(e) => setNewGroup({ ...newGroup, "Pax.": e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Importe Total (€)</label>
-                                            <input
-                                                type="text"
-                                                className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                                placeholder="0,00"
-                                                value={newGroup["Importe(*)"]}
-                                                onChange={(e) => setNewGroup({ ...newGroup, "Importe(*)": e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="col-span-1">
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Agencia / Empresa</label>
-                                            <input
-                                                type="text"
-                                                className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                                value={newGroup["Empresa/Agencia"]}
-                                                onChange={(e) => setNewGroup({ ...newGroup, "Empresa/Agencia": e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Segmento</label>
-                                            <select
-                                                className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-slate-700 font-semibold"
-                                                value={newGroup["Segment."]}
-                                                onChange={(e) => setNewGroup({ ...newGroup, "Segment.": e.target.value })}
-                                            >
-                                                <option value="GRUPOS">GRUPOS</option>
-                                                <option value="DEPORTIVO">DEPORTIVO</option>
-                                                <option value="TOUR-OPERACIÓN">TOUR-OPERACIÓN</option>
-                                                <option value="BODA/CELEBRACIÓN">BODA/CELEBRACIÓN</option>
-                                                <option value="CONGRESO">CONGRESO</option>
-                                                <option value="GRUPO TANTEO">GRUPO TANTEO</option>
-                                                <option value="GRUPO TANTEO">GRUPO TANTEO</option>
-                                            </select>
-                                        </div>
+
+                                    {/* FORMULARIO MANUAL / REVISIÓN */}
+                                    <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-white">
+                                        {/* 1. Datos Principales */}
+                                        <section>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="w-1 h-4 bg-[#2d5a43] rounded-full"></div>
+                                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Datos Principales</h4>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                                <div className="col-span-2">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nombre del Grupo / Evento</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-bold text-slate-700 transition-colors uppercase"
+                                                        placeholder="EJ: BODA FAMILIA GARCÍA"
+                                                        value={newGroup["Nombre del Grupo"]}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, "Nombre del Grupo": e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Empresa / Agencia</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold"
+                                                        value={newGroup["Empresa/Agencia"]}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, "Empresa/Agencia": e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hotel Asignado</label>
+                                                    <select
+                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold bg-transparent"
+                                                        value={newGroup.Hotel_Asignado}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Hotel_Asignado: e.target.value })}
+                                                    >
+                                                        <option value="Sercotel Guadiana">Sercotel Guadiana</option>
+                                                        <option value="Cumbria Spa & Hotel">Cumbria Spa & Hotel</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Llegada</label>
+                                                    <input
+                                                        type="date"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold"
+                                                        value={toInputDate(newGroup.Entrada)}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Entrada: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Salida</label>
+                                                    <input
+                                                        type="date"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-semibold"
+                                                        value={toInputDate(newGroup.Salida)}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Salida: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pax Totales</label>
+                                                    <input
+                                                        type="number"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-bold text-indigo-600"
+                                                        value={newGroup["Pax."]}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, "Pax.": e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Importe Total Est. (€)</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-[#2d5a43] outline-none py-2 text-sm font-black text-emerald-600"
+                                                        placeholder="0,00"
+                                                        value={newGroup["Importe(*)"]}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, "Importe(*)": e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        {/* 2. Contacto Operativo */}
+                                        <section>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Contacto Operativo</h4>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nombre Contacto</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-blue-500 outline-none py-2 text-sm font-semibold"
+                                                        value={newGroup.Com_Nombre_Contacto}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Com_Nombre_Contacto: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Email</label>
+                                                    <input
+                                                        type="email"
+                                                        className="w-full border-b-2 border-slate-100 focus:border-blue-500 outline-none py-2 text-sm font-semibold"
+                                                        value={newGroup.Com_Email_Contacto}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Com_Email_Contacto: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notas / Observaciones</label>
+                                                    <textarea
+                                                        className="w-full border border-slate-100 rounded-lg p-2 text-xs font-medium bg-slate-50 min-h-[60px] outline-none focus:border-blue-500 transition-colors"
+                                                        placeholder="Cualquier detalle relevante extraído o añadido manualmente..."
+                                                        value={newGroup.Com_Notas}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Com_Notas: e.target.value })}
+                                                    ></textarea>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        {/* 3. Datos Fiscales */}
+                                        <section className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
+                                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Facturación (Opcional)</h4>
+                                            </div>
+                                            <div className="grid grid-cols-12 gap-x-4 gap-y-4">
+                                                <div className="col-span-8">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase">Razón Social</label>
+                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
+                                                        value={newGroup.Fiscal_RazonSocial}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_RazonSocial: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="col-span-4">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase">CIF / NIF</label>
+                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
+                                                        value={newGroup.Fiscal_CIF}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_CIF: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="col-span-12">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase">Dirección</label>
+                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs"
+                                                        value={newGroup.Fiscal_Direccion}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_Direccion: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="col-span-4">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase">CP</label>
+                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs"
+                                                        value={newGroup.Fiscal_CP}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_CP: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="col-span-8">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase">Población</label>
+                                                    <input type="text" className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-slate-800"
+                                                        value={newGroup.Fiscal_Poblacion}
+                                                        onChange={(e) => setNewGroup({ ...newGroup, Fiscal_Poblacion: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </section>
                                     </div>
-                                    <div className="p-6 bg-slate-50 border-t flex gap-3">
+
+                                    {/* ACCIONES FOOTER */}
+                                    <div className="p-6 bg-slate-50 border-t flex gap-4 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                                         <button
                                             onClick={() => setShowAddGroupModal(false)}
-                                            className="flex-1 py-4 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-100 transition-all uppercase text-xs tracking-widest"
+                                            className="flex-1 py-4 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-100 transition-all uppercase text-[10px] tracking-widest shadow-sm"
                                         >
-                                            Cancelar
+                                            Descartar
                                         </button>
                                         <button
                                             onClick={registerNewGroup}
-                                            className="flex-[2] py-4 bg-[#2d5a43] text-white font-bold rounded-xl hover:bg-[#1e3a2c] transition-all shadow-lg shadow-emerald-900/10 uppercase text-xs tracking-widest"
+                                            className="flex-[2] py-4 bg-[#2d5a43] text-white font-black rounded-xl hover:bg-[#1e3a2c] transition-all shadow-xl shadow-emerald-900/10 uppercase text-[11px] tracking-widest flex items-center justify-center gap-2"
                                         >
-                                            Confirmar Alta
+                                            <IconCheck size={18} stroke={3} /> Confirmar y Guardar Ficha
                                         </button>
                                     </div>
                                 </div>
@@ -3704,8 +3925,10 @@
                                                 <button
                                                     onClick={async () => {
                                                         if (window.confirm("¿Estás seguro de que quieres ANULAR este grupo? Esto marcará todas sus reservas como CANCELADAS.")) {
-                                                            await updateGroupMetadata(selectedGroupFicha.name, "Com_Estado_Interno", "CANCELADO");
-                                                            await updateGroupMetadata(selectedGroupFicha.name, "Estado", "ANULADA");
+                                                            await updateGroupMetadata(selectedGroupFicha.name, {
+                                                                "Com_Estado_Interno": "CANCELADO",
+                                                                "Estado": "ANULADA"
+                                                            });
                                                             setShowFichaModal(false);
                                                         }
                                                     }}
@@ -4186,7 +4409,9 @@
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">Rég.</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right">P. Unit</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center">IVA</th>
-
+                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right bg-blue-50/20">Base Com.</th>
+                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-center bg-blue-50/20">%</th>
+                                                            <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right bg-blue-50/20">Comisión €</th>
                                                             <th className="py-2.5 px-3 font-black text-slate-400 text-[9px] uppercase tracking-wider text-right bg-slate-100/50">Total</th>
                                                             <th className="py-2.5 px-3 w-8"></th>
                                                         </tr>
@@ -4242,7 +4467,38 @@
                                                                         {item.iva || 10}%
                                                                     </span>
                                                                 </td>
+                                                                <td className="py-2 px-3 text-right bg-blue-50/10 border-l border-blue-50">
+                                                                    <div className="flex items-center justify-end gap-1">
+                                                                        <span className="text-[10px] font-bold text-slate-500">{(item.comision?.base_unitaria ? (item.comision.base_unitaria * item.qty * item.nights) : (item.comision?.base_calculada || 0)).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
 
+                                                                        <button
+                                                                            onClick={() => setCommissionModal({
+                                                                                isOpen: true,
+                                                                                itemIdx: index,
+                                                                                tempCom: item.comision?.desglose
+                                                                                    ? JSON.parse(JSON.stringify(item.comision))
+                                                                                    : calculateDefaultCommission(item.price, item.regime, item.qty, item.nights)
+
+                                                                            })}
+                                                                            className="p-1 hover:bg-blue-100 text-blue-400 hover:text-blue-600 rounded transition-colors"
+                                                                            title="Configurar desglose de comisión"
+                                                                        >
+                                                                            <IconSettings size={12} />
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2 px-3 text-center bg-blue-50/10">
+                                                                    <span className="text-[10px] font-bold text-slate-600">{item.comision?.porcentaje || 10}%</span>
+                                                                </td>
+                                                                <td className="py-2 px-3 text-right bg-blue-50/10 border-r border-blue-50">
+                                                                    <span className="text-[10px] font-black text-blue-700">
+                                                                        {item.comision?.total_comision !== undefined
+                                                                            ? item.comision.total_comision.toLocaleString('es-ES', { minimumFractionDigits: 2 })
+                                                                            : ((item.comision?.base_calculada || 0) * (item.comision?.porcentaje || 10) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 })
+                                                                        } €
+                                                                    </span>
+
+                                                                </td>
                                                                 <td className="py-1 px-2 text-right font-black text-emerald-600 bg-emerald-50/30">{parseFloat(item.total).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
                                                                 <td className="py-1 px-2 text-center flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <button
@@ -4429,7 +4685,7 @@
                                                             <td className="px-3 py-1.5 font-bold text-slate-500">{rec["Hotel_Asignado"] || rec["Hotel"] || "-"}</td>
                                                             <td className="px-3 py-1.5 text-slate-600">{formatDate(rec["Entrada"])} - {formatDate(rec["Salida"])}</td>
                                                             <td className="px-3 py-1.5 text-right font-bold">{rec["Hab."] || '-'}</td>
-                                                            <td className="px-3 py-1.5 text-right font-black text-emerald-600">{rec["Importe(*)"]} €</td>
+                                                            <td className="px-3 py-1.5 text-right font-black text-emerald-600">{parseNum(rec["Importe(*)"]).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
                                                             <td className="px-3 py-1.5 text-center">
                                                                 <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${rec["Estado"]?.toLowerCase().includes('conf') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                                                                     {rec["Estado"] || '???'}
@@ -4542,6 +4798,241 @@
                                 </div>
                             )
                         }
+
+                        {/* Modal de Comisión Unitario - Inteligencia por Unidad */}
+                        {commissionModal.isOpen && (
+                            <div className="fixed inset-0 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center z-[110] animate-fade-in">
+                                <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-[340px] border border-slate-200 overflow-hidden">
+                                    <div className="bg-[#0f172a] px-4 py-3 flex justify-between items-center text-white">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-blue-500/20 p-1.5 rounded-lg border border-blue-500/30">
+                                                <IconSettings size={14} className="text-blue-400" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-black uppercase text-[10px] tracking-widest text-white leading-none">Cálculo de Comisión</h3>
+                                                <p className="text-[7px] font-bold text-slate-400 uppercase mt-0.5 tracking-tighter">Desglose por Conceptos Unitarios</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setCommissionModal({ isOpen: false, itemIdx: null, tempCom: null })} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-all">
+                                            <IconX size={18} />
+                                        </button>
+                                    </div>
+
+                                    <div className="p-4 space-y-5 text-left bg-slate-50/30">
+                                        {/* info unitaria info pills */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                                    <span className="text-[10px] font-black">€</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[7px] font-black text-slate-400 uppercase tracking-widest">Precio Unidad</span>
+                                                    <span className="text-xs font-black text-slate-700">{parseFloat(JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]")[commissionModal.itemIdx].price).toFixed(2)} €</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                                    <IconUsers size={12} />
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Pax</span>
+                                                    <span className="text-xs font-black text-slate-500">{JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]")[commissionModal.itemIdx].qty} uni.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-[1fr_100px] gap-3">
+                                            <div>
+                                                <label className="block text-[8px] font-black text-slate-500 uppercase mb-1.5 ml-1 tracking-widest">Porcentaje Comisionable</label>
+                                                <div className="relative group">
+                                                    <input
+                                                        type="number"
+                                                        className="w-full h-10 bg-white border border-slate-200 rounded-xl px-3 text-sm font-black text-blue-600 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
+                                                        value={commissionModal.tempCom.porcentaje}
+                                                        onChange={e => setCommissionModal(prev => ({ ...prev, tempCom: { ...prev.tempCom, porcentaje: parseFloat(e.target.value) || 0 } }))}
+                                                    />
+                                                    <span className="absolute right-3 top-2.5 text-xs text-slate-300 font-black">%</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[8px] font-black text-slate-500 uppercase mb-1.5 ml-1 tracking-widest">Procedencia</label>
+                                                <div className="relative">
+                                                    <select
+                                                        className="w-full h-10 bg-white border border-slate-200 rounded-xl px-2 text-[10px] font-black text-slate-600 outline-none appearance-none hover:border-slate-300 transition-all shadow-sm cursor-pointer"
+                                                        value={commissionModal.tempCom.modo}
+                                                        onChange={e => setCommissionModal(prev => ({ ...prev, tempCom: { ...prev.tempCom, modo: e.target.value } }))}
+                                                    >
+                                                        <option value="auto">💰 AUTO</option>
+                                                        <option value="manual">✍️ MANUAL</option>
+                                                    </select>
+                                                    <IconChevronDown size={14} className="absolute right-2 top-3 text-slate-300 pointer-events-none" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {commissionModal.tempCom.modo === 'auto' ? (
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center px-1">
+                                                    <label className="block text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Desglose del Precio</label>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+                                                        <span className="text-[7px] font-bold text-slate-400 uppercase">Comisionable</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {Object.entries(commissionModal.tempCom.desglose || {}).map(([key, data]) => (
+                                                        <div key={key} className={`flex items-center gap-2 p-1.5 rounded-xl border transition-all ${data.comisionable ? 'bg-white border-blue-100 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                                                            <div className="flex-1 flex items-center gap-2">
+                                                                <div className={`p-1 rounded-md ${data.comisionable ? 'bg-blue-50 text-blue-500' : 'bg-slate-200 text-slate-400'}`}>
+                                                                    <IconCircle size={8} fill="currentColor" />
+                                                                </div>
+                                                                <span className="text-[9px] font-black text-slate-600 uppercase w-20 truncate">{key}</span>
+                                                                <div className="relative flex-1">
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full h-7 bg-transparent border-none rounded text-xs font-black px-1 outline-none text-right pr-4"
+                                                                        value={data.valor}
+                                                                        onChange={e => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const newDesglose = { ...commissionModal.tempCom.desglose, [key]: { ...data, valor: val } };
+                                                                            setCommissionModal(prev => ({ ...prev, tempCom: { ...prev.tempCom, desglose: newDesglose } }));
+                                                                        }}
+                                                                    />
+                                                                    <span className="absolute right-0 top-1.5 text-[9px] text-slate-300 font-bold">€</span>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    const newDesglose = { ...commissionModal.tempCom.desglose, [key]: { ...data, comisionable: !data.comisionable } };
+                                                                    setCommissionModal(prev => ({ ...prev, tempCom: { ...prev.tempCom, desglose: newDesglose } }));
+                                                                }}
+                                                                className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${data.comisionable ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white border-slate-200 text-slate-200 hover:border-slate-300'}`}
+                                                                title="¿Es Comisionable?"
+                                                            >
+                                                                {data.comisionable ? <IconCheck size={14} stroke={4} /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>}
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {(() => {
+                                                    const sum = Object.values(commissionModal.tempCom.desglose || {}).reduce((acc, c) => acc + c.valor, 0);
+                                                    const unitPrice = parseFloat(JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]")[commissionModal.itemIdx].price);
+                                                    const diff = Math.abs(sum - unitPrice);
+                                                    if (diff > 0.01) {
+                                                        return (
+                                                            <div className="bg-red-50 text-red-500 p-1.5 rounded text-[8px] font-bold flex items-center gap-1.5 animate-pulse">
+                                                                <IconAlertTriangle size={10} />
+                                                                <span>LA SUMA ({sum.toFixed(2)}€) NO COINCIDE CON EL PRECIO UNITARIO ({unitPrice.toFixed(2)}€)</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 ml-1">Base Comisión Unitaria (€)</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="number"
+                                                        className="w-full h-8 bg-emerald-50 border border-emerald-100 rounded-lg px-2 text-[11px] font-black text-emerald-700 outline-none"
+                                                        value={commissionModal.tempCom.base_unitaria}
+                                                        onChange={e => setCommissionModal(prev => ({ ...prev, tempCom: { ...prev.tempCom, base_unitaria: parseFloat(e.target.value) || 0 } }))}
+                                                    />
+                                                    <span className="absolute right-2 top-2 text-[9px] text-emerald-300 font-bold">€</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="bg-[#0f172a] mx-4 my-2 px-4 py-4 rounded-2xl text-white shadow-xl shadow-slate-200 relative overflow-hidden group">
+                                            {/* decorative background element */}
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-blue-500/20 transition-all"></div>
+
+                                            <div className="grid grid-cols-2 gap-4 relative z-10">
+                                                <div className="border-r border-white/10 pr-2">
+                                                    <span className="block text-[8px] text-slate-400 font-black uppercase tracking-widest mb-1">Base Comisionable</span>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-lg font-black text-white tracking-tight">
+                                                            {(() => {
+                                                                const base = commissionModal.tempCom.modo === 'auto'
+                                                                    ? Object.values(commissionModal.tempCom.desglose || {}).reduce((acc, c) => acc + (c.comisionable ? c.valor : 0), 0)
+                                                                    : (commissionModal.tempCom.base_unitaria || 0);
+                                                                return base.toLocaleString('es-ES', { minimumFractionDigits: 2 });
+                                                            })()}
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-slate-500">€/u</span>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span className="block text-[8px] text-emerald-400/80 font-black uppercase tracking-widest mb-1">Comisión Unidad</span>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-lg font-black text-emerald-400 tracking-tight">
+                                                            {(() => {
+                                                                const base = commissionModal.tempCom.modo === 'auto'
+                                                                    ? Object.values(commissionModal.tempCom.desglose || {}).reduce((acc, c) => acc + (c.comisionable ? c.valor : 0), 0)
+                                                                    : (commissionModal.tempCom.base_unitaria || 0);
+                                                                return (base * (commissionModal.tempCom.porcentaje || 0) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 });
+                                                            })()}
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-emerald-600/60">€</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center relative z-10">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Importe Total Línea</span>
+                                                    <p className="text-[8px] font-bold text-slate-600">(Comisión × Pax × Noches)</p>
+                                                </div>
+                                                <div className="bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 group-hover:border-emerald-500/30 transition-all">
+                                                    <span className="text-lg font-black text-white tabular-nums tracking-tighter">
+                                                        {(() => {
+                                                            const item = JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]")[commissionModal.itemIdx];
+                                                            const base = commissionModal.tempCom.modo === 'auto'
+                                                                ? Object.values(commissionModal.tempCom.desglose || {}).reduce((acc, c) => acc + (c.comisionable ? c.valor : 0), 0)
+                                                                : (commissionModal.tempCom.base_unitaria || 0);
+                                                            return (base * (commissionModal.tempCom.porcentaje || 0) / 100 * item.qty * item.nights).toLocaleString('es-ES', { minimumFractionDigits: 2 });
+                                                        })()} <span className="text-xs font-normal opacity-40 ml-0.5">€</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-white border-t flex gap-3">
+                                        <button
+                                            onClick={() => setCommissionModal({ isOpen: false, itemIdx: null, tempCom: null })}
+                                            className="flex-1 h-11 rounded-xl text-[10px] font-black text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all uppercase tracking-widest border border-transparent hover:border-slate-200"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const com = { ...commissionModal.tempCom };
+                                                const item = JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]")[commissionModal.itemIdx];
+
+                                                if (com.modo === 'auto') {
+                                                    com.base_unitaria = Object.values(com.desglose).reduce((acc, c) => acc + (c.comisionable ? c.valor : 0), 0);
+                                                }
+                                                com.comision_unitaria = parseFloat((com.base_unitaria * com.porcentaje / 100).toFixed(2));
+                                                com.total_comision = parseFloat((com.comision_unitaria * item.qty * item.nights).toFixed(2));
+
+                                                const newRL = JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]");
+                                                newRL[commissionModal.itemIdx].comision = com;
+                                                updateGroupMetadata(selectedGroupFicha.name, "RoomingList_JSON", JSON.stringify(newRL));
+                                                setCommissionModal({ isOpen: false, itemIdx: null, tempCom: null });
+                                            }}
+                                            className="flex-[2] h-11 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl text-[10px] text-white font-black shadow-lg shadow-blue-600/20 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                                        >
+                                            <IconSave size={16} />
+                                            <span>Aplicar Comisión</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Modal Selección de Hotel para Importación */}
                         {

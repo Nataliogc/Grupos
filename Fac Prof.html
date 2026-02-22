@@ -1083,6 +1083,7 @@
             const footer = document.getElementById('footer-totals');
             let total = 0;
             let runningTotal = 0;
+            let totalComision = 0;
             let base10 = 0, iva10 = 0, base21 = 0, iva21 = 0;
 
             containers.forEach(c => c.innerHTML = '');
@@ -1093,19 +1094,23 @@
                 const cantidad = parseFloat(item.cant) || 1;
                 const dias = parseFloat(item.dias) || 1;
                 const subtotal = precioUnitario * habs * cantidad * dias;
+                const itemComision = (parseFloat(item.comision?.comision_unitaria) || 0) * habs * cantidad * dias;
 
-                total += subtotal;
-                runningTotal += subtotal;
+                totalComision += itemComision;
+                const netSubtotal = subtotal - itemComision;
+
+                total += netSubtotal;
+                runningTotal += netSubtotal;
 
                 const ivaVal = parseFloat(item.iva) || 10;
                 if (ivaVal === 10) {
-                    const base = subtotal / 1.1;
+                    const base = netSubtotal / 1.1;
                     base10 += base;
-                    iva10 += (subtotal - base);
+                    iva10 += (netSubtotal - base);
                 } else {
-                    const base = subtotal / 1.21;
+                    const base = netSubtotal / 1.21;
                     base21 += base;
-                    iva21 += (subtotal - base);
+                    iva21 += (netSubtotal - base);
                 }
 
                 // Date handling
@@ -1130,7 +1135,7 @@
                             </td>
                             <td class="p-1 text-center text-[9px] text-gray-500">${item.dias || 1}</td>
                             <td class="p-1 text-right text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
-                            <td class="p-1 text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
+                            <td class="p-1 text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal - itemComision)}</td>
                             <td class="p-1 text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
                             <td class="p-1 no-print text-center">
                                 <button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">
@@ -1158,7 +1163,7 @@
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'dias', this.innerText)">${item.dias || 1}</span>
                             </td>
                             <td class="align-middle text-right text-gray-600 text-[10px]">${formatNum(precioUnitario)}</td>
-                            <td class="align-middle text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
+                            <td class="align-middle text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal - itemComision)}</td>
                             <td class="align-middle text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
                             <td class="no-print align-middle text-center py-1">
                                 <button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">
@@ -1170,77 +1175,166 @@
                 }
             });
 
+            if (totalComision > 0) {
+                const uniquePercs = new Set();
+                items.forEach(item => {
+                    if (item.comision?.porcentaje) uniquePercs.add(item.comision.porcentaje);
+                });
+                const percLabel = uniquePercs.size === 1 ? ` (${Array.from(uniquePercs)[0]}%)` : "";
+
+                containers.forEach(c => {
+                    const row = currentTemplate === 'confirmacion'
+                        ? `<tr class="border-b bg-gray-50/50 italic text-gray-400">
+                            <td class="p-1"></td>
+                            <td class="p-1 text-center font-bold">1</td>
+                            <td class="p-1 text-[10px] uppercase font-bold">(-) COMISIÓN AGENCIA${percLabel}</td>
+                            <td class="p-1"></td>
+                            <td class="p-1"></td>
+                            <td class="p-1 text-right text-[10px]">${formatNum(totalComision)}</td>
+                            <td class="p-1 text-right font-bold text-red-500">-${formatNum(totalComision)}</td>
+                            <td class="p-1 text-right text-gray-300 font-medium text-[10px]"></td>
+                            <td class="p-1 no-print"></td>
+                           </tr>`
+                        : `<tr class="h-7 border-b border-gray-100 italic text-gray-400 bg-gray-50/30">
+                            <td class="py-1"></td>
+                            <td class="text-center font-bold">1</td>
+                            <td class="font-bold py-1 text-[9px] uppercase">(-) COMISIÓN AGENCIA${percLabel}</td>
+                            <td class="text-center"></td>
+                            <td class="text-center"></td>
+                            <td class="text-right text-[10px]">${formatNum(totalComision)}</td>
+                            <td class="text-right font-bold text-red-500">-${formatNum(totalComision)}</td>
+                            <td class="text-right text-gray-300 font-medium text-[10px]"></td>
+                            <td class="no-print"></td>
+                           </tr>`;
+                    c.insertAdjacentHTML('beforeend', row);
+                });
+            }
+
             // Footer Logic (Confirmacion) - Full payment details
             if (currentTemplate === 'confirmacion') {
                 const h = HOTELS[currentHotel];
-                const entradaStr = document.getElementById('reserva-entrada-1')?.innerText || '21-04-2026';
-                const [d, m, y] = entradaStr.split(/[-\/]/).map(Number);
-                const fechaEntrada = (d && m && y) ? new Date(y < 100 ? 2000 + y : y, m - 1, d) : new Date();
+                const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+
+                // --- PAGO PLAN LOGIC ---
+                let groupPlan = [];
+                try {
+                    groupPlan = JSON.parse(groupData.PaymentPlan_JSON || "[]");
+                } catch (e) { groupPlan = []; }
+
+                const entradaStr = document.getElementById('reserva-entrada-1')?.innerText || groupData["Entrada"] || '21-04-2026';
+                const [dId, mId, yId] = entradaStr.split(/[-\/]/).map(Number);
+                const fechaEntrada = (dId && mId && yId) ? new Date(yId < 100 ? 2000 + yId : yId, mId - 1, dId) : new Date();
+
+                const formatDateSafe = (date) => {
+                    if (!(date instanceof Date) || isNaN(date.getTime())) return "-";
+                    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+                };
 
                 const fRelease = new Date(fechaEntrada);
-                fRelease.setDate(fRelease.getDate() - (parseInt(JSON.parse(localStorage.getItem('selectedGroup') || '{}')["Com_Relix"]) || 22));
+                fRelease.setDate(fRelease.getDate() - (parseInt(groupData["Com_Relix"]) || 22));
 
-                const fDeposito1 = new Date(fechaEntrada);
-                fDeposito1.setDate(fDeposito1.getDate() - 60);
-                const fDeposito2 = new Date(fechaEntrada);
-                fDeposito2.setDate(fDeposito2.getDate() - 30);
+                // If no plan, create a default 30/70 for display
+                if (groupPlan.length === 0) {
+                    const d1 = new Date(fechaEntrada); d1.setDate(d1.getDate() - 60);
+                    const d2 = new Date(fechaEntrada); d2.setDate(d2.getDate() - 30);
+                    groupPlan = [
+                        { label: "1er Pago Garantía", percent: 30, amount: (total * 0.3).toFixed(2), date: d1.toISOString().split('T')[0], status: "Pendiente" },
+                        { label: "Liquidación Final", percent: 70, amount: (total * 0.7).toFixed(2), date: d2.toISOString().split('T')[0], status: "Pendiente" }
+                    ];
+                }
 
-                const formatDate = (date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+                // Calculate paid/pending balance
+                const totalPaid = groupPlan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+                const totalPending = total - totalPaid;
 
                 footer.innerHTML = `
-                    <div class="flex flex-col items-end mt-12 relative">
-                        <div class="text-white p-5 w-64 shadow-lg mb-6 rounded-xl border border-white/10" style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
-                            <p class="text-[9px] uppercase tracking-[0.1em] border-b pb-2 mb-3 text-left font-bold opacity-90" style="color: #ffffff; border-bottom-color: rgba(255,255,255,0.2); -webkit-print-color-adjust: exact;">Total IVA Incluido</p>
-                            <div class="flex items-baseline justify-end gap-1">
-                                <p class="text-3xl font-black tabular-nums tracking-tighter" style="color: #ffffff; -webkit-print-color-adjust: exact;">\${formatNum(total)}</p>
-                                <span class="text-sm font-medium opacity-80 uppercase ml-1" style="color: #ffffff; -webkit-print-color-adjust: exact;">€</span>
+                    <div class="mt-8 border-t border-slate-100 pt-8 font-pro">
+                        <div class="grid grid-cols-[45%_1fr] gap-x-12">
+                            <!-- BLOQUE IZQUIERDO: FISCAL Y BANCO -->
+                            <div class="space-y-6">
+                                <div>
+                                    <h5 class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 border-b border-slate-100 pb-1">Datos de Facturación</h5>
+                                    <div class="text-[10px] space-y-1.5 leading-relaxed">
+                                        <p class="font-black text-slate-900 text-[11px] uppercase tracking-tighter">${h.company}</p>
+                                        <div class="flex gap-4 text-slate-500">
+                                            <p><strong class="text-slate-700">CIF:</strong> ${h.nif}</p>
+                                        </div>
+                                        <p class="text-slate-500 italic">${h.address}</p>
+                                        <p class="text-slate-500 italic">${h.cp} ${h.city}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+                                     <div class="absolute -right-2 -bottom-2 opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                                     </div>
+                                     <h5 class="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Cuenta de Abono Corriente</h5>
+                                     <p class="text-[12px] font-black text-slate-900 tracking-tighter tabular-nums">${h.iban}</p>
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="mt-2 font-pro text-[10px]">
-                        <div class="w-full grid grid-cols-[45%_55%] gap-12 px-6 text-[9px] leading-relaxed">
-                            <div class="text-left py-2 pr-8 border-r border-slate-100/80">
-                                <p class="font-black text-[10px] mb-4 border-b pb-1.5 tracking-[0.2em] uppercase" style="color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; border-bottom-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}20;">Datos de Facturación</p>
-                                <p class="font-black text-slate-900 text-[11px] mb-1 uppercase tracking-tight">\${h.company}</p>
-                                <p class="text-slate-500 mb-4 font-bold">CIF: <span class="text-slate-800">\${h.nif}</span></p>
-                                <p class="text-slate-500 leading-normal mb-6 italic">\${h.address}<br>\${h.cp} \${h.city}</p>
-                                
-                                <div class="p-3 rounded-xl border" style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}0d; border-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}1a;">
-                                     <p class="text-[7px] font-black uppercase mb-1 tracking-[0.2em] opacity-80" style="color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'};">Cuenta de Abono Corriente</p>
-                                     <p class="font-black text-slate-900 text-[11px] tracking-tight tabular-nums">\${h.iban}</p>
-                                </div>
-                            </div>
-                            <div class="text-right flex flex-col justify-center gap-4">
-                                <div class="space-y-3">
-                                    <div class="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-dotted border-slate-200">
-                                        <div class="text-left">
-                                            <p class="text-[7px] text-slate-400 font-black uppercase tracking-widest">1er Pago Garantía (30%)</p>
-                                            <p class="text-[9px] text-slate-500">Límite: <strong class="text-slate-800">${formatDate(fDeposito1)}</strong></p>
+                            <!-- BLOQUE DERECHO: TOTALES Y PAGOS -->
+                            <div class="space-y-4">
+                                <!-- TOTAL CARD COMPACTA -->
+                                <div class="relative p-5 rounded-3xl overflow-hidden shadow-xl shadow-slate-200" style="background-color: ${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                    <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                                    <div class="flex justify-between items-end relative z-10">
+                                        <div>
+                                            <span class="text-[8px] font-black text-white/50 uppercase tracking-[0.2em] block mb-1">Total Presupuestado</span>
+                                            <div class="flex items-baseline gap-1">
+                                                <span class="text-3xl font-black text-white tabular-nums tracking-tighter">${formatNum(total)}</span>
+                                                <span class="text-sm font-bold text-white/60">€</span>
+                                            </div>
                                         </div>
-                                        <span class="font-black text-base text-slate-900 tabular-nums">${formatNum(total * 0.3)} <span class="text-[10px] font-normal opacity-40">€</span></span>
-                                    </div>
-                                    
-                                    <div class="flex justify-between items-center bg-slate-50/50 p-3 rounded-xl border border-dotted border-slate-200">
-                                        <div class="text-left">
-                                            <p class="text-[7px] text-slate-400 font-black uppercase tracking-widest">Liquidación Final (70%)</p>
-                                            <p class="text-[9px] text-slate-500">Límite: <strong class="text-slate-800">${formatDate(fDeposito2)}</strong></p>
+                                        ${totalPaid > 0 ? `
+                                        <div class="text-right border-l border-white/10 pl-6">
+                                            <span class="text-[7px] font-black text-white/40 uppercase block mb-0.5">Pendiente</span>
+                                            <span class="text-lg font-black text-emerald-400 tabular-nums">${formatNum(totalPending)} €</span>
                                         </div>
-                                        <span class="font-black text-base text-slate-900 tabular-nums">${formatNum(total * 0.7)} <span class="text-[10px] font-normal opacity-40">€</span></span>
+                                        ` : ''}
                                     </div>
                                 </div>
-                                
-                                <div class="mt-4 py-2 px-4 rounded-lg inline-block self-end border" style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}0a; border-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}1a;">
-                                     <p class="text-[10px] font-black italic tracking-tight" style="color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'};">
-                                         FECHA RELEASE FINAL: <span class="ml-2 underline decoration-2" style="text-decoration-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}4d;">\${formatDate(fRelease)}</span>
-                                     </p>
+
+                                <!-- PLAN DE PAGOS GRID -->
+                                <div>
+                                    <h5 class="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 pl-1">Plan de Garantía y Pagos</h5>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        ${groupPlan.map(dep => {
+                    const isPaid = dep.status === "Cobrado";
+                    const depDate = dep.date ? new Date(dep.date) : null;
+                    return `
+                                                <div class="p-3 rounded-2xl border ${isPaid ? 'bg-emerald-50/50 border-emerald-100' : 'bg-white border-slate-100 shadow-sm'}" style="${isPaid ? 'background-color: #ecfdf5; border-color: #a7f3d0;' : '-webkit-print-color-adjust: exact; print-color-adjust: exact;'}">
+                                                    <div class="flex justify-between items-start mb-1.5">
+                                                        <span class="text-[7px] font-black ${isPaid ? 'text-emerald-700' : 'text-slate-400'} uppercase truncate pr-1">${dep.label}</span>
+                                                        <span class="text-[7px] font-bold text-slate-400 opacity-60">${dep.percent}%</span>
+                                                    </div>
+                                                    <div class="flex justify-between items-end">
+                                                        <div>
+                                                            <p class="text-[7px] text-slate-400 uppercase tracking-tighter font-bold">Vence</p>
+                                                            <p class="text-[9px] font-black text-slate-700">${formatDateSafe(depDate)}</p>
+                                                        </div>
+                                                        <p class="text-[12px] font-black ${isPaid ? 'text-emerald-600' : 'text-slate-900'} tabular-nums" style="${isPaid ? 'color: #059669;' : ''}">${formatNum(dep.amount)}<span class="text-[8px] ml-0.5 opacity-30">€</span></p>
+                                                    </div>
+                                                </div>
+                                            `;
+                }).join('')}
+                                    </div>
+                                </div>
+
+                                <!-- RELEASE DEADLINE TAG -->
+                                <div class="flex justify-center pt-2">
+                                    <div class="px-4 py-2 bg-slate-100/50 rounded-full border border-slate-100 flex items-center gap-3">
+                                        <span class="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Release Final</span>
+                                        <div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                                        <span class="text-[10px] font-black text-slate-800">${formatDateSafe(fRelease)}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>`;
             } else {
                 const breakdownHtml = `
-                    <div style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; color: white; padding: 10px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">
+                    <div style="background-color: ${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; color: white; padding: 10px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 8px; text-transform: uppercase;">
                             <thead style="opacity: 0.7; border-bottom: 0.5px solid rgba(255,255,255,0.2);">
                                 <tr>
@@ -1431,7 +1525,7 @@
         }
         function removeItem(index) { items.splice(index, 1); renderItems(); }
 
-        function syncWithFicha() {
+        async function syncWithFicha() {
             const saved = localStorage.getItem('selectedGroup');
             if (!saved) return;
 
@@ -1445,7 +1539,6 @@
                 const d = parseFloat(curr.dias) || 1;
                 return acc + (p * h * c * d);
             }, 0);
-            const totalPax = items.reduce((acc, curr) => acc + (parseInt(curr.cant) || 0), 0);
 
             // 2. Fechas
             const entrada = document.getElementById('reserva-entrada-1')?.innerText || group["Entrada"];
@@ -1455,50 +1548,46 @@
             const hotel = currentHotel === 'cumbria' ? 'Cumbria' : 'Guadiana';
 
             // 4. Actualizar Objeto Grupo
-            if (items.length > 0) {
-                group["Importe(*)"] = totalRevenue;
-                group["Pax."] = document.getElementById('reserva-personas-1')?.innerText || group["Pax."];
-                group["ProformaItems"] = items;
-                // Sincronizar Depósitos
-                group["Dep1_Importe"] = parseFloat((totalRevenue * 0.3).toFixed(2));
-                group["Dep2_Importe"] = parseFloat((totalRevenue * 0.7).toFixed(2));
-            }
-            group["Entrada"] = entrada;
-            group["Salida"] = salida;
-            group["Hotel_Asignado"] = hotel;
+            const updatedData = {
+                "Importe(*)": totalRevenue,
+                "Pax.": document.getElementById('reserva-personas-1')?.innerText || group["Pax."],
+                "Entrada": entrada,
+                "Salida": salida,
+                "Hotel_Asignado": hotel,
+                "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+            };
 
-            // Sincronizar Release (7 días antes de entrada por defecto)
+            if (items.length > 0) {
+                updatedData["ProformaItems"] = items;
+                updatedData["Dep1_Importe"] = parseFloat((totalRevenue * 0.3).toFixed(2));
+                updatedData["Dep2_Importe"] = parseFloat((totalRevenue * 0.7).toFixed(2));
+            }
+
+            // Sincronizar Release
             if (entrada) {
                 const parts = entrada.includes('/') ? entrada.split('/') : entrada.split('-');
                 if (parts.length === 3) {
-                    // Asumimos formato dd/mm/yyyy o yyyy-mm-dd
                     let d, m, y;
                     if (parts[0].length === 4) { [y, m, d] = parts; } else { [d, m, y] = parts; }
-
                     const fechaEntrada = new Date(y, m - 1, d);
                     const fechaRelease = new Date(fechaEntrada);
-
-                    // Cálculo dinámico si tenemos los días de release
-                    const diasRelease = parseInt(group["Com_Relix"]) || 22; // Por defecto 22 días
+                    const diasRelease = parseInt(group["Com_Relix"]) || 22;
                     fechaRelease.setDate(fechaRelease.getDate() - diasRelease);
-
-                    group["Com_Vencimiento_Rel"] = fechaRelease.toISOString().split('T')[0];
+                    updatedData["Com_Vencimiento_Rel"] = fechaRelease.toISOString().split('T')[0];
                 }
             }
-            if (!group["Com_Relix"]) group["Com_Relix"] = "22"; // Default Release Days
 
-            // Guardar en LocalStorage para que Gestión de Grupos lo lea
-            localStorage.setItem('selectedGroup', JSON.stringify(group));
+            // Actualizar LocalStorage
+            const finalGroup = { ...group, ...updatedData };
+            localStorage.setItem('selectedGroup', JSON.stringify(finalGroup));
 
-            // También actualizar la lista principal 'nexus_groups_data' si es posible (simulación)
-            // En un entorno real, esto sería una llamada a Firebase updateDoc
-            const allGroupsStr = localStorage.getItem('nexus_groups_data');
-            if (allGroupsStr) {
-                const allGroups = JSON.parse(allGroupsStr);
-                const idx = allGroups.findIndex(g => g["Reserva"] === group["Reserva"]);
-                if (idx !== -1) {
-                    allGroups[idx] = { ...allGroups[idx], ...group };
-                    localStorage.setItem('nexus_groups_data', JSON.stringify(allGroups));
+            // PERSISTENCIA EN CLOUD (Firestore)
+            if (finalGroup.Reserva && typeof db !== 'undefined') {
+                try {
+                    await db.collection("groups").doc(String(finalGroup.Reserva)).set(updatedData, { merge: true });
+                    console.log("☁️ Sincronización con Firestore exitosa");
+                } catch (e) {
+                    console.error("❌ Error persistiendo en Firestore:", e);
                 }
             }
         }

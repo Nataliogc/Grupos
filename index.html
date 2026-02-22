@@ -84,13 +84,15 @@
 
             <form id="loginForm" class="space-y-6" novalidate>
                 <div>
-                    <label for="pin" class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Pin de Acceso</label>
+                    <label for="pin"
+                        class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Pin de
+                        Acceso</label>
                     <div class="relative">
-                        <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true"></i>
-                        <input type="password" id="pin" name="pin" placeholder="····" maxlength="4" inputmode="numeric" autocomplete="one-time-code"
-                            aria-label="Introduce el PIN de acceso de 4 dígitos"
-                            aria-describedby="errorMessage"
-                            aria-invalid="false"
+                        <i data-lucide="lock" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                            aria-hidden="true"></i>
+                        <input type="password" id="pin" name="pin" placeholder="····" maxlength="4" inputmode="numeric"
+                            autocomplete="one-time-code" aria-label="Introduce el PIN de acceso de 4 dígitos"
+                            aria-describedby="errorMessage" aria-invalid="false"
                             class="w-full pl-12 pr-4 py-4 bg-white/50 border border-slate-200 rounded-2xl text-center text-2xl tracking-[1em] font-bold text-slate-800 input-focus transition-all outline-none"
                             required>
                     </div>
@@ -121,8 +123,21 @@
             • Sistema Unificado Cloud 2026</p>
     </div>
 
+    <!-- Firebase SDK (Compat mode) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <!-- Configuración Firebase Centralizada -->
+    <script src="js/firebase-config.js"></script>
+
     <script>
         lucide.createIcons();
+
+        // --- CONFIGURACIÓN FIREBASE ---
+        if (!firebase.apps.length) {
+            firebase.initializeApp(window.firebaseConfig);
+        }
+        const db = firebase.firestore();
 
         const loginForm = document.getElementById('loginForm');
         const pinInput = document.getElementById('pin');
@@ -131,8 +146,6 @@
         const btnText = submitBtn.querySelector('.btn-text');
         const btnSpinner = submitBtn.querySelector('.btn-spinner');
 
-        // PIN: en producción sustituir por validación server-side (Firebase Auth, backend, etc.)
-        const VALID_PIN = "1234";
         const REDIRECT_URL = "Admin.html";
 
         function setLoading(loading) {
@@ -166,25 +179,40 @@
 
             setLoading(true);
 
-            // Pequeña pausa para que se vea el estado de carga (opcional)
-            await new Promise(r => setTimeout(r, 400));
+            try {
+                // Obtener PIN dinámico de Firestore
+                const doc = await db.collection("settings").doc("main").get();
+                let validPin = "1234"; // Default fallback
 
-            if (pin === VALID_PIN) {
-                window.location.href = REDIRECT_URL;
-                return;
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.system && data.system.pin) {
+                        validPin = data.system.pin;
+                    }
+                }
+
+                if (pin === validPin) {
+                    window.location.href = REDIRECT_URL;
+                    return;
+                }
+
+                setLoading(false);
+                showError(true);
+                pinInput.value = "";
+                pinInput.focus();
+
+                loginForm.animate([
+                    { transform: 'translateX(0)' },
+                    { transform: 'translateX(-10px)' },
+                    { transform: 'translateX(10px)' },
+                    { transform: 'translateX(0)' }
+                ], { duration: 300 });
+
+            } catch (error) {
+                console.error("Error durate login:", error);
+                setLoading(false);
+                alert("Error de conexión con el servidor. Por favor, reintenta.");
             }
-
-            setLoading(false);
-            showError(true);
-            pinInput.value = "";
-            pinInput.focus();
-
-            loginForm.animate([
-                { transform: 'translateX(0)' },
-                { transform: 'translateX(-10px)' },
-                { transform: 'translateX(10px)' },
-                { transform: 'translateX(0)' }
-            ], { duration: 300 });
         });
     </script>
 </body>
