@@ -158,8 +158,8 @@
                 setExtractedData(null);
 
                 const prompt = `Analiza el siguiente texto de un correo electrónico de reserva de grupo y extrae la información en formato JSON estrictamente.
-                Campos requeridos (usa estos nombres exactos):
-                - "Nombre del Grupo": nombre identificativo.
+                Campos requeridos (usa estos nombres exactos, si no encuentras el dato devuelve un string vacío ""):
+                - "Nombre del Grupo": nombre identificativo corto (ej. ADULTOS, JUBILADOS).
                 - "Entrada": fecha en formato YYYY-MM-DD.
                 - "Salida": fecha en formato YYYY-MM-DD.
                 - "Pax.": número total de personas (entero).
@@ -167,7 +167,15 @@
                 - "Régimen": (HD, MP, PC, SA, AD, MP, TI).
                 - "Importe(*)": precio unitario o total si se menciona, si no 0.
                 - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
-                - "Observaciones": detalles adicionales.
+                - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones (ej. "Grupo para 30/35/40 pax. Régimen solicitado con agua y vino..."). Es MUY IMPORTANTE no perder detalles del texto.
+                - "Com_Nombre_Contacto": nombre de la persona que firma o envía el correo.
+                - "Com_Email_Contacto": correo electrónico si aparece en el texto.
+                - "Com_Telefono_Contacto": teléfono de contacto.
+                - "Fiscal_RazonSocial": Razón social para facturación si aparece.
+                - "Fiscal_CIF": CIF o NIF si aparece.
+                - "Fiscal_Direccion": Dirección completa (Calle, etc).
+                - "Fiscal_CP": Código Postal.
+                - "Fiscal_Poblacion": Población o Provincia.
 
                 Responde únicamente con el bloque JSON.
                 TEXTO DEL EMAIL:
@@ -189,7 +197,7 @@
                 if (!extractedData) return;
                 setSaveStatus('saving');
                 try {
-                    const reservaId = Math.floor(Math.random() * 900000 + 100000).toString();
+                    const reservaId = `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`;
 
                     const groupToSave = {
                         "Nombre del Grupo": String(extractedData["Nombre del Grupo"] || "Sin Nombre"),
@@ -200,10 +208,19 @@
                         "Régimen": String(extractedData["Régimen"] || "HD"),
                         "Importe(*)": String(extractedData["Importe(*)"] || "0"),
                         "Reserva": reservaId,
-                        "Estado": "Confirmada",
+                        "Estado": "Presupuesto",
+                        "Com_Estado_Interno": "PRESUPUESTO",
                         "Segment.": "GRUPOS",
                         "Hotel_Asignado": String(extractedData.Hotel || "Sercotel Guadiana"),
                         "Observaciones": String(extractedData.Observaciones || ""),
+                        "Com_Nombre_Contacto": String(extractedData.Com_Nombre_Contacto || ""),
+                        "Com_Email_Contacto": String(extractedData.Com_Email_Contacto || ""),
+                        "Com_Telefono_Contacto": String(extractedData.Com_Telefono_Contacto || ""),
+                        "Fiscal_RazonSocial": String(extractedData.Fiscal_RazonSocial || ""),
+                        "Fiscal_CIF": String(extractedData.Fiscal_CIF || ""),
+                        "Fiscal_Direccion": String(extractedData.Fiscal_Direccion || ""),
+                        "Fiscal_CP": String(extractedData.Fiscal_CP || ""),
+                        "Fiscal_Poblacion": String(extractedData.Fiscal_Poblacion || ""),
                         "createdAt": firebase.firestore.FieldValue.serverTimestamp()
                     };
 

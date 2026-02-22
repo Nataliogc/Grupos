@@ -243,6 +243,7 @@
         const IconEdit = (p) => <Icon path='<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>' {...p} />;
         const IconGripVertical = (p) => <Icon path='<circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle>' {...p} />;
         const IconAlertTriangle = (p) => <Icon path='<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>' {...p} />;
+        const IconUser = (p) => <Icon path='<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>' {...p} />;
 
         // --- CONFIGURACIÓN FIREBASE ---
         // Se carga desde js/firebase-config.js
@@ -317,40 +318,76 @@
         ];
 
         const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ff5722', '#795548'];
-        const COMMERCIALS = ["NATALIO", "SERGIO", "OSCAR"];
+
+
+        const parseNum = (v) => {
+            if (v === null || v === undefined || v === "") return 0;
+            if (typeof v === 'number') return v;
+            let s = String(v).trim().replace(/[€$\s]/g, '');
+            if (s === "" || s === "-" || s === "---" || s === "N/A") return 0;
+
+            const hasComma = s.includes(',');
+            const hasDot = s.includes('.');
+
+            if (hasComma && hasDot) {
+                if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+                    s = s.replace(/\./g, '').replace(',', '.');
+                } else {
+                    s = s.replace(/,/g, '');
+                }
+            } else if (hasComma) {
+                s = s.replace(',', '.');
+            } else if (hasDot) {
+                if (s.split('.').pop().length === 3 && s.length > 4) {
+                    s = s.replace(/\./g, '');
+                }
+            }
+            return parseFloat(s) || 0;
+        };
+
+        const normalizeId = (id) => {
+            if (!id) return "";
+            return String(id).trim().replace(/\.0$/, "");
+        };
+
+        const getBaseId = (id) => {
+            if (!id) return "";
+            return String(id).trim().replace(/\.0$/, "").split('_')[0];
+        };
 
         const App = () => {
             const [data, setData] = useState(INITIAL_DATA);
             const [columns, setColumns] = useState(Object.keys(INITIAL_DATA[0]));
             const authorizingIds = useRef(new Set()); // Para evitar que onSnapshot restaure diffs en proceso de guardado
 
-            const getStatusProps = (statusRaw, arrivalDate) => {
+            const getStatusProps = (statusRaw, arrivalDate, estadoField) => {
                 const s = (statusRaw || "").toString().toUpperCase();
+                const e = (estadoField || "").toString().toUpperCase();
                 const today = new Date().toISOString().split('T')[0];
                 const arrival = arrivalDate ? toInputDate(arrivalDate) : null;
 
-                // PASADO (Si la fecha de entrada ya pasó y no es una anulación)
-                if (arrival && arrival < today && !s.includes("CANC") && !s.includes("ANUL") && !s.includes("BAJA")) {
+                // 0. CANCELADO / ANULADO / BAJA (PREFERENCIA MÁXIMA)
+                if (s.includes("CANC") || s.includes("ANUL") || s.includes("BAJA") || e.includes("CANC") || e.includes("ANUL") || e.includes("BAJA"))
+                    return { color: "bg-red-500/80", text: "bg-red-100 text-red-700", label: "CANCELADO" };
+
+                // 1. PASADO (Si la fecha de entrada ya pasó)
+                if (arrival && arrival < today) {
                     return { color: "bg-slate-400", text: "bg-slate-100 text-slate-500", label: "PASADO" };
                 }
 
-                // CANCELADO / ANULADO (Priority 0)
-                if (s.includes("CANC") || s.includes("ANUL") || s.includes("BAJA"))
-                    return { color: "bg-red-500/80", text: "bg-red-100 text-red-700", label: "CANCELADO" };
-
-                // TENTATIVA / TANTEO / BLOQUEADO
+                // 2. TENTATIVA / TANTEO / BLOQUEADO
                 if (s.includes("TANTEO") || s.includes("TENTA") || s.includes("BLOQ") || s.includes("OPCI"))
                     return { color: "bg-amber-500", text: "bg-amber-100 text-amber-700", label: "TENTATIVA" };
 
-                // CONFIRMADO / GARANTIZADO / GRUPOS
+                // 3. CONFIRMADO / GARANTIZADO / GRUPOS
                 if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA") || s === "GRUPOS")
                     return { color: "bg-emerald-500", text: "bg-emerald-100 text-emerald-700", label: "CONFIRMADO" };
 
-                // PRESUPUESTO / ENVIADO / COTIZADO
+                // 4. PRESUPUESTO / ENVIADO / COTIZADO
                 if (s.includes("PRESUP") || s.includes("ENVIA") || s.includes("COTIZ") || s.includes("OFERT"))
                     return { color: "bg-blue-500", text: "bg-blue-100 text-blue-700", label: "PRESUPUESTO" };
 
-                // PROSPECTO / PENDIENTE
+                // 5. PROSPECTO / PENDIENTE
                 if (s.includes("PROSPEC") || s.includes("PENDIE"))
                     return { color: "bg-slate-500", text: "bg-slate-100 text-slate-700", label: s || "PROSPECTO" };
 
@@ -412,6 +449,54 @@
             // Estados para Filtros de Directorio de Grupos
             const [filterDirHotel, setFilterDirHotel] = useState('');
             const [filterDirCommercial, setFilterDirCommercial] = useState('');
+            const [commercials, setCommercials] = useState([
+                { name: "NATALIO", active: true },
+                { name: "EMILIA", active: true },
+                { name: "CANDELARIA", active: true },
+                { name: "MARTA", active: true }
+            ]);
+
+            const getCommColor = (name) => {
+                if (!name) return 'bg-slate-300';
+                const predefinedColors = [
+                    'bg-emerald-500',
+                    'bg-blue-500',
+                    'bg-amber-500',
+                    'bg-purple-500',
+                    'bg-rose-500',
+                    'bg-cyan-500',
+                    'bg-indigo-500',
+                    'bg-fuchsia-500'
+                ];
+                let idx = commercials.findIndex(c => c.name === name);
+                if (idx === -1) {
+                    let hash = 0;
+                    for (let i = 0; i < name.length; i++) {
+                        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                    }
+                    idx = Math.abs(hash);
+                }
+                return predefinedColors[idx % predefinedColors.length];
+            };
+
+            // Cargar configuración de comerciales desde Firestore
+            useEffect(() => {
+                const unsubscribe = db.collection("settings").doc("main").onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data() || {};
+                        const system = data.system || {};
+                        if (system.commercials && Array.isArray(system.commercials)) {
+                            // Normalize: Ensure all are objects with name and active status
+                            const normalized = system.commercials.map(comm => {
+                                if (typeof comm === 'object' && comm !== null) return comm;
+                                return { name: comm, active: true };
+                            });
+                            setCommercials(normalized);
+                        }
+                    }
+                });
+                return () => unsubscribe();
+            }, []);
 
             // Sincronización automática desde Proforma (LocalStorage -> Firestore)
             useEffect(() => {
@@ -451,6 +536,12 @@
                     }
                 };
                 syncFromProforma();
+
+                // Auto-open Add Group Modal if redirected from other screens
+                if (localStorage.getItem('openAddGroupModal') === 'true') {
+                    setShowAddGroupModal(true);
+                    localStorage.removeItem('openAddGroupModal');
+                }
             }, []);
 
             // --- ATAJO DE TECLADO: ESC cierra modales ---
@@ -482,13 +573,109 @@
                 "Segment.": "GRUPOS",
                 "Régimen": "HD",
                 "Importe(*)": "0",
-                "Reserva": Math.floor(Math.random() * 900000 + 100000).toString(),
-                "Estado": "Confirmada"
+                "Reserva": `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`,
+                "Estado": "Presupuesto",
+                "Com_Estado_Interno": "PRESUPUESTO"
             });
+            const [emailText, setEmailText] = useState("");
+            const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+            const handleAnalyzeEmail = async () => {
+                if (!emailText.trim()) return;
+                setIsAnalyzing(true);
+
+                let apiKey = window.firebaseConfig?.apiKey;
+                let model = "gemini-1.5-flash";
+
+                try {
+                    const settingsDoc = await db.collection("settings").doc("main").get();
+                    if (settingsDoc.exists) {
+                        const s = settingsDoc.data().system || {};
+                        if (s.geminiApiKey) apiKey = s.geminiApiKey;
+                        if (s.geminiModel) model = s.geminiModel;
+                    }
+                } catch (e) { console.warn("Fallback to config key."); }
+
+                if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
+                    alert("API Key no configurada.");
+                    setIsAnalyzing(false);
+                    return;
+                }
+
+                const prompt = `Analiza el siguiente texto de un correo electrónico de reserva de grupo y extrae la información en formato JSON estrictamente.
+                Campos requeridos (usa estos nombres exactos, si no encuentras el dato devuelve un string vacío ""):
+                - "Nombre del Grupo": nombre identificativo corto (ej. ADULTOS, JUBILADOS).
+                - "Entrada": fecha en formato YYYY-MM-DD.
+                - "Salida": fecha en formato YYYY-MM-DD.
+                - "Pax.": número total de personas (entero).
+                - "Empresa/Agencia": nombre de la empresa o agencia.
+                - "Régimen": (HD, MP, PC, SA, AD, MP, TI).
+                - "Importe(*)": precio unitario o total si se menciona, si no 0.
+                - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
+                - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones. Es MUY IMPORTANTE.
+                - "Com_Nombre_Contacto": nombre de la persona que firma o envía el correo.
+                - "Com_Email_Contacto": correo electrónico si aparece en el texto.
+                - "Com_Telefono_Contacto": teléfono de contacto.
+                - "Fiscal_RazonSocial": Razón social para facturación si aparece.
+                - "Fiscal_CIF": CIF o NIF si aparece.
+                - "Fiscal_Direccion": Dirección completa (Calle, etc).
+                - "Fiscal_CP": Código Postal.
+                - "Fiscal_Poblacion": Población o Provincia.
+
+                Responde únicamente con el bloque JSON.
+                TEXTO DEL EMAIL:
+                ${emailText}`;
+
+                const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error?.message || "Error API");
+                    }
+
+                    const resultData = await response.json();
+                    const resultText = resultData.candidates[0].content.parts[0].text;
+                    const cleanJson = resultText.replace(/\\`\\`\\`json/g, "").replace(/\\`\\`\\`/g, "").trim();
+                    const parsed = JSON.parse(cleanJson);
+
+                    setNewGroup(prev => ({
+                        ...prev,
+                        "Nombre del Grupo": String(parsed["Nombre del Grupo"] || prev["Nombre del Grupo"]),
+                        "Entrada": String(parsed["Entrada"] || prev["Entrada"]),
+                        "Salida": String(parsed["Salida"] || prev["Salida"]),
+                        "Pax.": String(parsed["Pax."] || prev["Pax."]),
+                        "Empresa/Agencia": String(parsed["Empresa/Agencia"] || prev["Empresa/Agencia"]),
+                        "Régimen": String(parsed["Régimen"] || prev["Régimen"]),
+                        "Importe(*)": String(parsed["Importe(*)"] || prev["Importe(*)"]),
+                        "Hotel_Asignado": String(parsed.Hotel || "Sercotel Guadiana"),
+                        "Com_Notas": String(parsed.Observaciones || ""),
+                        "Com_Nombre_Contacto": String(parsed.Com_Nombre_Contacto || ""),
+                        "Com_Email_Contacto": String(parsed.Com_Email_Contacto || ""),
+                        "Com_Telefono_Contacto": String(parsed.Com_Telefono_Contacto || ""),
+                        "Fiscal_RazonSocial": String(parsed.Fiscal_RazonSocial || ""),
+                        "Fiscal_CIF": String(parsed.Fiscal_CIF || ""),
+                        "Fiscal_Direccion": String(parsed.Fiscal_Direccion || ""),
+                        "Fiscal_CP": String(parsed.Fiscal_CP || ""),
+                        "Fiscal_Poblacion": String(parsed.Fiscal_Poblacion || "")
+                    }));
+                    setEmailText(""); // Clear after success
+                } catch (e) {
+                    alert("Error en el análisis IA: " + e.message);
+                } finally {
+                    setIsAnalyzing(false);
+                }
+            };
 
             // --- Filtros y Ordenación ---
-            const [filterStatus, setFilterStatus] = useState('confirmada'); // all, confirmada, anulada
-            const [filterTime, setFilterTime] = useState('all'); // all, future, past
+            const [filterStatus, setFilterStatus] = useState('all'); // all, confirmada, anulada
+            const [filterTime, setFilterTime] = useState('future'); // all, future, past
             const [kpiFilter, setKpiFilter] = useState(null); // 'active', 'prospect', 'release', 'followup'
             const [sortConfig, setSortConfig] = useState({ key: 'Entrada', direction: 'asc' });
 
@@ -513,9 +700,18 @@
                 // 1. Filtro de Estado
                 if (filterStatus !== 'all') {
                     filtered = filtered.filter(row => {
-                        const state = (row["Estado"] || "").toLowerCase();
-                        if (filterStatus === 'confirmada') return !state.includes('anulada') && !state.includes('cancelada');
-                        if (filterStatus === 'anulada') return state.includes('anulada') || state.includes('cancelada');
+                        const stateProps = getStatusProps(row["Com_Estado_Interno"] || row["Segment."], row["Entrada"], row["Estado"]);
+                        const label = stateProps.label.toLowerCase();
+
+                        if (filterStatus === 'activos') return label !== 'cancelado';
+                        if (filterStatus === 'confirmada') return label === 'confirmado';
+                        if (filterStatus === 'tentativa') return label === 'tentativa';
+                        if (filterStatus === 'presupuesto') return label === 'presupuesto';
+                        if (filterStatus === 'prospecto') return label === 'prospecto';
+                        if (filterStatus === 'anulada') return label === 'cancelado';
+                        if (filterStatus === 'pasado') return label === 'pasado';
+
+                        // Fallback case just in case something didn't match
                         return true;
                     });
                 }
@@ -539,15 +735,26 @@
                     });
                 }
 
-                // 3. Filtro de Texto (Global Search)
                 if (searchTerm) {
                     const lowerTerm = searchTerm.toLowerCase();
+                    const baseTerm = getBaseId(searchTerm).toLowerCase();
+                    const isNumericTerm = /^\d+$/.test(baseTerm);
+
                     filtered = filtered.filter(row => {
+                        const res = (row["Reserva"] || "").toString();
+                        const normRes = normalizeId(res).toLowerCase();
+                        const baseRes = getBaseId(res).toLowerCase();
+
+                        // Match logic
+                        const idMatch = normRes.includes(lowerTerm) ||
+                            baseRes === baseTerm ||
+                            (isNumericTerm && baseRes.startsWith(baseTerm));
+
                         return (
+                            idMatch ||
                             (row["Nombre del Grupo"] || "").toLowerCase().includes(lowerTerm) ||
                             (row["Empresa/Agencia"] || "").toLowerCase().includes(lowerTerm) ||
                             (row["Com_Comercial"] || "").toLowerCase().includes(lowerTerm) ||
-                            (row["Reserva"] || "").toString().toLowerCase().includes(lowerTerm) ||
                             (row["Segment."] || "").toLowerCase().includes(lowerTerm)
                         );
                     });
@@ -568,6 +775,9 @@
                         }
                         if (kpiFilter === 'prospect') {
                             return status.includes("TANTEO") || status.includes("TENTA") || status.includes("PROSPEC") || status.includes("PRESUP");
+                        }
+                        if (kpiFilter === 'pendingQuotes') {
+                            return status.includes("PRESUP") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."));
                         }
                         if (kpiFilter === 'release') {
                             let isReleaseUrgent = false;
@@ -638,6 +848,7 @@
                     const groupName = row["Nombre del Grupo"] || "Sin Nombre";
                     if (!groups[groupName]) {
                         groups[groupName] = {
+                            id: normalizeId(row["Reserva"]),
                             name: groupName,
                             agency: row["Empresa/Agencia"] || "",
                             arrival: row["Entrada"],
@@ -650,7 +861,7 @@
                         };
                     }
 
-                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                    const importe = parseNum(row["Importe(*)"]);
                     const pax = parseInt(row["Pax."] || 0);
                     const noches = parseInt(row["Noches"] || 0);
 
@@ -706,7 +917,7 @@
                         };
                     }
 
-                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                    const importe = parseNum(row["Importe(*)"]);
                     const pax = parseInt(row["Pax."] || 0);
                     const noches = parseInt(row["Noches"] || 0);
 
@@ -742,7 +953,7 @@
                         const date = new Date(dateStr);
                         if (!isNaN(date)) {
                             const key = `${monthNames[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
-                            const importe = parseFloat((row["Importe(*)"] || "0").toString().replace('.', '').replace(',', '.'));
+                            const importe = parseNum(row["Importe(*)"]);
                             revenueByMonth[key] = (revenueByMonth[key] || 0) + (isNaN(importe) ? 0 : importe);
                         }
                     }
@@ -932,17 +1143,34 @@
                     };
 
                     setData(prevData => {
-                        const merged = roomData.map(dbRow => {
-                            const resID = String(dbRow.Reserva || "").trim();
+                        let merged = roomData.map(dbRow => {
+                            const resID = normalizeId(dbRow.Reserva || doc.id);
 
-                            if (authorizingIds.current.has(resID)) return dbRow;
+                            // If we are currently authorizing this ID, IGNORE any local changes and use the server state
+                            if (authorizingIds.current.has(resID)) {
+                                return { ...dbRow, _diff: null, _changes: null };
+                            }
 
-                            const localMatch = prevData.find(p => String(p.Reserva || "").trim() === resID);
+                            const localMatch = prevData.find(p => normalizeId(p.Reserva) === resID);
                             if (localMatch && localMatch._diff) {
                                 return { ...dbRow, _diff: localMatch._diff, _changes: localMatch._changes };
                             }
-                            return dbRow;
+                            return { ...dbRow, _diff: null, _changes: null };
                         });
+
+                        // Deduplicate composite IDs (e.g. "71375" and "71375_Hotel") in memory
+                        const deduped = [];
+                        const seenIds = new Set();
+                        merged.forEach(row => {
+                            const baseId = normalizeId(row.Reserva).split('_')[0];
+                            if (!seenIds.has(baseId)) {
+                                seenIds.add(baseId);
+                                deduped.push(row);
+                            } else {
+                                console.log(`[Sync] Omitting duplicate composite ID: ${row.Reserva}`);
+                            }
+                        });
+                        merged = deduped;
 
                         // Preservar registros totalmente nuevos que no están en DB aún
                         const localNews = prevData.filter(p => p._diff === 'new' && !authorizingIds.current.has(String(p.Reserva).trim()));
@@ -976,8 +1204,11 @@
                 let totalPax = 0;
                 let activeCount = 0;
                 let prospectCount = 0;
+                let pendingQuotes = 0;
                 let releaseAlerts = 0;
                 let followUpAlerts = 0;
+                let proforma24h = 0;
+                let commercialsCount = {};
 
                 const now = new Date();
                 now.setHours(0, 0, 0, 0);
@@ -987,20 +1218,38 @@
                 const uniqueGroups = new Set();
 
                 processedData.forEach(row => {
-                    const importe = parseFloat((row["Importe(*)"] || "0").toString().replace(/\./g, '').replace(',', '.')) || 0;
-                    totalRevenue += importe;
-                    totalPax += parseInt(row["Pax."] || 0);
+                    const rowStatus = (row["Estado"] || "").toLowerCase();
+                    const isCancelled = rowStatus.includes('anulada') || rowStatus.includes('cancelada') || rowStatus.includes('baja');
+
+                    const importe = parseNum(row["Importe(*)"]);
+                    // Solo sumar revenue/pax si NO está cancelado
+                    if (!isCancelled) {
+                        totalRevenue += importe;
+                        totalPax += parseInt(row["Pax."] || 0);
+                    }
 
                     const groupId = row["Reserva"] || row["Nombre del Grupo"];
                     if (groupId && !uniqueGroups.has(groupId)) {
                         uniqueGroups.add(groupId);
+
+                        const comercial = row["Com_Comercial"];
+                        if (comercial && !isCancelled) {
+                            if (!commercialsCount[comercial]) commercialsCount[comercial] = 0;
+                            commercialsCount[comercial]++;
+                        }
+
                         const status = (row["Com_Estado_Interno"] || row["Segment."] || row["Estado"] || "PROSPECTO").toUpperCase();
 
-                        // 1. Tanteos
+                        // 1. Tanteos y Presupuestos
                         if (status.includes("TANTEO") || status.includes("TENTA") || status.includes("PROSPEC") || status.includes("PRESUP")) {
-                            prospectCount++;
+                            if (!isCancelled) {
+                                prospectCount++;
+                                if (status.includes("PRESUPUESTO") || (row["Reserva"] && String(row["Reserva"]).startsWith("PRES."))) {
+                                    pendingQuotes++;
+                                }
+                            }
                         } else if (status.includes("CONF") || status.includes("BLOQ") || status.includes("OK") || status.includes("CERR")) {
-                            activeCount++;
+                            if (!isCancelled) activeCount++;
                         }
 
                         // 2. Release Alerts
@@ -1029,6 +1278,13 @@
                         if (followUp && !isNaN(followUp.getTime())) {
                             if (followUp <= now) followUpAlerts++;
                         }
+
+                        // 4. Proformas 24h
+                        if (row.ProformaItems && row.ProformaItems.length > 0) {
+                            // Si tiene ProformaItems, consideramos que tiene proforma. 
+                            // Podríamos filtrar por fecha si existiera un campo de creación específico.
+                            proforma24h++;
+                        }
                     }
                 });
 
@@ -1036,9 +1292,13 @@
                     revenue: totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
                     active: activeCount,
                     prospects: prospectCount,
+                    pendingQuotes: pendingQuotes,
                     releaseAlerts: releaseAlerts,
                     followUpAlerts: followUpAlerts,
-                    pax: totalPax
+                    proformas: proforma24h,
+                    pax: totalPax,
+                    count: uniqueGroups.size,
+                    commercialsCount: commercialsCount
                 };
             }, [processedData]);
 
@@ -1128,6 +1388,8 @@
                                 if (lower.includes("empresa") || lower.includes("agencia") || lower.includes("company")) return "Empresa/Agencia";
                                 if (lower.includes("régi") || lower.includes("regi") || lower.includes("meal")) return "Régimen";
                                 if (lower.includes("pax") || lower.includes("personas")) return "Pax.";
+                                if (lower.includes("precio u") || lower.includes("unit price") || lower.includes("tarifa neta")) return "Precio Unitario";
+                                if (lower.includes("cant") || lower.includes("qty") || lower.includes("unidades")) return "Cantidad";
                                 return val;
                             });
                             console.log(`[Import] Cabecera detectada en fila ${i + 1}:`, headers.filter(h => h).join(', '));
@@ -1276,30 +1538,6 @@
                 // --- GROUPING LOGIC: Aggregating split reservations (same ID) ---
                 const groupedMap = new Map();
 
-                // Helper to safely parse numbers without breaking existing decimals
-                const parseNum = (v) => {
-                    if (v === null || v === undefined || v === "") return 0;
-                    if (typeof v === 'number') return v;
-                    let s = String(v).trim();
-                    // If it has both . and , it's definitely formatted (e.g. 1.234,56)
-                    if (s.includes('.') && s.includes(',')) {
-                        s = s.replace(/\./g, '').replace(',', '.');
-                    }
-                    // If it has only a comma and it's near the end, it's a decimal separator (e.g. 1234,56)
-                    else if (s.includes(',') && !s.includes('.')) {
-                        s = s.replace(',', '.');
-                    }
-                    // If it has only a dot and 3 digits after it, and NO comma, it MIGHT be a thousands separator (e.g. 1.234)
-                    // This is the ambiguous case. But usually in our Excel, 3 digits after dot usually means thousands if no comma.
-                    // However, 1.234 could be 1 and 234/1000. 
-                    // Let's assume if it has a dot and we are in es-ES context, and it's 3 digits, it's thousands.
-                    else if (s.includes('.') && s.split('.').pop().length === 3 && s.length > 4) {
-                        s = s.replace(/\./g, '');
-                    }
-
-                    return parseFloat(s) || 0;
-                };
-
                 // Helper to get Date object from string
                 const parseToDateObj = (str) => {
                     if (!str) return null;
@@ -1310,7 +1548,7 @@
                 };
 
                 simpleRows.forEach(row => {
-                    const id = String(row["Reserva"] || "").trim();
+                    const id = normalizeId(row["Reserva"]);
                     if (!id || id === "-") {
                         // For rows without ID, treat as unique by using a random key
                         groupedMap.set(`TEMP-${Math.random()}`, row);
@@ -1379,8 +1617,11 @@
                     if (!newRow["Reserva"]) {
                         newRow["Reserva"] = `TEMP-${Date.now()}-${idx}`;
                     }
-                    const resID = String(newRow["Reserva"]).trim();
-                    const existingIdx = mergedData.findIndex(r => String(r["Reserva"]).trim() === resID);
+                    const resID = normalizeId(newRow["Reserva"]);
+                    const existingIdx = mergedData.findIndex(r => {
+                        const existingId = normalizeId(r["Reserva"]);
+                        return existingId === resID || existingId.startsWith(resID + "_") || resID.startsWith(existingId + "_");
+                    });
 
                     if (existingIdx === -1) {
                         // Es un grupo nuevo (No estaba en DB)
@@ -1396,25 +1637,7 @@
 
                         // --- ROBUST COMPARISON LOGIC ---
                         // Helper to parse any number format to a clean float
-                        const toNum = (v) => {
-                            if (v === null || v === undefined || v === "" || v === "---") return NaN;
-                            if (typeof v === 'number') return v;
-                            let s = String(v).trim().replace(/[€$\s]/g, '');
-                            if (s === "" || s === "-" || s === "---") return NaN;
-                            // Spanish format: 1.234,56 -> 1234.56
-                            if (s.includes(',') && s.includes('.')) {
-                                s = s.replace(/\./g, '').replace(',', '.');
-                            }
-                            // Only comma (no dot): 1234,56 -> 1234.56
-                            else if (s.includes(',') && !s.includes('.')) {
-                                s = s.replace(',', '.');
-                            }
-                            // Only dot with 3 digits after in es-ES context: 1.234 = 1234
-                            else if (s.includes('.') && s.split('.').pop().length === 3 && s.length > 4) {
-                                s = s.replace(/\./g, '');
-                            }
-                            return parseFloat(s);
-                        };
+                        const toNum = (v) => parseNum(v);
 
                         // Helper to normalize any date to YYYY-MM-DD
                         const toIsoDate = (v) => {
@@ -1568,7 +1791,8 @@
 
                 pendingRows.forEach(row => {
                     const { _diff, _changes, ...rest } = row;
-                    const docRef = db.collection("groups").doc(String(row["Reserva"]));
+                    const resID = normalizeId(row["Reserva"]);
+                    const docRef = db.collection("groups").doc(resID);
 
                     // Sanitize rest
                     const clean = {};
@@ -1587,7 +1811,7 @@
                 console.log(`🚀 AUTORIZANDO TODO: ${pendingRows.length} registros...`);
 
                 // Marcar IDs para que onSnapshot no los restaure
-                pendingRows.forEach(r => authorizingIds.current.add(String(r["Reserva"]).trim()));
+                pendingRows.forEach(r => authorizingIds.current.add(normalizeId(r["Reserva"])));
 
                 // Optimistic update
                 const oldData = [...data];
@@ -1597,12 +1821,12 @@
                     console.log("✅ AUTORIZACIÓN MASIVA EXITOSA");
                     // Limpiar tracker tras un pequeño delay para dejar que onSnapshot procese el cambio final
                     setTimeout(() => {
-                        pendingRows.forEach(r => authorizingIds.current.delete(String(r["Reserva"]).trim()));
+                        pendingRows.forEach(r => authorizingIds.current.delete(normalizeId(r["Reserva"])));
                     }, 2000);
                 }).catch(err => {
                     console.error("❌ ERROR EN AUTORIZACIÓN MASIVA:", err);
                     alert("Error al autorizar todo: " + err.message);
-                    pendingRows.forEach(r => authorizingIds.current.delete(String(r["Reserva"]).trim()));
+                    pendingRows.forEach(r => authorizingIds.current.delete(normalizeId(r["Reserva"])));
                     setData(oldData); // Restore on error
                 });
             };
@@ -2044,7 +2268,7 @@
                 else setExpandedGroup(groupName);
             };
 
-            const registerNewGroup = () => {
+            const registerNewGroup = async () => {
                 if (!newGroup["Nombre del Grupo"]) {
                     alert("Por favor, introduce el nombre del grupo.");
                     return;
@@ -2056,8 +2280,24 @@
                     nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)).toString();
                 }
 
-                const groupToSave = { ...newGroup, "Noches": nights, "Pernoct.": (parseInt(newGroup["Pax."]) * parseInt(nights)).toString() };
-                setData([groupToSave, ...data]);
+                const groupToSave = {
+                    ...newGroup,
+                    "Noches": nights,
+                    "Pernoct.": (parseInt(newGroup["Pax."]) * parseInt(nights)).toString(),
+                    "updatedAt": firebase.firestore.FieldValue.serverTimestamp(),
+                    "createdAt": firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                try {
+                    // Try to save to Firestore so it persists
+                    await db.collection("groups").doc(String(groupToSave.Reserva)).set(groupToSave, { merge: true });
+                    setData([groupToSave, ...data]);
+                } catch (e) {
+                    console.error("Error saving manual group:", e);
+                    alert("No se pudo guardar online, guardando localmente.");
+                    setData([groupToSave, ...data]);
+                }
+
                 setShowAddGroupModal(false);
                 setNewGroup({
                     "Nombre del Grupo": "",
@@ -2068,9 +2308,11 @@
                     "Segment.": "GRUPOS",
                     "Régimen": "HD",
                     "Importe(*)": "0",
-                    "Reserva": Math.floor(Math.random() * 900000 + 100000).toString(),
-                    "Estado": "Confirmada"
+                    "Reserva": `PRES. ${Math.floor(Math.random() * 9000 + 1000)}`,
+                    "Estado": "Presupuesto",
+                    "Com_Estado_Interno": "PRESUPUESTO"
                 });
+                setEmailText("");
             };
 
             const clearDatabase = async () => {
@@ -2107,121 +2349,135 @@
             return (
                 <div className="min-h-screen pb-10 bg-dot-pattern">
                     {/* Header */}
-                    <header className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-4 shadow-lg sticky top-0 z-20 border-b border-white/5">
-                        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <a href="Admin.html" className="p-2 hover:bg-slate-700 rounded-lg transition-colors mr-2" title="Volver al Admin">
+                    {/* Header: Global Navigation & Status */}
+                    <header className="bg-white border-b border-slate-200 py-3 shadow-sm sticky top-0 z-50">
+                        <div className="container mx-auto px-4 flex items-center justify-between gap-4">
+                            {/* Brand & Subtitle */}
+                            <div className="flex items-center gap-4 flex-1">
+                                <a href="Admin.html" className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500" title="Volver al Admin">
                                     <IconChevronLeft size={20} />
                                 </a>
-                                <div className="bg-white rounded-lg p-1 shadow-sm">
-                                    <img src="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-10 w-auto object-contain" alt="Logo Nexus" />
-                                </div>
-                                <div>
-                                    <h1 className="text-xl font-bold">Nexus Groups</h1>
-                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Inteligencia Hotelera</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-slate-50 rounded-xl p-1.5 shadow-inner border border-slate-100">
+                                        <img src="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-8 w-auto object-contain" alt="Nexus Logo" />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-xl font-black text-slate-800 leading-none flex items-center gap-2">Nexus <span className="text-emerald-600">Groups</span></h1>
+                                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">Gestión unificada de grupos y análisis predictivo.</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="flex flex-wrap gap-2">
+                            {/* Middle: Consultant Trigger */}
+                            <div className="hidden lg:flex items-center gap-4">
+                                <button
+                                    onClick={handleConsultantClick}
+                                    className="flex items-center gap-2 px-6 py-2 rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-sm"
+                                >
+                                    <span className="text-[11px] font-black uppercase tracking-widest">Consultor IA</span>
+                                    <IconSparkles size={16} className="animate-pulse" />
+                                </button>
+                            </div>
+
+                            {/* Actions Right */}
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setShowAddGroupModal(true)}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 text-sm"
+                                    className="bg-[#2d5a43] hover:bg-[#1e3a2c] text-white p-2.5 rounded-xl shadow-lg shadow-emerald-200 transition-all"
+                                    title="Añadir Grupo"
                                 >
-                                    <IconPlus size={16} /> Dar de Alta Grupo
+                                    <IconPlus size={20} />
                                 </button>
-                                <label className="bg-white hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-bold shadow-sm border border-blue-200 transition-all flex items-center gap-2 cursor-pointer text-sm">
-                                    <IconUpload size={16} /> Importar (CSV/XLS)
-                                    <input type="file" className="hidden" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} />
-                                </label>
-                                <button
-                                    onClick={exportCSV}
-                                    className="bg-white hover:bg-slate-50 text-slate-600 px-4 py-2 rounded-lg font-bold shadow-sm border border-slate-200 transition-all flex items-center gap-2 text-sm"
-                                >
-                                    <IconDownload size={16} /> Exportar
-                                </button>
+
+                                <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
+
+                                <div className="flex gap-1 md:gap-2">
+                                    <label className="p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer" title="Importar">
+                                        <IconUpload size={20} />
+                                        <input type="file" className="hidden" accept=".csv, .xlsx, .xls" onChange={handleFileUpload} />
+                                    </label>
+                                    <button onClick={exportCSV} className="p-2 text-slate-400 hover:text-emerald-600 transition-colors" title="Exportar">
+                                        <IconDownload size={20} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </header>
 
-                    <div className="container mx-auto mt-6 px-4">
+
+
+                    <div className="container mx-auto px-4">
                         {/* KPI Cards: ENFOQUE COMERCIAL */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
-                            <div
-                                onClick={() => setKpiFilter(kpiFilter === 'active' ? null : 'active')}
-                                className={`bg-white p-4 rounded-lg shadow border-l-4 border-emerald-500 hover:shadow-lg transition-all hover:-translate-y-0.5 kpi-card cursor-pointer ${kpiFilter === 'active' ? 'ring-2 ring-emerald-500 bg-emerald-50/30' : ''}`}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Grupos Activos</p>
-                                        <p className="text-3xl font-black text-emerald-600 mt-1 tabular-nums">{stats.active}</p>
-                                    </div>
-                                    <div className="p-2 bg-emerald-100 rounded text-emerald-600">
-                                        <IconCheck size={20} />
-                                    </div>
+                        {/* KPI SECTION: Unificada en una sola línea elegante */}
+                        <div className="flex flex-row flex-nowrap gap-3 mb-6 overflow-x-auto pb-2 custom-scrollbar">
+                            {/* REVENUE */}
+                            <div className="min-w-[200px] flex-1 bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-1 h-3 bg-emerald-500 rounded-full"></div>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Revenue</span>
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-2 font-medium">Confirmados / Bloqueados</p>
+                                <div className="flex items-end gap-2">
+                                    <span className="text-2xl font-black text-slate-800 tabular-nums leading-none tracking-tight">{stats.revenue}</span>
+                                    <span className="text-[10px] font-bold text-emerald-500 pb-0.5">+0%</span>
+                                </div>
                             </div>
 
-                            <div
-                                onClick={() => setKpiFilter(kpiFilter === 'prospect' ? null : 'prospect')}
-                                className={`bg-white p-4 rounded-lg shadow border-l-4 border-amber-500 hover:shadow-lg transition-all hover:-translate-y-0.5 kpi-card cursor-pointer ${kpiFilter === 'prospect' ? 'ring-2 ring-amber-500 bg-amber-50/30' : ''}`}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Tanteos / Solicitud</p>
-                                        <p className="text-3xl font-black text-amber-600 mt-1 tabular-nums">{stats.prospects}</p>
+                            {/* PENDIENTES DE COTIZAR (Visible and flashing if > 0) */}
+                            {stats.pendingQuotes > 0 && (
+                                <div
+                                    onClick={() => setKpiFilter('pendingQuotes')}
+                                    className="min-w-[170px] flex-1 bg-rose-50 p-3 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-center cursor-pointer hover:bg-rose-100 transition-colors animate-pulse"
+                                >
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-1 h-3 bg-rose-600 rounded-full"></div>
+                                        <span className="text-[10px] text-rose-600 font-bold uppercase tracking-wider">Por Cotizar</span>
                                     </div>
-                                    <div className="p-2 bg-amber-100 rounded text-amber-600">
-                                        <IconClock size={20} />
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-2xl font-black text-rose-700 tabular-nums leading-none">{stats.pendingQuotes}</span>
+                                        <span className="text-[10px] font-bold text-rose-500 uppercase">Grupos</span>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-2 font-medium">Gestión de Presupuestos</p>
+                            )}
+
+
+                            {/* RELEASE 7 DÍAS */}
+                            <div className="min-w-[170px] flex-1 bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-1 h-3 bg-rose-500 rounded-full"></div>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Release</span>
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-black text-slate-800 tabular-nums leading-none">{stats.releaseAlerts}</span>
+                                    <span className="text-[10px] font-bold text-rose-500 uppercase">7 Días</span>
+                                </div>
                             </div>
 
-                            <div
-                                onClick={() => setKpiFilter(kpiFilter === 'release' ? null : 'release')}
-                                className={`bg-white p-4 rounded-lg shadow border-l-4 border-rose-600 hover:shadow-lg transition-all hover:-translate-y-0.5 kpi-card cursor-pointer ${kpiFilter === 'release' ? 'ring-2 ring-rose-600 bg-rose-50' : ''}`}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Alertas de Release</p>
-                                        <p className="text-3xl font-black text-rose-700 mt-1 tabular-nums">{stats.releaseAlerts}</p>
-                                    </div>
-                                    <div className="p-2 bg-rose-100 rounded text-rose-600">
-                                        <IconAlertTriangle size={20} />
-                                    </div>
+                            {/* TAREAS HOY */}
+                            <div className="min-w-[170px] flex-1 bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-1 h-3 bg-blue-500 rounded-full"></div>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tareas</span>
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-2 font-medium">Próximos 7 días</p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-black text-slate-800 tabular-nums leading-none">{stats.followUpAlerts}</span>
+                                    <span className="text-[10px] font-bold text-blue-500 uppercase">Hoy</span>
+                                </div>
                             </div>
 
-                            <div
-                                onClick={() => setKpiFilter(kpiFilter === 'followup' ? null : 'followup')}
-                                className={`bg-white p-4 rounded-lg shadow border-l-4 border-blue-600 hover:shadow-lg transition-all hover:-translate-y-0.5 kpi-card cursor-pointer ${kpiFilter === 'followup' ? 'ring-2 ring-blue-600 bg-blue-50/30' : ''}`}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Seguimientos Hoy</p>
-                                        <p className="text-3xl font-black text-blue-700 mt-1 tabular-nums">{stats.followUpAlerts}</p>
+                            {/* RECUENTO POR COMERCIAL */}
+                            <div className="w-[1px] bg-slate-200 mx-2 flex-shrink-0 self-stretch my-2"></div>
+                            {Object.entries(stats.commercialsCount || {}).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
+                                <div key={name} className="min-w-[140px] flex-1 bg-slate-50/50 p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:bg-white transition-colors">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className={`w-1 h-3 rounded-full ${getCommColor(name)}`}></div>
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider truncate">{name}</span>
                                     </div>
-                                    <div className="p-2 bg-blue-100 rounded text-blue-600">
-                                        <IconMail size={20} />
-                                    </div>
-                                </div>
-                                <p className="text-[10px] text-gray-400 mt-2 font-medium">Tareas comerciales</p>
-                            </div>
-
-                            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-slate-600 hover:shadow-lg transition-all hover:-translate-y-0.5 kpi-card">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Forecast Total</p>
-                                        <p className="text-xl font-black text-slate-700 mt-2 truncate tabular-nums">{stats.revenue}</p>
-                                    </div>
-                                    <div className="p-2 bg-slate-100 rounded text-slate-600">
-                                        <IconChart size={20} />
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-2xl font-black text-slate-700 tabular-nums leading-none">{count}</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Grupos</span>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-2 font-medium">{stats.pax} Pax Total</p>
-                            </div>
+                            ))}
                         </div>
 
                         {/* --- FILTERS TOOLBAR --- */}
@@ -2251,8 +2507,13 @@
                                     onChange={(e) => setFilterStatus(e.target.value)}
                                 >
                                     <option value="all">Todos</option>
+                                    <option value="activos">Activos (No Anulados)</option>
                                     <option value="confirmada">Confirmados</option>
-                                    <option value="anulada">Anulados</option>
+                                    <option value="tentativa">Tentativas / Bloqueos</option>
+                                    <option value="presupuesto">Presupuestos / Enviados</option>
+                                    <option value="prospecto">Prospectos</option>
+                                    <option value="anulada">Anulados / Cancelados</option>
+                                    <option value="pasado">Pasados</option>
                                 </select>
                             </div>
 
@@ -2454,7 +2715,7 @@
                                                 const widthPercent = (displayDuration / 90) * 100;
 
                                                 // Color Logic
-                                                const st = getStatusProps(group["Com_Estado_Interno"] || group["Segment."] || group["Estado"], group["Entrada"]);
+                                                const st = getStatusProps(group["Com_Estado_Interno"] || group["Segment."], group["Entrada"], group["Estado"]);
                                                 const colorClass = `${st.color} hover:brightness-110`;
 
                                                 return (
@@ -2677,8 +2938,9 @@
                                                 onChange={(e) => setFilterDirCommercial(e.target.value)}
                                             >
                                                 <option value="">Todos los Comerciales</option>
-                                                {COMMERCIALS.map(c => (
-                                                    <option key={c} value={c}>{c}</option>
+                                                <option value="SIN_ASIGNAR">Sin Asignar</option>
+                                                {commercials.filter(c => c.active).map(c => (
+                                                    <option key={c.name} value={c.name}>{c.name}</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -2705,23 +2967,29 @@
                                         <tbody className="divide-y divide-slate-100">
                                             {groupedData
                                                 .filter(g => {
-                                                    // 1. Buscador Texto (Optimizado: ya filtrado en processedData, pero aseguramos coherencia)
+                                                    // 1. Buscador Texto (Ya filtrado por processedData)
+                                                    // No necesitamos re-filtrar aquí si groupedData se basa en processedData
+                                                    // pero respetamos searchTerm si de alguna forma se saltó el primer filtro
                                                     if (searchTerm) {
                                                         const lowerTerm = searchTerm.toLowerCase();
-                                                        const matches = g.name.toLowerCase().includes(lowerTerm) ||
-                                                            g.agency.toLowerCase().includes(lowerTerm) ||
-                                                            (g.records[0]?.["Reserva"] || "").toString().toLowerCase().includes(lowerTerm) ||
-                                                            (g.records[0]?.["Com_Comercial"] || "").toLowerCase().includes(lowerTerm);
+                                                        const name = (g.name || "").toLowerCase();
+                                                        const id = (g.id || "").toString().toLowerCase();
+                                                        const agency = (g.agency || "").toLowerCase();
+                                                        const comercial = (g.records?.[0]?.["Com_Comercial"] || "").toLowerCase();
+
+                                                        const matches = name.includes(lowerTerm) || id.includes(lowerTerm) || agency.includes(lowerTerm) || comercial.includes(lowerTerm);
                                                         if (!matches) return false;
                                                     }
 
                                                     const status = (g.records[0]?.["Com_Estado_Interno"] || g.status || "").toUpperCase();
-                                                    // 2. Excluir Cancelados/Anulados
-                                                    if (status.includes("ANUL") || status.includes("CANC")) return false;
 
-                                                    // 3. Excluir Pasados
-                                                    const today = new Date().toISOString().split('T')[0];
-                                                    if (g.departure < today) return false;
+                                                    // 2. Filtro de Estado (Si hay búsqueda, mostramos todo)
+                                                    if (!searchTerm && (status.includes("ANUL") || status.includes("CANC")) && filterStatus !== 'anulada') return false;
+
+                                                    // 3. Filtro de Fecha (Solo ocultamos pasados si NO hay búsqueda activa)
+                                                    // Eliminamos la restricción agresiva de salida para que aparezcan todos los gestionados
+                                                    // const today = new Date().toISOString().split('T')[0];
+                                                    // if (!searchTerm && g.departure < today) return false;
 
                                                     // 4. Filtro Hotel
                                                     if (filterDirHotel) {
@@ -2730,16 +2998,20 @@
                                                         if (hotel !== filterDirHotel) return false;
                                                     }
 
-                                                    // 5. Filtro Comercial (case-insensitive)
+                                                    // 5. Filtro Comercial
                                                     if (filterDirCommercial) {
                                                         const rawC = (g.records[0]?.["Com_Comercial"] || "").trim().toUpperCase();
-                                                        if (rawC !== filterDirCommercial.toUpperCase()) return false;
+                                                        if (filterDirCommercial === 'SIN_ASIGNAR') {
+                                                            if (rawC !== "") return false;
+                                                        } else {
+                                                            if (rawC !== filterDirCommercial.toUpperCase()) return false;
+                                                        }
                                                     }
 
                                                     return true;
                                                 })
                                                 .map((group, idx) => {
-                                                    const st = getStatusProps(group.records?.[0]?.["Com_Estado_Interno"] || group.records?.[0]?.["Segment."] || group.status, group.arrival);
+                                                    const st = getStatusProps(group.records?.[0]?.["Com_Estado_Interno"] || group.records?.[0]?.["Segment."], group.arrival, group.records?.[0]?.["Estado"]);
                                                     const statusText = st.label;
                                                     const statusColor = st.text;
 
@@ -2778,7 +3050,7 @@
                                                             {/* COMERCIAL */}
                                                             <td className="px-6 py-4">
                                                                 <div className="flex items-center gap-1.5">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${getCommColor(group.records[0]?.["Com_Comercial"])}`}></div>
                                                                     <span className="text-[10px] font-bold text-slate-600 uppercase">
                                                                         {group.records[0]?.["Com_Comercial"] || "Sin Asignar"}
                                                                     </span>
@@ -3142,14 +3414,41 @@
                                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl animate-fade-in overflow-hidden">
                                     <div className="bg-[#2d5a43] p-6 text-white flex justify-between items-center">
                                         <div>
-                                            <h3 className="text-xl font-bold">Registro de Nuevo Grupo</h3>
-                                            <p className="text-emerald-100/70 text-xs">Introduce los detalles de la reserva manual</p>
+                                            <h3 className="text-xl font-bold flex items-center gap-2">Petición de Grupo <IconSparkles size={18} className="text-emerald-200" /></h3>
+                                            <p className="text-emerald-100/70 text-xs">Pega el correo para lectura IA o rellena manualmente</p>
                                         </div>
                                         <button onClick={() => setShowAddGroupModal(false)} className="text-white/60 hover:text-white transition-colors">
-                                            <IconPlus className="rotate-45" size={24} />
+                                            <IconX size={24} />
                                         </button>
                                     </div>
-                                    <div className="p-8 grid grid-cols-2 gap-6">
+                                    <div className="p-6 bg-slate-50 border-b border-slate-100">
+                                        <label className="block text-[10px] font-bold text-[#2d5a43] uppercase tracking-widest mb-2 flex items-center gap-1">
+                                            <IconMail size={12} /> Pegar Texto del Correo (IA)
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <textarea
+                                                className="w-full flex-1 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-[#2d5a43] focus:ring-1 focus:ring-[#2d5a43] resize-none h-16 transition-all"
+                                                placeholder="Pega aquí el texto que te ha enviado la agencia o cliente..."
+                                                value={emailText}
+                                                onChange={(e) => setEmailText(e.target.value)}
+                                            ></textarea>
+                                            <button
+                                                onClick={handleAnalyzeEmail}
+                                                disabled={!emailText.trim() || isAnalyzing}
+                                                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-xl px-4 flex flex-col items-center justify-center gap-1 transition-all shadow-md shrink-0 w-28"
+                                            >
+                                                {isAnalyzing ? (
+                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <>
+                                                        <IconBrain size={18} />
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider">Extraer</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 grid grid-cols-2 gap-4 h-[40vh] overflow-y-auto custom-scrollbar">
                                         <div className="col-span-2">
                                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Nombre del Grupo</label>
                                             <input
@@ -3285,7 +3584,7 @@
                                                     <div className="flex items-center gap-2">
                                                         <h3 className="text-xl font-black tracking-tight leading-none text-emerald-400">{selectedGroupFicha.name || "NOMBRE DEL GRUPO"}</h3>
                                                         {(() => {
-                                                            const st = getStatusProps(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || selectedGroupFicha.records[0]?.["Segment."] || selectedGroupFicha.records[0]?.["Estado"], selectedGroupFicha.arrival);
+                                                            const st = getStatusProps(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || selectedGroupFicha.records[0]?.["Segment."], selectedGroupFicha.arrival, selectedGroupFicha.records[0]?.["Estado"]);
                                                             return (
                                                                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${st.text}`}>
                                                                     {st.label}
@@ -3312,7 +3611,7 @@
                                                         const baseRecord = (selectedGroupFicha.records && selectedGroupFicha.records[0]) ? selectedGroupFicha.records[0] : {};
 
                                                         // Recalculate Forecast for Proforma to ensure sync with Tarifa Neta
-                                                        const neto = parseFloat(baseRecord["Com_Precio"] || "0");
+                                                        const neto = parseNum(baseRecord["Com_Precio"] || "0");
                                                         const pax = parseInt(selectedGroupFicha.totalPax || 0);
                                                         const noches = parseInt(selectedGroupFicha.totalNights || 1);
                                                         const calculatedImporte = neto > 0 ? (neto * pax * noches).toFixed(2) : (selectedGroupFicha.totalRevenue || baseRecord["Importe(*)"]);
@@ -3451,7 +3750,7 @@
                                                 }
                                             }
 
-                                            const neto = parseFloat(selectedGroupFicha.records[0]?.["Com_Precio"] || "0");
+                                            const neto = parseNum(selectedGroupFicha.records[0]?.["Com_Precio"] || "0");
                                             const pax = parseInt(selectedGroupFicha.totalPax || 0);
                                             const noches = parseInt(selectedGroupFicha.totalNights || 1);
                                             // Auto-calculate forecast if Net Rate is input, otherwise use Importe(*)
@@ -3545,7 +3844,7 @@
                                                             <div className="relative h-10 w-full">
                                                                 {(() => {
                                                                     const rawStatus = selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || selectedGroupFicha.records[0]?.["Segment."] || selectedGroupFicha.records[0]?.["Estado"] || "PROSPECTO";
-                                                                    const st = getStatusProps(rawStatus, selectedGroupFicha.arrival);
+                                                                    const st = getStatusProps(rawStatus, selectedGroupFicha.arrival, selectedGroupFicha.records[0]?.["Estado"]);
 
                                                                     let selectVal = "PROSPECTO";
                                                                     const s = rawStatus.toUpperCase();
@@ -3596,16 +3895,34 @@
 
                                                         {/* Comercial Asignado */}
                                                         <div className="w-28 relative">
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Comercial</label>
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <label className="text-[9px] font-black text-slate-400 uppercase block leading-none">Comercial</label>
+                                                                {(() => {
+                                                                    const currentComm = selectedGroupFicha.records[0]?.["Com_Comercial"];
+                                                                    const isCommInactive = currentComm && commercials.some(c => c.name === currentComm && !c.active);
+                                                                    if (isCommInactive) {
+                                                                        return (
+                                                                            <span className="flex items-center gap-1 text-[8px] font-black text-rose-500 animate-pulse" title="Comercial Inactivo - ¡Reasignar!">
+                                                                                <IconAlertTriangle size={10} /> INACTIVO
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
+                                                            </div>
                                                             <div className="relative h-10 w-full">
                                                                 <select
-                                                                    className="w-full h-full pl-2 pr-6 text-[9px] font-black uppercase rounded-lg bg-white border-2 border-slate-200 text-slate-700 appearance-none outline-none hover:border-blue-400 transition-all shadow-sm cursor-pointer"
+                                                                    className={`w-full h-full pl-2 pr-6 text-[9px] font-black uppercase rounded-lg bg-white border-2 text-slate-700 appearance-none outline-none transition-all shadow-sm cursor-pointer ${selectedGroupFicha.records[0]?.["Com_Comercial"] && commercials.some(c => c.name === selectedGroupFicha.records[0]?.["Com_Comercial"] && !c.active)
+                                                                        ? 'border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-400'
+                                                                        : 'border-slate-200 hover:border-blue-400'
+                                                                        }`}
                                                                     value={selectedGroupFicha.records[0]?.["Com_Comercial"] || ""}
                                                                     onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Comercial", e.target.value)}
                                                                 >
                                                                     <option value="">SIN ASIGNAR</option>
-                                                                    {COMMERCIALS.map(name => (
-                                                                        <option key={name} value={name}>{name}</option>
+                                                                    {/* Only show active ones or the current one if it's inactive (so it's selectable/visible) */}
+                                                                    {commercials.filter(c => (c.active || c.name === (selectedGroupFicha.records[0]?.["Com_Comercial"]))).map(c => (
+                                                                        <option key={c.name} value={c.name}>{c.name} {!c.active ? '(INACTIVO)' : ''}</option>
                                                                     ))}
                                                                 </select>
                                                                 <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">

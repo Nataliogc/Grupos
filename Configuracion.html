@@ -91,6 +91,8 @@
             const [activeHotel, setActiveHotel] = useState('guadiana');
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState(null);
+            const [editingCommercialIdx, setEditingCommercialIdx] = useState(null);
+            const [editingCommercialName, setEditingCommercialName] = useState('');
             const [config, setConfig] = useState({
                 guadiana: {
                     name: "Hotel",
@@ -126,8 +128,9 @@
                 },
                 system: {
                     pin: "1234",
-                    geminiModel: "gemini-2.5-flash",
-                    iaStatus: "Online"
+                    geminiModel: "gemini-2.4-flash",
+                    iaStatus: "Online",
+                    commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"]
                 }
             });
 
@@ -135,7 +138,15 @@
                 // Cargar config desde Firestore si existe
                 db.collection("settings").doc("main").get().then(doc => {
                     if (doc.exists) {
-                        setConfig(prev => ({ ...prev, ...doc.data() }));
+                        const data = doc.data();
+                        setConfig(prev => ({
+                            ...prev,
+                            ...data,
+                            system: {
+                                ...prev.system,
+                                ...(data.system || {})
+                            }
+                        }));
                     }
                 });
                 // Lucide se maneja ahora a través del componente LucideIcon
@@ -190,6 +201,10 @@
                                 <LucideIcon name="cpu" className="w-5 h-5" />
                                 Sistema e IA
                             </button>
+                            <button onClick={() => setActiveHotel('commercials')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'commercials' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                <LucideIcon name="users" className="w-5 h-5" />
+                                Agentes Comerciales
+                            </button>
                         </nav>
 
                         <button
@@ -219,18 +234,254 @@
                         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
                             <div className="bg-slate-50 p-8 border-b border-slate-100 flex items-center gap-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-sm">
-                                    <LucideIcon name={activeHotel === 'system' ? 'settings-2' : 'building-2'} className="w-6 h-6 text-[#2d5a43]" />
+                                    <LucideIcon name={activeHotel === 'system' ? 'settings-2' : activeHotel === 'commercials' ? 'users' : 'building-2'} className="w-6 h-6 text-[#2d5a43]" />
                                 </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-slate-900 uppercase">
-                                        {activeHotel === 'system' ? 'Parámetros del Sistema' : `Configuración ${activeHotel.charAt(0).toUpperCase() + activeHotel.slice(1)}`}
-                                    </h3>
-                                    <p className="text-xs text-slate-400">Edita los valores que aparecerán en las facturas y documentos oficiales.</p>
-                                </div>
+                                {activeHotel === 'commercials' ? (
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-900 uppercase">Base de Datos de Personal</h3>
+                                        <p className="text-xs text-slate-400">Gestiona los agentes comerciales autorizados en el sistema.</p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-900 uppercase">
+                                            {activeHotel === 'system' ? 'Parámetros del Sistema' : `Configuración ${activeHotel.charAt(0).toUpperCase() + activeHotel.slice(1)}`}
+                                        </h3>
+                                        <p className="text-xs text-slate-400">Edita los valores que aparecerán en las facturas y documentos oficiales.</p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="p-10">
-                                {activeHotel !== 'system' ? (
+                                {activeHotel === 'commercials' ? (
+                                    <div className="max-w-xl space-y-8">
+                                        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 tracking-tight">Agentes Comerciales</h4>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Personal de Ventas</p>
+                                                </div>
+                                                <LucideIcon name="users" className="text-[#2d5a43] opacity-20 w-8 h-8" />
+                                            </div>
+
+                                            <div className="flex gap-2 mb-8 mt-2">
+                                                <input
+                                                    type="text"
+                                                    id="new-commercial-input"
+                                                    placeholder="Añadir nuevo comercial..."
+                                                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:border-[#2d5a43] outline-none transition-all"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && e.target.value.trim()) {
+                                                            const val = e.target.value.trim().toUpperCase();
+                                                            const currentList = config.system.commercials || [];
+                                                            const exists = currentList.some(comm => (typeof comm === 'object' ? comm.name : comm) === val);
+                                                            if (!exists) {
+                                                                handleChange('system', 'commercials', [...currentList, { name: val, active: true }]);
+                                                                e.target.value = '';
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        const input = document.getElementById('new-commercial-input');
+                                                        const val = input.value.trim().toUpperCase();
+                                                        const currentList = config.system.commercials || [];
+                                                        const exists = currentList.some(comm => (typeof comm === 'object' ? comm.name : comm) === val);
+                                                        if (val && !exists) {
+                                                            handleChange('system', 'commercials', [...currentList, { name: val, active: true }]);
+                                                            input.value = '';
+                                                        }
+                                                    }}
+                                                    className="bg-[#2d5a43] text-white px-6 rounded-xl font-bold text-sm hover:bg-[#1e3a2c] transition-all"
+                                                >
+                                                    Añadir
+                                                </button>
+                                            </div>
+
+                                            {(() => {
+                                                const allCommercials = (config.system.commercials || []).map((comm, idx) => {
+                                                    const isObject = typeof comm === 'object' && comm !== null;
+                                                    return {
+                                                        comm,
+                                                        originalIdx: idx,
+                                                        name: isObject ? comm.name : comm,
+                                                        isActive: isObject ? comm.active !== false : true,
+                                                        isObject
+                                                    };
+                                                });
+
+                                                const activeCommercials = allCommercials.filter(c => c.isActive);
+                                                const inactiveCommercials = allCommercials.filter(c => !c.isActive);
+
+                                                const renderComm = ({ comm, originalIdx: idx, name, isActive, isObject }) => (
+                                                    <div key={idx} className={`border p-3 rounded-xl flex items-center justify-between gap-4 transition-all group ${isActive ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-75'}`}>
+                                                        {editingCommercialIdx === idx ? (
+                                                            <div className="flex-1 flex gap-2 items-center">
+                                                                <input
+                                                                    type="text"
+                                                                    value={editingCommercialName}
+                                                                    onChange={e => setEditingCommercialName(e.target.value.toUpperCase())}
+                                                                    className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 focus:border-[#2d5a43] outline-none shadow-sm"
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            const val = editingCommercialName.trim();
+                                                                            if (val) {
+                                                                                const newList = [...config.system.commercials];
+                                                                                const currentObj = typeof newList[idx] === 'object' ? newList[idx] : { name: newList[idx], active: true };
+                                                                                newList[idx] = { ...currentObj, name: val };
+                                                                                handleChange('system', 'commercials', newList);
+                                                                            }
+                                                                            setEditingCommercialIdx(null);
+                                                                        } else if (e.key === 'Escape') {
+                                                                            setEditingCommercialIdx(null);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const val = editingCommercialName.trim();
+                                                                        if (val) {
+                                                                            const newList = [...config.system.commercials];
+                                                                            const currentObj = typeof newList[idx] === 'object' ? newList[idx] : { name: newList[idx], active: true };
+                                                                            newList[idx] = { ...currentObj, name: val };
+                                                                            handleChange('system', 'commercials', newList);
+                                                                        }
+                                                                        setEditingCommercialIdx(null);
+                                                                    }}
+                                                                    className="bg-[#2d5a43] text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-[#1e3a2c] flex items-center gap-1.5 whitespace-nowrap"
+                                                                >
+                                                                    <LucideIcon name="check" size={14} /> Guardar
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setEditingCommercialIdx(null)}
+                                                                    className="bg-slate-100 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-200 flex items-center gap-1.5 whitespace-nowrap"
+                                                                >
+                                                                    <LucideIcon name="x" size={14} /> Cancelar
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newList = [...config.system.commercials];
+                                                                            if (isObject) {
+                                                                                newList[idx] = { ...comm, active: !isActive };
+                                                                            } else {
+                                                                                newList[idx] = { name: comm, active: false };
+                                                                            }
+                                                                            handleChange('system', 'commercials', newList);
+                                                                        }}
+                                                                        className={`relative w-12 h-6 rounded-full transition-colors flex items-center shrink-0 ${isActive ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-slate-300 hover:bg-slate-400'}`}
+                                                                        title={isActive ? "Marcar como Inactivo" : "Marcar como Activo"}
+                                                                    >
+                                                                        <div className={`absolute left-0.5 w-5 h-5 bg-white rounded-full transition-transform transform shadow-sm ${isActive ? 'translate-x.6' : 'translate-x-0'}`} style={{ transform: isActive ? 'translateX(1.3rem)' : 'translateX(0)' }} />
+                                                                    </button>
+                                                                    <span className={`text-sm font-bold truncate ${isActive ? 'text-slate-700' : 'text-slate-400 line-through'}`}>{name}</span>
+                                                                    {!isActive && <span className="text-[10px] bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full font-bold uppercase shrink-0">Inactivo</span>}
+                                                                </div>
+                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setEditingCommercialIdx(idx);
+                                                                            setEditingCommercialName(name);
+                                                                        }}
+                                                                        className="text-slate-400 hover:text-[#2d5a43] transition-colors p-2 rounded-lg hover:bg-emerald-50"
+                                                                        title="Editar"
+                                                                    >
+                                                                        <LucideIcon name="pencil" size={16} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (window.confirm(`¿Estás seguro de eliminar a ${name}?`)) {
+                                                                                const newList = config.system.commercials.filter((_, i) => i !== idx);
+                                                                                handleChange('system', 'commercials', newList);
+                                                                            }
+                                                                        }}
+                                                                        className="text-slate-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50"
+                                                                        title="Eliminar"
+                                                                    >
+                                                                        <LucideIcon name="trash-2" size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                );
+
+                                                return (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                                                        <div className="flex flex-col gap-3">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                                                <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Activos</h5>
+                                                            </div>
+                                                            {activeCommercials.length > 0 ? activeCommercials.map(renderComm) : (
+                                                                <div className="text-center p-6 border-2 border-dashed border-slate-100 rounded-xl text-xs text-slate-400 italic">No hay comerciales activos</div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-col gap-3">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                                                                <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Inactivos</h5>
+                                                            </div>
+                                                            {inactiveCommercials.length > 0 ? inactiveCommercials.map(renderComm) : (
+                                                                <div className="text-center p-6 border-2 border-dashed border-slate-100 rounded-xl text-xs text-slate-400 italic">No hay comerciales inactivos</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                ) : activeHotel === 'system' ? (
+                                    <div className="max-w-xl space-y-8">
+                                        <div className="bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
+                                            <LucideIcon name="cpu" className="absolute right-[-10px] bottom-[-10px] w-32 h-32 opacity-10" />
+                                            <div className="relative z-10">
+                                                <h4 className="font-bold text-lg mb-2 flex items-center gap-2">
+                                                    Motor IA Estratégica
+                                                    <span className="bg-emerald-400 text-[#2d5a43] px-2 py-0.5 rounded text-[8px] uppercase tracking-widest">Activo</span>
+                                                </h4>
+                                                <p className="text-xs text-emerald-50 opacity-70 mb-6">Configuración del conector para análisis de riesgos y proyecciones.</p>
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Modelo Seleccionado</label>
+                                                        <select value={config.system.geminiModel} onChange={(e) => handleChange('system', 'geminiModel', e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-bold outline-none focus:bg-white/20 transition-all">
+                                                            <option className="text-slate-800" value="gemini-2.5-flash">Gemini 2.5 Flash (Recomendado)</option>
+                                                            <option className="text-slate-800" value="gemini-2.5-pro">Gemini 2.5 Pro (Alta Precisión)</option>
+                                                            <option className="text-slate-800" value="gemini-1.5-flash">Gemini 1.5 Flash (Estándar)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Gemini API Key (Privada)</label>
+                                                        <input
+                                                            type="password"
+                                                            value={config.system.geminiApiKey || ""}
+                                                            onChange={(e) => handleChange('system', 'geminiApiKey', e.target.value)}
+                                                            placeholder="Paste your API key here..."
+                                                            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm outline-none focus:bg-white/20 transition-all"
+                                                        />
+                                                        <p className="text-[9px] text-emerald-200/50 mt-1 italic">La clave se guarda encriptada en tu instancia privada de Firestore.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">PIN de Acceso</label>
+                                                <input type="password" value={config.system.pin} onChange={(e) => handleChange('system', 'pin', e.target.value)} maxLength="4" className="w-full text-2xl font-bold tracking-[0.5em] text-center border-b border-slate-100 py-2 outline-none focus:border-[#2d5a43] transition-all" />
+                                                <p className="text-[9px] text-slate-400 mt-2 italic text-center text-wrap">Este PIN se usará en la pantalla de login unificada.</p>
+                                            </div>
+                                            <div className="p-6 bg-slate-900 rounded-3xl text-white flex flex-col justify-center">
+                                                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Backup Cloud</p>
+                                                <p className="text-xs opacity-70 leading-relaxed">Los cambios se guardan automáticamente en tu servidor Firestore de nivel industrial.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
                                     <div className="grid grid-cols-2 gap-8">
                                         <div className="space-y-6">
                                             <div>
@@ -291,52 +542,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="max-w-xl space-y-8">
-                                        <div className="bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
-                                            <LucideIcon name="cpu" className="absolute right-[-10px] bottom-[-10px] w-32 h-32 opacity-10" />
-                                            <div className="relative z-10">
-                                                <h4 className="font-bold text-lg mb-2 flex items-center gap-2">
-                                                    Motor IA Estratégica
-                                                    <span className="bg-emerald-400 text-[#2d5a43] px-2 py-0.5 rounded text-[8px] uppercase tracking-widest">Activo</span>
-                                                </h4>
-                                                <p className="text-xs text-emerald-50 opacity-70 mb-6">Configuración del conector para análisis de riesgos y proyecciones.</p>
-                                                <div className="space-y-4">
-                                                    <div>
-                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Modelo Seleccionado</label>
-                                                        <select value={config.system.geminiModel} onChange={(e) => handleChange('system', 'geminiModel', e.target.value)} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-bold outline-none focus:bg-white/20 transition-all">
-                                                            <option className="text-slate-800" value="gemini-2.5-flash">Gemini 2.5 Flash (Recomendado)</option>
-                                                            <option className="text-slate-800" value="gemini-2.5-pro">Gemini 2.5 Pro (Alta Precisión)</option>
-                                                            <option className="text-slate-800" value="gemini-1.5-flash">Gemini 1.5 Flash (Estándar)</option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-1">Gemini API Key (Privada)</label>
-                                                        <input
-                                                            type="password"
-                                                            value={config.system.geminiApiKey || ""}
-                                                            onChange={(e) => handleChange('system', 'geminiApiKey', e.target.value)}
-                                                            placeholder="Paste your API key here..."
-                                                            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm outline-none focus:bg-white/20 transition-all"
-                                                        />
-                                                        <p className="text-[9px] text-emerald-200/50 mt-1 italic">La clave se guarda encriptada en tu instancia privada de Firestore.</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-6">
-                                            <div className="p-6 bg-white border border-slate-200 rounded-3xl shadow-sm">
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">PIN de Acceso</label>
-                                                <input type="password" value={config.system.pin} onChange={(e) => handleChange('system', 'pin', e.target.value)} maxLength="4" className="w-full text-2xl font-bold tracking-[0.5em] text-center border-b border-slate-100 py-2 outline-none focus:border-[#2d5a43] transition-all" />
-                                                <p className="text-[9px] text-slate-400 mt-2 italic text-center text-wrap">Este PIN se usará en la pantalla de login unificada.</p>
-                                            </div>
-                                            <div className="p-6 bg-slate-900 rounded-3xl text-white flex flex-col justify-center">
-                                                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Backup Cloud</p>
-                                                <p className="text-xs opacity-70 leading-relaxed">Los cambios se guardan automáticamente en tu servidor Firestore de nivel industrial.</p>
-                                            </div>
-                                        </div>
-                                    </div>
                                 )}
                             </div>
                         </div>
@@ -345,8 +550,8 @@
                             <p className="text-[10px] font-bold uppercase tracking-widest">Nexus Groups Deployment v1.2</p>
                             <img src="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-8 w-8 grayscale" />
                         </footer>
-                    </main>
-                </div>
+                    </main >
+                </div >
             );
         };
 

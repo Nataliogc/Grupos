@@ -1189,11 +1189,11 @@
 
                 footer.innerHTML = `
                     <div class="flex flex-col items-end mt-12 relative">
-                        <div class="bg-gradient-to-br from-[#2d5a43] to-[#1a3326] text-white p-5 w-64 shadow-2xl mb-6 rounded-2xl border border-white/10 ring-4 ring-[#2d5a43]/5">
-                            <p class="text-[7px] uppercase tracking-[0.3em] border-b border-white/10 pb-2 mb-3 text-left font-black opacity-60">Total Liquidación de Reserva</p>
+                        <div class="text-white p-5 w-64 shadow-lg mb-6 rounded-xl border border-white/10" style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                            <p class="text-[9px] uppercase tracking-[0.1em] border-b pb-2 mb-3 text-left font-bold opacity-90" style="color: #ffffff; border-bottom-color: rgba(255,255,255,0.2); -webkit-print-color-adjust: exact;">Total IVA Incluido</p>
                             <div class="flex items-baseline justify-end gap-1">
-                                <p class="text-3xl font-black tabular-nums tracking-tighter">${formatNum(total)}</p>
-                                <span class="text-sm font-light opacity-50 uppercase">eur</span>
+                                <p class="text-3xl font-black tabular-nums tracking-tighter" style="color: #ffffff; -webkit-print-color-adjust: exact;">\${formatNum(total)}</p>
+                                <span class="text-sm font-medium opacity-80 uppercase ml-1" style="color: #ffffff; -webkit-print-color-adjust: exact;">€</span>
                             </div>
                         </div>
                     </div>
@@ -1201,14 +1201,14 @@
                     <div class="mt-2 font-pro text-[10px]">
                         <div class="w-full grid grid-cols-[45%_55%] gap-12 px-6 text-[9px] leading-relaxed">
                             <div class="text-left py-2 pr-8 border-r border-slate-100/80">
-                                <p class="font-black text-[#2d5a43] text-[10px] mb-4 border-b border-[#2d5a43]/10 pb-1.5 tracking-[0.2em] uppercase">Datos de Facturación</p>
-                                <p class="font-black text-slate-900 text-[11px] mb-1 uppercase tracking-tight">${h.company}</p>
-                                <p class="text-slate-500 mb-4 font-bold">CIF: <span class="text-slate-800">${h.nif}</span></p>
-                                <p class="text-slate-500 leading-normal mb-6 italic">${h.address}<br>${h.cp} ${h.city}</p>
+                                <p class="font-black text-[10px] mb-4 border-b pb-1.5 tracking-[0.2em] uppercase" style="color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; border-bottom-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}20;">Datos de Facturación</p>
+                                <p class="font-black text-slate-900 text-[11px] mb-1 uppercase tracking-tight">\${h.company}</p>
+                                <p class="text-slate-500 mb-4 font-bold">CIF: <span class="text-slate-800">\${h.nif}</span></p>
+                                <p class="text-slate-500 leading-normal mb-6 italic">\${h.address}<br>\${h.cp} \${h.city}</p>
                                 
-                                <div class="bg-[#2d5a43]/5 p-3 rounded-xl border border-[#2d5a43]/10">
-                                     <p class="text-[7px] font-black text-[#2d5a43] uppercase mb-1 tracking-[0.2em] opacity-80">Cuenta de Abono Corriente</p>
-                                     <p class="font-black text-slate-900 text-[11px] tracking-tight tabular-nums">${h.iban}</p>
+                                <div class="p-3 rounded-xl border" style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}0d; border-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}1a;">
+                                     <p class="text-[7px] font-black uppercase mb-1 tracking-[0.2em] opacity-80" style="color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'};">Cuenta de Abono Corriente</p>
+                                     <p class="font-black text-slate-900 text-[11px] tracking-tight tabular-nums">\${h.iban}</p>
                                 </div>
                             </div>
                             <div class="text-right flex flex-col justify-center gap-4">
@@ -1230,9 +1230,9 @@
                                     </div>
                                 </div>
                                 
-                                <div class="mt-4 py-2 px-4 rounded-lg bg-emerald-50/50 border border-emerald-100 inline-block self-end">
-                                     <p class="text-[10px] text-[#2d5a43] font-black italic tracking-tight">
-                                         FECHA RELEASE FINAL: <span class="ml-2 underline decoration-[#2d5a43]/30 decoration-2">${formatDate(fRelease)}</span>
+                                <div class="mt-4 py-2 px-4 rounded-lg inline-block self-end border" style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}0a; border-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}1a;">
+                                     <p class="text-[10px] font-black italic tracking-tight" style="color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'};">
+                                         FECHA RELEASE FINAL: <span class="ml-2 underline decoration-2" style="text-decoration-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}4d;">\${formatDate(fRelease)}</span>
                                      </p>
                                 </div>
                             </div>
@@ -1240,7 +1240,7 @@
                     </div>`;
             } else {
                 const breakdownHtml = `
-                    <div style="background-color: #2d5a43; color: white; padding: 10px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">
+                    <div style="background-color: \${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; color: white; padding: 10px; border-radius: 4px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 8px; text-transform: uppercase;">
                             <thead style="opacity: 0.7; border-bottom: 0.5px solid rgba(255,255,255,0.2);">
                                 <tr>
@@ -1281,9 +1281,9 @@
                     <div style="margin-top: 20px; width: 100%; display: flex; justify-content: flex-end;">
                         <div style="width: 320px; font-family: 'Montserrat', sans-serif;">
                             <!-- Total Section -->
-                            <div style="background-color: #000; color: #fff; padding: 10px 16px; width: 100%; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; border-radius: 4px;">
-                                <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">Total Factura Proforma</span>
-                                <span style="font-size: 18px; font-weight: 900;">${formatNum(total)} <span style="font-size: 12px; font-weight: 400;">€</span></span>
+                            <div style="background-color: ${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; color: #fff; padding: 12px 16px; width: 100%; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+                                <span style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Total IVA Incluido</span>
+                                <span style="font-size: 18px; font-weight: 900;">${formatNum(total)} <span style="font-size: 12px; font-weight: 400; opacity: 0.8;">€</span></span>
                             </div>
                             
                             <!-- Discrete IVA Breakdown Section -->
