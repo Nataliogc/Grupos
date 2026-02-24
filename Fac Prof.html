@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Facturas - Hotel Guadiana</title>
+    <title>Generador de Facturas - SERCOTEL GUADIANA</title>
     <!-- Static Styles (Tailwind Compiled) -->
     <link rel="stylesheet" href="style.css">
     <style>
@@ -75,8 +75,8 @@
         }
 
         .font-pro {
-            font-family: 'Courier Prime', monospace;
-            letter-spacing: -0.5px;
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: 0px;
         }
 
         .font-logo {
@@ -378,11 +378,11 @@
                     class="text-lg font-black uppercase tracking-tighter text-gray-800 border-b-2 border-gray-800 inline-block px-1">
                     Confirmación
                 </div>
-                <div class="mt-2 text-[10px] font-bold text-gray-500">
-                    <span id="doc-type-label">Reserva:</span> <span id="reserva-id-universal" class="editable"
-                        contenteditable="true">---</span>
+                <div class="mt-2 text-[11px] font-bold text-gray-500">
+                    <span id="doc-type-label">Reserva:</span> <span id="reserva-id-universal"
+                        class="editable font-black text-slate-800" contenteditable="true">---</span>
                 </div>
-                <div class="text-[9px] text-gray-400">
+                <div class="text-[10px] text-gray-400 mt-0.5">
                     Fecha: <span id="fecha-universal" class="editable" contenteditable="true">--/--/----</span>
                 </div>
             </div>
@@ -394,20 +394,23 @@
 
             <div class="grid grid-cols-2 gap-8 mb-6">
                 <div class="border-l-4 border-[#2d5a43] pl-4">
-                    <h4 class="text-[9px] font-bold text-gray-400 uppercase mb-1">Solicitante</h4>
+                    <h4 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Solicitante</h4>
                     <div class="text-xs space-y-1">
-                        <p><strong>Organismo:</strong> <span class="editable" id="solicitante-org-1"
+                        <p><strong class="font-bold text-slate-500">Organismo:</strong> <span
+                                class="editable font-black text-slate-800" id="solicitante-org-1"
                                 contenteditable="true">EAPN-ES</span></p>
-                        <p><strong>Contacto:</strong> <span class="editable" id="solicitante-nombre-1"
+                        <p><strong class="font-bold text-slate-500">Contacto:</strong> <span
+                                class="editable font-bold text-slate-700" id="solicitante-nombre-1"
                                 contenteditable="true">MARCELLO RONCHI</span></p>
-                        <p><strong>Email:</strong> <span class="editable" id="solicitante-email-1"
+                        <p><strong class="font-bold text-slate-500">Email:</strong> <span
+                                class="editable text-slate-600" id="solicitante-email-1"
                                 contenteditable="true">marcello.ronchi@eapn.es</span></p>
-                        <p><strong>Teléfono:</strong> <span class="editable" id="solicitante-tel-1"
-                                contenteditable="true">-</span></p>
+                        <p><strong class="font-bold text-slate-500">Teléfono:</strong> <span class="editable"
+                                id="solicitante-tel-1" contenteditable="true">-</span></p>
                     </div>
                 </div>
                 <div class="border-l-4 border-[#eab308] pl-4">
-                    <h4 class="text-[9px] font-bold text-gray-400 uppercase mb-1">Reserva</h4>
+                    <h4 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Reserva</h4>
                     <div class="text-xs grid grid-cols-2 gap-x-1">
                         <span class="text-gray-500">Personas:</span> <span class="editable font-bold"
                             id="reserva-personas-1" contenteditable="true">70</span>
@@ -440,9 +443,10 @@
         </div>
 
         <div id="tpl-proforma" class="template-content hidden font-pro text-black">
-
-
-
+            <div class="mb-6 flex justify-between items-end border-b-2 border-slate-800 pb-2">
+                <h1 class="text-3xl font-black uppercase tracking-widest text-slate-800">Factura Proforma</h1>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Documento Informativo</span>
+            </div>
             <table class="w-full mb-6">
                 <tr>
                     <td width="55%" class="align-top">
@@ -466,16 +470,14 @@
                     <td width="45%" class="align-top pt-2">
                         <div class="bg-slate-50 p-4 rounded-lg shadow-sm text-xs font-mono text-gray-600">
                             <div class="font-bold text-black uppercase text-sm editable" id="solicitante-org-2"
-                                contenteditable="true" style="display:block;">RAZÓN SOCIAL</div>
+                                contenteditable="true" style="display:block;">&nbsp;</div>
                             <div class="editable uppercase" id="client-address" contenteditable="true"
-                                style="display:block;">
-                                Calle Dirección</div>
+                                style="display:block;">&nbsp;</div>
                             <div class="editable uppercase" id="client-city" contenteditable="true"
-                                style="display:block;">CP,
-                                Ciudad</div>
+                                style="display:block;">&nbsp;</div>
                             <div class="mt-4 font-bold text-black uppercase">
                                 N.I.F. / CIF: <span class="editable" id="client-nif"
-                                    contenteditable="true">B00000000</span>
+                                    contenteditable="true">&nbsp;</span>
                             </div>
                         </div>
                     </td>
@@ -625,8 +627,8 @@
     <script>
         const HOTELS = {
             guadiana: {
-                name: "Hotel",
-                subname: "Guadiana",
+                name: "SERCOTEL",
+                subname: "GUADIANA",
                 letter: "G",
                 stars: "****",
                 logo: "Logos/Sercotel Guadiana.jpg",
@@ -643,6 +645,7 @@
                 bank: "Globalcaja",
                 iban: "ES30 3190 3953 1851 8526 3521",
                 irus: "1000292995580",
+                paymentGateway: "",
                 legal: "Inscrito en la hoja CR-00035559 del Registro Mercantil de Ciudad Real. Folio electrónico. Inscripción/anotación 4"
             },
             cumbria: {
@@ -663,6 +666,7 @@
                 web: "www.hotelcumbria.es",
                 bank: "Caixabank",
                 iban: "ES19 3081 0601 0850 0004 8966",
+                paymentGateway: "",
                 legal: "Inscrito en el tomo 699 de libro 0 folio 2 hoja CR-32491 inscripción 2ª"
             }
         };
@@ -676,7 +680,7 @@
                     const cloudData = doc.data();
                     if (cloudData.guadiana) Object.assign(HOTELS.guadiana, cloudData.guadiana);
                     if (cloudData.cumbria) Object.assign(HOTELS.cumbria, cloudData.cumbria);
-                    console.log("✅ Configuración de hoteles sincronizada desde Cloud");
+                    // log
                     // Re-render si ya cargó
                     updateHotel(currentHotel);
                 }
@@ -698,23 +702,63 @@
         // Sincronización de datos comunes
         function syncFields() {
             // Sync all fields EXCEPT reserva-id (proforma uses fixed "PROFORMA" text)
-            const fields = ['fecha-proforma', 'solicitante-org', 'solicitante-nombre', 'solicitante-email', 'reserva-personas', 'reserva-entrada', 'reserva-salida'];
+            const fields = [
+                'fecha-proforma', 'solicitante-org', 'solicitante-nombre', 'solicitante-email',
+                'reserva-personas', 'reserva-entrada', 'reserva-salida',
+                'client-address', 'client-city', 'client-nif',
+                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary'
+            ];
             fields.forEach(f => {
                 const el1 = document.getElementById(f + '-1');
                 const el2 = document.getElementById(f + '-2');
-                if (el1 && el2) {
-                    if (document.activeElement !== el1) el1.innerText = el2.innerText;
-                    if (document.activeElement !== el2) el2.innerText = el1.innerText;
+                const elExact = document.getElementById(f);
+
+                // Collect values from any available element
+                let value = "";
+                if (el1) value = el1.innerText;
+                else if (el2) value = el2.innerText;
+                else if (elExact) value = (elExact.tagName === 'INPUT' ? elExact.value : elExact.innerText);
+
+                if (el1 && document.activeElement !== el1) el1.innerText = value;
+                if (el2 && document.activeElement !== el2) el2.innerText = value;
+                if (elExact && document.activeElement !== elExact) {
+                    if (elExact.tagName === 'INPUT') elExact.value = value;
+                    else elExact.innerText = value;
                 }
             });
-            // Auto-guardado
+            // Auto-guardado local
             syncWithFicha();
         }
         setInterval(syncFields, 3000);
 
-        function saveAndExit() {
-            syncWithFicha();
-            window.location.href = 'Gestión de Grupos.html';
+        async function saveAndExit() {
+            const targetFile = "Gestión de Grupos.html";
+            const saved = localStorage.getItem('selectedGroup');
+            let reservaId = "";
+            if (saved) {
+                try {
+                    const group = JSON.parse(saved);
+                    reservaId = group.Reserva || group["Reserva"] || "";
+                } catch (e) { }
+            }
+            if (reservaId) {
+                localStorage.setItem('nexus_return_reserva', reservaId);
+            }
+
+            const url = encodeURI(targetFile) + (reservaId ? '?reserva=' + encodeURIComponent(reservaId) : '');
+
+            // Función para redirigir
+            const doRedirect = () => {
+                // log
+                window.location.href = url;
+            };
+
+            // Intentar sincronizar pero con un timeout de seguridad para no bloquear al usuario
+            const syncPromise = syncWithFicha().catch(e => console.error("Error sincronizando:", e));
+            const timeoutPromise = new Promise(resolve => setTimeout(resolve, 1500));
+
+            await Promise.race([syncPromise, timeoutPromise]);
+            doRedirect();
         }
 
         async function callGemini(prompt) {
@@ -739,7 +783,7 @@
             }
 
             const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${dynamicKey}`;
-            const fullPrompt = "Eres un asistente de recepción de un hotel de lujo (Hotel Guadiana). Tu tono es profesional, cortés y servicial. Siempre respondes en español.\n\n" + prompt;
+            const fullPrompt = "Eres un asistente de recepción de un hotel de lujo (SERCOTEL GUADIANA). Tu tono es profesional, cortés y servicial. Siempre respondes en español.\n\n" + prompt;
 
             try {
                 const response = await fetch(url, {
@@ -789,87 +833,102 @@
         }
         function closeAIModal() { document.getElementById('ai-modal').style.display = 'none'; }
 
+        const toNum = (val) => {
+            if (val === undefined || val === null || val === "") return 0;
+            if (typeof val === 'number') return val;
+            const s = String(val).replace(/[^\d,.-]/g, '');
+            if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+            if (s.includes(',')) return parseFloat(s.replace(',', '.'));
+            return parseFloat(s) || 0;
+        };
+
+        const toInputDate = (val) => {
+            if (!val || val === "---") return "";
+            const s = String(val).trim();
+            if (/^\d{5}$/.test(s)) {
+                const d = new Date(Math.round((parseInt(s) - 25569) * 86400 * 1000));
+                return d.toISOString().split('T')[0];
+            }
+            if (/^\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/.test(s)) {
+                const [d, m, y] = s.split(/[-\/]/);
+                return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            }
+            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
+            const dObj = new Date(s);
+            if (!isNaN(dObj.getTime())) return dObj.toISOString().split('T')[0];
+            return s;
+        };
+
+        const formatDate = (val) => {
+            if (!val || val === "---") return "-";
+            const iso = toInputDate(val);
+            if (!iso || !iso.includes('-')) return val;
+            const [y, m, d] = iso.split('-');
+            return `${d}-${m}-${y}`;
+        };
+
+        const parseMoney = (val) => toNum(val);
+
         function loadSelectedGroup() {
             const saved = localStorage.getItem('selectedGroup');
             const today = new Date().toLocaleDateString('es-ES');
 
-            console.log("📦 Cargando datos de Proforma desde LocalStorage...");
+            // log
+
+            // Reset inicial de placeholders para evitar ver datos de otro grupo o placeholders hardcoded
+            const idsToReset = [
+                'reserva-id', 'solicitante-org', 'solicitante-nombre', 'solicitante-tel', 'solicitante-email',
+                'reserva-personas', 'reserva-entrada', 'reserva-salida', 'client-address', 'client-city', 'client-nif',
+                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary'
+            ];
+            idsToReset.forEach(id => {
+                const el1 = document.getElementById(id + '-1');
+                const el2 = document.getElementById(id + '-2');
+                const elExact = document.getElementById(id);
+                const elUniversal = document.getElementById(id + '-universal');
+                if (el1) el1.innerText = '';
+                if (el2) el2.innerText = '';
+                if (elExact) {
+                    if (elExact.tagName === 'INPUT') elExact.value = '';
+                    else elExact.innerText = '';
+                }
+                if (elUniversal) elUniversal.innerText = '';
+            });
+            document.querySelectorAll('[id^="fecha-proforma-"]').forEach(el => el.innerText = today);
 
             if (!saved) {
                 console.warn("⚠️ No se encontraron datos en 'selectedGroup'");
-                // MODO MANUAL: Limpiar todos los campos del DOM y resetear items
-                items = [];
-                const idsToClear = [
-                    'reserva-id', 'solicitante-org', 'solicitante-nombre', 'solicitante-tel', 'solicitante-email',
-                    'reserva-personas', 'reserva-entrada', 'reserva-salida', 'client-address', 'client-city',
-                    'client-nif', 'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary'
-                ];
-                idsToClear.forEach(id => {
-                    const el1 = document.getElementById(id + '-1');
-                    const el2 = document.getElementById(id + '-2');
-                    const elExact = document.getElementById(id);
-                    if (el1) el1.innerText = (id === 'reserva-id') ? 'MANUAL' : '';
-                    if (el2) el2.innerText = (id === 'reserva-id') ? 'PROFORMA' : '';
-                    if (elExact) elExact.innerText = '';
-                });
-                // Fechas hoy por defecto
-                document.querySelectorAll('[id^="fecha-proforma-"]').forEach(el => el.innerText = today);
+                if (document.getElementById('reserva-id-1')) document.getElementById('reserva-id-1').innerText = 'MANUAL';
                 return;
             }
 
-            const formatDate = (val) => {
-                if (!val) return "-";
-                const str = val.toString().trim();
-                const num = parseFloat(str);
-                if (!isNaN(num) && num > 40000 && num < 60000) {
-                    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
-                    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-                }
-                // Si ya parece una fecha ISO o formato ES, devolverla tal cual
-                return val;
-            };
-
-            const parseMoney = (val) => {
-                if (val === undefined || val === null) return 0;
-                if (typeof val === 'number') return val;
-                const str = val.toString().trim();
-                // Heurística: Si tiene coma Y punto, es formato ES (1.234,56). 
-                // Si tiene punto al final (.XX) y no hay comas, es decimal standard (1234.56)
-                if (str.includes(',') && str.includes('.')) {
-                    return parseFloat(str.replace(/\./g, '').replace(',', '.'));
-                } else if (str.includes(',')) {
-                    return parseFloat(str.replace(',', '.'));
-                }
-                return parseFloat(str) || 0;
-            };
-
             try {
                 const group = JSON.parse(saved);
-                console.log("✅ Datos recuperados:", group);
+                // log
+                // log
 
-                // 1. Vincular Hotel
-                if ((group["Hotel_Asignado"] || "").toLowerCase().includes('cumb')) {
+                // log
+                const hotelVal = (group["Hotel_Asignado"] || group["Hotel"] || "").toLowerCase();
+                if (hotelVal.includes('cumb')) {
                     updateHotel('cumbria');
                 } else {
                     updateHotel('guadiana');
                 }
 
-                // 2. Poblar campos de texto
+                // Mapping robusto
                 const mapping = {
                     'reserva-id': group["Reserva"] || '',
                     'solicitante-org': group["Fiscal_RazonSocial"] || group["Empresa/Agencia"] || group["Nombre del Grupo"] || '',
-                    'solicitante-nombre': group["Com_Nombre_Contacto"] || group["Nombre del Grupo"] || '',
-                    'solicitante-tel': group["Com_Telefono_Contacto"] || '',
-                    'solicitante-email': group["Com_Email_Contacto"] || group["Email"] || group["Fiscal_Email"] || '',
+                    'solicitante-nombre': group["Persona_Contacto"] || group["Com_Nombre_Contacto"] || group["Nombre del Grupo"] || '',
+                    'solicitante-tel': group["Telefono"] || group["Com_Telefono_Contacto"] || '',
+                    'solicitante-email': group["Email"] || group["Com_Email_Contacto"] || group["Fiscal_Email"] || '',
                     'reserva-personas': group["Pax."] || '',
                     'reserva-entrada': formatDate(group["Entrada"]),
                     'reserva-salida': formatDate(group["Salida"]),
-                    'fecha-proforma': new Date().toLocaleDateString('es-ES'),
-                    // Fiscal Data
+                    'fecha-proforma': today,
                     'client-address': group["Fiscal_Direccion"] || '',
-                    'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || ''),
+                    'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || '') + (group["Fiscal_Provincia"] ? ', ' + group["Fiscal_Provincia"] : ''),
                     'client-nif': group["Fiscal_CIF"] || '',
-                    // New Proforma Box IDs
                     'f-pax-name': group["Nombre del Grupo"] || '',
                     'f-pax-count': group["Pax."] || '',
                     'f-date-in': formatDate(group["Entrada"]),
@@ -877,38 +936,79 @@
                     'f-room-summary': group["RoomSummary"] || '---'
                 };
 
+                // Override con campos personalizados SOLO si no hay dato en la ficha
+                // o si el campo no es de los vitales (fiscales)
+                const customFields = group.ProformaCustomFields || {};
+                const criticalFiscalFields = ['client-address', 'client-city', 'client-nif', 'solicitante-org'];
+                const placeholders = ["Calle Dirección", "RAZÓN SOCIAL", "CP, Ciudad", "B00000000", "---"];
+
+                Object.keys(mapping).forEach(k => {
+                    const isCritical = criticalFiscalFields.includes(k);
+                    const hasFichaData = mapping[k] && mapping[k] !== '' && !placeholders.includes(mapping[k]);
+                    const hasCustomData = customFields[k] && customFields[k] !== '' && !placeholders.includes(customFields[k]);
+
+                    if (isCritical) {
+                        // Para campos fiscales, si hay dato en la ficha, ignoramos cualquier custom
+                        if (hasFichaData) {
+                            // log
+                        } else if (hasCustomData) {
+                            // Si la ficha está vacía pero el usuario escribió algo manual (que no es placeholder), lo aceptamos
+                            mapping[k] = customFields[k];
+                        } else {
+                            // Si ambos están vacíos o tienen placeholders, vaciamos el campo por completo
+                            mapping[k] = "";
+                        }
+                    } else if (customFields[k] !== undefined && customFields[k] !== '') {
+                        // Para campos no críticos, permitimos el override normal
+                        mapping[k] = customFields[k];
+                    }
+                });
+
+                // Renderizar mapeos
                 Object.keys(mapping).forEach(id => {
                     const el1 = document.getElementById(id + '-1');
                     const el2 = document.getElementById(id + '-2');
                     const elExact = document.getElementById(id);
                     const elUniversal = document.getElementById(id + '-universal');
+                    const finalVal = (mapping[id] !== undefined && mapping[id] !== null) ? String(mapping[id]) : "";
 
-                    if (el1) el1.innerText = mapping[id];
-                    if (el2) el2.innerText = mapping[id];
+                    if (el1) el1.innerText = finalVal;
+                    if (el2) el2.innerText = finalVal;
                     if (elExact) {
-                        if (elExact.tagName === 'INPUT') elExact.value = mapping[id];
-                        else elExact.innerText = mapping[id];
+                        if (elExact.tagName === 'INPUT') elExact.value = finalVal;
+                        else elExact.innerText = finalVal;
                     }
-                    if (elUniversal) elUniversal.innerText = mapping[id];
+                    if (elUniversal) elUniversal.innerText = finalVal;
 
-                    // Extra sync for the proforma-specific ID field
                     if (id === 'reserva-id') {
-                        const elRes2 = document.getElementById('reserva-id-2');
-                        if (elRes2) elRes2.innerText = mapping[id];
-                    }
-
-                    // Special sync for universal IDs
-                    if (id === 'reserva-id') {
-                        const uId = document.getElementById('reserva-id-universal');
-                        if (uId) uId.innerText = mapping[id];
-                    }
-                    if (id === 'fecha-proforma') {
-                        const uDate = document.getElementById('fecha-universal');
-                        if (uDate) uDate.innerText = mapping[id];
+                        ['reserva-id-2', 'reserva-id-universal'].forEach(rid => {
+                            const e = document.getElementById(rid);
+                            if (e) e.innerText = finalVal;
+                        });
                     }
                 });
 
-                // 3. Cargar Items Guardados o Crear Inicial
+                // Restore dynamic rows
+                if (customFields.dynamicRows && Array.isArray(customFields.dynamicRows)) {
+                    const container = document.querySelector('#ocupante-box .flex-1');
+                    if (container) {
+                        const footer = [...container.children].find(child => child.classList.contains('border-t') && child.classList.contains('no-print'));
+                        customFields.dynamicRows.forEach(row => {
+                            const newRow = document.createElement('div');
+                            newRow.className = 'ocupante-row flex items-center gap-1 mt-1';
+                            newRow.innerHTML = `
+                                <span class="w-24"><strong><span class="editable" contenteditable="true">${row.key}</span> :</strong></span>
+                                <span class="editable flex-1" contenteditable="true" style="min-width: 100px;">${row.value}</span>
+                                <button class="no-print text-red-200 hover:text-red-500 text-[10px] ml-auto"
+                                        onclick="this.parentElement.remove()" title="Eliminar">✕</button>
+                            `;
+                            if (footer) container.insertBefore(newRow, footer);
+                            else container.appendChild(newRow);
+                        });
+                    }
+                }
+
+                // Cargar Items
                 if (group.ProformaItems && Array.isArray(group.ProformaItems) && group.ProformaItems.length > 0) {
                     items = group.ProformaItems;
                 } else {
@@ -921,57 +1021,25 @@
                             concepto: `ESTANCIA GRUPO: ${group["Nombre del Grupo"]}`,
                             precio: importe,
                             iva: 10,
-                            regimen: 'AD'
+                            regimen: group["Régimen"] || 'AD'
                         }];
                     }
                 }
             } catch (e) {
-                console.error("❌ Error cargando grupo seleccionado:", e);
+                console.error("❌ Error en loadSelectedGroup:", e);
             }
-        }
-
-        function saveAndExit() {
-            // 1. Gather current data from DOM to update the 'group' object
-            const saved = localStorage.getItem('selectedGroup');
-            if (saved) {
-                let group = JSON.parse(saved);
-
-                // Update Proforma Items
-                group.ProformaItems = items;
-
-                // Save back to selectedGroup (for persistence)
-                localStorage.setItem('selectedGroup', JSON.stringify(group));
-
-                // Update the main database (nexus_groups_data)
-                const allGroupsStr = localStorage.getItem('nexus_groups_data');
-                if (allGroupsStr) {
-                    const allGroups = JSON.parse(allGroupsStr);
-                    const idx = allGroups.findIndex(g => g["Reserva"] === group["Reserva"]);
-                    if (idx !== -1) {
-                        allGroups[idx] = { ...allGroups[idx], ...group };
-                        localStorage.setItem('nexus_groups_data', JSON.stringify(allGroups));
-                    }
-                }
-
-                // Set flag to re-open this ficha in Gestion de Grupos
-                localStorage.setItem('openGroupFicha', group["Nombre del Grupo"]);
-            }
-
-            // Redirect
-            window.location.href = 'Gestión de Grupos.html';
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            // Inicializar Firebase (si no lo está)
             if (typeof firebase !== 'undefined' && !firebase.apps.length) {
                 firebase.initializeApp(window.firebaseConfig);
             }
             if (typeof firebase !== 'undefined') window.db = firebase.firestore();
-
             await refreshConfigFromCloud();
             loadSelectedGroup();
             renderItems();
         });
+
         function copyAIContent() {
             navigator.clipboard.writeText(document.getElementById('ai-content').innerText);
             const btn = document.getElementById('btn-copy');
@@ -989,26 +1057,19 @@
             document.getElementById('btn-confirmacion').className = tpl === 'confirmacion' ? 'pb-2 px-2 tab-active transition-all uppercase text-xs tracking-widest' : 'pb-2 px-2 text-gray-400 transition-all uppercase text-xs tracking-widest';
             document.getElementById('btn-proforma').className = tpl === 'proforma' ? 'pb-2 px-2 tab-active transition-all uppercase text-xs tracking-widest' : 'pb-2 px-2 text-gray-400 transition-all uppercase text-xs tracking-widest';
 
-            // Update Universal Doc Title
             const docTitle = document.getElementById('doc-type-title');
             const docLabel = document.getElementById('doc-type-label');
-            if (docTitle) {
-                docTitle.innerText = tpl === 'confirmacion' ? 'Confirmación' : 'Proforma';
-            }
-            if (docLabel) {
-                docLabel.innerText = tpl === 'confirmacion' ? 'Reserva:' : 'Nº Factura:';
-            }
+            if (docTitle) docTitle.innerText = tpl === 'confirmacion' ? 'Confirmación' : 'Proforma';
+            if (docLabel) docLabel.innerText = tpl === 'confirmacion' ? 'Reserva:' : 'Nº Factura:';
 
-            // Dynamic Layout Adjustments (requested by user)
             const titleContainer = document.querySelector('.header-title-container');
             const infoContainer = document.querySelector('.header-info-container');
-
             if (tpl === 'proforma') {
                 if (titleContainer) titleContainer.style.display = 'none';
                 if (infoContainer) {
                     infoContainer.style.textAlign = 'left';
                     infoContainer.style.flex = 'none';
-                    infoContainer.style.paddingLeft = '40px'; // Increased spacing from logo
+                    infoContainer.style.paddingLeft = '40px';
                     infoContainer.style.marginTop = '10px';
                 }
             } else {
@@ -1019,13 +1080,13 @@
                     infoContainer.style.paddingLeft = '0';
                 }
             }
-
             renderItems();
         }
 
         function formatNum(num) {
             let n = parseFloat(num);
             if (isNaN(n)) return "0,00";
+            // Usa toLocaleString para forzar formato español: 1.234,56
             return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
@@ -1033,34 +1094,41 @@
             currentHotel = hotelKey;
             const h = HOTELS[hotelKey];
             if (!h) return;
-
-            console.log(`🏨 Cambiando hotel a: ${h.subname}`);
-
-            // Actualizar Logos
             const imgUniversal = document.getElementById('logo-img-universal');
             if (imgUniversal) imgUniversal.src = h.logo;
-
-            // Actualizar Cabecera de Datos (Ejemplo imagen)
             const hAddr = document.getElementById('header-address-line');
             const hCity = document.getElementById('header-city-line');
             const hTel = document.getElementById('header-tel-val');
-
             if (hAddr) hAddr.innerText = h.address;
             if (hCity) hCity.innerText = `${h.cp} - ${h.city} (España)`;
             if (hTel) hTel.innerText = h.tel;
-
-            // Actualizar Legal Text (Vertical Global)
             const legalVertical = document.getElementById('global-vertical-legal');
             if (legalVertical) {
                 legalVertical.innerHTML = `<span class="italic">${h.company} &nbsp;&nbsp;&nbsp; ${h.address} &middot; ${h.cp} ${h.city} &nbsp;&nbsp;&nbsp; ${h.legal} ${h.irus ? `&nbsp;&nbsp;&nbsp; IRUS: ${h.irus}` : ''} &nbsp;&nbsp;&nbsp; N.I.F. ${h.nif}</span>`;
             }
 
-            // Actualizar Footer (Robust search)
+            // DYNAMIC THEME OVERRIDE
+            const primaryColor = hotelKey === 'cumbria' ? '#0f172a' : '#2d5a43';
+            const secondaryColor = hotelKey === 'cumbria' ? '#334155' : '#1e3a2c';
+            let styleTheme = document.getElementById('dynamic-theme-override');
+            if (!styleTheme) {
+                styleTheme = document.createElement('style');
+                styleTheme.id = 'dynamic-theme-override';
+                document.head.appendChild(styleTheme);
+            }
+            styleTheme.innerHTML = `
+                .text-\\[\\#2d5a43\\] { color: ${primaryColor} !important; }
+                .bg-\\[\\#2d5a43\\] { background-color: ${primaryColor} !important; }
+                .border-\\[\\#2d5a43\\] { border-color: ${primaryColor} !important; }
+                .focus\\:ring-\\[\\#2d5a43\\]:focus { --tw-ring-color: ${primaryColor} !important; }
+                .hover\\:bg-\\[\\#1e3a2c\\]:hover { background-color: ${secondaryColor} !important; }
+                .tab-active { border-bottom-color: ${primaryColor} !important; color: ${primaryColor} !important; }
+                .editable:focus { outline-color: ${primaryColor} !important; }
+            `;
             const updateField = (selector, val) => {
                 const el = document.querySelector(selector);
                 if (el) el.innerText = val;
             };
-
             updateField('.hotel-address-footer', (h.address || '').toUpperCase());
             updateField('.hotel-cp-footer', h.cp || '');
             updateField('.hotel-city-footer', h.city || '');
@@ -1071,9 +1139,13 @@
             updateField('.hotel-legal-footer', h.legal || '');
             updateField('.hotel-bank-footer', h.bank || '');
             updateField('.hotel-iban-footer', h.iban || '');
-
             renderItems();
         }
+
+        const formatDateSafe = (val) => {
+            if (!val || val === "---") return "-";
+            return formatDate(val);
+        };
 
         function renderItems() {
             const h = HOTELS[currentHotel];
@@ -1098,10 +1170,13 @@
                 const cantidad = parseFloat(item.cant) || 1;
                 const dias = parseFloat(item.dias) || 1;
                 const subtotal = precioUnitario * habs * cantidad * dias;
-                const itemComision = (parseFloat(item.comision?.comision_unitaria) || 0) * habs * cantidad * dias;
+                let itemComision = (parseFloat(item.comision?.comision_unitaria) || 0) * habs * cantidad * dias;
+                if (itemComision <= 0 && item.comision?.porcentaje) {
+                    itemComision = subtotal * (parseFloat(item.comision.porcentaje) / 100);
+                }
 
                 totalComision += itemComision;
-                const netSubtotal = subtotal - itemComision; // Se conserva para IVA si fuera necesario
+                const netSubtotal = subtotal - itemComision;
 
                 total += subtotal; // Gross total (sumado al final de la tabla)
                 runningTotal += subtotal;
@@ -1239,6 +1314,16 @@
 
                 const totalNetoPagar = total - totalComision;
 
+                // Si hay plan, recalcular importes basados en el neto si tienen porcentaje
+                if (groupPlan.length > 0 && totalComision > 0) {
+                    groupPlan = groupPlan.map(p => {
+                        if (p.percent && p.status !== "Cobrado") { // No recalcular si ya está cobrado
+                            return { ...p, amount: (totalNetoPagar * (parseFloat(p.percent) / 100)).toFixed(2) };
+                        }
+                        return p;
+                    });
+                }
+
                 // If no plan, create a default 30/70 for display based on totalNetoPagar
                 if (groupPlan.length === 0) {
                     const d1 = new Date(fechaEntrada); d1.setDate(d1.getDate() - 60);
@@ -1254,115 +1339,140 @@
                 const totalPending = totalNetoPagar - totalPaid;
 
                 footer.innerHTML = `
-                    <div class="mt-8 border-t border-slate-200 pt-8 font-pro">
-                        <div class="grid grid-cols-[1fr_1.1fr] gap-x-8">
-                            <!-- BLOQUE IZQUIERDO: BANCO / TITULAR -->
-                            <div class="space-y-4">
-                                <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden h-full flex flex-col justify-center">
-                                     <!-- Decorative background -->
-                                     <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-slate-200/50 to-transparent rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-                                     
-                                     <!-- Header -->
-                                     <div class="flex items-center gap-2.5 mb-5 relative z-10">
-                                         <div class="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center shadow-md">
-                                             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" class="text-white" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                                         </div>
-                                         <h5 class="text-[9px] font-black text-slate-800 uppercase tracking-[0.2em]">Pago por Transferencia</h5>
-                                     </div>
-                                     
-                                     <!-- Content Grid -->
-                                     <div class="relative z-10 space-y-3.5">
-                                         <!-- Beneficiario -->
-                                         <div>
-                                             <p class="text-[7.5px] font-black text-slate-400/80 uppercase tracking-[0.15em] mb-1">Beneficiario / Titular</p>
-                                             <div class="flex items-center justify-between gap-1 mt-0.5">
-                                                 <p class="font-bold text-slate-800 uppercase tracking-tight" style="font-size: 10px;">${h.company}</p>
-                                                 <p class="font-medium text-slate-500 tracking-tight whitespace-nowrap" style="font-size: 10px;">CIF: <span class="font-bold text-slate-800">${h.nif}</span></p>
-                                             </div>
-                                         </div>
-                                         
-                                         <!-- Cuenta -->
-                                         <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-                                            <div class="flex items-center justify-between mb-1.5 pt-0.5">
-                                                <p class="text-[8.5px] font-black text-slate-400 uppercase tracking-widest leading-none">${h.bank}</p>
-                                                <span class="text-[6.5px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded uppercase tracking-[0.2em] border border-emerald-100/60 shadow-sm leading-none" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">IBAN</span>
-                                            </div>
-                                            <p class="text-[14px] font-black text-slate-900 tracking-widest tabular-nums font-mono">${h.iban}</p>
-                                         </div>
-                                     </div>
+                    <div class="mt-10 font-pro" style="page-break-inside: avoid;">
+                        <!-- Divider decorativo -->
+                        <div class="flex items-center gap-4 mb-8">
+                            <div class="flex-1 h-px" style="background: linear-gradient(to right, transparent, #cbd5e1 40%, #cbd5e1 60%, transparent); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" class="text-slate-300" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                                <span class="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em]">Condiciones de Pago</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" class="text-slate-300" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                            </div>
+                            <div class="flex-1 h-px" style="background: linear-gradient(to left, transparent, #cbd5e1 40%, #cbd5e1 60%, transparent); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                        </div>
+
+                        <!-- TOTALES - Bloque principal arriba -->
+                        <div class="mb-6 rounded-2xl overflow-hidden shadow-md border border-slate-200" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                            <div class="relative" style="background: linear-gradient(135deg, ${currentHotel === 'cumbria' ? '#0f172a' : '#1a3a28'} 0%, ${currentHotel === 'cumbria' ? '#1e293b' : '#214732'} 50%, ${currentHotel === 'cumbria' ? '#334155' : '#2d5a43'} 100%); -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                <!-- Decorative elements -->
+                                <div class="absolute top-0 right-0 w-40 h-40 rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(255,255,255,0.04) 0%, transparent 70%); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                                <div class="absolute bottom-0 left-0 w-24 h-24 rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                                
+                                <div class="relative z-10 px-7 py-5 flex justify-between items-center">
+                                    <div>
+                                        <span class="text-[9px] font-bold uppercase tracking-[0.3em] block mb-2" style="color: rgba(255,255,255,0.45); -webkit-print-color-adjust: exact; print-color-adjust: exact;">Total Presupuestado</span>
+                                        <div class="flex items-baseline gap-1.5">
+                                            <span class="tabular-nums tracking-tight leading-none" style="font-size: 30px; font-weight: 900; color: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact;">${formatNum(totalNetoPagar)}</span>
+                                            <span class="font-bold" style="font-size: 14px; color: rgba(255,255,255,0.5); -webkit-print-color-adjust: exact; print-color-adjust: exact;">€</span>
+                                        </div>
+                                    </div>
+                                    ${totalPaid >= Math.abs(totalNetoPagar) ? `
+                                    <div class="text-right flex flex-col items-end gap-2">
+                                        <span class="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-[0.15em] flex items-center gap-1.5 shadow-lg" style="background-color: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                            Pagado Total
+                                        </span>
+                                        <span class="text-[9px] font-black tabular-nums" style="color: rgba(255,255,255,0.35); -webkit-print-color-adjust: exact; print-color-adjust: exact;">0,00 € pendiente</span>
+                                    </div>
+                                    ` : `
+                                    <div class="text-right" style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: 24px; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                        <span class="text-[9px] font-bold uppercase tracking-[0.3em] block mb-2" style="color: rgba(255,255,255,0.45); -webkit-print-color-adjust: exact; print-color-adjust: exact;">Pendiente / Pagar</span>
+                                        <div class="flex items-baseline justify-end gap-1">
+                                            <span class="tabular-nums leading-none" style="font-size: 22px; font-weight: 900; color: #fbbf24; -webkit-print-color-adjust: exact; print-color-adjust: exact;">${formatNum(totalPending)}</span>
+                                            <span class="font-bold" style="font-size: 11px; color: rgba(251, 191, 36, 0.6); -webkit-print-color-adjust: exact; print-color-adjust: exact;">€</span>
+                                        </div>
+                                    </div>
+                                    `}
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- BLOQUE DERECHO: TOTALES Y PAGOS -->
-                            <div class="space-y-4">
-                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
-                                    <div class="absolute top-0 left-0 w-full h-1" style="background-color: ${currentHotel === 'cumbria' ? '#0f172a' : '#214732'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-                                    <div class="p-6 flex justify-between items-center relative z-10 w-full min-h-[54px]">
-                                        <div>
-                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1">Total Presupuestado</span>
-                                            <div class="flex items-start gap-1">
-                                                <span class="text-4xl font-black text-slate-800 tabular-nums tracking-tighter leading-none">${formatNum(totalNetoPagar)}</span>
-                                                <span class="text-sm font-bold text-slate-400 mt-1">€</span>
+                        <div class="space-y-4">
+                            <!-- BLOQUE BANCO / TITULAR -->
+                            <div class="bg-gradient-to-br from-slate-50 to-white pt-2 pb-4 px-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                 <!-- Decorative corner -->
+                                 <div class="absolute -top-6 -right-6 w-28 h-28 rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(100,116,139,0.06) 0%, transparent 70%); -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                                 
+                                 <!-- Header -->
+                                 <div class="flex items-center gap-2 mb-3 relative z-10">
+                                     <div class="w-5 h-5 rounded-full flex items-center justify-center shadow-sm" style="background: linear-gradient(135deg, ${currentHotel === 'cumbria' ? '#0f172a' : '#214732'}, ${currentHotel === 'cumbria' ? '#334155' : '#2d5a43'}); -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                         <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" style="color: rgba(255,255,255,0.85); -webkit-print-color-adjust: exact; print-color-adjust: exact;" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v4"/><path d="M12 14v4"/><path d="M16 14v4"/></svg>
+                                     </div>
+                                     <h5 class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] pt-0.5">Transferencia Bancaria</h5>
+                                 </div>
+                                 
+                                 <!-- Content: Side by Side -->
+                                 <div class="relative z-10 flex border-t border-slate-100 pt-3">
+                                     <!-- Beneficiario -->
+                                     <div class="flex-1">
+                                         <p class="text-[6.5px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">Beneficiario</p>
+                                         <p class="font-black text-slate-800 uppercase" style="font-size: 9.5px; letter-spacing: -0.01em;">${h.company}</p>
+                                         <p class="font-bold text-slate-400 mt-0.5" style="font-size: 7.5px;">NIF: <span class="font-black text-slate-600">${h.nif}</span></p>
+                                     </div>
+                                     
+                                     <!-- Cuenta IBAN -->
+                                     <div class="flex-1 flex justify-end">
+                                         <div class="bg-white p-2.5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-center min-w-[280px]" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <p class="text-[7.5px] font-black text-slate-400 tracking-wider leading-none uppercase">${h.bank}</p>
+                                                <span class="text-[6.5px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-[0.15em] leading-none" style="background: linear-gradient(135deg, ${currentHotel === 'cumbria' ? '#0f172a' : '#214732'}, ${currentHotel === 'cumbria' ? '#334155' : '#2d5a43'}); color: rgba(255,255,255,0.9); -webkit-print-color-adjust: exact; print-color-adjust: exact;">IBAN</span>
                                             </div>
-                                        </div>
-                                        ${totalPaid >= Math.abs(totalNetoPagar) ? `
-                                        <div class="text-right border-l border-slate-100 pl-6 flex flex-col items-end pt-1">
-                                            <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded text-[9px] font-black uppercase tracking-[0.1em] mb-1.5 whitespace-nowrap shadow-sm shadow-emerald-100" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-1 -mt-0.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Pagado Total</span>
-                                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest tabular-nums leading-none">0,00 € PENDIENTE</span>
-                                        </div>
-                                        ` : `
-                                        <div class="text-right border-l border-slate-100 pl-6 pt-1">
-                                            <span class="text-[9px] font-black ${currentHotel === 'cumbria' ? 'text-slate-800' : 'text-[#214732]'} uppercase tracking-[0.2em] block mb-1 whitespace-nowrap">Pendiente / Pagar</span>
-                                            <div class="flex items-end justify-end gap-1">
-                                                <span class="text-[22px] font-black ${currentHotel === 'cumbria' ? 'text-slate-800' : 'text-[#214732]'} tabular-nums leading-none">${formatNum(totalPending)}</span>
-                                                <span class="text-[11px] font-bold ${currentHotel === 'cumbria' ? 'text-slate-500' : 'text-[#214732]/70'} mb-0.5">€</span>
-                                            </div>
-                                        </div>
-                                        `}
-                                    </div>
+                                            <p class="font-black text-slate-700 tabular-nums" style="font-size: 11px; letter-spacing: 0.1em; line-height: 1;">${h.iban}</p>
+                                         </div>
+                                     </div>
+                                 </div>
+                            </div>
+
+                            <!-- PLAN DE PAGOS -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <h5 class="text-[7.5px] font-black text-slate-400 uppercase tracking-[0.2em]">Plan de Garantía y Pagos</h5>
                                 </div>
-
-                                <!-- PLAN DE PAGOS GRID -->
-                                <div>
-                                    <h5 class="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 pl-1">Plan de Garantía y Pagos</h5>
-                                    <div class="grid grid-cols-2 gap-2">
-                                        ${groupPlan.map(dep => {
+                                
+                                <div class="grid grid-cols-2 gap-3 mb-3">
+                                    ${groupPlan.map((dep, idx) => {
                     const isPaid = dep.status === "Cobrado";
                     const depDate = dep.date ? new Date(dep.date) : null;
                     return `
-                                                <div class="p-3 rounded-xl border relative overflow-hidden ${isPaid ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200 shadow-sm'}" style="${isPaid ? 'background-color: #ecfdf5; border-color: #a7f3d0; -webkit-print-color-adjust: exact; print-color-adjust: exact;' : '-webkit-print-color-adjust: exact; print-color-adjust: exact;'}">
-                                                    ${isPaid ? `
-                                                    <div class="absolute inset-0 flex items-center justify-center opacity-[0.07] pointer-events-none" style="color: #059669; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
-                                                        <span class="text-4xl font-black -rotate-12 uppercase tracking-widest border-4 border-current px-2 py-1 rounded-lg">Pagado</span>
-                                                    </div>
-                                                    ` : ''}
-                                                    <div class="relative z-10 flex justify-between items-start mb-1.5">
-                                                        <span class="text-[7.5px] font-black ${isPaid ? 'text-emerald-700' : 'text-slate-400'} uppercase truncate pr-1 flex items-center gap-1">
-                                                            ${isPaid ? '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> PAGADO: ' : ''}${dep.label}
+                                            <div class="rounded-xl relative overflow-hidden" style="border: 1.5px solid ${isPaid ? '#a7f3d0' : '#e2e8f0'}; ${isPaid ? 'background-color: #ecfdf5;' : 'background-color: #ffffff;'} -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                                <div class="w-full" style="height: 3px; background: ${isPaid ? 'linear-gradient(to right, #059669, #34d399)' : `linear-gradient(to right, ${currentHotel === 'cumbria' ? '#0f172a' : '#214732'}, ${currentHotel === 'cumbria' ? '#475569' : '#2d5a43'})`}; opacity: ${isPaid ? '1' : '0.4'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
+                                                
+                                                ${isPaid ? `
+                                                <div class="absolute inset-0 flex items-center justify-center opacity-[0.05] pointer-events-none" style="color: #059669; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                                    <span class="text-3xl font-black -rotate-12 uppercase tracking-widest border-4 border-current px-2 py-0.5 rounded-lg">Pagado</span>
+                                                </div>
+                                                ` : ''}
+                                                
+                                                <div class="p-2 relative z-10 flex flex-col h-full justify-between">
+                                                    <div class="flex justify-between items-start mb-2 border-b border-slate-100 pb-1">
+                                                        <span class="text-[7.5px] font-bold ${isPaid ? 'text-emerald-700' : 'text-slate-500'} uppercase leading-none">
+                                                            ${isPaid ? 'Pagado' : dep.label}
                                                         </span>
-                                                         <span class="text-[8px] font-bold text-slate-400 opacity-60">${dep.percent}%</span>
-                                                     </div>
-                                                     <div class="relative z-10 flex justify-between items-end">
-                                                         <div>
-                                                             <p class="text-[7px] ${isPaid ? 'text-emerald-600/60' : 'text-slate-400'} uppercase tracking-tighter font-bold">${isPaid ? 'Fecha' : 'Vence'}</p>
-                                                             <p class="text-[9px] font-black ${isPaid ? 'text-emerald-800' : 'text-slate-700'}">${formatDateSafe(depDate)}</p>
-                                                         </div>
-                                                         <div class="text-right">
-                                                             <p class="text-[13px] font-black ${isPaid ? 'text-emerald-700' : 'text-slate-900'} tabular-nums leading-none" style="${isPaid ? 'color: #047857;' : ''}">${formatNum(dep.amount)}<span class="text-[8px] ml-0.5 opacity-40">€</span></p>
-                                                         </div>
-                                                     </div>
-                                                 </div>
-                                             `;
+                                                        <span class="text-[7px] font-black tabular-nums" style="color: ${isPaid ? '#059669' : '#94a3b8'}; -webkit-print-color-adjust: exact; print-color-adjust: exact;">${dep.percent}%</span>
+                                                    </div>
+                                                    <div class="flex justify-between items-end mt-1">
+                                                        <div>
+                                                            <p class="text-[8.5px] ${isPaid ? 'text-emerald-500' : 'text-slate-500'} font-black uppercase tracking-wider mb-1">${isPaid ? 'Cobrado' : 'Vence'}</p>
+                                                            <p class="text-[10px] text-slate-600">${formatDateSafe(depDate)}</p>
+                                                        </div>
+                                                        <div class="text-right">
+                                                            <p class="tabular-nums leading-none flex items-baseline gap-0.5" style="font-size: 11px; font-weight: 900; ${isPaid ? 'color: #047857;' : 'color: #1e293b;'} -webkit-print-color-adjust: exact; print-color-adjust: exact;">${formatNum(dep.amount)}<span style="font-size: 7.5px; opacity: 0.6;">€</span></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                         `;
                 }).join('')}
-                                    </div>
                                 </div>
 
                                 <!-- RELEASE DEADLINE TAG -->
-                                <div class="flex justify-center pt-2">
-                                    <div class="px-4 py-2 bg-slate-100/50 rounded-full border border-slate-100 flex items-center gap-3">
-                                        <span class="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Release Final</span>
-                                        <div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>
-                                        <span class="text-[10px] font-black text-slate-800">${formatDateSafe(fRelease)}</span>
+                                <div class="flex justify-center pt-2 pb-4">
+                                    <div class="px-5 py-2.5 rounded-2xl flex items-center gap-3 shadow-sm border border-slate-200" style="background-color: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" style="color: #0f172a; -webkit-print-color-adjust: exact; print-color-adjust: exact;" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        <div class="flex flex-col">
+                                            <span class="text-[7.5px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Release Final</span>
+                                            <span class="text-[9px] font-black text-slate-800 tabular-nums leading-none tracking-wide">${formatDateSafe(fRelease)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1413,7 +1523,7 @@
                             <!-- Total Section -->
                             <div style="background-color: ${currentHotel === 'cumbria' ? '#0f172a' : '#2d5a43'}; color: #fff; padding: 12px 16px; width: 100%; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
                                 <span style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">Total IVA Incluido</span>
-                                <span style="font-size: 18px; font-weight: 900;">${formatNum(total)} <span style="font-size: 12px; font-weight: 400; opacity: 0.8;">€</span></span>
+                                <span style="font-size: 18px; font-weight: 900;">${formatNum(total - totalComision)} <span style="font-size: 12px; font-weight: 400; opacity: 0.8;">€</span></span>
                             </div>
                             
                             <!-- Discrete IVA Breakdown Section -->
@@ -1442,22 +1552,28 @@
                             <div id="bank-details-wrapper" style="margin-top: 10px; text-align: right; border-top: 1px solid #eee; pt-4; position: relative;" class="group">
                                 ${showBankDetails ? `
                                     <button class="no-print absolute top-0 -left-6 text-red-300 hover:text-red-500 text-xs" 
-                                            onclick="showBankDetails=false;renderItems();" title="Eliminar datos bancarios">✕</button>
-                                    <p style="font-size: 7px; color: #4b5563; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.5px;">
+                                            onclick="showBankDetails=false;renderItems();;" title="Eliminar datos bancarios">✕</button>
+                                    <p style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; letter-spacing: 0.5px;">
                                         Cuenta de Abono Corriente
                                     </p>
-                                    <p style="font-size: 9px; color: #111827; font-weight: 800; text-transform: uppercase; margin-bottom: 1px; font-family: 'Courier Prime', monospace;">
-                                        Titular: ${h.company}
-                                    </p>
-                                    <p style="font-size: 9px; color: #111827; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; font-family: 'Courier Prime', monospace;">
-                                        ${h.bank} : <span style="letter-spacing: -0.2px;">${h.iban}</span>
-                                    </p>
+                                     <p style="font-size: 9px; color: #111827; font-weight: 800; text-transform: uppercase; margin-bottom: 1px; font-family: 'Montserrat', sans-serif;">
+                                         Titular: ${h.company}
+                                     </p>
+                                     <p style="font-size: 9px; color: #111827; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; font-family: 'Montserrat', sans-serif;">
+                                         ${h.bank} : <span style="letter-spacing: -0.2px;">${h.iban}</span>
+                                     </p>
+                                     ${(group["Enlace_TPV"] || h.paymentGateway) ? `
+                                        <p style="font-size: 8px; color: #059669; font-weight: 800; text-transform: uppercase; margin-top: 4px; display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"></rect><line x1="2" x2="22" y1="10" y2="10"></line></svg>
+                                            <a href="${group["Enlace_TPV"] || h.paymentGateway}" target="_blank" style="color: #059669; text-decoration: none; border-bottom: 1px solid #d1fae5;">Pago Online con Tarjeta</a>
+                                        </p>
+                                     ` : ''}
                                 ` : `
                                     <button class="no-print text-gray-200 hover:text-gray-400 font-medium uppercase tracking-tighter" 
                                             style="font-size: 5px; background: none; border: none; padding: 0; margin-bottom: 2px;"
                                             onclick="showBankDetails=true;renderItems();">+ restaurar datos bancarios</button>
                                 `}
-                                <div id="legal-notice-wrapper" style="position: relative; border-t: 0.5px solid #f3f4f6; pt-2">
+                                <div id="legal-notice-wrapper" style="position: relative; border-top: 0.5px solid #f3f4f6; pt-2">
                                     ${showLegalNotice ? `
                                         <button class="no-print absolute top-2 -left-6 text-red-100 hover:text-red-300 text-[10px]" 
                                                 onclick="showLegalNotice=false;renderItems();" title="Eliminar aviso legal">✕</button>
@@ -1521,32 +1637,12 @@
             renderItems();
         }
 
-        // --- Date Helpers ---
-        function toInputDate(dateStr) {
-            if (!dateStr) return '';
-            // Detect ISO
-            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr;
-            // Parse DD-MM-YYYY or DD/MM/YYYY
-            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-            if (parts.length < 3) return '';
-            let d = parts[0], m = parts[1], y = parts[2];
-            if (d.length === 4) { [y, m, d] = parts; } // Handle YYYY-MM-DD
-            if (y && y.length === 2) y = '20' + y;
-            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-        }
-        function formatDateForDisplay(isoDate) {
-            if (!isoDate) return '';
-            const d = new Date(isoDate);
-            if (isNaN(d.getTime())) return isoDate;
-            return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        }
-
         // --- Update Item Logic ---
         function updateItem(index, key, val) {
             if (key === 'fecha') {
                 // Input date returns YYYY-MM-DD
                 // Store as is or format? Let's format to DD-MM-YYYY for consistency with legacy
-                items[index][key] = formatDateForDisplay(val).replace(/\//g, '-');
+                items[index][key] = formatDate(val).replace(/\//g, '-');
             } else if (['concepto', 'hab', 'cant', 'regimen', 'dias'].includes(key)) {
                 items[index][key] = val;
             } else {
@@ -1556,7 +1652,15 @@
         }
 
         function addRow() {
-            items.push({ fecha: formatDateForDisplay(new Date().toISOString().split('T')[0]).replace(/\//g, '-'), hab: '', cant: '1', concepto: 'Nuevo Concepto', precio: 0, iva: 10, regimen: '' });
+            items.push({
+                fecha: formatDate(new Date().toISOString().split('T')[0]).replace(/\//g, '-'),
+                hab: '',
+                cant: '1',
+                concepto: 'Nuevo Concepto',
+                precio: 0,
+                iva: 10,
+                regimen: ''
+            });
             renderItems();
         }
         function removeItem(index) { items.splice(index, 1); renderItems(); }
@@ -1581,15 +1685,41 @@
             const salida = document.getElementById('reserva-salida-1')?.innerText || group["Salida"];
 
             // 3. Hotel
-            const hotel = currentHotel === 'cumbria' ? 'Cumbria' : 'Guadiana';
+            const hotel = currentHotel === 'cumbria' ? 'Cumbria' : 'SERCOTEL GUADIANA';
 
             // 4. Actualizar Objeto Grupo
+            const customFields = {};
+            const editableIds = [
+                'solicitante-org', 'solicitante-nombre', 'solicitante-tel', 'solicitante-email',
+                'reserva-personas', 'reserva-entrada', 'reserva-salida', 'fecha-proforma',
+                'client-address', 'client-city', 'client-nif',
+                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary'
+            ];
+
+            editableIds.forEach(id => {
+                let el = document.getElementById(id + '-1') || document.getElementById(id);
+                if (el) {
+                    customFields[id] = el.tagName === 'INPUT' ? el.value : el.innerText;
+                }
+            });
+
+            // Capture dynamic rows
+            const dynamicRows = Array.from(document.querySelectorAll('.ocupante-row')).map(row => {
+                const spans = row.querySelectorAll('.editable');
+                if (spans.length >= 2) {
+                    return { key: spans[0].innerText.trim(), value: spans[1].innerText.trim() };
+                }
+                return null;
+            }).filter(Boolean);
+            customFields['dynamicRows'] = dynamicRows;
+
             const updatedData = {
                 "Importe(*)": totalRevenue,
-                "Pax.": document.getElementById('reserva-personas-1')?.innerText || group["Pax."],
+                "Pax.": customFields['reserva-personas'] || group["Pax."],
                 "Entrada": entrada,
                 "Salida": salida,
                 "Hotel_Asignado": hotel,
+                "ProformaCustomFields": customFields,
                 "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
             };
 
@@ -1620,8 +1750,9 @@
             // PERSISTENCIA EN CLOUD (Firestore)
             if (finalGroup.Reserva && typeof db !== 'undefined') {
                 try {
-                    await db.collection("groups").doc(String(finalGroup.Reserva)).set(updatedData, { merge: true });
-                    console.log("☁️ Sincronización con Firestore exitosa");
+                    const finalGroupReservaId = String(finalGroup.Reserva || "").trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase();
+                    await db.collection("groups").doc(finalGroupReservaId).set(updatedData, { merge: true });
+                    // log
                 } catch (e) {
                     console.error("❌ Error persistiendo en Firestore:", e);
                 }
@@ -1641,6 +1772,39 @@
             }
         }
 
+
+        async function saveAndExit() {
+            const targetFile = "Gestión de Grupos.html";
+            const saved = localStorage.getItem('selectedGroup');
+            let reservaId = "";
+            if (saved) {
+                try {
+                    const group = JSON.parse(saved);
+                    reservaId = group.Reserva || group["Reserva"] || "";
+                } catch (e) { }
+            }
+            if (reservaId) {
+                localStorage.setItem('nexus_return_reserva', reservaId);
+            }
+
+            const url = encodeURI(targetFile) + (reservaId ? '?reserva=' + encodeURIComponent(reservaId) : '');
+
+            // Función para redirigir
+            const doRedirect = () => {
+                // log
+                window.location.href = url;
+            };
+
+            // Intentar sincronizar pero con un timeout de seguridad
+            try {
+                const syncPromise = syncWithFicha();
+                const timeoutPromise = new Promise(resolve => setTimeout(resolve, 1500));
+                await Promise.race([syncPromise, timeoutPromise]);
+            } catch (e) {
+                console.error("Error sincronizando antes de salir:", e);
+            }
+            doRedirect();
+        }
 
     </script>
 </body>

@@ -228,7 +228,7 @@
                 <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50">
                     <div className="flex flex-col items-center mb-8 px-2 space-y-6">
                         <div className="w-full flex justify-center p-4">
-                            <img src="Nexus Groups/Nexus_Groups-removebg-preview.png" className="h-20 w-auto object-contain" alt="Nexus Groups Logo" />
+                            <img src="Nexus%20Groups/Nexus_Groups-removebg-preview.png" className="h-20 w-auto object-contain" alt="Nexus Groups Logo" />
                         </div>
                         <div className="grid grid-cols-2 gap-4 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
                             <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center">
@@ -295,8 +295,8 @@
                         <div className="flex flex-col xl:flex-row xl:justify-between xl:items-end gap-6 relative z-10 w-full">
                             <div>
                                 <div className="flex items-center gap-3 mb-2">
-                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#2d5a43] to-[#1e3a2c] flex items-center justify-center shadow-lg shadow-emerald-900/20">
-                                        <LucideIcon name="building" className="w-5 h-5 text-white" />
+                                    <div className="bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100 flex items-center justify-center overflow-hidden">
+                                        <img src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-10 w-auto object-contain" alt="Nexus Logo" />
                                     </div>
                                     <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight">
                                         Nexus <span className="text-[#2d5a43] font-light">Groups</span>
@@ -394,8 +394,9 @@
                                     <tbody className="divide-y divide-slate-50">
                                         {arrivals.map((row, i) => (
                                             <tr key={i} className="group hover:bg-slate-50 transition-all cursor-pointer" onClick={() => {
-                                                localStorage.setItem('openGroupFicha', row["Nombre del Grupo"]);
-                                                window.location.href = 'Gestión de Grupos.html';
+                                                const resId = row["Reserva"];
+                                                localStorage.setItem('nexus_return_reserva', resId);
+                                                window.location.href = `Gestión de Grupos.html?reserva=${encodeURIComponent(resId)}`;
                                             }}>
                                                 <td className="py-5">
                                                     <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center p-1.5 border border-slate-100 group-hover:bg-white transition-colors">
@@ -553,8 +554,9 @@
                                         <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">{formatDate(group["Entrada"])}</span>
                                         <h4 className="font-bold text-slate-800 mb-1 cursor-pointer hover:text-[#2d5a43] transition-colors text-xs leading-tight line-clamp-2 min-h-[2.5em]"
                                             onClick={() => {
-                                                localStorage.setItem('openGroupFicha', group["Nombre del Grupo"]);
-                                                window.location.href = 'Gestión de Grupos.html';
+                                                const resId = group["Reserva"];
+                                                localStorage.setItem('nexus_return_reserva', resId);
+                                                window.location.href = `Gestión de Grupos.html?reserva=${encodeURIComponent(resId)}`;
                                             }}
                                             title={group["Nombre del Grupo"]}
                                         >
