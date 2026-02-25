@@ -2122,9 +2122,9 @@
                             // No sobreescribir campos que son exclusivos de la app
                             if (APP_ONLY_FIELDS.has(key)) return;
 
-                            // REGLA DE PREVALENCIA: Si el grupo está gestionado manualmente (con líneas de precio),
-                            // NO sobreescribir campos CORE con los del Excel.
-                            if (hasManualRooming && CORE_FIELDS.has(key)) return;
+                            // REGLA DE PREVALENCIA (RELAJADA): Si el grupo tiene gestión manual, 
+                            // aún así permitimos que el cambio llegue al editor para que el usuario decida si autorizarlo.
+                            // if (hasManualRooming && CORE_FIELDS.has(key)) return;
 
                             // No sobreescribir con valor vacío si el Excel no trae ese campo o no es mapeado
                             if (newRow[key] === undefined || newRow[key] === null || newRow[key] === "") return;
