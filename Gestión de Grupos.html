@@ -878,10 +878,12 @@
                 const groups = {};
 
                 processedData.forEach(row => {
+                    const resId = normalizeId(row["Reserva"]);
+                    const key = resId; // Agrupamos por ID de reserva único para mantenerlas independientes
                     const groupName = row["Nombre del Grupo"] || "Sin Nombre";
-                    if (!groups[groupName]) {
-                        groups[groupName] = {
-                            id: normalizeId(row["Reserva"]),
+                    if (!groups[key]) {
+                        groups[key] = {
+                            id: resId,
                             name: groupName,
                             agency: row["Empresa/Agencia"] || "",
                             arrival: row["Entrada"],
@@ -1417,16 +1419,9 @@
                             return { ...dbRow, _diff: null, _changes: null };
                         });
 
-                        const deduped = [];
-                        const seenIds = new Set();
-                        merged.forEach(row => {
-                            const baseId = normalizeId(row.Reserva).split('_')[0];
-                            if (!seenIds.has(baseId)) {
-                                seenIds.add(baseId);
-                                deduped.push(row);
-                            }
-                        });
-                        merged = deduped;
+                        // Elimination of deduplication by baseId to keep multi-segment reservations independent if they use different suffixes
+                        // merged = deduped;  <-- Removed
+
 
                         const localNews = (prevData || []).filter(p => p._diff === 'new' && !authorizingIds.current.has(String(p.Reserva).trim()));
                         localNews.forEach(p => {
@@ -2364,8 +2359,8 @@
 
                 // Handle case where we receive a flat row (e.g. from Gantt) instead of a grouped object
                 if (!group.records) {
-                    const groupName = group["Nombre del Grupo"];
-                    const found = groupedData.find(g => g.name === groupName);
+                    const resId = normalizeId(group["Reserva"]);
+                    const found = groupedData.find(g => normalizeId(g.id) === resId);
                     if (found) {
                         group = found;
                     } else {
@@ -2586,7 +2581,7 @@
                 }
             };
 
-            const updateGroupMetadata = async (groupName, fieldOrUpdates, valueIfSingle = null, hotelFilterArg = null) => {
+            const updateGroupMetadata = async (resId, fieldOrUpdates, valueIfSingle = null, hotelFilterArg = null) => {
                 let updates = typeof fieldOrUpdates === 'object' ? fieldOrUpdates : { [fieldOrUpdates]: valueIfSingle };
 
                 // Si el usuario cambia a CANCELADO desde el dropdown, sincronizar también el campo Estado
@@ -2595,8 +2590,10 @@
                 }
 
                 // Capturar las filas actuales ANTES del update optimista (para el batch de Firestore)
+                // Usamos el ID de Reserva para identificar de forma única, evitando agrupaciones por nombre
+                const normTargetId = normalizeId(resId);
                 const currentGroupRows = (data || []).filter(r =>
-                    (r["Nombre del Grupo"] || "") === groupName &&
+                    normalizeId(r.Reserva) === normTargetId &&
                     (!hotelFilterArg || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg)
                 );
 
@@ -2659,10 +2656,10 @@
                 // 1. Optimistic UI Update
                 setData(prevData => {
                     return prevData.map(row => {
-                        const matchesGroup = (row["Nombre del Grupo"] || "") === groupName;
+                        const matchesReserva = normalizeId(row.Reserva) === normTargetId;
                         const matchesHotel = !hotelFilterArg || (row["Hotel_Asignado"] || row["Hotel"]) === hotelFilterArg;
 
-                        if (matchesGroup && matchesHotel) {
+                        if (matchesReserva && matchesHotel) {
                             return { ...row, ...updates };
                         }
                         return row;
@@ -2671,7 +2668,7 @@
 
                 // 2. Update selectedGroupFicha if it matches
                 setSelectedGroupFicha(prev => {
-                    if (!prev || prev.name !== groupName) return prev;
+                    if (!prev || normalizeId(prev.id) !== normTargetId) return prev;
                     const updatedRecords = prev.records.map(r => {
                         const matchesHotel = !hotelFilterArg || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg;
                         if (matchesHotel) {
@@ -2707,7 +2704,7 @@
                     });
 
                     if (currentGroupRows.length === 0) {
-                        console.warn("⚠️ updateGroupMetadata: No se encontraron filas para", groupName, "- el cambio puede no haberse guardado en Firestore.");
+                        console.warn("⚠️ updateGroupMetadata: No se encontraron filas para", resId, "- el cambio puede no haberse guardado en Firestore.");
                     }
 
                     await batch.commit();
@@ -2774,7 +2771,7 @@
                 const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
                 const newTotalPax = newList.reduce((acc, i) => acc + (parseInt(i.pax || 0) * parseInt(i.qty || 0)), 0);
 
-                updateGroupMetadata(selectedGroupFicha.name, {
+                updateGroupMetadata(selectedGroupFicha.id, {
                     "RoomingList_JSON": JSON.stringify(newList),
                     "Importe(*)": newTotalSum.toFixed(2),
                     "Pax.": newTotalPax.toString()
@@ -2812,7 +2809,7 @@
 
                 const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
 
-                updateGroupMetadata(selectedGroupFicha.name, {
+                updateGroupMetadata(selectedGroupFicha.id, {
                     "RoomingList_JSON": JSON.stringify(newList),
                     "Importe(*)": newTotalSum.toFixed(2)
                 });
@@ -2901,11 +2898,11 @@
                     }
                 });
 
-                updateGroupMetadata(group.name, { "PaymentPlan_JSON": JSON.stringify(newPlan) }, null, hotelFilter);
+                updateGroupMetadata(group.id, { "PaymentPlan_JSON": JSON.stringify(newPlan) }, null, hotelFilter);
             };
 
-            const updatePaymentPlan = (groupName, hotelFilter, plan) => {
-                updateGroupMetadata(groupName, "PaymentPlan_JSON", JSON.stringify(plan), hotelFilter);
+            const updatePaymentPlan = (resId, hotelFilter, plan) => {
+                updateGroupMetadata(resId, "PaymentPlan_JSON", JSON.stringify(plan), hotelFilter);
             };
 
             const addNewRow = () => {
@@ -2929,7 +2926,7 @@
 
                 const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
 
-                updateGroupMetadata(selectedGroupFicha.name, {
+                updateGroupMetadata(selectedGroupFicha.id, {
                     "RoomingList_JSON": JSON.stringify(newList),
                     "Importe(*)": newTotalSum.toFixed(2)
                 });
@@ -3631,9 +3628,29 @@
                                                             {/* GRUPO / ID */}
                                                             <td className="px-6 py-4">
                                                                 <div>
-                                                                    <div className="text-sm font-black text-slate-800 group-hover:text-[#2d5a43] transition-colors">{group.name}</div>
-                                                                    <div className="text-[10px] font-bold text-slate-400 mt-0.5">
-                                                                        ID: {group.records[0]?.["Reserva"] || "---"}
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="text-sm font-black text-slate-800 group-hover:text-[#2d5a43] transition-colors">{group.name}</div>
+                                                                        {group.records[0]?.["Com_Notas"] && (
+                                                                            <div className="flex items-center gap-1 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded text-[8px] font-bold text-amber-600 max-w-[150px] truncate" title={group.records[0]["Com_Notas"]}>
+                                                                                <IconFile size={9} />
+                                                                                <span className="truncate">{group.records[0]["Com_Notas"]}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {group.records[0]?.["Com_Seguimiento"] && (
+                                                                            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${new Date(group.records[0]["Com_Seguimiento"]) <= new Date() ? 'bg-rose-50 border-rose-100 text-rose-600 animate-pulse' : 'bg-blue-50 border-blue-100 text-blue-600'}`} title="Próximo Seguimiento">
+                                                                                <IconClock size={9} />
+                                                                                {formatDate(group.records[0]["Com_Seguimiento"])}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-[10px] font-bold text-slate-400 mt-0.5 flex items-center gap-2">
+                                                                        <span>ID: {group.records[0]?.["Reserva"] || "---"}</span>
+                                                                        {group.records[0]?.["Empresa/Agencia"] && (
+                                                                            <>
+                                                                                <span className="opacity-20">•</span>
+                                                                                <span className="truncate max-w-[120px]">{group.records[0]["Empresa/Agencia"]}</span>
+                                                                            </>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </td>
@@ -4360,7 +4377,7 @@
                                                                             <select
                                                                                 className={`w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl text-white appearance-none outline-none border-2 border-transparent transition-all shadow-sm cursor-pointer ${st.color}`}
                                                                                 value={selectVal}
-                                                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Estado_Interno", e.target.value)}
+                                                                                onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Estado_Interno", e.target.value)}
                                                                             >
                                                                                 <option value="PRESUPUESTO">PRESUPUESTO</option>
                                                                                 <option value="TENTATIVA">TENTATIVA</option>
@@ -4386,7 +4403,7 @@
                                                                             if (raw.toLowerCase().includes("guadiana")) return "Sercotel Guadiana";
                                                                             return raw;
                                                                         })()}
-                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Hotel_Asignado", e.target.value)}
+                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Hotel_Asignado", e.target.value)}
                                                                     >
                                                                         <option value="Sercotel Guadiana">Sercotel Guadiana</option>
                                                                         <option value="Cumbria Spa&Hotel">Cumbria Spa&Hotel</option>
@@ -4402,7 +4419,7 @@
                                                                     <select
                                                                         className={`w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl bg-slate-50 border text-slate-700 appearance-none outline-none transition-all cursor-pointer ${selectedGroupFicha.records[0]?.["Com_Comercial"] && commercials.some(c => c.name === selectedGroupFicha.records[0]?.["Com_Comercial"] && !c.active) ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-slate-200 hover:border-blue-400'}`}
                                                                         value={selectedGroupFicha.records[0]?.["Com_Comercial"] || ""}
-                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Comercial", e.target.value)}
+                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Comercial", e.target.value)}
                                                                     >
                                                                         <option value="">SIN ASIGNAR</option>
                                                                         {commercials.filter(c => (c.active || c.name === (selectedGroupFicha.records[0]?.["Com_Comercial"]))).map(c => (
@@ -4421,7 +4438,7 @@
                                                                         type="date"
                                                                         className={`w-full h-9 px-2 text-[10px] font-black rounded-xl border ${selectedGroupFicha.records[0]?.["Com_Seguimiento"] && new Date(selectedGroupFicha.records[0]?.["Com_Seguimiento"]) <= new Date() ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-slate-50 text-slate-600'} outline-none focus:border-blue-500 transition-all`}
                                                                         value={selectedGroupFicha.records[0]?.["Com_Seguimiento"] || ""}
-                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Seguimiento", e.target.value)}
+                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Seguimiento", e.target.value)}
                                                                     />
                                                                 </div>
                                                                 <div>
@@ -4430,7 +4447,7 @@
                                                                         type="date"
                                                                         className={`w-full h-9 px-2 text-[10px] font-black rounded-xl border ${daysToRelease !== null && daysToRelease <= 7 ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-slate-200 bg-slate-50 text-slate-600'} outline-none focus:border-rose-500 transition-all`}
                                                                         value={selectedGroupFicha.records[0]?.["Com_Vencimiento_Rel"] || ""}
-                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Vencimiento_Rel", e.target.value)}
+                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Vencimiento_Rel", e.target.value)}
                                                                     />
                                                                 </div>
                                                             </div>
@@ -4473,7 +4490,7 @@
                                                                         type="number"
                                                                         className="bg-transparent border-none text-[12px] font-black text-emerald-700 outline-none w-full tabular-nums"
                                                                         value={selectedGroupFicha.records[0]?.["Com_Pagado"] || ""}
-                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Pagado", e.target.value)}
+                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Pagado", e.target.value)}
                                                                     />
                                                                 </div>
                                                             </div>
@@ -4870,7 +4887,7 @@
                                                                                     d.setDate(d.getDate() - days);
                                                                                     newPlan[idx].date = d.toISOString().split('T')[0];
                                                                                 }
-                                                                                updatePaymentPlan(selectedGroupFicha.name, hotelName, newPlan);
+                                                                                updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
                                                                             };
 
                                                                             const addPlanRow = () => {
@@ -4879,11 +4896,11 @@
                                                                                 const days = 30;
                                                                                 d.setDate(d.getDate() - days);
                                                                                 const newRow = { id: Date.now(), label: remaining === 100 ? "Pago Único" : "Nuevo Pago", percent: remaining, amount: (hotelTotal * (remaining / 100)).toFixed(2), releaseDays: days, date: d.toISOString().split('T')[0], status: "Pendiente" };
-                                                                                updatePaymentPlan(selectedGroupFicha.name, hotelName, [...plan, newRow]);
+                                                                                updatePaymentPlan(selectedGroupFicha.id, hotelName, [...plan, newRow]);
                                                                             };
 
                                                                             const removePlanRow = (idx) => {
-                                                                                updatePaymentPlan(selectedGroupFicha.name, hotelName, plan.filter((_, i) => i !== idx));
+                                                                                updatePaymentPlan(selectedGroupFicha.id, hotelName, plan.filter((_, i) => i !== idx));
                                                                             };
 
                                                                             return (
@@ -4977,7 +4994,7 @@
                                                                     className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-[10px] font-medium text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all placeholder:text-slate-300"
                                                                     placeholder="Pega aquí el enlace de pago específico de esta reserva..."
                                                                     value={selectedGroupFicha.records[0]?.["Enlace_TPV"] || ""}
-                                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Enlace_TPV", e.target.value)}
+                                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Enlace_TPV", e.target.value)}
                                                                 />
                                                             </div>
 
@@ -4986,7 +5003,7 @@
                                                                     className="w-full h-full bg-amber-50/50 border border-amber-100 rounded-lg p-2 text-[10px] font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none leading-relaxed placeholder-amber-300"
                                                                     placeholder="Escribe aquí notas operativas, recordatorios o detalles importantes del grupo..."
                                                                     value={selectedGroupFicha.records[0]?.["Com_Notas"] || ""}
-                                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.name, "Com_Notas", e.target.value)}
+                                                                    onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Notas", e.target.value)}
                                                                 ></textarea>
                                                             </div>
                                                         </div>
@@ -5316,7 +5333,7 @@
 
                                                     const newRL = JSON.parse(selectedGroupFicha.records[0]?.["RoomingList_JSON"] || "[]");
                                                     newRL[commissionModal.itemIdx].comision = com;
-                                                    updateGroupMetadata(selectedGroupFicha.name, "RoomingList_JSON", JSON.stringify(newRL));
+                                                    updateGroupMetadata(selectedGroupFicha.id, "RoomingList_JSON", JSON.stringify(newRL));
                                                     setCommissionModal({ isOpen: false, itemIdx: null, tempCom: null });
                                                 }}
                                                 className="flex-[2] h-11 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl text-[10px] text-white font-black shadow-lg shadow-blue-600/20 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
@@ -5566,7 +5583,7 @@
                                             </button>
                                             <button
                                                 onClick={async () => {
-                                                    await updateGroupMetadata(selectedGroupFicha.name, tempClientData);
+                                                    await updateGroupMetadata(selectedGroupFicha.id, tempClientData);
                                                     setShowClientData(false);
                                                     alert("✅ Datos de empresa actualizados correctamente.");
                                                 }}
