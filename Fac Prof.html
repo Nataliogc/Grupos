@@ -408,6 +408,11 @@
                         <p><strong class="font-bold text-slate-500">Teléfono:</strong> <span class="editable"
                                 id="solicitante-tel-1" contenteditable="true">-</span></p>
                     </div>
+                    <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+                        <strong class="text-[9px] font-bold text-slate-400 uppercase">Programa:</strong>
+                        <span class="editable font-black text-slate-800 text-xs flex-1" id="programa-1"
+                            contenteditable="true">---</span>
+                    </div>
                 </div>
                 <div class="border-l-4 border-[#eab308] pl-4">
                     <h4 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Reserva</h4>
@@ -483,6 +488,14 @@
                     </td>
                 </tr>
             </table>
+
+            <!-- Campo Programa -->
+            <div class="mb-4 bg-slate-100/50 p-2 border-l-4 border-slate-800 flex items-center gap-4">
+                <span class="text-[9px] font-black uppercase text-slate-500 tracking-widest shrink-0">Programa del
+                    Grupo</span>
+                <span class="editable font-black text-slate-800 text-sm flex-1" id="programa-2"
+                    contenteditable="true">---</span>
+            </div>
 
             <!-- Caja Datos Ocupante -->
             <div class="border border-black p-2 mb-6 text-[11px] leading-relaxed relative flex justify-between gap-4"
@@ -706,7 +719,7 @@
                 'fecha-proforma', 'solicitante-org', 'solicitante-nombre', 'solicitante-email',
                 'reserva-personas', 'reserva-entrada', 'reserva-salida',
                 'client-address', 'client-city', 'client-nif',
-                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary'
+                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary', 'programa'
             ];
             fields.forEach(f => {
                 const el1 = document.getElementById(f + '-1');
@@ -879,7 +892,7 @@
             const idsToReset = [
                 'reserva-id', 'solicitante-org', 'solicitante-nombre', 'solicitante-tel', 'solicitante-email',
                 'reserva-personas', 'reserva-entrada', 'reserva-salida', 'client-address', 'client-city', 'client-nif',
-                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary'
+                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary', 'programa'
             ];
             idsToReset.forEach(id => {
                 const el1 = document.getElementById(id + '-1');
@@ -933,7 +946,8 @@
                     'f-pax-count': group["Pax."] || '',
                     'f-date-in': formatDate(group["Entrada"]),
                     'f-date-out': formatDate(group["Salida"]),
-                    'f-room-summary': group["RoomSummary"] || '---'
+                    'f-room-summary': group["RoomSummary"] || '---',
+                    'programa': group["Nombre del Grupo"] || group["Com_Programa"] || group["name"] || ''
                 };
 
                 // Override con campos personalizados SOLO si no hay dato en la ficha
@@ -1094,8 +1108,20 @@
             currentHotel = hotelKey;
             const h = HOTELS[hotelKey];
             if (!h) return;
+
+            // log
+
+            // Sync UI selector if it exists
+            const selector = document.getElementById('hotel-selector');
+            if (selector && selector.value !== hotelKey) {
+                selector.value = hotelKey;
+            }
+
             const imgUniversal = document.getElementById('logo-img-universal');
-            if (imgUniversal) imgUniversal.src = h.logo;
+            if (imgUniversal) {
+                imgUniversal.src = h.logo;
+                // log
+            }
             const hAddr = document.getElementById('header-address-line');
             const hCity = document.getElementById('header-city-line');
             const hTel = document.getElementById('header-tel-val');
