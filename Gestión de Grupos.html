@@ -487,8 +487,11 @@
                 if (str.includes('/')) {
                     const parts = str.split('/');
                     if (parts.length === 3) {
-                        const [d, m, y] = parts;
-                        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                        const [d, m, yRaw] = parts;
+                        let y = parseInt(yRaw);
+                        if (y < 100) y += 2000; // Handle two-digit years
+                        const year = String(y);
+                        return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
                     }
                 }
 
@@ -496,8 +499,13 @@
                 if (str.includes('.')) {
                     const parts = str.split('.');
                     if (parts.length === 3) {
-                        const [d, m, y] = parts;
-                        if (y.length === 4) return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                        const [d, m, yRaw] = parts;
+                        let y = parseInt(yRaw);
+                        if (y < 100) y += 2000; // Handle two-digit years
+                        if (String(y).length === 4 || String(y).length === 2) {
+                            const year = String(y);
+                            return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                        }
                         if (d.length === 4) return `${d}-${m.padStart(2, '0')}-${y.padStart(2, '0')}`;
                     }
                 }
@@ -506,9 +514,12 @@
                 if (str.includes('-')) {
                     const parts = str.split(/[-T ]/);
                     if (parts[0] && parts[0].length === 4) return parts.slice(0, 3).join('-'); // YYYY-MM-DD
-                    if (parts[2] && parts[2].length === 4) { // DD-MM-YYYY
-                        const [d, m, y] = parts;
-                        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                    if (parts[2] && (parts[2].length === 4 || parts[2].length === 2)) { // DD-MM-YYYY
+                        const [d, m, yRaw] = parts;
+                        let y = parseInt(yRaw);
+                        if (y < 100) y += 2000; // Handle two-digit years
+                        const year = String(y);
+                        return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
                     }
                 }
 
@@ -881,6 +892,7 @@
                     const resId = normalizeId(row["Reserva"]);
                     const key = resId; // Agrupamos por ID de reserva único para mantenerlas independientes
                     const groupName = row["Nombre del Grupo"] || "Sin Nombre";
+
                     if (!groups[key]) {
                         groups[key] = {
                             id: resId,
@@ -1387,8 +1399,8 @@
                         const str = String(val);
                         const parts = str.split(/[\/-]/);
                         if (parts.length === 3) {
-                            if (parts[0].length === 4) return str;
-                            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            const y = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+                            return `${y}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                         }
                         return str;
                     };
@@ -1815,10 +1827,11 @@
                         y = date.getUTCFullYear();
                     } else {
                         const str = String(val).trim();
-                        // Handle DD/MM/YYYY or DD-MM-YYYY
-                        if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}$/.test(str)) {
+                        // Handle DD/MM/YYYY, DD-MM-YYYY or DD.MM.YY/YYYY
+                        if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(str)) {
                             const parts = str.split(/[\/-]/);
                             [d, m, y] = parts.map(Number);
+                            if (y < 100) y += 2000;
                         }
                         // Handle YYYY-MM-DD
                         else if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
@@ -1986,8 +1999,11 @@
                             }
 
                             let d, m, y;
-                            // Formato español DD/MM/YYYY o DD-MM-YYYY
-                            if (/^\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/.test(s)) {
+                            // Spanish format DD-MM-YYYY or DD/MM/YYYY or DD/MM/YY
+                            if (s.includes('-') && s.split('-')[0].length <= 2) {
+                                const parts = s.split(/[-\/]/);
+                                [d, m, y] = parts;
+                            } else if (s.includes('/') && s.split('/')[0].length <= 2) {
                                 const parts = s.split(/[-\/]/);
                                 [d, m, y] = parts;
                             }
