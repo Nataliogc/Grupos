@@ -905,12 +905,12 @@
                     const rooms = parseInt(row["Cant. Habitaciones"] || row["Cant."] || row["Hab."] || 0);
                     const noches = parseInt(row["Noches"] || 0);
 
-                    if (!isNaN(importe)) groups[groupName].totalRevenue += importe;
-                    if (!isNaN(pax)) groups[groupName].totalPax += pax;
-                    if (!isNaN(rooms)) groups[groupName].totalRooms += rooms;
-                    if (!isNaN(noches)) groups[groupName].totalNights += noches;
+                    if (!isNaN(importe)) groups[key].totalRevenue += importe;
+                    if (!isNaN(pax)) groups[key].totalPax += pax;
+                    if (!isNaN(rooms)) groups[key].totalRooms += rooms;
+                    if (!isNaN(noches)) groups[key].totalNights += noches;
 
-                    groups[groupName].records.push(row);
+                    groups[key].records.push(row);
                 });
 
                 return Object.values(groups).sort((a, b) => {
@@ -1033,6 +1033,7 @@
                     groups: Array.from(s.groupList)
                         .map(name => {
                             const groupObj = groupedData.find(g => g.name === name);
+                            if (!groupObj) return { name, arrival: null, obj: null };
                             return {
                                 name,
                                 arrival: groupObj?.arrival || groupObj?.records?.[0]?.["Entrada"],
