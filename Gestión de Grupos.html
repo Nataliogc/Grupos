@@ -877,6 +877,7 @@
                             totalPax: 0,
                             totalRooms: 0,
                             totalRevenue: 0,
+                            totalPaid: 0,
                             totalNights: 0,
                             hotel: row["Hotel_Asignado"] || row["Hotel"] || "",
                             records: []
@@ -917,6 +918,10 @@
                     if (!isNaN(pax)) groups[key].totalPax += pax;
                     if (!isNaN(rooms)) groups[key].totalRooms += rooms;
                     if (!isNaN(noches)) groups[key].totalNights += noches;
+
+                    // Acumular pagado: solo el primero que tenga Com_Pagado válido
+                    const paid = parseNum(row["Com_Pagado"] || 0);
+                    if (paid > 0 && groups[key].totalPaid === 0) groups[key].totalPaid = paid;
 
                     groups[key].records.push(row);
                 });
@@ -1535,6 +1540,7 @@
                 const uniquePendingGroups = new Set();
                 let releaseAlerts = 0;
                 let followUpAlerts = 0;
+                const uniqueFollowUpGroups = new Set(); // Deduplicar tareas por nombre de grupo
                 let proforma24h = 0;
                 let commercialsCount = {};
 
@@ -1634,10 +1640,14 @@
                         }
                         if (isReleaseUrgent) releaseAlerts++;
 
-                        // 3. Follow-up Alerts
+                        // 3. Follow-up Alerts — deduplicado por nombre de grupo
                         const followUp = row.Com_Seguimiento ? new Date(row.Com_Seguimiento) : null;
-                        if (followUp && !isNaN(followUp.getTime())) {
-                            if (followUp <= now) followUpAlerts++;
+                        if (followUp && !isNaN(followUp.getTime()) && followUp <= now) {
+                            const groupLabel = row["Nombre del Grupo"] || groupId;
+                            if (!uniqueFollowUpGroups.has(groupLabel)) {
+                                uniqueFollowUpGroups.add(groupLabel);
+                                followUpAlerts++;
+                            }
                         }
 
                         // 4. Proformas 24h
@@ -3702,7 +3712,11 @@
                                         <tbody className="divide-y divide-slate-100">
                                             {groupedData
                                                 .map((group, idx) => {
-                                                    const st = getStatusProps(group.records?.[0]?.["Com_Estado_Interno"] || group.records?.[0]?.["Segment."], group.arrival, group.records?.[0]?.["Estado"]);
+                                                    // Prioridad: Com_Estado_Interno siempre gana sobre Estado (campo del Excel importado)
+                                                    const internalSt = group.records?.[0]?.["Com_Estado_Interno"];
+                                                    const externalSt = group.records?.[0]?.["Estado"];
+                                                    const effectiveSt = internalSt || group.records?.[0]?.["Segment."];
+                                                    const st = getStatusProps(effectiveSt, group.arrival, internalSt ? null : externalSt);
                                                     const statusText = st.label;
                                                     const statusColor = st.text;
 
@@ -3777,19 +3791,43 @@
 
                                                             <td className="px-3 py-2 text-center">
                                                                 {(() => {
+                                                                    // Si está pagado al 100%, no mostrar alerta de release
+                                                                    const rev = group.totalRevenue || 0;
+                                                                    const paid = group.totalPaid || 0;
+                                                                    const isFullyPaid = paid > 0 && rev > 0 && paid >= rev - 0.01;
+                                                                    if (isFullyPaid) {
+                                                                        return <span className="text-[9px] font-black text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-full">PGD</span>;
+                                                                    }
+
                                                                     const now = new Date();
                                                                     now.setHours(0, 0, 0, 0);
 
-                                                                    // Prioritize actual Release Date if set
-                                                                    const relDateStr = group.records[0]?.["Com_Vencimiento_Rel"];
+                                                                    // Release: primero Com_Vencimiento_Rel (manual), luego buscar en PaymentPlan_JSON
+                                                                    let relDateStr = group.records[0]?.["Com_Vencimiento_Rel"];
+                                                                    if (!relDateStr) {
+                                                                        // Buscar la fecha de release más próxima en el plan de pagos
+                                                                        (group.records || []).forEach(r => {
+                                                                            try {
+                                                                                const plan = JSON.parse(r.PaymentPlan_JSON || '[]');
+                                                                                plan.forEach(p => {
+                                                                                    if (p.status !== 'Cobrado' && p.date) {
+                                                                                        if (!relDateStr || new Date(p.date) < new Date(relDateStr)) {
+                                                                                            relDateStr = p.date;
+                                                                                        }
+                                                                                    }
+                                                                                });
+                                                                            } catch (e) { }
+                                                                        });
+                                                                    }
+
                                                                     if (relDateStr) {
-                                                                        const relDate = new Date(relDateStr);
+                                                                        const relDate = new Date(toInputDate ? toInputDate(relDateStr) : relDateStr);
                                                                         if (!isNaN(relDate.getTime())) {
                                                                             const diffRel = Math.ceil((relDate - now) / (1000 * 60 * 60 * 24));
                                                                             return (
                                                                                 <div className="flex flex-col items-center">
                                                                                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm ${diffRel <= 3 ? 'bg-rose-600 text-white animate-pulse' : (diffRel <= 7 ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white')}`}>
-                                                                                        {diffRel}d
+                                                                                        {diffRel > 0 ? `${diffRel}d` : (diffRel === 0 ? 'HOY' : 'PASADO')}
                                                                                     </span>
                                                                                     <span className="text-[7px] text-slate-400 font-bold mt-0.5 uppercase tracking-tighter">(REL)</span>
                                                                                 </div>
@@ -3812,9 +3850,26 @@
                                                             </td>
                                                             {/* IMPORTE */}
                                                             <td className="px-3 py-2 text-right">
-                                                                <div className="text-[12px] font-black text-slate-700 tabular-nums">
-                                                                    {group.totalRevenue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                                                                </div>
+                                                                {(() => {
+                                                                    const rev = group.totalRevenue || 0;
+                                                                    const paid = group.totalPaid || 0;
+                                                                    const pending = rev - paid;
+                                                                    const isFullyPaid = paid > 0 && pending <= 0.01;
+                                                                    return (
+                                                                        <div className="flex flex-col items-end gap-0.5">
+                                                                            <span className="text-[12px] font-black text-slate-700 tabular-nums">
+                                                                                {rev.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                                                                            </span>
+                                                                            {paid > 0 && (
+                                                                                isFullyPaid
+                                                                                    ? <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider">✓ Pagado</span>
+                                                                                    : <span className="text-[10px] font-bold text-amber-600 tabular-nums">
+                                                                                        {pending.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} pdte.
+                                                                                    </span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </td>
 
                                                             {/* ESTADO */}
@@ -4377,7 +4432,12 @@
                                                                     </h3>
                                                                     <div className="flex gap-1.5 h-fit">
                                                                         {(() => {
-                                                                            const st = getStatusProps(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || selectedGroupFicha.records[0]?.["Segment."], selectedGroupFicha.arrival, selectedGroupFicha.records[0]?.["Estado"]);
+                                                                            // Prioridad: Com_Estado_Interno > Estado (el campo del Excel no debe sobrescribir el estado interno)
+                                                                            const internalStatus = selectedGroupFicha.records[0]?.["Com_Estado_Interno"];
+                                                                            const externalStatus = selectedGroupFicha.records[0]?.["Estado"];
+                                                                            // Solo usar Estado externo si NO hay un Com_Estado_Interno definido
+                                                                            const effectiveStatus = internalStatus || selectedGroupFicha.records[0]?.["Segment."];
+                                                                            const st = getStatusProps(effectiveStatus, selectedGroupFicha.arrival, internalStatus ? null : externalStatus);
                                                                             return (
                                                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ${st.text}`}>
                                                                                     {st.label}
@@ -4414,33 +4474,40 @@
                                                             </div>
                                                         </div>
 
-                                                        {/* RIGHT: Consolidated Financial Dashboard (Merged Header) */}
-                                                        <div className="flex items-center gap-6 bg-black/20 p-3 px-6 rounded-2xl border border-white/10 shadow-inner backdrop-blur-md">
-                                                            <div className="flex gap-8 border-r border-white/10 pr-8">
-                                                                <div className="text-center">
-                                                                    <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1">Base Imponible</p>
-                                                                    <p className="text-sm font-black tabular-nums">{(totalB10 + totalB21).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</p>
-                                                                </div>
-                                                                <div className="text-center">
-                                                                    <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1">Total Cobrado</p>
-                                                                    <div className="flex flex-col items-center">
-                                                                        <p className={`text-sm font-black tabular-nums ${totalPaid >= grandTotal - 0.01 && grandTotal > 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                                                                            {totalPaid.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€
-                                                                        </p>
-                                                                        {grandTotal > 0 && <span className="text-[8px] font-bold opacity-40 leading-none">({Math.round((totalPaid / grandTotal) * 100)}%)</span>}
-                                                                    </div>
-                                                                </div>
-                                                                {pendingAmount > 0.01 && (
-                                                                    <div className="text-center">
-                                                                        <p className="text-[8px] font-black uppercase text-rose-300 tracking-widest mb-1">Restante PND</p>
-                                                                        <p className="text-sm font-black text-rose-400 tabular-nums">
-                                                                            -{pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€
-                                                                        </p>
-                                                                    </div>
-                                                                )}
+                                                        {/* RIGHT: Financial Summary — COBRADO | PENDIENTE | TOTAL */}
+                                                        <div className="flex items-center gap-5 bg-black/20 p-3 px-6 rounded-2xl border border-white/10 shadow-inner backdrop-blur-md">
+                                                            {/* COBRADO */}
+                                                            <div className="text-center">
+                                                                <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1">Cobrado</p>
+                                                                <p className={`text-sm font-black tabular-nums ${totalPaid >= grandTotal - 0.01 && grandTotal > 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                                                    {totalPaid.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€
+                                                                </p>
+                                                                {grandTotal > 0 && <span className="text-[8px] font-bold opacity-40 leading-none">({Math.round((totalPaid / grandTotal) * 100)}%)</span>}
                                                             </div>
-                                                            <div className="text-right pl-2">
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-white/50 mb-0.5">Forecast Total</p>
+
+                                                            <div className="w-px h-8 bg-white/10"></div>
+
+                                                            {/* PENDIENTE o PAGADO */}
+                                                            {grandTotal > 0 && totalPaid >= grandTotal - 0.01 ? (
+                                                                <div className="text-center">
+                                                                    <span className="inline-block px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                                        ✓ PAGADO
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-center">
+                                                                    <p className="text-[8px] font-black uppercase text-rose-300 tracking-widest mb-1">Pendiente</p>
+                                                                    <p className="text-sm font-black text-rose-400 tabular-nums">
+                                                                        {pendingAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€
+                                                                    </p>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="w-px h-8 bg-white/10"></div>
+
+                                                            {/* TOTAL */}
+                                                            <div className="text-right">
+                                                                <p className="text-[9px] font-black uppercase tracking-widest text-white/50 mb-0.5">Total</p>
                                                                 <p className="text-3xl font-black text-white drop-shadow-lg tabular-nums leading-none">
                                                                     {grandTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })}<span className="text-base ml-1 opacity-50 font-bold">€</span>
                                                                 </p>
