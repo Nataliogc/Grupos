@@ -2939,11 +2939,12 @@
                 const entrada = firstRec?.["Entrada"];
                 let dateEntrada = new Date();
                 if (entrada) {
-                    const parts = entrada.includes('/') ? entrada.split('/') : entrada.split('-');
-                    if (parts.length === 3) {
-                        let d, m, y;
-                        if (parts[0].length === 4) { [y, m, d] = parts; } else { [d, m, y] = parts; }
-                        dateEntrada = new Date(y, m - 1, d);
+                    const numDate = parseFloat(entrada);
+                    if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
+                        dateEntrada = new Date(Math.round((numDate - 25569) * 86400 * 1000));
+                    } else {
+                        const dateStr = toInputDate(entrada);
+                        dateEntrada = new Date(dateStr);
                     }
                 }
 
@@ -3791,33 +3792,37 @@
 
                                                             <td className="px-3 py-2 text-center">
                                                                 {(() => {
-                                                                    // Si está pagado al 100%, no mostrar alerta de release
                                                                     const rev = group.totalRevenue || 0;
                                                                     const paid = group.totalPaid || 0;
                                                                     const isFullyPaid = paid > 0 && rev > 0 && paid >= rev - 0.01;
+
                                                                     if (isFullyPaid) {
-                                                                        return <span className="text-[9px] font-black text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-full">PGD</span>;
+                                                                        return <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">OK</span>;
                                                                     }
 
                                                                     const now = new Date();
                                                                     now.setHours(0, 0, 0, 0);
 
-                                                                    // Release: primero Com_Vencimiento_Rel (manual), luego buscar en PaymentPlan_JSON
-                                                                    let relDateStr = group.records[0]?.["Com_Vencimiento_Rel"];
-                                                                    if (!relDateStr) {
-                                                                        // Buscar la fecha de release más próxima en el plan de pagos
-                                                                        (group.records || []).forEach(r => {
-                                                                            try {
-                                                                                const plan = JSON.parse(r.PaymentPlan_JSON || '[]');
-                                                                                plan.forEach(p => {
-                                                                                    if (p.status !== 'Cobrado' && p.date) {
-                                                                                        if (!relDateStr || new Date(p.date) < new Date(relDateStr)) {
-                                                                                            relDateStr = p.date;
-                                                                                        }
+                                                                    // Release: Priority order: 1. First unpaid segment in PaymentPlan_JSON, 2. Com_Vencimiento_Rel manual, 3. Arrival
+                                                                    let relDateStr = null;
+
+                                                                    // Try to find the earliest unpaid segment
+                                                                    (group.records || []).forEach(r => {
+                                                                        try {
+                                                                            const plan = JSON.parse(r.PaymentPlan_JSON || '[]');
+                                                                            plan.forEach(p => {
+                                                                                if (p.status !== 'Cobrado' && p.date) {
+                                                                                    if (!relDateStr || new Date(p.date) < new Date(relDateStr)) {
+                                                                                        relDateStr = p.date;
                                                                                     }
-                                                                                });
-                                                                            } catch (e) { }
-                                                                        });
+                                                                                }
+                                                                            });
+                                                                        } catch (e) { }
+                                                                    });
+
+                                                                    // If no unpaid segment found, use manual field
+                                                                    if (!relDateStr) {
+                                                                        relDateStr = group.records[0]?.["Com_Vencimiento_Rel"];
                                                                     }
 
                                                                     if (relDateStr) {
@@ -3829,7 +3834,7 @@
                                                                                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm ${diffRel <= 3 ? 'bg-rose-600 text-white animate-pulse' : (diffRel <= 7 ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white')}`}>
                                                                                         {diffRel > 0 ? `${diffRel}d` : (diffRel === 0 ? 'HOY' : 'PASADO')}
                                                                                     </span>
-                                                                                    <span className="text-[7px] text-slate-400 font-bold mt-0.5 uppercase tracking-tighter">(REL)</span>
+                                                                                    <span className="text-[8px] text-slate-500 font-bold mt-0.5 tracking-tighter">{formatDate(relDateStr)}</span>
                                                                                 </div>
                                                                             );
                                                                         }
@@ -3844,6 +3849,7 @@
                                                                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${diffArr <= 7 && diffArr > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
                                                                                 {diffArr > 0 ? `${diffArr}d` : (diffArr === 0 ? 'HOY' : 'PASADO')}
                                                                             </span>
+                                                                            <span className="text-[8px] text-slate-400 font-bold mt-0.5 tracking-tighter">Entrada</span>
                                                                         </div>
                                                                     );
                                                                 })()}
@@ -4607,7 +4613,7 @@
                                                             </div>
 
                                                             {/* Fechas de Gestión */}
-                                                            <div className="md:col-span-3 grid grid-cols-2 gap-2">
+                                                            <div className="md:col-span-3 grid grid-cols-1 gap-2">
                                                                 <div>
                                                                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 ml-1">Próx. Seg.</label>
                                                                     <input
@@ -4615,15 +4621,6 @@
                                                                         className={`w-full h-9 px-2 text-[10px] font-black rounded-xl border ${selectedGroupFicha.records[0]?.["Com_Seguimiento"] && new Date(selectedGroupFicha.records[0]?.["Com_Seguimiento"]) <= new Date() ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-slate-50 text-slate-600'} outline-none focus:border-blue-500 transition-all`}
                                                                         value={selectedGroupFicha.records[0]?.["Com_Seguimiento"] || ""}
                                                                         onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Seguimiento", e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 ml-1">Release</label>
-                                                                    <input
-                                                                        type="date"
-                                                                        className={`w-full h-9 px-2 text-[10px] font-black rounded-xl border ${daysToRelease !== null && daysToRelease <= 7 ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-slate-200 bg-slate-50 text-slate-600'} outline-none focus:border-rose-500 transition-all`}
-                                                                        value={selectedGroupFicha.records[0]?.["Com_Vencimiento_Rel"] || ""}
-                                                                        onChange={(e) => updateGroupMetadata(selectedGroupFicha.id, "Com_Vencimiento_Rel", e.target.value)}
                                                                     />
                                                                 </div>
                                                             </div>
@@ -5059,7 +5056,15 @@
                                                                                     const pct = parseFloat(newPlan[idx].percent) || 0;
                                                                                     const days = parseInt(newPlan[idx].releaseDays) || 0;
                                                                                     newPlan[idx].amount = (hotelTotal * (pct / 100)).toFixed(2);
-                                                                                    const d = new Date(toInputDate(arrivalDate));
+                                                                                    let d;
+                                                                                    const sDate = arrivalDate;
+                                                                                    const numDate = parseFloat(sDate);
+                                                                                    if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
+                                                                                        d = new Date(Math.round((numDate - 25569) * 86400 * 1000));
+                                                                                    } else {
+                                                                                        const dateStr = toInputDate(sDate);
+                                                                                        d = new Date(dateStr);
+                                                                                    }
                                                                                     d.setDate(d.getDate() - days);
                                                                                     newPlan[idx].date = d.toISOString().split('T')[0];
                                                                                 }
@@ -5068,7 +5073,15 @@
 
                                                                             const addPlanRow = () => {
                                                                                 const remaining = Math.max(0, 100 - totalPercent);
-                                                                                const d = new Date(toInputDate(arrivalDate));
+                                                                                let d;
+                                                                                const sDate = arrivalDate;
+                                                                                const numDate = parseFloat(sDate);
+                                                                                if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
+                                                                                    d = new Date(Math.round((numDate - 25569) * 86400 * 1000));
+                                                                                } else {
+                                                                                    const dateStr = toInputDate(sDate);
+                                                                                    d = new Date(dateStr);
+                                                                                }
                                                                                 const days = 30;
                                                                                 d.setDate(d.getDate() - days);
                                                                                 const newRow = { id: Date.now(), label: remaining === 100 ? "Pago Único" : "Nuevo Pago", percent: remaining, amount: (hotelTotal * (remaining / 100)).toFixed(2), releaseDays: days, date: d.toISOString().split('T')[0], status: "Pendiente", Enlace_TPV: "" };
@@ -5098,27 +5111,42 @@
                                                                                         <div className="grid grid-cols-[25px_50px_90px_60px_70px_1fr_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
                                                                                             <div></div><div className="text-center">%</div><div className="text-right pr-2">Importe</div><div className="text-center">Release</div><div className="text-center">Fecha</div><div className="text-center">Enlace de Pago TPV</div><div className="text-center">Estado</div><div></div>
                                                                                         </div>
-                                                                                        {plan.map((dep, idx) => {
-                                                                                            const isPaid = dep.status === "Cobrado";
-                                                                                            const today = new Date(); today.setHours(0, 0, 0, 0);
-                                                                                            const depDate = new Date(toInputDate(dep.date)); depDate.setHours(0, 0, 0, 0);
-                                                                                            const isWarning = !isPaid && Math.ceil((depDate - today) / (1000 * 60 * 60 * 24)) <= 2;
+                                                                                        {(() => {
+                                                                                            let lastUnpaidIdx = -1;
+                                                                                            for (let i = plan.length - 1; i >= 0; i--) {
+                                                                                                if (plan[i].status !== "Cobrado") {
+                                                                                                    lastUnpaidIdx = i;
+                                                                                                    break;
+                                                                                                }
+                                                                                            }
 
-                                                                                            return (
-                                                                                                <div key={dep.id} className={`grid grid-cols-[25px_50px_90px_60px_70px_1fr_60px_25px] items-center gap-1 p-1 rounded border ${isPaid ? 'bg-emerald-50/40 border-emerald-100/50' : (isWarning ? 'bg-rose-50 border-rose-200 animate-pulse' : 'bg-white border-slate-100')} hover:border-slate-300 transition-all group shadow-sm pl-1`}>
-                                                                                                    <div className="flex justify-center">{isWarning ? <IconAlertTriangle size={10} className="text-rose-500" /> : <div className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>}</div>
-                                                                                                    <div className="flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[40px] h-5 border border-slate-100"><input type="number" className="bg-transparent border-none text-[10px] font-black text-slate-600 w-8 text-right outline-none" value={dep.percent} onChange={(e) => handlePlanChange(idx, 'percent', e.target.value)} /><span className="text-[8px] font-black text-slate-400 ml-0.5">%</span></div>
-                                                                                                    <div className="text-right pr-2"><span className={`text-[12px] font-black tabular-nums ${isPaid ? 'text-emerald-700' : (isWarning ? 'text-rose-700' : 'text-slate-700')}`}>{parseFloat(dep.amount || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</span></div>
-                                                                                                    <div className="flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[45px] h-6 border border-blue-100 mx-auto"><input type="number" className="bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none" value={dep.releaseDays} onChange={(e) => handlePlanChange(idx, 'releaseDays', e.target.value)} /><span className="text-[8px] font-black text-blue-400 ml-0.5 transition-colors">D</span></div>
-                                                                                                    <div className={`text-[10px] font-bold tabular-nums text-center ${isWarning ? 'text-rose-600 font-black' : 'text-slate-500'}`}>{formatDate(dep.date)}</div>
-                                                                                                    <div className="px-1 w-full">
-                                                                                                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-[9px] focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-300" placeholder="Añadir enlace TPV..." value={dep.Enlace_TPV || ""} onChange={(e) => handlePlanChange(idx, 'Enlace_TPV', e.target.value)} />
+                                                                                            return plan.map((dep, idx) => {
+                                                                                                const isPaid = dep.status === "Cobrado";
+                                                                                                const today = new Date(); today.setHours(0, 0, 0, 0);
+                                                                                                const depDate = new Date(toInputDate(dep.date)); depDate.setHours(0, 0, 0, 0);
+                                                                                                const isWarning = !isPaid && Math.ceil((depDate - today) / (1000 * 60 * 60 * 24)) <= 2;
+                                                                                                const isLastUnpaid = idx === lastUnpaidIdx;
+
+                                                                                                return (
+                                                                                                    <div key={dep.id} className={`grid grid-cols-[25px_50px_90px_60px_70px_1fr_60px_25px] items-center gap-1 p-1 rounded border ${isPaid ? 'bg-emerald-50/40 border-emerald-100/50' : (isWarning ? 'bg-rose-50 border-rose-200 animate-pulse' : 'bg-white border-slate-100')} hover:border-slate-300 transition-all group shadow-sm pl-1`}>
+                                                                                                        <div className="flex justify-center">{isWarning ? <IconAlertTriangle size={10} className="text-rose-500" /> : <div className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>}</div>
+                                                                                                        <div className="flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[40px] h-5 border border-slate-100"><input type="number" className="bg-transparent border-none text-[10px] font-black text-slate-600 w-8 text-right outline-none" value={dep.percent} onChange={(e) => handlePlanChange(idx, 'percent', e.target.value)} /><span className="text-[8px] font-black text-slate-400 ml-0.5">%</span></div>
+                                                                                                        <div className="text-right pr-2"><span className={`text-[12px] font-black tabular-nums ${isPaid ? 'text-emerald-700' : (isWarning ? 'text-rose-700' : 'text-slate-700')}`}>{parseFloat(dep.amount || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</span></div>
+                                                                                                        {isLastUnpaid ? (
+                                                                                                            <div className="flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[45px] h-6 border border-blue-100 mx-auto"><input type="number" className="bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none" value={dep.releaseDays} onChange={(e) => handlePlanChange(idx, 'releaseDays', e.target.value)} /><span className="text-[8px] font-black text-blue-400 ml-0.5 transition-colors">D</span></div>
+                                                                                                        ) : (
+                                                                                                            <div className="text-center text-[10px] font-bold text-slate-300">-</div>
+                                                                                                        )}
+                                                                                                        <div className={`text-[10px] font-bold tabular-nums text-center ${isWarning ? 'text-rose-600 font-black' : 'text-slate-500'}`}>{formatDate(dep.date)}</div>
+                                                                                                        <div className="px-1 w-full">
+                                                                                                            <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-[9px] focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-300" placeholder="Añadir enlace TPV..." value={dep.Enlace_TPV || ""} onChange={(e) => handlePlanChange(idx, 'Enlace_TPV', e.target.value)} />
+                                                                                                        </div>
+                                                                                                        <button onClick={() => handlePlanChange(idx, 'status', isPaid ? "Pendiente" : "Cobrado")} className={`h-5 w-full rounded text-[9px] font-black transition-all ${isPaid ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200' : 'bg-slate-100 text-slate-400'}`}>{isPaid ? <IconCheck size={10} stroke={4} className="mx-auto" /> : 'PND'}</button>
+                                                                                                        <button onClick={() => removePlanRow(idx)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-opacity flex justify-center"><IconTrash size={12} /></button>
                                                                                                     </div>
-                                                                                                    <button onClick={() => handlePlanChange(idx, 'status', isPaid ? "Pendiente" : "Cobrado")} className={`h-5 w-full rounded text-[9px] font-black transition-all ${isPaid ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200' : 'bg-slate-100 text-slate-400'}`}>{isPaid ? <IconCheck size={10} stroke={4} className="mx-auto" /> : 'PND'}</button>
-                                                                                                    <button onClick={() => removePlanRow(idx)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-opacity flex justify-center"><IconTrash size={12} /></button>
-                                                                                                </div>
-                                                                                            );
-                                                                                        })}
+                                                                                                );
+                                                                                            });
+                                                                                        })()}
                                                                                         {totalPercent < 100 && (
                                                                                             <button onClick={addPlanRow} className="w-full py-2 border border-dashed border-slate-200 rounded text-slate-400 hover:border-slate-400 hover:text-slate-500 transition-all text-[9px] font-black uppercase flex items-center justify-center gap-2 bg-white"><IconPlus size={12} /> Añadir Tramo ({100 - totalPercent}%)</button>
                                                                                         )}

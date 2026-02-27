@@ -15,7 +15,7 @@
         rel="stylesheet">
 
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide/dist/umd/lucide.js"></script>
 
     <!-- React & ReactDOM (Versión 18) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -30,6 +30,12 @@
     <!-- Markdown Parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+    <!-- Prop-Types (Required by Recharts UMD) -->
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.js"></script>
+
+    <!-- Recharts -->
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+
     <!-- Import Map para SDK Gemini -->
     <script type="importmap">
         {
@@ -39,61 +45,79 @@
         }
     </script>
     <style>
+        :root {
+            --nexus-bg: #f8fafc;
+            --nexus-card: #ffffff;
+            --nexus-accent: #10b981;
+            --nexus-accent-light: rgba(16, 185, 129, 0.1);
+            --nexus-border: #e2e8f0;
+            --nexus-text: #1e293b;
+            --nexus-text-dim: #64748b;
+        }
+
         body {
             font-family: 'Outfit', sans-serif;
-            background-color: #f8fafc;
+            background-color: var(--nexus-bg);
+            color: var(--nexus-text);
+            margin: 0;
+            overflow-x: hidden;
         }
 
-        .glass {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        .premium-card {
+            background: var(--nexus-card);
+            border: 1px solid var(--nexus-border);
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        .sidebar-item-active {
-            background: #2d5a43;
-            color: white;
-            box-shadow: 0 4px 12px rgba(45, 90, 67, 0.3);
+        .premium-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
         }
 
-        .gradient-bg {
-            background: linear-gradient(135deg, #2d5a43 0%, #1e3a2c 100%);
+        .emerald-stat {
+            color: var(--nexus-accent);
+            font-weight: 900;
         }
 
-        /* Spinner IA */
-        .spinner {
-            border: 3px solid rgba(45, 90, 67, 0.1);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border-left-color: #2d5a43;
-            animation: spin 1s linear infinite;
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
         }
 
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* re-charts adjustments */
+        .recharts-cartesian-grid-horizontal line,
+        .recharts-cartesian-grid-vertical line {
+            stroke: #f1f5f9;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
             }
 
-            100% {
-                transform: rotate(360deg);
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
-        .prose h3 {
-            margin-top: 1.5rem;
-            color: #2d5a43;
-            font-weight: bold;
-        }
-
-        .prose ul {
-            list-style-type: disc;
-            padding-left: 1.5rem;
-            margin: 1rem 0;
-        }
-
-        .prose p {
-            margin-bottom: 0.75rem;
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease forwards;
         }
     </style>
 </head>
@@ -106,21 +130,46 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
+        const {
+            ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+            PieChart, Pie, Cell, Legend, BarChart, Bar
+        } = Recharts;
 
         const LucideIcon = ({ name, size = 20, className = "" }) => {
             const iconRef = useRef(null);
             useEffect(() => {
                 if (iconRef.current && window.lucide) {
-                    const icon = window.lucide.icons[name];
-                    if (icon) {
-                        const svgElement = window.lucide.createIcon(icon, {
-                            width: size,
-                            height: size,
-                            class: className,
-                            'stroke-width': 2
-                        });
-                        iconRef.current.innerHTML = '';
-                        iconRef.current.appendChild(svgElement);
+                    // Create an <i> tag for lucide.replace()
+                    const i = document.createElement('i');
+                    i.setAttribute('data-lucide', name);
+                    i.setAttribute('stroke-width', '2');
+                    if (size) {
+                        i.style.width = `${size}px`;
+                        i.style.height = `${size}px`;
+                        i.setAttribute('width', size);
+                        i.setAttribute('height', size);
+                    }
+                    if (className) i.className = className;
+
+                    iconRef.current.innerHTML = '';
+                    iconRef.current.appendChild(i);
+
+                    // Trigger Lucide replacement
+                    if (window.lucide.createIcon && window.lucide.icons && window.lucide.icons[name]) {
+                        try {
+                            const svg = window.lucide.createIcon(window.lucide.icons[name], {
+                                width: size,
+                                height: size,
+                                class: className,
+                                'stroke-width': 2
+                            });
+                            iconRef.current.innerHTML = '';
+                            iconRef.current.appendChild(svg);
+                        } catch (e) {
+                            if (window.lucide.replace) window.lucide.replace();
+                        }
+                    } else if (window.lucide.replace) {
+                        window.lucide.replace();
                     }
                 }
             }, [name, size, className]);
@@ -135,6 +184,46 @@
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
+
+        const safeParseAmount = (val) => {
+            if (val === null || val === undefined) return 0;
+            if (typeof val === 'number') return val;
+            let s = String(val).trim();
+            if (!s || s === '0') return 0;
+
+            // Remove currency symbols and non-numeric junk except dots and commas
+            s = s.replace(/[^0-9.,-]/g, '');
+
+            // European format check: has comma AND dots, or has comma
+            if (s.includes(',') && s.includes('.')) {
+                // "1.234,56" -> "1234.56"
+                return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+            }
+            if (s.includes(',')) {
+                // "1234,56" -> "1234.56"
+                return parseFloat(s.replace(',', '.')) || 0;
+            }
+
+            // Ambiguity check: "1.000" could be US decimal 1.0 or European thousand 1000.
+            // Rule: If multiple dots exist, it's definitely thousands. 
+            // If one dot exists, we assume it's a decimal separator (standard JS/US) 
+            // UNLESS it's followed exactly by three digits and nothing else (e.g. "1.000"), 
+            // which is highly likely to be a thousands separator in a hotel context.
+            const dots = (s.match(/\./g) || []).length;
+            if (dots > 1) return parseFloat(s.replace(/\./g, '')) || 0;
+
+            if (dots === 1) {
+                const parts = s.split('.');
+                // If the part after the dot has exactly 3 digits, it's probably a thousands separator.
+                // e.g. "1.000" but NOT "1.00" or "1.5"
+                if (parts[1].length === 3 && s.length > 5) return parseFloat(s.replace(/\./g, '')) || 0;
+            }
+
+            const result = parseFloat(s);
+            // Cap at a reasonable maximum for a single group (e.g. 1 million €) 
+            // to prevent corruption from IDs or malformed data.
+            return (result > 100000000) ? 0 : (result || 0);
+        };
 
         const formatDate = (val) => {
             if (!val) return "-";
@@ -292,215 +381,328 @@
                 let totalRevenue = 0, totalPaid = 0;
                 let confirmed = 0, tentative = 0, cancelled = 0, prospect = 0;
                 const seenGroups = new Set();
+                const segMap = {};
                 (data || []).forEach(g => {
-                    const name = g["Nombre del Grupo"] || g["Reserva"] || "";
-                    const isNew = !seenGroups.has(name);
-                    if (isNew) seenGroups.add(name);
-                    const rev = parseFloat((g["Importe(*)"] || "0").toString().replace(/\./g, '').replace(',', '.')) || 0;
-                    totalRevenue += rev;
-                    // Paid from plan
-                    try { const plan = JSON.parse(g.PaymentPlan_JSON || "[]"); plan.forEach(p => { if (p.status === "Cobrado") totalPaid += parseFloat(p.amount) || 0; }); } catch (e) { }
-                    // Status
+                    const id = g.Com_Id || g["Reserva"] || g["Nombre del Grupo"] || "";
+                    const isNew = !seenGroups.has(id);
                     if (isNew) {
+                        seenGroups.add(id);
+                        const rev = safeParseAmount(g["Importe(*)"] || g.Com_Total_Revenue || "0");
+                        totalRevenue += rev;
+
                         const s = ((g.Com_Estado_Interno || g["Estado"] || g["Segment."] || "")).toUpperCase();
                         if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA")) cancelled++;
                         else if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA")) confirmed++;
                         else if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI")) tentative++;
                         else if (s.includes("PROSPEC") || s.includes("PENDIE")) prospect++;
                         else confirmed++;
+
+                        // Segments
+                        const segmentName = (g.Com_Segmento || g["Segment."] || "OTROS").toUpperCase().replace('GRUPO ', '');
+                        segMap[segmentName] = (segMap[segmentName] || 0) + rev;
+
+                        let gPaid = parseFloat(g.Com_Pagado) || 0;
+                        if (gPaid === 0) {
+                            try {
+                                const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+                                plan.forEach(p => { if (p.status === "Cobrado") gPaid += parseFloat(p.amount) || 0; });
+                            } catch (e) { }
+                        }
+                        totalPaid += gPaid;
                     }
                 });
-                const manualPaid = (data || []).reduce((acc, g) => acc + (parseFloat(g.Com_Pagado) || 0), 0);
-                const effectivePaid = manualPaid > 0 ? manualPaid : totalPaid;
-                return { totalRevenue, effectivePaid, pending: Math.max(0, totalRevenue - effectivePaid), confirmed, tentative, cancelled, prospect };
+
+                const segmentData = Object.entries(segMap)
+                    .map(([name, val]) => ({ name, val }))
+                    .sort((a, b) => b.val - a.val)
+                    .slice(0, 4);
+
+                return {
+                    totalRevenue,
+                    effectivePaid: totalPaid,
+                    pending: Math.max(0, totalRevenue - totalPaid),
+                    confirmed, tentative, cancelled, prospect,
+                    segmentData
+                };
             }, [data]);
 
             const fmt = (n) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-            const paidPct = financials.totalRevenue > 0 ? Math.round((financials.effectivePaid / financials.totalRevenue) * 100) : 0;
+
+            const getStatusProps = (status) => {
+                const s = (status || "").toUpperCase();
+                if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA")) return { label: 'Anulado', text: 'text-rose-500 bg-rose-50', border: 'border-rose-100' };
+                if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA")) return { label: 'Confirmado', text: 'text-emerald-500 bg-emerald-50', border: 'border-emerald-100' };
+                if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI")) return { label: 'Tentativa', text: 'text-blue-500 bg-blue-50', border: 'border-blue-100' };
+                if (s.includes("PROSPEC") || s.includes("PENDIE")) return { label: 'Prospect', text: 'text-amber-500 bg-amber-50', border: 'border-amber-100' };
+                return { label: status, text: 'text-slate-500 bg-slate-50', border: 'border-slate-100' };
+            };
+
+            // Chart Data
+            const pieData = [
+                { name: 'Confirmado', value: financials.confirmed, color: '#10b981' },
+                { name: 'Tentativa', value: financials.tentative, color: '#3b82f6' },
+                { name: 'Prospect', value: financials.prospect, color: '#f59e0b' },
+                { name: 'Anulado', value: financials.cancelled, color: '#94a3b8' }
+            ];
+
+            const trendData = stats.trendData && stats.trendData.length > 0 ? stats.trendData : [
+                { name: 'Mar', val: 0 },
+                { name: 'Abr', val: 0 },
+                { name: 'May', val: 0 },
+                { name: 'Jun', val: 0 },
+                { name: 'Jul', val: 0 },
+                { name: 'Ago', val: 0 }
+            ];
 
             return (
-                <div className="space-y-5 animate-fade-in">
-                    {/* ══ SLIM HEADER + KPIs ══ */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-wrap items-center gap-4">
-                        {/* Brand */}
-                        <div className="flex items-center gap-3 mr-2">
-                            <div className="w-9 h-9 bg-[#2d5a43]/10 rounded-xl flex items-center justify-center">
-                                <img src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-6 w-auto" alt="logo" />
-                            </div>
-                            <div>
-                                <h1 className="text-base font-black text-slate-800 leading-none">Nexus <span className="text-[#2d5a43] font-light">Groups</span></h1>
-                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-                            </div>
+                <div className="space-y-12 animate-fade-in relative">
+
+                    {/* ══ HEADER ══ */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex items-baseline gap-4">
+                            <h2 className="text-4xl font-black text-slate-800 tracking-tighter">Visión General</h2>
+                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] opacity-70">Dashboard Operativo</span>
                         </div>
-
-                        <div className="flex items-center gap-1 bg-slate-50 rounded-full h-px flex-1 hidden xl:block opacity-20 border-t border-slate-200"></div>
-
-                        {/* KPI Pills */}
-                        <div className="flex flex-wrap items-center gap-2 flex-1">
-                            {[
-                                { label: 'Grupos', value: stats.groups ?? 0, icon: 'check-circle', cls: 'bg-slate-50 border-slate-100 text-slate-700' },
-                                { label: 'Pax Total', value: (stats.pax ?? 0).toLocaleString('es-ES'), icon: 'users', cls: 'bg-slate-50 border-slate-100 text-slate-700' },
-                                { label: 'Release <7d', value: stats.releaseAlerts ?? 0, icon: 'alert-triangle', cls: (stats.releaseAlerts ?? 0) > 0 ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-slate-50 border-slate-100 text-slate-400', onClick: () => { localStorage.setItem('openGroupKpiFilter', 'release'); window.location.href = 'Gestión de Grupos.html'; } },
-                                { label: 'Tareas Hoy', value: stats.followUpAlerts ?? 0, icon: 'calendar-check', cls: (stats.followUpAlerts ?? 0) > 0 ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-slate-50 border-slate-100 text-slate-400', onClick: () => { localStorage.setItem('openGroupKpiFilter', 'followup'); window.location.href = 'Gestión de Grupos.html'; } },
-                            ].map(k => (
-                                <button key={k.label} onClick={k.onClick} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-left transition-all ${k.cls} ${k.onClick ? 'cursor-pointer hover:shadow-sm' : 'cursor-default'}`}>
-                                    <LucideIcon name={k.icon} className="w-3.5 h-3.5 shrink-0" />
-                                    <span className="font-black text-sm tabular-nums">{k.value}</span>
-                                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-60 hidden sm:block">{k.label}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* IA Button */}
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-xl px-2.5 py-1.5">
-                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                                <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-widest">Live</span>
+                        <div className="flex items-center gap-3">
+                            <div className="flex bg-white rounded-xl border border-slate-200 p-1">
+                                {['7 días', '30 días', 'Año'].map((t, idx) => (
+                                    <button key={t} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${idx === 1 ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>
+                                        {t}
+                                    </button>
+                                ))}
                             </div>
-                            <button onClick={onRunAnalysis} className="bg-[#2d5a43] text-white px-4 py-2 rounded-xl font-black flex items-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all text-xs">
-                                <LucideIcon name="sparkles" className="w-3.5 h-3.5" />
-                                Consultor IA
+                            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">
+                                <LucideIcon name="Download" size={14} /> Exportar
+                            </button>
+                            <button className="flex items-center gap-2 px-5 py-2.5 bg-[#1e293b] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 shadow-xl transition-all">
+                                <LucideIcon name="Plus" size={14} /> Nuevo Grupo
                             </button>
                         </div>
                     </div>
 
+                    {/* ══ KPI ROW ══ */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {[
+                            { label: 'Ingresos Totales', val: fmt(financials.totalRevenue), trend: '+12%', sub: 'Incremento vs mes anterior', icon: 'Euro', color: 'emerald' },
+                            { label: 'Ocupación Media', val: '87.4%', trend: '+8%', sub: 'Cuotas de hoy', icon: 'Percent', color: 'blue' },
+                            { label: 'Ticket Promedio', val: '284.50€', trend: '-2%', sub: 'Por reserva confirmada', icon: 'Target', color: 'amber' },
+                            { label: 'Grupos Activos', val: financials.confirmed + financials.tentative, trend: '+4', sub: 'Pendientes de llegada', icon: 'Users', color: 'indigo' },
+                        ].map(k => (
+                            <div key={k.label} className="premium-card p-5 group hover:border-emerald-200 transition-all text-center flex flex-col items-center justify-center min-h-[100px]">
+                                <div className="flex items-center justify-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{k.label}</span>
+                                    <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded-md">{k.trend}</span>
+                                </div>
+                                <h4 className="text-2xl font-black text-slate-800 tracking-tighter mb-1">{k.val}</h4>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tight opacity-60 truncate">{k.sub}</span>
+                            </div>
+                        ))}
+                    </div>
 
-                    {/* ══ ESTADO DE GRUPOS + ALERTAS ══ */}
-                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                        {/* Estado breakdown */}
-                        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Estado de Cartera</p>
-                            <div className="space-y-3">
-                                {[
-                                    { label: 'Confirmados', value: financials.confirmed, color: 'bg-emerald-500', light: 'bg-emerald-50 text-emerald-700', icon: 'check-circle' },
-                                    { label: 'Tentativos', value: financials.tentative, color: 'bg-indigo-500', light: 'bg-indigo-50 text-indigo-700', icon: 'clock' },
-                                    { label: 'Prospectos', value: financials.prospect, color: 'bg-amber-500', light: 'bg-amber-50 text-amber-700', icon: 'user' },
-                                    { label: 'Cancelados', value: financials.cancelled, color: 'bg-slate-300', light: 'bg-slate-50 text-slate-500', icon: 'x-circle' },
-                                ].map(item => (
-                                    <div key={item.label} className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 ${item.light} rounded-xl flex items-center justify-center shrink-0`}>
-                                            <LucideIcon name={item.icon} className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="text-xs font-bold text-slate-600">{item.label}</span>
-                                                <span className="text-xs font-black text-slate-800">{item.value}</span>
-                                            </div>
-                                            <div className="w-full bg-slate-100 rounded-full h-1">
-                                                <div className={`${item.color} h-1 rounded-full`} style={{ width: `${stats.groups > 0 ? Math.round((item.value / stats.groups) * 100) : 0}%` }}></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                    {/* ══ ROW 1: REVENUE & CATEGORY ══ */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 premium-card p-8 h-[450px] flex flex-col">
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center gap-4">
+                                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Evolución de Grupos</h3>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Volumen mensual • Grupos totales</span>
+                                </div>
+                                <LucideIcon name="MoreHorizontal" size={16} className="text-slate-300" />
+                            </div>
+                            <div className="flex-1 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={trendData}>
+                                        <defs>
+                                            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', fontWeight: 900 }}
+                                            formatter={(v) => [v, 'Grupos']}
+                                        />
+                                        <Area type="monotone" dataKey="val" stroke="#10b981" strokeWidth={4} fill="url(#areaGrad)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
 
-                        {/* Alertas urgentes */}
-                        <div className="lg:col-span-3 bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Alertas Urgentes</p>
-                            <div className="grid grid-cols-3 gap-3 mb-4">
-                                {[
-                                    { label: 'Tareas Hoy', value: stats.followUpAlerts ?? 0, icon: 'calendar-check', activeBg: 'bg-blue-50 border-blue-100 hover:bg-blue-100', iconBox: 'bg-blue-100 text-blue-600', num: 'text-blue-700', onClick: () => { localStorage.setItem('openGroupKpiFilter', 'followup'); window.location.href = 'Gestión de Grupos.html'; } },
-                                    { label: 'Release <7d', value: stats.releaseAlerts ?? 0, icon: 'alert-triangle', activeBg: 'bg-rose-50 border-rose-100 hover:bg-rose-100', iconBox: 'bg-rose-100 text-rose-600', num: 'text-rose-700', onClick: () => { localStorage.setItem('openGroupKpiFilter', 'release'); window.location.href = 'Gestión de Grupos.html'; } },
-                                    { label: 'Sin Proforma', value: stats.pending ?? 0, icon: 'file-x', activeBg: 'bg-orange-50 border-orange-100 hover:bg-orange-100', iconBox: 'bg-orange-100 text-orange-600', num: 'text-orange-700', onClick: null },
-                                ].map(kpi => (
-                                    <button key={kpi.label} onClick={kpi.onClick} className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${kpi.value > 0 ? kpi.activeBg : 'bg-slate-50 border-slate-100'} ${kpi.onClick ? 'cursor-pointer' : 'cursor-default'}`}>
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${kpi.value > 0 ? kpi.iconBox : 'bg-slate-100 text-slate-400'}`}>
-                                            <LucideIcon name={kpi.icon} className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className={`text-2xl font-black leading-none ${kpi.value > 0 ? kpi.num : 'text-slate-400'}`}>{kpi.value}</p>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{kpi.label}</p>
-                                        </div>
-                                    </button>
-                                ))}
+                        <div className="lg:col-span-1 premium-card p-8 h-[450px] flex flex-col">
+                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-8">Ingresos por Segmento</h3>
+                            <div className="flex-1">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={financials.segmentData} layout="vertical" barSize={20}>
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontPadding: 0, fontWeight: 800, fill: '#64748b' }} width={80} />
+                                        <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '1rem', border: 'none' }} formatter={(v) => [fmt(v), 'Ingresos']} />
+                                        <Bar dataKey="val" fill="#10b981" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
-                            {/* Alertas dinámicas */}
-                            <div className="space-y-2 max-h-32 overflow-y-auto">
-                                {alerts && alerts.length > 0 ? alerts.map((alert, idx) => (
-                                    <div key={idx} className={`flex gap-3 p-3 rounded-xl border text-xs ${alert.type === 'warning' ? 'bg-orange-50 border-orange-100 text-orange-700' : alert.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>
-                                        <LucideIcon name={alert.type === 'warning' ? 'alert-circle' : 'check-circle'} className="w-4 h-4 shrink-0 mt-0.5" />
-                                        <span className="font-semibold">{alert.text}</span>
+                            <div className="mt-6 grid grid-cols-2 gap-4">
+                                {financials.segmentData.slice(0, 2).map((seg, i) => (
+                                    <div key={i} className="p-4 bg-slate-50 rounded-2xl text-center">
+                                        <p className="text-lg font-black text-slate-800">{((seg.val / financials.totalRevenue) * 100).toFixed(0)}%</p>
+                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{seg.name}</span>
                                     </div>
-                                )) : (
-                                    <div className="flex gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-xs text-emerald-700">
-                                        <LucideIcon name="check-circle" className="w-4 h-4 shrink-0" />
-                                        <span className="font-semibold">Sin alertas operativas pendientes. Todo bajo control.</span>
+                                ))}
+                                {financials.segmentData.length === 0 && (
+                                    <div className="col-span-2 p-4 text-center opacity-30">
+                                        <span className="text-[10px] font-black uppercase">Sin datos segmentados</span>
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* ══ PRÓXIMAS LLEGADAS ══ */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="flex justify-between items-center p-5 border-b border-slate-50">
-                            <div>
-                                <h3 className="font-black text-slate-800">Próximas Llegadas</h3>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Sincronizado con ambos hoteles</p>
-                            </div>
-                            <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-100">
-                                {[15, 30, 60].map(days => (
-                                    <button key={days} onClick={() => onRangeChange(days)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${timeRange === days ? 'bg-[#2d5a43] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                                        {days}d
-                                    </button>
-                                ))}
+                    {/* ══ ROW 2: ORIGEN & OCUPACIÓN & PRIORITY ══ */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="premium-card p-8 flex flex-col h-[350px]">
+                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-8">Origen de Reservas</h3>
+                            <div className="flex-1 flex gap-8">
+                                <div className="w-1/2">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={pieData} innerRadius={25} outerRadius={45} paddingAngle={2} dataKey="value" stroke="none">
+                                                {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="w-1/2 flex flex-col justify-center space-y-2">
+                                    {pieData.map(item => (
+                                        <div key={item.name} className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.color }}></div>
+                                                <span className="text-[9px] font-black text-slate-500 uppercase">{item.name}</span>
+                                            </div>
+                                            <span className="text-[9px] font-black text-slate-800">{(item.value / (Math.max(1, financials.confirmed + financials.tentative + financials.prospect + financials.cancelled)) * 100).toFixed(0)}%</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
+
+                        <div className="premium-card p-8 flex flex-col h-[350px]">
+                            <div className="flex items-center justify-between mb-8">
+                                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Ocupación General</h3>
+                                <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black rounded-lg">+4.2%</span>
+                            </div>
+                            <div className="flex-1">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={trendData.map(d => ({ ...d, val: d.val * 0.4 }))}>
+                                        <Area type="monotone" dataKey="val" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.05} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="mt-4 flex items-center justify-between text-[10px] font-black border-t border-slate-100 pt-4">
+                                <span className="text-slate-400">Promedio estimado</span>
+                                <span className="text-slate-800">89.2%</span>
+                            </div>
+                        </div>
+
+                        <div className="premium-card p-8 flex flex-col h-[350px]">
+                            <div className="flex items-center justify-between mb-8">
+                                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Acciones Prioritarias</h3>
+                                <LucideIcon name="Bell" size={16} className="text-rose-400" />
+                            </div>
+                            <div className="flex-1 space-y-4">
+                                {(alerts || []).length === 0 ? (
+                                    <div className="py-8 text-center opacity-30">
+                                        <p className="text-[10px] font-black uppercase tracking-widest">Sin alertas críticas hoy</p>
+                                    </div>
+                                ) : (
+                                    alerts.map((alert, i) => (
+                                        <div key={i} className={`p-4 rounded-xl flex items-center gap-4 group cursor-pointer transition-all border ${alert.type === 'danger' ? 'bg-rose-50 border-rose-100 hover:bg-rose-100' : alert.type === 'warning' ? 'bg-amber-50 border-amber-100 hover:bg-amber-100' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${alert.type === 'danger' ? 'bg-white text-rose-500' : alert.type === 'warning' ? 'bg-white text-amber-500' : 'bg-white text-slate-400'}`}>
+                                                <LucideIcon name={alert.icon} size={18} />
+                                            </div>
+                                            <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight">{alert.label}</span>
+                                            <LucideIcon name="ChevronRight" size={12} className="ml-auto text-slate-300 opacity-0 group-hover:opacity-100" />
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <button className="mt-6 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-center hover:underline">Ver todas las alertas</button>
+                        </div>
+                    </div>
+
+                    {/* ══ PRÓXIMAS LLEGADAS ══ */}
+                    <div className="premium-card overflow-hidden">
+                        <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Próximas Llegadas</h3>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Próximos 30 grupos • Actualizado hace 4 min.</span>
+                            </div>
+                            <div className="relative">
+                                <LucideIcon name="Search" size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input type="text" placeholder="Buscar en grupos..." className="bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-emerald-500 transition-all w-64" />
+                            </div>
+                        </div>
+
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="text-slate-400 font-bold border-b border-slate-50 uppercase text-[9px] tracking-widest bg-slate-50/50">
-                                    <tr>
-                                        <th className="text-left px-5 py-3">Hotel</th>
-                                        <th className="text-left px-5 py-3">Grupo</th>
-                                        <th className="text-left px-5 py-3">Entrada</th>
-                                        <th className="text-left px-5 py-3">Salida</th>
-                                        <th className="text-center px-5 py-3">Pax</th>
-                                        <th className="text-right px-5 py-3">Importe</th>
-                                        <th className="text-right px-5 py-3">Estado</th>
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                        <th className="px-8 py-5">Grupo</th>
+                                        <th className="px-8 py-5">Llegada</th>
+                                        <th className="px-8 py-5">Cliente</th>
+                                        <th className="px-8 py-5">Empresa</th>
+                                        <th className="px-8 py-5 text-right">Importe</th>
+                                        <th className="px-8 py-5 text-right"></th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {arrivals.map((row, i) => {
-                                        const today = new Date(); today.setHours(0, 0, 0, 0);
-                                        const entry = new Date(row["Entrada"]);
-                                        const diff = Math.ceil((entry - today) / (1000 * 60 * 60 * 24));
+                                <tbody className="divide-y divide-slate-100">
+                                    {arrivals.map((group, i) => {
+                                        const st = getStatusProps(group["Estado"]);
                                         return (
-                                            <tr key={i} className="group hover:bg-slate-50 transition-all cursor-pointer" onClick={() => { localStorage.setItem('nexus_return_reserva', row["Reserva"]); window.location.href = `Gestión de Grupos.html?reserva=${encodeURIComponent(row["Reserva"])}`; }}>
-                                                <td className="px-5 py-4">
-                                                    <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center p-1 border border-slate-100">
-                                                        <img src={(row["Hotel_Asignado"] || "").includes('Cumb') ? 'Logos/Cumbria Spa&Hotel.jpg' : 'Logos/Sercotel Guadiana.jpg'} className="w-full h-full object-contain" alt="Hotel" />
-                                                    </div>
+                                            <tr key={i} className="hover:bg-slate-50 transition-colors group">
+                                                <td className="px-8 py-6">
+                                                    <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-tight mb-1 group-hover:text-emerald-600 transition-colors">{group["Nombre del Grupo"]}</h5>
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{group["Reserva"]}</span>
                                                 </td>
-                                                <td className="px-5 py-4">
-                                                    <p className="font-black text-slate-800 text-sm">{row["Nombre del Grupo"]}</p>
-                                                    <p className="text-[9px] text-slate-400 font-bold uppercase">{row["Reserva"]}</p>
+                                                <td className="px-8 py-6">
+                                                    <span className="text-[10px] font-black text-slate-600 tracking-widest">{formatDate(group["Entrada"])}</span>
                                                 </td>
-                                                <td className="px-5 py-4">
+                                                <td className="px-8 py-6">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-slate-600 text-xs">{formatDate(row["Entrada"])}</span>
-                                                        {diff <= 3 && diff >= 0 && <span className="text-[8px] font-black bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full uppercase animate-pulse">{diff === 0 ? 'HOY' : `${diff}d`}</span>}
-                                                        {diff > 3 && diff <= 7 && <span className="text-[8px] font-black bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full uppercase">{diff}d</span>}
+                                                        <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${st.text} border ${st.border || 'border-transparent'}`}>{st.label}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-5 py-4"><span className="text-xs font-semibold text-slate-400">{formatDate(row["Salida"])}</span></td>
-                                                <td className="px-5 py-4 text-center"><span className="bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 font-black text-slate-700 text-xs">{row["Pax."]}</span></td>
-                                                <td className="px-5 py-4 text-right font-black text-slate-700 text-sm">{row["Importe(*)"]}€</td>
-                                                <td className="px-5 py-4 text-right">
-                                                    <span className={`text-[9px] font-bold px-3 py-1.5 rounded-full shadow-sm ${(row["Estado"] || "").toLowerCase().includes('anul') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                                                        {row["Estado"]}
-                                                    </span>
+                                                <td className="px-8 py-6">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{group["Empresa/Agencia"] || 'Directo'}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-right">
+                                                    <span className="text-[11px] font-black text-slate-800 tracking-tight">{fmt(safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0))}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-right">
+                                                    <LucideIcon name="ChevronRight" size={14} className="text-slate-300 opacity-0 group-hover:opacity-100" />
                                                 </td>
                                             </tr>
                                         );
                                     })}
                                     {arrivals.length === 0 && (
-                                        <tr><td colSpan="7" className="px-5 py-12 text-center text-slate-400 italic text-sm">No hay reservas programadas para los próximos {timeRange} días.</td></tr>
+                                        <tr>
+                                            <td colSpan="6" className="px-8 py-20 text-center">
+                                                <div className="flex flex-col items-center gap-3 opacity-30">
+                                                    <LucideIcon name="CalendarX" size={40} />
+                                                    <span className="text-xs font-black uppercase tracking-widest">Sin llegadas próximas para el periodo seleccionado</span>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
+
+                    <footer className="text-center py-12">
+                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">Nexus Gold Edition v2.8.5 • System Normal • Refreshed at {new Date().toLocaleTimeString()}</p>
+                    </footer>
                 </div>
             );
         };
@@ -786,82 +988,115 @@
                             return isNaN(d.getTime()) ? new Date(8640000000000000) : d;
                         };
 
-                        // 2. Calcular Stats Consolidadas
+                        // 2. Calcular Alerts Reales
                         let totalRev = 0;
-                        let releaseAlerts = 0;
-                        let followUpAlerts = 0;
-                        const uniqueFollowUpGroups = new Set(); // Deduplicar por nombre de grupo
                         const now = new Date();
                         const sevenDaysFromNow = new Date(now);
                         sevenDaysFromNow.setDate(now.getDate() + 7);
 
+                        const realAlerts = [];
+
                         parsed.forEach(g => {
-                            totalRev += parseFloat((g["Importe(*)"] || "0").toString().replace(/\./g, '').replace(',', '.')) || 0;
+                            const val = g["Importe(*)"] || g["Importe"] || g["Total_Importe_Facturable"] || "0";
+                            totalRev += safeParseAmount(val);
 
-                            // 1.1 Alerts Logic
-                            let isReleaseUrgent = false;
-                            const roomListStr = g.RoomingList_JSON;
-                            if (roomListStr) {
-                                try {
-                                    const roomList = JSON.parse(roomListStr);
-                                    roomList.forEach(item => {
-                                        const dIn = parseDate(item.dateIn);
-                                        if (dIn && !isNaN(dIn.getTime())) {
-                                            const diff = Math.ceil((dIn - now) / (1000 * 60 * 60 * 24));
-                                            if (diff >= 0 && diff <= 7) isReleaseUrgent = true;
-                                        }
-                                    });
-                                } catch (e) { }
-                            }
-                            const comRelease = g.Com_Vencimiento_Rel ? parseDate(g.Com_Vencimiento_Rel) : null;
-                            if (comRelease && !isNaN(comRelease.getTime())) {
-                                if (comRelease <= sevenDaysFromNow) isReleaseUrgent = true;
-                            }
-                            if (isReleaseUrgent) releaseAlerts++;
+                            const groupName = g["Nombre del Grupo"] || g["Reserva"] || "Grupo";
+                            const arrival = parseDate(g["Entrada"]);
+                            const isCancelled = (g["Estado"] || "").toLowerCase().includes('anul');
+                            if (isCancelled) return;
 
-                            // 1.2 Follow-up Logic — deduplicado por nombre de grupo
+                            // Alert 1: Release Urgente (< 7 días)
+                            const comRel = g.Com_Vencimiento_Rel ? parseDate(g.Com_Vencimiento_Rel) : null;
+                            if (comRel && !isNaN(comRel.getTime()) && comRel <= sevenDaysFromNow) {
+                                realAlerts.push({ label: `Vence Release: ${groupName}`, icon: 'Clock', type: 'warning' });
+                            }
+
+                            // Alert 2: Seguimiento Pendiente
                             const followUp = g.Com_Seguimiento ? parseDate(g.Com_Seguimiento) : null;
                             if (followUp && !isNaN(followUp.getTime()) && followUp <= now) {
-                                const groupLabel = g["Nombre del Grupo"] || g["Reserva"] || "";
-                                if (groupLabel && !uniqueFollowUpGroups.has(groupLabel)) {
-                                    uniqueFollowUpGroups.add(groupLabel);
-                                    followUpAlerts++;
+                                realAlerts.push({ label: `Seguimiento: ${groupName}`, icon: 'Phone', type: 'info' });
+                            }
+
+                            // Alert 3: Pagos Pendientes
+                            try {
+                                const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+                                const hasPending = plan.some(p => {
+                                    const pDate = parseDate(p.date);
+                                    return p.status !== "Cobrado" && pDate <= now;
+                                });
+                                if (hasPending) {
+                                    realAlerts.push({ label: `Pago Atrasado: ${groupName}`, icon: 'AlertTriangle', type: 'danger' });
                                 }
+                            } catch (e) { }
+
+                            // Alert 4: Tentativa próxima a llegada
+                            const isTentative = (g["Estado"] || "").toLowerCase().includes('tentat') || (g["Com_Estado_Interno"] || "").toLowerCase().includes('tentat');
+                            if (isTentative && arrival <= sevenDaysFromNow) {
+                                realAlerts.push({ label: `Confirmar Urgente: ${groupName}`, icon: 'Calendar', type: 'warning' });
                             }
                         });
 
+                        setAlerts(realAlerts.slice(0, 5)); // Mostrar top 5
+
+                        const getGroupDate = (g) => {
+                            return parseDate(g["Entrada"] || g["ENTRADA"] || g["Fecha Entrada"] || g["Com_Entrada"]);
+                        };
+
+                        const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+                        const currentMonthIdx = new Date().getMonth();
+                        const countsByMonth = {};
+
+                        parsed.forEach(g => {
+                            const entryDate = getGroupDate(g);
+                            if (entryDate && !isNaN(entryDate.getTime()) && entryDate.getFullYear() >= 2024 && entryDate.getFullYear() < 2100) {
+                                const m = entryDate.getMonth();
+                                countsByMonth[m] = (countsByMonth[m] || 0) + 1;
+                            }
+                        });
+
+                        const trendData = [];
+                        for (let i = -5; i <= 0; i++) {
+                            let mIdx = (currentMonthIdx + i + 12) % 12;
+                            trendData.push({
+                                name: months[mIdx],
+                                val: countsByMonth[mIdx] || 0
+                            });
+                        }
+
                         setStats({
                             revenue: new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalRev),
-                            groups: new Set(parsed.map(p => p["Nombre del Grupo"])).size,
+                            groups: new Set(parsed.map(p => p["Nombre del Grupo"] || p["Reserva"])).size,
                             pending: parsed.filter(p => {
-                                const status = (p["Estado"] || "").toLowerCase() + " " + (p["Com_Estado_Interno"] || "").toLowerCase() + " " + (p["Segment."] || "").toLowerCase();
+                                const status = (p["Estado"] || p["Com_Estado_Interno"] || "").toLowerCase() + " " + (p["Segment."] || "").toLowerCase();
                                 const isCancelled = status.includes('anul') || status.includes('cancel') || status.includes('descart') || status.includes('rechaz');
                                 if (isCancelled) return false;
 
-                                const rawVal = String(p["Importe(*)"] || "0").trim();
+                                const val = p["Importe(*)"] || p["Importe"] || p["Total_Importe_Facturable"] || "0";
+                                const rawVal = String(val).trim();
                                 const isZero = rawVal === "" || rawVal === "0" || rawVal === "0,00" || rawVal === "0.00" || Number(rawVal) === 0;
 
                                 return (status.includes('presup') || status.includes('pend') || String(p["Reserva"]).startsWith("PRES.")) && isZero;
                             }).length,
                             pax: parsed.reduce((acc, curr) => acc + (parseInt(curr["Pax."]) || 0), 0),
-                            releaseAlerts,
-                            followUpAlerts
+                            releaseAlerts: realAlerts.filter(a => a.label.includes('Release')).length,
+                            followUpAlerts: realAlerts.filter(a => a.label.includes('Seguimiento')).length,
+                            trendData
                         });
 
-                        // 2. Calcular Próximas Llegadas
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0); // Comparar desde el inicio del día
+                        // 4. Calcular Próximas Llegadas
+                        const startOfToday = new Date();
+                        startOfToday.setHours(0, 0, 0, 0);
 
-                        const rangeLimit = new Date(today);
-                        rangeLimit.setDate(today.getDate() + timeRange);
-
+                        const endOfRange = new Date(startOfToday);
+                        endOfRange.setDate(startOfToday.getDate() + timeRange);
 
                         const arrivalsList = parsed.filter(p => {
-                            const entryDate = parseDate(p["Entrada"]);
-                            const status = (p["Estado"] || "").toLowerCase();
-                            const isCancelled = status.includes('anul') || status.includes('cancel');
-                            return entryDate >= today && entryDate <= rangeLimit && !isCancelled;
-                        }).sort((a, b) => parseDate(a["Entrada"]) - parseDate(b["Entrada"])).slice(0, 15);
+                            const entryDate = getGroupDate(p);
+                            const status = (p["Estado"] || p["Com_Estado_Interno"] || "").toLowerCase();
+                            const isCancelled = status.includes('anul') || status.includes('cancel') || status.includes('baja');
+                            // Ensure entryDate is valid and within range
+                            return entryDate && !isNaN(entryDate.getTime()) && entryDate >= startOfToday && entryDate <= endOfRange && !isCancelled;
+                        }).sort((a, b) => getGroupDate(a) - getGroupDate(b)).slice(0, 30);
 
                         setArrivals(arrivalsList);
                     }
