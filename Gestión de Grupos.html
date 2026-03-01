@@ -289,6 +289,15 @@
         const IconCircle = (p) => <Icon path='<circle cx="12" cy="12" r="10"></circle>' {...p} />;
         const IconCreditCard = (p) => <Icon path='<rect width="20" height="14" x="2" y="5" rx="2"></rect><line x1="2" x2="22" y1="10" y2="10"></line><line x1="7" x2="7.01" y1="15" y2="15"></line><line x1="11" x2="11.01" y1="15" y2="15"></line>' {...p} />;
         const IconFileInvoice = (p) => <Icon path='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M9 12h6"></path><path d="M9 16h6"></path><path d="M12 8h.01"></path>' {...p} />;
+        const IconEdit3 = (p) => <Icon path='<path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>' {...p} />;
+        const IconCheckCircle = (p) => <Icon path='<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>' {...p} />;
+        const IconXCircle = (p) => <Icon path='<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>' {...p} />;
+        const IconPhoneForwarded = (p) => <Icon path='<polyline points="19 1 23 5 19 9"></polyline><line x1="15" y1="5" x2="23" y2="5"></line><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>' {...p} />;
+        const IconClipboardX = (p) => <Icon path='<rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="m15 11-6 6"></path><path d="m9 11 6 6"></path>' {...p} />;
+        const IconBuilding2 = (p) => <Icon path='<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path>' {...p} />;
+        const IconFileText = (p) => <Icon path='<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>' {...p} />;
+        const IconEye = (p) => <Icon path='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>' {...p} />;
+        const IconFileSpreadsheet = (p) => <Icon path='<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2"></path><path d="M8 17h2"></path><path d="M14 13h2"></path><path d="M14 17h2"></path>' {...p} />;
 
 
         // --- CONFIGURACIÓN FIREBASE ---
@@ -429,6 +438,174 @@
         const getBaseId = (id) => {
             if (!id) return "";
             return String(id).trim().replace(/\.0$/, "").split('_')[0];
+        };
+
+        const BudgetManager = ({ data, openFicha, formatDate }) => {
+            const [searchTerm, setSearchTerm] = React.useState("");
+            const [statusFilter, setStatusFilter] = React.useState("TODOS");
+
+            const budgetData = data.filter(g => {
+                const reservaStr = String(g.Reserva || "");
+                const isBudget = reservaStr.startsWith("PRES-") ||
+                    (g.Estado || "").toUpperCase() === "PRESUPUESTO" ||
+                    (g.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO";
+
+                if (!isBudget) return false;
+
+                const term = searchTerm.toLowerCase();
+                const name = (g["Nombre del Grupo"] || "").toLowerCase();
+                const agency = (g["Empresa/Agencia"] || "").toLowerCase();
+                const reserva = reservaStr.toLowerCase();
+
+                const matchesSearch = name.includes(term) || agency.includes(term) || reserva.includes(term);
+                const matchesStatus = statusFilter === "TODOS" || (g.Com_Estado_Interno || g.Estado || "").toUpperCase().includes(statusFilter);
+
+                return matchesSearch && matchesStatus;
+            });
+
+            const getBudgetStatusProps = (statusRaw) => {
+                const s = (statusRaw || "").toString().toUpperCase();
+                if (s.includes("CONFIRM")) return { color: "bg-emerald-500", text: "bg-emerald-50 text-emerald-600", component: IconCheckCircle, label: "CONFIRMADO" };
+                if (s.includes("DESESTIMADO") || s.includes("CANCEL") || s.includes("ANUL")) return { color: "bg-slate-400", text: "bg-slate-50 text-slate-500", component: IconXCircle, label: "DESESTIMADO" };
+                if (s.includes("SEGUIMIENTO")) return { color: "bg-indigo-500", text: "bg-indigo-50 text-indigo-600", component: IconPhoneForwarded, label: "SEGUIMIENTO" };
+                if (s.includes("ENVIADO")) return { color: "bg-blue-500", text: "bg-blue-50 text-blue-600", component: IconMail, label: "ENVIADO" };
+                return { color: "bg-amber-500", text: "bg-amber-50 text-amber-600", component: IconClock, label: "PENDIENTE" };
+            };
+
+            return (
+                <div className="animate-fade-in space-y-6">
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div>
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Seguimiento de Presupuestos</h2>
+                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Control comercial y conversión de leads</p>
+                        </div>
+                        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                            <div className="relative flex-1 md:w-64">
+                                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar presupuesto..."
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-indigo-500 transition-all font-medium"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:border-indigo-500 text-slate-600"
+                            >
+                                <option value="TODOS">Todos los Estados</option>
+                                <option value="PENDIENTE">Pendientes</option>
+                                <option value="ENVIADO">Enviados</option>
+                                <option value="SEGUIMIENTO">En Seguimiento</option>
+                                <option value="CONFIRMADO">Confirmados</option>
+                                <option value="DESESTIMADO">Desestimados</option>
+                            </select>
+                            <button
+                                onClick={() => window.location.href = 'AltaEmail.html'}
+                                className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-indigo-700 transition-all text-xs uppercase tracking-widest shadow-lg shadow-indigo-100"
+                            >
+                                <IconPlus className="w-4 h-4" />
+                                Nuevo
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {budgetData.map((budget, i) => {
+                            const st = getBudgetStatusProps(budget.Com_Estado_Interno || budget.Estado);
+                            const StatusIcon = st.component;
+                            return (
+                                <div key={i} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 hover:border-indigo-200 transition-all flex flex-col group relative overflow-hidden h-fit">
+                                    <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-widest ${st.text}`}>
+                                        {st.label}
+                                    </div>
+
+                                    <div className="flex items-start gap-3 mb-3">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${st.text} border border-current opacity-20`}>
+                                            <StatusIcon size={20} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">ID: {budget.Reserva}</span>
+                                            <h4 className="text-xs font-black text-slate-800 uppercase leading-tight line-clamp-2">{budget["Nombre del Grupo"]}</h4>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
+                                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entrada</p>
+                                            <p className="text-xs font-black text-slate-700">{formatDate(budget.Entrada)}</p>
+                                        </div>
+                                        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
+                                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Importe</p>
+                                            <p className="text-xs font-black text-slate-700">{budget["Importe(*)"]}€</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 mb-6 flex-1">
+                                        <div className="flex items-center gap-3 text-slate-500">
+                                            <IconBuilding2 size={14} className="shrink-0" />
+                                            <span className="text-[10px] font-bold uppercase truncate">{budget["Empresa/Agencia"] || 'Contacto Directo'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-slate-500">
+                                            <IconUsers size={14} className="shrink-0" />
+                                            <span className="text-[10px] font-bold uppercase">{budget["Pax."]} Pax • {budget["Régimen"]}</span>
+                                        </div>
+                                        {budget.Com_Email_Contacto && (
+                                            <div className="flex items-center gap-3 text-slate-400">
+                                                <IconMail size={14} className="shrink-0" />
+                                                <span className="text-[10px] font-bold lowercase truncate italic">{budget.Com_Email_Contacto}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex gap-2 pt-4 border-t border-slate-50">
+                                        <button
+                                            onClick={() => openFicha(budget)}
+                                            className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center justify-center shadow-lg shadow-emerald-100"
+                                            title="Abrir Ficha Completa"
+                                        >
+                                            <IconFile size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                try {
+                                                    localStorage.setItem('selectedGroup', JSON.stringify(budget));
+                                                    console.log("Guardado en localStorage p/ edición:", budget.Reserva);
+                                                } catch (e) { console.warn("LocalStorage bloqueado:", e); }
+                                                window.location.href = 'AltaEmail.html?edit=' + encodeURIComponent(budget.Reserva);
+                                            }}
+                                            className="flex-1 py-2.5 bg-slate-50 border border-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <IconEdit3 size={14} />
+                                            Editar
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                localStorage.setItem('selectedGroup', JSON.stringify(budget));
+                                                window.location.href = 'Fac Prof.html';
+                                            }}
+                                            className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center shadow-lg shadow-indigo-100"
+                                            title="Ver Proforma"
+                                        >
+                                            <IconFileText size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {budgetData.length === 0 && (
+                            <div className="col-span-full py-32 text-center">
+                                <div className="flex flex-col items-center gap-4 opacity-20">
+                                    <IconClipboardX size={64} />
+                                    <p className="text-sm font-black uppercase tracking-[0.3em]">No hay presupuestos en esta sección</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
         };
 
         const App = () => {
@@ -3116,13 +3293,7 @@
 
                             {/* Actions Right */}
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => window.location.href = 'AltaEmail.html'}
-                                    className="bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/10 border border-emerald-800"
-                                >
-                                    <IconPlus size={18} />
-                                    <span className="hidden md:inline">NUEVO GRUPO / PRESUPUESTO</span>
-                                </button>
+
 
                                 <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
@@ -3151,7 +3322,7 @@
                             {/* PENDIENTES DE COTIZAR */}
                             {stats.pendingQuotes > 0 && (
                                 <div
-                                    onClick={() => setKpiFilter('pendingQuotes')}
+                                    onClick={() => window.location.href = 'Presupuestos.html'}
                                     className="min-w-[170px] flex-1 bg-rose-50 p-3 rounded-2xl shadow-sm border border-rose-200 flex flex-col justify-center cursor-pointer hover:bg-rose-100 transition-colors animate-pulse"
                                 >
                                     <div className="flex items-center gap-2 mb-1">
@@ -3368,6 +3539,12 @@
                                     <IconPieChart size={18} /> Segmentación
                                 </button>
                                 <button
+                                    onClick={() => setActiveTab('budgets')}
+                                    className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'budgets' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
+                                >
+                                    <IconFileInvoice size={18} /> Seguimiento Presupuestos
+                                </button>
+                                <button
                                     onClick={() => setActiveTab('table')}
                                     className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === 'table' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-500 transition'}`}
                                 >
@@ -3559,6 +3736,11 @@
                                     </div>
                                 </div>
                             </div>
+                        )}
+
+                        {/* 2B. BUDGET TRACKING */}
+                        {activeTab === 'budgets' && (
+                            <BudgetManager data={data} openFicha={openFicha} formatDate={formatDate} />
                         )}
 
                         {/* 2. SEGMENTATION ANALYSIS (NEW) */}
@@ -3880,9 +4062,18 @@
 
                                                             {/* ESTADO */}
                                                             <td className="px-3 py-2 text-center">
-                                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${statusColor}`}>
-                                                                    {statusText}
-                                                                </span>
+                                                                <div className="flex items-center justify-center gap-2 group/status">
+                                                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${statusColor}`}>
+                                                                        {statusText}
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); window.location.href = `Presupuestos.html?id=${group.records[0]?.["Reserva"]}`; }}
+                                                                        className="p-1 px-1.5 bg-slate-100 text-slate-400 hover:bg-purple-600 hover:text-white rounded-lg transition-all opacity-0 group-hover/status:opacity-100 shadow-sm"
+                                                                        title="Ver Presupuesto"
+                                                                    >
+                                                                        <IconFileText size={12} stroke={2.5} />
+                                                                    </button>
+                                                                </div>
                                                             </td>
 
                                                             {/* ACCIONES (Removed) */}
@@ -4610,6 +4801,17 @@
                                                                     </select>
                                                                     <IconChevronDown size={14} className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" />
                                                                 </div>
+                                                            </div>
+
+                                                            {/* Nexus Presupuestos Link */}
+                                                            <div className="md:col-span-1 flex items-end pb-0.5">
+                                                                <button
+                                                                    onClick={() => window.location.href = `Presupuestos.html?id=${selectedGroupFicha.records[0]?.["Reserva"]}`}
+                                                                    className="w-full h-9 flex items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl shadow-lg shadow-purple-200 transition-all hover:scale-[1.05] active:scale-[0.95]"
+                                                                    title="Abrir en Nexus Presupuestos"
+                                                                >
+                                                                    <IconFileSpreadsheet size={16} stroke={2.5} />
+                                                                </button>
                                                             </div>
 
                                                             {/* Fechas de Gestión */}

@@ -1,25 +1,35 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nexus Groups - Panel de Gestión Estratégica</title>
-    <link rel="icon" type="image/png" href="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png">
+    <link
+      rel="icon"
+      type="image/png"
+      href="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png"
+    />
     <!-- Static Styles (Tailwind Compiled) -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
 
     <!-- Google Fonts -->
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@300;400;600;700&display=swap"
-        rel="stylesheet">
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- Lucide Icons -->
     <script src="https://cdn.jsdelivr.net/npm/lucide/dist/umd/lucide.js"></script>
 
     <!-- React & ReactDOM (Versión 18) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
 
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -38,238 +48,272 @@
 
     <!-- Import Map para SDK Gemini -->
     <script type="importmap">
-        {
-          "imports": {
-            "@google/generative-ai": "https://esm.run/@google/generative-ai"
-          }
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
         }
+      }
     </script>
     <style>
-        :root {
-            --nexus-bg: #f8fafc;
-            --nexus-card: #ffffff;
-            --nexus-accent: #10b981;
-            --nexus-accent-light: rgba(16, 185, 129, 0.1);
-            --nexus-border: #e2e8f0;
-            --nexus-text: #1e293b;
-            --nexus-text-dim: #64748b;
+      :root {
+        --nexus-bg: #f8fafc;
+        --nexus-card: #ffffff;
+        --nexus-accent: #10b981;
+        --nexus-accent-light: rgba(16, 185, 129, 0.1);
+        --nexus-border: #e2e8f0;
+        --nexus-text: #1e293b;
+        --nexus-text-dim: #64748b;
+      }
+
+      body {
+        font-family: "Outfit", sans-serif;
+        background-color: var(--nexus-bg);
+        color: var(--nexus-text);
+        margin: 0;
+        overflow-x: hidden;
+      }
+
+      .premium-card {
+        background: var(--nexus-card);
+        border: 1px solid var(--nexus-border);
+        border-radius: 1.5rem;
+        box-shadow:
+          0 4px 6px -1px rgba(0, 0, 0, 0.05),
+          0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+
+      .premium-card:hover {
+        transform: translateY(-2px);
+        box-shadow:
+          0 10px 15px -3px rgba(0, 0, 0, 0.08),
+          0 4px 6px -2px rgba(0, 0, 0, 0.04);
+      }
+
+      .emerald-stat {
+        color: var(--nexus-accent);
+        font-weight: 900;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+      }
+
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+
+      /* re-charts adjustments */
+      .recharts-cartesian-grid-horizontal line,
+      .recharts-cartesian-grid-vertical line {
+        stroke: #f1f5f9;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
         }
 
-        body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--nexus-bg);
-            color: var(--nexus-text);
-            margin: 0;
-            overflow-x: hidden;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
 
-        .premium-card {
-            background: var(--nexus-card);
-            border: 1px solid var(--nexus-border);
-            border-radius: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .premium-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
-        }
-
-        .emerald-stat {
-            color: var(--nexus-accent);
-            font-weight: 900;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-
-        /* re-charts adjustments */
-        .recharts-cartesian-grid-horizontal line,
-        .recharts-cartesian-grid-vertical line {
-            stroke: #f1f5f9;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .animate-fade-in {
-            animation: fadeIn 0.5s ease forwards;
-        }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease forwards;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <div id="root"></div>
 
     <!-- Configuración Firebase Centralizada -->
     <script src="js/firebase-config.js"></script>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
-        const {
-            ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-            PieChart, Pie, Cell, Legend, BarChart, Bar
-        } = Recharts;
+      const { useState, useEffect, useMemo, useRef } = React;
+      const {
+        ResponsiveContainer,
+        AreaChart,
+        Area,
+        XAxis,
+        YAxis,
+        CartesianGrid,
+        Tooltip,
+        PieChart,
+        Pie,
+        Cell,
+        Legend,
+        BarChart,
+        Bar,
+      } = Recharts;
 
-        const LucideIcon = ({ name, size = 20, className = "" }) => {
-            const iconRef = useRef(null);
-            useEffect(() => {
-                if (iconRef.current && window.lucide) {
-                    // Create an <i> tag for lucide.replace()
-                    const i = document.createElement('i');
-                    i.setAttribute('data-lucide', name);
-                    i.setAttribute('stroke-width', '2');
-                    if (size) {
-                        i.style.width = `${size}px`;
-                        i.style.height = `${size}px`;
-                        i.setAttribute('width', size);
-                        i.setAttribute('height', size);
-                    }
-                    if (className) i.className = className;
+      const LucideIcon = ({ name, size = 20, className = "" }) => {
+        const iconRef = useRef(null);
+        useEffect(() => {
+          if (iconRef.current && window.lucide) {
+            // Create an <i> tag for lucide.replace()
+            const i = document.createElement("i");
+            i.setAttribute("data-lucide", name);
+            i.setAttribute("stroke-width", "2");
+            if (size) {
+              i.style.width = `${size}px`;
+              i.style.height = `${size}px`;
+              i.setAttribute("width", size);
+              i.setAttribute("height", size);
+            }
+            if (className) i.className = className;
 
-                    iconRef.current.innerHTML = '';
-                    iconRef.current.appendChild(i);
+            iconRef.current.innerHTML = "";
+            iconRef.current.appendChild(i);
 
-                    // Trigger Lucide replacement
-                    if (window.lucide.createIcon && window.lucide.icons && window.lucide.icons[name]) {
-                        try {
-                            const svg = window.lucide.createIcon(window.lucide.icons[name], {
-                                width: size,
-                                height: size,
-                                class: className,
-                                'stroke-width': 2
-                            });
-                            iconRef.current.innerHTML = '';
-                            iconRef.current.appendChild(svg);
-                        } catch (e) {
-                            if (window.lucide.replace) window.lucide.replace();
-                        }
-                    } else if (window.lucide.replace) {
-                        window.lucide.replace();
-                    }
-                }
-            }, [name, size, className]);
-            return <span ref={iconRef} className={`inline-flex items-center justify-center ${className}`} />;
-        };
+            // Trigger Lucide replacement
+            if (
+              window.lucide.createIcon &&
+              window.lucide.icons &&
+              window.lucide.icons[name]
+            ) {
+              try {
+                const svg = window.lucide.createIcon(
+                  window.lucide.icons[name],
+                  {
+                    width: size,
+                    height: size,
+                    class: className,
+                    "stroke-width": 2,
+                  },
+                );
+                iconRef.current.innerHTML = "";
+                iconRef.current.appendChild(svg);
+              } catch (e) {
+                if (window.lucide.replace) window.lucide.replace();
+              }
+            } else if (window.lucide.replace) {
+              window.lucide.replace();
+            }
+          }
+        }, [name, size, className]);
+        return (
+          <span
+            ref={iconRef}
+            className={`inline-flex items-center justify-center ${className}`}
+          />
+        );
+      };
 
-        // --- CONFIGURACIÓN FIREBASE ---
-        // Se carga desde js/firebase-config.js
-        const firebaseConfig = window.firebaseConfig;
+      // --- CONFIGURACIÓN FIREBASE ---
+      // Se carga desde js/firebase-config.js
+      const firebaseConfig = window.firebaseConfig;
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      const db = firebase.firestore();
+
+      const safeParseAmount = (val) => {
+        if (val === null || val === undefined) return 0;
+        if (typeof val === "number") return val;
+        let s = String(val).trim();
+        if (!s || s === "0") return 0;
+
+        // Remove currency symbols and non-numeric junk except dots and commas
+        s = s.replace(/[^0-9.,-]/g, "");
+
+        // European format check: has comma AND dots, or has comma
+        if (s.includes(",") && s.includes(".")) {
+          // "1.234,56" -> "1234.56"
+          return parseFloat(s.replace(/\./g, "").replace(",", ".")) || 0;
         }
-        const db = firebase.firestore();
+        if (s.includes(",")) {
+          // "1234,56" -> "1234.56"
+          return parseFloat(s.replace(",", ".")) || 0;
+        }
 
-        const safeParseAmount = (val) => {
-            if (val === null || val === undefined) return 0;
-            if (typeof val === 'number') return val;
-            let s = String(val).trim();
-            if (!s || s === '0') return 0;
+        // Ambiguity check: "1.000" could be US decimal 1.0 or European thousand 1000.
+        // Rule: If multiple dots exist, it's definitely thousands.
+        // If one dot exists, we assume it's a decimal separator (standard JS/US)
+        // UNLESS it's followed exactly by three digits and nothing else (e.g. "1.000"),
+        // which is highly likely to be a thousands separator in a hotel context.
+        const dots = (s.match(/\./g) || []).length;
+        if (dots > 1) return parseFloat(s.replace(/\./g, "")) || 0;
 
-            // Remove currency symbols and non-numeric junk except dots and commas
-            s = s.replace(/[^0-9.,-]/g, '');
+        if (dots === 1) {
+          const parts = s.split(".");
+          // If the part after the dot has exactly 3 digits, it's probably a thousands separator.
+          // e.g. "1.000" but NOT "1.00" or "1.5"
+          if (parts[1].length === 3 && s.length > 5)
+            return parseFloat(s.replace(/\./g, "")) || 0;
+        }
 
-            // European format check: has comma AND dots, or has comma
-            if (s.includes(',') && s.includes('.')) {
-                // "1.234,56" -> "1234.56"
-                return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
-            }
-            if (s.includes(',')) {
-                // "1234,56" -> "1234.56"
-                return parseFloat(s.replace(',', '.')) || 0;
-            }
+        const result = parseFloat(s);
+        // Cap at a reasonable maximum for a single group (e.g. 1 million €)
+        // to prevent corruption from IDs or malformed data.
+        return result > 100000000 ? 0 : result || 0;
+      };
 
-            // Ambiguity check: "1.000" could be US decimal 1.0 or European thousand 1000.
-            // Rule: If multiple dots exist, it's definitely thousands. 
-            // If one dot exists, we assume it's a decimal separator (standard JS/US) 
-            // UNLESS it's followed exactly by three digits and nothing else (e.g. "1.000"), 
-            // which is highly likely to be a thousands separator in a hotel context.
-            const dots = (s.match(/\./g) || []).length;
-            if (dots > 1) return parseFloat(s.replace(/\./g, '')) || 0;
+      const formatDate = (val) => {
+        if (!val) return "-";
+        const s = String(val).trim();
+        const num = parseFloat(s);
+        if (!isNaN(num) && num > 40000 && num < 60000) {
+          const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+          return date.toLocaleDateString("es-ES");
+        }
+        if (s.includes("/") || s.includes("-")) {
+          const parts = s.split(/[-\/]/);
+          if (parts.length === 3) {
+            let [d, m, y] = parts;
+            if (y && y.length === 2) y = "20" + y;
+            if (d && d.length === 4) return s; // YYYY-MM-DD
+            return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+          }
+        }
+        return s;
+      };
 
-            if (dots === 1) {
-                const parts = s.split('.');
-                // If the part after the dot has exactly 3 digits, it's probably a thousands separator.
-                // e.g. "1.000" but NOT "1.00" or "1.5"
-                if (parts[1].length === 3 && s.length > 5) return parseFloat(s.replace(/\./g, '')) || 0;
-            }
+      // --- MÓDULO IA (CONEXIÓN SEGURA) ---
+      // --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
+      async function analizarGrupos(datos) {
+        // 1. Obtener parámetros dinámicos de Firestore
+        let apiKey = window.firebaseConfig.apiKey;
+        let model = "gemini-1.5-flash"; // Default Standard Model
 
-            const result = parseFloat(s);
-            // Cap at a reasonable maximum for a single group (e.g. 1 million €) 
-            // to prevent corruption from IDs or malformed data.
-            return (result > 100000000) ? 0 : (result || 0);
-        };
+        try {
+          const settingsDoc = await db.collection("settings").doc("main").get();
+          if (settingsDoc.exists) {
+            const s = settingsDoc.data().system || {};
+            if (s.geminiApiKey) apiKey = s.geminiApiKey;
+            if (s.geminiModel) model = s.geminiModel;
+          }
+        } catch (e) {
+          console.warn(
+            "No se pudo cargar la API Key de Firestore, usando fallback.",
+          );
+        }
 
-        const formatDate = (val) => {
-            if (!val) return "-";
-            const s = String(val).trim();
-            const num = parseFloat(s);
-            if (!isNaN(num) && num > 40000 && num < 60000) {
-                const date = new Date(Math.round((num - 25569) * 86400 * 1000));
-                return date.toLocaleDateString('es-ES');
-            }
-            if (s.includes('/') || s.includes('-')) {
-                const parts = s.split(/[-\/]/);
-                if (parts.length === 3) {
-                    let [d, m, y] = parts;
-                    if (y && y.length === 2) y = "20" + y;
-                    if (d && d.length === 4) return s; // YYYY-MM-DD
-                    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
-                }
-            }
-            return s;
-        };
+        if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
+          throw new Error(
+            "ERROR: No se ha configurado la API Key de Gemini en el panel de Configuración.",
+          );
+        }
 
-        // --- MÓDULO IA (CONEXIÓN SEGURA) ---
-        // --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
-        async function analizarGrupos(datos) {
-            // 1. Obtener parámetros dinámicos de Firestore
-            let apiKey = window.firebaseConfig.apiKey;
-            let model = "gemini-1.5-flash"; // Default Standard Model
+        const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
 
-            try {
-                const settingsDoc = await db.collection("settings").doc("main").get();
-                if (settingsDoc.exists) {
-                    const s = settingsDoc.data().system || {};
-                    if (s.geminiApiKey) apiKey = s.geminiApiKey;
-                    if (s.geminiModel) model = s.geminiModel;
-                }
-            } catch (e) {
-                console.warn("No se pudo cargar la API Key de Firestore, usando fallback.");
-            }
-
-            if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
-                throw new Error("ERROR: No se ha configurado la API Key de Gemini en el panel de Configuración.");
-            }
-
-            const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
-
-            const prompt = `
+        const prompt = `
             Actúa como un experto analista de Revenue Management hotelero de alto nivel.
             Analiza los siguientes datos de grupos consolidados de los hoteles Sercotel Guadiana y Cumbria Spa & Hotel.
             Derrame un informe estratégico conciso con:
@@ -283,960 +327,2153 @@
             ${JSON.stringify(datos)}
             `;
 
-            try {
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
-                });
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+            }),
+          });
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    const msg = error.error?.message || "";
+          if (!response.ok) {
+            const error = await response.json();
+            const msg = error.error?.message || "";
 
-                    if (msg.includes("blocked") || msg.includes("PERMISSION_DENIED")) {
-                        throw new Error("🚫 ACCESO DENEGADO: Tu API Key está bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' esté activa y que no haya restricciones de IP/dominio.");
-                    }
-                    if (msg.includes("leaked")) {
-                        throw new Error("⚠️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.");
-                    }
-                    throw new Error(`Error en API Gemini: ${msg || JSON.stringify(error)}`);
-                }
-
-                const data = await response.json();
-                return data.candidates[0].content.parts[0].text;
-            } catch (error) {
-                console.error("Error llamando a Gemini:", error);
-                throw error;
+            if (msg.includes("blocked") || msg.includes("PERMISSION_DENIED")) {
+              throw new Error(
+                "🚫 ACCESO DENEGADO: Tu API Key está bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' esté activa y que no haya restricciones de IP/dominio.",
+              );
             }
+            if (msg.includes("leaked")) {
+              throw new Error(
+                "⚠️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.",
+              );
+            }
+            throw new Error(
+              `Error en API Gemini: ${msg || JSON.stringify(error)}`,
+            );
+          }
+
+          const data = await response.json();
+          return data.candidates[0].content.parts[0].text;
+        } catch (error) {
+          console.error("Error llamando a Gemini:", error);
+          throw error;
         }
+      }
 
-        const Sidebar = ({ activeTab, setActiveTab }) => {
-            const items = [
-                { id: 'dashboard', icon: 'layout-dashboard', label: 'Resumen' },
-                { id: 'groups', icon: 'users', label: 'Gestión de Grupos' },
-                { id: 'alta-email', icon: 'mail-plus', label: 'Petición de Grupo' },
-                { id: 'invoices', icon: 'file-text', label: 'Facturas Proforma' },
-                { id: 'analytics', icon: 'bar-chart-3', label: 'Análisis IA' },
-                { id: 'settings', icon: 'settings', label: 'Configuración' }
-            ];
+      const Sidebar = ({ activeTab, setActiveTab }) => {
+        const items = [
+          {
+            id: "dashboard",
+            icon: "layout-dashboard",
+            label: "Panel de Control",
+          },
+          { id: "groups", icon: "users", label: "Directorio Grupos" },
+          {
+            id: "budgets",
+            icon: "clipboard-list",
+            label: "Seguimiento Presupuestos",
+          },
+          { id: "alta-email", icon: "mail-plus", label: "Petición de Grupo" },
+          { id: "invoices", icon: "file-text", label: "Facturas Proforma" },
+          { id: "analytics", icon: "bar-chart-3", label: "Análisis IA" },
+          { id: "settings", icon: "settings", label: "Configuración" },
+        ];
 
-            return (
-                <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50">
-                    <div className="flex flex-col items-center mb-8 px-2 space-y-6">
-                        <div className="w-full flex justify-center p-4">
-                            <img src="Nexus%20Groups/Nexus_Groups-removebg-preview.png" className="h-20 w-auto object-contain" alt="Nexus Groups Logo" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
-                            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center">
-                                <img src="Logos/Sercotel Guadiana.jpg" className="h-8 w-auto object-contain" alt="Logo Guadiana" />
-                            </div>
-                            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center">
-                                <img src="Logos/Cumbria Spa&Hotel.jpg" className="h-8 w-auto object-contain" alt="Logo Cumbria" />
-                            </div>
-                        </div>
-                        <div className="h-[1px] w-full bg-slate-100"></div>
-                    </div>
-
-                    <nav className="flex-1 space-y-2">
-                        {items.map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => {
-                                    if (item.id === 'groups') window.location.href = 'Gestión de Grupos.html';
-                                    else if (item.id === 'alta-email') window.location.href = 'AltaEmail.html';
-                                    else if (item.id === 'invoices') {
-                                        localStorage.removeItem('selectedGroup');
-                                        window.location.href = 'Fac Prof.html';
-                                    }
-                                    else if (item.id === 'settings') window.location.href = 'Configuracion.html';
-                                    else setActiveTab(item.id);
-                                }}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === item.id ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50 hover:translate-x-1'}`}
-                            >
-                                <LucideIcon name={item.icon} className="w-5 h-5" />
-                                {item.label}
-                            </button>
-                        ))}
-                    </nav>
-
-                    <div className="mt-auto space-y-4">
-                        <div className="p-4 bg-[#2d5a43]/5 rounded-2xl border border-[#2d5a43]/10">
-                            <p className="text-[10px] font-bold text-[#2d5a43] uppercase tracking-widest mb-1">Estado Global</p>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                <span className="text-xs font-bold text-slate-700">Sistema Operativo</span>
-                            </div>
-                        </div>
-                    </div>
+        return (
+          <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50">
+            <div className="flex flex-col items-center mb-8 px-2 space-y-6">
+              <div className="w-full flex justify-center p-4">
+                <img
+                  src="Nexus%20Groups/Nexus_Groups-removebg-preview.png"
+                  className="h-20 w-auto object-contain"
+                  alt="Nexus Groups Logo"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
+                <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center">
+                  <img
+                    src="Logos/Sercotel Guadiana.jpg"
+                    className="h-8 w-auto object-contain"
+                    alt="Logo Guadiana"
+                  />
                 </div>
-            );
-        };
+                <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center">
+                  <img
+                    src="Logos/Cumbria Spa&Hotel.jpg"
+                    className="h-8 w-auto object-contain"
+                    alt="Logo Cumbria"
+                  />
+                </div>
+              </div>
+              <div className="h-[1px] w-full bg-slate-100"></div>
+            </div>
 
-        const Dashboard = ({ arrivals, stats, alerts, onRunAnalysis, timeRange, onRangeChange, data }) => {
-            // --- Compute financials from data ---
-            const financials = React.useMemo(() => {
-                let totalRevenue = 0, totalPaid = 0;
-                let confirmed = 0, tentative = 0, cancelled = 0, prospect = 0;
-                const seenGroups = new Set();
-                const segMap = {};
-                (data || []).forEach(g => {
-                    const id = g.Com_Id || g["Reserva"] || g["Nombre del Grupo"] || "";
-                    const isNew = !seenGroups.has(id);
-                    if (isNew) {
-                        seenGroups.add(id);
-                        const rev = safeParseAmount(g["Importe(*)"] || g.Com_Total_Revenue || "0");
-                        totalRevenue += rev;
+            <nav className="flex-1 space-y-2">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === "groups")
+                      window.location.href = "Gestión de Grupos.html";
+                    else if (item.id === "budgets")
+                      window.location.href = "Presupuestos.html";
+                    else if (item.id === "alta-email")
+                      window.location.href = "AltaEmail.html";
+                    else if (item.id === "invoices") {
+                      localStorage.removeItem("selectedGroup");
+                      window.location.href = "Fac Prof.html";
+                    } else if (item.id === "settings")
+                      window.location.href = "Configuracion.html";
+                    else setActiveTab(item.id);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === item.id ? "sidebar-item-active" : "text-slate-500 hover:bg-slate-50 hover:translate-x-1"}`}
+                >
+                  <LucideIcon name={item.icon} className="w-5 h-5" />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
 
-                        const s = ((g.Com_Estado_Interno || g["Estado"] || g["Segment."] || "")).toUpperCase();
-                        if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA")) cancelled++;
-                        else if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA")) confirmed++;
-                        else if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI")) tentative++;
-                        else if (s.includes("PROSPEC") || s.includes("PENDIE")) prospect++;
-                        else confirmed++;
+            <div className="mt-auto space-y-4">
+              <div className="p-4 bg-[#2d5a43]/5 rounded-2xl border border-[#2d5a43]/10">
+                <p className="text-[10px] font-bold text-[#2d5a43] uppercase tracking-widest mb-1">
+                  Estado Global
+                </p>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                  <span className="text-xs font-bold text-slate-700">
+                    Sistema Operativo
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
 
-                        // Segments
-                        const segmentName = (g.Com_Segmento || g["Segment."] || "OTROS").toUpperCase().replace('GRUPO ', '');
-                        segMap[segmentName] = (segMap[segmentName] || 0) + rev;
+      const Dashboard = ({
+        arrivals,
+        stats,
+        alerts,
+        onRunAnalysis,
+        timeRange,
+        onRangeChange,
+        data,
+      }) => {
+        // --- Compute financials from data ---
+        const financials = React.useMemo(() => {
+          let totalRevenue = 0,
+            totalPaid = 0;
+          let confirmed = 0,
+            tentative = 0,
+            cancelled = 0,
+            prospect = 0;
+          const seenGroups = new Set();
+          const segMap = {};
+          (data || []).forEach((g) => {
+            const id = g.Com_Id || g["Reserva"] || g["Nombre del Grupo"] || "";
+            const isNew = !seenGroups.has(id);
+            if (isNew) {
+              seenGroups.add(id);
+              const rev = safeParseAmount(
+                g["Importe(*)"] || g.Com_Total_Revenue || "0",
+              );
+              totalRevenue += rev;
 
-                        let gPaid = parseFloat(g.Com_Pagado) || 0;
-                        if (gPaid === 0) {
-                            try {
-                                const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-                                plan.forEach(p => { if (p.status === "Cobrado") gPaid += parseFloat(p.amount) || 0; });
-                            } catch (e) { }
-                        }
-                        totalPaid += gPaid;
-                    }
-                });
+              const s = (
+                g.Com_Estado_Interno ||
+                g["Estado"] ||
+                g["Segment."] ||
+                ""
+              ).toUpperCase();
+              if (
+                s.includes("ANUL") ||
+                s.includes("CANC") ||
+                s.includes("BAJA")
+              )
+                cancelled++;
+              else if (
+                s.includes("CONFIRM") ||
+                s.includes("GARANT") ||
+                s.includes("RESERVA")
+              )
+                confirmed++;
+              else if (
+                s.includes("BLOQ") ||
+                s.includes("OPCI") ||
+                s.includes("TENTATI")
+              )
+                tentative++;
+              else if (s.includes("PROSPEC") || s.includes("PENDIE"))
+                prospect++;
+              else confirmed++;
 
-                const segmentData = Object.entries(segMap)
-                    .map(([name, val]) => ({ name, val }))
-                    .sort((a, b) => b.val - a.val)
-                    .slice(0, 4);
+              // Segments
+              // Segments - Mantener el nombre completo del segmento para coincidir con la visualización deseada
+              const segmentName = (
+                g.Com_Segmento ||
+                g["Segment."] ||
+                "OTROS"
+              ).toUpperCase();
+              segMap[segmentName] = (segMap[segmentName] || 0) + rev;
 
-                return {
-                    totalRevenue,
-                    effectivePaid: totalPaid,
-                    pending: Math.max(0, totalRevenue - totalPaid),
-                    confirmed, tentative, cancelled, prospect,
-                    segmentData
-                };
-            }, [data]);
+              let gPaid = parseFloat(g.Com_Pagado) || 0;
+              if (gPaid === 0) {
+                try {
+                  const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+                  plan.forEach((p) => {
+                    if (p.status === "Cobrado")
+                      gPaid += parseFloat(p.amount) || 0;
+                  });
+                } catch (e) {}
+              }
+              totalPaid += gPaid;
 
-            const fmt = (n) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+              // Board Basis / Regimen
+              const reg = (
+                g["Régimen"] ||
+                g.Com_Regime ||
+                "OTROS"
+              ).toUpperCase();
+              segMap.regimes = segMap.regimes || {};
+              segMap.regimes[reg] = (segMap.regimes[reg] || 0) + 1;
+            }
+          });
 
-            const getStatusProps = (status) => {
-                const s = (status || "").toUpperCase();
-                if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA")) return { label: 'Anulado', text: 'text-rose-500 bg-rose-50', border: 'border-rose-100' };
-                if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA")) return { label: 'Confirmado', text: 'text-emerald-500 bg-emerald-50', border: 'border-emerald-100' };
-                if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI")) return { label: 'Tentativa', text: 'text-blue-500 bg-blue-50', border: 'border-blue-100' };
-                if (s.includes("PROSPEC") || s.includes("PENDIE")) return { label: 'Prospect', text: 'text-amber-500 bg-amber-50', border: 'border-amber-100' };
-                return { label: status, text: 'text-slate-500 bg-slate-50', border: 'border-slate-100' };
+          const segmentData = Object.entries(segMap)
+            .filter(([k]) => k !== "regimes")
+            .map(([name, val]) => ({ name, val }))
+            .sort((a, b) => b.val - a.val)
+            .slice(0, 4);
+
+          const regimeData = Object.entries(segMap.regimes || {})
+            .map(([name, val]) => ({ name, val }))
+            .sort((a, b) => b.val - a.val);
+
+          return {
+            totalRevenue,
+            effectivePaid: totalPaid,
+            pending: Math.max(0, totalRevenue - totalPaid),
+            confirmed,
+            tentative,
+            cancelled,
+            prospect,
+            segmentData,
+            regimeData,
+          };
+        }, [data]);
+
+        const fmt = (n) =>
+          new Intl.NumberFormat("es-ES", {
+            style: "currency",
+            currency: "EUR",
+            maximumFractionDigits: 0,
+          }).format(n);
+
+        const getStatusProps = (status) => {
+          const s = (status || "").toUpperCase();
+          if (
+            s.includes("ANUL") ||
+            s.includes("CANC") ||
+            s.includes("BAJA") ||
+            s.includes("DESESTIMADO")
+          )
+            return {
+              label: "Anulado",
+              text: "text-rose-500 bg-rose-50",
+              border: "border-rose-100",
             };
-
-            // Chart Data
-            const pieData = [
-                { name: 'Confirmado', value: financials.confirmed, color: '#10b981' },
-                { name: 'Tentativa', value: financials.tentative, color: '#3b82f6' },
-                { name: 'Prospect', value: financials.prospect, color: '#f59e0b' },
-                { name: 'Anulado', value: financials.cancelled, color: '#94a3b8' }
-            ];
-
-            const trendData = stats.trendData && stats.trendData.length > 0 ? stats.trendData : [
-                { name: 'Mar', val: 0 },
-                { name: 'Abr', val: 0 },
-                { name: 'May', val: 0 },
-                { name: 'Jun', val: 0 },
-                { name: 'Jul', val: 0 },
-                { name: 'Ago', val: 0 }
-            ];
-
-            return (
-                <div className="space-y-12 animate-fade-in relative">
-
-                    {/* ══ HEADER ══ */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="flex items-baseline gap-4">
-                            <h2 className="text-4xl font-black text-slate-800 tracking-tighter">Visión General</h2>
-                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] opacity-70">Dashboard Operativo</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex bg-white rounded-xl border border-slate-200 p-1">
-                                {['7 días', '30 días', 'Año'].map((t, idx) => (
-                                    <button key={t} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${idx === 1 ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>
-                                        {t}
-                                    </button>
-                                ))}
-                            </div>
-                            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">
-                                <LucideIcon name="Download" size={14} /> Exportar
-                            </button>
-                            <button className="flex items-center gap-2 px-5 py-2.5 bg-[#1e293b] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 shadow-xl transition-all">
-                                <LucideIcon name="Plus" size={14} /> Nuevo Grupo
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* ══ KPI ROW ══ */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Ingresos Totales', val: fmt(financials.totalRevenue), trend: '+12%', sub: 'Incremento vs mes anterior', icon: 'Euro', color: 'emerald' },
-                            { label: 'Ocupación Media', val: '87.4%', trend: '+8%', sub: 'Cuotas de hoy', icon: 'Percent', color: 'blue' },
-                            { label: 'Ticket Promedio', val: '284.50€', trend: '-2%', sub: 'Por reserva confirmada', icon: 'Target', color: 'amber' },
-                            { label: 'Grupos Activos', val: financials.confirmed + financials.tentative, trend: '+4', sub: 'Pendientes de llegada', icon: 'Users', color: 'indigo' },
-                        ].map(k => (
-                            <div key={k.label} className="premium-card p-5 group hover:border-emerald-200 transition-all text-center flex flex-col items-center justify-center min-h-[100px]">
-                                <div className="flex items-center justify-center gap-2 mb-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{k.label}</span>
-                                    <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded-md">{k.trend}</span>
-                                </div>
-                                <h4 className="text-2xl font-black text-slate-800 tracking-tighter mb-1">{k.val}</h4>
-                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tight opacity-60 truncate">{k.sub}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* ══ ROW 1: REVENUE & CATEGORY ══ */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 premium-card p-8 h-[450px] flex flex-col">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className="flex items-center gap-4">
-                                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Evolución de Grupos</h3>
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Volumen mensual • Grupos totales</span>
-                                </div>
-                                <LucideIcon name="MoreHorizontal" size={16} className="text-slate-300" />
-                            </div>
-                            <div className="flex-1 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={trendData}>
-                                        <defs>
-                                            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} dy={10} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', fontWeight: 900 }}
-                                            formatter={(v) => [v, 'Grupos']}
-                                        />
-                                        <Area type="monotone" dataKey="val" stroke="#10b981" strokeWidth={4} fill="url(#areaGrad)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        <div className="lg:col-span-1 premium-card p-8 h-[450px] flex flex-col">
-                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-8">Ingresos por Segmento</h3>
-                            <div className="flex-1">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={financials.segmentData} layout="vertical" barSize={20}>
-                                        <XAxis type="number" hide />
-                                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontPadding: 0, fontWeight: 800, fill: '#64748b' }} width={80} />
-                                        <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '1rem', border: 'none' }} formatter={(v) => [fmt(v), 'Ingresos']} />
-                                        <Bar dataKey="val" fill="#10b981" radius={[0, 4, 4, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="mt-6 grid grid-cols-2 gap-4">
-                                {financials.segmentData.slice(0, 2).map((seg, i) => (
-                                    <div key={i} className="p-4 bg-slate-50 rounded-2xl text-center">
-                                        <p className="text-lg font-black text-slate-800">{((seg.val / financials.totalRevenue) * 100).toFixed(0)}%</p>
-                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{seg.name}</span>
-                                    </div>
-                                ))}
-                                {financials.segmentData.length === 0 && (
-                                    <div className="col-span-2 p-4 text-center opacity-30">
-                                        <span className="text-[10px] font-black uppercase">Sin datos segmentados</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ══ ROW 2: ORIGEN & OCUPACIÓN & PRIORITY ══ */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div className="premium-card p-8 flex flex-col h-[350px]">
-                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-8">Origen de Reservas</h3>
-                            <div className="flex-1 flex gap-8">
-                                <div className="w-1/2">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie data={pieData} innerRadius={25} outerRadius={45} paddingAngle={2} dataKey="value" stroke="none">
-                                                {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                            </Pie>
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                                <div className="w-1/2 flex flex-col justify-center space-y-2">
-                                    {pieData.map(item => (
-                                        <div key={item.name} className="flex items-center justify-between">
-                                            <div className="flex items-center gap-1.5">
-                                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.color }}></div>
-                                                <span className="text-[9px] font-black text-slate-500 uppercase">{item.name}</span>
-                                            </div>
-                                            <span className="text-[9px] font-black text-slate-800">{(item.value / (Math.max(1, financials.confirmed + financials.tentative + financials.prospect + financials.cancelled)) * 100).toFixed(0)}%</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="premium-card p-8 flex flex-col h-[350px]">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Ocupación General</h3>
-                                <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black rounded-lg">+4.2%</span>
-                            </div>
-                            <div className="flex-1">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={trendData.map(d => ({ ...d, val: d.val * 0.4 }))}>
-                                        <Area type="monotone" dataKey="val" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.05} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between text-[10px] font-black border-t border-slate-100 pt-4">
-                                <span className="text-slate-400">Promedio estimado</span>
-                                <span className="text-slate-800">89.2%</span>
-                            </div>
-                        </div>
-
-                        <div className="premium-card p-8 flex flex-col h-[350px]">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Acciones Prioritarias</h3>
-                                <LucideIcon name="Bell" size={16} className="text-rose-400" />
-                            </div>
-                            <div className="flex-1 space-y-4">
-                                {(alerts || []).length === 0 ? (
-                                    <div className="py-8 text-center opacity-30">
-                                        <p className="text-[10px] font-black uppercase tracking-widest">Sin alertas críticas hoy</p>
-                                    </div>
-                                ) : (
-                                    alerts.map((alert, i) => (
-                                        <div key={i} className={`p-4 rounded-xl flex items-center gap-4 group cursor-pointer transition-all border ${alert.type === 'danger' ? 'bg-rose-50 border-rose-100 hover:bg-rose-100' : alert.type === 'warning' ? 'bg-amber-50 border-amber-100 hover:bg-amber-100' : 'bg-slate-50 border-slate-100 hover:bg-slate-100'}`}>
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${alert.type === 'danger' ? 'bg-white text-rose-500' : alert.type === 'warning' ? 'bg-white text-amber-500' : 'bg-white text-slate-400'}`}>
-                                                <LucideIcon name={alert.icon} size={18} />
-                                            </div>
-                                            <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight">{alert.label}</span>
-                                            <LucideIcon name="ChevronRight" size={12} className="ml-auto text-slate-300 opacity-0 group-hover:opacity-100" />
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                            <button className="mt-6 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-center hover:underline">Ver todas las alertas</button>
-                        </div>
-                    </div>
-
-                    {/* ══ PRÓXIMAS LLEGADAS ══ */}
-                    <div className="premium-card overflow-hidden">
-                        <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Próximas Llegadas</h3>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Próximos 30 grupos • Actualizado hace 4 min.</span>
-                            </div>
-                            <div className="relative">
-                                <LucideIcon name="Search" size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="text" placeholder="Buscar en grupos..." className="bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-emerald-500 transition-all w-64" />
-                            </div>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                        <th className="px-8 py-5">Grupo</th>
-                                        <th className="px-8 py-5">Llegada</th>
-                                        <th className="px-8 py-5">Cliente</th>
-                                        <th className="px-8 py-5">Empresa</th>
-                                        <th className="px-8 py-5 text-right">Importe</th>
-                                        <th className="px-8 py-5 text-right"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {arrivals.map((group, i) => {
-                                        const st = getStatusProps(group["Estado"]);
-                                        return (
-                                            <tr key={i} className="hover:bg-slate-50 transition-colors group">
-                                                <td className="px-8 py-6">
-                                                    <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-tight mb-1 group-hover:text-emerald-600 transition-colors">{group["Nombre del Grupo"]}</h5>
-                                                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{group["Reserva"]}</span>
-                                                </td>
-                                                <td className="px-8 py-6">
-                                                    <span className="text-[10px] font-black text-slate-600 tracking-widest">{formatDate(group["Entrada"])}</span>
-                                                </td>
-                                                <td className="px-8 py-6">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${st.text} border ${st.border || 'border-transparent'}`}>{st.label}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-6">
-                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{group["Empresa/Agencia"] || 'Directo'}</span>
-                                                </td>
-                                                <td className="px-8 py-6 text-right">
-                                                    <span className="text-[11px] font-black text-slate-800 tracking-tight">{fmt(safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0))}</span>
-                                                </td>
-                                                <td className="px-8 py-6 text-right">
-                                                    <LucideIcon name="ChevronRight" size={14} className="text-slate-300 opacity-0 group-hover:opacity-100" />
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {arrivals.length === 0 && (
-                                        <tr>
-                                            <td colSpan="6" className="px-8 py-20 text-center">
-                                                <div className="flex flex-col items-center gap-3 opacity-30">
-                                                    <LucideIcon name="CalendarX" size={40} />
-                                                    <span className="text-xs font-black uppercase tracking-widest">Sin llegadas próximas para el periodo seleccionado</span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <footer className="text-center py-12">
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">Nexus Gold Edition v2.8.5 • System Normal • Refreshed at {new Date().toLocaleTimeString()}</p>
-                    </footer>
-                </div>
-            );
+          if (
+            s.includes("CONFIRM") ||
+            s.includes("GARANT") ||
+            s.includes("RESERVA")
+          )
+            return {
+              label: "Confirmado",
+              text: "text-emerald-500 bg-emerald-50",
+              border: "border-emerald-100",
+            };
+          if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI"))
+            return {
+              label: "Tentativa",
+              text: "text-blue-500 bg-blue-50",
+              border: "border-blue-100",
+            };
+          if (s.includes("PROSPEC") || s.includes("PENDIE"))
+            return {
+              label: "Prospect",
+              text: "text-amber-500 bg-amber-50",
+              border: "border-amber-100",
+            };
+          if (s.includes("SEGUIMIENTO"))
+            return {
+              label: "Seguimiento",
+              text: "text-indigo-500 bg-indigo-50",
+              border: "border-indigo-100",
+            };
+          if (s.includes("ENVIADO"))
+            return {
+              label: "Enviado",
+              text: "text-blue-500 bg-blue-50",
+              border: "border-blue-100",
+            };
+          if (s.includes("PRESUPUESTO"))
+            return {
+              label: "Presupuesto",
+              text: "text-purple-500 bg-purple-50",
+              border: "border-purple-100",
+            };
+          return {
+            label: status,
+            text: "text-slate-500 bg-slate-50",
+            border: "border-slate-100",
+          };
         };
 
+        // Chart Data
+        const pieData = [
+          { name: "Confirmado", value: financials.confirmed, color: "#10b981" },
+          { name: "Tentativa", value: financials.tentative, color: "#3b82f6" },
+          { name: "Prospect", value: financials.prospect, color: "#f59e0b" },
+          { name: "Anulado", value: financials.cancelled, color: "#94a3b8" },
+        ];
 
-        const GroupsManager = ({ data }) => {
-            const [searchTerm, setSearchTerm] = React.useState("");
+        const trendData =
+          stats.trendData && stats.trendData.length > 0
+            ? stats.trendData
+            : [
+                { name: "Feb", val: 0 },
+                { name: "Mar", val: 0 },
+                { name: "Abr", val: 0 },
+                { name: "May", val: 0 },
+                { name: "Jun", val: 0 },
+                { name: "Jul", val: 0 },
+              ];
 
-            const filteredData = data.filter(group => {
-                const term = searchTerm.toLowerCase();
-                const name = (group["Nombre del Grupo"] || "").toLowerCase();
-                const agency = (group["Empresa/Agencia"] || "").toLowerCase();
-                const reserva = (group["Reserva"] || "").toString().toLowerCase();
-                return name.includes(term) || agency.includes(term) || reserva.includes(term);
+        return (
+          <div className="space-y-12 animate-fade-in relative">
+            {/* ══ KPI ROW ══ */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                {
+                  label: "Ingresos Totales",
+                  val: fmt(financials.totalRevenue),
+                  trend: "+12%",
+                  sub: "Incremento vs mes anterior",
+                  icon: "Euro",
+                  color: "emerald",
+                },
+                {
+                  label: "Ocupación Media",
+                  val: "87.4%",
+                  sub: "Cuotas de hoy",
+                  icon: "Percent",
+                  color: "blue",
+                },
+                {
+                  label: "Ticket Promedio",
+                  val: "284.50€",
+                  trend: "-2%",
+                  sub: "Por reserva confirmada",
+                  icon: "Target",
+                  color: "amber",
+                },
+                {
+                  label: "Grupos Activos",
+                  val: financials.confirmed + financials.tentative,
+                  trend: "+4",
+                  sub: "Pendientes de llegada",
+                  icon: "Users",
+                  color: "indigo",
+                },
+              ].map((k) => (
+                <div
+                  key={k.label}
+                  className="premium-card p-5 group hover:border-emerald-200 transition-all text-center flex flex-col items-center justify-center min-h-[100px]"
+                >
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      {k.label}
+                    </span>
+                    {k.trend && (
+                      <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded-md">
+                        {k.trend}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-2xl font-black text-slate-800 tracking-tighter mb-1">
+                    {k.val}
+                  </h4>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tight opacity-60 truncate">
+                    {k.sub}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* ══ ROW 1: REVENUE & CATEGORY ══ */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 premium-card p-8 h-[450px] flex flex-col">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">
+                      Evolución de Grupos Activos
+                    </h3>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
+                      Previsión mensual • Grupos Totales
+                    </span>
+                  </div>
+                  <LucideIcon
+                    name="bar-chart-3"
+                    size={16}
+                    className="text-slate-300"
+                  />
+                </div>
+                <div className="flex-1 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trendData}>
+                      <CartesianGrid
+                        vertical={false}
+                        strokeDasharray="3 3"
+                        stroke="#f1f5f9"
+                      />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 9, fontWeight: 700, fill: "#64748b" }}
+                        dy={10}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 9, fontWeight: 700, fill: "#64748b" }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "#f8fafc" }}
+                        contentStyle={{
+                          borderRadius: "1rem",
+                          border: "none",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+                          fontWeight: 900,
+                        }}
+                        formatter={(v) => [v, "Grupos"]}
+                      />
+                      <Bar dataKey="val" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="lg:col-span-1 premium-card p-8 h-[450px] flex flex-col">
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-8">
+                  Ingresos por Segmento
+                </h3>
+                <div className="flex-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={financials.segmentData}
+                      layout="vertical"
+                      barSize={20}
+                    >
+                      <XAxis type="number" hide />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{
+                          fontSize: 9,
+                          fontPadding: 0,
+                          fontWeight: 800,
+                          fill: "#64748b",
+                        }}
+                        width={80}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "#f8fafc" }}
+                        contentStyle={{ borderRadius: "1rem", border: "none" }}
+                        formatter={(v) => [fmt(v), "Ingresos"]}
+                      />
+                      <Bar dataKey="val" radius={[0, 4, 4, 0]}>
+                        {financials.segmentData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              ["#3b82f6", "#10b981", "#f59e0b", "#6366f1"][
+                                index % 4
+                              ]
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* ══ ROW 2: ORIGEN & OCUPACIÓN & PRIORITY ══ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+              <div className="premium-card p-4 flex flex-col h-fit">
+                <h3 className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-3">
+                  Origen de Reservas
+                </h3>
+                <div className="flex gap-4 items-center justify-between w-full">
+                  <div className="flex-1 flex flex-col justify-center space-y-1.5">
+                    {pieData.map((item) => (
+                      <div
+                        key={item.name}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <div
+                            className="w-1 h-1 rounded-full shrink-0"
+                            style={{ background: item.color }}
+                          ></div>
+                          <span className="text-[9px] font-black text-slate-500 uppercase truncate">
+                            {item.name}
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-black text-slate-800 ml-2">
+                          {(
+                            (item.value /
+                              Math.max(
+                                1,
+                                financials.confirmed +
+                                  financials.tentative +
+                                  financials.prospect +
+                                  financials.cancelled,
+                              )) *
+                            100
+                          ).toFixed(0)}
+                          %
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="w-24 h-24 shrink-0 -mr-2 flex justify-end">
+                    <PieChart width={96} height={96}>
+                      <Pie
+                        data={pieData}
+                        innerRadius={25}
+                        outerRadius={40}
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="none"
+                        cx="50%"
+                        cy="50%"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-2 rounded-xl shadow-xl border border-slate-100">
+                                <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">
+                                  {payload[0].name}
+                                </p>
+                                <p className="text-xs font-black text-slate-800">
+                                  {payload[0].value}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </div>
+                </div>
+              </div>
+
+              <div className="premium-card p-4 flex flex-col h-fit">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[9px] font-black text-slate-800 uppercase tracking-widest">
+                    Distribución por Régimen
+                  </h3>
+                  <LucideIcon
+                    name="utensils"
+                    size={12}
+                    className="text-slate-300"
+                  />
+                </div>
+                <div className="flex gap-4 items-center justify-between w-full">
+                  <div className="flex-1 flex flex-col justify-center space-y-1.5 overflow-y-auto custom-scrollbar pr-1">
+                    {(financials.regimeData || [])
+                      .slice(0, 5)
+                      .map((item, index) => (
+                        <div
+                          key={item.name}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            <div
+                              className="w-1 h-1 rounded-full shrink-0"
+                              style={{
+                                background: [
+                                  "#10b981",
+                                  "#3b82f6",
+                                  "#6366f1",
+                                  "#f59e0b",
+                                  "#ec4899",
+                                  "#8b5cf6",
+                                  "#94a3b8",
+                                ][index % 7],
+                              }}
+                            ></div>
+                            <span className="text-[9px] font-black text-slate-500 uppercase truncate">
+                              {item.name}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-black text-slate-800 ml-2">
+                            {item.val}
+                          </span>
+                        </div>
+                      ))}
+                    {financials.regimeData &&
+                      financials.regimeData.length > 5 && (
+                        <p className="text-[7px] font-bold text-slate-300 uppercase text-center pt-1">
+                          +{financials.regimeData.length - 5} más
+                        </p>
+                      )}
+                    {(!financials.regimeData ||
+                      financials.regimeData.length === 0) && (
+                      <div className="py-10 text-center opacity-30">
+                        <p className="text-[10px] font-black uppercase">
+                          Sin datos de régimen
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-24 h-24 shrink-0 -mr-2 flex justify-end">
+                    <PieChart width={96} height={96}>
+                      <Pie
+                        data={financials.regimeData}
+                        innerRadius={25}
+                        outerRadius={40}
+                        paddingAngle={4}
+                        dataKey="val"
+                        stroke="none"
+                        cx="50%"
+                        cy="50%"
+                      >
+                        {(financials.regimeData || []).map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              [
+                                "#10b981",
+                                "#3b82f6",
+                                "#6366f1",
+                                "#f59e0b",
+                                "#ec4899",
+                                "#8b5cf6",
+                                "#94a3b8",
+                              ][index % 7]
+                            }
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-2 rounded-xl shadow-xl border border-slate-100">
+                                <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">
+                                  {payload[0].name}
+                                </p>
+                                <p className="text-xs font-black text-slate-800">
+                                  {payload[0].value}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </div>
+                </div>
+              </div>
+
+              <div className="premium-card p-4 flex flex-col h-fit">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[9px] font-black text-slate-800 uppercase tracking-widest">
+                    Acciones Prioritarias
+                  </h3>
+                  <LucideIcon name="Bell" size={14} className="text-rose-400" />
+                </div>
+                <div className="flex-1 space-y-4">
+                  {(alerts || []).length === 0 ? (
+                    <div className="py-8 text-center opacity-30">
+                      <p className="text-[10px] font-black uppercase tracking-widest">
+                        Sin alertas críticas hoy
+                      </p>
+                    </div>
+                  ) : (
+                    alerts.map((alert, i) => (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          if (alert.group) {
+                            const resId = alert.group["Reserva"];
+                            localStorage.setItem("nexus_return_reserva", resId);
+                            window.location.href = `Gestión de Grupos.html?reserva=${encodeURIComponent(resId)}`;
+                          }
+                        }}
+                        className={`p-3 rounded-xl flex items-center gap-3 group cursor-pointer transition-all border ${alert.type === "danger" ? "bg-rose-50 border-rose-100 hover:bg-rose-100" : alert.type === "warning" ? "bg-amber-50 border-amber-100 hover:bg-amber-100" : "bg-slate-50 border-slate-100 hover:bg-slate-100"}`}
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-sm shrink-0 ${alert.type === "danger" ? "bg-white text-rose-500" : alert.type === "warning" ? "bg-white text-amber-500" : "bg-white text-slate-400"}`}
+                        >
+                          <LucideIcon name={alert.icon} size={14} />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight line-clamp-1 flex-1">
+                          {alert.label}
+                        </span>
+                        <LucideIcon
+                          name="ExternalLink"
+                          size={10}
+                          className="ml-auto text-slate-300 opacity-0 group-hover:opacity-100"
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+                <button className="mt-6 text-[9px] font-black text-emerald-600 uppercase tracking-widest text-center hover:underline">
+                  Ver todas las alertas
+                </button>
+              </div>
+            </div>
+
+            {/* ══ PRÓXIMAS LLEGADAS ══ */}
+            <div className="premium-card overflow-hidden">
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">
+                      Próximas Llegadas
+                    </h3>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
+                      Próximos{" "}
+                      {timeRange === 365 ? "12 meses" : timeRange + " días"} •
+                      Actualizado hace 1 min.
+                    </span>
+                  </div>
+                  <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-100">
+                    {[
+                      { label: "15D", val: 15 },
+                      { label: "30D", val: 30 },
+                      { label: "1A", val: 365 },
+                    ].map((opt) => (
+                      <button
+                        key={opt.val}
+                        onClick={() => onRangeChange(opt.val)}
+                        className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${timeRange === opt.val ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="relative">
+                  <LucideIcon
+                    name="Search"
+                    size={14}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Buscar en grupos..."
+                    className="bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-emerald-500 transition-all w-64"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="px-8 py-5">Grupo</th>
+                      <th className="px-8 py-5">Llegada</th>
+                      <th className="px-8 py-5">Cliente</th>
+                      <th className="px-8 py-5">Empresa</th>
+                      <th className="px-8 py-5 text-right">Importe</th>
+                      <th className="px-8 py-5 text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {arrivals.map((group, i) => {
+                      const st = getStatusProps(group["Estado"]);
+                      return (
+                        <tr
+                          key={i}
+                          className="hover:bg-slate-50 transition-colors group"
+                        >
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-2">
+                              <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-tight group-hover:text-emerald-600 transition-colors">
+                                {group["Nombre del Grupo"]}
+                              </h5>
+                              {group["Com_Notas"] && (
+                                <div
+                                  className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                                  title={group["Com_Notas"]}
+                                ></div>
+                              )}
+                            </div>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                              {group["Reserva"]}
+                            </span>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="text-[10px] font-black text-slate-600 tracking-widest">
+                              {formatDate(group["Entrada"])}
+                            </span>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${st.text} border ${st.border || "border-transparent"}`}
+                              >
+                                {st.label}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                              {group["Empresa/Agencia"] || "Directo"}
+                            </span>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <span className="text-[11px] font-black text-slate-800 tracking-tight">
+                              {fmt(
+                                safeParseAmount(
+                                  group["Total_Importe_Facturable"] ||
+                                    group["Importe(*)"] ||
+                                    0,
+                                ),
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <LucideIcon
+                              name="ChevronRight"
+                              size={14}
+                              className="text-slate-300 opacity-0 group-hover:opacity-100"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {arrivals.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="px-8 py-20 text-center">
+                          <div className="flex flex-col items-center gap-3 opacity-30">
+                            <LucideIcon name="CalendarX" size={40} />
+                            <span className="text-xs font-black uppercase tracking-widest">
+                              Sin llegadas próximas para el periodo seleccionado
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <footer className="text-center py-12">
+              <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
+                Nexus Gold Edition v2.8.5 • System Normal • Refreshed at{" "}
+                {new Date().toLocaleTimeString()}
+              </p>
+            </footer>
+          </div>
+        );
+      };
+
+      const GroupsManager = ({ data }) => {
+        const [searchTerm, setSearchTerm] = React.useState("");
+
+        const filteredData = data.filter((group) => {
+          const term = searchTerm.toLowerCase();
+          const name = (group["Nombre del Grupo"] || "").toLowerCase();
+          const agency = (group["Empresa/Agencia"] || "").toLowerCase();
+          const reserva = (group["Reserva"] || "").toString().toLowerCase();
+          return (
+            name.includes(term) ||
+            agency.includes(term) ||
+            reserva.includes(term)
+          );
+        });
+
+        const getStatusProps = (status) => {
+          const s = (status || "").toUpperCase();
+          if (
+            s.includes("ANUL") ||
+            s.includes("CANC") ||
+            s.includes("BAJA") ||
+            s.includes("DESESTIMADO")
+          )
+            return {
+              label: "Anulado",
+              text: "text-rose-500 bg-rose-50",
+              border: "border-rose-100",
+            };
+          if (
+            s.includes("CONFIRM") ||
+            s.includes("GARANT") ||
+            s.includes("RESERVA")
+          )
+            return {
+              label: "Confirmado",
+              text: "text-emerald-500 bg-emerald-50",
+              border: "border-emerald-100",
+            };
+          if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI"))
+            return {
+              label: "Tentativa",
+              text: "text-blue-500 bg-blue-50",
+              border: "border-blue-100",
+            };
+          if (s.includes("PROSPEC") || s.includes("PENDIE"))
+            return {
+              label: "Prospect",
+              text: "text-amber-500 bg-amber-50",
+              border: "border-amber-100",
+            };
+          if (s.includes("SEGUIMIENTO"))
+            return {
+              label: "Seguimiento",
+              text: "text-indigo-500 bg-indigo-50",
+              border: "border-indigo-100",
+            };
+          if (s.includes("ENVIADO"))
+            return {
+              label: "Enviado",
+              text: "text-blue-500 bg-blue-50",
+              border: "border-blue-100",
+            };
+          if (s.includes("PRESUPUESTO"))
+            return {
+              label: "Presupuesto",
+              text: "text-purple-500 bg-purple-50",
+              border: "border-purple-100",
+            };
+          return {
+            label: status,
+            text: "text-slate-500 bg-slate-50",
+            border: "border-slate-100",
+          };
+        };
+
+        return (
+          <div className="animate-fade-in space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100 gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">
+                  Directorio de Grupos
+                </h2>
+                <p className="text-slate-500 text-sm italic">
+                  Accede a las herramientas de análisis y facturación.
+                </p>
+              </div>
+              <div className="flex gap-3 w-full md:w-auto">
+                <div className="relative w-full md:w-64">
+                  <LucideIcon
+                    name="search"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nombre, agencia o reserva..."
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-[#2d5a43] transition-colors"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <button
+                  onClick={() =>
+                    (window.location.href = "Gestión de Grupos.html")
+                  }
+                  className="bg-[#2d5a43] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#1e3a2c] transition-all text-sm shrink-0"
+                >
+                  <LucideIcon name="table" className="w-4 h-4" />
+                  Gestor
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {filteredData.map((group, i) => (
+                <div
+                  key={i}
+                  className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between group hover:border-[#2d5a43]/30 transition-all relative overflow-hidden h-full"
+                >
+                  {/* Status Badge */}
+                  {(() => {
+                    const st = getStatusProps(
+                      group["Estado"] || group["Com_Estado_Interno"],
+                    );
+                    return (
+                      <div
+                        className={`absolute top-0 right-0 px-2 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-widest ${st.text}`}
+                      >
+                        {st.label}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <img
+                        src={
+                          (group["Hotel_Asignado"] || "").includes("Cumb")
+                            ? "Logos/Cumbria Spa&Hotel.jpg"
+                            : "Logos/Sercotel Guadiana.jpg"
+                        }
+                        alt="Logo"
+                        className="h-6 object-contain"
+                      />
+                    </div>
+
+                    <div className="mb-2">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">
+                        {formatDate(group["Entrada"])}
+                      </span>
+                      <h4
+                        className="font-bold text-slate-800 mb-1 cursor-pointer hover:text-[#2d5a43] transition-colors text-xs leading-tight line-clamp-2"
+                        onClick={() => {
+                          const resId = group["Reserva"];
+                          localStorage.setItem("nexus_return_reserva", resId);
+                          window.location.href = `Gestión de Grupos.html?reserva=${encodeURIComponent(resId)}`;
+                        }}
+                        title={group["Nombre del Grupo"]}
+                      >
+                        {group["Nombre del Grupo"]}
+                      </h4>
+                      <p className="text-[9px] text-slate-400 truncate">
+                        {group["Empresa/Agencia"]}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mb-2 bg-slate-50 p-2 rounded-xl">
+                      <div className="text-center">
+                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">
+                          Revenue
+                        </p>
+                        <p className="font-bold text-slate-700 text-xs">
+                          {group["Importe(*)"]}€
+                        </p>
+                      </div>
+                      <div className="text-center border-l border-slate-200">
+                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">
+                          Pax
+                        </p>
+                        <p className="font-bold text-slate-700 text-xs">
+                          {group["Pax."]}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {/* Internal Phase Badge */}
+                      {group["Com_Estado_Interno"] && (
+                        <div
+                          className={`flex items-center gap-1 text-[8px] px-1.5 py-0.5 rounded border max-w-full ${getStatusProps(group["Com_Estado_Interno"]).text} ${getStatusProps(group["Com_Estado_Interno"]).text.replace("bg-", "border-").replace("text-", "border-")}`}
+                        >
+                          <LucideIcon
+                            name="briefcase"
+                            className="w-2.5 h-2.5 shrink-0"
+                          />
+                          <span className="font-bold truncate">
+                            {group["Com_Estado_Interno"]}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Release Date Warning */}
+                      {group["Com_Vencimiento_Rel"] && (
+                        <div className="flex items-center gap-1 text-[8px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100 max-w-full">
+                          <LucideIcon
+                            name="clock"
+                            className="w-2.5 h-2.5 shrink-0"
+                          />
+                          <span className="truncate">
+                            Rel:{" "}
+                            <span className="font-bold">
+                              {formatDate(group["Com_Vencimiento_Rel"])}
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Avisos Manuales */}
+                    {group["Com_Notas"] && (
+                      <div className="mb-2 text-[8px] bg-yellow-50 text-yellow-800 p-1.5 rounded-lg border border-yellow-100 flex items-start gap-1 leading-tight">
+                        <LucideIcon
+                          name="alert-circle"
+                          className="w-3 h-3 shrink-0 text-yellow-600"
+                        />
+                        <span
+                          className="line-clamp-2"
+                          title={group["Com_Notas"]}
+                        >
+                          {group["Com_Notas"]}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-2 border-t border-slate-50 mt-auto">
+                    <button
+                      onClick={() => {
+                        localStorage.setItem(
+                          "selectedGroup",
+                          JSON.stringify(group),
+                        );
+                        window.location.href = "Fac Prof.html";
+                      }}
+                      className="flex-1 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold text-[9px] hover:bg-slate-50 transition-all flex items-center justify-center gap-1"
+                    >
+                      <LucideIcon name="file-text" className="w-3 h-3" />
+                      Proforma
+                    </button>
+                    <button
+                      onClick={() =>
+                        (window.location.href = "Gestión de Grupos.html")
+                      }
+                      className="p-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all flex items-center justify-center"
+                    >
+                      <LucideIcon name="pencil" className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {filteredData.length === 0 && (
+                <p className="col-span-full text-center py-20 text-slate-400">
+                  No se encontraron grupos coincidiendo con tu búsqueda.
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      const BudgetManager = ({ data }) => {
+        const [searchTerm, setSearchTerm] = React.useState("");
+        const [statusFilter, setStatusFilter] = React.useState("TODOS");
+
+        const budgetData = data.filter((g) => {
+          const isBudget =
+            String(g.Reserva || "").startsWith("PRES-") ||
+            (g.Estado || "").toUpperCase() === "PRESUPUESTO" ||
+            (g.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO";
+
+          if (!isBudget) return false;
+
+          const term = searchTerm.toLowerCase();
+          const name = (g["Nombre del Grupo"] || "").toLowerCase();
+          const agency = (g["Empresa/Agencia"] || "").toLowerCase();
+          const reserva = (g["Reserva"] || "").toString().toLowerCase();
+
+          const matchesSearch =
+            name.includes(term) ||
+            agency.includes(term) ||
+            reserva.includes(term);
+          const matchesStatus =
+            statusFilter === "TODOS" ||
+            (g.Com_Estado_Interno || g.Estado || "")
+              .toUpperCase()
+              .includes(statusFilter);
+
+          return matchesSearch && matchesStatus;
+        });
+
+        const getBudgetStatusProps = (statusRaw) => {
+          const s = (statusRaw || "").toString().toUpperCase();
+          if (s.includes("CONFIRM"))
+            return {
+              color: "bg-emerald-500",
+              text: "bg-emerald-50 text-emerald-600",
+              icon: "check-circle",
+              label: "CONFIRMADO",
+            };
+          if (
+            s.includes("DESESTIMADO") ||
+            s.includes("CANCEL") ||
+            s.includes("ANUL")
+          )
+            return {
+              color: "bg-slate-400",
+              text: "bg-slate-50 text-slate-500",
+              icon: "x-circle",
+              label: "DESESTIMADO",
+            };
+          if (s.includes("SEGUIMIENTO"))
+            return {
+              color: "bg-indigo-500",
+              text: "bg-indigo-50 text-indigo-600",
+              icon: "phone-forwarded",
+              label: "SEGUIMIENTO",
+            };
+          if (s.includes("ENVIADO"))
+            return {
+              color: "bg-blue-500",
+              text: "bg-blue-50 text-blue-600",
+              icon: "mail",
+              label: "ENVIADO",
+            };
+          return {
+            color: "bg-amber-500",
+            text: "bg-amber-50 text-amber-600",
+            icon: "clock",
+            label: "PENDIENTE",
+          };
+        };
+
+        return (
+          <div className="animate-fade-in space-y-6">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div>
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                  Seguimiento de Presupuestos
+                </h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                  Control comercial y conversión de leads
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <LucideIcon
+                    name="search"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Buscar presupuesto..."
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-indigo-500 transition-all font-medium"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:border-indigo-500 text-slate-600"
+                >
+                  <option value="TODOS">Todos los Estados</option>
+                  <option value="PENDIENTE">Pendientes</option>
+                  <option value="ENVIADO">Enviados</option>
+                  <option value="SEGUIMIENTO">En Seguimiento</option>
+                  <option value="CONFIRMADO">Confirmados</option>
+                  <option value="DESESTIMADO">Desestimados</option>
+                </select>
+                <button
+                  onClick={() => (window.location.href = "AltaEmail.html")}
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-indigo-700 transition-all text-xs uppercase tracking-widest shadow-lg shadow-indigo-100"
+                >
+                  <LucideIcon name="plus" className="w-4 h-4" />
+                  Nuevo
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {budgetData.map((budget, i) => {
+                const st = getBudgetStatusProps(
+                  budget.Com_Estado_Interno || budget.Estado,
+                );
+                return (
+                  <div
+                    key={i}
+                    className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 hover:border-indigo-200 transition-all flex flex-col group relative overflow-hidden h-fit"
+                  >
+                    <div
+                      className={`absolute top-0 right-0 px-3 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-widest ${st.text}`}
+                    >
+                      {st.label}
+                    </div>
+
+                    <div className="flex items-start gap-3 mb-3">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${st.text} border border-current opacity-20`}
+                      >
+                        <LucideIcon name={st.icon} size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
+                          ID: {budget.Reserva}
+                        </span>
+                        <h4 className="text-xs font-black text-slate-800 uppercase leading-tight line-clamp-2">
+                          {budget["Nombre del Grupo"]}
+                        </h4>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                          Entrada
+                        </p>
+                        <p className="text-xs font-black text-slate-700">
+                          {formatDate(budget.Entrada)}
+                        </p>
+                      </div>
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                          Importe
+                        </p>
+                        <p className="text-xs font-black text-slate-700">
+                          {budget["Importe(*)"]}€
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 mb-6 flex-1">
+                      <div className="flex items-center gap-3 text-slate-500">
+                        <LucideIcon
+                          name="building-2"
+                          size={14}
+                          className="shrink-0"
+                        />
+                        <span className="text-[10px] font-bold uppercase truncate">
+                          {budget["Empresa/Agencia"] || "Contacto Directo"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-500">
+                        <LucideIcon
+                          name="users"
+                          size={14}
+                          className="shrink-0"
+                        />
+                        <span className="text-[10px] font-bold uppercase">
+                          {budget["Pax."]} Pax • {budget["Régimen"]}
+                        </span>
+                      </div>
+                      {budget.Com_Email_Contacto && (
+                        <div className="flex items-center gap-3 text-slate-400">
+                          <LucideIcon
+                            name="mail"
+                            size={14}
+                            className="shrink-0"
+                          />
+                          <span className="text-[10px] font-bold lowercase truncate italic">
+                            {budget.Com_Email_Contacto}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 pt-4 border-t border-slate-50">
+                      <button
+                        onClick={() => {
+                          window.location.href =
+                            "Gestión de Grupos.html?reserva=" + budget.Reserva;
+                        }}
+                        className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center justify-center shadow-lg shadow-emerald-100"
+                        title="Abrir en Panel de Gestión"
+                      >
+                        <LucideIcon name="external-link" size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          try {
+                            localStorage.setItem(
+                              "selectedGroup",
+                              JSON.stringify(budget),
+                            );
+                            console.log(
+                              "Guardado en localStorage p/ edición:",
+                              budget.Reserva,
+                            );
+                          } catch (e) {
+                            console.warn("LocalStorage bloqueado:", e);
+                          }
+                          window.location.href =
+                            "AltaEmail.html?edit=" +
+                            encodeURIComponent(budget.Reserva);
+                        }}
+                        className="flex-1 py-2.5 bg-slate-50 border border-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <LucideIcon name="edit-3" size={14} />
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => {
+                          localStorage.setItem(
+                            "selectedGroup",
+                            JSON.stringify(budget),
+                          );
+                          window.location.href = "Fac Prof.html";
+                        }}
+                        className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center shadow-lg shadow-indigo-100"
+                        title="Ver Proforma"
+                      >
+                        <LucideIcon name="file-text" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {budgetData.length === 0 && (
+                <div className="col-span-full py-32 text-center">
+                  <div className="flex flex-col items-center gap-4 opacity-20">
+                    <LucideIcon name="clipboard-x" size={64} />
+                    <p className="text-sm font-black uppercase tracking-[0.3em]">
+                      No hay presupuestos en esta sección
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      const App = () => {
+        const [activeTab, setActiveTab] = useState("dashboard");
+        const [data, setData] = useState([]);
+        const [arrivals, setArrivals] = useState([]);
+        const [timeRange, setTimeRange] = useState(30);
+        const [stats, setStats] = useState({
+          revenue: "0€",
+          groups: 0,
+          pending: 0,
+          pax: 0,
+        });
+        const [successToast, setSuccessToast] = useState(null);
+
+        // Detectar redireccion desde AltaEmail con petición enviada
+        useEffect(() => {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get("presupuesto_ok") === "1") {
+            const grupoName = params.get("grupo") || "el grupo";
+            setSuccessToast(grupoName);
+            // Limpiar URL
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname,
+            );
+            // Auto-ocultar tras 5s
+            setTimeout(() => setSuccessToast(null), 5000);
+          }
+        }, []);
+
+        const getStatusProps = (statusRaw) => {
+          const s = (statusRaw || "").toString().toUpperCase();
+          if (
+            s.includes("CONFIRM") ||
+            s.includes("GARANT") ||
+            s.includes("RESERVA")
+          )
+            return {
+              color: "bg-emerald-500",
+              text: "bg-emerald-50 text-emerald-600",
+              label: s || "CONFIRMADO",
+            };
+          if (
+            s.includes("BLOQ") ||
+            s.includes("OPCI") ||
+            s.includes("TIEMPO") ||
+            s.includes("TENTATI")
+          )
+            return {
+              color: "bg-indigo-500",
+              text: "bg-indigo-50 text-indigo-600",
+              label: s || "BLOQUEADO",
+            };
+          if (
+            s.includes("ENVIAD") ||
+            s.includes("COTIZ") ||
+            s.includes("OFERT")
+          )
+            return {
+              color: "bg-blue-400",
+              text: "bg-blue-50 text-blue-600",
+              label: s || "ENVIADO",
+            };
+          if (
+            s.includes("ANUL") ||
+            s.includes("CANC") ||
+            s.includes("BAJA") ||
+            s.includes("DESESTIMADO")
+          )
+            return {
+              color: "bg-red-400 opacity-60",
+              text: "bg-red-50 text-red-500",
+              label: s || "CANCELADO",
+            };
+          if (s.includes("SEGUIMIENTO"))
+            return {
+              color: "bg-indigo-500",
+              text: "bg-indigo-50 text-indigo-600",
+              label: s || "SEGUIMIENTO",
+            };
+          if (
+            s.includes("PROSPEC") ||
+            s.includes("PENDIE") ||
+            s.includes("PRESUPUESTO")
+          )
+            return {
+              color: "bg-amber-500",
+              text: "bg-amber-50 text-amber-600",
+              label: s || "PROSPECTO",
+            };
+          return {
+            color: "bg-slate-400",
+            text: "bg-slate-50 text-slate-500",
+            label: s || "ACTIVO",
+          };
+        };
+
+        // Generar Alertas Dinámicas
+        const alerts = useMemo(() => {
+          const list = [];
+          const now = new Date();
+          const sevenDaysFromNow = new Date(now);
+          sevenDaysFromNow.setDate(now.getDate() + 7);
+          const fortyEightHours = 48 * 60 * 60 * 1000;
+
+          // 1. Alerta de Vencimiento de Proformas (basado en Com_Vencimiento_Rel)
+          data.forEach((g) => {
+            const groupName = g["Nombre del Grupo"] || g["Reserva"] || "Grupo";
+            const arrival = g["Entrada"]
+              ? g["Entrada"] instanceof Date
+                ? g["Entrada"]
+                : new Date(g["Entrada"])
+              : null;
+            const isCancelled = (g["Status"] || g["Estado"] || "")
+              .toLowerCase()
+              .includes("anul");
+            if (isCancelled) return;
+
+            // Alert 1: Release Urgente (< 7 días)
+            let dRel = null;
+            if (g["Com_Vencimiento_Rel"]) {
+              const val = g["Com_Vencimiento_Rel"];
+              const num = parseFloat(val);
+              if (!isNaN(num) && num > 40000 && num < 60000)
+                dRel = new Date(Math.round((num - 25569) * 86400 * 1000));
+              else dRel = new Date(val);
+            }
+            if (dRel && !isNaN(dRel.getTime())) {
+              const diff = dRel - now;
+              if (diff > 0 && diff < fortyEightHours) {
+                list.push({
+                  label: `Release 48h: ${groupName}`,
+                  icon: "Clock",
+                  type: "danger",
+                  group: g,
+                });
+              } else if (dRel <= sevenDaysFromNow) {
+                list.push({
+                  label: `Vence Release: ${groupName}`,
+                  icon: "Clock",
+                  type: "warning",
+                  group: g,
+                });
+              }
+            }
+
+            // Alert 2: Seguimiento Pendiente
+            let dFollow = null;
+            if (g["Com_Seguimiento"]) {
+              const val = g["Com_Seguimiento"];
+              const num = parseFloat(val);
+              if (!isNaN(num) && num > 40000 && num < 60000)
+                dFollow = new Date(Math.round((num - 25569) * 86400 * 1000));
+              else dFollow = new Date(val);
+            }
+            if (dFollow && !isNaN(dFollow.getTime()) && dFollow <= now) {
+              list.push({
+                label: `Seguimiento: ${groupName}`,
+                icon: "Phone",
+                type: "info",
+                group: g,
+              });
+            }
+
+            // Alert 3: Pagos Pendientes
+            try {
+              const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+              const hasPending = plan.some((p) => {
+                let pDate = p.date ? new Date(p.date) : null;
+                return p.status !== "Cobrado" && pDate && pDate <= now;
+              });
+              if (hasPending) {
+                list.push({
+                  label: `Pago Atrasado: ${groupName}`,
+                  icon: "AlertTriangle",
+                  type: "danger",
+                  group: g,
+                });
+              }
+            } catch (e) {}
+
+            // Alert 4: Tentativa próxima a llegada
+            const isTentative =
+              (g["Estado"] || "").toLowerCase().includes("tentat") ||
+              (g["Com_Estado_Interno"] || "").toLowerCase().includes("tentat");
+            const entryDate = arrival;
+            if (
+              isTentative &&
+              entryDate &&
+              !isNaN(entryDate.getTime()) &&
+              entryDate <= sevenDaysFromNow
+            ) {
+              list.push({
+                label: `Confirmar Urgente: ${groupName}`,
+                icon: "Calendar",
+                type: "warning",
+                group: g,
+              });
+            }
+          });
+
+          // 5. Alerta de Sincronización Reciente (Global)
+          const recentCount = data.filter((g) => {
+            if (!g.updatedAt) return false;
+            const updateDate = g.updatedAt.toDate
+              ? g.updatedAt.toDate()
+              : new Date(g.updatedAt);
+            return now - updateDate < 15 * 60 * 1000;
+          }).length;
+
+          if (recentCount > 0) {
+            list.push({
+              label: `${recentCount} registros sincronizados`,
+              icon: "RefreshCw",
+              type: "success",
+              group: null,
+            });
+          }
+
+          return list.slice(0, 5); // Mostrar top 5 más urgentes
+        }, [data]);
+
+        // Estados para IA
+        const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+        const [isAiLoading, setIsAiLoading] = useState(false);
+        const [aiResult, setAiResult] = useState("");
+
+        const runStrategicAnalysis = async () => {
+          setIsAiModalOpen(true);
+          setIsAiLoading(true);
+          try {
+            const analysis = await analizarGrupos(data);
+            setAiResult(analysis);
+          } catch (error) {
+            console.error("Error en análisis IA:", error);
+            setAiResult(
+              `### Error Detectado\n**Detalles técnicos:** ${error.message}\n\n*Posible solución:* Verifica que la API Key tenga activada la "Generative Language API" y que las restricciones de sitio web incluyan tu URL actual.`,
+            );
+          } finally {
+            setIsAiLoading(false);
+          }
+        };
+
+        useEffect(() => {
+          const unsubscribe = db.collection("groups").onSnapshot((snapshot) => {
+            const parsed = [];
+            snapshot.forEach((doc) => {
+              const row = doc.data();
+              // Normalización de Segmentos
+              let seg = (row["Segment."] || "").toString().trim().toUpperCase();
+              if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") {
+                row["Segment."] = "GRUPO TANTEO";
+              }
+              parsed.push(row);
             });
 
-            return (
-                <div className="animate-fade-in space-y-6">
-                    <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100 gap-4">
-                        <div>
-                            <h2 className="text-2xl font-bold text-slate-800">Directorio de Grupos</h2>
-                            <p className="text-slate-500 text-sm italic">Accede a las herramientas de análisis y facturación.</p>
-                        </div>
-                        <div className="flex gap-3 w-full md:w-auto">
-                            <div className="relative w-full md:w-64">
-                                <LucideIcon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Buscar por nombre, agencia o reserva..."
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-[#2d5a43] transition-colors"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                            <button
-                                onClick={() => window.location.href = 'Gestión de Grupos.html'}
-                                className="bg-[#2d5a43] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#1e3a2c] transition-all text-sm shrink-0"
-                            >
-                                <LucideIcon name="table" className="w-4 h-4" />
-                                Gestor
-                            </button>
-                        </div>
-                    </div>
+            if (parsed.length > 0) {
+              setData(parsed);
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                        {filteredData.map((group, i) => (
-                            <div key={i} className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between group hover:border-[#2d5a43]/30 transition-all relative overflow-hidden h-full">
+              // 1. Helper de Procesamiento
+              const parseDate = (val) => {
+                if (!val) return new Date(8640000000000000);
+                if (val instanceof Date) return val;
+                const str = String(val);
 
-                                {/* Status Badge */}
-                                {(() => {
-                                    const st = getStatusProps(group["Estado"] || group["Com_Estado_Interno"]);
-                                    return (
-                                        <div className={`absolute top-0 right-0 px-2 py-1 rounded-bl-xl text-[8px] font-black uppercase tracking-widest ${st.text}`}>
-                                            {st.label}
-                                        </div>
-                                    );
-                                })()}
-
-                                <div className="flex-1">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <img
-                                            src={(group["Hotel_Asignado"] || "").includes('Cumb') ? 'Logos/Cumbria Spa&Hotel.jpg' : 'Logos/Sercotel Guadiana.jpg'}
-                                            alt="Logo"
-                                            className="h-6 object-contain"
-                                        />
-                                    </div>
-
-                                    <div className="mb-2">
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">{formatDate(group["Entrada"])}</span>
-                                        <h4 className="font-bold text-slate-800 mb-1 cursor-pointer hover:text-[#2d5a43] transition-colors text-xs leading-tight line-clamp-2 min-h-[2.5em]"
-                                            onClick={() => {
-                                                const resId = group["Reserva"];
-                                                localStorage.setItem('nexus_return_reserva', resId);
-                                                window.location.href = `Gestión de Grupos.html?reserva=${encodeURIComponent(resId)}`;
-                                            }}
-                                            title={group["Nombre del Grupo"]}
-                                        >
-                                            {group["Nombre del Grupo"]}
-                                        </h4>
-                                        <p className="text-[9px] text-slate-400 truncate">{group["Empresa/Agencia"]}</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2 mb-2 bg-slate-50 p-2 rounded-xl">
-                                        <div className="text-center">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">Revenue</p>
-                                            <p className="font-bold text-slate-700 text-xs">{group["Importe(*)"]}€</p>
-                                        </div>
-                                        <div className="text-center border-l border-slate-200">
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">Pax</p>
-                                            <p className="font-bold text-slate-700 text-xs">{group["Pax."]}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-1 mb-2">
-                                        {/* Internal Phase Badge */}
-                                        {group["Com_Estado_Interno"] && (
-                                            <div className={`flex items-center gap-1 text-[8px] px-1.5 py-0.5 rounded border max-w-full ${getStatusProps(group["Com_Estado_Interno"]).text} ${getStatusProps(group["Com_Estado_Interno"]).text.replace('bg-', 'border-').replace('text-', 'border-')}`}>
-                                                <LucideIcon name="briefcase" className="w-2.5 h-2.5 shrink-0" />
-                                                <span className="font-bold truncate">{group["Com_Estado_Interno"]}</span>
-                                            </div>
-                                        )}
-
-                                        {/* Release Date Warning */}
-                                        {group["Com_Vencimiento_Rel"] && (
-                                            <div className="flex items-center gap-1 text-[8px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-100 max-w-full">
-                                                <LucideIcon name="clock" className="w-2.5 h-2.5 shrink-0" />
-                                                <span className="truncate">Rel: <span className="font-bold">{formatDate(group["Com_Vencimiento_Rel"])}</span></span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Avisos Manuales */}
-                                    {group["Com_Notas"] && (
-                                        <div className="mb-2 text-[8px] bg-yellow-50 text-yellow-800 p-1.5 rounded-lg border border-yellow-100 flex items-start gap-1 leading-tight">
-                                            <LucideIcon name="alert-circle" className="w-3 h-3 shrink-0 text-yellow-600" />
-                                            <span className="line-clamp-2" title={group["Com_Notas"]}>{group["Com_Notas"]}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex gap-2 pt-2 border-t border-slate-50 mt-auto">
-                                    <button
-                                        onClick={() => {
-                                            localStorage.setItem('selectedGroup', JSON.stringify(group));
-                                            window.location.href = 'Fac Prof.html';
-                                        }}
-                                        className="flex-1 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold text-[9px] hover:bg-slate-50 transition-all flex items-center justify-center gap-1"
-                                    >
-                                        <LucideIcon name="file-text" className="w-3 h-3" />
-                                        Proforma
-                                    </button>
-                                    <button
-                                        onClick={() => window.location.href = 'Gestión de Grupos.html'}
-                                        className="p-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-all flex items-center justify-center"
-                                    >
-                                        <LucideIcon name="pencil" className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                        {filteredData.length === 0 && <p className="col-span-full text-center py-20 text-slate-400">No se encontraron grupos coincidiendo con tu búsqueda.</p>}
-                    </div>
-                </div>
-            );
-        };
-
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [data, setData] = useState([]);
-            const [arrivals, setArrivals] = useState([]);
-            const [timeRange, setTimeRange] = useState(30);
-            const [stats, setStats] = useState({ revenue: '0€', groups: 0, pending: 0, pax: 0 });
-            const [successToast, setSuccessToast] = useState(null);
-
-            // Detectar redireccion desde AltaEmail con petición enviada
-            useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                if (params.get('presupuesto_ok') === '1') {
-                    const grupoName = params.get('grupo') || 'el grupo';
-                    setSuccessToast(grupoName);
-                    // Limpiar URL
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    // Auto-ocultar tras 5s
-                    setTimeout(() => setSuccessToast(null), 5000);
-                }
-            }, []);
-
-            const getStatusProps = (statusRaw) => {
-                const s = (statusRaw || "").toString().toUpperCase();
-                if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA"))
-                    return { color: "bg-emerald-500", text: "bg-emerald-50 text-emerald-600", label: s || "CONFIRMADO" };
-                if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TIEMPO"))
-                    return { color: "bg-indigo-500", text: "bg-indigo-50 text-indigo-100", label: s || "BLOQUEADO" };
-                if (s.includes("ENVIAD") || s.includes("COTIZ") || s.includes("OFERT"))
-                    return { color: "bg-blue-400", text: "bg-blue-50 text-blue-100", label: s || "ENVIADO" };
-                if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA"))
-                    return { color: "bg-red-400 opacity-60", text: "bg-red-50 text-red-500", label: s || "CANCELADO" };
-                if (s.includes("PROSPEC") || s.includes("PENDIE") || s.includes("TENTA"))
-                    return { color: "bg-amber-500", text: "bg-amber-50 text-amber-600", label: s || "PROSPECTO" };
-                return { color: "bg-slate-400", text: "bg-slate-50 text-slate-500", label: s || "ACTIVO" };
-            };
-
-            // Generar Alertas Dinámicas
-            const alerts = useMemo(() => {
-                const list = [];
-                const now = new Date();
-                const fortyEightHours = 48 * 60 * 60 * 1000;
-
-                // 1. Alerta de Vencimiento de Proformas (basado en Com_Vencimiento_Rel)
-                const expiring = data.filter(g => {
-                    if (!g["Com_Vencimiento_Rel"]) return false;
-                    let d;
-                    const val = g["Com_Vencimiento_Rel"];
-                    const num = parseFloat(val);
-                    if (!isNaN(num) && num > 40000 && num < 60000) {
-                        d = new Date(Math.round((num - 25569) * 86400 * 1000));
-                    } else {
-                        const parts = String(val).split(/[\/-]/);
-                        if (parts.length === 3) {
-                            if (parts[0].length === 4) d = new Date(parts[0], parts[1] - 1, parts[2]);
-                            else d = new Date(parts[2], parts[1] - 1, parts[0]);
-                        } else d = new Date(val);
-                    }
-                    if (isNaN(d.getTime())) return false;
-                    const diff = d - now;
-                    return diff > 0 && diff < fortyEightHours;
-                });
-
-                if (expiring.length > 0) {
-                    list.push({ type: 'warning', text: `${expiring.length} proforma(s) vencen en menos de 48h (Cierre comercial).` });
+                // Caso: Excel Date Number (Ej: 45690)
+                if (
+                  !isNaN(str) &&
+                  str.length > 4 &&
+                  !str.includes("/") &&
+                  !str.includes("-")
+                ) {
+                  const excelEpoch = new Date(1899, 11, 30);
+                  excelEpoch.setDate(excelEpoch.getDate() + parseInt(str));
+                  return excelEpoch;
                 }
 
-                // 2. Alerta de Sincronización Reciente
-                const recentCount = data.filter(g => {
-                    if (!g.updatedAt) return false;
-                    const updateDate = g.updatedAt.toDate ? g.updatedAt.toDate() : new Date(g.updatedAt);
-                    return (now - updateDate) < 15 * 60 * 1000; // Últimos 15 min
-                }).length;
+                const parts = str.split(/[\/-]/);
+                if (parts.length === 3) {
+                  // YYYY-MM-DD
+                  if (parts[0].length === 4)
+                    return new Date(parts[0], parts[1] - 1, parts[2]);
+                  // DD-MM-YYYY
+                  return new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+                const d = new Date(str);
+                return isNaN(d.getTime()) ? new Date(8640000000000000) : d;
+              };
 
-                if (recentCount > 0) {
-                    list.push({ type: 'success', text: `Sincronización reciente detectada: ${recentCount} registros actualizados.` });
+              // 2. Calcular Alerts Reales
+              let totalRev = 0;
+              const now = new Date();
+              const sevenDaysFromNow = new Date(now);
+              sevenDaysFromNow.setDate(now.getDate() + 7);
+
+              const realAlerts = [];
+
+              parsed.forEach((g) => {
+                const val =
+                  g["Importe(*)"] ||
+                  g["Importe"] ||
+                  g["Total_Importe_Facturable"] ||
+                  "0";
+                totalRev += safeParseAmount(val);
+
+                const groupName =
+                  g["Nombre del Grupo"] || g["Reserva"] || "Grupo";
+                const arrival = parseDate(g["Entrada"]);
+                const isCancelled = (g["Estado"] || "")
+                  .toLowerCase()
+                  .includes("anul");
+                if (isCancelled) return;
+
+                // Alert 1: Release Urgente (< 7 días)
+                const comRel = g.Com_Vencimiento_Rel
+                  ? parseDate(g.Com_Vencimiento_Rel)
+                  : null;
+                if (
+                  comRel &&
+                  !isNaN(comRel.getTime()) &&
+                  comRel <= sevenDaysFromNow
+                ) {
+                  realAlerts.push({
+                    label: `Vence Release: ${groupName}`,
+                    icon: "Clock",
+                    type: "warning",
+                  });
                 }
 
-                return list;
-            }, [data]);
+                // Alert 2: Seguimiento Pendiente
+                const followUp = g.Com_Seguimiento
+                  ? parseDate(g.Com_Seguimiento)
+                  : null;
+                if (followUp && !isNaN(followUp.getTime()) && followUp <= now) {
+                  realAlerts.push({
+                    label: `Seguimiento: ${groupName}`,
+                    icon: "Phone",
+                    type: "info",
+                  });
+                }
 
-            // Estados para IA
-            const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-            const [isAiLoading, setIsAiLoading] = useState(false);
-            const [aiResult, setAiResult] = useState('');
-
-            const runStrategicAnalysis = async () => {
-                setIsAiModalOpen(true);
-                setIsAiLoading(true);
+                // Alert 3: Pagos Pendientes
                 try {
-                    const analysis = await analizarGrupos(data);
-                    setAiResult(analysis);
-                } catch (error) {
-                    console.error("Error en análisis IA:", error);
-                    setAiResult(`### Error Detectado\n**Detalles técnicos:** ${error.message}\n\n*Posible solución:* Verifica que la API Key tenga activada la "Generative Language API" y que las restricciones de sitio web incluyan tu URL actual.`);
-                } finally {
-                    setIsAiLoading(false);
-                }
-            };
-
-            useEffect(() => {
-                const unsubscribe = db.collection("groups").onSnapshot((snapshot) => {
-                    const parsed = [];
-                    snapshot.forEach((doc) => {
-                        const row = doc.data();
-                        // Normalización de Segmentos
-                        let seg = (row["Segment."] || "").toString().trim().toUpperCase();
-                        if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") {
-                            row["Segment."] = "GRUPO TANTEO";
-                        }
-                        parsed.push(row);
+                  const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+                  const hasPending = plan.some((p) => {
+                    const pDate = parseDate(p.date);
+                    return p.status !== "Cobrado" && pDate <= now;
+                  });
+                  if (hasPending) {
+                    realAlerts.push({
+                      label: `Pago Atrasado: ${groupName}`,
+                      icon: "AlertTriangle",
+                      type: "danger",
+                      group: g,
                     });
+                  }
+                } catch (e) {}
 
-                    if (parsed.length > 0) {
-                        setData(parsed);
+                // Alert 4: Tentativa próxima a llegada
+                const isTentative =
+                  (g["Estado"] || "").toLowerCase().includes("tentat") ||
+                  (g["Com_Estado_Interno"] || "")
+                    .toLowerCase()
+                    .includes("tentat");
+                if (isTentative && arrival <= sevenDaysFromNow) {
+                  realAlerts.push({
+                    label: `Confirmar Urgente: ${groupName}`,
+                    icon: "Calendar",
+                    type: "warning",
+                    group: g,
+                  });
+                }
+              });
 
-                        // 1. Helper de Procesamiento
-                        const parseDate = (val) => {
-                            if (!val) return new Date(8640000000000000);
-                            if (val instanceof Date) return val;
-                            const str = String(val);
+              // setAlerts(realAlerts.slice(0, 5)); // Mostrar top 5 - Eliminado porque alerts es useMemo
 
-                            // Caso: Excel Date Number (Ej: 45690)
-                            if (!isNaN(str) && str.length > 4 && !str.includes('/') && !str.includes('-')) {
-                                const excelEpoch = new Date(1899, 11, 30);
-                                excelEpoch.setDate(excelEpoch.getDate() + parseInt(str));
-                                return excelEpoch;
-                            }
+              const getGroupDate = (g) => {
+                return parseDate(
+                  g["Entrada"] ||
+                    g["ENTRADA"] ||
+                    g["Fecha Entrada"] ||
+                    g["Com_Entrada"],
+                );
+              };
 
-                            const parts = str.split(/[\/-]/);
-                            if (parts.length === 3) {
-                                // YYYY-MM-DD
-                                if (parts[0].length === 4) return new Date(parts[0], parts[1] - 1, parts[2]);
-                                // DD-MM-YYYY
-                                return new Date(parts[2], parts[1] - 1, parts[0]);
-                            }
-                            const d = new Date(str);
-                            return isNaN(d.getTime()) ? new Date(8640000000000000) : d;
-                        };
+              const months = [
+                "Ene",
+                "Feb",
+                "Mar",
+                "Abr",
+                "May",
+                "Jun",
+                "Jul",
+                "Ago",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dic",
+              ];
+              const currentMonthIdx = now.getMonth();
+              const currentYear = now.getFullYear();
+              const groupsByMonth = {};
 
-                        // 2. Calcular Alerts Reales
-                        let totalRev = 0;
-                        const now = new Date();
-                        const sevenDaysFromNow = new Date(now);
-                        sevenDaysFromNow.setDate(now.getDate() + 7);
+              parsed.forEach((g) => {
+                const entryDate = getGroupDate(g);
+                const status = (
+                  g["Estado"] ||
+                  g["Com_Estado_Interno"] ||
+                  ""
+                ).toLowerCase();
+                const isCancelled =
+                  status.includes("anul") ||
+                  status.includes("cancel") ||
+                  status.includes("baja");
 
-                        const realAlerts = [];
+                if (entryDate && !isNaN(entryDate.getTime()) && !isCancelled) {
+                  const y = entryDate.getFullYear();
+                  const m = entryDate.getMonth();
+                  const key = `${y}-${m}`;
+                  groupsByMonth[key] = (groupsByMonth[key] || 0) + 1;
+                }
+              });
 
-                        parsed.forEach(g => {
-                            const val = g["Importe(*)"] || g["Importe"] || g["Total_Importe_Facturable"] || "0";
-                            totalRev += safeParseAmount(val);
-
-                            const groupName = g["Nombre del Grupo"] || g["Reserva"] || "Grupo";
-                            const arrival = parseDate(g["Entrada"]);
-                            const isCancelled = (g["Estado"] || "").toLowerCase().includes('anul');
-                            if (isCancelled) return;
-
-                            // Alert 1: Release Urgente (< 7 días)
-                            const comRel = g.Com_Vencimiento_Rel ? parseDate(g.Com_Vencimiento_Rel) : null;
-                            if (comRel && !isNaN(comRel.getTime()) && comRel <= sevenDaysFromNow) {
-                                realAlerts.push({ label: `Vence Release: ${groupName}`, icon: 'Clock', type: 'warning' });
-                            }
-
-                            // Alert 2: Seguimiento Pendiente
-                            const followUp = g.Com_Seguimiento ? parseDate(g.Com_Seguimiento) : null;
-                            if (followUp && !isNaN(followUp.getTime()) && followUp <= now) {
-                                realAlerts.push({ label: `Seguimiento: ${groupName}`, icon: 'Phone', type: 'info' });
-                            }
-
-                            // Alert 3: Pagos Pendientes
-                            try {
-                                const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-                                const hasPending = plan.some(p => {
-                                    const pDate = parseDate(p.date);
-                                    return p.status !== "Cobrado" && pDate <= now;
-                                });
-                                if (hasPending) {
-                                    realAlerts.push({ label: `Pago Atrasado: ${groupName}`, icon: 'AlertTriangle', type: 'danger' });
-                                }
-                            } catch (e) { }
-
-                            // Alert 4: Tentativa próxima a llegada
-                            const isTentative = (g["Estado"] || "").toLowerCase().includes('tentat') || (g["Com_Estado_Interno"] || "").toLowerCase().includes('tentat');
-                            if (isTentative && arrival <= sevenDaysFromNow) {
-                                realAlerts.push({ label: `Confirmar Urgente: ${groupName}`, icon: 'Calendar', type: 'warning' });
-                            }
-                        });
-
-                        setAlerts(realAlerts.slice(0, 5)); // Mostrar top 5
-
-                        const getGroupDate = (g) => {
-                            return parseDate(g["Entrada"] || g["ENTRADA"] || g["Fecha Entrada"] || g["Com_Entrada"]);
-                        };
-
-                        const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-                        const currentMonthIdx = new Date().getMonth();
-                        const countsByMonth = {};
-
-                        parsed.forEach(g => {
-                            const entryDate = getGroupDate(g);
-                            if (entryDate && !isNaN(entryDate.getTime()) && entryDate.getFullYear() >= 2024 && entryDate.getFullYear() < 2100) {
-                                const m = entryDate.getMonth();
-                                countsByMonth[m] = (countsByMonth[m] || 0) + 1;
-                            }
-                        });
-
-                        const trendData = [];
-                        for (let i = -5; i <= 0; i++) {
-                            let mIdx = (currentMonthIdx + i + 12) % 12;
-                            trendData.push({
-                                name: months[mIdx],
-                                val: countsByMonth[mIdx] || 0
-                            });
-                        }
-
-                        setStats({
-                            revenue: new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(totalRev),
-                            groups: new Set(parsed.map(p => p["Nombre del Grupo"] || p["Reserva"])).size,
-                            pending: parsed.filter(p => {
-                                const status = (p["Estado"] || p["Com_Estado_Interno"] || "").toLowerCase() + " " + (p["Segment."] || "").toLowerCase();
-                                const isCancelled = status.includes('anul') || status.includes('cancel') || status.includes('descart') || status.includes('rechaz');
-                                if (isCancelled) return false;
-
-                                const val = p["Importe(*)"] || p["Importe"] || p["Total_Importe_Facturable"] || "0";
-                                const rawVal = String(val).trim();
-                                const isZero = rawVal === "" || rawVal === "0" || rawVal === "0,00" || rawVal === "0.00" || Number(rawVal) === 0;
-
-                                return (status.includes('presup') || status.includes('pend') || String(p["Reserva"]).startsWith("PRES.")) && isZero;
-                            }).length,
-                            pax: parsed.reduce((acc, curr) => acc + (parseInt(curr["Pax."]) || 0), 0),
-                            releaseAlerts: realAlerts.filter(a => a.label.includes('Release')).length,
-                            followUpAlerts: realAlerts.filter(a => a.label.includes('Seguimiento')).length,
-                            trendData
-                        });
-
-                        // 4. Calcular Próximas Llegadas
-                        const startOfToday = new Date();
-                        startOfToday.setHours(0, 0, 0, 0);
-
-                        const endOfRange = new Date(startOfToday);
-                        endOfRange.setDate(startOfToday.getDate() + timeRange);
-
-                        const arrivalsList = parsed.filter(p => {
-                            const entryDate = getGroupDate(p);
-                            const status = (p["Estado"] || p["Com_Estado_Interno"] || "").toLowerCase();
-                            const isCancelled = status.includes('anul') || status.includes('cancel') || status.includes('baja');
-                            // Ensure entryDate is valid and within range
-                            return entryDate && !isNaN(entryDate.getTime()) && entryDate >= startOfToday && entryDate <= endOfRange && !isCancelled;
-                        }).sort((a, b) => getGroupDate(a) - getGroupDate(b)).slice(0, 30);
-
-                        setArrivals(arrivalsList);
-                    }
+              const trendData = [];
+              // Generar previsión para los próximos 9 meses
+              for (let i = 0; i < 9; i++) {
+                const d = new Date(currentYear, currentMonthIdx + i, 1);
+                const y = d.getFullYear();
+                const m = d.getMonth();
+                const key = `${y}-${m}`;
+                trendData.push({
+                  name: `${months[m]} ${y.toString().slice(-2)}`,
+                  val: groupsByMonth[key] || 0,
                 });
+              }
 
-                return () => unsubscribe();
-            }, [timeRange]);
+              let unattendedCount = 0;
+              const processedGroups = new Set();
+              parsed.forEach((p) => {
+                const resId = p["Reserva"] || p["Nombre del Grupo"];
+                if (!processedGroups.has(resId)) {
+                  processedGroups.add(resId);
+                  const status = (
+                    p["Estado"] ||
+                    p["Com_Estado_Interno"] ||
+                    ""
+                  ).toLowerCase();
+                  const com = (p["Com_Comercial"] || "").trim();
+                  const isBudget =
+                    status.includes("presup") ||
+                    status.includes("pend") ||
+                    String(resId).startsWith("PRES-");
+                  if (isBudget && !com) {
+                    unattendedCount++;
+                  }
+                }
+              });
 
-            useEffect(() => {
-                // Ya no es necesario llamar a lucide.createIcons() globalmente
-                // porque usamos el componente LucideIcon que lo maneja de forma segura
-            }, [activeTab, data]);
+              setStats({
+                revenue: new Intl.NumberFormat("es-ES", {
+                  style: "currency",
+                  currency: "EUR",
+                  maximumFractionDigits: 0,
+                }).format(totalRev),
+                groups: new Set(
+                  parsed.map((p) => p["Nombre del Grupo"] || p["Reserva"]),
+                ).size,
+                pending: parsed.filter((p) => {
+                  const status =
+                    (
+                      p["Estado"] ||
+                      p["Com_Estado_Interno"] ||
+                      ""
+                    ).toLowerCase() +
+                    " " +
+                    (p["Segment."] || "").toLowerCase();
+                  const isCancelled =
+                    status.includes("anul") ||
+                    status.includes("cancel") ||
+                    status.includes("descart") ||
+                    status.includes("rechaz");
+                  if (isCancelled) return false;
 
-            return (
-                <div className="min-h-screen">
-                    {/* Toast de éxito al regresar de Petición de Grupo */}
-                    {successToast && (
-                        <div className="fixed top-6 right-6 z-50 flex items-start gap-3 bg-white border-2 border-emerald-400 rounded-2xl shadow-2xl shadow-emerald-100 px-6 py-4 max-w-sm animate-fade-in">
-                            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0 text-emerald-600">
-                                <LucideIcon name="check-circle" size={22} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-0.5">¡Petición Procesada!</p>
-                                <p className="text-sm font-semibold text-slate-800 truncate">{successToast}</p>
-                                <p className="text-[11px] text-slate-400 mt-0.5">La solicitud de presupuesto se ha enviado correctamente.</p>
-                            </div>
-                            <button onClick={() => setSuccessToast(null)} className="text-slate-300 hover:text-slate-500 transition-colors shrink-0 mt-0.5">
-                                <LucideIcon name="x" size={16} />
-                            </button>
-                        </div>
-                    )}
+                  const val =
+                    p["Importe(*)"] ||
+                    p["Importe"] ||
+                    p["Total_Importe_Facturable"] ||
+                    "0";
+                  const rawVal = String(val).trim();
+                  const isZero =
+                    rawVal === "" ||
+                    rawVal === "0" ||
+                    rawVal === "0,00" ||
+                    rawVal === "0.00" ||
+                    Number(rawVal) === 0;
 
-                    <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+                  return (
+                    (status.includes("presup") ||
+                      status.includes("pend") ||
+                      String(p["Reserva"]).startsWith("PRES.")) &&
+                    isZero
+                  );
+                }).length,
+                pax: parsed.reduce(
+                  (acc, curr) => acc + (parseInt(curr["Pax."]) || 0),
+                  0,
+                ),
+                releaseAlerts: realAlerts.filter((a) =>
+                  a.label.includes("Release"),
+                ).length,
+                followUpAlerts: realAlerts.filter((a) =>
+                  a.label.includes("Seguimiento"),
+                ).length,
+                unattendedQuotes: unattendedCount,
+                trendData,
+              });
 
-                    <main className={`ml-64 p-8 md:p-12 ${activeTab === 'dashboard' ? 'bg-gradient-to-b from-slate-50/50 to-transparent' : ''}`}>
-                        {/* Header Superior */}
+              // 4. Calcular Próximas Llegadas
+              const startOfToday = new Date(now);
+              startOfToday.setHours(0, 0, 0, 0);
 
+              const endOfRange = new Date(startOfToday);
+              endOfRange.setDate(startOfToday.getDate() + timeRange);
 
-                        {activeTab === 'dashboard' && (
-                            <Dashboard
-                                arrivals={arrivals}
-                                stats={stats}
-                                alerts={alerts}
-                                data={data}
-                                onRunAnalysis={runStrategicAnalysis}
-                                timeRange={timeRange}
-                                onRangeChange={setTimeRange}
-                            />
-                        )}
-                        {activeTab === 'groups' && <GroupsManager data={data} />}
-                        {activeTab === 'analytics' && (
-                            <div className="space-y-8 animate-fade-in">
-                                <div className="bg-white p-12 rounded-[2.5rem] shadow-sm border border-slate-100 text-center">
-                                    <div className="w-20 h-20 bg-emerald-50 text-[#2d5a43] rounded-full flex items-center justify-center mx-auto mb-6">
-                                        <LucideIcon name="sparkles" className="w-10 h-10" />
-                                    </div>
-                                    <h2 className="text-3xl font-bold text-slate-900 mb-4">Análisis Estratégico IA</h2>
-                                    <p className="text-slate-500 max-w-lg mx-auto mb-10">
-                                        Utiliza la potencia de Gemini 2.5 Flash para obtener una visión profunda de la rentabilidad, riesgos y oportunidades de tus grupos actuales.
-                                    </p>
-                                    <button
-                                        onClick={runStrategicAnalysis}
-                                        className="bg-[#2d5a43] text-white px-10 py-5 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 hover:scale-[1.02] transition-all flex items-center gap-3 mx-auto"
-                                    >
-                                        Generar Nuevo Informe IA
-                                        <LucideIcon name="zap" className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+              const arrivalsList = parsed
+                .filter((p) => {
+                  const entryDate = getGroupDate(p);
+                  const status = (
+                    p["Estado"] ||
+                    p["Com_Estado_Interno"] ||
+                    ""
+                  ).toLowerCase();
+                  const isCancelled =
+                    status.includes("anul") ||
+                    status.includes("cancel") ||
+                    status.includes("baja");
+                  // Ensure entryDate is valid and within range
+                  return (
+                    entryDate &&
+                    !isNaN(entryDate.getTime()) &&
+                    entryDate >= startOfToday &&
+                    entryDate <= endOfRange &&
+                    !isCancelled
+                  );
+                })
+                .sort((a, b) => getGroupDate(a) - getGroupDate(b))
+                .slice(0, 30);
 
-                        {(activeTab === 'invoices' || activeTab === 'settings') && (
-                            <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in text-center">
-                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100">
-                                    <LucideIcon name="construction" className="w-8 h-8 text-[#2d5a43]" />
-                                </div>
-                                <h3 className="text-xl font-bold text-slate-800">Acceso a módulo externo</h3>
-                                <p className="text-slate-500 mb-8 max-w-sm">Esta sección utiliza las herramientas dinámicas del gestor. Redirigiendo...</p>
-                                <button
-                                    onClick={() => window.location.href = activeTab === 'invoices' ? 'Fac Prof.html' : 'Gestión de Grupos.html'}
-                                    className="bg-slate-900 px-8 py-4 rounded-2xl text-white font-bold hover:bg-slate-800 transition-all shadow-xl"
-                                >
-                                    Abrir {activeTab === 'invoices' ? 'Módulo de Facturación' : 'Gestor de Grupos'}
-                                </button>
-                            </div>
-                        )}
-                    </main>
+              setArrivals(arrivalsList);
+            }
+          });
 
-                    {/* MODAL IA ESTRATÉGICA */}
-                    {isAiModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
-                            <div className="bg-white w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
-                                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-[#2d5a43] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
-                                            <LucideIcon name="sparkles" className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Análisis Estratégico IA</h3>
-                                            <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">Motor: Gemini 2.5 Flash</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setIsAiModalOpen(false)}
-                                        className="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-slate-100 text-slate-400 transition-all"
-                                    >
-                                        <LucideIcon name="x" className="w-6 h-6" />
-                                    </button>
-                                </div>
+          return () => unsubscribe();
+        }, [timeRange]);
 
-                                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
-                                    {isAiLoading ? (
-                                        <div className="h-64 flex flex-col items-center justify-center gap-6">
-                                            <div className="spinner"></div>
-                                            <p className="text-slate-500 font-semibold animate-pulse tracking-wide text-center">Analizando todos los grupos en tiempo real...<br /><span className="text-[10px] font-normal uppercase mt-2 block">Consultando Firestore "groups"</span></p>
-                                        </div>
-                                    ) : (
-                                        <div className="prose max-w-none text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: marked.parse(aiResult) }}></div>
-                                    )}
-                                </div>
+        useEffect(() => {
+          // Ya no es necesario llamar a lucide.createIcons() globalmente
+          // porque usamos el componente LucideIcon que lo maneja de forma segura
+        }, [activeTab, data]);
 
-                                <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                                    <p className="text-xs text-slate-400 italic">Este informe se basa en los grupos activos en Firestore.</p>
-                                    <button
-                                        onClick={() => setIsAiModalOpen(false)}
-                                        className="px-8 py-3 bg-[#2d5a43] text-white font-bold rounded-2xl hover:bg-[#1e3a2c] transition-all shadow-lg"
-                                    >
-                                        Cerrar Informe
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+        return (
+          <div className="min-h-screen">
+            {/* Toast de éxito al regresar de Petición de Grupo */}
+            {successToast && (
+              <div className="fixed top-6 right-6 z-50 flex items-start gap-3 bg-white border-2 border-emerald-400 rounded-2xl shadow-2xl shadow-emerald-100 px-6 py-4 max-w-sm animate-fade-in">
+                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0 text-emerald-600">
+                  <LucideIcon name="check-circle" size={22} />
                 </div>
-            );
-        };
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-0.5">
+                    ¡Petición Procesada!
+                  </p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {successToast}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    La solicitud de presupuesto se ha enviado correctamente.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSuccessToast(null)}
+                  className="text-slate-300 hover:text-slate-500 transition-colors shrink-0 mt-0.5"
+                >
+                  <LucideIcon name="x" size={16} />
+                </button>
+              </div>
+            )}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+            <main
+              className={`ml-64 p-8 md:p-12 ${activeTab === "dashboard" ? "bg-gradient-to-b from-slate-50/50 to-transparent" : ""}`}
+            >
+              {/* Header Superior */}
+
+              {activeTab === "dashboard" && (
+                <Dashboard
+                  arrivals={arrivals}
+                  stats={stats}
+                  alerts={alerts}
+                  data={data}
+                  onRunAnalysis={runStrategicAnalysis}
+                  timeRange={timeRange}
+                  onRangeChange={setTimeRange}
+                />
+              )}
+              {activeTab === "groups" && <GroupsManager data={data} />}
+              {activeTab === "budgets" && <BudgetManager data={data} />}
+              {activeTab === "analytics" && (
+                <div className="space-y-8 animate-fade-in">
+                  <div className="bg-white p-12 rounded-[2.5rem] shadow-sm border border-slate-100 text-center">
+                    <div className="w-20 h-20 bg-emerald-50 text-[#2d5a43] rounded-full flex items-center justify-center mx-auto mb-6">
+                      <LucideIcon name="sparkles" className="w-10 h-10" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-slate-900 mb-4">
+                      Análisis Estratégico IA
+                    </h2>
+                    <p className="text-slate-500 max-w-lg mx-auto mb-10">
+                      Utiliza la potencia de Gemini 2.5 Flash para obtener una
+                      visión profunda de la rentabilidad, riesgos y
+                      oportunidades de tus grupos actuales.
+                    </p>
+                    <button
+                      onClick={runStrategicAnalysis}
+                      className="bg-[#2d5a43] text-white px-10 py-5 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 hover:scale-[1.02] transition-all flex items-center gap-3 mx-auto"
+                    >
+                      Generar Nuevo Informe IA
+                      <LucideIcon name="zap" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(activeTab === "invoices" || activeTab === "settings") && (
+                <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in text-center">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100">
+                    <LucideIcon
+                      name="construction"
+                      className="w-8 h-8 text-[#2d5a43]"
+                    />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800">
+                    Acceso a módulo externo
+                  </h3>
+                  <p className="text-slate-500 mb-8 max-w-sm">
+                    Esta sección utiliza las herramientas dinámicas del gestor.
+                    Redirigiendo...
+                  </p>
+                  <button
+                    onClick={() =>
+                      (window.location.href =
+                        activeTab === "invoices"
+                          ? "Fac Prof.html"
+                          : "Gestión de Grupos.html")
+                    }
+                    className="bg-slate-900 px-8 py-4 rounded-2xl text-white font-bold hover:bg-slate-800 transition-all shadow-xl"
+                  >
+                    Abrir{" "}
+                    {activeTab === "invoices"
+                      ? "Módulo de Facturación"
+                      : "Gestor de Grupos"}
+                  </button>
+                </div>
+              )}
+            </main>
+
+            {/* MODAL IA ESTRATÉGICA */}
+            {isAiModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+                <div className="bg-white w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+                  <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-[#2d5a43] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
+                        <LucideIcon name="sparkles" className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
+                          Análisis Estratégico IA
+                        </h3>
+                        <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">
+                          Motor: Gemini 2.5 Flash
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsAiModalOpen(false)}
+                      className="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-slate-100 text-slate-400 transition-all"
+                    >
+                      <LucideIcon name="x" className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+                    {isAiLoading ? (
+                      <div className="h-64 flex flex-col items-center justify-center gap-6">
+                        <div className="spinner"></div>
+                        <p className="text-slate-500 font-semibold animate-pulse tracking-wide text-center">
+                          Analizando todos los grupos en tiempo real...
+                          <br />
+                          <span className="text-[10px] font-normal uppercase mt-2 block">
+                            Consultando Firestore "groups"
+                          </span>
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        className="prose max-w-none text-slate-700 leading-relaxed"
+                        dangerouslySetInnerHTML={{
+                          __html: marked.parse(aiResult),
+                        }}
+                      ></div>
+                    )}
+                  </div>
+
+                  <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <p className="text-xs text-slate-400 italic">
+                      Este informe se basa en los grupos activos en Firestore.
+                    </p>
+                    <button
+                      onClick={() => setIsAiModalOpen(false)}
+                      className="px-8 py-3 bg-[#2d5a43] text-white font-bold rounded-2xl hover:bg-[#1e3a2c] transition-all shadow-lg"
+                    >
+                      Cerrar Informe
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
     </script>
-</body>
-
+  </body>
 </html>
