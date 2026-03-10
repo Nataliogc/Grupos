@@ -352,8 +352,13 @@
           const intEst = (g.Com_Estado_Interno || "").toUpperCase();
           const extEst = (g.Estado || "").toUpperCase();
           const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTI", "BAJA"].some(status => intEst.includes(status) || extEst.includes(status));
+          const isConfirmed = intEst.includes("CONFIRM") || extEst.includes("CONFIRM");
           const arrival = g.Entrada || "";
           const isPast = arrival && arrival < todayStr;
+
+          if (isConfirmed) {
+            return false;
+          }
 
           if (filterStatus === 'ACTIVOS') {
             return !isCancelled && !isPast;
@@ -378,7 +383,14 @@
         dates.forEach(date => {
           const config = groupData.dailyConfig?.[date];
           if (config) {
-            Object.entries(groupData.roomCounts || {}).forEach(([type, count]) => {
+            Object.entries(groupData.roomCounts || {}).forEach(([type, globalCount]) => {
+              let count = globalCount;
+              if (config.counts) {
+                const countKey = Object.keys(config.counts).find(k => k.toLowerCase() === type.toLowerCase());
+                if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
+                  count = Number(config.counts[countKey]);
+                }
+              }
               if (count > 0) {
                 let lineSubtotal = 0;
                 if (config.prices) {
@@ -437,10 +449,10 @@
         setFormData(prev => {
           const newDailyConfig = { ...(prev.dailyConfig || {}) };
           if (!newDailyConfig[date]) {
-            newDailyConfig[date] = { board: 'AD (Alojamiento y Desayuno)', prices: {} };
+            newDailyConfig[date] = { board: 'AD (Alojamiento y Desayuno)', prices: {}, counts: {} };
           }
           if (roomType) {
-            newDailyConfig[date].prices = { ...(newDailyConfig[date].prices || {}), [roomType]: Number(value) };
+            newDailyConfig[date][field] = { ...(newDailyConfig[date][field] || {}), [roomType]: value === '' ? '' : Number(value) };
           } else {
             newDailyConfig[date][field] = value;
           }
@@ -453,7 +465,7 @@
         const now = new Date();
         const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-        const reservaId = formData.Reserva || `PRES-${Date.now()}`;
+        const reservaId = formData.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
         const isNew = !formData.uid;
 
         const groupData = {
@@ -669,7 +681,7 @@
                   </div>
                 );
               })}
-              {groups.length === 0 && !loading && (
+              {processedGroups.length === 0 && !loading && (
                 <div className="col-span-full py-20 bg-white rounded-3xl border border-dashed border-slate-200 text-center">
                   <i className="fas fa-database text-slate-200 text-4xl mb-4"></i>
                   <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay presupuestos para mostrar</p>
@@ -698,7 +710,7 @@
                 </button>
                 <div>
                   <h2 className="text-xl font-black text-slate-800 tracking-tight">
-                    {formData.uid ? 'Modificar Cotización' : 'Nueva Cotización'}
+                    {formData.uid ? `Modificar ${formData.Reserva || 'Cotización'}` : 'Nueva Cotización'}
                   </h2>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
@@ -891,21 +903,37 @@
                           </div>
 
                           <div className="flex-1 flex flex-wrap gap-2 items-center">
-                            {selectedTypes.map(type => (
-                              <div key={type} className="flex flex-col gap-0.5 min-w-[80px]">
-                                <label className="text-[7px] font-black text-slate-500 uppercase truncate px-1">{type}</label>
-                                <div className="relative group">
-                                  <input
-                                    type="number"
-                                    value={(formData.dailyConfig?.[date]?.prices || {})[type] || ''}
-                                    onChange={e => handleDailyConfigChange(date, 'prices', e.target.value, type)}
-                                    className="w-full pl-2 pr-5 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
-                                    placeholder="0"
-                                  />
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black">€</span>
+                            {selectedTypes.map(type => {
+                              const dailyCounts = formData.dailyConfig?.[date]?.counts || {};
+                              const countVal = dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '';
+                              return (
+                                <div key={type} className="flex flex-col gap-0.5 min-w-[120px]">
+                                  <label className="text-[7px] font-black text-slate-500 uppercase truncate px-1" title={type}>{type}</label>
+                                  <div className="relative group flex gap-1 items-center">
+                                    <input
+                                      type="number"
+                                      value={countVal}
+                                      onChange={e => handleDailyConfigChange(date, 'counts', e.target.value, type)}
+                                      className="w-10 px-1 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
+                                      placeholder="Cant."
+                                      title="Cantidad de habitaciones"
+                                    />
+                                    <span className="text-[10px] text-slate-400 font-bold mx-0.5">x</span>
+                                    <div className="relative group flex-1">
+                                      <input
+                                        type="number"
+                                        value={(formData.dailyConfig?.[date]?.prices || {})[type] || ''}
+                                        onChange={e => handleDailyConfigChange(date, 'prices', e.target.value, type)}
+                                        className="w-full pl-2 pr-5 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
+                                        placeholder="0"
+                                        title="Precio"
+                                      />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black">€</span>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
 
                           <div className="shrink-0 w-32 flex flex-col gap-0.5">
@@ -1034,7 +1062,9 @@
                   <i className="fas fa-arrow-left"></i>
                 </button>
                 <div>
-                  <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">{hotelName}</label>
+                  <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">
+                    {hotelName} {g.Reserva ? `• ${g.Reserva}` : ''}
+                  </label>
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{g["Nombre del Grupo"]}</h2>
                   <p className="text-xs text-slate-400 mt-2 flex items-center gap-3">
                     <span className="flex items-center gap-1.5"><i className="far fa-calendar text-slate-300"></i> {formatDate(g.Entrada)} a {formatDate(g.Salida)}</span>
@@ -1173,7 +1203,7 @@
                       <div className="space-y-1">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Referencia del Evento</span>
                         <p className="text-lg font-black text-slate-800">{g["Nombre del Grupo"]}</p>
-                        <p className="text-slate-500">RES: {g.Reserva}</p>
+                        <p className="text-slate-500">{g.Reserva}</p>
                       </div>
                       <div className="space-y-1">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Período de Estancia</span>
@@ -1231,7 +1261,16 @@
                                     <td className="p-4 align-top font-medium text-slate-600">{boardTitle}</td>
                                     <td className="p-4 align-top">
                                       <ul className="space-y-1">
-                                        {activeRooms.filter(([_, count]) => count > 0).map(([type, count]) => {
+                                        {activeRooms.map(([type, globalCount]) => {
+                                          let count = globalCount;
+                                          if (config.counts) {
+                                            const countKey = Object.keys(config.counts).find(k => k.toLowerCase() === type.toLowerCase());
+                                            if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
+                                              count = Number(config.counts[countKey]);
+                                            }
+                                          }
+                                          if (count <= 0) return null;
+
                                           let price = 0;
                                           let roomBoard = '';
                                           let lineSubtotal = 0;
