@@ -551,6 +551,12 @@
                         {budget["Empresa/Agencia"] || "Venta Directa"}
                       </span>
                     </div>
+                    <div className="flex items-center gap-2.5 text-indigo-400">
+                      <i className="fas fa-user-tie text-[10px] w-4 text-center"></i>
+                      <span className="text-[9px] font-bold uppercase truncate">
+                        {budget["Com_Comercial"] || "SIN ASIGNAR"}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-3 text-slate-500">
                       <div className="flex items-center gap-1.5">
                         <i className="fas fa-users text-[10px]"></i>
@@ -2055,8 +2061,11 @@
 
         const handleVisibility = () => {
           if (document.visibilityState === "visible") {
-            // Refrescar panel general al volver de otra pantalla (pestaña)
-            window.location.reload();
+            // Refrescar panel general al volver de otra pantalla (pestaña) solo si no hay modales abiertos
+            // Esto evita que se cierren las fichas de edición al cambiar de pestaña
+            if (!showFichaModal && !showAiModal && !isHotelModalOpen) {
+                // window.location.reload(); // Desactivado por ahora para evitar cierres accidentales
+            }
           }
         };
         window.addEventListener("visibilitychange", handleVisibility);
@@ -8088,6 +8097,18 @@
                               <IconFileInvoice size={18} stroke={2} />
                               <span className="text-[11px] font-black uppercase tracking-widest">
                                 Generar Proforma
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
+                                window.location.href = "Orden Servicio.html";
+                              }}
+                              className="px-6 h-11 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-200/50"
+                            >
+                              <IconUtensils size={18} stroke={2} />
+                              <span className="text-[11px] font-black uppercase tracking-widest">
+                                Orden Servicio
                               </span>
                             </button>
                             <button

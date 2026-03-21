@@ -619,7 +619,7 @@
       return (
         <div className="space-y-12 animate-fade-in relative">
           {/* ══ KPI ROW ══ */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 hidden">
             {[
               {
                 label: "Ingresos Totales",
@@ -676,10 +676,10 @@
             ))}
           </div>
 
-          {/* ══ ALERTAS PRIORITARIAS (Premium Slider) ══ */}
+          {/* ══ ALERTAS PRIORITARIAS (Wrap Display) ══ */}
           {(alerts || []).length > 0 && (
             <div className="relative group/alerts">
-              <div className="flex items-center gap-4 overflow-x-auto pb-6 pt-2 custom-scrollbar -mx-4 px-4 animate-fade-in delay-100 no-scrollbar">
+              <div className="flex flex-wrap items-center gap-4 pb-6 pt-2 animate-fade-in delay-100">
                 {/* Fixed Label Badge */}
                 <div className="shrink-0 flex items-center gap-3 px-6 py-4 bg-slate-900 text-white rounded-[2rem] shadow-2xl shadow-slate-900/20 border border-slate-800/50 group hover:bg-slate-800 transition-all cursor-default">
                   <div className="relative">
@@ -746,8 +746,6 @@
                   </div>
                 ))}
               </div>
-              {/* Optional: Navigation gradients for the slider */}
-              <div className="absolute right-0 top-0 bottom-6 w-20 bg-gradient-to-l from-slate-50/50 to-transparent pointer-events-none rounded-r-3xl"></div>
             </div>
           )}
 
@@ -1000,7 +998,7 @@
                               })()}
 
                               {/* Warning: Sin Comercial */}
-                              {!group.Com_Comercial_Asignado && (
+                              {!group.Com_Comercial && (
                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[8px] font-black uppercase tracking-widest">
                                   <LucideIcon name="UserPlus" size={10} strokeWidth={3} />
                                   Sin Comercial

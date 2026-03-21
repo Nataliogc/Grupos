@@ -647,10 +647,16 @@
 
                     {/* Detalles Adicionales */}
                     <div className="space-y-2 mb-6 flex-1">
-                      <div className="flex items-center gap-2.5 text-slate-400">
+                       <div className="flex items-center gap-2.5 text-slate-400">
                         <i className="fas fa-building text-[10px] w-4 text-center"></i>
                         <span className="text-[9px] font-bold uppercase truncate">
                           {g["Empresa/Agencia"] || "Venta Directa"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 text-indigo-400">
+                        <i className="fas fa-user-tie text-[10px] w-4 text-center"></i>
+                        <span className="text-[9px] font-bold uppercase truncate">
+                          {g["Com_Comercial"] || "SIN ASIGNAR"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2.5 text-slate-500">
