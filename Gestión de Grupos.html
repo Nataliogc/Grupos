@@ -2448,7 +2448,8 @@
                   lower === "empresa/agencia" ||
                   lower === "empresa" ||
                   lower === "agencia" ||
-                  lower === "cliente"
+                  lower === "cliente" ||
+                  lower === "empresa/age"
                 )
                   return "Empresa/Agencia";
                 if (
@@ -3227,16 +3228,75 @@
           });
       };
 
-      const exportCSV = () => {
-        const csv = Papa.unparse(data);
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", "Analisis_Grupos_Editado.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const exportExcel = () => {
+        let toExport = [...data];
+
+        // Filtro por Hotel (si hay uno seleccionado)
+        if (filterDirHotel) {
+          toExport = toExport.filter(row => 
+            normalizeHotelName(row["Hotel_Asignado"] || row["Hotel"] || "") === normalizeHotelName(filterDirHotel)
+          );
+        }
+
+        // Filtro por búsqueda actual
+        if (searchTerm) {
+          const lowerTerm = searchTerm.toLowerCase();
+          toExport = toExport.filter(row => {
+            const res = (row["Reserva"] || "").toString().toLowerCase();
+            const name = (row["Nombre del Grupo"] || "").toLowerCase();
+            const agency = (row["Empresa/Agencia"] || "").toLowerCase();
+            return res.includes(lowerTerm) || 
+                   name.includes(lowerTerm) || 
+                   agency.includes(lowerTerm) || 
+                   normalizeId(res).includes(lowerTerm) || 
+                   getBaseId(res).includes(lowerTerm);
+          });
+        }
+
+        const confirmadas = [];
+        const anuladas = [];
+
+        toExport.forEach(row => {
+          const st = getStatusProps(
+            row["Com_Estado_Interno"] || row["Segment."],
+            row["Entrada"],
+            row["Estado"]
+          );
+
+          // Columnas exactas: Reserva, Nombre del Grupo, Entrada, Salida, Noches, Pax., Empresa/Age, Segment, Régimen, Importe
+          const mappedRow = {
+            "Reserva": row["Reserva"] || "",
+            "Nombre del Grupo": row["Nombre del Grupo"] || "",
+            "Entrada": formatDate(row["Entrada"]),
+            "Salida": formatDate(row["Salida"]),
+            "Noches": row["Noches"] || "",
+            "Pax.": row["Pax."] || "",
+            "Empresa/Age": row["Empresa/Agencia"] || "",
+            "Segment": row["Segment."] || "",
+            "Régimen": row["Régimen"] || "",
+            "Importe": row["Importe(*)"] || ""
+          };
+
+          if (st.label === "DESESTIMADO") {
+            anuladas.push(mappedRow);
+          } else {
+            confirmadas.push(mappedRow);
+          }
+        });
+
+        const wb = XLSX.utils.book_new();
+        const headerOrder = ["Reserva", "Nombre del Grupo", "Entrada", "Salida", "Noches", "Pax.", "Empresa/Age", "Segment", "Régimen", "Importe"];
+        
+        // Hoja Confirmadas
+        const wsConf = XLSX.utils.json_to_sheet(confirmadas, { header: headerOrder });
+        XLSX.utils.book_append_sheet(wb, wsConf, "Reservas de Grupos CONFIRMADAS");
+
+        // Hoja Anuladas
+        const wsAnul = XLSX.utils.json_to_sheet(anuladas, { header: headerOrder });
+        XLSX.utils.book_append_sheet(wb, wsAnul, "Reservas de Grupos ANULADAS");
+
+        const fileName = (filterDirHotel || "Análisis_General") + "_Grupos.xlsx";
+        XLSX.writeFile(wb, fileName);
       };
 
       // --- Funciones de Edición ---
@@ -4362,11 +4422,11 @@
                     />
                   </label>
                   <button
-                    onClick={exportCSV}
+                    onClick={exportExcel}
                     className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
-                    title="Exportar"
+                    title="Exportar Excel"
                   >
-                    <IconDownload size={20} />
+                    <i className="fas fa-file-excel text-xl"></i>
                   </button>
                 </div>
               </div>
