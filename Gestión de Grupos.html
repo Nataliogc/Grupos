@@ -3885,13 +3885,15 @@
         }
 
         let nights = 1;
+        let dIn = new Date();
+        let dOut = new Date();
         if (
           !roomManagerForm.isService &&
           roomManagerForm.dateIn &&
           roomManagerForm.dateOut
         ) {
-          const dIn = new Date(toInputDate(roomManagerForm.dateIn));
-          const dOut = new Date(toInputDate(roomManagerForm.dateOut));
+          dIn = new Date(toInputDate(roomManagerForm.dateIn));
+          dOut = new Date(toInputDate(roomManagerForm.dateOut));
           if (!isNaN(dIn) && !isNaN(dOut)) {
             const diff = dOut - dIn;
             nights = Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -3899,65 +3901,104 @@
           if (nights < 1) nights = 1;
         }
 
-        const newItem = {
-          id: editingId || Date.now(),
-          hotel:
-            roomManagerForm.hotel ||
-            currentRecord["Hotel_Asignado"] ||
-            "SERCOTEL GUADIANA",
-          type: roomManagerForm.type,
-          dateIn: roomManagerForm.dateIn || currentRecord["Entrada"],
-          dateOut: roomManagerForm.isService
-            ? roomManagerForm.dateIn || currentRecord["Entrada"]
-            : roomManagerForm.dateOut || currentRecord["Salida"],
-          qty: parseInt(roomManagerForm.qty),
-          pax: parseInt(roomManagerForm.pax || 0),
-          regime: roomManagerForm.isService ? "" : roomManagerForm.regime,
-          price: parseFloat(roomManagerForm.price),
-          iva: parseInt(roomManagerForm.iva || 10),
-          nights: nights,
-          isService: roomManagerForm.isService,
-          total: (
-            parseFloat(roomManagerForm.price) *
-            parseInt(roomManagerForm.qty) *
-            nights
-          ).toFixed(2),
-          comision: editingId
-            ? currentList.find((i) => i.id === editingId)?.comision ||
-            calculateDefaultCommission(
-              roomManagerForm.price,
-              roomManagerForm.isService ? "" : roomManagerForm.regime,
-              roomManagerForm.qty,
-              nights,
-              roomManagerForm.type,
-            )
-            : calculateDefaultCommission(
-              roomManagerForm.price,
-              roomManagerForm.isService ? "" : roomManagerForm.regime,
-              roomManagerForm.qty,
-              nights,
-              roomManagerForm.type,
-            ),
-        };
+        // --- Generación de Items (Desglosados o Únicos) ---
+        let itemsToAdd = [];
+        if (!roomManagerForm.isService && nights > 1) {
+          // Desglose diario
+          for (let i = 0; i < nights; i++) {
+            const currentDay = new Date(dIn);
+            currentDay.setDate(dIn.getDate() + i);
+            const nextDay = new Date(currentDay);
+            nextDay.setDate(currentDay.getDate() + 1);
 
-        if (editingId && newItem.comision.modo === "auto") {
-          newItem.comision = calculateDefaultCommission(
-            roomManagerForm.price,
-            roomManagerForm.isService ? "" : roomManagerForm.regime,
-            roomManagerForm.qty,
-            nights,
-            roomManagerForm.type,
-          );
+            const checkinStr = currentDay.toISOString().split("T")[0];
+            const checkoutStr = nextDay.toISOString().split("T")[0];
+
+            itemsToAdd.push({
+              id: Date.now() + Math.random(),
+              hotel:
+                roomManagerForm.hotel ||
+                currentRecord["Hotel_Asignado"] ||
+                "SERCOTEL GUADIANA",
+              type: roomManagerForm.type,
+              dateIn: checkinStr,
+              dateOut: checkoutStr,
+              qty: parseInt(roomManagerForm.qty),
+              pax: parseInt(roomManagerForm.pax || 0),
+              regime: roomManagerForm.regime,
+              price: parseFloat(roomManagerForm.price),
+              iva: parseInt(roomManagerForm.iva || 10),
+              nights: 1,
+              isService: false,
+              total: (
+                parseFloat(roomManagerForm.price) *
+                parseInt(roomManagerForm.qty)
+              ).toFixed(2),
+              comision: calculateDefaultCommission(
+                roomManagerForm.price,
+                roomManagerForm.regime,
+                roomManagerForm.qty,
+                1,
+                roomManagerForm.type,
+              ),
+            });
+          }
+        } else {
+          // Item único (Service o una sola noche)
+          itemsToAdd.push({
+            id: editingId || Date.now(),
+            hotel:
+              roomManagerForm.hotel ||
+              currentRecord["Hotel_Asignado"] ||
+              "SERCOTEL GUADIANA",
+            type: roomManagerForm.type,
+            dateIn: roomManagerForm.dateIn || currentRecord["Entrada"],
+            dateOut: roomManagerForm.isService
+              ? roomManagerForm.dateIn || currentRecord["Entrada"]
+              : roomManagerForm.dateOut || currentRecord["Salida"],
+            qty: parseInt(roomManagerForm.qty),
+            pax: parseInt(roomManagerForm.pax || 0),
+            regime: roomManagerForm.isService ? "" : roomManagerForm.regime,
+            price: parseFloat(roomManagerForm.price),
+            iva: parseInt(roomManagerForm.iva || 10),
+            nights: nights,
+            isService: roomManagerForm.isService,
+            total: (
+              parseFloat(roomManagerForm.price) *
+              parseInt(roomManagerForm.qty) *
+              nights
+            ).toFixed(2),
+            comision: editingId
+              ? currentList.find((i) => i.id === editingId)?.comision ||
+              calculateDefaultCommission(
+                roomManagerForm.price,
+                roomManagerForm.isService ? "" : roomManagerForm.regime,
+                roomManagerForm.qty,
+                nights,
+                roomManagerForm.type,
+              )
+              : calculateDefaultCommission(
+                roomManagerForm.price,
+                roomManagerForm.isService ? "" : roomManagerForm.regime,
+                roomManagerForm.qty,
+                nights,
+                roomManagerForm.type,
+              ),
+          });
         }
 
         let newList;
         if (editingId) {
-          newList = currentList.map((item) =>
-            item.id === editingId ? newItem : item,
-          );
+          const idx = currentList.findIndex((item) => item.id === editingId);
+          if (idx !== -1) {
+            newList = [...currentList];
+            newList.splice(idx, 1, ...itemsToAdd);
+          } else {
+            newList = [...currentList, ...itemsToAdd];
+          }
           setEditingId(null);
         } else {
-          newList = [...currentList, newItem];
+          newList = [...currentList, ...itemsToAdd];
         }
 
         const newTotalSum = newList.reduce(
@@ -3970,7 +4011,7 @@
         );
 
         const newTotalRooms = newList.reduce(
-          (acc, i) => acc + parseInt(i.qty || 0),
+          (acc, i) => acc + (i.isService ? 0 : parseInt(i.qty || 0)),
           0,
         );
 

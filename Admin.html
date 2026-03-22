@@ -1795,10 +1795,14 @@
               ? g["Entrada"]
               : new Date(g["Entrada"])
             : null;
-          const isCancelled = (g["Status"] || g["Estado"] || "")
-            .toLowerCase()
-            .includes("anul");
-          if (isCancelled) return;
+          const status = (g["Status"] || g["Estado"] || g["Com_Estado_Interno"] || "").toUpperCase();
+          const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
+          
+          const departureStr = g["Salida"] || g["Entrada"] || "";
+          const todayStr = new Date().toISOString().split("T")[0];
+          const isPast = departureStr && departureStr < todayStr;
+
+          if (isCancelled || isPast) return;
 
           // Alert 1: Release Urgente (< 7 días)
           let dRel = null;
@@ -2007,10 +2011,14 @@
               const groupName =
                 g["Nombre del Grupo"] || g["Reserva"] || "Grupo";
               const arrival = parseDate(g["Entrada"]);
-              const isCancelled = (g["Estado"] || "")
-                .toLowerCase()
-                .includes("anul");
-              if (isCancelled) return;
+              const status = (g["Status"] || g["Estado"] || g["Com_Estado_Interno"] || "").toUpperCase();
+              const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
+              
+              const departureStr = g["Salida"] || g["Entrada"] || "";
+              const todayStr = now.toISOString().split("T")[0];
+              const isPast = departureStr && departureStr < todayStr;
+
+              if (isCancelled || isPast) return;
 
               // Alert 1: Release Urgente (< 7 días)
               const comRel = g.Com_Vencimiento_Rel
@@ -2109,10 +2117,7 @@
                 g["Com_Estado_Interno"] ||
                 ""
               ).toLowerCase();
-              const isCancelled =
-                status.includes("anul") ||
-                status.includes("cancel") ||
-                status.includes("baja");
+              const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => status.includes(s));
 
               if (entryDate && !isNaN(entryDate.getTime()) && !isCancelled) {
                 const y = entryDate.getFullYear();
@@ -2175,11 +2180,7 @@
                   ).toLowerCase() +
                   " " +
                   (p["Segment."] || "").toLowerCase();
-                const isCancelled =
-                  status.includes("anul") ||
-                  status.includes("cancel") ||
-                  status.includes("descart") ||
-                  status.includes("rechaz");
+                const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "DESCART", "RECHAZ"].some(s => status.toUpperCase().includes(s));
                 if (isCancelled) return false;
 
                 const val =
@@ -2230,11 +2231,8 @@
                   p["Estado"] ||
                   p["Com_Estado_Interno"] ||
                   ""
-                ).toLowerCase();
-                const isCancelled =
-                  status.includes("anul") ||
-                  status.includes("cancel") ||
-                  status.includes("baja");
+                ).toUpperCase();
+                const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
                 // Ensure entryDate is valid and within range
                 return (
                   entryDate &&

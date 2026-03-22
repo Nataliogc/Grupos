@@ -351,10 +351,11 @@
         return groups.filter(g => {
           const intEst = (g.Com_Estado_Interno || "").toUpperCase();
           const extEst = (g.Estado || "").toUpperCase();
-          const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTI", "BAJA"].some(status => intEst.includes(status) || extEst.includes(status));
+          const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(status => intEst.includes(status) || extEst.includes(status));
           const isConfirmed = intEst.includes("CONFIRM") || extEst.includes("CONFIRM");
-          const arrival = g.Entrada || "";
-          const isPast = arrival && arrival < todayStr;
+          
+          const departureStr = g.Salida || g.Entrada || "";
+          const isPast = departureStr && departureStr < todayStr;
 
           if (isConfirmed) {
             return false;
@@ -381,34 +382,34 @@
         const dates = generateDates(groupData.Entrada, groupData.Salida);
         let total = 0;
         dates.forEach(date => {
-          const config = groupData.dailyConfig?.[date];
-          if (config) {
-            Object.entries(groupData.roomCounts || {}).forEach(([type, globalCount]) => {
-              let count = globalCount;
-              if (config.counts) {
-                const countKey = Object.keys(config.counts).find(k => k.toLowerCase() === type.toLowerCase());
-                if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
-                  count = Number(config.counts[countKey]);
+          const config = groupData.dailyConfig?.[date] || {};
+          Object.entries(groupData.roomCounts || {}).forEach(([type, globalCount]) => {
+            let count = globalCount;
+            if (config.counts) {
+              const countKey = Object.keys(config.counts).find(k => k.toLowerCase() === type.toLowerCase());
+              if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
+                count = Number(config.counts[countKey]);
+              }
+            }
+            if (count > 0) {
+              let lineSubtotal = 0;
+              if (config.prices) {
+                const priceKey = Object.keys(config.prices).find(k => k.toLowerCase() === type.toLowerCase());
+                const p = priceKey ? parseFloat(config.prices[priceKey] || 0) : 0;
+                lineSubtotal = p * count;
+              } else {
+                const typeKey = Object.keys(config).find(k => k.toLowerCase() === type.toLowerCase());
+                if (typeKey && config[typeKey]) {
+                  const price = parseFloat(config[typeKey].price) || 0;
+                  const discount = parseFloat(config[typeKey].discount) || 0;
+                  const gratuities = parseInt(config[typeKey].gratuities) || 0;
+                  const billableCount = Math.max(0, count - gratuities);
+                  lineSubtotal = billableCount * price * (1 - discount / 100);
                 }
               }
-              if (count > 0) {
-                let lineSubtotal = 0;
-                if (config.prices) {
-                  const p = parseFloat(config.prices[type] || 0);
-                  lineSubtotal = p * count;
-                } else {
-                  if (config[type]) {
-                    const price = parseFloat(config[type].price) || 0;
-                    const discount = parseFloat(config[type].discount) || 0;
-                    const gratuities = parseInt(config[type].gratuities) || 0;
-                    const billableCount = Math.max(0, count - gratuities);
-                    lineSubtotal = billableCount * price * (1 - discount / 100);
-                  }
-                }
-                total += lineSubtotal;
-              }
-            });
-          }
+              total += lineSubtotal;
+            }
+          });
         });
         // Suplementos y Descuentos Globales
         const suplementos = parseFloat(groupData.Suplementos) || 0;
