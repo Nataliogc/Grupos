@@ -1481,14 +1481,14 @@
                                 <span class="no-print opacity-0 group-hover:opacity-40 cursor-grab">⋮⋮</span>
                                 <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit text-gray-500 w-22 outline-none text-[9px]">
                             </td>
-                            <td class="p-1 text-center font-bold text-gray-400 text-[10px]">${item.cant || '1'}</td>
+                            <td class="p-1 text-center font-bold text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
                             <td class="p-1 text-[11px] font-black text-gray-800">
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span>
                             </td>
                             <td class="p-1 text-center text-gray-400">
                                 <span class="editable text-[9px]" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)" placeholder="-">${item.regimen || '-'}</span>
                             </td>
-                            <td class="p-1 text-center text-[9px] text-gray-500">${item.dias || 1}</td>
+                            <td class="p-1 text-center text-[9px] text-gray-500"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'dias', this.innerText)">${item.dias || 1}</span></td>
                             <td class="p-1 text-right text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
                             <td class="p-1 text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
                             <td class="p-1 text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
@@ -1507,7 +1507,7 @@
                                 <span class="no-print opacity-0 group-hover:opacity-40 cursor-grab">⋮⋮</span>
                                 <input type="date" value="${dateVal}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent font-inherit w-20 outline-none text-[9px] text-gray-500">
                             </td>
-                            <td class="align-middle text-center font-bold text-gray-400 text-[10px]">${item.cant || '1'}</td>
+                            <td class="align-middle text-center font-bold text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
                             <td class="align-middle font-black text-gray-800 text-[11px] uppercase py-1">
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${item.concepto}</span>
                             </td>
@@ -1517,7 +1517,7 @@
                             <td class="align-middle text-center text-[9px] text-gray-500">
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'dias', this.innerText)">${item.dias || 1}</span>
                             </td>
-                            <td class="align-middle text-right text-gray-600 text-[10px]">${formatNum(precioUnitario)}</td>
+                            <td class="align-middle text-right text-gray-600 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(precioUnitario)}</span></td>
                             <td class="align-middle text-right font-black text-gray-900 text-[11px]">${formatNum(subtotal)}</td>
                             <td class="align-middle text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
                             <td class="no-print align-middle text-center py-1">
