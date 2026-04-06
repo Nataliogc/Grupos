@@ -690,12 +690,7 @@
 
     const normalizeHotelName = NexusUtils.normalizeHotelName;
 
-    const formatNum = (num, decimals = 2) =>
-      (num || 0).toLocaleString("es-ES", {
-        useGrouping: true,
-        maximumFractionDigits: decimals,
-        minimumFractionDigits: 2,
-      });
+    const formatNum = NexusUtils.formatNum;
 
 
 
@@ -867,12 +862,7 @@
 
 
 
-      const formatNum = (n) =>
-        (n || 0).toLocaleString("es-ES", {
-          useGrouping: true,
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+
 
 
 

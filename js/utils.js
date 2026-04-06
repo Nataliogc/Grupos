@@ -14,8 +14,6 @@
   "use strict";
 
   // ── Parseo numérico robusto ─────────────────────────────
-  // Maneja formatos ES (1.234,56) y US (1,234.56), símbolos
-  // de moneda, y detecta valores absurdos (>100M).
   function parseNum(v) {
     if (v === null || v === undefined || v === "") return 0;
     if (typeof v === "number") return v;
@@ -78,7 +76,6 @@
     if (!dateStr) return "";
     var s = String(dateStr).trim();
 
-    // Manejar fechas numéricas de Excel (serial date)
     var num = parseFloat(s);
     if (!isNaN(num) && num > 40000 && num < 60000) {
       var date = new Date(Math.round((num - 25569) * 86400 * 1000));
@@ -90,7 +87,6 @@
       if (parts.length === 3) {
         var d = parts[0], m = parts[1], y = parts[2];
         if (y && y.length === 2) y = "20" + y;
-        // Si el primer elemento tiene 4 chars, es YYYY-MM-DD
         if (d && d.length === 4) {
           return parts[2].padStart(2, "0") + "/" + parts[1].padStart(2, "0") + "/" + parts[0];
         }
@@ -101,11 +97,21 @@
   }
 
   // ── Formateo numérico español ──────────────────────────
-  function formatNum(num) {
+  function formatNum(num, decimals = 2) {
     if (num === null || num === undefined) return "0,00";
-    return Number(num).toLocaleString("es-ES", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    var n = parseFloat(num);
+    if (isNaN(n)) return "0,00";
+    
+    // Garantizar que decimals es un valor válido para Intl.NumberFormat
+    var d = Math.max(0, Math.min(20, parseInt(decimals) || 0));
+    
+    // El mínimo siempre será 2 a menos que decimals sea menor
+    var minD = Math.min(d, 2);
+
+    return n.toLocaleString("es-ES", {
+      minimumFractionDigits: minD,
+      maximumFractionDigits: d,
+      useGrouping: true
     });
   }
 
@@ -116,7 +122,7 @@
       currency: "EUR",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(n);
+    }).format(n || 0);
   }
 
   // ── Acceso seguro a localStorage ───────────────────────

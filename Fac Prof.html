@@ -1439,15 +1439,7 @@
             return t;
         }
 
-        function formatNum(num) {
-            let n = parseFloat(num);
-            if (isNaN(n)) return "0,00";
-            return new Intl.NumberFormat('es-ES', { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2,
-                useGrouping: true 
-            }).format(n);
-        }
+        const formatNum = NexusUtils.formatNum;
 
         function updateHotel(hotelKey) {
             if (!hotelKey) return;
