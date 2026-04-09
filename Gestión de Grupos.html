@@ -1703,11 +1703,9 @@
               }
 
               setHotelSettings({
-
                 guadiana: data.guadiana || {},
-
                 cumbria: data.cumbria || {},
-
+                lastImportDate: data.lastImportDate || null
               });
 
             }
@@ -7530,6 +7528,16 @@
 
                       Nexus <span className="text-emerald-600">Groups</span>
 
+                      {hotelSettings?.lastImportDate && (
+
+                        <span className="ml-3 px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest animate-pulse-slow">
+
+                          Actualizado: {new Date(hotelSettings.lastImportDate).toLocaleDateString("es-ES", { day: '2-digit', month: '2-digit', year: '2-digit' })}
+
+                        </span>
+
+                      )}
+
                     </h1>
 
                     <p className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -7576,10 +7584,7 @@
 
 
 
-              {/* Actions Right */}
-
               <div className="flex items-center gap-2">
-
                 <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
 
@@ -11629,9 +11634,7 @@
 
                     );
 
-                    const totalPaid =
-
-                      manualPaid > 0 ? manualPaid : totalPaidFromPlan;
+                    const totalPaid = Math.max(manualPaid, totalPaidFromPlan);
 
                     const pendingAmount = Math.max(0, netTotal - totalPaid);
 
@@ -14110,7 +14113,7 @@
 
                                           (acc, i) =>
 
-                                            acc + (parseFloat(i.total) || 0),
+                                            acc + (parseFloat(i.total) || 0) - (parseFloat(i.comision?.total_comision) || 0),
 
                                           0,
 

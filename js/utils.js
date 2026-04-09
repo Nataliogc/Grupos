@@ -161,6 +161,19 @@
     } catch (e) { return []; }
   }
 
+  // ── Generación de fechas para una serie (múltiples rangos) ──
+  function generateSeriesDates(ranges) {
+    if (!ranges || !Array.isArray(ranges) || ranges.length === 0) return [];
+    var allDates = new Set();
+    ranges.forEach(function(r) {
+      if (r.in && r.out) {
+        var dates = generateDates(r.in, r.out);
+        dates.forEach(function(d) { allDates.add(d); });
+      }
+    });
+    return Array.from(allDates).sort();
+  }
+
   // ── Paleta de colores compartida ───────────────────────
   var COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ff5722", "#795548"];
 
@@ -185,6 +198,7 @@
     formatCurrency: formatCurrency,
     safeStorage: safeStorage,
     generateDates: generateDates,
+    generateSeriesDates: generateSeriesDates,
     getStatusColor: getStatusColor,
     COLORS: COLORS,
   };
