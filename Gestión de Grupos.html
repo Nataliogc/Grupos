@@ -2582,7 +2582,9 @@
           if (!isNaN(rooms)) groups[key].totalRooms += rooms;
           if (!isNaN(noches)) groups[key].totalNights += noches;
 
-          if (!isNaN(importe)) groups[key].totalRevenue += importe;
+          if (!groups[key].hasRoomingListOverride && !isNaN(importe)) {
+              groups[key].totalRevenue += importe;
+          }
           if (!groups[key].processedJSONs) groups[key].processedJSONs = new Set();
           
           if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]" && !groups[key].processedJSONs.has("rl_" + row.RoomingList_JSON)) {
@@ -2593,10 +2595,9 @@
                 groups[key].processedJSONs.add("rl_" + row.RoomingList_JSON);
                 
                 const rlTotal = rl.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
-                if (rlTotal > 0 && Math.abs(rlTotal - groups[key].totalRevenue) > 1) {
-                   if (Math.abs(rlTotal * groups[key].records.length - groups[key].totalRevenue) < 10) {
-                      groups[key].totalRevenue = rlTotal;
-                   }
+                if (rlTotal > 0) {
+                   groups[key].totalRevenue = rlTotal - commVal;
+                   groups[key].hasRoomingListOverride = true;
                 }
               } catch(e) {}
           }
@@ -8274,17 +8275,18 @@
                   <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 rounded-full font-bold">
 
                     {data.filter(r => {
-
                       const est = (r.Estado || "").toUpperCase();
-
                       const intEst = (r.Com_Estado_Interno || "").toUpperCase();
-
                       const isBudget = String(r.Reserva || "").startsWith("PRES-") || est.includes("PRESUPUESTO") || intEst.includes("PRESUPUESTO") || intEst.includes("ENVIADO") || intEst.includes("SEGUIMIENTO") || intEst.includes("PENDIENTE");
-
                       if (!isBudget) return false;
+                      
+                      const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(status => intEst.includes(status) || est.includes(status));
+                      const isConfirmed = intEst.includes("CONFIRM") || est.includes("CONFIRM");
+                      const departureStr = r.Salida || r.Entrada || "";
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      const isPast = departureStr && departureStr < todayStr;
 
-                      return !["CANCEL", "ANUL", "GASTOS", "DESESTIMADO"].some(status => intEst.includes(status) || est.includes(status));
-
+                      return !isCancelled && !isConfirmed && !isPast;
                     }).length}
 
                   </span>
@@ -9683,6 +9685,43 @@
                                     {group.name}
 
                                   </div>
+
+                                  {(() => {
+                                      const record = group.records[0] || {};
+                                      const hasRooming = record["Logistica_Rooming"] === true;
+                                      const hasMP = record["Logistica_MenuMP"] === true;
+                                      const hasPC = record["Logistica_MenuPC"] === true;
+                                      const regimen = (record["Régimen"] || "").toUpperCase();
+                                      const needsMP = regimen.includes("MP");
+                                      const needsPC = regimen.includes("PC");
+                                      
+                                      let daysToArrival = 999;
+                                      if (record["Entrada"]) {
+                                          const arrDateStr = String(record["Entrada"]);
+                                          const arrDate = new Date(arrDateStr.includes('T') ? arrDateStr : arrDateStr + 'T12:00:00');
+                                          if (!isNaN(arrDate)) {
+                                              daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+                                          }
+                                      }
+                                      
+                                      const isClose = daysToArrival <= 15 && daysToArrival >= 0;
+                                      const missingCritical = !hasRooming || (needsMP && !hasMP) || (needsPC && !hasPC);
+                                      const status = (record["Estado"] || "").toUpperCase();
+                                      const isInactive = ["ANULADA", "CANCELADA", "GASTOS DE ANULACION", "BAJA"].includes(status);
+                                      const internalSt = (record["Com_Estado_Interno"] || "").toUpperCase();
+                                      const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => internalSt.includes(s));
+
+                                      if (isClose && missingCritical && !isInactive && !isInternalInactive) {
+                                          const missingList = [!hasRooming && "RRLL", needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
+                                          return (
+                                              <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Faltan datos: ${missingList}`}>
+                                                  <IconAlertTriangle size={10} stroke={3} />
+                                                  <span>ALERTA LOG.</span>
+                                              </div>
+                                          );
+                                      }
+                                      return null;
+                                  })()}
 
                                   {group.records[0]?.["Com_Notas"] && (
 

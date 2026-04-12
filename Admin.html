@@ -1829,7 +1829,7 @@
               ? g["Entrada"]
               : new Date(g["Entrada"])
             : null;
-          const status = (g["Status"] || g["Estado"] || g["Com_Estado_Interno"] || "").toUpperCase();
+          const status = ((g["Status"] || "") + " " + (g["Estado"] || "") + " " + (g["Com_Estado_Interno"] || "")).toUpperCase();
           const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
           
           const departureStr = g["Salida"] || g["Entrada"] || "";
@@ -2045,7 +2045,7 @@
               const groupName =
                 g["Nombre del Grupo"] || g["Reserva"] || "Grupo";
               const arrival = parseDate(g["Entrada"]);
-              const status = (g["Status"] || g["Estado"] || g["Com_Estado_Interno"] || "").toUpperCase();
+              const status = ((g["Status"] || "") + " " + (g["Estado"] || "") + " " + (g["Com_Estado_Interno"] || "")).toUpperCase();
               const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
               
               const departureStr = g["Salida"] || g["Entrada"] || "";
@@ -2147,9 +2147,8 @@
             parsed.forEach((g) => {
               const entryDate = getGroupDate(g);
               const status = (
-                g["Estado"] ||
-                g["Com_Estado_Interno"] ||
-                ""
+                (g["Estado"] || "") + " " +
+                (g["Com_Estado_Interno"] || "")
               ).toLowerCase();
               const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => status.includes(s));
 
@@ -2181,16 +2180,16 @@
               if (!processedGroups.has(resId)) {
                 processedGroups.add(resId);
                 const status = (
-                  p["Estado"] ||
-                  p["Com_Estado_Interno"] ||
-                  ""
+                  (p["Estado"] || "") + " " +
+                  (p["Com_Estado_Interno"] || "")
                 ).toLowerCase();
                 const com = (p["Com_Comercial"] || "").trim();
                 const isBudget =
                   status.includes("presup") ||
                   status.includes("pend") ||
                   String(resId).startsWith("PRES-");
-                if (isBudget && !com) {
+                const isCancelled = ["cancel", "anul", "baja", "desestimado", "gastos"].some(s => status.includes(s));
+                if (isBudget && !com && !isCancelled) {
                   unattendedCount++;
                 }
               }
@@ -2209,9 +2208,8 @@
               pending: parsed.filter((p) => {
                 const status =
                   (
-                    p["Estado"] ||
-                    p["Com_Estado_Interno"] ||
-                    ""
+                    (p["Estado"] || "") + " " +
+                    (p["Com_Estado_Interno"] || "")
                   ).toLowerCase() +
                   " " +
                   (p["Segment."] || "").toLowerCase();
@@ -2263,9 +2261,8 @@
               .filter((p) => {
                 const entryDate = getGroupDate(p);
                 const status = (
-                  p["Estado"] ||
-                  p["Com_Estado_Interno"] ||
-                  ""
+                  (p["Estado"] || "") + " " +
+                  (p["Com_Estado_Interno"] || "")
                 ).toUpperCase();
                 const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
                 // Ensure entryDate is valid and within range

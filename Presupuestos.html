@@ -291,7 +291,6 @@
       const [selectedGroup, setSelectedGroup] = useState(null);
       const [newNote, setNewNote] = useState('');
       const [globalConfig, setGlobalConfig] = useState(null);
-      const [filterStatus, setFilterStatus] = useState('ACTIVOS');
 
       useEffect(() => {
         const unsubscribe = db.collection("settings").doc("main").onSnapshot(doc => {
@@ -363,7 +362,6 @@
       }, []);
 
       const processedGroups = useMemo(() => {
-        if (filterStatus === 'all') return groups;
         const todayStr = new Date().toISOString().split('T')[0];
 
         return groups.filter(g => {
@@ -375,27 +373,10 @@
           const departureStr = g.Salida || g.Entrada || "";
           const isPast = departureStr && departureStr < todayStr;
 
-          if (filterStatus === 'CONFIRMADOS') {
-            return isConfirmed;
-          }
-
-          if (isConfirmed) {
-            return false;
-          }
-
-          if (filterStatus === 'ACTIVOS') {
-            return !isCancelled && !isPast;
-          }
-          if (filterStatus === 'DESESTIMADOS') {
-            return isCancelled;
-          }
-          if (filterStatus === 'PASADOS') {
-            return isPast && !isCancelled;
-          }
-
-          return true;
+          // Mostrar únicamente los presupuestos "En Proceso" (activos)
+          return !isCancelled && !isConfirmed && !isPast;
         });
-      }, [groups, filterStatus]);
+      }, [groups]);
 
       const calculateTotal = (rawGroupData) => {
         const groupData = normalizeGroupData(rawGroupData);
@@ -580,9 +561,9 @@
             });
 
             if (changes.length > 0) {
-              groupData.tracking = [{ id: Date.now(), date: formattedDate, text: "📝 " + changes.join(" | ") }, ...(oldDoc.tracking || [])];
+              groupData.tracking = [{ id: Date.now(), date: formattedDate, text: "📝 " + changes.join(" | ") }, ...(Array.isArray(oldDoc.tracking) ? oldDoc.tracking : [])];
             } else {
-              groupData.tracking = oldDoc.tracking || [];
+              groupData.tracking = Array.isArray(oldDoc.tracking) ? oldDoc.tracking : [];
             }
 
             delete groupData.uid; // evitar guardarlo duplicado en document fields
@@ -628,7 +609,7 @@
           const now = new Date();
           const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
           const budget = groups.find(g => g.uid === uid);
-          const newTracking = [{ id: Date.now(), date: formattedDate, text: `Estado -> ${newStatus}` }, ...(budget.tracking || [])];
+          const newTracking = [{ id: Date.now(), date: formattedDate, text: `Estado -> ${newStatus}` }, ...(Array.isArray(budget.tracking) ? budget.tracking : [])];
           await db.collection("groups").doc(uid).update({ Com_Estado_Interno: newStatus, tracking: newTracking });
         } catch (error) { console.error(error); }
       };
@@ -639,7 +620,7 @@
         try {
           const now = new Date();
           const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          const newTracking = [{ id: Date.now(), date: formattedDate, text: newNote }, ...(selectedGroup.tracking || [])];
+          const newTracking = [{ id: Date.now(), date: formattedDate, text: newNote }, ...(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : [])];
           await db.collection("groups").doc(selectedGroup.uid).update({ tracking: newTracking });
           setNewNote('');
         } catch (error) { console.error(error); }
@@ -662,19 +643,6 @@
                 )}
               </div>
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
-                <div className="relative w-full sm:w-48">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 outline-none focus:border-indigo-500 appearance-none shadow-sm cursor-pointer"
-                  >
-                    <option value="ACTIVOS">ACTIVOS</option>
-                    <option value="CONFIRMADOS">CONFIRMADOS</option>
-                    <option value="DESESTIMADOS">DESESTIMADOS</option>
-                    <option value="PASADOS">PASADOS</option>
-                  </select>
-                  <i className="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
-                </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <button onClick={() => { setFormData(DEFAULT_FORM_DATA); setCurrentView('create'); }}
                     className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
@@ -1640,7 +1608,7 @@
                   </form>
 
                   <div className="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-0 before:w-0.5 before:bg-slate-50">
-                    {(g.tracking || []).map(t => (
+                    {(Array.isArray(g.tracking) ? g.tracking : []).map(t => (
                       <div key={t.id} className="relative pl-10">
                         <div className="absolute left-[13px] top-1.5 w-2.5 h-2.5 bg-white border-2 border-indigo-400 rounded-full z-10"></div>
                         <p className="text-[10px] text-slate-300 font-bold mb-1">{t.date}</p>
