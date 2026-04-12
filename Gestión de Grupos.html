@@ -7204,15 +7204,19 @@
 
 
 
-        distribution.forEach((pct) => {
-
-          const meta = presetMeta[pct.toString()] || {
-
-            label: "Nuevo Pago",
-
-            days: 30,
-
+          const getOrdinalLabel = (index, total) => {
+            if (total === 1) return "Pago Único";
+            if (index === total - 1) return "Pago Final";
+            const labels = ["Primer Pago", "Segundo Pago", "Tercer Pago", "Cuarto Pago", "Quinto Pago"];
+            return labels[index] || `Pago ${index + 1}`;
           };
+
+          distribution.forEach((pct, idx) => {
+            const label = getOrdinalLabel(idx, distribution.length);
+            const meta = {
+              label: label,
+              days: presetMeta[pct.toString()]?.days || 30,
+            };
 
           const date = new Date(dateEntrada);
 
@@ -14360,12 +14364,9 @@
                                           id: Date.now(),
 
                                           label:
-
                                             remaining === 100
-
                                               ? "Pago Único"
-
-                                              : "Nuevo Pago",
+                                              : (plan.length === 0 ? "Primer Pago" : "Pago Final"),
 
                                           percent: remaining,
 
