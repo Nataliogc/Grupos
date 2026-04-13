@@ -517,7 +517,10 @@
                                     // Y no procesamos régimen, asumen que lo que ingresan es lo que se cobra/sirve en esa "Fecha Cargo"
                                     const explicitName = (item.type || 'SERVICIO EXTRA').toUpperCase();
                                     const prev = entry.explicitServices.get(explicitName) || 0;
-                                    entry.explicitServices.set(explicitName, prev + realPersons);
+                                    // Los servicios en presupuestos establecen su número total en CANT. (qty). 
+                                    // No multiplicamos por PAX. porque PAX. en un servicio a veces no aplica o multiplica artificialmente la cantidad.
+                                    const serviceUnits = qty > 0 ? qty : paxPerRoom;
+                                    entry.explicitServices.set(explicitName, prev + serviceUnits);
                                 } else {
                                     const prev = entry.regimePax.get(regime) || 0;
                                     entry.regimePax.set(regime, prev + realPersons);
