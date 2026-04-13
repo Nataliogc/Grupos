@@ -479,26 +479,49 @@
                 // Each RoomingList item: { dateIn, dateOut, regime, qty, pax, hotel, ... }
                 // qty = number of rooms, pax = persons per room
                 // Real persons = qty × pax
-                const dayMap = new Map(); // key = ISO date string, value = { regimePax: Map<regime, persons> }
+                const dayMap = new Map(); // key = ISO date string, value = { regimePax: Map<regime, persons>, explicitServices: Map<serviceName, persons> }
 
                 if (roomingList.length > 0) {
                     roomingList.forEach(item => {
                         const dIn = parseDate(item.dateIn);
-                        const dOut = parseDate(item.dateOut);
+                        let nights = parseInt(item.nights);
+                        if (isNaN(nights) || nights <= 0) nights = 1;
+                        
+                        let dOut = parseDate(item.dateOut);
+                        if (!dOut || isNaN(dOut) || dOut <= dIn) {
+                            dOut = new Date(dIn);
+                            dOut.setDate(dOut.getDate() + nights);
+                        }
+
+                        const typeUpper = (item.type || '').toUpperCase();
                         const regime = (item.regime || '').toUpperCase();
                         const qty = parseInt(item.qty) || 0;
-                        const paxPerRoom = parseInt(item.pax) || 2; // pax per room (default 2 for DBL)
+                        const paxPerRoom = parseInt(item.pax) || (typeUpper.includes('IND') ? 1 : 2);
                         const realPersons = qty * paxPerRoom;
 
-                        if (dIn && dOut && !isNaN(dIn) && !isNaN(dOut) && dOut > dIn) {
-                            for (let d = new Date(dIn); d < dOut; d.setDate(d.getDate() + 1)) {
+                        const isMealsOrService = ['DESAYUNO', 'ALMUERZO', 'CENA', 'COCTEL', 'COFFEE', 'BUFFET', 'MENÚ', 'MENU', 'BREAK'].some(w => typeUpper.includes(w));
+
+                        if (dIn && !isNaN(dIn)) {
+                            for (let i = 0; i < nights; i++) {
+                                const d = new Date(dIn);
+                                d.setDate(d.getDate() + i);
                                 const key = d.toISOString().split('T')[0];
+                                
                                 if (!dayMap.has(key)) {
-                                    dayMap.set(key, { regimePax: new Map() });
+                                    dayMap.set(key, { regimePax: new Map(), explicitServices: new Map() });
                                 }
                                 const entry = dayMap.get(key);
-                                const prev = entry.regimePax.get(regime) || 0;
-                                entry.regimePax.set(regime, prev + realPersons);
+
+                                if (isMealsOrService) {
+                                    // Para servicios adicionales, mapamos con el nombre real de item.type
+                                    // Y no procesamos régimen, asumen que lo que ingresan es lo que se cobra/sirve en esa "Fecha Cargo"
+                                    const explicitName = (item.type || 'SERVICIO EXTRA').toUpperCase();
+                                    const prev = entry.explicitServices.get(explicitName) || 0;
+                                    entry.explicitServices.set(explicitName, prev + realPersons);
+                                } else {
+                                    const prev = entry.regimePax.get(regime) || 0;
+                                    entry.regimePax.set(regime, prev + realPersons);
+                                }
                             }
                         }
                     });
@@ -520,7 +543,7 @@
 
                         // ── Generate service rows from dayMap ──
                         if (dayMap.size > 0) {
-                            const servicePaxMap = new Map(); // key = dateKey, value = { Desayuno: 0, Almuerzo: 0, Cena: 0 }
+                            const servicePaxMap = new Map(); // key = dateKey, value = Map<ServiceName, Pax>
 
                             const sortedNights = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
                             
@@ -539,14 +562,23 @@
                                             targetDateKey = nextDay.toISOString().split('T')[0];
                                         }
                                         
-                                        // For Lunch, we usually assume it's on the day (Arrival lunch or middle day)
-                                        // but if the user wants it differently we can adjust.
-                                        
                                         if (!servicePaxMap.has(targetDateKey)) {
-                                            servicePaxMap.set(targetDateKey, { Desayuno: 0, Almuerzo: 0, Cena: 0 });
+                                            servicePaxMap.set(targetDateKey, new Map());
                                         }
-                                        servicePaxMap.get(targetDateKey)[servicio] += pax;
+                                        const prevPax = servicePaxMap.get(targetDateKey).get(servicio) || 0;
+                                        servicePaxMap.get(targetDateKey).set(servicio, prevPax + pax);
                                     });
+                                });
+
+                                // Add explicit services directly to their targetDateKey (same day as dateIn/Fecha Cargo)
+                                data.explicitServices.forEach((pax, serviceName) => {
+                                    let sanitizedName = serviceName.charAt(0).toUpperCase() + serviceName.slice(1).toLowerCase();
+                                    
+                                    if (!servicePaxMap.has(dateKey)) {
+                                        servicePaxMap.set(dateKey, new Map());
+                                    }
+                                    const prevPax = servicePaxMap.get(dateKey).get(sanitizedName) || 0;
+                                    servicePaxMap.get(dateKey).set(sanitizedName, prevPax + pax);
                                 });
                             });
 
@@ -556,10 +588,35 @@
 
                             sortedOutputDays.forEach(dKey => {
                                 const dayLabel = formatD(dKey);
-                                const svcs = servicePaxMap.get(dKey);
-                                ['Desayuno', 'Almuerzo', 'Cena'].forEach(sName => {
-                                    if (svcs[sName] > 0) {
-                                        addRowPlan(dayLabel, sName, String(svcs[sName]), '', suggestedHours[sName] || '');
+                                const svcs = servicePaxMap.get(dKey); // This is a Map
+                                
+                                // To keep reasonable ordering, try these standard ones first
+                                const standardOrder = ['Desayuno', 'Almuerzo', 'Cena'];
+                                const allCurrentSvcs = [...svcs.keys()];
+                                
+                                // Sort keys: Standard ones first, then alphabetical for the rest
+                                allCurrentSvcs.sort((a, b) => {
+                                    const indexA = standardOrder.indexOf(a);
+                                    const indexB = standardOrder.indexOf(b);
+                                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                    if (indexA !== -1) return -1;
+                                    if (indexB !== -1) return 1;
+                                    return a.localeCompare(b);
+                                });
+
+                                allCurrentSvcs.forEach(sName => {
+                                    const p = svcs.get(sName);
+                                    if (p > 0) {
+                                        let matchedHour = suggestedHours[sName] || '___:___ h';
+                                        // Try to find a matching hour default for lowercase
+                                        if (!suggestedHours[sName]) {
+                                            Object.keys(suggestedHours).forEach(hKey => {
+                                                if (sName.toLowerCase().includes(hKey.toLowerCase())) {
+                                                    matchedHour = suggestedHours[hKey];
+                                                }
+                                            });
+                                        }
+                                        addRowPlan(dayLabel, sName, String(p), '', matchedHour);
                                     }
                                 });
                             });
