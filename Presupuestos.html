@@ -291,6 +291,8 @@
       const [selectedGroup, setSelectedGroup] = useState(null);
       const [newNote, setNewNote] = useState('');
       const [globalConfig, setGlobalConfig] = useState(null);
+      const [isEditingClauses, setIsEditingClauses] = useState(false);
+      const [tempClauses, setTempClauses] = useState([]);
 
       useEffect(() => {
         const unsubscribe = db.collection("settings").doc("main").onSnapshot(doc => {
@@ -374,7 +376,9 @@
           const isPast = departureStr && departureStr < todayStr;
 
           // Mostrar únicamente los presupuestos "En Proceso" (activos)
-          return !isCancelled && !isConfirmed && !isPast;
+          // Si el estado es PRESUPUESTO o PENDIENTE, lo mostramos aunque la fecha sea pasada (por si hay errores de año o traslados)
+          const isActiveStatus = ["PRESUPUESTO", "PENDIENTE", "ENVIADO", "SEGUIMIENTO"].some(s => intEst.includes(s));
+          return !isCancelled && !isConfirmed && (!isPast || isActiveStatus);
         });
       }, [groups]);
 
@@ -1899,25 +1903,101 @@
                     </div>
 
                     <div className="mt-16 print:mt-6 space-y-12 print:space-y-3">
-
                       {/* Premium Clauses Section */}
-                      <div>
-                        <div className="flex items-center gap-3 mb-5 print:mb-2">
-                          <div className={`h-4 w-1 rounded-full print:w-0.5 print:h-3 ${isCumbria ? 'bg-blue-800' : 'bg-orange-600'}`}></div>
-                          <h4 className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-[0.3em]">Cláusulas y Condiciones del Grupo</h4>
+                      <div className="relative group">
+                        <div className="flex items-center justify-between mb-5 print:mb-2 no-print">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-4 w-1 rounded-full print:w-0.5 print:h-3 ${isCumbria ? 'bg-blue-800' : 'bg-orange-600'}`}></div>
+                            <h4 className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-[0.3em]">Cláusulas y Condiciones del Grupo</h4>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              if (!isEditingClauses) {
+                                // Cargar cláusulas actuales (propias o globales)
+                                const hotelKey = isCumbria ? 'cumbria' : 'guadiana';
+                                const currentClauses = g.clauses || [
+                                  ...(globalConfig?.common?.clauses || []),
+                                  ...(globalConfig?.[hotelKey]?.clauses || [])
+                                ];
+                                // Fallback si no hay nada en Firestore
+                                const finalClauses = currentClauses.length > 0 ? currentClauses : [
+                                  { title: "Cupo y Disponibilidad", body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito." },
+                                  { title: "Confirmación y Depósito", body: `Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada.` },
+                                  { title: "Política de Cancelación", body: "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES." },
+                                  { title: "Rooming List", body: "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero." }
+                                ];
+                                setTempClauses(JSON.parse(JSON.stringify(finalClauses)));
+                              } else {
+                                // Guardar cambios en Firestore
+                                db.collection("groups").doc(g.uid).update({ clauses: tempClauses })
+                                  .then(() => {
+                                    alert("Cláusulas actualizadas correctamente.");
+                                  })
+                                  .catch(err => alert("Error al guardar: " + err.message));
+                              }
+                              setIsEditingClauses(!isEditingClauses);
+                            }}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClauses ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600'}`}
+                          >
+                            <i className={`fas ${isEditingClauses ? 'fa-save' : 'fa-pencil-alt'} mr-2`}></i>
+                            {isEditingClauses ? 'Guardar Cambios' : 'Editar Cláusulas'}
+                          </button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-4 print:gap-2">
+
+                        {/* Banner de título solo para impresión */}
+                        <div className="hidden print:flex items-center gap-3 mb-2">
+                           <div className={`h-4 w-1 rounded-full print:w-0.5 print:h-3 ${isCumbria ? 'bg-blue-800' : 'bg-orange-600'}`}></div>
+                           <h4 className="text-[7px] font-black text-slate-400 uppercase tracking-[0.3em]">Cláusulas y Condiciones del Grupo</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2">
                           {(() => {
                              const hotelKey = isCumbria ? 'cumbria' : 'guadiana';
-                             const commonClauses = globalConfig?.common?.clauses || [];
-                             const hotelClauses = globalConfig?.[hotelKey]?.clauses || [];
-                             const clauses = [...commonClauses, ...hotelClauses];
+                             // Prioridad: Cláusulas propias del grupo > Configuracion Global > Defaults Hardcoded
+                             const clauses = isEditingClauses ? tempClauses : (g.clauses || [
+                               ...(globalConfig?.common?.clauses || []),
+                               ...(globalConfig?.[hotelKey]?.clauses || [])
+                             ]);
                              
+                             const finalClauses = (clauses && clauses.length > 0) ? clauses : [
+                               { title: "Cupo y Disponibilidad", body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito." },
+                               { title: "Confirmación y Depósito", body: `Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada.` },
+                               { title: "Política de Cancelación", body: "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES." },
+                               { title: "Rooming List", body: "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero." }
+                             ];
+
                              const accentColor = isCumbria ? 'border-blue-200 print:border-blue-300' : 'border-orange-100 print:border-orange-200';
                              const numColor = isCumbria ? 'text-blue-800' : 'text-orange-700';
                              const titleColor = isCumbria ? 'text-blue-900' : 'text-orange-900';
- 
-                             const renderClause = (clause, idx) => {
+  
+                             return finalClauses.map((clause, idx) => {
+                               if (isEditingClauses) {
+                                  return (
+                                    <div key={idx} className={`border-l-2 ${accentColor} pl-3 py-1 bg-slate-50/50 rounded-r-xl`}>
+                                      <input 
+                                        type="text"
+                                        value={clause.title}
+                                        onChange={(e) => {
+                                          const next = [...tempClauses];
+                                          next[idx].title = e.target.value;
+                                          setTempClauses(next);
+                                        }}
+                                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800 mb-2 outline-none focus:border-indigo-400"
+                                      />
+                                      <textarea 
+                                        value={clause.body}
+                                        onChange={(e) => {
+                                          const next = [...tempClauses];
+                                          next[idx].body = e.target.value;
+                                          setTempClauses(next);
+                                        }}
+                                        rows="3"
+                                        className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 outline-none focus:border-indigo-400 resize-none font-medium"
+                                      />
+                                    </div>
+                                  );
+                               }
+
                                const bodyParsed = (clause.body || '').replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + '€');
                                return (
                                  <div key={idx} className={`border-l-2 ${accentColor} pl-3 print:pl-2 py-1`}>
@@ -1927,18 +2007,7 @@
                                    <p className="text-[9.5px] print:text-[7px] text-slate-500 print:text-slate-600 leading-snug">{bodyParsed}</p>
                                  </div>
                                );
-                             };
- 
-                             if (clauses && clauses.length > 0) {
-                               return clauses.map(renderClause);
-                             } else {
-                               return [
-                                 { title: "Cupo y Disponibilidad", body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito." },
-                                 { title: "Confirmación y Depósito", body: `Bloqueo confirmado al recibir el 30% del total (${formatNum(calculatedTotal * 0.3)}€). El 70% restante deberá liquidarse 7 días antes de la entrada.` },
-                                 { title: "Política de Cancelación", body: "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES." },
-                                 { title: "Rooming List", body: "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero." }
-                               ].map(renderClause);
-                             }
+                             });
                           })()}
                         </div>
                       </div>
