@@ -983,24 +983,40 @@
 
                             {/* Alertas Críticas Dinámicas */}
                             <div className="flex flex-wrap gap-1.5">
-                              {/* Warning: Release */}
-                              {(() => {
-                                const dRel = group.Com_Vencimiento_Rel ? (group.Com_Vencimiento_Rel instanceof Date ? group.Com_Vencimiento_Rel : new Date(group.Com_Vencimiento_Rel)) : null;
-                                if (dRel && !isNaN(dRel.getTime())) {
-                                  const diff = dRel - new Date();
-                                  if (diff < 7 * 24 * 60 * 60 * 1000) {
-                                    const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                                    const isUrgent = daysLeft <= 2;
-                                    return (
-                                      <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${isUrgent ? 'bg-rose-50 text-rose-500 border-rose-100 animate-pulse ring-4 ring-rose-500/10' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                        <LucideIcon name="Clock" size={10} strokeWidth={3} />
-                                        Rel: {formatDate(group.Com_Vencimiento_Rel)}
-                                      </div>
-                                    );
-                                  }
-                                }
-                                return null;
-                              })()}
+                               {/* Warning: Release */}
+                               {(() => {
+                                 const total = safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0);
+                                 let paid = typeof group["Com_Pagado"] === 'number' ? group["Com_Pagado"] : safeParseAmount(group["Com_Pagado"] || 0);
+                                 try {
+                                   const plan = JSON.parse(group.PaymentPlan_JSON || "[]");
+                                   let planPaid = 0;
+                                   plan.forEach(p => { if (p.status === "Cobrado" || p.status === "Pagado") planPaid += safeParseAmount(p.amount || 0); });
+                                   if (planPaid > paid) paid = planPaid;
+                                 } catch (e) {}
+                                 
+                                 const isPaid = group["Com_Pagado"] === true || (total > 0 && paid >= (total - 0.1));
+                                 const st = getStatusProps(group["Estado"]);
+                                 const isConfirmed = st.label === "Confirmado" || (group["Estado"] || "").toUpperCase().includes("CONFIRM") || (group["Estado"] || "").toUpperCase().includes("GARANT") || (group["Estado"] || "").toUpperCase().includes("RESERVA");
+
+                                 // Si ya está pagado o confirmado, el release ya no es una alerta crítica comercial
+                                 if (isPaid || isConfirmed) return null;
+
+                                 const dRel = group.Com_Vencimiento_Rel ? (group.Com_Vencimiento_Rel instanceof Date ? group.Com_Vencimiento_Rel : new Date(group.Com_Vencimiento_Rel)) : null;
+                                 if (dRel && !isNaN(dRel.getTime())) {
+                                   const diff = dRel - new Date();
+                                   if (diff < 7 * 24 * 60 * 60 * 1000) {
+                                     const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                                     const isUrgent = daysLeft <= 2;
+                                     return (
+                                       <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${isUrgent ? 'bg-rose-50 text-rose-500 border-rose-100 animate-pulse ring-4 ring-rose-500/10' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                         <LucideIcon name="Clock" size={10} strokeWidth={3} />
+                                         Rel: {formatDate(group.Com_Vencimiento_Rel)}
+                                       </div>
+                                     );
+                                   }
+                                 }
+                                 return null;
+                               })()}
 
                               {/* Warning: Sin Comercial */}
                               {!group.Com_Comercial && (
@@ -1018,12 +1034,34 @@
                               )}
 
                               {/* Warning: Pago Pendiente */}
-                              {group["Com_Pagado"] !== true && (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full border border-rose-100 text-[8px] font-black uppercase tracking-widest">
-                                  <LucideIcon name="CreditCard" size={10} strokeWidth={3} />
-                                  Pago Pendiente
-                                </div>
-                              )}
+                              {(() => {
+                                const total = safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0);
+                                if (total <= 0) return null;
+
+                                let paid = typeof group["Com_Pagado"] === 'number' ? group["Com_Pagado"] : safeParseAmount(group["Com_Pagado"] || 0);
+                                
+                                // Si no hay pago directo, buscamos en el plan de pagos
+                                try {
+                                  const plan = JSON.parse(group.PaymentPlan_JSON || "[]");
+                                  let planPaid = 0;
+                                  plan.forEach(p => {
+                                    if (p.status === "Cobrado" || p.status === "Pagado") planPaid += safeParseAmount(p.amount || 0);
+                                  });
+                                  if (planPaid > paid) paid = planPaid;
+                                } catch (e) {}
+
+                                const isActuallyPaid = group["Com_Pagado"] === true || paid >= (total - 0.1);
+
+                                if (!isActuallyPaid) {
+                                  return (
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full border border-rose-100 text-[8px] font-black uppercase tracking-widest">
+                                      <LucideIcon name="CreditCard" size={10} strokeWidth={3} />
+                                      Pago Pendiente
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
 
                               {/* Warning: Falta Rooming */}
                               {!group["Logistica_Rooming"] && (
