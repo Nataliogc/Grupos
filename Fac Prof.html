@@ -86,6 +86,25 @@
             background-color: #fff;
         }
 
+        .tax-select {
+            width: 48px;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            color: #64748b;
+            font-size: 8px;
+            font-weight: 700;
+            border-radius: 4px;
+            padding: 1px 2px;
+            outline: none;
+        }
+
+        .tax-select:hover,
+        .tax-select:focus {
+            border-color: #2d5a43;
+            color: #2d5a43;
+            background: white;
+        }
+
         .logo-placeholder {
             max-height: 80px;
             max-width: 250px;
@@ -926,6 +945,31 @@
         }
         setInterval(syncFields, 3000);
 
+        function addOcupanteField() {
+            const container = document.querySelector('#ocupante-box .flex-1');
+            if (!container) return;
+
+            const footer = [...container.children].find(child => child.classList.contains('border-t') && child.classList.contains('no-print'));
+            const newRow = document.createElement('div');
+            newRow.className = 'ocupante-row flex items-center gap-1 mt-1';
+            newRow.dataset.dynamic = 'true';
+            newRow.innerHTML = `
+                <span class="w-24"><strong><span class="editable" contenteditable="true">Campo</span> :</strong></span>
+                <span class="editable flex-1" contenteditable="true" style="min-width: 100px;">---</span>
+                <button class="no-print text-red-200 hover:text-red-500 text-[10px] ml-auto"
+                        onclick="this.parentElement.remove()" title="Eliminar">X</button>
+            `;
+
+            if (footer) container.insertBefore(newRow, footer);
+            else container.appendChild(newRow);
+
+            const label = newRow.querySelector('[contenteditable="true"]');
+            if (label) {
+                label.focus();
+                document.execCommand('selectAll', false, null);
+            }
+        }
+
         async function saveProforma(silent = false) {
             const saved = localStorage.getItem('selectedGroup');
             if (!saved) return;
@@ -958,6 +1002,14 @@
                         customFields[fid] = val;
                     }
                 });
+
+                customFields.dynamicRows = Array.from(document.querySelectorAll('#ocupante-box [data-dynamic="true"]')).map(row => {
+                    const editableCells = row.querySelectorAll('.editable');
+                    return {
+                        key: (editableCells[0]?.innerText || '').trim(),
+                        value: (editableCells[1]?.innerText || '').trim()
+                    };
+                }).filter(row => row.key || row.value);
 
                 const payload = {
                     "ProformaItems": items,
@@ -1339,6 +1391,7 @@
                         customFields.dynamicRows.forEach(row => {
                             const newRow = document.createElement('div');
                             newRow.className = 'ocupante-row flex items-center gap-1 mt-1';
+                            newRow.dataset.dynamic = 'true';
                             newRow.innerHTML = `
                                 <span class="w-24"><strong><span class="editable" contenteditable="true">${row.key}</span> :</strong></span>
                                 <span class="editable flex-1" contenteditable="true" style="min-width: 100px;">${row.value}</span>
@@ -1397,9 +1450,18 @@
 
         function updateItem(index, field, value) {
             if (items[index]) {
-                items[index][field] = value;
+                items[index][field] = field === 'iva' ? (parseInt(value, 10) || 10) : value;
                 renderItems();
             }
+        }
+
+        function renderTaxSelect(index, item) {
+            const ivaValue = parseInt(item.iva, 10) === 21 ? 21 : 10;
+            return `
+                <select class="no-print tax-select ml-1" title="IVA fiscal de esta línea" onchange="updateItem(${index}, 'iva', this.value)">
+                    <option value="10"${ivaValue === 10 ? ' selected' : ''}>10%</option>
+                    <option value="21"${ivaValue === 21 ? ' selected' : ''}>21%</option>
+                </select>`;
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
@@ -1652,6 +1714,7 @@
                             <td class="p-1 text-center font-bold text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
                             <td class="p-1 text-[11px] font-black text-gray-800">
                             <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${cleanConcept(item.concepto)}</span>
+                            ${renderTaxSelect(index, item)}
                             </td>
                             <td class="p-1 text-center text-gray-400">
                                 <span class="editable text-[9px]" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)" placeholder="-">${item.regimen || '-'}</span>
@@ -1678,6 +1741,7 @@
                             <td class="align-middle text-center font-bold text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
                             <td class="align-middle font-black text-gray-800 text-[11px] uppercase py-1">
                                 <span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${cleanConcept(item.concepto)}</span>
+                                ${renderTaxSelect(index, item)}
                             </td>
                             <td class="align-middle text-center text-gray-400">
                                 <span class="editable text-[9px]" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)" placeholder="-">${item.regimen || '-'}</span>
