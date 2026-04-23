@@ -96,6 +96,61 @@
     return s;
   }
 
+  // ── Normalización a formato input (YYYY-MM-DD) ───────
+  function toInputDate(val) {
+    if (!val) return "";
+    var str = String(val).trim();
+
+    // Caso 1: Excel Serial (ej: 46129)
+    var num = parseFloat(str);
+    if (!isNaN(num) && num > 40000 && num < 60000) {
+      try {
+        var date = new Date(Math.round((num - 25569) * 86400 * 1000));
+        if (!isNaN(date.getTime())) return date.toISOString().split("T")[0];
+      } catch (e) { }
+    }
+
+    // Caso 2: DD/MM/YYYY -> YYYY-MM-DD
+    if (str.indexOf("/") !== -1) {
+      var parts = str.split("/");
+      if (parts.length === 3) {
+        var d = parts[0], m = parts[1], yRaw = parts[2];
+        var y = parseInt(yRaw);
+        if (y < 100) y += 2000;
+        return String(y) + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0");
+      }
+    }
+
+    // Caso 3: DD.MM.YYYY -> YYYY-MM-DD
+    if (str.indexOf(".") !== -1) {
+      var parts = str.split(".");
+      if (parts.length === 3) {
+        var d = parts[0], m = parts[1], yRaw = parts[2];
+        var y = parseInt(yRaw);
+        if (y < 100) y += 2000;
+        var yrStr = String(y);
+        if (yrStr.length === 4 || yrStr.length === 2) {
+          return yrStr + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0");
+        }
+        if (d.length === 4) return d + "-" + m.padStart(2, "0") + "-" + String(y).padStart(2, "0");
+      }
+    }
+
+    // Caso 4: YYYY-MM-DD o DD-MM-YYYY
+    if (str.indexOf("-") !== -1) {
+      var parts = str.split(/[-T ]/);
+      if (parts[0] && parts[0].length === 4) return parts.slice(0, 3).join("-"); // YYYY-MM-DD
+      if (parts[2] && (parts[2].length === 4 || parts[2].length === 2)) {
+        var d = parts[0], m = parts[1], yRaw = parts[2];
+        var y = parseInt(yRaw);
+        if (y < 100) y += 2000;
+        return String(y) + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0");
+      }
+    }
+
+    return str;
+  }
+
   // ── Formateo numérico español ──────────────────────────
   function formatNum(num, decimals = 2) {
     if (num === null || num === undefined) return "0,00";
@@ -200,6 +255,7 @@
     generateDates: generateDates,
     generateSeriesDates: generateSeriesDates,
     getStatusColor: getStatusColor,
+    toInputDate: toInputDate,
     COLORS: COLORS,
   };
 
