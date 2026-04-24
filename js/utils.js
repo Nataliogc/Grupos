@@ -67,7 +67,7 @@
     if (!h) return "N/A";
     var s = String(h).toLowerCase();
     if (s.includes("guadiana")) return "SERCOTEL GUADIANA";
-    if (s.includes("cumbria")) return "Cumbria";
+    if (s.includes("cumbria")) return "Cumbria Spa&Hotel";
     return h;
   }
 

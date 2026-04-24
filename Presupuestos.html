@@ -168,7 +168,7 @@
     // --- CONSTANTES ---
     const ROOM_TYPES = {
       "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE"],
-      "Cumbria Spa & Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
+      "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
     };
 
     const BOARD_TYPES = [
@@ -256,7 +256,7 @@
       newData.Hotel_Asignado = groupData.Hotel_Asignado || groupData.Hotel || "";
       if (!newData.Hotel_Asignado) {
         const lowerName = (newData["Nombre del Grupo"] || "").toLowerCase();
-        if (lowerName.includes("cumbria")) newData.Hotel_Asignado = "Sercotel Cumbria";
+        if (lowerName.includes("cumbria")) newData.Hotel_Asignado = "Cumbria Spa&Hotel";
         else if (lowerName.includes("guadiana")) newData.Hotel_Asignado = "Sercotel Guadiana";
       }
 
@@ -728,6 +728,17 @@
         } catch (error) { console.error(error); }
       };
 
+      const addQuickNote = async (uid, note) => {
+        if (!note.trim()) return;
+        try {
+          const now = new Date();
+          const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+          const budget = groups.find(g => g.uid === uid);
+          const newTracking = [{ id: Date.now(), date: formattedDate, text: note }, ...(Array.isArray(budget.tracking) ? budget.tracking : [])];
+          await db.collection("groups").doc(uid).update({ tracking: newTracking });
+        } catch (error) { console.error(error); }
+      };
+
       // --- VISTAS ---
       const renderDashboard = () => (
         <div className="space-y-6">
@@ -902,6 +913,20 @@
                             <div className="min-w-0">
                               <h4 className="text-sm font-black text-slate-800 uppercase leading-tight truncate group-hover:text-indigo-600 transition-colors">
                                 {g["Nombre del Grupo"]}
+                                <button 
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    const note = prompt("Añadir nota rápida de seguimiento:");
+                                    if(note) addQuickNote(g.uid, note);
+                                  }}
+                                  className="group relative inline-flex items-center align-middle"
+                                >
+                                  { (g.Com_Notas || (g.tracking && g.tracking.length > 0)) ? (
+                                    <i className="fas fa-comment-dots text-indigo-500 ml-2 text-xs" title={g.Com_Notas || "Ver seguimiento"}></i>
+                                  ) : (
+                                    <i className="far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all" title="Añadir nota"></i>
+                                  )}
+                                </button>
                               </h4>
                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 opacity-60">
                                 {hotelName} • ID: {g.Reserva}
@@ -995,6 +1020,11 @@
                         {/* Acciones */}
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={(e) => { e.stopPropagation(); updateStatus(g.uid, 'CONFIRMADO'); }}
+                              className="w-8 h-8 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all"
+                              title="Confirmar Grupo">
+                              <i className="fas fa-check text-xs"></i>
+                            </button>
                             <button onClick={() => { handleOpenDetail(normalizeGroupData(g)); }}
                               className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
                               title="Ver Ficha">
@@ -1054,7 +1084,7 @@
                   className="bg-indigo-50 text-indigo-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-indigo-100 focus:ring-indigo-300 transition-all cursor-pointer"
                 >
                   <option value="Sercotel Guadiana">Sercotel Guadiana</option>
-                  <option value="Sercotel Cumbria">Sercotel Cumbria</option>
+                  <option value="Cumbria Spa&Hotel">Cumbria Spa&Hotel</option>
                 </select>
               </div>
             </div>
@@ -1697,6 +1727,14 @@
                 </div>
               </div>
               <div className="flex items-center gap-3 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
+                { (g.Com_Estado_Interno || "").toUpperCase() !== "CONFIRMADO" && (
+                  <button 
+                    onClick={() => { updateStatus(g.uid, 'CONFIRMADO'); setSelectedGroup({...g, Com_Estado_Interno: 'CONFIRMADO'}); }}
+                    className="flex-1 md:flex-none px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+                  >
+                    <i className="fas fa-check-circle"></i> Confirmar Grupo
+                  </button>
+                )}
                 <button 
                   onClick={() => { setFormData(g); setCurrentView('create'); }}
                   className="flex-1 md:flex-none px-6 py-3 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
@@ -1742,24 +1780,68 @@
                   </div>
                 </div>
 
-                {/* NOTAS INTERNAS */}
-                <div className="bg-slate-900 rounded-3xl p-6 shadow-xl shadow-slate-200/50">
-                   <div className="flex items-center gap-3 mb-6">
-                     <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white/40">
-                       <i className="fas fa-sticky-note text-sm"></i>
-                     </div>
-                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Notas de Seguimiento</h3>
+                {/* SEGUIMIENTO & CHAT-STYLE NOTES */}
+                <div className="bg-slate-900 rounded-3xl p-6 shadow-xl shadow-slate-200/50 flex flex-col h-full max-h-[600px]">
+                   <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400">
+                          <i className="fas fa-history text-sm"></i>
+                        </div>
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Muro de Seguimiento</h3>
+                      </div>
+                      <span className="text-[8px] font-black text-slate-500 uppercase">{(g.tracking || []).length} Entradas</span>
                    </div>
                    
-                   <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                     {(g.tracking || []).map((t, i) => (
-                       <div key={t.id || i} className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all group">
-                         <div className="flex justify-between items-start mb-1">
-                           <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{t.date}</span>
+                   {/* Formulario Nueva Nota */}
+                   <form onSubmit={addTrackingNote} className="mb-6">
+                      <div className="relative group">
+                        <textarea
+                          value={newNote}
+                          onChange={(e) => setNewNote(e.target.value)}
+                          placeholder="Añadir nota de seguimiento..."
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pr-12 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all resize-none min-h-[80px] custom-scrollbar"
+                        />
+                        <button 
+                          type="submit"
+                          disabled={!newNote.trim()}
+                          className="absolute right-3 bottom-3 w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center hover:bg-indigo-500 transition-all disabled:opacity-30 disabled:hover:bg-indigo-600"
+                        >
+                          <i className="fas fa-paper-plane text-[10px]"></i>
+                        </button>
+                      </div>
+                   </form>
+
+                   <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                     {g.Com_Notas && (
+                       <div className="relative pl-6 border-l-2 border-amber-500/30 pb-4">
+                         <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                         <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+                           <div className="flex justify-between items-start mb-1">
+                             <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Nota Principal</span>
+                           </div>
+                           <p className="text-xs text-amber-200/80 leading-relaxed whitespace-pre-wrap italic">{g.Com_Notas}</p>
                          </div>
-                         <p className="text-xs text-slate-300 leading-relaxed">{t.text}</p>
                        </div>
-                     ))}
+                     )}
+
+                     {(g.tracking || []).length === 0 && !g.Com_Notas ? (
+                       <div className="py-10 text-center opacity-30">
+                         <i className="fas fa-comments text-2xl mb-2 text-slate-400"></i>
+                         <p className="text-[9px] font-black text-slate-500 uppercase">Sin historial aún</p>
+                       </div>
+                     ) : (
+                       (g.tracking || []).map((t, i) => (
+                         <div key={t.id || i} className="relative pl-6 border-l-2 border-white/5 pb-4 last:pb-0">
+                           <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+                           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all group">
+                             <div className="flex justify-between items-start mb-1">
+                               <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">{t.date}</span>
+                             </div>
+                             <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{t.text}</p>
+                           </div>
+                         </div>
+                       ))
+                     )}
                    </div>
                 </div>
               </div>
