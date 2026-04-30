@@ -143,6 +143,16 @@
         box-shadow: none !important;
         border: none !important;
       }
+
+      .print-break-before {
+        break-before: page !important;
+        display: block !important;
+      }
+
+      /* Avoid breaking inside table rows or cards */
+      tr, .card, blockquote {
+        break-inside: avoid;
+      }
     }
 
     /* Hide number input spin buttons */
@@ -1985,7 +1995,7 @@
                     <div className="space-y-8 print:space-y-4">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
                       {dates.length > 0 ? (
-                        <div className="overflow-hidden rounded-2xl border border-slate-100 text-xs print:text-[10px]">
+                        <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]">
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
@@ -2116,7 +2126,7 @@
                           </div>
                         </div>
 
-                        <div className="space-y-16 print:space-y-6">
+                        <div className="space-y-16 print:space-y-6 print-break-before">
                           {docMode === 'presupuesto' && (
                             <div className="relative group">
                               <div className="flex items-center justify-between mb-5">
