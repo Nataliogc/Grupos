@@ -21,7 +21,7 @@
                 padding: 12mm 15mm !important; 
                 display: flex !important; 
                 flex-direction: column !important;
-                overflow: hidden !important; /* Si cabe, cabe exacto. Si no, crece. */
+                overflow: visible !important; 
             }
             .mt-auto { margin-top: auto !important; }
             
@@ -149,7 +149,7 @@
 
         .static-legal-sidebar {
             position: absolute;
-            left: 5mm;
+            left: 2mm;
             top: 0;
             bottom: 0;
             display: flex;
@@ -1683,38 +1683,40 @@
                     polDiv.innerHTML = `
                         <!-- Sidebar Legal Vertical (Página 2) -->
                         <div class="static-legal-sidebar">
-                            <div id="global-vertical-legal-2" class="vertical-legal-text italic opacity-40"></div>
+                            <div id="global-vertical-legal-2" class="vertical-legal-text italic opacity-20"></div>
                         </div>
                         
-                        <div class="flex items-center gap-4 mb-12">
-                            <div class="flex-1 h-px bg-slate-100"></div>
-                            <h4 class="text-[12px] font-black uppercase tracking-[0.5em] text-slate-800">Cláusulas de Confirmación</h4>
-                            <div class="flex-1 h-px bg-slate-100"></div>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-x-16 gap-y-12">
-                            ${allC.map((c, i) => `
-                                <div class="space-y-3">
-                                    <div class="flex items-baseline gap-2 border-b border-slate-50 pb-1">
-                                        <span class="text-[10px] font-black text-slate-300">${String(i + 1).padStart(2, '0')}</span>
-                                        <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">${c.title}</p>
+                        <div class="pl-8 pt-6">
+                            <div class="flex items-center gap-4 mb-10">
+                                <div class="flex-1 h-px bg-slate-100"></div>
+                                <h4 class="text-[14px] font-black uppercase tracking-[0.5em] text-slate-800">Cláusulas de Confirmación</h4>
+                                <div class="flex-1 h-px bg-slate-100"></div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-x-12 gap-y-10">
+                                ${allC.map((c, i) => `
+                                    <div class="space-y-3">
+                                        <div class="flex items-baseline gap-2 border-b-2 border-slate-100 pb-1.5">
+                                            <span class="text-[12px] font-black text-slate-200">${String(i + 1).padStart(2, '0')}</span>
+                                            <p class="text-[10px] font-black uppercase text-slate-500 tracking-widest">${c.title}</p>
+                                        </div>
+                                        <p class="text-[9.5px] text-slate-600 leading-relaxed font-medium text-justify">
+                                            ${(c.body || '').replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + '€')}
+                                        </p>
                                     </div>
-                                    <p class="text-[10.5px] text-slate-600 leading-relaxed font-medium text-justify">
-                                        ${(c.body || '').replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + '€')}
-                                    </p>
-                                </div>
-                            `).join('')}
+                                `).join('')}
+                            </div>
                         </div>
                         
                         <!-- Pie de página en página 2 -->
-                        <div class="mt-auto pt-10 border-t border-slate-50 flex justify-between items-end opacity-60">
+                        <div class="mt-auto pt-8 border-t-2 border-slate-50 flex justify-between items-end opacity-60 pb-2">
                             <div class="flex flex-col gap-1">
-                                <div class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Documentación Oficial</div>
+                                <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Documentación Oficial</div>
                                 <div class="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Hoja 2 de 2</div>
                             </div>
                             <div class="text-right">
-                                <div class="text-[8px] font-black text-slate-800 uppercase tracking-widest">${h.name} ${h.subname}</div>
-                                <div class="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Confirmación de Reserva</div>
+                                <div class="text-[9px] font-black text-slate-800 uppercase tracking-widest">${h.name} ${h.subname}</div>
+                                <div class="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Términos y Condiciones de Reserva</div>
                             </div>
                         </div>
                     `;
