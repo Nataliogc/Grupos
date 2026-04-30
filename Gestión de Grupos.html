@@ -3326,6 +3326,10 @@
 
           ...baseRecord,
 
+          dailyConfig: group.dailyConfig || {},
+
+          extraCharges: group.extraCharges || [],
+
           PaymentPlan_JSON: recWithPlan.PaymentPlan_JSON || "[]",
 
           "Nombre del Grupo": group.name,

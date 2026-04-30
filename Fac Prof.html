@@ -786,14 +786,20 @@
         <!-- FIN BLOQUE PAGO QR -->
 
 
-        <!-- Políticas de Reserva (Solo en Confirmación) -->
-        <div id="tpl-policies" class="hidden"></div>
-
-        <!-- Pie de Página Premium: Configuración 100% Dinámica (Casi vacío ahora que la info está arriba) -->
-        <div id="common-footer" class="mt-8 border-t border-slate-50 font-pro">
+        <!-- Pie de Página Premium (Página 1) -->
+        <div id="common-footer" class="mt-auto border-t border-slate-50 font-pro">
             <div class="mt-4 flex flex-col items-center gap-2">
                 <p class="hotel-legal-footer hidden"></p>
             </div>
+        </div>
+    </div>
+    <!-- FIN CAPTURE-AREA (PÁGINA 1) -->
+
+    <!-- Políticas de Reserva (PÁGINA 2) -->
+    <div id="tpl-policies" class="page-container shadow-2xl border border-gray-300 mt-8 hidden" style="break-before: page;">
+        <!-- Sidebar Legal Vertical (Página 2) -->
+        <div class="static-legal-sidebar">
+            <div id="global-vertical-legal-2" class="vertical-legal-text italic opacity-40"></div>
         </div>
     </div>
     </div>
@@ -1360,8 +1366,59 @@
                     }
                 }
 
-                if (group.ProformaItems && group.ProformaItems.length > 0) items = group.ProformaItems;
-                else if (toNum(group["Importe(*)"]) > 0) {
+                if (group.ProformaItems && group.ProformaItems.length > 0) {
+                    items = group.ProformaItems;
+                } else if (group.dailyConfig && Object.keys(group.dailyConfig).length > 0) {
+                    // Importar desde el presupuesto detallado (dailyConfig)
+                    const imported = [];
+                    const dConf = group.dailyConfig;
+                    const eCharges = group.extraCharges || [];
+                    const dates = Object.keys(dConf).sort();
+                    
+                    dates.forEach(d => {
+                        const conf = dConf[d];
+                        const board = conf.board || group.Regimen || 'AD';
+                        const prices = conf.prices || {};
+                        const counts = conf.counts || group.roomCounts || {};
+                        
+                        // Iterar sobre todos los tipos de habitación definidos en los precios o cupos
+                        const allTypes = new Set([...Object.keys(prices), ...Object.keys(counts)]);
+                        
+                        allTypes.forEach(typeKey => {
+                            const count = parseInt(counts[typeKey] !== undefined ? counts[typeKey] : (group.roomCounts?.[typeKey] || 0));
+                            const price = parseFloat(prices[typeKey] || 0);
+                            
+                            if (count > 0 && price > 0) {
+                                imported.push({
+                                    fecha: d,
+                                    hab: "1",
+                                    cant: count.toString(),
+                                    concepto: typeKey,
+                                    precio: price,
+                                    iva: 10,
+                                    regimen: board,
+                                    dias: "1"
+                                });
+                            }
+                        });
+                    });
+
+                    // Importar cargos extras
+                    eCharges.forEach(ext => {
+                        imported.push({
+                            fecha: ext.date || group.Entrada || today,
+                            hab: "1",
+                            cant: (ext.units || ext.pax || 1).toString(),
+                            concepto: ext.description || ext.concept || 'Cargo Extra',
+                            precio: parseFloat(ext.unitPrice || ext.price || 0),
+                            iva: 10,
+                            regimen: '-',
+                            dias: "1"
+                        });
+                    });
+
+                    if (imported.length > 0) items = imported;
+                } else if (toNum(group["Importe(*)"]) > 0) {
                     items = [{
                         fecha: group["Entrada"] || today,
                         hab: '', cant: group["Pax."] || '1',
@@ -1623,7 +1680,50 @@
                 const allC = [...(window.globalConfig?.common?.confirmationClauses || []), ...(window.globalConfig?.[currentHotel]?.confirmationClauses || [])];
                 if (allC.length > 0) {
                     const totalNeto = total - totalComision;
-                    polDiv.innerHTML = `<div class="mt-8 border-t border-slate-100 pt-6"><div class="flex items-center gap-2 mb-4"><div class="w-1 h-4 bg-slate-900 rounded-full"></div><h4 class="text-[10px] font-black uppercase tracking-[0.2em]">Cláusulas de Confirmación</h4></div><div class="grid grid-cols-2 gap-x-8 gap-y-4">${allC.map((c, i) => `<div class="space-y-1"><p class="text-[9px] font-black uppercase text-slate-500">${i + 1}. ${c.title}</p><p class="text-[8.5px] text-slate-500 leading-relaxed">${(c.body || '').replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + '€')}</p></div>`).join('')}</div></div>`;
+                    polDiv.innerHTML = `
+                        <!-- Sidebar Legal Vertical (Página 2) -->
+                        <div class="static-legal-sidebar">
+                            <div id="global-vertical-legal-2" class="vertical-legal-text italic opacity-40"></div>
+                        </div>
+                        
+                        <div class="flex items-center gap-4 mb-12">
+                            <div class="flex-1 h-px bg-slate-100"></div>
+                            <h4 class="text-[12px] font-black uppercase tracking-[0.5em] text-slate-800">Cláusulas de Confirmación</h4>
+                            <div class="flex-1 h-px bg-slate-100"></div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-x-16 gap-y-12">
+                            ${allC.map((c, i) => `
+                                <div class="space-y-3">
+                                    <div class="flex items-baseline gap-2 border-b border-slate-50 pb-1">
+                                        <span class="text-[10px] font-black text-slate-300">${String(i + 1).padStart(2, '0')}</span>
+                                        <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest">${c.title}</p>
+                                    </div>
+                                    <p class="text-[10.5px] text-slate-600 leading-relaxed font-medium text-justify">
+                                        ${(c.body || '').replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + '€')}
+                                    </p>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <!-- Pie de página en página 2 -->
+                        <div class="mt-auto pt-10 border-t border-slate-50 flex justify-between items-end opacity-60">
+                            <div class="flex flex-col gap-1">
+                                <div class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Documentación Oficial</div>
+                                <div class="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Hoja 2 de 2</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-[8px] font-black text-slate-800 uppercase tracking-widest">${h.name} ${h.subname}</div>
+                                <div class="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Confirmación de Reserva</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Sincronizar sidebar de página 2
+                    const side1 = document.getElementById('global-vertical-legal');
+                    const side2 = document.getElementById('global-vertical-legal-2');
+                    if (side1 && side2) side2.innerText = side1.innerText;
+                    
                     polDiv.classList.remove('hidden');
                 } else polDiv.classList.add('hidden');
             } else if (polDiv) polDiv.classList.add('hidden');

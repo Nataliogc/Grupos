@@ -1753,13 +1753,34 @@
                     {hotelName} {g.Reserva ? `• ${g.Reserva}` : ''}
                   </label>
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{g["Nombre del Grupo"]}</h2>
-                  <p className="text-xs text-slate-400 mt-2 flex items-center gap-3">
-                    <span className="flex items-center gap-1.5"><i className="far fa-calendar text-slate-300"></i> {formatDate(g.Entrada)} a {formatDate(g.Salida)}</span>
-                    <span className="text-slate-200">|</span>
-                    <span className="flex items-center gap-1.5"><i className="fas fa-users text-slate-300"></i> {totalPax} pax</span>
-                    <span className="text-slate-200">|</span>
-                    <span className="text-indigo-600 font-bold">{formatNum(calculatedTotal)} €</span>
-                  </p>
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    <p className="text-xs text-slate-400 flex flex-wrap items-center gap-3">
+                      <span className="flex items-center gap-1.5"><i className="far fa-calendar text-slate-300"></i> {formatDate(g.Entrada)} a {formatDate(g.Salida)}</span>
+                      <span className="text-slate-200">|</span>
+                      <span className="flex items-center gap-1.5"><i className="fas fa-users text-slate-300"></i> {totalPax} pax</span>
+                      <span className="text-slate-200">|</span>
+                      <span className="text-indigo-600 font-bold">{formatNum(calculatedTotal)} €</span>
+                    </p>
+                    {(g.Com_Email_Contacto || g.Com_Telefono_Contacto || g.Com_Nombre_Contacto) && (
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight flex flex-wrap items-center gap-x-4 gap-y-1">
+                        {g.Com_Nombre_Contacto && (
+                          <span className="flex items-center gap-1.5 text-slate-500">
+                            <i className="far fa-user text-slate-300"></i> {g.Com_Nombre_Contacto}
+                          </span>
+                        )}
+                        {g.Com_Email_Contacto && (
+                          <a href={`mailto:${g.Com_Email_Contacto}`} className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+                            <i className="far fa-envelope text-slate-300"></i> {g.Com_Email_Contacto}
+                          </a>
+                        )}
+                        {g.Com_Telefono_Contacto && (
+                          <a href={`tel:${g.Com_Telefono_Contacto}`} className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+                            <i className="fas fa-phone-alt text-slate-300 text-[8px]"></i> {g.Com_Telefono_Contacto}
+                          </a>
+                        )}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
@@ -1931,6 +1952,35 @@
                         <p className="text-xs print:text-[10px] font-bold text-slate-800">#{g.Reserva}</p>
                       </div>
                     </div>
+
+                    {(g.Com_Nombre_Contacto || g.Com_Email_Contacto || g.Com_Telefono_Contacto) && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4">
+                        {g.Com_Nombre_Contacto && (
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Contacto</span>
+                            <p className="text-xs print:text-[10px] font-bold text-slate-800 uppercase">{g.Com_Nombre_Contacto}</p>
+                          </div>
+                        )}
+                        {g.Com_Email_Contacto && (
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Email</span>
+                            <p className="text-xs print:text-[10px] font-bold text-slate-800">{g.Com_Email_Contacto}</p>
+                          </div>
+                        )}
+                        {g.Com_Telefono_Contacto && (
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Teléfono</span>
+                            <p className="text-xs print:text-[10px] font-bold text-slate-800">{g.Com_Telefono_Contacto}</p>
+                          </div>
+                        )}
+                        {g["Empresa/Agencia"] && g["Empresa/Agencia"] !== "Venta Directa" && (
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Empresa / Agencia</span>
+                            <p className="text-xs print:text-[10px] font-bold text-slate-800 uppercase">{g["Empresa/Agencia"]}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="space-y-8 print:space-y-4">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
