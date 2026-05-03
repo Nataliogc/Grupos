@@ -323,6 +323,11 @@
         },
         { id: "invoices", icon: "file-text", label: "Facturas Proforma" },
         { id: "analytics", icon: "bar-chart-3", label: "Análisis IA" },
+        {
+          id: "menus",
+          icon: "utensils",
+          label: "Administración Menús",
+        },
         { id: "settings", icon: "settings", label: "Configuración" },
       ];
 
@@ -368,7 +373,10 @@
                     window.location.href = "AltaEmail.html";
                   else if (item.id === "invoices") {
                     window.location.href = "Proformas.html";
-                  } else if (item.id === "settings")
+                  } else if (item.id === "menus")
+                    window.location.href =
+                      "https://nataliogc.github.io/menus-eventos/admin.html";
+                  else if (item.id === "settings")
                     window.location.href = "Configuracion.html";
                   else setActiveTab(item.id);
                 }}
