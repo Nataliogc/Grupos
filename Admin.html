@@ -326,7 +326,17 @@
         {
           id: "menus",
           icon: "utensils",
-          label: "Administración Menús",
+          label: "Menús Eventos",
+        },
+        {
+          id: "turisticos",
+          icon: "map",
+          label: "Menús Turísticos",
+        },
+        {
+          id: "cocteles",
+          icon: "martini",
+          label: "Menús Cócteles",
         },
         { id: "settings", icon: "settings", label: "Configuración" },
       ];
@@ -374,8 +384,20 @@
                   else if (item.id === "invoices") {
                     window.location.href = "Proformas.html";
                   } else if (item.id === "menus")
-                    window.location.href =
-                      "https://nataliogc.github.io/menus-eventos/admin.html";
+                    window.open(
+                      "https://nataliogc.github.io/menus-eventos/admin.html",
+                      "_blank"
+                    );
+                  else if (item.id === "turisticos")
+                    window.open(
+                      "https://nataliogc.github.io/Menus-Turisticos/",
+                      "_blank"
+                    );
+                  else if (item.id === "cocteles")
+                    window.open(
+                      "https://nataliogc.github.io/menus-cocteles/",
+                      "_blank"
+                    );
                   else if (item.id === "settings")
                     window.location.href = "Configuracion.html";
                   else setActiveTab(item.id);

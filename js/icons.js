@@ -122,6 +122,8 @@
         IconUser: "user",
         IconSettings: "settings",
         IconUtensils: "utensils",
+        IconMap: "map",
+        IconMartini: "martini",
         IconCircle: "circle",
         IconCreditCard: "credit-card",
         IconFileInvoice: "file-text",
