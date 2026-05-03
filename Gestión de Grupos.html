@@ -10663,6 +10663,78 @@
 
                                     </button>
 
+                                    {/* Botón Ver Ficha */}
+
+                                    <button
+
+                                      onClick={() => {
+
+                                        const reservaID = normalizeId(row["Reserva"]);
+
+                                        // Buscar en groupedData (vista actual)
+
+                                        const fichaGroup = (groupedData || []).find(g => g.id === reservaID);
+
+                                        if (fichaGroup) {
+
+                                          openFicha(fichaGroup);
+
+                                        } else {
+
+                                          // Fallback: buscar en data raw y construir objeto compatible
+
+                                          const rawRow = (data || []).find(r => normalizeId(r["Reserva"]) === reservaID);
+
+                                          if (rawRow) {
+
+                                            openFicha({
+
+                                              id: reservaID,
+
+                                              name: rawRow["Nombre del Grupo"] || rawRow["Empresa/Agencia"] || reservaID,
+
+                                              agency: rawRow["Empresa/Agencia"] || "",
+
+                                              arrival: rawRow["Entrada"],
+
+                                              departure: rawRow["Salida"],
+
+                                              status: rawRow["Estado"] || "",
+
+                                              hotel: rawRow["Hotel_Asignado"] || rawRow["Hotel"] || "",
+
+                                              totalPax: parseNum(rawRow["Pax."] || "0"),
+
+                                              totalRevenue: parseNum(rawRow["Importe(*)"] || "0"),
+
+                                              totalPaid: parseNum(rawRow["Com_Pagado"] || "0"),
+
+                                              totalRooms: 0,
+
+                                              totalCommission: 0,
+
+                                              totalNights: parseNum(rawRow["Noches"] || "0"),
+
+                                              records: [rawRow],
+
+                                            });
+
+                                          }
+
+                                        }
+
+                                      }}
+
+                                      className="px-2 py-1.5 bg-slate-100 text-slate-500 rounded hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+
+                                      title="Ver Ficha del Grupo"
+
+                                    >
+
+                                      <IconEye size={12} />
+
+                                    </button>
+
                                     <button
 
                                       onClick={() => {

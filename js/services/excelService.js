@@ -20,12 +20,16 @@
         if (!isNaN(date.getTime())) return date.toISOString().split("T")[0];
       } catch (e) {}
     }
+    // ISO format YYYY-MM-DD or YYYY/MM/DD → normalize separator
     if (/^\d{4}[-\/]\d{2}[-\/]\d{2}/.test(s)) return s.substring(0, 10).replace(/\//g, "-");
     let d, m, y;
     const parts = s.split(/[-\/.]/);
     if (parts.length === 3) {
-      if (parts[0].length <= 2) [d, m, y] = parts;
-      else if (parts[0].length === 4) [y, m, d] = parts;
+      // DD/MM/YYYY (output of normalizeDateForSanitize) — first part <= 2 chars
+      if (parts[0].length <= 2 && parts[2].length >= 4) { [d, m, y] = parts; }
+      // DD/MM/YY
+      else if (parts[0].length <= 2) { [d, m, y] = parts; }
+      else if (parts[0].length === 4) { [y, m, d] = parts; }
     }
     if (d && m && y) {
       let year = parseInt(y);
@@ -333,15 +337,32 @@
                     const numNew = toNum(rawNew);
                     if (isNaN(numOld) && isNaN(numNew)) return;
                     if (isNaN(numOld) !== isNaN(numNew)) isDifferent = Math.abs(isNaN(numOld) ? numNew : numOld) > 0.01;
-                    else isDifferent = Math.abs(numOld - numNew) >= 0.5;
+                    // Round both to 2 decimals before comparing to avoid floating point drift
+                    else isDifferent = Math.abs(Math.round(numOld * 100) - Math.round(numNew * 100)) >= 50;
                 } else if (DATE_KEYS.has(key)) {
+                    // Normalise BOTH sides to ISO YYYY-MM-DD before comparing
                     const dateOld = toIsoDate(rawOld);
                     const dateNew = toIsoDate(rawNew);
                     if (dateOld === "" && dateNew === "") return;
+                    // If either side fails to parse, skip (avoid false positives)
+                    if (dateOld === "" || dateNew === "") return;
                     isDifferent = dateOld !== dateNew;
                 } else {
                     const cleanStr = (v) => String(v).replace(/\.0$/, "").trim().toUpperCase().replace(/\s+/g, " ");
-                    isDifferent = (isEmptyOld ? "" : cleanStr(rawOld)) !== (isEmptyNew ? "" : cleanStr(rawNew));
+                    // Normalise segment aliases so "GRUPOS"≡"GRUPO", "GRTANTEO"≡"GRUPO TANTEO", etc.
+                    const normalizeSegment = (s) => {
+                        if (s === "GRUPOS" || s === "GRUPO") return "GRUPO";
+                        if (s === "GRTANTEO" || s === "GRUPO TANTEO" || s === "TANTEO") return "GRUPO TANTEO";
+                        if (s === "DIRECTO" || s === "DIRECTO ONLINE" || s === "DIRECTO OFFLINE") return s; // keep as-is
+                        return s;
+                    };
+                    let cleanOld = isEmptyOld ? "" : cleanStr(rawOld);
+                    let cleanNew = isEmptyNew ? "" : cleanStr(rawNew);
+                    if (key === "Segment.") {
+                        cleanOld = normalizeSegment(cleanOld);
+                        cleanNew = normalizeSegment(cleanNew);
+                    }
+                    isDifferent = cleanOld !== cleanNew;
                 }
 
                 if (isDifferent) {
