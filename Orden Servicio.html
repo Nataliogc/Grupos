@@ -401,27 +401,6 @@
                     return; 
                 }
             }
-<<<<<<< HEAD
-            
-            // ═══════════════════════════════════════════════
-            // CREATE NEW FROM GROUP DATA + RoomingList_JSON
-            // (Used if no cache found OR if cache was empty)
-            // ═══════════════════════════════════════════════
-                
-    
-    const gName = rec['Nombre del Grupo'] || group.name || '---';
-    const gAgency = rec['Empresa/Agencia'] || group.agency || 'Directo';
-    const gPax = rec['Pax.'] || rec['Pax'] || group.totalPax || '---';
-    const gCom = rec['Com_Comercial'] || group.commercial || 'S/A';
-
-    document.getElementById('ref-val').innerText = currentReservaId;
-    document.getElementById('grupo-val').innerText = gName;
-    document.getElementById('agencia-val').innerText = gAgency;
-    document.getElementById('pax-val').innerText = gPax;
-    document.getElementById('comercial-val').innerText = gCom;
-
-                // ── Parse RoomingList_JSON for real per-day regime data ──
-=======
             // CREATE NEW FROM GROUP DATA + RoomingList_JSON
             // (Used if no cache found OR if cache was empty)
             const gName = rec['Nombre del Grupo'] || group.name || '---';
@@ -434,7 +413,6 @@
             document.getElementById('pax-val').innerText = gPax;
             document.getElementById('comercial-val').innerText = gCom;
                 // Parse RoomingList_JSON for real per-day regime data
->>>>>>> eb2d6c4536967ac1de91d6ffccf3c2b6dda8eb45
                 let roomingList = [];
                 try {
                     roomingList = JSON.parse(rec['RoomingList_JSON'] || '[]');
@@ -532,12 +510,7 @@
                     ? [...allRegimes][0] 
                     : (allRegimes.size > 1 ? [...allRegimes].join(' / ') : (topRegime || '---'));
                 document.getElementById('regimen-val').innerText = globalRegime;
-<<<<<<< HEAD
-
-                        // ── Generate service rows from dayMap ──
-=======
                         // Ã¢ââ¬Ã¢ââ¬ Generate service rows from dayMap Ã¢ââ¬Ã¢ââ¬
->>>>>>> eb2d6c4536967ac1de91d6ffccf3c2b6dda8eb45
                         if (dayMap.size > 0) {
                             const servicePaxMap = new Map(); // key = dateKey, value = Map<ServiceName, Pax>
                             const sortedNights = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
@@ -605,11 +578,7 @@
                                 });
                             });
                         } else {
-<<<<<<< HEAD
-                    // ── Fallback: no RoomingList, use basic record dates ──
-=======
                     // Ã¢ââ¬Ã¢ââ¬ Fallback: no RoomingList, use basic record dates Ã¢ââ¬Ã¢ââ¬
->>>>>>> eb2d6c4536967ac1de91d6ffccf3c2b6dda8eb45
                     const inDate = rec['Entrada'] || group.arrival || rec['Fecha Entrada'];
                     const outDate = rec['Salida'] || group.departure || rec['Fecha Salida'];
                     const regFallback = topRegime || rec['Régimen'] || 'MP';
