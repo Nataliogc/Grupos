@@ -11342,17 +11342,25 @@
 
                                                              {/* PENDIENTE o PAGADO */}
 
-                               {(() => {
+                                {(() => {
+                                  const overpaidAmount = Math.max(0, totalPaid - netTotal);
 
-                                 const totalComision = roomList.reduce((acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0), 0);
+                                  if (overpaidAmount > 0.01 && netTotal > 0) {
+                                    return (
+                                      <div className="text-center">
+                                        <p className="text-[8px] font-black uppercase text-amber-300 tracking-widest mb-1">Pagado de más</p>
+                                        <p className="text-sm font-black text-amber-300 tabular-nums">
+                                          {overpaidAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                                        </p>
+                                      </div>
+                                    );
+                                  }
 
-                                 const clientTarget = grandTotal - totalComision;
+                                  if (totalPaid >= netTotal - 0.01 && netTotal > 0) {
 
-                                 if (totalPaid >= netTotal - 0.01 && netTotal > 0) {
+                                    return (
 
-                                   return (
-
-                                     <div className="text-center">
+                                      <div className="text-center">
 
                                        <span className="inline-block px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
 

@@ -2686,7 +2686,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-glass-martini-alt"
   }), " Men\xFAs C\xF3cteles"), /*#__PURE__*/React.createElement("a", {
-    href: "Gesti\xF3n de Grupos.html",
+    href: "Gestion-de-Grupos.html",
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-arrow-left"

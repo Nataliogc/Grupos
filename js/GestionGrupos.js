@@ -5437,11 +5437,19 @@ var App = function App() {
     }, "(", Math.round(totalPaid / netTotal * 100), "%)")), /*#__PURE__*/React.createElement("div", {
       className: "w-px h-8 bg-white/10"
     }), function () {
-      var totalComision = roomList.reduce(function (acc, i) {
-        var _i$comision5;
-        return acc + (parseFloat((_i$comision5 = i.comision) === null || _i$comision5 === void 0 ? void 0 : _i$comision5.total_comision) || 0);
-      }, 0);
-      var clientTarget = grandTotal - totalComision;
+      var overpaidAmount = Math.max(0, totalPaid - netTotal);
+      if (overpaidAmount > 0.01 && netTotal > 0) {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "text-center"
+        }, /*#__PURE__*/React.createElement("p", {
+          className: "text-[8px] font-black uppercase text-amber-300 tracking-widest mb-1"
+        }, "Pagado de m\xE1s"), /*#__PURE__*/React.createElement("p", {
+          className: "text-sm font-black text-amber-300 tabular-nums"
+        }, overpaidAmount.toLocaleString("es-ES", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }), "\u20AC"));
+      }
       if (totalPaid >= netTotal - 0.01 && netTotal > 0) {
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"

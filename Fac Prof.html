@@ -1101,6 +1101,8 @@
                     };
                 }).filter(row => row.key || row.value);
 
+                const editedReserva = (customFields["reserva-id"] || id || "").toString().trim();
+                const normalizedReservaId = editedReserva.replace(/\.0$/, "").replace(/[\/\\]/g, "-");
                 const payload = {
                     "ProformaItems": items,
                     "ProformaCustomFields": customFields,
@@ -1112,16 +1114,23 @@
                     "Reserva": customFields["reserva-id"] || id, // Guardar el número modificado
                     "hotel": currentHotel
                 };
+                payload["Reserva"] = editedReserva;
 
                 if (group.isIndependentProforma) {
                     payload.isIndependentProforma = true;
                 }
 
-                await db.collection("groups").doc(normId).set(payload, { merge: true });
+                const targetDocId = group.isIndependentProforma ? normalizedReservaId : normId;
+                await db.collection("groups").doc(targetDocId).set(payload, { merge: true });
+                if (group.isIndependentProforma && normId !== targetDocId) {
+                    await db.collection("groups").doc(normId).delete();
+                }
                 
                 // Actualizar localmente
                 group.ProformaItems = items;
                 group.ProformaCustomFields = customFields;
+                group.Reserva = editedReserva;
+                group.id = targetDocId;
                 localStorage.setItem('selectedGroup', JSON.stringify(group));
                 
                 if (!silent) {
@@ -1535,12 +1544,93 @@
         function removeItem(index) { if (confirm("¿Eliminar este concepto?")) { items.splice(index, 1); renderItems(); } }
         function updateItem(index, field, value) { if (items[index]) { items[index][field] = field === 'iva' ? parseInt(value) : value; renderItems(); } }
 
+        function isIndependentProforma() {
+            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const rawRef = String(groupData.Reserva || groupData.id || "").toLowerCase();
+            return !!groupData.isIndependentProforma || rawRef.includes('prof-');
+        }
+
+        function reconcileIndependentPaymentPlan() {
+            if (!isIndependentProforma()) return;
+            const netTotal = Math.max(0, getCurrentNetTotal());
+            let remaining = netTotal;
+            const today = new Date().toISOString().split('T')[0];
+
+            paymentPlan.forEach((p, idx) => {
+                const amount = Math.max(0, parseFloat(p.amount) || 0);
+                const base = remaining;
+                p.percent = base > 0 ? ((amount / base) * 100).toFixed(2) : 0;
+                p.amount = amount.toFixed(2);
+                if (!p.label || !String(p.label).trim()) p.label = `Pago ${idx + 1}`;
+                if (!p.date) p.date = today;
+                if (!p.status) p.status = "Pendiente";
+                remaining = Math.max(0, remaining - amount);
+            });
+
+            // Si queda pendiente, dejamos siempre una línea adicional para el restante.
+            if (remaining > 0.01) {
+                const last = paymentPlan[paymentPlan.length - 1];
+                const canReuseLast =
+                    last &&
+                    String(last.status || "").toLowerCase() !== "cobrado" &&
+                    ((parseFloat(last.amount) || 0) <= 0.01);
+
+                if (canReuseLast) {
+                    last.amount = remaining.toFixed(2);
+                    last.percent = 100;
+                    if (!last.label || !String(last.label).trim()) last.label = `Pago ${paymentPlan.length}`;
+                } else {
+                    paymentPlan.push({
+                        label: `Pago ${paymentPlan.length + 1}`,
+                        percent: 100,
+                        amount: remaining.toFixed(2),
+                        date: today,
+                        status: "Pendiente"
+                    });
+                }
+            }
+        }
+
         function addPayment() {
-            paymentPlan.push({ label: "Anticipo / Pago", percent: 0, amount: 0, date: new Date().toISOString().split('T')[0], status: "Cobrado" });
+            const today = new Date().toISOString().split('T')[0];
+            paymentPlan.push({ label: `Pago ${paymentPlan.length + 1}`, percent: 0, amount: 0, date: today, status: "Pendiente" });
+            reconcileIndependentPaymentPlan();
             renderItems();
         }
-        function updatePayment(index, field, value) { if (paymentPlan[index]) { paymentPlan[index][field] = value; renderItems(); } }
+        function updatePayment(index, field, value) {
+            if (!paymentPlan[index]) return;
+            paymentPlan[index][field] = value;
+
+            if (isIndependentProforma() && field === 'percent') {
+                const netTotal = getCurrentNetTotal();
+                const paidBefore = paymentPlan.slice(0, index).reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+                const baseRemaining = Math.max(0, netTotal - paidBefore);
+                const percent = parseFloat(value) || 0;
+                paymentPlan[index].percent = percent.toFixed(2);
+                paymentPlan[index].amount = baseRemaining > 0 ? ((baseRemaining * percent) / 100).toFixed(2) : 0;
+            }
+            if (isIndependentProforma()) reconcileIndependentPaymentPlan();
+            renderItems();
+        }
         function removePayment(index) { if (confirm("¿Eliminar este pago/anticipo?")) { paymentPlan.splice(index, 1); renderItems(); } }
+
+        function getCurrentNetTotal() {
+            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const gross = items.reduce((acc, item) => {
+                const p = parseFloat(item.precio) || 0;
+                const hab = parseFloat(item.hab) || 1;
+                const cant = parseFloat(item.cant) || 1;
+                const dias = parseFloat(item.dias) || 1;
+                return acc + (p * hab * cant * dias);
+            }, 0);
+            const commission = items.reduce((acc, item) => {
+                const sub = (parseFloat(item.precio) || 0) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
+                let com = (parseFloat(item.comision?.comision_unitaria) || 0) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
+                if (com <= 0 && item.comision?.porcentaje) com = sub * (parseFloat(item.comision.porcentaje) / 100);
+                return acc + com;
+            }, 0);
+            return (gross - commission) + parseFloat(groupData.Suplementos || 0) - parseFloat(groupData.Descuentos || 0);
+        }
 
         function renderTaxSelect(index, item) {
             const ivaVal = parseInt(item.iva) === 21 ? 21 : 10;
@@ -1680,8 +1770,10 @@
                 const totalNetoPagar = (total - totalComision) + parseFloat(groupData.Suplementos || 0) - parseFloat(groupData.Descuentos || 0);
                 const totalPaid = paymentPlan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
                 const totalPending = totalNetoPagar - totalPaid;
+                const rawRef = String(groupData.Reserva || groupData.id || "").toLowerCase();
+                const isIndependent = !!groupData.isIndependentProforma || rawRef.includes('prof-');
 
-                if (paymentPlan.length > 0) {
+                if (!isIndependent && paymentPlan.length > 0) {
                     const pendingRows = paymentPlan.filter(p => p.status !== "Cobrado");
                     const totalToDistribute = totalNetoPagar - totalPaid;
                     if (pendingRows.length > 0) {
@@ -1692,7 +1784,6 @@
                         });
                     }
                 }
-
                 footer.innerHTML = `
                     <div class="mt-4 font-pro" style="page-break-inside: avoid; break-inside: avoid;">
                         <div class="flex items-center gap-4 mb-4">
@@ -1721,6 +1812,10 @@
                                 <div class="grid grid-cols-2 gap-4 mb-4">
                                     ${paymentPlan.map((dep, idx) => {
                                         const isPaid = dep.status === "Cobrado";
+                                        const amountNum = parseFloat(dep.amount) || 0;
+                                        const paidBefore = paymentPlan.slice(0, idx).reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+                                        const paidAccum = paidBefore + amountNum;
+                                        const pendingAfter = Math.max(0, totalNetoPagar - paidAccum);
                                         return `<div class="rounded-xl relative group/dep" style="border: 1.5px solid ${isPaid ? '#a7f3d0' : '#e2e8f0'}; background-color: ${isPaid ? '#ecfdf5' : '#ffffff'};">
                                             <div class="w-full" style="height: 3px; background: ${isPaid ? 'linear-gradient(to right, #059669, #34d399)' : `linear-gradient(to right, ${currentHotel === 'cumbria' ? '#0f172a' : '#214732'}, ${currentHotel === 'cumbria' ? '#475569' : '#2d5a43'})`}; opacity: ${isPaid ? '1' : '0.4'};"></div>
                                             <button onclick="removePayment(${idx})" class="no-print absolute top-1 right-1 w-5 h-5 bg-rose-50 text-rose-500 rounded-md flex items-center justify-center opacity-0 group-hover/dep:opacity-100 transition-all z-20">✖</button>
@@ -1732,6 +1827,16 @@
                                                 <div class="flex justify-between items-end mt-1">
                                                     <div><p class="text-[8px] ${isPaid ? 'text-emerald-500' : 'text-rose-600'} font-black uppercase tracking-wider mb-0.5">${isPaid ? 'Cobrado' : 'Fecha Límite'}</p><input type="date" value="${toInputDate(dep.date)}" onchange="updatePayment(${idx}, 'date', this.value)" class="text-[10px] font-bold ${isPaid ? 'text-slate-600' : 'text-slate-800'} bg-transparent outline-none"></div>
                                                     <div class="text-right"><p class="tabular-nums flex items-baseline justify-end gap-0.5" style="font-size: 11px; font-weight: 900; ${isPaid ? 'color: #047857;' : 'color: #1e293b;'}"><span class="editable" contenteditable="true" onblur="updatePayment(${idx}, 'amount', toNum(this.innerText))">${formatNum(dep.amount)}</span><span style="font-size: 8px; opacity: 0.6;"> EUR</span></p></div>
+                                                </div>
+                                                <div class="mt-1.5 pt-1 border-t border-slate-100">
+                                                    <div class="flex justify-between text-[8px]">
+                                                        <span class="text-slate-400 uppercase">Acumulado</span>
+                                                        <span class="tabular-nums font-bold text-slate-600">${formatNum(paidAccum)} EUR</span>
+                                                    </div>
+                                                    <div class="flex justify-between text-[8px] mt-0.5">
+                                                        <span class="text-slate-400 uppercase">Pendiente tras esta línea</span>
+                                                        <span class="tabular-nums font-black ${pendingAfter > 0.01 ? 'text-amber-600' : 'text-emerald-600'}">${formatNum(pendingAfter)} EUR</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>`;

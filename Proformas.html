@@ -155,6 +155,7 @@
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 min-w-[250px]">Cliente / Organismo</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Referencia</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Hotel</th>
+                            <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Depósitos</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Total</th>
                             <th class="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Acciones</th>
                         </tr>
@@ -162,7 +163,7 @@
                     <tbody id="proforma-list" class="divide-y divide-slate-50">
                         <!-- Items will be loaded here -->
                         <tr>
-                            <td colspan="6" class="px-6 py-12 text-center text-slate-400 font-medium">
+                            <td colspan="7" class="px-6 py-12 text-center text-slate-400 font-medium">
                                 <div class="flex flex-col items-center gap-2">
                                     <div class="w-8 h-8 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin"></div>
                                     Cargando registro de proformas...
@@ -208,7 +209,7 @@
                     .where("isIndependentProforma", "==", true)
                     .get();
 
-                allProformas = snapshot.docs.map(doc => ({
+                const rawProformas = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 })).sort((a, b) => {
@@ -216,13 +217,19 @@
                     const timeB = b.updatedAt?.seconds || 0;
                     return timeB - timeA;
                 });
+                const dedupedByReserva = new Map();
+                rawProformas.forEach((p) => {
+                    const key = String(p.Reserva || p.id || "").trim().toLowerCase();
+                    if (!dedupedByReserva.has(key)) dedupedByReserva.set(key, p);
+                });
+                allProformas = Array.from(dedupedByReserva.values());
 
                 renderProformas();
             } catch (error) {
                 console.error("Error cargando proformas:", error);
                 document.getElementById('proforma-list').innerHTML = `
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-red-400 font-medium">
+                        <td colspan="7" class="px-6 py-12 text-center text-red-400 font-medium">
                             Error al cargar los datos. Por favor, reintente.
                         </td>
                     </tr>
@@ -251,7 +258,7 @@
             if (filtered.length === 0) {
                 list.innerHTML = `
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-slate-400 font-medium">
+                        <td colspan="7" class="px-6 py-12 text-center text-slate-400 font-medium">
                             No se encontraron proformas que coincidan con los criterios.
                         </td>
                     </tr>
@@ -265,6 +272,7 @@
                 const hotelColor = p.hotel === 'cumbria' ? 'bg-slate-100 text-slate-700' : 'bg-emerald-50 text-emerald-700';
                 const displayId = p.Reserva || p.id;
                 const total = p.total || 0;
+                const depositSummary = getDepositSummary(p, total);
 
                 return `
                     <tr class="hover:bg-slate-50 transition-colors group">
@@ -284,6 +292,16 @@
                             <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${hotelColor}">
                                 ${hotelName}
                             </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col">
+                                <span class="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-wider ${depositSummary.badgeClass}">
+                                    <span class="w-2 h-2 rounded-full ${depositSummary.dotClass}"></span>
+                                    ${depositSummary.stateLabel}
+                                </span>
+                                <span class="text-[11px] font-bold text-slate-700 mt-1">${depositSummary.mainLine}</span>
+                                ${depositSummary.subLine ? `<span class="text-[10px] text-slate-500">${depositSummary.subLine}</span>` : ''}
+                            </div>
                         </td>
                         <td class="px-6 py-4 text-right">
                             <span class="text-sm font-black text-slate-800 tabular-nums">${NexusUtils.formatCurrency(total)}</span>
@@ -308,6 +326,74 @@
             }).join('');
             
             lucide.createIcons();
+        }
+
+        function getDepositSummary(proforma, totalAmount) {
+            let plan = [];
+            try {
+                const parsed = JSON.parse(proforma.PaymentPlan_JSON || "[]");
+                if (Array.isArray(parsed)) plan = parsed;
+            } catch (e) {
+                plan = [];
+            }
+
+            const total = parseFloat(totalAmount || 0) || 0;
+            const paidSegments = plan.filter(p => String(p.status || '').toLowerCase() === 'cobrado');
+            const unpaidSegments = plan.filter(p => String(p.status || '').toLowerCase() !== 'cobrado');
+            const paidByPlan = paidSegments.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+            const paidFallback = parseFloat(proforma.Com_Pagado || 0) || 0;
+            const paid = Math.max(paidByPlan, paidFallback);
+            const pending = Math.max(0, total - paid);
+
+            let nextPendingDate = '';
+            let nextPending = null;
+            unpaidSegments.forEach(seg => {
+                if (!seg || !seg.date) return;
+                const d = new Date(seg.date);
+                if (isNaN(d.getTime())) return;
+                if (!nextPending || d < nextPending.dateObj) {
+                    nextPending = { dateObj: d, amount: parseFloat(seg.amount) || 0 };
+                }
+            });
+            if (nextPending) nextPendingDate = nextPending.dateObj.toLocaleDateString('es-ES');
+
+            if (!plan.length) {
+                return {
+                    stateLabel: 'Sin plan',
+                    mainLine: 'Sin calendario de depósitos',
+                    subLine: '',
+                    badgeClass: 'text-slate-500',
+                    dotClass: 'bg-slate-400'
+                };
+            }
+
+            if (pending <= 0.01) {
+                return {
+                    stateLabel: 'Pagado',
+                    mainLine: `Cobrado ${NexusUtils.formatCurrency(paid)}`,
+                    subLine: `${paidSegments.length}/${plan.length} hitos cobrados`,
+                    badgeClass: 'text-emerald-700',
+                    dotClass: 'bg-emerald-500'
+                };
+            }
+
+            if (paid > 0.01) {
+                return {
+                    stateLabel: 'Parcial',
+                    mainLine: `Cobrado ${NexusUtils.formatCurrency(paid)} · Pendiente ${NexusUtils.formatCurrency(pending)}`,
+                    subLine: nextPendingDate ? `Próximo vencimiento: ${nextPendingDate}` : `${unpaidSegments.length} hitos pendientes`,
+                    badgeClass: 'text-amber-700',
+                    dotClass: 'bg-amber-500'
+                };
+            }
+
+            return {
+                stateLabel: 'Pendiente',
+                mainLine: `Pendiente ${NexusUtils.formatCurrency(total)}`,
+                subLine: nextPendingDate ? `Primer vencimiento: ${nextPendingDate}` : `${unpaidSegments.length} hitos pendientes`,
+                badgeClass: 'text-rose-700',
+                dotClass: 'bg-rose-500'
+            };
         }
 
         function newProforma() {
