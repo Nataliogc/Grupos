@@ -5369,7 +5369,7 @@ var App = function App() {
       onKeyDown: function onKeyDown(e) {
         if (e.key === "Enter") e.target.blur();
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-1.5 h-fit"
     }, function (_selectedGroupFicha$r6, _selectedGroupFicha$r7, _selectedGroupFicha$r8) {
       // Prioridad: Com_Estado_Interno > Estado (el campo del Excel no debe sobrescribir el estado interno)
