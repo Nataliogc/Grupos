@@ -5351,7 +5351,7 @@ var App = function App() {
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
     }, /*#__PURE__*/React.createElement("input", {
-      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-1 focus:ring-white/20 rounded p-1 w-full max-w-2xl transition-all uppercase")
+      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-1 focus:ring-white/20 rounded p-1 w-full max-w-2xl transition-all uppercase"),
       value: selectedGroupFicha.name || "",
       onChange: function onChange(e) {
         var newName = e.target.value;
