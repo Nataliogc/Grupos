@@ -3141,6 +3141,7 @@ var App = function App() {
                 totalPax: newTotalPax,
                 totalRooms: newTotalRooms,
                 totalRevenue: newTotalRevenue,
+                name: updates["Nombre del Grupo"] || prev.name,
                 // Sincronizar hotel del grupo si se cambió
 
                 hotel: updates["Hotel_Asignado"] || updates["Hotel"] || prev.hotel
@@ -5349,9 +5350,26 @@ var App = function App() {
       size: 24
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
-    }, /*#__PURE__*/React.createElement("h3", {
-      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm")
-    }, selectedGroupFicha.name || "NOMBRE DEL GRUPO"), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("input", {
+      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-1 focus:ring-white/20 rounded p-1 w-full max-w-2xl transition-all uppercase")
+      value: selectedGroupFicha.name || "",
+      onChange: function onChange(e) {
+        var newName = e.target.value;
+        setSelectedGroupFicha(function (prev) {
+          return _objectSpread(_objectSpread({}, prev), {}, {
+            name: newName
+          });
+        });
+      },
+      onBlur: function onBlur(e) {
+        if (e.target.value !== selectedGroupFicha.name) {
+          updateGroupMetadata(selectedGroupFicha.id, "Nombre del Grupo", e.target.value);
+        }
+      },
+      onKeyDown: function onKeyDown(e) {
+        if (e.key === "Enter") e.target.blur();
+      }
+    }, /*#__PURE__*/React.createElement("div", {
       className: "flex gap-1.5 h-fit"
     }, function (_selectedGroupFicha$r6, _selectedGroupFicha$r7, _selectedGroupFicha$r8) {
       // Prioridad: Com_Estado_Interno > Estado (el campo del Excel no debe sobrescribir el estado interno)
@@ -6129,6 +6147,16 @@ var App = function App() {
             _d6.setDate(_d6.getDate() - days);
             newPlan[idx].date = _d6.toISOString().split("T")[0];
           }
+          if (field === "date") {
+            var _arrival = toInputDate(arrivalDate);
+            var manual = toInputDate(val);
+            if (_arrival && manual) {
+              var dArr = new Date(_arrival);
+              var dMan = new Date(manual);
+              var _diff2 = Math.round((dArr - dMan) / (1000 * 60 * 60 * 24));
+              newPlan[idx].releaseDays = _diff2;
+            }
+          }
           updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
         };
         var addPlanRow = function addPlanRow() {
@@ -6192,7 +6220,7 @@ var App = function App() {
         }))), /*#__PURE__*/React.createElement("div", {
           className: "space-y-1.5"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
+          className: "grid grid-cols-[25px_45px_1fr_45px_85px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
         }, /*#__PURE__*/React.createElement("div", null), /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, "%"), /*#__PURE__*/React.createElement("div", {
@@ -6221,7 +6249,7 @@ var App = function App() {
             var isLastUnpaid = idx === lastUnpaidIdx;
             return /*#__PURE__*/React.createElement("div", {
               key: dep.id,
-              className: "grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
+              className: "grid grid-cols-[25px_45px_1fr_45px_85px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
             }, /*#__PURE__*/React.createElement("div", {
               className: "flex justify-center"
             }, isWarning ? /*#__PURE__*/React.createElement(IconAlertTriangle, {
@@ -6247,10 +6275,10 @@ var App = function App() {
             }, parseFloat(dep.amount || 0).toLocaleString("es-ES", {
               minimumFractionDigits: 2
             }), "\u20AC")), /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[45px] h-6 border border-blue-100 mx-auto"
+              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[40px] h-6 border border-blue-100 mx-auto"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
-              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none",
+              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-6 text-center outline-none",
               defaultValue: dep.releaseDays,
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "releaseDays", e.target.value);
@@ -6259,7 +6287,14 @@ var App = function App() {
               className: "text-[8px] font-black text-blue-400 ml-0.5 transition-colors"
             }, "D")), /*#__PURE__*/React.createElement("div", {
               className: "text-[10px] font-bold tabular-nums text-center ".concat(isWarning ? "text-rose-600 font-black" : "text-slate-500")
-            }, formatDate(dep.date)), /*#__PURE__*/React.createElement("button", {
+            }, /*#__PURE__*/React.createElement("input", {
+              type: "date",
+              className: "bg-transparent border-none text-[10px] font-black text-slate-500 w-full text-center outline-none",
+              defaultValue: toInputDate(dep.date),
+              onBlur: function onBlur(e) {
+                return handlePlanChange(idx, "date", e.target.value);
+              }
+            })), /*#__PURE__*/React.createElement("button", {
               onClick: function onClick() {
                 return handlePlanChange(idx, "status", isPaid ? "Pendiente" : "Cobrado");
               },
