@@ -5350,9 +5350,7 @@ var App = function App() {
         });
       },
       onBlur: function onBlur(e) {
-        if (e.target.value !== selectedGroupFicha.name) {
-          updateGroupMetadata(selectedGroupFicha.id, "Nombre del Grupo", e.target.value);
-        }
+        updateGroupMetadata(selectedGroupFicha.id, "Nombre del Grupo", e.target.value);
       },
       onKeyDown: function onKeyDown(e) {
         if (e.key === "Enter") e.target.blur();
