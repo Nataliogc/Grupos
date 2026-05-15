@@ -3164,35 +3164,23 @@ var App = function App() {
             _context8.p = 3;
             batch = db.batch();
             currentGroupRows.forEach(function (row) {
-              var resID = String(row.Reserva).trim();
-              if (resID) {
-                var normRes = normalizeId(resID);
-                var docRef = db.collection("groups").doc(normRes);
+              var targetDocId = row._docId || normalizeId(row.Reserva);
+              if (targetDocId) {
+                var docRef = db.collection("groups").doc(targetDocId);
                 var payload = _objectSpread(_objectSpread({}, updates), {}, {
                   updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-
-                // No loggear tracking de forma recursiva o redundante si ya viene en updates
-
                 if (!updates.tracking && !updates.RoomingList_JSON && !updates.PaymentPlan_JSON && !updates.updatedAt) {
                   var changesText = Object.keys(updates).map(function (k) {
                     return "".concat(k, ": ").concat(row[k] || 'vacio', " -> ").concat(updates[k]);
                   }).join(" | ");
                   var now_str = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0') + ' ' + String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0');
-                  var logEntry = {
-                    id: Date.now(),
-                    date: now_str,
-                    text: "Modificaci\xF3n field: ".concat(changesText)
-                  };
+                  var logEntry = { id: Date.now(), date: now_str, text: "Modificaci\xF3n field: ".concat(changesText) };
                   var oldTrack = [];
-                  try {
-                    oldTrack = JSON.parse(row.tracking || "[]");
-                  } catch (e) {}
+                  try { oldTrack = JSON.parse(row.tracking || "[]"); } catch (e) {}
                   payload.tracking = JSON.stringify([].concat(_toConsumableArray(oldTrack), [logEntry]));
                 }
-                batch.set(docRef, payload, {
-                  merge: true
-                });
+                batch.set(docRef, payload, { merge: true });
               }
             });
             if (currentGroupRows.length === 0) {
