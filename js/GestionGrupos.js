@@ -786,12 +786,13 @@ var App = function App() {
     if (filterStatus !== "all") {
       filtered = filtered.filter(function (row) {
         var label = row._stateLabel;
-        if (filterStatus === "activos") return label !== "cancelado" && label !== "desestimado" && label !== "pasado";
+        if (filterStatus === "activos") return label !== "anulada" && label !== "cancelado" && label !== "desestimado" && label !== "pasado";
         if (filterStatus === "activos_y_desestimados") return label !== "pasado";
         if (filterStatus === "confirmada") return label === "confirmado";
         if (filterStatus === "tentativa") return label === "tentativa";
         if (filterStatus === "presupuesto") return label === "presupuesto";
-        if (filterStatus === "desestimada") return label === "cancelado" || label === "desestimado";
+        if (filterStatus === "desestimada") return label === "anulada" || label === "cancelado" || label === "desestimado";
+        if (filterStatus === "anulada") return label === "anulada" || label === "cancelado";
         if (filterStatus === "pasado") return label === "pasado";
         return true;
       });
@@ -3876,6 +3877,8 @@ var App = function App() {
   }, "Tentativas"), /*#__PURE__*/React.createElement("option", {
     value: "presupuesto"
   }, "Presupuestos"), /*#__PURE__*/React.createElement("option", {
+    value: "anulada"
+  }, "Anulados"), /*#__PURE__*/React.createElement("option", {
     value: "desestimada"
   }, "Desestimados"), /*#__PURE__*/React.createElement("option", {
     value: "pasado"
@@ -4111,7 +4114,7 @@ var App = function App() {
       style: {
         width: "40px"
       },
-      className: "shrink-0 h-10 flex flex-col items-center justify-center border-r text-[10px] ".concat(isFirstOfMonth ? "border-l-2 border-l-slate-300" : "border-slate-100", " ").concat(isToday ? "bg-blue-50 border-blue-200" : isWeekend ? "bg-slate-50" : "")
+      className: "shrink-0 h-8 flex flex-col items-center justify-center border-r text-[10px] ".concat(isFirstOfMonth ? "border-l-2 border-l-slate-300" : "border-slate-100", " ").concat(isToday ? "bg-blue-50 border-blue-200" : isWeekend ? "bg-slate-50" : "")
     }, /*#__PURE__*/React.createElement("span", {
       className: "font-bold leading-none ".concat(isToday ? "text-blue-600" : "text-slate-700")
     }, d.getDate()), /*#__PURE__*/React.createElement("span", {
@@ -4478,23 +4481,23 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement("table", {
     className: "w-full text-left border-collapse"
   }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-400 uppercase tracking-wider"
+    className: "bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-wider"
   }, /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black"
+    className: "px-2 py-1.5 font-black"
   }, "Hotel"), /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black"
+    className: "px-2 py-1.5 font-black"
   }, "Grupo / ID"), /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black"
+    className: "px-2 py-1.5 font-black"
   }, "Comercial"), /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black"
+    className: "px-2 py-1.5 font-black"
   }, "Entrada"), /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black"
+    className: "px-2 py-1.5 font-black"
   }, "Salida"), /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black text-center"
+    className: "px-2 py-1.5 font-black text-center"
   }, "Release"), /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black text-right"
+    className: "px-2 py-1.5 font-black text-right"
   }, "Importe"), /*#__PURE__*/React.createElement("th", {
-    className: "px-3 py-3 font-black text-center"
+    className: "px-2 py-1.5 font-black text-center"
   }, "Estado"))), /*#__PURE__*/React.createElement("tbody", {
     className: "divide-y divide-slate-100"
   }, groupedData.map(function (group, idx) {
@@ -4518,18 +4521,18 @@ var App = function App() {
         return openFicha(group);
       }
     }, /*#__PURE__*/React.createElement("td", {
-      className: "px-3 py-3"
+      className: "px-2 py-1.5"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "p-1.5 bg-white border border-slate-100 rounded-lg shadow-sm shrink-0"
+      className: "p-1 bg-white border border-slate-100 rounded-lg shadow-sm shrink-0"
     }, /*#__PURE__*/React.createElement(IconBuildingSkyscraper, {
-      size: 14,
+      size: 12,
       className: "text-slate-400"
     })), /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] font-black text-slate-500 uppercase tracking-tight leading-tight"
     }, displayHotel))), /*#__PURE__*/React.createElement("td", {
-      className: "px-3 py-2"
+      className: "px-2 py-1.5"
     }, /*#__PURE__*/React.createElement("div", {
       className: "max-w-[250px]"
     }, /*#__PURE__*/React.createElement("div", {
@@ -4590,7 +4593,7 @@ var App = function App() {
     }, "ID:", " ", ((_group$records$9 = group.records[0]) === null || _group$records$9 === void 0 ? void 0 : _group$records$9["Reserva"]) || "---"), ((_group$records$0 = group.records[0]) === null || _group$records$0 === void 0 ? void 0 : _group$records$0["Empresa/Agencia"]) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       className: "opacity-20"
     }, "\u2022"), /*#__PURE__*/React.createElement("span", null, group.records[0]["Empresa/Agencia"]))))), /*#__PURE__*/React.createElement("td", {
-      className: "px-3 py-2"
+      className: "px-2 py-1.5"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-1"
     }, /*#__PURE__*/React.createElement("div", {
@@ -4598,11 +4601,11 @@ var App = function App() {
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] font-bold text-slate-600 uppercase"
     }, ((_group$records$10 = group.records[0]) === null || _group$records$10 === void 0 ? void 0 : _group$records$10["Com_Comercial"]) || "S/A"))), /*#__PURE__*/React.createElement("td", {
-      className: "px-3 py-2"
+      className: "px-2 py-1.5"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-[11px] font-bold text-slate-600 tabular-nums"
     }, formatDate(group.arrival))), /*#__PURE__*/React.createElement("td", {
-      className: "px-3 py-2"
+      className: "px-2 py-1.5"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-[11px] font-bold text-slate-600 tabular-nums"
     }, formatDate(group.departure))), /*#__PURE__*/React.createElement("td", {
@@ -4685,7 +4688,7 @@ var App = function App() {
       }, /*#__PURE__*/React.createElement("div", {
         className: "flex flex-col items-end leading-none"
       }, /*#__PURE__*/React.createElement("span", {
-        className: "text-[12px] font-black text-slate-700 tabular-nums"
+        className: "text-[11px] font-black text-slate-700 tabular-nums"
       }, formatNum(grossRev)), commission > 0 && /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-tighter"
       }, "Neto: ", formatNum(netRev))), isFullyPaid ? /*#__PURE__*/React.createElement("span", {
@@ -4700,7 +4703,7 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-center gap-2 group/status"
     }, /*#__PURE__*/React.createElement("span", {
-      className: "inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ".concat(statusColor)
+      className: "inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ".concat(statusColor)
     }, statusText), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick(e) {
         var _group$records$12;
@@ -5324,7 +5327,7 @@ var App = function App() {
     var titleColor = isCumbria ? "text-indigo-400" : "text-emerald-400";
     var forecastColor = isCumbria ? "text-indigo-300" : "text-emerald-300";
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "".concat(headerBg, " text-white p-6 border-b border-white/10 shrink-0 relative overflow-hidden")
+      className: "".concat(headerBg, " text-white p-3 px-6 border-b border-white/10 shrink-0 relative overflow-hidden")
     }, /*#__PURE__*/React.createElement("div", {
       className: "absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"
     }), /*#__PURE__*/React.createElement("div", {
@@ -5332,15 +5335,15 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex gap-6 items-center flex-1 min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-14 h-14 ".concat(iconBg, " rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
+      className: "w-11 h-11 ".concat(iconBg, " rounded-xl flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
     }, /*#__PURE__*/React.createElement(IconUsers, {
       size: 28
     })), /*#__PURE__*/React.createElement("div", {
       className: "flex-1 min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap items-center gap-4 mb-2"
+      className: "flex flex-wrap items-center gap-3 mb-1"
     }, /*#__PURE__*/React.createElement("input", {
-      className: "text-3xl font-black tracking-tight leading-tight ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-white/10 rounded-lg px-2 -ml-2 w-full lg:max-w-2xl transition-all uppercase"),
+      className: "text-xl font-black tracking-tight leading-tight ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-white/10 rounded-lg px-2 -ml-2 w-full lg:max-w-2xl transition-all uppercase"),
       value: selectedGroupFicha.name || "",
       onChange: function onChange(e) {
         var newName = e.target.value;
@@ -5426,24 +5429,24 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-center"
     }, /*#__PURE__*/React.createElement("p", {
-      className: "text-[9px] font-black uppercase opacity-40 tracking-widest mb-1.5"
+      className: "text-[8px] font-black uppercase opacity-40 tracking-widest mb-1"
     }, "Cobrado"), /*#__PURE__*/React.createElement("p", {
-      className: "text-base font-black tabular-nums ".concat(totalPaid >= netTotal - 0.01 && netTotal > 0 ? "text-emerald-400" : "text-orange-400")
+      className: "text-sm font-black tabular-nums ".concat(totalPaid >= netTotal - 0.01 && netTotal > 0 ? "text-emerald-400" : "text-orange-400")
     }, totalPaid.toLocaleString("es-ES", {
       useGrouping: true,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }), "\u20AC")), /*#__PURE__*/React.createElement("div", {
-      className: "w-px h-10 bg-white/10"
+      className: "w-px h-8 bg-white/10"
     }, " "), function () {
       var overpaidAmount = Math.max(0, totalPaid - netTotal);
       if (overpaidAmount > 0.01 && netTotal > 0) {
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, /*#__PURE__*/React.createElement("p", {
-          className: "text-[9px] font-black uppercase text-amber-300 tracking-widest mb-1.5"
+          className: "text-[8px] font-black uppercase text-amber-300 tracking-widest mb-1"
         }, "Pagado de m\xE1s"), /*#__PURE__*/React.createElement("p", {
-          className: "text-base font-black text-amber-300 tabular-nums"
+          className: "text-sm font-black text-amber-300 tabular-nums"
         }, overpaidAmount.toLocaleString("es-ES", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
@@ -5453,37 +5456,37 @@ var App = function App() {
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, /*#__PURE__*/React.createElement("span", {
-          className: "inline-block px-4 py-2 rounded-2xl text-[12px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+          className: "inline-block px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
         }, "\u2713 PAGADO"));
       } else {
         var pVal = Math.max(0, netTotal - totalPaid);
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, /*#__PURE__*/React.createElement("p", {
-          className: "text-[9px] font-black uppercase text-rose-300 tracking-widest mb-1.5"
+          className: "text-[8px] font-black uppercase text-rose-300 tracking-widest mb-1"
         }, "Pendiente"), /*#__PURE__*/React.createElement("p", {
-          className: "text-base font-black text-rose-400 tabular-nums"
+          className: "text-sm font-black text-rose-400 tabular-nums"
         }, pVal.toLocaleString("es-ES", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
         }), "\u20AC"));
       }
     }(), /*#__PURE__*/React.createElement("div", {
-      className: "w-px h-10 bg-white/10"
+      className: "w-px h-8 bg-white/10"
     }, " "), /*#__PURE__*/React.createElement("div", {
       className: "text-right"
     }, /*#__PURE__*/React.createElement("p", {
-      className: "text-[10px] font-black uppercase tracking-widest text-white/40 mb-1"
+      className: "text-[8px] font-black uppercase tracking-widest text-white/40 mb-1"
     }, "Total Grupo"), /*#__PURE__*/React.createElement("p", {
-      className: "text-4xl font-black text-white drop-shadow-2xl tabular-nums leading-none tracking-tighter"
+      className: "text-2xl font-black text-white drop-shadow-2xl tabular-nums leading-none tracking-tighter"
     }, netTotal.toLocaleString("es-ES", {
       useGrouping: true,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-lg ml-1.5 opacity-40 font-bold"
+      className: "text-base ml-1 opacity-40 font-bold"
     }, "\u20AC")))))), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/50"
+      className: "flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50/50"
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-6"
     }, urgentPayments.length > 0 && /*#__PURE__*/React.createElement("div", {
