@@ -6230,7 +6230,7 @@ var App = function App() {
         }))), /*#__PURE__*/React.createElement("div", {
           className: "space-y-1.5"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "grid grid-cols-[25px_45px_1fr_45px_85px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
+          className: "grid grid-cols-[25px_45px_1fr_55px_85px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
         }, /*#__PURE__*/React.createElement("div", null), /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, "%"), /*#__PURE__*/React.createElement("div", {
@@ -6259,7 +6259,7 @@ var App = function App() {
             var isLastUnpaid = idx === lastUnpaidIdx;
             return /*#__PURE__*/React.createElement("div", {
               key: dep.id,
-              className: "grid grid-cols-[25px_45px_1fr_45px_85px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
+              className: "grid grid-cols-[25px_45px_1fr_55px_85px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
             }, /*#__PURE__*/React.createElement("div", {
               className: "flex justify-center"
             }, isWarning ? /*#__PURE__*/React.createElement(IconAlertTriangle, {
@@ -6299,10 +6299,10 @@ var App = function App() {
             }), /*#__PURE__*/React.createElement("span", {
               className: "text-[9px] font-black text-slate-400 ml-0.5"
             }, "\u20AC"))), /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[40px] h-6 border border-blue-100 mx-auto"
+              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[50px] h-6 border border-blue-100 mx-auto"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
-              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-6 text-center outline-none",
+              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-9 text-center outline-none",
               value: dep.releaseDays,
               onChange: function onChange(e) {
                 return handlePlanChange(idx, "releaseDays", e.target.value, true);
