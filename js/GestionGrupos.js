@@ -785,15 +785,20 @@ var App = function App() {
     // 1. Filtro de Estado
     if (filterStatus !== "all") {
       filtered = filtered.filter(function (row) {
-        var label = row._stateLabel;
-        if (filterStatus === "activos") return label !== "anulada" && label !== "cancelado" && label !== "desestimado" && label !== "pasado";
-        if (filterStatus === "activos_y_desestimados") return label !== "pasado";
-        if (filterStatus === "confirmada") return label === "confirmado";
-        if (filterStatus === "tentativa") return label === "tentativa";
-        if (filterStatus === "presupuesto") return label === "presupuesto";
-        if (filterStatus === "desestimada") return label === "anulada" || label === "cancelado" || label === "desestimado";
-        if (filterStatus === "anulada") return label === "anulada" || label === "cancelado";
-        if (filterStatus === "pasado") return label === "pasado";
+        var label = (row._stateLabel || "").toLowerCase();
+        if (filterStatus === "activos") {
+          var isAnulada = label.includes("anul") || label.includes("canc") || label.includes("baja") || label.includes("gastos");
+          var isDesestimada = label.includes("desestim");
+          var isPasado = label.includes("pasado");
+          return !isAnulada && !isDesestimada && !isPasado;
+        }
+        if (filterStatus === "activos_y_desestimados") return !label.includes("pasado");
+        if (filterStatus === "confirmada") return label.includes("confirmado");
+        if (filterStatus === "tentativa") return label.includes("tentativa") || label.includes("tanteo");
+        if (filterStatus === "presupuesto") return label.includes("presupuesto");
+        if (filterStatus === "desestimada") return label.includes("desestim") || label.includes("anul") || label.includes("canc");
+        if (filterStatus === "anulada") return label.includes("anul") || label.includes("canc") || label.includes("baja");
+        if (filterStatus === "pasado") return label.includes("pasado");
         return true;
       });
     }
