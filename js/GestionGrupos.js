@@ -922,14 +922,8 @@ var App = function App() {
 
     if (filterDirHotel) {
       filtered = filtered.filter(function (row) {
-        var raw = (row["Hotel_Asignado"] || row["Hotel"] || "").toLowerCase();
-        if (filterDirHotel === "SERCOTEL GUADIANA") {
-          return raw.includes("guadiana");
-        }
-        if (filterDirHotel === "Cumbria") {
-          return raw.includes("cumb");
-        }
-        return false;
+        var rowHotel = normalizeHotelName(row["Hotel_Asignado"] || row["Hotel"] || "");
+        return rowHotel === normalizeHotelName(filterDirHotel);
       });
     }
 
