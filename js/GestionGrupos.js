@@ -129,7 +129,7 @@ var BudgetManager = function BudgetManager(_ref) {
       color: "bg-slate-400",
       text: "bg-slate-50 text-slate-500",
       component: IconXCircle,
-      label: "DESESTIMADO"
+      label: "ANULADA"
     };
     if (s.includes("SEGUIMIENTO")) return {
       color: "bg-indigo-500",
@@ -363,7 +363,7 @@ var App = function App() {
     if (s.includes("CANC") || s.includes("ANUL") || s.includes("BAJA") || s.includes("DESESTIMADO") || e.includes("CANC") || e.includes("ANUL") || e.includes("BAJA") || e.includes("DESESTIMADO")) return {
       color: "bg-red-500/80",
       text: "bg-red-100 text-red-700",
-      label: "DESESTIMADO"
+      label: "ANULADA"
     };
 
     // 1. CONFIRMADO / OK / BLOQUEADO (PRIORIDAD SOBRE PASADO)
@@ -1149,7 +1149,7 @@ var App = function App() {
       var label = ((_group$statusLabel = group.statusLabel) === null || _group$statusLabel === void 0 ? void 0 : _group$statusLabel.toLowerCase()) || "";
       var arrival = group.arrival;
       var today = new Date().toISOString().split("T")[0];
-      var isActivo = label !== "cancelado" && label !== "desestimado" && label !== "pasado";
+      var isActivo = label !== "cancelado" && label !== "anulada" && label !== "pasado";
       var isFuturo = arrival && arrival >= today;
       if (isActivo && isFuturo) {
         setFilterStatus("activos");
@@ -1177,7 +1177,7 @@ var App = function App() {
       // Filtrar grupos cancelados o pasados de la estadística de rentabilidad
 
       var stateProps = getStatusProps(row["Com_Estado_Interno"] || row["Segment."], row["Entrada"], row["Estado"]);
-      if (stateProps.label === "DESESTIMADO" || stateProps.label === "PASADO") {
+      if (stateProps.label === "ANULADA" || stateProps.label === "PASADO") {
         return;
       }
       var segName = (row["Segment."] || "Sin Segmento").toString().trim().toUpperCase();
@@ -2226,7 +2226,7 @@ var App = function App() {
         "Régimen": row["Régimen"] || "",
         "Importe": row["Importe(*)"] || ""
       };
-      if (st.label === "DESESTIMADO") {
+      if (st.label === "ANULADA") {
         anuladas.push(mappedRow);
       } else {
         confirmadas.push(mappedRow);

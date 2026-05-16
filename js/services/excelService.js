@@ -289,14 +289,14 @@
 
     const mergedData = [...currentData];
     const APP_ONLY_FIELDS = new Set([
-      "Estado", "Com_Comercial", "Com_Estado_Interno", "Com_Notas", "Com_Seguimiento",
+      "Com_Comercial", "Com_Estado_Interno", "Com_Notas", "Com_Seguimiento",
       "Com_Vencimiento_Rel", "Com_Precio", "Dep1_Label", "Dep1_Percent", "Dep1_Importe",
       "Dep1_Fecha", "Dep2_Label", "Dep2_Percent", "Dep2_Importe", "Dep2_Fecha",
       "Dep3_Label", "Dep3_Percent", "Dep3_Importe", "Dep3_Fecha", "PaymentPlan_JSON",
       "RoomingList_JSON", "Fiscal_RazonSocial", "Fiscal_CIF", "Fiscal_Direccion",
       "Fiscal_CP", "Fiscal_Poblacion", "Fiscal_Provincia", "Fiscal_Pais", "Email",
       "Telefono", "Persona_Contacto", "Proforma_NetRate", "Proforma_Rooms",
-      "Proforma_RoomList", "Com_Pagado", "Hotel_Asignado", "updatedAt"
+      "Proforma_RoomList", "Com_Pagado", "updatedAt"
     ]);
 
     incomingRows.forEach((newRow, idx) => {
@@ -317,7 +317,7 @@
 
             const NUMERIC_KEYS = new Set(["Importe(*)", "Pax.", "Noches", "Pernoct.", "Cant. Habitaciones"]);
             const DATE_KEYS = new Set(["Entrada", "Salida"]);
-            const relevantKeys = ["Entrada", "Salida", "Pax.", "Importe(*)", "Régimen", "Segment.", "Nombre del Grupo", "Noches", "Pernoct.", "Empresa/Agencia", "Cant. Habitaciones"];
+            const relevantKeys = ["Entrada", "Salida", "Pax.", "Importe(*)", "Estado", "Hotel_Asignado", "Régimen", "Segment.", "Nombre del Grupo", "Noches", "Pernoct.", "Empresa/Agencia", "Cant. Habitaciones"];
 
             relevantKeys.forEach((key) => {
                 const rawOld = existingRow[key];
