@@ -5331,22 +5331,22 @@ var App = function App() {
     var iconBg = isCumbria ? "bg-indigo-500" : "bg-emerald-500";
     var titleColor = isCumbria ? "text-indigo-400" : "text-emerald-400";
     var forecastColor = isCumbria ? "text-indigo-300" : "text-emerald-300";
-    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "".concat(headerBg, " text-white p-3 px-6 border-b border-white/10 shrink-0 relative overflow-hidden")
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "".concat(headerBg, " text-white p-1.5 px-4 border-b border-white/10 shrink-0 relative overflow-hidden")
     }, /*#__PURE__*/React.createElement("div", {
       className: "absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"
     }), /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 relative z-10"
+      className: "flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative z-10"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-6 items-center flex-1 min-w-0"
+      className: "flex gap-4 items-center flex-1 min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-11 h-11 ".concat(iconBg, " rounded-xl flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
+      className: "w-8 h-8 ".concat(iconBg, " rounded-lg flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
     }, /*#__PURE__*/React.createElement(IconUsers, {
-      size: 28
+      size: 18
     })), /*#__PURE__*/React.createElement("div", {
       className: "flex-1 min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap items-center gap-3 mb-1"
+      className: "flex flex-wrap items-center gap-2 mb-0.5"
     }, /*#__PURE__*/React.createElement("input", {
       className: "text-xl font-black tracking-tight leading-tight ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-white/10 rounded-lg px-2 -ml-2 w-full lg:max-w-2xl transition-all uppercase"),
       value: selectedGroupFicha.name || "",
@@ -5365,7 +5365,7 @@ var App = function App() {
         if (e.key === "Enter") e.target.blur();
       }
     }), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2.5 h-fit shrink-0"
+      className: "flex items-center gap-1.5 h-fit shrink-0"
     }, function (_selectedGroupFicha$r6, _selectedGroupFicha$r7, _selectedGroupFicha$r8) {
       // Prioridad: Com_Estado_Interno > Estado (el campo del Excel no debe sobrescribir el estado interno)
 
@@ -5377,14 +5377,14 @@ var App = function App() {
       var effectiveStatus = internalStatus || ((_selectedGroupFicha$r8 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r8 === void 0 ? void 0 : _selectedGroupFicha$r8["Segment."]);
       var st = getStatusProps(effectiveStatus, selectedGroupFicha.arrival, internalStatus ? null : externalStatus);
       return /*#__PURE__*/React.createElement("span", {
-        className: "px-3 py-1.5 rounded-xl text-[11px] font-black uppercase shadow-lg border border-white/10 ".concat(st.text)
+        className: "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase shadow-lg border border-white/10 ".concat(st.text)
       }, st.label);
     }(), /*#__PURE__*/React.createElement("span", {
-      className: "bg-white/10 px-3 py-1.5 rounded-xl text-[10px] font-black text-white uppercase border border-white/10 backdrop-blur-sm"
+      className: "bg-white/10 px-2 py-0.5 rounded-lg text-[9px] font-black text-white uppercase border border-white/10 backdrop-blur-sm"
     }, ((_selectedGroupFicha$r9 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r9 === void 0 ? void 0 : _selectedGroupFicha$r9["Régimen"]) || "HD"), /*#__PURE__*/React.createElement("span", {
-      className: "bg-blue-500/30 px-3 py-1.5 rounded-xl text-[10px] font-black text-blue-100 uppercase border border-blue-500/30 backdrop-blur-sm"
+      className: "bg-blue-500/30 px-2 py-0.5 rounded-lg text-[9px] font-black text-blue-100 uppercase border border-blue-500/30 backdrop-blur-sm"
     }, ((_selectedGroupFicha$r0 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r0 === void 0 ? void 0 : _selectedGroupFicha$r0["Segment."]) || "GRUPOS"))), /*#__PURE__*/React.createElement("p", {
-      className: "text-slate-300 text-[11px] font-bold uppercase tracking-[0.1em] flex flex-wrap items-center gap-x-4 gap-y-1.5"
+      className: "text-slate-300 text-[10px] font-bold uppercase tracking-[0.05em] flex flex-wrap items-center gap-x-3 gap-y-1"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-white/70 bg-white/5 px-2 py-0.5 rounded border border-white/5"
     }, ((_selectedGroupFicha$r1 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r1 === void 0 ? void 0 : _selectedGroupFicha$r1["Empresa/Agencia"]) || ((_selectedGroupFicha$r10 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r10 === void 0 ? void 0 : _selectedGroupFicha$r10["Empresa"]) || "VENTA DIRECTA"), /*#__PURE__*/React.createElement("span", {
@@ -5430,7 +5430,7 @@ var App = function App() {
       size: 10,
       strokeWidth: 3
     }), " ", "Fusionar PMS"))))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-8 bg-black/30 p-4 px-8 rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xl shrink-0"
+      className: "flex items-center gap-4 bg-black/30 p-1.5 px-4 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl shrink-0"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-center"
     }, /*#__PURE__*/React.createElement("p", {
@@ -5511,7 +5511,7 @@ var App = function App() {
         className: "text-[9px] font-bold opacity-90"
       }, "\u2022 ", up.label, ":", " ", parseFloat(up.amount).toLocaleString("es-ES"), "\u20AC (", up.hotel, ")");
     })))), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-12 gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm items-end"
+      className: "grid grid-cols-1 md:grid-cols-12 gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm items-end"
     }, /*#__PURE__*/React.createElement("div", {
       className: "md:col-span-2"
     }, /*#__PURE__*/React.createElement("label", {
@@ -5675,15 +5675,14 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement(IconFile, {
       size: 16
     })), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1"
     }, /*#__PURE__*/React.createElement("h4", {
       className: "text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1"
     }, "Observaciones de Origen (PMS)"), /*#__PURE__*/React.createElement("p", {
       className: "text-[11px] text-amber-800 leading-relaxed font-medium"
     }, ((_selectedGroupFicha$r36 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r36 === void 0 ? void 0 : _selectedGroupFicha$r36["Observaciones"]) || ((_selectedGroupFicha$r37 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r37 === void 0 ? void 0 : _selectedGroupFicha$r37["Observac."]))))), /*#__PURE__*/React.createElement("div", {
-      className: "bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden"
+      className: "bg-slate-50/80 p-2 rounded-xl border border-slate-200 shadow-sm mt-2 backdrop-blur-sm relative overflow-hidden"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4"
+      className: "bg-white p-2 rounded-xl border border-slate-200 shadow-sm mb-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-end gap-2"
     }, /*#__PURE__*/React.createElement("div", {
@@ -6486,17 +6485,17 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement("thead", {
       className: "bg-[#0f172a] text-white font-black uppercase"
     }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
-      className: "px-3 py-1.5 text-left"
+      className: "px-2 py-1 text-left"
     }, "Reserva"), /*#__PURE__*/React.createElement("th", {
-      className: "px-3 py-1.5 text-left"
+      className: "px-2 py-1 text-left"
     }, "Hotel"), /*#__PURE__*/React.createElement("th", {
-      className: "px-3 py-1.5 text-left"
+      className: "px-2 py-1 text-left"
     }, "Periodo"), /*#__PURE__*/React.createElement("th", {
-      className: "px-3 py-1.5 text-right"
+      className: "px-2 py-1 text-right"
     }, "Cantidad"), /*#__PURE__*/React.createElement("th", {
-      className: "px-3 py-1.5 text-right"
+      className: "px-2 py-1 text-right"
     }, "Importe"), /*#__PURE__*/React.createElement("th", {
-      className: "px-3 py-1.5 text-center"
+      className: "px-2 py-1 text-center"
     }, "Estado"))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
     }, (selectedGroupFicha.records || []).map(function (rec, idx) {
@@ -6505,70 +6504,70 @@ var App = function App() {
         key: idx,
         className: "hover:bg-slate-50 transition-colors"
       }, /*#__PURE__*/React.createElement("td", {
-        className: "px-3 py-1.5 font-bold text-slate-900"
+        className: "px-2 py-1 font-bold text-slate-900"
       }, rec["Reserva"]), /*#__PURE__*/React.createElement("td", {
-        className: "px-3 py-1.5 font-bold text-slate-500"
+        className: "px-2 py-1 font-bold text-slate-500"
       }, rec["Hotel_Asignado"] || rec["Hotel"] || "-"), /*#__PURE__*/React.createElement("td", {
-        className: "px-3 py-1.5 text-slate-600"
+        className: "px-2 py-1 text-slate-600"
       }, formatDate(rec["Entrada"]), " -", " ", formatDate(rec["Salida"])), /*#__PURE__*/React.createElement("td", {
-        className: "px-3 py-1.5 text-right font-bold"
+        className: "px-2 py-1 text-right font-bold"
       }, rec["Hab."] || "-"), /*#__PURE__*/React.createElement("td", {
-        className: "px-3 py-1.5 text-right font-black text-emerald-600"
+        className: "px-2 py-1 text-right font-black text-emerald-600"
       }, parseNum(rec["Importe(*)"]).toLocaleString("es-ES", {
         minimumFractionDigits: 2
       }), " ", "\u20AC"), /*#__PURE__*/React.createElement("td", {
-        className: "px-3 py-1.5 text-center"
+        className: "px-2 py-1 text-center"
       }, /*#__PURE__*/React.createElement("span", {
         className: "px-2 py-0.5 rounded text-[7px] font-black uppercase ".concat((_rec$Estado = rec["Estado"]) !== null && _rec$Estado !== void 0 && _rec$Estado.toLowerCase().includes("conf") ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")
       }, rec["Estado"] || "???")));
     }))))), /*#__PURE__*/React.createElement("div", {
-      className: "p-4 bg-white border-t border-slate-200 flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.03)] shrink-0"
+      className: "p-2 bg-white border-t border-slate-200 flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.03)] shrink-0"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex gap-2"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return handleProformaClick(selectedGroupFicha);
       },
-      className: "px-6 h-11 bg-slate-900 hover:bg-black text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200"
+      className: "px-6 h-9 bg-slate-900 hover:bg-black text-white rounded-xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200"
     }, /*#__PURE__*/React.createElement(IconFileInvoice, {
-      size: 18,
+      size: 16,
       stroke: 2
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-[11px] font-black uppercase tracking-widest"
+      className: "text-[10px] font-black uppercase tracking-widest"
     }, "Generar Proforma")), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
         window.location.href = "Orden Servicio.html";
       },
-      className: "px-6 h-11 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-200/50"
+      className: "px-6 h-9 bg-amber-600 hover:bg-amber-700 text-white rounded-xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-200/50"
     }, /*#__PURE__*/React.createElement(IconUtensils, {
-      size: 18,
+      size: 16,
       stroke: 2
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-[11px] font-black uppercase tracking-widest"
+      className: "text-[10px] font-black uppercase tracking-widest"
     }, "Orden Servicio")), /*#__PURE__*/React.createElement("button", {
       onClick: openClientDataModal,
-      className: "px-4 h-11 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl flex items-center justify-center transition-all",
+      className: "px-4 h-9 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl flex items-center justify-center transition-all",
       title: "Configuraci\xF3n de Factura"
     }, /*#__PURE__*/React.createElement(IconSettings, {
-      size: 18
+      size: 16
     })), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setShowCrmPanel(function (p) {
           return !p;
         });
       },
-      className: "px-4 h-11 rounded-2xl flex items-center justify-center transition-all ".concat(showCrmPanel ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'),
+      className: "px-4 h-9 rounded-xl flex items-center justify-center transition-all ".concat(showCrmPanel ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'),
       title: "Historial / CRM"
     }, /*#__PURE__*/React.createElement(IconMessage, {
-      size: 18
+      size: 16
     }))), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-3"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setShowFichaModal(false);
       },
-      className: "px-6 h-11 text-[11px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all tracking-widest"
+      className: "px-6 h-9 text-[11px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all tracking-widest"
     }, "Cerrar Ficha"), /*#__PURE__*/React.createElement("button", {
       onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
         return _regenerator().w(function (_context0) {
@@ -6585,9 +6584,9 @@ var App = function App() {
           }
         }, _callee0);
       })),
-      className: "px-10 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"
+      className: "px-10 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"
     }, /*#__PURE__*/React.createElement(IconSave, {
-      size: 18,
+      size: 16,
       stroke: 2.5
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[11px] font-black uppercase tracking-widest"
