@@ -5324,21 +5324,23 @@ var App = function App() {
     var titleColor = isCumbria ? "text-indigo-400" : "text-emerald-400";
     var forecastColor = isCumbria ? "text-indigo-300" : "text-emerald-300";
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "".concat(headerBg, " text-white p-4 border-b border-white/10 shrink-0 relative overflow-hidden")
+      className: "".concat(headerBg, " text-white p-6 border-b border-white/10 shrink-0 relative overflow-hidden")
     }, /*#__PURE__*/React.createElement("div", {
       className: "absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"
     }), /*#__PURE__*/React.createElement("div", {
-      className: "flex justify-between items-center gap-6 relative z-10"
+      className: "flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 relative z-10"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-4 items-center"
+      className: "flex gap-6 items-center flex-1 min-w-0"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-12 h-12 ".concat(iconBg, " rounded-xl flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
+      className: "w-14 h-14 ".concat(iconBg, " rounded-2xl flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
     }, /*#__PURE__*/React.createElement(IconUsers, {
-      size: 24
-    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3"
+      size: 28
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap items-center gap-4 mb-2"
     }, /*#__PURE__*/React.createElement("input", {
-      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-1 focus:ring-white/20 rounded p-1 w-full max-w-2xl transition-all uppercase"),
+      className: "text-3xl font-black tracking-tight leading-tight ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-white/10 rounded-lg px-2 -ml-2 w-full lg:max-w-2xl transition-all uppercase"),
       value: selectedGroupFicha.name || "",
       onChange: function onChange(e) {
         var newName = e.target.value;
@@ -5355,7 +5357,7 @@ var App = function App() {
         if (e.key === "Enter") e.target.blur();
       }
     }), /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-1.5 h-fit"
+      className: "flex items-center gap-2.5 h-fit shrink-0"
     }, function (_selectedGroupFicha$r6, _selectedGroupFicha$r7, _selectedGroupFicha$r8) {
       // Prioridad: Com_Estado_Interno > Estado (el campo del Excel no debe sobrescribir el estado interno)
 
@@ -5367,24 +5369,20 @@ var App = function App() {
       var effectiveStatus = internalStatus || ((_selectedGroupFicha$r8 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r8 === void 0 ? void 0 : _selectedGroupFicha$r8["Segment."]);
       var st = getStatusProps(effectiveStatus, selectedGroupFicha.arrival, internalStatus ? null : externalStatus);
       return /*#__PURE__*/React.createElement("span", {
-        className: "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ".concat(st.text)
+        className: "px-3 py-1.5 rounded-xl text-[11px] font-black uppercase shadow-lg border border-white/10 ".concat(st.text)
       }, st.label);
     }(), /*#__PURE__*/React.createElement("span", {
-      className: "bg-white/10 px-2 py-1 rounded-lg text-[9px] font-black text-white/80 uppercase border border-white/10"
+      className: "bg-white/10 px-3 py-1.5 rounded-xl text-[10px] font-black text-white uppercase border border-white/10 backdrop-blur-sm"
     }, ((_selectedGroupFicha$r9 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r9 === void 0 ? void 0 : _selectedGroupFicha$r9["Régimen"]) || "HD"), /*#__PURE__*/React.createElement("span", {
-      className: "bg-blue-500/20 px-2 py-1 rounded-lg text-[9px] font-black text-blue-200 uppercase border border-blue-500/30"
+      className: "bg-blue-500/30 px-3 py-1.5 rounded-xl text-[10px] font-black text-blue-100 uppercase border border-blue-500/30 backdrop-blur-sm"
     }, ((_selectedGroupFicha$r0 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r0 === void 0 ? void 0 : _selectedGroupFicha$r0["Segment."]) || "GRUPOS"))), /*#__PURE__*/React.createElement("p", {
-      className: "text-slate-300 text-[10px] font-bold uppercase tracking-[0.15em] mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1"
+      className: "text-slate-300 text-[11px] font-bold uppercase tracking-[0.1em] flex flex-wrap items-center gap-x-4 gap-y-1.5"
     }, /*#__PURE__*/React.createElement("span", {
-      className: "text-white/60"
+      className: "text-white/70 bg-white/5 px-2 py-0.5 rounded border border-white/5"
     }, ((_selectedGroupFicha$r1 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r1 === void 0 ? void 0 : _selectedGroupFicha$r1["Empresa/Agencia"]) || ((_selectedGroupFicha$r10 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r10 === void 0 ? void 0 : _selectedGroupFicha$r10["Empresa"]) || "VENTA DIRECTA"), /*#__PURE__*/React.createElement("span", {
-      className: "opacity-30"
-    }, "\u2022"), /*#__PURE__*/React.createElement("span", {
-      className: "bg-white/10 px-1.5 py-0.5 rounded text-white"
+      className: "bg-white/10 px-2 py-0.5 rounded text-white font-black"
     }, selectedGroupFicha.totalPax, " PAX"), /*#__PURE__*/React.createElement("span", {
-      className: "opacity-30"
-    }, "\u2022"), /*#__PURE__*/React.createElement("span", {
-      className: "text-white/40"
+      className: "text-white/40 font-mono"
     }, "REF:", " ", (_selectedGroupFicha$r11 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r11 === void 0 ? void 0 : _selectedGroupFicha$r11["Reserva"]), function () {
       var r = selectedGroupFicha.records[0] || {};
       var contactName = r["Com_Nombre_Contacto"] || r["Persona_Contacto"];
@@ -5424,30 +5422,28 @@ var App = function App() {
       size: 10,
       strokeWidth: 3
     }), " ", "Fusionar PMS"))))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-5 bg-black/20 p-3 px-6 rounded-2xl border border-white/10 shadow-inner backdrop-blur-md"
+      className: "flex items-center gap-8 bg-black/30 p-4 px-8 rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xl shrink-0"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-center"
     }, /*#__PURE__*/React.createElement("p", {
-      className: "text-[8px] font-black uppercase opacity-50 tracking-widest mb-1"
+      className: "text-[9px] font-black uppercase opacity-40 tracking-widest mb-1.5"
     }, "Cobrado"), /*#__PURE__*/React.createElement("p", {
-      className: "text-sm font-black tabular-nums ".concat(totalPaid >= netTotal - 0.01 && netTotal > 0 ? "text-emerald-400" : "text-orange-400")
+      className: "text-base font-black tabular-nums ".concat(totalPaid >= netTotal - 0.01 && netTotal > 0 ? "text-emerald-400" : "text-orange-400")
     }, totalPaid.toLocaleString("es-ES", {
       useGrouping: true,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }), "\u20AC"), netTotal > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "text-[8px] font-bold opacity-40 leading-none"
-    }, "(", Math.round(totalPaid / netTotal * 100), "%)")), /*#__PURE__*/React.createElement("div", {
-      className: "w-px h-8 bg-white/10"
-    }), function () {
+    }), "\u20AC")), /*#__PURE__*/React.createElement("div", {
+      className: "w-px h-10 bg-white/10"
+    }, " "), function () {
       var overpaidAmount = Math.max(0, totalPaid - netTotal);
       if (overpaidAmount > 0.01 && netTotal > 0) {
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, /*#__PURE__*/React.createElement("p", {
-          className: "text-[8px] font-black uppercase text-amber-300 tracking-widest mb-1"
+          className: "text-[9px] font-black uppercase text-amber-300 tracking-widest mb-1.5"
         }, "Pagado de m\xE1s"), /*#__PURE__*/React.createElement("p", {
-          className: "text-sm font-black text-amber-300 tabular-nums"
+          className: "text-base font-black text-amber-300 tabular-nums"
         }, overpaidAmount.toLocaleString("es-ES", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
@@ -5457,39 +5453,39 @@ var App = function App() {
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, /*#__PURE__*/React.createElement("span", {
-          className: "inline-block px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+          className: "inline-block px-4 py-2 rounded-2xl text-[12px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
         }, "\u2713 PAGADO"));
       } else {
         var pVal = Math.max(0, netTotal - totalPaid);
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, /*#__PURE__*/React.createElement("p", {
-          className: "text-[8px] font-black uppercase text-rose-300 tracking-widest mb-1"
+          className: "text-[9px] font-black uppercase text-rose-300 tracking-widest mb-1.5"
         }, "Pendiente"), /*#__PURE__*/React.createElement("p", {
-          className: "text-sm font-black text-rose-400 tabular-nums"
+          className: "text-base font-black text-rose-400 tabular-nums"
         }, pVal.toLocaleString("es-ES", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
         }), "\u20AC"));
       }
     }(), /*#__PURE__*/React.createElement("div", {
-      className: "w-px h-8 bg-white/10"
-    }), /*#__PURE__*/React.createElement("div", {
+      className: "w-px h-10 bg-white/10"
+    }, " "), /*#__PURE__*/React.createElement("div", {
       className: "text-right"
     }, /*#__PURE__*/React.createElement("p", {
-      className: "text-[9px] font-black uppercase tracking-widest text-white/50 mb-0.5"
-    }, "Total"), /*#__PURE__*/React.createElement("p", {
-      className: "text-3xl font-black text-white drop-shadow-lg tabular-nums leading-none"
+      className: "text-[10px] font-black uppercase tracking-widest text-white/40 mb-1"
+    }, "Total Grupo"), /*#__PURE__*/React.createElement("p", {
+      className: "text-4xl font-black text-white drop-shadow-2xl tabular-nums leading-none tracking-tighter"
     }, netTotal.toLocaleString("es-ES", {
       useGrouping: true,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-base ml-1 opacity-50 font-bold"
+      className: "text-lg ml-1.5 opacity-40 font-bold"
     }, "\u20AC")))))), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50/50"
+      className: "flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/50"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "space-y-4"
+      className: "space-y-6"
     }, urgentPayments.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "bg-rose-600 text-white p-2.5 rounded-xl flex items-center gap-3 animate-pulse shadow-lg shadow-rose-600/20"
     }, /*#__PURE__*/React.createElement(IconAlertTriangle, {
