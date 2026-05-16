@@ -6114,7 +6114,23 @@ var App = function App() {
           return acc + (parseFloat(p.percent) || 0);
         }, 0);
         var arrivalDate = hotelRecord["Entrada"];
-        var handlePlanChange = function handlePlanChange(idx, field, val) {
+        var updatePlanLocally = function updatePlanLocally(newPlan) {
+          setSelectedGroupFicha(function (prev) {
+            if (!prev || normalizeId(prev.id) !== normalizeId(selectedGroupFicha.id)) return prev;
+            var updatedRecords = prev.records.map(function (r) {
+              if (normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName) {
+                return _objectSpread(_objectSpread({}, r), {}, {
+                  PaymentPlan_JSON: JSON.stringify(newPlan)
+                });
+              }
+              return r;
+            });
+            return _objectSpread(_objectSpread({}, prev), {}, {
+              records: updatedRecords
+            });
+          });
+        };
+        var handlePlanChange = function handlePlanChange(idx, field, val, isLocalOnly) {
           var newPlan = _toConsumableArray(plan);
           newPlan[idx] = _objectSpread(_objectSpread({}, newPlan[idx]), {}, _defineProperty({}, field, val));
           if (field === "percent" || field === "releaseDays") {
@@ -6147,7 +6163,11 @@ var App = function App() {
               newPlan[idx].releaseDays = _diff2;
             }
           }
-          updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
+          if (isLocalOnly) {
+            updatePlanLocally(newPlan);
+          } else {
+            updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
+          }
         };
         var addPlanRow = function addPlanRow() {
           var remaining = Math.max(0, 100 - totalPercent);
@@ -6252,7 +6272,10 @@ var App = function App() {
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
               className: "bg-transparent border-none text-[10px] font-black text-slate-600 w-8 text-right outline-none",
-              defaultValue: dep.percent,
+              value: dep.percent,
+              onChange: function onChange(e) {
+                return handlePlanChange(idx, "percent", e.target.value, true);
+              },
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "percent", e.target.value);
               }
@@ -6266,7 +6289,10 @@ var App = function App() {
               type: "number",
               step: "0.01",
               className: "bg-transparent border-none text-[11px] font-black text-right outline-none w-full ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"),
-              defaultValue: parseFloat(dep.amount || 0),
+              value: dep.amount,
+              onChange: function onChange(e) {
+                return handlePlanChange(idx, "amount", e.target.value, true);
+              },
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "amount", e.target.value);
               }
@@ -6277,7 +6303,10 @@ var App = function App() {
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
               className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-6 text-center outline-none",
-              defaultValue: dep.releaseDays,
+              value: dep.releaseDays,
+              onChange: function onChange(e) {
+                return handlePlanChange(idx, "releaseDays", e.target.value, true);
+              },
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "releaseDays", e.target.value);
               }
@@ -6288,7 +6317,10 @@ var App = function App() {
             }, /*#__PURE__*/React.createElement("input", {
               type: "date",
               className: "bg-transparent border-none text-[10px] font-black text-slate-500 w-full text-center outline-none",
-              defaultValue: toInputDate(dep.date),
+              value: toInputDate(dep.date),
+              onChange: function onChange(e) {
+                return handlePlanChange(idx, "date", e.target.value, true);
+              },
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "date", e.target.value);
               }
