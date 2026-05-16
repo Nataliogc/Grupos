@@ -3018,7 +3018,9 @@ var App = function App() {
             // Usamos el ID de Reserva para identificar de forma única, evitando agrupaciones por nombre
             normTargetId = normalizeId(resId);
             currentGroupRows = (data || []).filter(function (r) {
-              return normalizeId(r.Reserva) === normTargetId && (!hotelFilterArg || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg);
+              var rowHotel = normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "");
+              var filterHotel = hotelFilterArg ? normalizeHotelName(hotelFilterArg) : null;
+              return normalizeId(r.Reserva) === normTargetId && (!filterHotel || rowHotel === filterHotel);
             });
             if (!(currentGroupRows.length === 0)) {
               _context8.n = 2;
@@ -3109,8 +3111,9 @@ var App = function App() {
             setSelectedGroupFicha(function (prev) {
               if (!prev || normalizeId(prev.id) !== normTargetId) return prev;
               var updatedRecords = prev.records.map(function (r) {
-                var matchesHotel = !hotelFilterArg || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg;
-                if (matchesHotel) {
+                var rowHotel = normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "");
+                var filterHotel = hotelFilterArg ? normalizeHotelName(hotelFilterArg) : null;
+                if (!filterHotel || rowHotel === filterHotel) {
                   return _objectSpread(_objectSpread({}, r), updates);
                 }
                 return r;
@@ -3373,13 +3376,15 @@ var App = function App() {
     var distribution = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [100];
     var hotelFilter = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
     var records = hotelFilter ? group.records.filter(function (r) {
-      return (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter;
+      var rowHotel = normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "");
+      var filterHotel = normalizeHotelName(hotelFilter);
+      return rowHotel === filterHotel;
     }) : group.records;
     if (records.length === 0) return;
     var firstRec = records[0];
     var roomingList = JSON.parse((firstRec === null || firstRec === void 0 ? void 0 : firstRec["RoomingList_JSON"]) || "[]");
     var hotelRoomingItems = hotelFilter ? roomingList.filter(function (i) {
-      return i.hotel === hotelFilter;
+      return normalizeHotelName(i.hotel) === normalizeHotelName(hotelFilter);
     }) : roomingList;
     var grossTotal = hotelRoomingItems.reduce(function (acc, i) {
       return acc + (parseFloat(i.total) || 0);
@@ -6082,27 +6087,28 @@ var App = function App() {
     }, function (_selectedGroupFicha$r43) {
       if (!(selectedGroupFicha !== null && selectedGroupFicha !== void 0 && selectedGroupFicha.records)) return null;
       var uniqueHotels = Array.from(new Set(selectedGroupFicha.records.map(function (r) {
-        return r["Hotel_Asignado"] || r["Hotel"] || "Desconocido";
+        return normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "Desconocido");
       }).filter(function (h) {
-        return h && h !== "-";
+        return h && h !== "-" && h !== "DESCONOCIDO";
       })));
-      if (uniqueHotels.length === 0) uniqueHotels.push("General");
+      if (uniqueHotels.length === 0) uniqueHotels.push("GENERAL");
       var roomingList = JSON.parse(((_selectedGroupFicha$r43 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r43 === void 0 ? void 0 : _selectedGroupFicha$r43["RoomingList_JSON"]) || "[]");
       return /*#__PURE__*/React.createElement("div", {
         className: "flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[400px] custom-scrollbar"
       }, uniqueHotels.map(function (hotelName) {
         var _selectedGroupFicha$r44;
         var hotelRoomingItems = roomingList.filter(function (i) {
-          return i.hotel === hotelName || hotelName === "General" && !i.hotel;
+          var normH = normalizeHotelName(i.hotel);
+          return normH === hotelName || hotelName === "GENERAL" && !normH;
         });
         var hotelTotal = hotelRoomingItems.reduce(function (acc, i) {
           var _i$comision6;
           return acc + (parseFloat(i.total) || 0) - (parseFloat((_i$comision6 = i.comision) === null || _i$comision6 === void 0 ? void 0 : _i$comision6.total_comision) || 0);
         }, 0) || parseFloat(((_selectedGroupFicha$r44 = selectedGroupFicha.records.find(function (r) {
-          return (r["Hotel_Asignado"] || r["Hotel"]) === hotelName;
+          return normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"]) === hotelName;
         })) === null || _selectedGroupFicha$r44 === void 0 ? void 0 : _selectedGroupFicha$r44["Importe(*)"]) || 0);
         var hotelRecord = selectedGroupFicha.records.find(function (r) {
-          return (r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName;
+          return normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName;
         }) || selectedGroupFicha.records[0];
         var plan = [];
         try {
