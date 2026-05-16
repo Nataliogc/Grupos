@@ -1,4 +1,4 @@
-"use strict";
+﻿﻿﻿"use strict";
 
 var _excluded = ["_diff", "_changes", "_docId"];
 function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
@@ -5331,7 +5331,7 @@ var App = function App() {
     var iconBg = isCumbria ? "bg-indigo-500" : "bg-emerald-500";
     var titleColor = isCumbria ? "text-indigo-400" : "text-emerald-400";
     var forecastColor = isCumbria ? "text-indigo-300" : "text-emerald-300";
-    }, /*#__PURE__*/React.createElement("div", {
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "".concat(headerBg, " text-white p-1.5 px-4 border-b border-white/10 shrink-0 relative overflow-hidden")
     }, /*#__PURE__*/React.createElement("div", {
       className: "absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"
@@ -6964,7 +6964,8 @@ var App = function App() {
     className: "flex-[2] h-11 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl text-[10px] text-white font-black shadow-lg shadow-blue-600/20 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
   }, /*#__PURE__*/React.createElement(IconSave, {
     size: 16
-  }), /*#__PURE__*/React.createElement("span", null, "Aplicar Comisi\xF3n"))))), showAddGroupModal && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "Aplicar Comisi\xF3n"))))),
+ showAddGroupModal && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 animate-fade-in"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
