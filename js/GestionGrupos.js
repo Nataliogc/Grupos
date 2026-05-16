@@ -6133,6 +6133,10 @@ var App = function App() {
             _d6.setDate(_d6.getDate() - days);
             newPlan[idx].date = _d6.toISOString().split("T")[0];
           }
+          if (field === "amount") {
+            var amt = parseFloat(val) || 0;
+            newPlan[idx].percent = (amt / (hotelTotal || 1) * 100).toFixed(1);
+          }
           if (field === "date") {
             var _arrival = toInputDate(arrivalDate);
             var manual = toInputDate(val);
@@ -6256,11 +6260,19 @@ var App = function App() {
               className: "text-[8px] font-black text-slate-400 ml-0.5"
             }, "%")), /*#__PURE__*/React.createElement("div", {
               className: "text-right pr-2"
-            }, /*#__PURE__*/React.createElement("span", {
-              className: "text-[12px] font-black tabular-nums ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700")
-            }, parseFloat(dep.amount || 0).toLocaleString("es-ES", {
-              minimumFractionDigits: 2
-            }), "\u20AC")), /*#__PURE__*/React.createElement("div", {
+            }, /*#__PURE__*/React.createElement("div", {
+              className: "flex items-center justify-end bg-slate-50/50 rounded px-1 h-6 border border-slate-100"
+            }, /*#__PURE__*/React.createElement("input", {
+              type: "number",
+              step: "0.01",
+              className: "bg-transparent border-none text-[11px] font-black text-right outline-none w-full ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"),
+              defaultValue: parseFloat(dep.amount || 0),
+              onBlur: function onBlur(e) {
+                return handlePlanChange(idx, "amount", e.target.value);
+              }
+            }), /*#__PURE__*/React.createElement("span", {
+              className: "text-[9px] font-black text-slate-400 ml-0.5"
+            }, "\u20AC"))), /*#__PURE__*/React.createElement("div", {
               className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[40px] h-6 border border-blue-100 mx-auto"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
