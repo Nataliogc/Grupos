@@ -316,6 +316,7 @@
                 planRows,
                 incidenciaRows
             };
+            document.title = `Orden de Servicio ${currentReservaId} - ${saveData.grupo}`;
             localStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
         }
         function clearReservaCache() {
@@ -344,6 +345,8 @@
             currentReservaId = rec['Reserva'] || group.id || group.reserva || 'unknown';
             document.getElementById('title-reserva').innerText = currentReservaId;
             const savedStateStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+            const eventName = rec['Nombre del Grupo'] || group.name || '---';
+            document.title = `Orden de Servicio ${currentReservaId} - ${eventName}`;
             // Hotel Logos / Banners Assignment (Always execute, even if cached)
             const hotelName = (rec['Hotel_Asignado'] || rec['Hotel'] || '').toLowerCase();
             const topTitle = document.getElementById('logo-top-title');
@@ -377,6 +380,7 @@
                 document.getElementById('informe-title').innerText = sanitizeText(s.title || `ORDEN DE SERVICIO Nº ${currentReservaId}`);
                 document.getElementById('ref-val').innerText = sanitizeText(s.ref || '');
                 document.getElementById('grupo-val').innerText = sanitizeText(s.grupo || '');
+                document.title = `Orden de Servicio ${currentReservaId} - ${s.grupo || eventName}`;
                 document.getElementById('agencia-val').innerText = sanitizeText(s.agencia || '');
                 document.getElementById('pax-val').innerText = sanitizeText(s.pax || '');
                 document.getElementById('regimen-val').innerText = sanitizeText(s.regimen || '');
