@@ -788,20 +788,55 @@
                 if (allC.length > 0) {
                     const totalNeto = total - totalComision;
 
-                        const parseClauseVariables = (text) => {
+                        const parseClauseVariables = (text, title = "") => {
                             if (!text) return "";
                             let parsed = text;
+                            
+                            // Load latest payment plan from localStorage
+                            const groupObj = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                            let plan = [];
+                            try {
+                                plan = JSON.parse(groupObj.PaymentPlan_JSON || "[]");
+                            } catch(e){}
+
+                            const t = title.toLowerCase();
+                            const isDepositOrPayment = t.includes("depósito") || t.includes("deposito") || t.includes("pago") || t.includes("confirmaci");
+
+                            if (plan && plan.length > 0 && isDepositOrPayment) {
+                                const firstPayment = plan[0];
+                                const secondPayment = plan[1];
+
+                                // Replace 30% or {DEP_30} with actual deposit
+                                parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+                                parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+
+                                if (secondPayment) {
+                                    // Replace 7 días or {RELEASE_7} with actual release days
+                                    parsed = parsed.replace(/7\s*días/gi, secondPayment.releaseDays + " días");
+                                    parsed = parsed.replace(/7\s*dias/gi, secondPayment.releaseDays + " días");
+                                    parsed = parsed.replace(/{RELEASE_7}/g, secondPayment.releaseDays + " días");
+
+                                    // Replace 50% or 100% or {DEP_50} with final payment
+                                    parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+                                    parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+                                    parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+                                    parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+                                }
+                            }
+
                             parsed = parsed.replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + '€');
                             parsed = parsed.replace(/{DEP_50}/g, formatNum(totalNeto * 0.5) + '€');
                             parsed = parsed.replace(/{DEP_100}/g, formatNum(totalNeto) + '€');
+                            
                             const getRelDate = (days) => {
-                                if (!groupData.Entrada) return "[FECHA]";
-                                let d = new Date(groupData.Entrada);
+                                const groupEntrada = groupData.Entrada || groupObj.Entrada;
+                                if (!groupEntrada) return "[FECHA]";
+                                let d = new Date(groupEntrada);
                                 if (isNaN(d.getTime())) {
-                                    const parts = groupData.Entrada.split('/');
+                                    const parts = groupEntrada.split('/');
                                     if(parts.length===3) d = new Date(parts[2], parts[1]-1, parts[0]);
                                 }
-                                if (isNaN(d.getTime())) return groupData.Entrada;
+                                if (isNaN(d.getTime())) return groupEntrada;
                                 d.setDate(d.getDate() - days);
                                 return d.toLocaleDateString('es-ES');
                             };
@@ -811,7 +846,7 @@
                             return parsed;
                         };
     
-                    polDiv.innerHTML = `<div class="mt-8 border-t border-slate-100 pt-6"><div class="flex items-center gap-2 mb-4"><div class="w-1 h-4 bg-slate-900 rounded-full"></div><h4 class="text-[10px] font-black uppercase tracking-[0.2em]">Cláusulas de Confirmación</h4></div><div class="grid grid-cols-2 gap-x-8 gap-y-4">${allC.map((c, i) => `<div class="space-y-1"><p class="text-[9px] font-black uppercase text-slate-500">${i + 1}. ${c.title}</p><p class="text-[8.5px] text-slate-500 leading-relaxed">${parseClauseVariables(c.body || "")}</p></div>`).join('')}</div></div>`;
+                    polDiv.innerHTML = `<div class="mt-8 border-t border-slate-100 pt-6"><div class="flex items-center gap-2 mb-4"><div class="w-1 h-4 bg-slate-900 rounded-full"></div><h4 class="text-[10px] font-black uppercase tracking-[0.2em]">Cláusulas de Confirmación</h4></div><div class="grid grid-cols-2 gap-x-8 gap-y-4">${allC.map((c, i) => `<div class="space-y-1"><p class="text-[9px] font-black uppercase text-slate-500">${i + 1}. ${c.title}</p><p class="text-[8.5px] text-slate-500 leading-relaxed">${parseClauseVariables(c.body || "", c.title)}</p></div>`).join('')}</div></div>`;
                     polDiv.classList.remove('hidden');
                 } else polDiv.classList.add('hidden');
             } else if (polDiv) polDiv.classList.add('hidden');

@@ -1920,9 +1920,43 @@ function App() {
     var effectiveClauses = getEffectiveClauses();
 
     // Función auxiliar para reemplazo de variables
-    var parseClauseVariables = function parseClauseVariables(text) {
+    var parseClauseVariables = function parseClauseVariables(text, title) {
       if (!text) return "";
       var parsed = text;
+      title = title || "";
+
+      // Cargar plan de pagos
+      var plan = [];
+      try {
+        plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+      } catch(e){}
+
+      var t = title.toLowerCase();
+      var isDepositOrPayment = t.includes("depósito") || t.includes("deposito") || t.includes("pago") || t.includes("confirmaci");
+
+      if (plan && plan.length > 0 && isDepositOrPayment) {
+        var firstPayment = plan[0];
+        var secondPayment = plan[1];
+
+        // Reemplazar 30% estático con el depósito real
+        parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+        parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+
+        if (secondPayment) {
+          // Reemplazar 7 días o 7 dias con la antelación real
+          parsed = parsed.replace(/7\s*días/gi, secondPayment.releaseDays + " días");
+          parsed = parsed.replace(/7\s*dias/gi, secondPayment.releaseDays + " días");
+          parsed = parsed.replace(/{RELEASE_7}/g, secondPayment.releaseDays + " días");
+
+          // Reemplazar 50% o 100% estático con el segundo pago real
+          parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+          parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+          parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+          parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+        }
+      }
+
+      // Reemplazos tradicionales (fallback)
       parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + '€');
       parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + '€');
       parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + '€');
@@ -2495,7 +2529,7 @@ function App() {
           className: "text-slate-400 mr-1"
         }, i + 1, "."), c.title), /*#__PURE__*/React.createElement("div", {
           className: "text-[9.5px] print:text-[7px] text-slate-500 leading-snug"
-        }, renderClauseText(parseClauseVariables(c.body))));
+        }, renderClauseText(parseClauseVariables(c.body, c.title))));
       });
     }(), isEditingClauses && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
@@ -2588,7 +2622,7 @@ function App() {
           className: "text-emerald-700 mr-1"
         }, i + 1, "."), c.title), /*#__PURE__*/React.createElement("div", {
           className: "text-[9.5px] print:text-[7px] text-slate-500 leading-snug"
-        }, renderClauseText(parseClauseVariables(c.body))));
+        }, renderClauseText(parseClauseVariables(c.body, c.title))));
       });
     }(), isEditingClausesConf && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
