@@ -13978,13 +13978,13 @@
 
                                                     </div>
 
-                                                    <div className="flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[40px] h-5 border border-slate-100">
+                                                    <div className="flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[75px] h-5 border border-slate-100">
 
                                                       <input
 
                                                         type="number"
 
-                                                        className="bg-transparent border-none text-[10px] font-black text-slate-600 w-8 text-right outline-none"
+                                                        className="bg-transparent border-none text-[10px] font-black text-slate-600 w-16 text-right outline-none"
 
                                                         defaultValue={dep.percent}
 

@@ -787,7 +787,31 @@
                 const allC = [...(window.globalConfig?.common?.confirmationClauses || []), ...(window.globalConfig?.[currentHotel]?.confirmationClauses || [])];
                 if (allC.length > 0) {
                     const totalNeto = total - totalComision;
-                    polDiv.innerHTML = `<div class="mt-8 border-t border-slate-100 pt-6"><div class="flex items-center gap-2 mb-4"><div class="w-1 h-4 bg-slate-900 rounded-full"></div><h4 class="text-[10px] font-black uppercase tracking-[0.2em]">Cláusulas de Confirmación</h4></div><div class="grid grid-cols-2 gap-x-8 gap-y-4">${allC.map((c, i) => `<div class="space-y-1"><p class="text-[9px] font-black uppercase text-slate-500">${i + 1}. ${c.title}</p><p class="text-[8.5px] text-slate-500 leading-relaxed">${(c.body || '').replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + '€')}</p></div>`).join('')}</div></div>`;
+
+                        const parseClauseVariables = (text) => {
+                            if (!text) return "";
+                            let parsed = text;
+                            parsed = parsed.replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + '€');
+                            parsed = parsed.replace(/{DEP_50}/g, formatNum(totalNeto * 0.5) + '€');
+                            parsed = parsed.replace(/{DEP_100}/g, formatNum(totalNeto) + '€');
+                            const getRelDate = (days) => {
+                                if (!groupData.Entrada) return "[FECHA]";
+                                let d = new Date(groupData.Entrada);
+                                if (isNaN(d.getTime())) {
+                                    const parts = groupData.Entrada.split('/');
+                                    if(parts.length===3) d = new Date(parts[2], parts[1]-1, parts[0]);
+                                }
+                                if (isNaN(d.getTime())) return groupData.Entrada;
+                                d.setDate(d.getDate() - days);
+                                return d.toLocaleDateString('es-ES');
+                            };
+                            parsed = parsed.replace(/{RELEASE_30}/g, getRelDate(30));
+                            parsed = parsed.replace(/{RELEASE_15}/g, getRelDate(15));
+                            parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
+                            return parsed;
+                        };
+    
+                    polDiv.innerHTML = `<div class="mt-8 border-t border-slate-100 pt-6"><div class="flex items-center gap-2 mb-4"><div class="w-1 h-4 bg-slate-900 rounded-full"></div><h4 class="text-[10px] font-black uppercase tracking-[0.2em]">Cláusulas de Confirmación</h4></div><div class="grid grid-cols-2 gap-x-8 gap-y-4">${allC.map((c, i) => `<div class="space-y-1"><p class="text-[9px] font-black uppercase text-slate-500">${i + 1}. ${c.title}</p><p class="text-[8.5px] text-slate-500 leading-relaxed">${parseClauseVariables(c.body || "")}</p></div>`).join('')}</div></div>`;
                     polDiv.classList.remove('hidden');
                 } else polDiv.classList.add('hidden');
             } else if (polDiv) polDiv.classList.add('hidden');

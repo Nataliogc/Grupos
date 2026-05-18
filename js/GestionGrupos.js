@@ -1,4 +1,4 @@
-﻿﻿﻿"use strict";
+﻿﻿"use strict";
 
 var _excluded = ["_diff", "_changes", "_docId"];
 function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
@@ -6173,7 +6173,7 @@ var App = function App() {
           }
         };
         var addPlanRow = function addPlanRow() {
-          var remaining = Math.max(0, 100 - totalPercent);
+          var remaining = plan.length === 0 ? 30 : Math.max(0, 100 - totalPercent);
           var d;
           var sDate = arrivalDate;
           var numDate = parseFloat(sDate);
@@ -6187,7 +6187,7 @@ var App = function App() {
           d.setDate(d.getDate() - days);
           var newRow = {
             id: Date.now(),
-            label: remaining === 100 ? "Pago Único" : plan.length === 0 ? "Primer Pago" : "Pago Final",
+            label: plan.length === 0 ? "Depósito" : remaining === 100 ? "Pago Único" : "Pago Final",
             percent: remaining,
             amount: (hotelTotal * (remaining / 100)).toFixed(2),
             releaseDays: days,
@@ -6233,7 +6233,7 @@ var App = function App() {
         }))), /*#__PURE__*/React.createElement("div", {
           className: "space-y-1.5"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "grid grid-cols-[25px_45px_1fr_55px_85px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
+          className: "grid grid-cols-[25px_85px_1fr_75px_105px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
         }, /*#__PURE__*/React.createElement("div", null), /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, "%"), /*#__PURE__*/React.createElement("div", {
@@ -6262,7 +6262,7 @@ var App = function App() {
             var isLastUnpaid = idx === lastUnpaidIdx;
             return /*#__PURE__*/React.createElement("div", {
               key: dep.id,
-              className: "grid grid-cols-[25px_45px_1fr_55px_85px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
+              className: "grid grid-cols-[25px_85px_1fr_75px_105px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
             }, /*#__PURE__*/React.createElement("div", {
               className: "flex justify-center"
             }, isWarning ? /*#__PURE__*/React.createElement(IconAlertTriangle, {
@@ -6271,10 +6271,10 @@ var App = function App() {
             }) : /*#__PURE__*/React.createElement("div", {
               className: "w-1.5 h-1.5 rounded-full ".concat(isPaid ? "bg-emerald-500" : "bg-slate-300")
             })), /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[40px] h-5 border border-slate-100"
+              className: "flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[75px] h-5 border border-slate-100"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
-              className: "bg-transparent border-none text-[10px] font-black text-slate-600 w-8 text-right outline-none",
+              className: "bg-transparent border-none text-[10px] font-black text-slate-600 w-16 text-right outline-none",
               value: dep.percent,
               onChange: function onChange(e) {
                 return handlePlanChange(idx, "percent", e.target.value, true);
@@ -6302,10 +6302,10 @@ var App = function App() {
             }), /*#__PURE__*/React.createElement("span", {
               className: "text-[9px] font-black text-slate-400 ml-0.5"
             }, "\u20AC"))), /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[50px] h-6 border border-blue-100 mx-auto"
+              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[75px] h-6 border border-blue-100 mx-auto"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
-              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-9 text-center outline-none",
+              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-10 text-center outline-none",
               value: dep.releaseDays,
               onChange: function onChange(e) {
                 return handlePlanChange(idx, "releaseDays", e.target.value, true);

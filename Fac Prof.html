@@ -1891,6 +1891,30 @@
                     const allC = [...(window.globalConfig?.common?.confirmationClauses || []), ...(window.globalConfig?.[currentHotel]?.confirmationClauses || [])];
                     if (allC.length > 0) {
                         const totalNeto = total - totalComision;
+
+                        const parseClauseVariables = (text) => {
+                            if (!text) return "";
+                            let parsed = text;
+                            parsed = parsed.replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + ' EUR');
+                            parsed = parsed.replace(/{DEP_50}/g, formatNum(totalNeto * 0.5) + ' EUR');
+                            parsed = parsed.replace(/{DEP_100}/g, formatNum(totalNeto) + ' EUR');
+                            const getRelDate = (days) => {
+                                if (!groupData.Entrada) return "[FECHA]";
+                                let d = new Date(groupData.Entrada);
+                                if (isNaN(d.getTime())) {
+                                    const parts = groupData.Entrada.split('/');
+                                    if(parts.length===3) d = new Date(parts[2], parts[1]-1, parts[0]);
+                                }
+                                if (isNaN(d.getTime())) return groupData.Entrada;
+                                d.setDate(d.getDate() - days);
+                                return d.toLocaleDateString('es-ES');
+                            };
+                            parsed = parsed.replace(/{RELEASE_30}/g, getRelDate(30));
+                            parsed = parsed.replace(/{RELEASE_15}/g, getRelDate(15));
+                            parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
+                            return parsed;
+                        };
+    
                         polDiv.innerHTML = `
                             <!-- Sidebar Legal Vertical -->
                             <div class="static-legal-sidebar">
@@ -1913,7 +1937,7 @@
                                                 <p class="editable-clause" contenteditable="true" style="font-size:8px; font-weight:800; text-transform:uppercase; color:${accentColor}; letter-spacing:0.12em; margin:0; line-height:1.3; font-family:'Montserrat',sans-serif;">${c.title}</p>
                                             </div>
                                             <p class="clause-body editable-clause" contenteditable="true" style="font-size:8.5px; font-weight:500; margin:0; color:#475569; text-align:justify; hyphens:auto; line-height:1.55; font-family:'Montserrat',sans-serif;">
-                                                ${(c.body || '').replace(/{DEP_30}/g, formatNum(totalNeto * 0.3) + ' EUR')}
+                                                ${parseClauseVariables(c.body || "")}
                                             </p>
                                         </div>`;
                                     }).join('')}
