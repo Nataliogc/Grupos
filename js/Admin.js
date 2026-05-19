@@ -33,7 +33,7 @@ var _Recharts = Recharts,
 // LucideIcon cargado desde js/icons.js (window.LucideIcon)
 
 // --- FIREBASE ---
-// InicializaciÃ³n cargada desde js/firebase-init.js
+// Inicialización cargada desde js/firebase-init.js
 var db = window.db;
 
 // --- UTILIDADES ---
@@ -42,7 +42,7 @@ var fmt = NexusUtils.formatCurrency;
 var formatDate = NexusUtils.formatDate;
 
 // --- MÃ“DULO IA (CONEXIÃ“N SEGURA) ---
-// --- MÃ“DULO IA ESTRATÃ‰GICA (CONEXIÃ“N POR PARÃMETROS) ---
+// --- MÃ“DULO IA ESTRATÃ‰GICA (CONEXIÃ“N POR PARÁMETROS) ---
 function analizarGrupos(_x) {
   return _analizarGrupos.apply(this, arguments);
 }
@@ -52,7 +52,7 @@ function _analizarGrupos() {
     return _regenerator().w(function (_context4) {
       while (1) switch (_context4.p = _context4.n) {
         case 0:
-          // 1. Obtener parÃ¡metros dinÃ¡micos de Firestore
+          // 1. Obtener parámetros dinámicos de Firestore
           apiKey = window.firebaseConfig.apiKey;
           model = "gemini-1.5-flash"; // Default Standard Model
           _context4.p = 1;
@@ -76,10 +76,10 @@ function _analizarGrupos() {
             _context4.n = 5;
             break;
           }
-          throw new Error("ERROR: No se ha configurado la API Key de Gemini en el panel de ConfiguraciÃ³n.");
+          throw new Error("ERROR: No se ha configurado la API Key de Gemini en el panel de Configuración.");
         case 5:
           url = "https://generativelanguage.googleapis.com/v1/models/".concat(model, ":generateContent?key=").concat(apiKey);
-          prompt = "\n            Act\xC3\xBAa como un experto analista de Revenue Management hotelero de alto nivel.\n            Analiza los siguientes datos de grupos consolidados de los hoteles Sercotel Guadiana y Cumbria Spa & Hotel.\n            Derrame un informe estrat\xC3\xA9gico conciso con:\n            1. Puntos cr\xC3\xADticos de release (vencimientos pr\xC3\xB3ximos).\n            2. An\xC3\xA1lisis de ocupaci\xC3\xB3n y revenue por hotel.\n            3. Recomendaciones de seguimiento comercial (upselling, confirmaci\xC3\xB3n de grupos en tentativa).\n            4. Proyecci\xC3\xB3n de cierre de mes.\n            Utiliza un tono profesional y directo.\n            \n            DATOS DE GRUPOS:\n            ".concat(JSON.stringify(datos), "\n            ");
+          prompt = "\n            Act\xFAa como un experto analista de Revenue Management hotelero de alto nivel.\n            Analiza los siguientes datos de grupos consolidados de los hoteles Sercotel Guadiana y Cumbria Spa & Hotel.\n            Derrame un informe estrat\xE9gico conciso con:\n            1. Puntos cr\xEDticos de release (vencimientos pr\xF3ximos).\n            2. An\xE1lisis de ocupaci\xF3n y revenue por hotel.\n            3. Recomendaciones de seguimiento comercial (upselling, confirmaci\xF3n de grupos en tentativa).\n            4. Proyecci\xF3n de cierre de mes.\n            Utiliza un tono profesional y directo.\n            \n            DATOS DE GRUPOS:\n            ".concat(JSON.stringify(datos), "\n            ");
           _context4.p = 6;
           _context4.n = 7;
           return fetch(url, {
@@ -110,13 +110,13 @@ function _analizarGrupos() {
             _context4.n = 9;
             break;
           }
-          throw new Error("ðŸš« ACCESO DENEGADO: Tu API Key estÃ¡ bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' estÃ© activa y que no haya restricciones de IP/dominio.");
+          throw new Error("ðŸš« ACCESO DENEGADO: Tu API Key está bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' esté activa y que no haya restricciones de IP/dominio.");
         case 9:
           if (!msg.includes("leaked")) {
             _context4.n = 10;
             break;
           }
-          throw new Error("âš ï¸ SEGURIDAD: Tu API Key ha sido desactivada por filtraciÃ³n pÃºblica (leaked). Por favor, genera una nueva clave privada en Google AI Studio.");
+          throw new Error("âš ️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.");
         case 10:
           throw new Error("Error en API Gemini: ".concat(msg || JSON.stringify(error)));
         case 11:
@@ -159,23 +159,23 @@ var Sidebar = function Sidebar(_ref) {
   }, {
     id: "analytics",
     icon: "bar-chart-3",
-    label: "AnÃ¡lisis IA"
+    label: "Análisis IA"
   }, {
     id: "menus",
     icon: "utensils",
-    label: "MenÃºs Eventos"
+    label: "Menús Eventos"
   }, {
     id: "turisticos",
     icon: "map",
-    label: "MenÃºs TurÃ­sticos"
+    label: "Menús Turísticos"
   }, {
     id: "cocteles",
     icon: "martini",
-    label: "MenÃºs CÃ³cteles"
+    label: "Menús Cócteles"
   }, {
     id: "settings",
     icon: "settings",
-    label: "ConfiguraciÃ³n"
+    label: "Configuración"
   }];
   return /*#__PURE__*/React.createElement("div", {
     className: "w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50"
@@ -301,7 +301,7 @@ var Dashboard = function Dashboard(_ref2) {
         totalPaid += gPaid;
 
         // Board Basis / Regimen (kept for map but maybe not for main chart)
-        var reg = (g["RÃ©gimen"] || g.Com_Regime || "OTROS").toUpperCase();
+        var reg = (g["Régimen"] || g.Com_Regime || "OTROS").toUpperCase();
         segMap.regimes = segMap.regimes || {};
         segMap.regimes[reg] = (segMap.regimes[reg] || 0) + 1;
       }
@@ -439,7 +439,7 @@ var Dashboard = function Dashboard(_ref2) {
     icon: "Euro",
     color: "emerald"
   }, {
-    label: "OcupaciÃ³n Media",
+    label: "Ocupación Media",
     val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "â€“",
     sub: "Estimada por grupo",
     icon: "Percent",
@@ -516,7 +516,7 @@ var Dashboard = function Dashboard(_ref2) {
       className: "flex flex-col min-w-0 pr-2"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[8px] font-black uppercase tracking-[0.15em] mb-1 ".concat(alert.type === "danger" ? "text-rose-400" : alert.type === "warning" ? "text-amber-500" : "text-indigo-400")
-    }, alert.type === "danger" ? "CrÃ­tico" : alert.type === "warning" ? "AtenciÃ³n" : "Info"), /*#__PURE__*/React.createElement("span", {
+    }, alert.type === "danger" ? "Crítico" : alert.type === "warning" ? "Atención" : "Info"), /*#__PURE__*/React.createElement("span", {
       className: "text-[11px] font-black text-slate-800 uppercase tracking-wide leading-tight line-clamp-2"
     }, alert.label)));
   }))), /*#__PURE__*/React.createElement("div", {
@@ -651,9 +651,9 @@ var Dashboard = function Dashboard(_ref2) {
     className: "flex items-center gap-6"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-xs font-black text-slate-800 uppercase tracking-widest"
-  }, "Pr\xC3\xB3ximas Llegadas"), /*#__PURE__*/React.createElement("span", {
+  }, "Pr\xF3ximas Llegadas"), /*#__PURE__*/React.createElement("span", {
     className: "text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60"
-  }, "Pr\xC3\xB3ximos", " ", timeRange === 365 ? "12 meses" : timeRange + " dÃ­as", " \xE2\u20AC\xA2 Actualizado hace 1 min.")), /*#__PURE__*/React.createElement("div", {
+  }, "Pr\xF3ximos", " ", timeRange === 365 ? "12 meses" : timeRange + " días", " \xE2\u20AC\xA2 Actualizado hace 1 min.")), /*#__PURE__*/React.createElement("div", {
     className: "flex bg-slate-50 rounded-xl p-1 border border-slate-100"
   }, [{
     label: "15D",
@@ -739,7 +739,7 @@ var Dashboard = function Dashboard(_ref2) {
       var st = getStatusProps(group["Estado"]);
       var isConfirmed = st.label === "Confirmado" || (group["Estado"] || "").toUpperCase().includes("CONFIRM") || (group["Estado"] || "").toUpperCase().includes("GARANT") || (group["Estado"] || "").toUpperCase().includes("RESERVA");
 
-      // Si ya estÃ¡ pagado o confirmado, el release ya no es una alerta crÃ­tica comercial
+      // Si ya está pagado o confirmado, el release ya no es una alerta crítica comercial
       if (isPaid || isConfirmed) return null;
       var dRel = group.Com_Vencimiento_Rel ? group.Com_Vencimiento_Rel instanceof Date ? group.Com_Vencimiento_Rel : new Date(group.Com_Vencimiento_Rel) : null;
       if (dRel && !isNaN(dRel.getTime())) {
@@ -800,19 +800,19 @@ var Dashboard = function Dashboard(_ref2) {
       name: "FileText",
       size: 10,
       strokeWidth: 3
-    }), "Falta Rooming"), (group["RÃ©gimen"] || "").toUpperCase().includes("MP") && !group["Logistica_MenuMP"] && /*#__PURE__*/React.createElement("div", {
+    }), "Falta Rooming"), (group["Régimen"] || "").toUpperCase().includes("MP") && !group["Logistica_MenuMP"] && /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest"
     }, /*#__PURE__*/React.createElement(LucideIcon, {
       name: "Utensils",
       size: 10,
       strokeWidth: 3
-    }), "Falta Men\xC3\xBA MP"), (group["RÃ©gimen"] || "").toUpperCase().includes("PC") && !group["Logistica_MenuPC"] && /*#__PURE__*/React.createElement("div", {
+    }), "Falta Men\xFA MP"), (group["Régimen"] || "").toUpperCase().includes("PC") && !group["Logistica_MenuPC"] && /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest"
     }, /*#__PURE__*/React.createElement(LucideIcon, {
       name: "Utensils",
       size: 10,
       strokeWidth: 3
-    }), "Falta Men\xC3\xBA PC")))), /*#__PURE__*/React.createElement("td", {
+    }), "Falta Men\xFA PC")))), /*#__PURE__*/React.createElement("td", {
       className: "px-8 py-6"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] font-black text-slate-600 tracking-widest"
@@ -847,7 +847,7 @@ var Dashboard = function Dashboard(_ref2) {
     size: 40
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-black uppercase tracking-widest"
-  }, "Sin llegadas pr\xC3\xB3ximas para el periodo seleccionado")))))))), /*#__PURE__*/React.createElement("footer", {
+  }, "Sin llegadas pr\xF3ximas para el periodo seleccionado")))))))), /*#__PURE__*/React.createElement("footer", {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
@@ -919,7 +919,7 @@ var GroupsManager = function GroupsManager(_ref9) {
     className: "text-2xl font-bold text-slate-800"
   }, "Directorio de Grupos"), /*#__PURE__*/React.createElement("p", {
     className: "text-slate-500 text-sm italic"
-  }, "Accede a las herramientas de an\xC3\xA1lisis y facturaci\xC3\xB3n.")), /*#__PURE__*/React.createElement("div", {
+  }, "Accede a las herramientas de an\xE1lisis y facturaci\xF3n.")), /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 w-full md:w-auto"
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative w-full md:w-64"
@@ -1065,7 +1065,7 @@ var GroupsManager = function GroupsManager(_ref9) {
     }))));
   }), filteredData.length === 0 && /*#__PURE__*/React.createElement("p", {
     className: "col-span-full text-center py-20 text-slate-400"
-  }, "No se encontraron grupos coincidiendo con tu b\xC3\xBAsqueda.")));
+  }, "No se encontraron grupos coincidiendo con tu b\xFAsqueda.")));
 };
 var BudgetManager = function BudgetManager(_ref0) {
   var data = _ref0.data,
@@ -1131,7 +1131,7 @@ var BudgetManager = function BudgetManager(_ref0) {
     className: "text-2xl font-black text-slate-800 tracking-tight"
   }, "Seguimiento de Presupuestos"), /*#__PURE__*/React.createElement("p", {
     className: "text-slate-400 text-xs font-bold uppercase tracking-widest mt-1"
-  }, "Control comercial y conversi\xC3\xB3n de leads")), /*#__PURE__*/React.createElement("div", {
+  }, "Control comercial y conversi\xF3n de leads")), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-3 w-full md:w-auto"
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative flex-1 md:w-64"
@@ -1255,7 +1255,7 @@ var BudgetManager = function BudgetManager(_ref0) {
       className: "shrink-0"
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] font-bold uppercase"
-    }, budget["Pax."], " Pax \xE2\u20AC\xA2 ", budget["RÃ©gimen"])), budget.Com_Email_Contacto && /*#__PURE__*/React.createElement("div", {
+    }, budget["Pax."], " Pax \xE2\u20AC\xA2 ", budget["Régimen"])), budget.Com_Email_Contacto && /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3 text-slate-400"
     }, /*#__PURE__*/React.createElement(LucideIcon, {
       name: "mail",
@@ -1270,7 +1270,7 @@ var BudgetManager = function BudgetManager(_ref0) {
         window.location.href = "Gestion-de-Grupos.html?reserva=" + budget.Reserva;
       },
       className: "px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center justify-center shadow-lg shadow-emerald-100",
-      title: "Abrir en Panel de Gesti\xC3\xB3n"
+      title: "Abrir en Panel de Gesti\xF3n"
     }, /*#__PURE__*/React.createElement(LucideIcon, {
       name: "external-link",
       size: 14
@@ -1278,7 +1278,7 @@ var BudgetManager = function BudgetManager(_ref0) {
       onClick: function onClick() {
         try {
           localStorage.setItem("selectedGroup", JSON.stringify(budget));
-          console.log("Guardado en localStorage p/ ediciÃ³n:", budget.Reserva);
+          console.log("Guardado en localStorage p/ edición:", budget.Reserva);
         } catch (e) {
           console.warn("LocalStorage bloqueado:", e);
         }
@@ -1308,7 +1308,7 @@ var BudgetManager = function BudgetManager(_ref0) {
     size: 64
   }), /*#__PURE__*/React.createElement("p", {
     className: "text-sm font-black uppercase tracking-[0.3em]"
-  }, "No hay presupuestos en esta secci\xC3\xB3n")))));
+  }, "No hay presupuestos en esta secci\xF3n")))));
 };
 var App = function App() {
   var _useState = useState("dashboard"),
@@ -1381,7 +1381,7 @@ var App = function App() {
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
-            if (!window.confirm("Â¿EstÃ¡s seguro de que deseas desestimar este grupo?")) {
+            if (!window.confirm("¿Estás seguro de que deseas desestimar este grupo?")) {
               _context2.n = 4;
               break;
             }
@@ -1415,7 +1415,7 @@ var App = function App() {
     };
   }();
 
-  // Detectar redireccion desde AltaEmail con peticiÃ³n enviada
+  // Detectar redireccion desde AltaEmail con petición enviada
   useEffect(function () {
     setTimeout(function () {
       return setSuccessToast(null);
@@ -1460,7 +1460,7 @@ var App = function App() {
     };
   };
 
-  // Generar Alertas DinÃ¡micas
+  // Generar Alertas Dinámicas
   var alerts = useMemo(function () {
     var list = [];
     var now = new Date();
@@ -1481,7 +1481,7 @@ var App = function App() {
       var isPast = departureStr && departureStr < todayStr;
       if (isCancelled || isPast) return;
 
-      // Alert 1: Release Urgente (< 7 dÃ­as)
+      // Alert 1: Release Urgente (< 7 días)
       var dRel = null;
       if (g["Com_Vencimiento_Rel"]) {
         var val = g["Com_Vencimiento_Rel"];
@@ -1540,7 +1540,7 @@ var App = function App() {
         }
       } catch (e) {}
 
-      // Alert 4: Tentativa prÃ³xima a llegada
+      // Alert 4: Tentativa próxima a llegada
       var isTentative = (g["Estado"] || "").toLowerCase().includes("tentat") || (g["Com_Estado_Interno"] || "").toLowerCase().includes("tentat");
       var entryDate = arrival;
       if (isTentative && entryDate && !isNaN(entryDate.getTime()) && entryDate <= sevenDaysFromNow) {
@@ -1566,7 +1566,7 @@ var App = function App() {
       }
     });
 
-    // 5. Alerta de SincronizaciÃ³n Reciente (Global)
+    // 5. Alerta de Sincronización Reciente (Global)
     var recentCount = data.filter(function (g) {
       if (!g.updatedAt) return false;
       var updateDate = g.updatedAt.toDate ? g.updatedAt.toDate() : new Date(g.updatedAt);
@@ -1580,7 +1580,7 @@ var App = function App() {
         group: null
       });
     }
-    return list.slice(0, 5); // Mostrar top 5 mÃ¡s urgentes
+    return list.slice(0, 5); // Mostrar top 5 más urgentes
   }, [data]);
 
   // Estados para IA
@@ -1615,8 +1615,8 @@ var App = function App() {
           case 3:
             _context3.p = 3;
             _t3 = _context3.v;
-            console.error("Error en anÃ¡lisis IA:", _t3);
-            setAiResult("### Error Detectado\n**Detalles t\xC3\xA9cnicos:** ".concat(_t3.message, "\n\n*Posible soluci\xC3\xB3n:* Verifica que la API Key tenga activada la \"Generative Language API\" y que las restricciones de sitio web incluyan tu URL actual."));
+            console.error("Error en análisis IA:", _t3);
+            setAiResult("### Error Detectado\n**Detalles t\xE9cnicos:** ".concat(_t3.message, "\n\n*Posible soluci\xF3n:* Verifica que la API Key tenga activada la \"Generative Language API\" y que las restricciones de sitio web incluyan tu URL actual."));
           case 4:
             _context3.p = 4;
             setIsAiLoading(false);
@@ -1635,7 +1635,7 @@ var App = function App() {
       var parsed = [];
       snapshot.forEach(function (doc) {
         var row = doc.data();
-        // NormalizaciÃ³n de Segmentos
+        // Normalización de Segmentos
         var seg = (row["Segment."] || "").toString().trim().toUpperCase();
         if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") {
           row["Segment."] = "GRUPO TANTEO";
@@ -1688,7 +1688,7 @@ var App = function App() {
           var isPast = departureStr && departureStr < todayStr;
           if (isCancelled || isPast) return;
 
-          // Alert 1: Release Urgente (< 7 dÃ­as)
+          // Alert 1: Release Urgente (< 7 días)
           var comRel = g.Com_Vencimiento_Rel ? parseDate(g.Com_Vencimiento_Rel) : null;
           if (comRel && !isNaN(comRel.getTime()) && comRel <= sevenDaysFromNow) {
             realAlerts.push({
@@ -1725,7 +1725,7 @@ var App = function App() {
             }
           } catch (e) {}
 
-          // Alert 4: Tentativa prÃ³xima a llegada
+          // Alert 4: Tentativa próxima a llegada
           var isTentative = (g["Estado"] || "").toLowerCase().includes("tentat") || (g["Com_Estado_Interno"] || "").toLowerCase().includes("tentat");
           if (isTentative && arrival <= sevenDaysFromNow) {
             realAlerts.push({
@@ -1760,7 +1760,7 @@ var App = function App() {
           }
         });
         var trendData = [];
-        // Generar previsiÃ³n para los prÃ³ximos 9 meses
+        // Generar previsión para los próximos 9 meses
         for (var i = 0; i < 9; i++) {
           var d = new Date(currentYear, currentMonthIdx + i, 1);
           var y = d.getFullYear();
@@ -1822,7 +1822,7 @@ var App = function App() {
           trendData: trendData
         });
 
-        // 4. Calcular PrÃ³ximas Llegadas
+        // 4. Calcular Próximas Llegadas
         var startOfToday = new Date(now);
         startOfToday.setHours(0, 0, 0, 0);
         var endOfRange = new Date(startOfToday);
@@ -1862,7 +1862,7 @@ var App = function App() {
     className: "flex-1 min-w-0"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs font-black text-emerald-700 uppercase tracking-widest mb-0.5"
-  }, "\xC2\xA1Petici\xC3\xB3n Procesada!"), /*#__PURE__*/React.createElement("p", {
+  }, "\xA1Petici\xF3n Procesada!"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm font-semibold text-slate-800 truncate"
   }, successToast), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] text-slate-400 mt-0.5"
@@ -1906,9 +1906,9 @@ var App = function App() {
     className: "w-10 h-10"
   })), /*#__PURE__*/React.createElement("h2", {
     className: "text-3xl font-bold text-slate-900 mb-4"
-  }, "An\xC3\xA1lisis Estrat\xC3\xA9gico IA"), /*#__PURE__*/React.createElement("p", {
+  }, "An\xE1lisis Estrat\xE9gico IA"), /*#__PURE__*/React.createElement("p", {
     className: "text-slate-500 max-w-lg mx-auto mb-10"
-  }, "Utiliza la potencia de Gemini 2.5 Flash para obtener una visi\xC3\xB3n profunda de la rentabilidad, riesgos y oportunidades de tus grupos actuales."), /*#__PURE__*/React.createElement("button", {
+  }, "Utiliza la potencia de Gemini 2.5 Flash para obtener una visi\xF3n profunda de la rentabilidad, riesgos y oportunidades de tus grupos actuales."), /*#__PURE__*/React.createElement("button", {
     onClick: runStrategicAnalysis,
     className: "bg-[#2d5a43] text-white px-10 py-5 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 hover:scale-[1.02] transition-all flex items-center gap-3 mx-auto"
   }, "Generar Nuevo Informe IA", /*#__PURE__*/React.createElement(LucideIcon, {
@@ -1923,14 +1923,14 @@ var App = function App() {
     className: "w-8 h-8 text-[#2d5a43]"
   })), /*#__PURE__*/React.createElement("h3", {
     className: "text-xl font-bold text-slate-800"
-  }, "Acceso a m\xC3\xB3dulo externo"), /*#__PURE__*/React.createElement("p", {
+  }, "Acceso a m\xF3dulo externo"), /*#__PURE__*/React.createElement("p", {
     className: "text-slate-500 mb-8 max-w-sm"
-  }, "Esta secci\xC3\xB3n utiliza las herramientas din\xC3\xA1micas del gestor. Redirigiendo..."), /*#__PURE__*/React.createElement("button", {
+  }, "Esta secci\xF3n utiliza las herramientas din\xE1micas del gestor. Redirigiendo..."), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return window.location.href = activeTab === "invoices" ? "Fac Prof.html" : "Gestion-de-Grupos.html";
     },
     className: "bg-slate-900 px-8 py-4 rounded-2xl text-white font-bold hover:bg-slate-800 transition-all shadow-xl"
-  }, "Abrir", " ", activeTab === "invoices" ? "MÃ³dulo de FacturaciÃ³n" : "Gestor de Grupos"))), isAiModalOpen && /*#__PURE__*/React.createElement("div", {
+  }, "Abrir", " ", activeTab === "invoices" ? "Módulo de Facturación" : "Gestor de Grupos"))), isAiModalOpen && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-white/20"
@@ -1945,7 +1945,7 @@ var App = function App() {
     className: "w-6 h-6"
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-2xl font-bold text-slate-900 tracking-tight"
-  }, "An\xC3\xA1lisis Estrat\xC3\xA9gico IA"), /*#__PURE__*/React.createElement("p", {
+  }, "An\xE1lisis Estrat\xE9gico IA"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-slate-400 font-medium uppercase tracking-widest"
   }, "Motor: Gemini 2.5 Flash"))), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {

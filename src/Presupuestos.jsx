@@ -6,24 +6,24 @@
 
     // --- CONSTANTES ---
     const ROOM_TYPES = {
-      "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÃDRUPLE"],
+      "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE"],
       "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
     };
 
     const BOARD_TYPES = [
       "SA (Solo Alojamiento)",
       "AD (Alojamiento y Desayuno)",
-      "MP (Media PensiÃ³n)",
-      "PC (PensiÃ³n Completa)"
+      "MP (Media Pensión)",
+      "PC (Pensión Completa)"
     ];
 
-    // Personas por tipo de habitaciÃ³n (auto-cÃ¡lculo PAX)
+    // Personas por tipo de habitación (auto-cálculo PAX)
     const PAX_PER_ROOM = {
       // Nuevos tipos oficiales
       "DOBLE DE USO INDIVIDUAL": 1,
       "DOBLE": 2,
       "DOBLE + SUPLETORIA": 3,
-      "CUÃDRUPLE": 4,
+      "CUÁDRUPLE": 4,
       // Retrocompatibilidad
       "Doble Individual": 1,
       "Doble de Uso Individual": 1,
@@ -33,7 +33,7 @@
       "Doble + Supletoria": 3,
       "Triple": 3,
       "Junior Suite": 2,
-      "CuÃ¡druple": 4,
+      "Cuádruple": 4,
     };
 
     // --- UTILS (cargadas desde js/utils.js) ---
@@ -70,21 +70,21 @@
       "doble + supletoria": "DOBLE + SUPLETORIA",
       "triple": "DOBLE + SUPLETORIA",
       "junior suite": "DOBLE",
-      "cuÃ¡druple": "CUÃDRUPLE"
+      "cuádruple": "CUÁDRUPLE"
     };
 
     const BUDGET_DEFAULT_CLAUSES = [
-      { title: "Cupo y Disponibilidad", body: "La presente oferta es vÃ¡lida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depÃ³sito." },
-      { title: "ConfirmaciÃ³n y DepÃ³sito", body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberÃ¡ liquidarse 7 dÃ­as antes de la entrada." },
-      { title: "PolÃ­tica de CancelaciÃ³n", body: "Al ser un evento de carÃ¡cter exclusivo con bloqueo de inventario, todos los depÃ³sitos entregados tienen carÃ¡cter de NO REEMBOLSABLES." },
-      { title: "Rooming List", body: "La relaciÃ³n detallada de ocupantes deberÃ¡ entregarse 5 dÃ­as hÃ¡biles antes de la llegada del primer pasajero." }
+      { title: "Cupo y Disponibilidad", body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito." },
+      { title: "Confirmación y Depósito", body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada." },
+      { title: "Política de Cancelación", body: "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES." },
+      { title: "Rooming List", body: "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero." }
     ];
 
     const CONF_DEFAULT_CLAUSES = [
-      { title: "ConfirmaciÃ³n y DepÃ³sito", body: "Para garantizar la reserva definitiva, se requiere un primer depÃ³sito del 30% ({DEP_30}) en concepto de garantÃ­a. La reserva no se considerarÃ¡ confirmada hasta la recepciÃ³n del mismo." },
-      { title: "Calendario de Pagos y Release", body: "Se establece un release de 30 dÃ­as previos a la entrada ({RELEASE_30}), fecha en la cual el hotel deberÃ¡ haber recibido el 50% del total ({DEP_50}). El pago final del 100% ({DEP_100}) deberÃ¡ estar liquidado 7 dÃ­as antes de la llegada ({RELEASE_7})." },
-      { title: "Reducciones y Cancelaciones", body: "Se permite una reducciÃ³n de hasta el 10% del nÃºmero de habitaciones contratadas sin gastos hasta 15 dÃ­as antes de la llegada ({RELEASE_15}). Cancelaciones totales posteriores a esta fecha incurrirÃ¡n en un 100% de gastos." },
-      { title: "Rooming List y RÃ©gimen", body: "La lista definitiva de ocupantes (Rooming List) deberÃ¡ ser enviada antes del {RELEASE_7}. Cualquier cambio posterior queda sujeto a disponibilidad." }
+      { title: "Confirmación y Depósito", body: "Para garantizar la reserva definitiva, se requiere un primer depósito del 30% ({DEP_30}) en concepto de garantía. La reserva no se considerará confirmada hasta la recepción del mismo." },
+      { title: "Calendario de Pagos y Release", body: "Se establece un release de 30 días previos a la entrada ({RELEASE_30}), fecha en la cual el hotel deberá haber recibido el 50% del total ({DEP_50}). El pago final del 100% ({DEP_100}) deberá estar liquidado 7 días antes de la llegada ({RELEASE_7})." },
+      { title: "Reducciones y Cancelaciones", body: "Se permite una reducción de hasta el 10% del número de habitaciones contratadas sin gastos hasta 15 días antes de la llegada ({RELEASE_15}). Cancelaciones totales posteriores a esta fecha incurrirán en un 100% de gastos." },
+      { title: "Rooming List y Régimen", body: "La lista definitiva de ocupantes (Rooming List) deberá ser enviada antes del {RELEASE_7}. Cualquier cambio posterior queda sujeto a disponibilidad." }
     ];
 
     const calculateDefaultCommission = (price, regime, qty, nights, type = "") => {
@@ -315,7 +315,7 @@
 
       newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
       newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
-      newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\u00c3\u00a9fono"] || groupData["TelÃ©fono"] || "";
+      newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\u00c3\u00a9fono"] || groupData["Teléfono"] || "";
 
       return newData;
     };
@@ -374,7 +374,7 @@
       const descuentos = parseFloat(groupData.Descuentos) || 0;
       total = total + suplementos - descuentos;
 
-      // Otros Cargos (Extras DinÃ¡micos)
+      // Otros Cargos (Extras Dinámicos)
       const extras = groupData.extraCharges || [];
       extras.forEach(extra => {
         const isGlobal = !extra.date;
@@ -382,7 +382,7 @@
         total += isGlobal ? (px * Math.max(1, dates.length)) : px;
       });
 
-      // Si no hay configuraciÃ³n diaria pero hay un importe fijado (desde IA)
+      // Si no hay configuración diaria pero hay un importe fijado (desde IA)
       if (total === 0 && groupData["Importe(*)"]) {
         const imp = parseFloat(String(groupData["Importe(*)"]).replace(',', '.'));
         return isNaN(imp) ? 0 : imp;
@@ -434,7 +434,7 @@
 
       const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
 
-      // Cargar datos y manejar parÃ¡metros de URL
+      // Cargar datos y manejar parámetros de URL
       useEffect(() => {
         const unsubscribe = db.collection("groups")
           .onSnapshot((snapshot) => {
@@ -456,13 +456,13 @@
               if (!isBudget) return false;
 
               // En el cargador general de Presupuestos, permitimos todos los estados
-              // (la lÃ³gica de visualizaciÃ³n se encarga de filtrar por la pestaÃ±a seleccionada)
+              // (la lógica de visualización se encarga de filtrar por la pestaña seleccionada)
               return true;
             });
             setGroups(docs);
             setLoading(false);
 
-            // LÃ³gica de Deep-link (?id=XXXX)
+            // Lógica de Deep-link (?id=XXXX)
             const urlParams = new URLSearchParams(window.location.search);
             const budgetId = urlParams.get('id');
             const shouldEdit = urlParams.get('edit') === '1';
@@ -502,7 +502,7 @@
             const departureStr = g.Salida || g.Entrada || "";
             const isPast = departureStr && departureStr < todayStr;
 
-            // Filtro por PestaÃ±a
+            // Filtro por Pestaña
             if (filterTab === 'confirmados' && !isConfirmed) return false;
             if (filterTab === 'desestimados' && !isCancelled) return false;
             if (filterTab === 'activos') {
@@ -510,7 +510,7 @@
               if (isCancelled || isConfirmed || (isPast && !isActiveStatus)) return false;
             }
 
-            // Filtro de BÃºsqueda (usar debouncedSearchTerm)
+            // Filtro de Búsqueda (usar debouncedSearchTerm)
             if (debouncedSearchTerm) {
               const term = debouncedSearchTerm.toLowerCase();
               const groupName = (g["Nombre del Grupo"] || "").toLowerCase();
@@ -599,7 +599,7 @@
         // Validation: Mandatory Hotel
         const hotelAsignado = formData.Hotel_Asignado || formData.Hotel || "";
         if (!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "") {
-          alert("âš ï¸ Error de Integridad: Debe asignar un hotel vÃ¡lido. No se permiten registros 'Pendientes'.");
+          alert("âš ️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
           return;
         }
 
@@ -650,7 +650,7 @@
             };
             Object.entries(fieldsToTrack).forEach(([field, label]) => {
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
-                changes.push(`${label}: ${oldDoc[field] || 'vacÃ­o'} âž” ${formData[field] || 'vacÃ­o'}`);
+                changes.push(`${label}: ${oldDoc[field] || 'vacío'} âž” ${formData[field] || 'vacío'}`);
               }
             });
 
@@ -709,14 +709,14 @@
         if (!textToTranslate) return;
 
         try {
-          const prompt = `Traduce el siguiente texto de un presupuesto de hotel al inglÃ©s. MantÃ©n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: "${textToTranslate}"`;
+          const prompt = `Traduce el siguiente texto de un presupuesto de hotel al inglés. Mantén un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: "${textToTranslate}"`;
           const translated = await window.callGemini(prompt);
           if (translated && !translated.includes('ERROR')) {
             clauses[idx].body = `${textToTranslate} [EN] ${translated.trim()}`;
             if (type === 'budget') setTempClauses(clauses);
             else setTempClausesConf(clauses);
           } else {
-            alert("Error en la traducciÃ³n: " + translated);
+            alert("Error en la traducción: " + translated);
           }
         } catch (e) {
           alert("Error al conectar con la IA.");
@@ -740,7 +740,7 @@
       };
 
       const handleDelete = async (uid) => {
-        if (!confirm("Â¿Eliminar este presupuesto?")) return;
+        if (!confirm("¿Eliminar este presupuesto?")) return;
         try {
           await db.collection("groups").doc(uid).delete();
         } catch (error) { console.error(error); }
@@ -811,7 +811,7 @@
                 </div>
                 {globalConfig?.lastImportDate && (
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2">
-                    Ãšltima ImportaciÃ³n: <span className="text-indigo-500">{new Date(globalConfig.lastImportDate).toLocaleString("es-ES")}</span>
+                    Ãšltima Importación: <span className="text-indigo-500">{new Date(globalConfig.lastImportDate).toLocaleString("es-ES")}</span>
                   </p>
                 )}
               </div>
@@ -880,10 +880,10 @@
                   <tr className="bg-slate-50/50 border-b border-slate-100">
                     <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[320px]">Grupo / Hotel</th>
                     <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">LÃ­mite 7d</th>
+                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Límite 7d</th>
                     <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Importe</th>
                     <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Pax / Hab</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">GestiÃ³n</th>
+                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Gestión</th>
                     <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Estado</th>
                     <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
@@ -938,7 +938,7 @@
                                 <button 
                                   onClick={(e) => { 
                                     e.stopPropagation(); 
-                                    const note = prompt("AÃ±adir nota rÃ¡pida de seguimiento:");
+                                    const note = prompt("Añadir nota rápida de seguimiento:");
                                     if(note) addQuickNote(g.uid, note);
                                   }}
                                   className="group relative inline-flex items-center align-middle"
@@ -946,7 +946,7 @@
                                   { (g.Com_Notas || (g.tracking && g.tracking.length > 0)) ? (
                                     <i className="fas fa-comment-dots text-indigo-500 ml-2 text-xs" title={g.Com_Notas || "Ver seguimiento"}></i>
                                   ) : (
-                                    <i className="far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all" title="AÃ±adir nota"></i>
+                                    <i className="far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all" title="Añadir nota"></i>
                                   )}
                                 </button>
                               </h4>
@@ -964,7 +964,7 @@
                             className="inline-flex flex-col cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded-lg transition-all"
                           >
                             <span className="text-xs font-black text-slate-700">{formatDate(g.Entrada)}</span>
-                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Click p/ GestiÃ³n</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Click p/ Gestión</span>
                           </div>
                         </td>
 
@@ -1019,7 +1019,7 @@
                           </div>
                         </td>
 
-                        {/* GestiÃ³n */}
+                        {/* Gestión */}
                         <td className="px-6 py-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 text-slate-400">
@@ -1103,14 +1103,14 @@
 
         return (
           <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
-            {/* Header Alta/EdiciÃ³n */}
+            {/* Header Alta/Edición */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex items-center gap-4">
                 <button onClick={() => setCurrentView('dashboard')} className="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-slate-800 transition-all border border-slate-100 flex-shrink-0">
                   <i className="fas fa-arrow-left"></i>
                 </button>
                 <div>
-                  <h2 className="text-xl font-black text-slate-800 tracking-tight">{formData.uid ? 'Editar Presupuesto' : 'Nueva CotizaciÃ³n de Grupo'}</h2>
+                  <h2 className="text-xl font-black text-slate-800 tracking-tight">{formData.uid ? 'Editar Presupuesto' : 'Nueva Cotización de Grupo'}</h2>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Completa los campos para generar el documento</p>
                 </div>
               </div>
@@ -1146,13 +1146,13 @@
             </div>
 
             <div className="grid grid-cols-1 gap-8">
-              {/* Bloque 1: InformaciÃ³n BÃ¡sica */}
+              {/* Bloque 1: Información Básica */}
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
                 <div className="flex items-center gap-3 border-b border-slate-50 pb-4">
                   <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
                     <i className="fas fa-info-circle text-[10px]"></i>
                   </div>
-                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">1. InformaciÃ³n del Grupo y Cliente</h3>
+                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">1. Información del Grupo y Cliente</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1162,7 +1162,7 @@
                       type="text" 
                       value={formData["Nombre del Grupo"]} 
                       onChange={e => setFormData({ ...formData, "Nombre del Grupo": e.target.value })}
-                      placeholder="Ej: Boda GarcÃ­a-PÃ©rez o Grupo Jubilados..."
+                      placeholder="Ej: Boda García-Pérez o Grupo Jubilados..."
                       className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
                     />
                   </div>
@@ -1200,12 +1200,12 @@
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">TelÃ©fono</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</label>
                     <input 
                       type="text" 
                       value={formData.Com_Telefono_Contacto} 
                       onChange={e => setFormData({ ...formData, Com_Telefono_Contacto: e.target.value })}
-                      placeholder="NÃºmero de telÃ©fono..."
+                      placeholder="Número de teléfono..."
                       className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
                     />
                   </div>
@@ -1233,13 +1233,13 @@
                 </div>
               </div>
 
-              {/* Bloque 2: TipologÃ­a de Habitaciones */}
+              {/* Bloque 2: Tipología de Habitaciones */}
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
                     <i className="fas fa-bed text-[10px]"></i>
                   </div>
-                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. TipologÃ­a y Cupo de Habitaciones</h3>
+                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tipología y Cupo de Habitaciones</h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -1278,9 +1278,9 @@
                       <button 
                         onClick={handleCopyFirstDay}
                         className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95"
-                        title="Copiar precios y cupos del primer dÃ­a a todos los siguientes"
+                        title="Copiar precios y cupos del primer día a todos los siguientes"
                       >
-                        <i className="fas fa-copy"></i> Copiar 1Âº DÃ­a a Todos
+                        <i className="fas fa-copy"></i> Copiar 1º Día a Todos
                       </button>
                     </div>
                   </div>
@@ -1340,7 +1340,7 @@
                           </div>
 
                           <div className="shrink-0 w-32 flex flex-col gap-0.5">
-                            <label className="text-[7px] font-black text-indigo-500 uppercase px-1">RÃ©gimen</label>
+                            <label className="text-[7px] font-black text-indigo-500 uppercase px-1">Régimen</label>
                             <select
                               value={formData.dailyConfig?.[date]?.board || 'AD (Alojamiento y Desayuno)'}
                               onChange={e => handleDailyConfigChange(date, 'board', e.target.value)}
@@ -1418,7 +1418,7 @@
                     }}
                     className="bg-teal-50 hover:bg-teal-100 text-teal-600 px-3 py-1.5 rounded-lg border border-teal-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all"
                   >
-                    <i className="fas fa-plus"></i> AÃ±adir Cargo
+                    <i className="fas fa-plus"></i> Añadir Cargo
                   </button>
                 </div>
 
@@ -1509,14 +1509,14 @@
                 </div>
               </div>
 
-              {/* Bloque 5: ClÃ¡usulas de Documentos (Presupuesto y ConfirmaciÃ³n) */}
+              {/* Bloque 5: Cláusulas de Documentos (Presupuesto y Confirmación) */}
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
                     <i className="fas fa-file-signature text-[10px]"></i>
                   </div>
                   <div>
-                    <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">5. ClÃ¡usulas de Documentos</h3>
+                    <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">5. Cláusulas de Documentos</h3>
                     <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5">Define las condiciones legales para este grupo</p>
                   </div>
                 </div>
@@ -1532,11 +1532,11 @@
                          type="button"
                          onClick={() => {
                            const current = (Array.isArray(formData.clauses) && formData.clauses.length > 0) ? formData.clauses : BUDGET_DEFAULT_CLAUSES;
-                           setFormData({ ...formData, clauses: [...current, { title: "Nueva ClÃ¡usula", body: "" }] });
+                           setFormData({ ...formData, clauses: [...current, { title: "Nueva Cláusula", body: "" }] });
                          }}
                          className="text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
                        >
-                         + AÃ±adir
+                         + Añadir
                        </button>
                     </div>
                     <div className="space-y-3">
@@ -1551,7 +1551,7 @@
                                setFormData({ ...formData, clauses: n });
                             }}
                             className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-indigo-400"
-                            placeholder="TÃ­tulo de la clÃ¡usula"
+                            placeholder="Título de la cláusula"
                           />
                           <textarea 
                             value={c.body} 
@@ -1579,21 +1579,21 @@
                     </div>
                   </div>
 
-                  {/* Columna ConfirmaciÃ³n */}
+                  {/* Columna Confirmación */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                        <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                         <i className="fas fa-file-check text-emerald-500"></i> ConfirmaciÃ³n
+                         <i className="fas fa-file-check text-emerald-500"></i> Confirmación
                        </h4>
                        <button 
                          type="button"
                          onClick={() => {
                            const current = (Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0) ? formData.clauses_conf : CONF_DEFAULT_CLAUSES;
-                           setFormData({ ...formData, clauses_conf: [...current, { title: "Nueva ClÃ¡usula Conf.", body: "" }] });
+                           setFormData({ ...formData, clauses_conf: [...current, { title: "Nueva Cláusula Conf.", body: "" }] });
                          }}
                          className="text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
                        >
-                         + AÃ±adir
+                         + Añadir
                        </button>
                     </div>
                     <div className="space-y-3">
@@ -1608,7 +1608,7 @@
                                setFormData({ ...formData, clauses_conf: n });
                             }}
                             className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-emerald-400"
-                            placeholder="TÃ­tulo de la clÃ¡usula"
+                            placeholder="Título de la cláusula"
                           />
                           <textarea 
                             value={c.body} 
@@ -1649,7 +1649,7 @@
                 <textarea
                   value={formData.Com_Notas}
                   onChange={e => setFormData({ ...formData, Com_Notas: e.target.value })}
-                  placeholder="AÃ±ade detalles relevantes..."
+                  placeholder="Añade detalles relevantes..."
                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-medium text-slate-600 outline-none focus:border-indigo-500 min-h-[80px] resize-none transition-all shadow-sm"
                 />
               </div>
@@ -1666,7 +1666,7 @@
                   onClick={handleSave}
                   className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-indigo-200/50"
                 >
-                  Guardar CotizaciÃ³n
+                  Guardar Cotización
                 </button>
               </div>
             </div>
@@ -1679,14 +1679,14 @@
       const HOTEL_DEFAULTS = {
         guadiana: {
           address: 'C/ Guadiana, 36',
-          city: '13002 - Ciudad Real (EspaÃ±a)',
+          city: '13002 - Ciudad Real (España)',
           phone: '926 22 33 13',
           email: 'info@hotelguadiana.es',
           web: 'www.hotelguadiana.es'
         },
         cumbria: {
           address: 'Ctra. Toledo, 26',
-          city: '13005 - Ciudad Real (EspaÃ±a)',
+          city: '13005 - Ciudad Real (España)',
           phone: '(+34) 926 25 04 04',
           email: 'recepcion@hotelcumbria.es',
           web: 'www.hotelcumbria.es'
@@ -1705,7 +1705,7 @@
         const modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
         const groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
 
-        // LÃ³gica de Fallback Multinivel para ClÃ¡usulas
+        // Lógica de Fallback Multinivel para Cláusulas
         const getEffectiveClauses = () => {
           if (Array.isArray(g[groupKey]) && g[groupKey].length > 0) return g[groupKey];
           if (globalConfig && globalConfig[hotelKey] && Array.isArray(globalConfig[hotelKey][modeKey]) && globalConfig[hotelKey][modeKey].length > 0) return globalConfig[hotelKey][modeKey];
@@ -1714,7 +1714,7 @@
         };
         const effectiveClauses = getEffectiveClauses();
 
-        // FunciÃ³n auxiliar para reemplazo de variables
+        // Función auxiliar para reemplazo de variables
         const parseClauseVariables = (text, title = "") => {
           if (!text) return "";
           let parsed = text;
@@ -1786,7 +1786,7 @@
           let multiplier = 2;
           if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;
           else if (t.includes('TRIPLE')) multiplier = 3;
-          else if (t.includes('CUADRUPLE') || t.includes('CUÃDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;
+          else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;
           else if (t.includes('QUINTUPLE')) multiplier = 5;
           calculatedPax += (multiplier * c);
         });
@@ -1920,7 +1920,7 @@
                         <textarea
                           value={newNote}
                           onChange={(e) => setNewNote(e.target.value)}
-                          placeholder="AÃ±adir nota de seguimiento..."
+                          placeholder="Añadir nota de seguimiento..."
                           className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pr-12 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all resize-none min-h-[80px] custom-scrollbar"
                         />
                         <button 
@@ -1949,7 +1949,7 @@
                      {!Array.isArray(g.tracking) || (g.tracking.length === 0 && !g.Com_Notas) ? (
                        <div className="py-10 text-center opacity-30">
                          <i className="fas fa-comments text-2xl mb-2 text-slate-400"></i>
-                         <p className="text-[9px] font-black text-slate-500 uppercase">Sin historial aÃºn</p>
+                         <p className="text-[9px] font-black text-slate-500 uppercase">Sin historial aún</p>
                        </div>
                      ) : (
                        (Array.isArray(g.tracking) ? g.tracking : []).map((t, i) => (
@@ -1980,7 +1980,7 @@
                       />
                       <div className="text-right">
                         <h1 className={`text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ${isCumbria ? 'text-blue-900' : 'text-orange-800'}`}>
-                          {docMode === 'confirmacion' ? 'ConfirmaciÃ³n de Grupo' : 'Propuesta de Alojamiento'}
+                          {docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'}
                         </h1>
                         <p className="text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Ref: {g.Reserva}</p>
                       </div>
@@ -2021,7 +2021,7 @@
                         )}
                         {(g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]) && (
                           <div className="space-y-0.5">
-                            <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">TelÃ©fono</span>
+                            <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Teléfono</span>
                             <p className="text-xs print:text-[10px] font-bold text-slate-800">{g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]}</p>
                           </div>
                         )}
@@ -2035,15 +2035,15 @@
                     )}
 
                     <div className="space-y-8 print:space-y-4">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones EconÃ³micas</h3>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
                       {dates.length > 0 ? (
                         <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]">
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
                                 <th className="p-4 print:py-1.5 print:px-2">Fecha (Servicio)</th>
-                                <th className="p-4 print:py-1.5 print:px-2">RÃ©gimen</th>
-                                <th className="p-4 print:py-1.5 print:px-2">TipologÃ­a Alojamiento</th>
+                                <th className="p-4 print:py-1.5 print:px-2">Régimen</th>
+                                <th className="p-4 print:py-1.5 print:px-2">Tipología Alojamiento</th>
                                 <th className="p-4 print:py-1.5 print:px-2 text-right">Subtotal</th>
                               </tr>
                             </thead>
@@ -2156,7 +2156,7 @@
                       ) : (
                         <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-200">
                           <p className="text-lg font-black text-indigo-700">{formatNum(calculatedTotal)} â‚¬ (Total Estimado)</p>
-                          <p className="text-xs text-slate-400 mt-2">Detalle de noches no configurado aÃºn.</p>
+                          <p className="text-xs text-slate-400 mt-2">Detalle de noches no configurado aún.</p>
                         </div>
                       )}
 
@@ -2164,7 +2164,7 @@
                         <div className="flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                           <div className="flex gap-1">
                             <button onClick={() => setDocMode('presupuesto')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${docMode === 'presupuesto' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600'}`}>Vista Presupuesto</button>
-                            <button onClick={() => setDocMode('confirmacion')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${docMode === 'confirmacion' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600'}`}>Vista ConfirmaciÃ³n</button>
+                            <button onClick={() => setDocMode('confirmacion')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${docMode === 'confirmacion' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600'}`}>Vista Confirmación</button>
                           </div>
                         </div>
 
@@ -2174,14 +2174,14 @@
                               <div className="flex items-center justify-between mb-5">
                                 <div className="flex items-center gap-3">
                                   <div className={`h-4 w-1 rounded-full ${isCumbria ? 'bg-blue-800' : 'bg-orange-600'}`}></div>
-                                  <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">ClÃ¡usulas de Presupuesto</h4>
+                                  <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Cláusulas de Presupuesto</h4>
                                 </div>
                                 <button onClick={() => {
                                     if (!isEditingClauses) {
                                       const current = effectiveClauses;
                                       setTempClauses(JSON.parse(JSON.stringify(current)));
                                   } else {
-                                    db.collection("groups").doc(g.uid).update({ clauses: tempClauses }).then(() => alert("ClÃ¡usulas presupuesto guardadas."));
+                                    db.collection("groups").doc(g.uid).update({ clauses: tempClauses }).then(() => alert("Cláusulas presupuesto guardadas."));
                                   }
                                   setIsEditingClauses(!isEditingClauses);
                                 }} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClauses ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
@@ -2216,8 +2216,8 @@
                                   });
                                 })()}
                                 {isEditingClauses && (
-                                  <button onClick={() => setTempClauses([...tempClauses, { title: "Nueva ClÃ¡usula", body: "" }])} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2">
-                                    <i className="fas fa-plus"></i> AÃ±adir ClÃ¡usula
+                                  <button onClick={() => setTempClauses([...tempClauses, { title: "Nueva Cláusula", body: "" }])} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2">
+                                    <i className="fas fa-plus"></i> Añadir Cláusula
                                   </button>
                                 )}
                               </div>
@@ -2229,14 +2229,14 @@
                               <div className="flex items-center justify-between mb-5">
                                 <div className="flex items-center gap-3">
                                   <div className="h-4 w-1 rounded-full bg-emerald-500"></div>
-                                  <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">ClÃ¡usulas de ConfirmaciÃ³n</h4>
+                                  <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Cláusulas de Confirmación</h4>
                                 </div>
                                 <button onClick={() => {
                                   if (!isEditingClausesConf) {
                                     const current = effectiveClauses;
                                     setTempClausesConf(JSON.parse(JSON.stringify(current)));
                                   } else {
-                                    db.collection("groups").doc(g.uid).update({ clauses_conf: tempClausesConf }).then(() => alert("ClÃ¡usulas confirmaciÃ³n guardadas."));
+                                    db.collection("groups").doc(g.uid).update({ clauses_conf: tempClausesConf }).then(() => alert("Cláusulas confirmación guardadas."));
                                   }
                                   setIsEditingClausesConf(!isEditingClausesConf);
                                 }} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClausesConf ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
@@ -2271,8 +2271,8 @@
                                   });
                                 })()}
                                 {isEditingClausesConf && (
-                                  <button onClick={() => setTempClausesConf([...tempClausesConf, { title: "Nueva ClÃ¡usula Conf.", body: "" }])} className="border-2 border-dashed border-emerald-100 rounded-xl p-4 text-[10px] font-black text-emerald-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center gap-2">
-                                    <i className="fas fa-plus"></i> AÃ±adir ClÃ¡usula de ConfirmaciÃ³n
+                                  <button onClick={() => setTempClausesConf([...tempClausesConf, { title: "Nueva Cláusula Conf.", body: "" }])} className="border-2 border-dashed border-emerald-100 rounded-xl p-4 text-[10px] font-black text-emerald-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center gap-2">
+                                    <i className="fas fa-plus"></i> Añadir Cláusula de Confirmación
                                   </button>
                                 )}
                               </div>
@@ -2333,13 +2333,13 @@
                   <i className="fas fa-file-invoice"></i> Fac Proforma
                 </a>
                 <a href="https://nataliogc.github.io/menus-eventos/admin.html" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4">
-                  <i className="fas fa-utensils"></i> MenÃºs Eventos
+                  <i className="fas fa-utensils"></i> Menús Eventos
                 </a>
                 <a href="https://nataliogc.github.io/Menus-Turisticos/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4">
-                  <i className="fas fa-map"></i> MenÃºs TurÃ­sticos
+                  <i className="fas fa-map"></i> Menús Turísticos
                 </a>
                 <a href="https://nataliogc.github.io/menus-cocteles/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4">
-                  <i className="fas fa-glass-martini-alt"></i> MenÃºs CÃ³cteles
+                  <i className="fas fa-glass-martini-alt"></i> Menús Cócteles
                 </a>
                 <a href="Gestion-de-Grupos.html" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2">
                   <i className="fas fa-arrow-left"></i> Volver a Grupos

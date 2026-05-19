@@ -30,18 +30,18 @@ var db = window.db;
 
 // --- CONSTANTES ---
 var ROOM_TYPES = {
-  "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÃDRUPLE"],
+  "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE"],
   "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
 };
-var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (Media PensiÃ³n)", "PC (PensiÃ³n Completa)"];
+var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (Media Pensión)", "PC (Pensión Completa)"];
 
-// Personas por tipo de habitaciÃ³n (auto-cÃ¡lculo PAX)
+// Personas por tipo de habitación (auto-cálculo PAX)
 var PAX_PER_ROOM = {
   // Nuevos tipos oficiales
   "DOBLE DE USO INDIVIDUAL": 1,
   "DOBLE": 2,
   "DOBLE + SUPLETORIA": 3,
-  "CUÃDRUPLE": 4,
+  "CUÁDRUPLE": 4,
   // Retrocompatibilidad
   "Doble Individual": 1,
   "Doble de Uso Individual": 1,
@@ -51,7 +51,7 @@ var PAX_PER_ROOM = {
   "Doble + Supletoria": 3,
   "Triple": 3,
   "Junior Suite": 2,
-  "CuÃ¡druple": 4
+  "Cuádruple": 4
 };
 
 // --- UTILS (cargadas desde js/utils.js) ---
@@ -86,33 +86,33 @@ var ROOM_MIGRATION_MAP = {
   "doble + supletoria": "DOBLE + SUPLETORIA",
   "triple": "DOBLE + SUPLETORIA",
   "junior suite": "DOBLE",
-  "cuÃ¡druple": "CUÃDRUPLE"
+  "cuádruple": "CUÁDRUPLE"
 };
 var BUDGET_DEFAULT_CLAUSES = [{
   title: "Cupo y Disponibilidad",
-  body: "La presente oferta es vÃ¡lida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depÃ³sito."
+  body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito."
 }, {
-  title: "ConfirmaciÃ³n y DepÃ³sito",
-  body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberÃ¡ liquidarse 7 dÃ­as antes de la entrada."
+  title: "Confirmación y Depósito",
+  body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada."
 }, {
-  title: "PolÃ­tica de CancelaciÃ³n",
-  body: "Al ser un evento de carÃ¡cter exclusivo con bloqueo de inventario, todos los depÃ³sitos entregados tienen carÃ¡cter de NO REEMBOLSABLES."
+  title: "Política de Cancelación",
+  body: "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES."
 }, {
   title: "Rooming List",
-  body: "La relaciÃ³n detallada de ocupantes deberÃ¡ entregarse 5 dÃ­as hÃ¡biles antes de la llegada del primer pasajero."
+  body: "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero."
 }];
 var CONF_DEFAULT_CLAUSES = [{
-  title: "ConfirmaciÃ³n y DepÃ³sito",
-  body: "Para garantizar la reserva definitiva, se requiere un primer depÃ³sito del 30% ({DEP_30}) en concepto de garantÃ­a. La reserva no se considerarÃ¡ confirmada hasta la recepciÃ³n del mismo."
+  title: "Confirmación y Depósito",
+  body: "Para garantizar la reserva definitiva, se requiere un primer depósito del 30% ({DEP_30}) en concepto de garantía. La reserva no se considerará confirmada hasta la recepción del mismo."
 }, {
   title: "Calendario de Pagos y Release",
-  body: "Se establece un release de 30 dÃ­as previos a la entrada ({RELEASE_30}), fecha en la cual el hotel deberÃ¡ haber recibido el 50% del total ({DEP_50}). El pago final del 100% ({DEP_100}) deberÃ¡ estar liquidado 7 dÃ­as antes de la llegada ({RELEASE_7})."
+  body: "Se establece un release de 30 días previos a la entrada ({RELEASE_30}), fecha en la cual el hotel deberá haber recibido el 50% del total ({DEP_50}). El pago final del 100% ({DEP_100}) deberá estar liquidado 7 días antes de la llegada ({RELEASE_7})."
 }, {
   title: "Reducciones y Cancelaciones",
-  body: "Se permite una reducciÃ³n de hasta el 10% del nÃºmero de habitaciones contratadas sin gastos hasta 15 dÃ­as antes de la llegada ({RELEASE_15}). Cancelaciones totales posteriores a esta fecha incurrirÃ¡n en un 100% de gastos."
+  body: "Se permite una reducción de hasta el 10% del número de habitaciones contratadas sin gastos hasta 15 días antes de la llegada ({RELEASE_15}). Cancelaciones totales posteriores a esta fecha incurrirán en un 100% de gastos."
 }, {
-  title: "Rooming List y RÃ©gimen",
-  body: "La lista definitiva de ocupantes (Rooming List) deberÃ¡ ser enviada antes del {RELEASE_7}. Cualquier cambio posterior queda sujeto a disponibilidad."
+  title: "Rooming List y Régimen",
+  body: "La lista definitiva de ocupantes (Rooming List) deberá ser enviada antes del {RELEASE_7}. Cualquier cambio posterior queda sujeto a disponibilidad."
 }];
 var calculateDefaultCommission = function calculateDefaultCommission(price, regime, qty, nights) {
   var type = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : "";
@@ -348,7 +348,7 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   newData.tracking = Array.isArray(groupData.tracking) ? groupData.tracking : [];
   newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
   newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
-  newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["TelÃ©fono"] || "";
+  newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["Teléfono"] || "";
   return newData;
 };
 var calculateTotal = function calculateTotal(rawGroupData) {
@@ -415,7 +415,7 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   var descuentos = parseFloat(groupData.Descuentos) || 0;
   total = total + suplementos - descuentos;
 
-  // Otros Cargos (Extras DinÃ¡micos)
+  // Otros Cargos (Extras Dinámicos)
   var extras = groupData.extraCharges || [];
   extras.forEach(function (extra) {
     var isGlobal = !extra.date;
@@ -423,7 +423,7 @@ var calculateTotal = function calculateTotal(rawGroupData) {
     total += isGlobal ? px * Math.max(1, dates.length) : px;
   });
 
-  // Si no hay configuraciÃ³n diaria pero hay un importe fijado (desde IA)
+  // Si no hay configuración diaria pero hay un importe fijado (desde IA)
   if (total === 0 && groupData["Importe(*)"]) {
     var imp = parseFloat(String(groupData["Importe(*)"]).replace(',', '.'));
     return isNaN(imp) ? 0 : imp;
@@ -527,7 +527,7 @@ function App() {
     formData = _useState32[0],
     setFormData = _useState32[1];
 
-  // Cargar datos y manejar parÃ¡metros de URL
+  // Cargar datos y manejar parámetros de URL
   useEffect(function () {
     var unsubscribe = db.collection("groups").onSnapshot(function (snapshot) {
       var docs = snapshot.docs.map(function (doc) {
@@ -541,13 +541,13 @@ function App() {
         if (!isBudget) return false;
 
         // En el cargador general de Presupuestos, permitimos todos los estados
-        // (la lÃ³gica de visualizaciÃ³n se encarga de filtrar por la pestaÃ±a seleccionada)
+        // (la lógica de visualización se encarga de filtrar por la pestaña seleccionada)
         return true;
       });
       setGroups(docs);
       setLoading(false);
 
-      // LÃ³gica de Deep-link (?id=XXXX)
+      // Lógica de Deep-link (?id=XXXX)
       var urlParams = new URLSearchParams(window.location.search);
       var budgetId = urlParams.get('id');
       var shouldEdit = urlParams.get('edit') === '1';
@@ -589,7 +589,7 @@ function App() {
       var departureStr = g.Salida || g.Entrada || "";
       var isPast = departureStr && departureStr < todayStr;
 
-      // Filtro por PestaÃ±a
+      // Filtro por Pestaña
       if (filterTab === 'confirmados' && !isConfirmed) return false;
       if (filterTab === 'desestimados' && !isCancelled) return false;
       if (filterTab === 'activos') {
@@ -599,7 +599,7 @@ function App() {
         if (isCancelled || isConfirmed || isPast && !isActiveStatus) return false;
       }
 
-      // Filtro de BÃºsqueda (usar debouncedSearchTerm)
+      // Filtro de Búsqueda (usar debouncedSearchTerm)
       if (debouncedSearchTerm) {
         var term = debouncedSearchTerm.toLowerCase();
         var groupName = (g["Nombre del Grupo"] || "").toLowerCase();
@@ -698,7 +698,7 @@ function App() {
               _context.n = 1;
               break;
             }
-            alert("âš ï¸ Error de Integridad: Debe asignar un hotel vÃ¡lido. No se permiten registros 'Pendientes'.");
+            alert("âš ️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
             return _context.a(2);
           case 1:
             reservaId = formData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
@@ -758,7 +758,7 @@ function App() {
                 field = _ref21[0],
                 label = _ref21[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
-                changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacÃ­o', " \xE2\u017E\u201D ").concat(formData[field] || 'vacÃ­o'));
+                changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \xE2\u017E\u201D ").concat(formData[field] || 'vacío'));
               }
             });
             if (changes.length > 0) {
@@ -850,7 +850,7 @@ function App() {
             return _context2.a(2);
           case 1:
             _context2.p = 1;
-            _prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xC3\xA9s. Mant\xC3\xA9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
+            _prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xE9s. Mant\xE9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
             _context2.n = 2;
             return window.callGemini(_prompt);
           case 2:
@@ -859,7 +859,7 @@ function App() {
               clauses[idx].body = "".concat(textToTranslate, " [EN] ").concat(translated.trim());
               if (type === 'budget') setTempClauses(clauses);else setTempClausesConf(clauses);
             } else {
-              alert("Error en la traducciÃ³n: " + translated);
+              alert("Error en la traducción: " + translated);
             }
             _context2.n = 4;
             break;
@@ -892,7 +892,7 @@ function App() {
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
           case 0:
-            if (confirm("Â¿Eliminar este presupuesto?")) {
+            if (confirm("¿Eliminar este presupuesto?")) {
               _context3.n = 1;
               break;
             }
@@ -1074,7 +1074,7 @@ function App() {
       className: "text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ".concat(filterTab === 'desestimados' ? 'text-rose-600 border-rose-600' : 'text-slate-400 border-transparent hover:text-slate-600')
     }, "Desestimados")), (globalConfig === null || globalConfig === void 0 ? void 0 : globalConfig.lastImportDate) && /*#__PURE__*/React.createElement("p", {
       className: "text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2"
-    }, "\xC3\u0161ltima Importaci\xC3\xB3n: ", /*#__PURE__*/React.createElement("span", {
+    }, "\xC3\u0161ltima Importaci\xF3n: ", /*#__PURE__*/React.createElement("span", {
       className: "text-indigo-500"
     }, new Date(globalConfig.lastImportDate).toLocaleString("es-ES")))), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-2 w-full sm:w-auto"
@@ -1155,13 +1155,13 @@ function App() {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
-    }, "L\xC3\xADmite 7d"), /*#__PURE__*/React.createElement("th", {
+    }, "L\xEDmite 7d"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Importe"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
     }, "Pax / Hab"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]"
-    }, "Gesti\xC3\xB3n"), /*#__PURE__*/React.createElement("th", {
+    }, "Gesti\xF3n"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center"
     }, "Estado"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right"
@@ -1222,7 +1222,7 @@ function App() {
       }, g["Nombre del Grupo"], /*#__PURE__*/React.createElement("button", {
         onClick: function onClick(e) {
           e.stopPropagation();
-          var note = prompt("AÃ±adir nota rÃ¡pida de seguimiento:");
+          var note = prompt("Añadir nota rápida de seguimiento:");
           if (note) addQuickNote(g.uid, note);
         },
         className: "group relative inline-flex items-center align-middle"
@@ -1231,7 +1231,7 @@ function App() {
         title: g.Com_Notas || "Ver seguimiento"
       }) : /*#__PURE__*/React.createElement("i", {
         className: "far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all",
-        title: "A\xC3\xB1adir nota"
+        title: "A\xF1adir nota"
       }))), /*#__PURE__*/React.createElement("p", {
         className: "text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 opacity-60"
       }, hotelName, " \xE2\u20AC\xA2 ID: ", g.Reserva)))), /*#__PURE__*/React.createElement("td", {
@@ -1245,7 +1245,7 @@ function App() {
         className: "text-xs font-black text-slate-700"
       }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
-      }, "Click p/ Gesti\xC3\xB3n"))), /*#__PURE__*/React.createElement("td", {
+      }, "Click p/ Gesti\xF3n"))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4 text-center"
       }, function (_g$createdAt) {
         var created = (_g$createdAt = g.createdAt) !== null && _g$createdAt !== void 0 && _g$createdAt.seconds ? new Date(g.createdAt.seconds * 1000) : g.createdAt ? new Date(g.createdAt) : null;
@@ -1412,7 +1412,7 @@ function App() {
       className: "fas fa-arrow-left"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
       className: "text-xl font-black text-slate-800 tracking-tight"
-    }, formData.uid ? 'Editar Presupuesto' : 'Nueva CotizaciÃ³n de Grupo'), /*#__PURE__*/React.createElement("p", {
+    }, formData.uid ? 'Editar Presupuesto' : 'Nueva Cotización de Grupo'), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1"
     }, "Completa los campos para generar el documento"))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center gap-4"
@@ -1470,7 +1470,7 @@ function App() {
       className: "fas fa-info-circle text-[10px]"
     })), /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "1. Informaci\xC3\xB3n del Grupo y Cliente")), /*#__PURE__*/React.createElement("div", {
+    }, "1. Informaci\xF3n del Grupo y Cliente")), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 gap-6"
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
@@ -1484,7 +1484,7 @@ function App() {
           "Nombre del Grupo": e.target.value
         }));
       },
-      placeholder: "Ej: Boda Garc\xC3\xADa-P\xC3\xA9rez o Grupo Jubilados...",
+      placeholder: "Ej: Boda Garc\xEDa-P\xE9rez o Grupo Jubilados...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
     })), /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
@@ -1534,7 +1534,7 @@ function App() {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Tel\xC3\xA9fono"), /*#__PURE__*/React.createElement("input", {
+    }, "Tel\xE9fono"), /*#__PURE__*/React.createElement("input", {
       type: "text",
       value: formData.Com_Telefono_Contacto,
       onChange: function onChange(e) {
@@ -1542,7 +1542,7 @@ function App() {
           Com_Telefono_Contacto: e.target.value
         }));
       },
-      placeholder: "N\xC3\xBAmero de tel\xC3\xA9fono...",
+      placeholder: "N\xFAmero de tel\xE9fono...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
     }))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 gap-6 pt-2"
@@ -1582,7 +1582,7 @@ function App() {
       className: "fas fa-bed text-[10px]"
     })), /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "2. Tipolog\xC3\xADa y Cupo de Habitaciones")), /*#__PURE__*/React.createElement("div", {
+    }, "2. Tipolog\xEDa y Cupo de Habitaciones")), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
     }, currentRooms.map(function (type) {
       var _formData$roomCounts;
@@ -1625,10 +1625,10 @@ function App() {
     }, /*#__PURE__*/React.createElement("button", {
       onClick: handleCopyFirstDay,
       className: "bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95",
-      title: "Copiar precios y cupos del primer d\xC3\xADa a todos los siguientes"
+      title: "Copiar precios y cupos del primer d\xEDa a todos los siguientes"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-copy"
-    }), " Copiar 1\xC2\xBA D\xC3\xADa a Todos"))), /*#__PURE__*/React.createElement("div", {
+    }), " Copiar 1\xBA D\xEDa a Todos"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
       var _formData$dailyConfig5;
@@ -1699,7 +1699,7 @@ function App() {
         className: "shrink-0 w-32 flex flex-col gap-0.5"
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
-      }, "R\xC3\xA9gimen"), /*#__PURE__*/React.createElement("select", {
+      }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
         value: ((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.board) || 'AD (Alojamiento y Desayuno)',
         onChange: function onChange(e) {
           return handleDailyConfigChange(date, 'board', e.target.value);
@@ -1792,7 +1792,7 @@ function App() {
       className: "bg-teal-50 hover:bg-teal-100 text-teal-600 px-3 py-1.5 rounded-lg border border-teal-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
-    }), " A\xC3\xB1adir Cargo")), /*#__PURE__*/React.createElement("div", {
+    }), " A\xF1adir Cargo")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, (formData.extraCharges || []).map(function (extra, index) {
       return /*#__PURE__*/React.createElement("div", {
@@ -1897,7 +1897,7 @@ function App() {
       className: "fas fa-file-signature text-[10px]"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "5. Cl\xC3\xA1usulas de Documentos"), /*#__PURE__*/React.createElement("p", {
+    }, "5. Cl\xE1usulas de Documentos"), /*#__PURE__*/React.createElement("p", {
       className: "text-[8px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
     }, "Define las condiciones legales para este grupo"))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 gap-8"
@@ -1915,13 +1915,13 @@ function App() {
         var current = Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES;
         setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           clauses: [].concat(_toConsumableArray(current), [{
-            title: "Nueva ClÃ¡usula",
+            title: "Nueva Cláusula",
             body: ""
           }])
         }));
       },
       className: "text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
-    }, "+ A\xC3\xB1adir")), /*#__PURE__*/React.createElement("div", {
+    }, "+ A\xF1adir")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, (Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES).map(function (c, i) {
       return /*#__PURE__*/React.createElement("div", {
@@ -1938,7 +1938,7 @@ function App() {
           }));
         },
         className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-indigo-400",
-        placeholder: "T\xC3\xADtulo de la cl\xC3\xA1usula"
+        placeholder: "T\xEDtulo de la cl\xE1usula"
       }), /*#__PURE__*/React.createElement("textarea", {
         value: c.body,
         onChange: function onChange(e) {
@@ -1973,19 +1973,19 @@ function App() {
       className: "text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-file-check text-emerald-500"
-    }), " Confirmaci\xC3\xB3n"), /*#__PURE__*/React.createElement("button", {
+    }), " Confirmaci\xF3n"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
         var current = Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES;
         setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           clauses_conf: [].concat(_toConsumableArray(current), [{
-            title: "Nueva ClÃ¡usula Conf.",
+            title: "Nueva Cláusula Conf.",
             body: ""
           }])
         }));
       },
       className: "text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
-    }, "+ A\xC3\xB1adir")), /*#__PURE__*/React.createElement("div", {
+    }, "+ A\xF1adir")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, (Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES).map(function (c, i) {
       return /*#__PURE__*/React.createElement("div", {
@@ -2002,7 +2002,7 @@ function App() {
           }));
         },
         className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-emerald-400",
-        placeholder: "T\xC3\xADtulo de la cl\xC3\xA1usula"
+        placeholder: "T\xEDtulo de la cl\xE1usula"
       }), /*#__PURE__*/React.createElement("textarea", {
         value: c.body,
         onChange: function onChange(e) {
@@ -2046,7 +2046,7 @@ function App() {
           Com_Notas: e.target.value
         }));
       },
-      placeholder: "A\xC3\xB1ade detalles relevantes...",
+      placeholder: "A\xF1ade detalles relevantes...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-medium text-slate-600 outline-none focus:border-indigo-500 min-h-[80px] resize-none transition-all shadow-sm"
     })), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-3 justify-end pt-2"
@@ -2059,19 +2059,19 @@ function App() {
     }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
       onClick: handleSave,
       className: "bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-indigo-200/50"
-    }, "Guardar Cotizaci\xC3\xB3n"))));
+    }, "Guardar Cotizaci\xF3n"))));
   };
   var HOTEL_DEFAULTS = {
     guadiana: {
       address: 'C/ Guadiana, 36',
-      city: '13002 - Ciudad Real (EspaÃ±a)',
+      city: '13002 - Ciudad Real (España)',
       phone: '926 22 33 13',
       email: 'info@hotelguadiana.es',
       web: 'www.hotelguadiana.es'
     },
     cumbria: {
       address: 'Ctra. Toledo, 26',
-      city: '13005 - Ciudad Real (EspaÃ±a)',
+      city: '13005 - Ciudad Real (España)',
       phone: '(+34) 926 25 04 04',
       email: 'recepcion@hotelcumbria.es',
       web: 'www.hotelcumbria.es'
@@ -2088,7 +2088,7 @@ function App() {
     var modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
     var groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
 
-    // LÃ³gica de Fallback Multinivel para ClÃ¡usulas
+    // Lógica de Fallback Multinivel para Cláusulas
     var getEffectiveClauses = function getEffectiveClauses() {
       if (Array.isArray(g[groupKey]) && g[groupKey].length > 0) return g[groupKey];
       if (globalConfig && globalConfig[hotelKey] && Array.isArray(globalConfig[hotelKey][modeKey]) && globalConfig[hotelKey][modeKey].length > 0) return globalConfig[hotelKey][modeKey];
@@ -2097,7 +2097,7 @@ function App() {
     };
     var effectiveClauses = getEffectiveClauses();
 
-    // FunciÃ³n auxiliar para reemplazo de variables
+    // Función auxiliar para reemplazo de variables
     var parseClauseVariables = function parseClauseVariables(text) {
       var title = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "";
       if (!text) return "";
@@ -2169,7 +2169,7 @@ function App() {
         c = _ref34[1];
       var t = type.toUpperCase();
       var multiplier = 2;
-      if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÃDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
+      if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
       calculatedPax += multiplier * c;
     });
     var totalPax = calculatedPax > 0 ? calculatedPax : g["Pax."] || 0;
@@ -2326,7 +2326,7 @@ function App() {
       onChange: function onChange(e) {
         return setNewNote(e.target.value);
       },
-      placeholder: "A\xC3\xB1adir nota de seguimiento...",
+      placeholder: "A\xF1adir nota de seguimiento...",
       className: "w-full bg-white/5 border border-white/10 rounded-2xl p-4 pr-12 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all resize-none min-h-[80px] custom-scrollbar"
     }), /*#__PURE__*/React.createElement("button", {
       type: "submit",
@@ -2354,7 +2354,7 @@ function App() {
       className: "fas fa-comments text-2xl mb-2 text-slate-400"
     }), /*#__PURE__*/React.createElement("p", {
       className: "text-[9px] font-black text-slate-500 uppercase"
-    }, "Sin historial a\xC3\xBAn")) : (Array.isArray(g.tracking) ? g.tracking : []).map(function (t, i) {
+    }, "Sin historial a\xFAn")) : (Array.isArray(g.tracking) ? g.tracking : []).map(function (t, i) {
       return /*#__PURE__*/React.createElement("div", {
         key: (t === null || t === void 0 ? void 0 : t.id) || i,
         className: "relative pl-6 border-l-2 border-white/5 pb-4 last:pb-0"
@@ -2386,7 +2386,7 @@ function App() {
       className: "text-right"
     }, /*#__PURE__*/React.createElement("h1", {
       className: "text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ".concat(isCumbria ? 'text-blue-900' : 'text-orange-800')
-    }, docMode === 'confirmacion' ? 'ConfirmaciÃ³n de Grupo' : 'Propuesta de Alojamiento'), /*#__PURE__*/React.createElement("p", {
+    }, docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1"
     }, "Ref: ", g.Reserva))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6"
@@ -2432,7 +2432,7 @@ function App() {
       className: "space-y-0.5"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
-    }, "Tel\xC3\xA9fono"), /*#__PURE__*/React.createElement("p", {
+    }, "Tel\xE9fono"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800"
     }, g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"])), g["Empresa/Agencia"] && g["Empresa/Agencia"] !== "Venta Directa" && /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
@@ -2444,7 +2444,7 @@ function App() {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
-    }, "Itinerario y Condiciones Econ\xC3\xB3micas"), dates.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    }, "Itinerario y Condiciones Econ\xF3micas"), dates.length > 0 ? /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse"
@@ -2454,9 +2454,9 @@ function App() {
       className: "p-4 print:py-1.5 print:px-2"
     }, "Fecha (Servicio)"), /*#__PURE__*/React.createElement("th", {
       className: "p-4 print:py-1.5 print:px-2"
-    }, "R\xC3\xA9gimen"), /*#__PURE__*/React.createElement("th", {
+    }, "R\xE9gimen"), /*#__PURE__*/React.createElement("th", {
       className: "p-4 print:py-1.5 print:px-2"
-    }, "Tipolog\xC3\xADa Alojamiento"), /*#__PURE__*/React.createElement("th", {
+    }, "Tipolog\xEDa Alojamiento"), /*#__PURE__*/React.createElement("th", {
       className: "p-4 print:py-1.5 print:px-2 text-right"
     }, "Subtotal"))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
@@ -2603,7 +2603,7 @@ function App() {
       className: "text-lg font-black text-indigo-700"
     }, formatNum(calculatedTotal), " \xE2\u201A\xAC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-400 mt-2"
-    }, "Detalle de noches no configurado a\xC3\xBAn.")), /*#__PURE__*/React.createElement("div", {
+    }, "Detalle de noches no configurado a\xFAn.")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100"
@@ -2619,7 +2619,7 @@ function App() {
         return setDocMode('confirmacion');
       },
       className: "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ".concat(docMode === 'confirmacion' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600')
-    }, "Vista Confirmaci\xC3\xB3n"))), /*#__PURE__*/React.createElement("div", {
+    }, "Vista Confirmaci\xF3n"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-16 print:space-y-6 print-break-before"
     }, docMode === 'presupuesto' && /*#__PURE__*/React.createElement("div", {
       className: "relative group"
@@ -2631,7 +2631,7 @@ function App() {
       className: "h-4 w-1 rounded-full ".concat(isCumbria ? 'bg-blue-800' : 'bg-orange-600')
     }), /*#__PURE__*/React.createElement("h4", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]"
-    }, "Cl\xC3\xA1usulas de Presupuesto")), /*#__PURE__*/React.createElement("button", {
+    }, "Cl\xE1usulas de Presupuesto")), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         if (!isEditingClauses) {
           var current = effectiveClauses;
@@ -2640,7 +2640,7 @@ function App() {
           db.collection("groups").doc(g.uid).update({
             clauses: tempClauses
           }).then(function () {
-            return alert("ClÃ¡usulas presupuesto guardadas.");
+            return alert("Cláusulas presupuesto guardadas.");
           });
         }
         setIsEditingClauses(!isEditingClauses);
@@ -2707,14 +2707,14 @@ function App() {
     }(), isEditingClauses && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setTempClauses([].concat(_toConsumableArray(tempClauses), [{
-          title: "Nueva ClÃ¡usula",
+          title: "Nueva Cláusula",
           body: ""
         }]));
       },
       className: "border-2 border-dashed border-slate-200 rounded-xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
-    }), " A\xC3\xB1adir Cl\xC3\xA1usula"))), docMode === 'confirmacion' && /*#__PURE__*/React.createElement("div", {
+    }), " A\xF1adir Cl\xE1usula"))), docMode === 'confirmacion' && /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between mb-5"
@@ -2724,7 +2724,7 @@ function App() {
       className: "h-4 w-1 rounded-full bg-emerald-500"
     }), /*#__PURE__*/React.createElement("h4", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]"
-    }, "Cl\xC3\xA1usulas de Confirmaci\xC3\xB3n")), /*#__PURE__*/React.createElement("button", {
+    }, "Cl\xE1usulas de Confirmaci\xF3n")), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         if (!isEditingClausesConf) {
           var current = effectiveClauses;
@@ -2733,7 +2733,7 @@ function App() {
           db.collection("groups").doc(g.uid).update({
             clauses_conf: tempClausesConf
           }).then(function () {
-            return alert("ClÃ¡usulas confirmaciÃ³n guardadas.");
+            return alert("Cláusulas confirmación guardadas.");
           });
         }
         setIsEditingClausesConf(!isEditingClausesConf);
@@ -2800,14 +2800,14 @@ function App() {
     }(), isEditingClausesConf && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setTempClausesConf([].concat(_toConsumableArray(tempClausesConf), [{
-          title: "Nueva ClÃ¡usula Conf.",
+          title: "Nueva Cláusula Conf.",
           body: ""
         }]));
       },
       className: "border-2 border-dashed border-emerald-100 rounded-xl p-4 text-[10px] font-black text-emerald-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
-    }), " A\xC3\xB1adir Cl\xC3\xA1usula de Confirmaci\xC3\xB3n"))))), /*#__PURE__*/React.createElement("div", {
+    }), " A\xF1adir Cl\xE1usula de Confirmaci\xF3n"))))), /*#__PURE__*/React.createElement("div", {
       className: "pt-5 print:pt-3 border-t-2 ".concat(isCumbria ? 'border-blue-900' : 'border-orange-600', " print:border-t flex items-end justify-between")
     }, /*#__PURE__*/React.createElement("div", {
       className: "print:pl-2"
@@ -2878,21 +2878,21 @@ function App() {
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-utensils"
-  }), " Men\xC3\xBAs Eventos"), /*#__PURE__*/React.createElement("a", {
+  }), " Men\xFAs Eventos"), /*#__PURE__*/React.createElement("a", {
     href: "https://nataliogc.github.io/Menus-Turisticos/",
     target: "_blank",
     rel: "noopener noreferrer",
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-map"
-  }), " Men\xC3\xBAs Tur\xC3\xADsticos"), /*#__PURE__*/React.createElement("a", {
+  }), " Men\xFAs Tur\xEDsticos"), /*#__PURE__*/React.createElement("a", {
     href: "https://nataliogc.github.io/menus-cocteles/",
     target: "_blank",
     rel: "noopener noreferrer",
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-glass-martini-alt"
-  }), " Men\xC3\xBAs C\xC3\xB3cteles"), /*#__PURE__*/React.createElement("a", {
+  }), " Men\xFAs C\xF3cteles"), /*#__PURE__*/React.createElement("a", {
     href: "Gestion-de-Grupos.html",
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("i", {

@@ -20,7 +20,7 @@
 
 
     // --- FIREBASE ---
-    // InicializaciÃ³n cargada desde js/firebase-init.js
+    // Inicialización cargada desde js/firebase-init.js
     const db = window.db;
 
     // --- UTILIDADES ---
@@ -30,9 +30,9 @@
 
 
     // --- MÃ“DULO IA (CONEXIÃ“N SEGURA) ---
-    // --- MÃ“DULO IA ESTRATÃ‰GICA (CONEXIÃ“N POR PARÃMETROS) ---
+    // --- MÃ“DULO IA ESTRATÃ‰GICA (CONEXIÃ“N POR PARÁMETROS) ---
     async function analizarGrupos(datos) {
-      // 1. Obtener parÃ¡metros dinÃ¡micos de Firestore
+      // 1. Obtener parámetros dinámicos de Firestore
       let apiKey = window.firebaseConfig.apiKey;
       let model = "gemini-1.5-flash"; // Default Standard Model
 
@@ -51,20 +51,20 @@
 
       if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
         throw new Error(
-          "ERROR: No se ha configurado la API Key de Gemini en el panel de ConfiguraciÃ³n.",
+          "ERROR: No se ha configurado la API Key de Gemini en el panel de Configuración.",
         );
       }
 
       const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
 
       const prompt = `
-            ActÃºa como un experto analista de Revenue Management hotelero de alto nivel.
+            Actúa como un experto analista de Revenue Management hotelero de alto nivel.
             Analiza los siguientes datos de grupos consolidados de los hoteles Sercotel Guadiana y Cumbria Spa & Hotel.
-            Derrame un informe estratÃ©gico conciso con:
-            1. Puntos crÃ­ticos de release (vencimientos prÃ³ximos).
-            2. AnÃ¡lisis de ocupaciÃ³n y revenue por hotel.
-            3. Recomendaciones de seguimiento comercial (upselling, confirmaciÃ³n de grupos en tentativa).
-            4. ProyecciÃ³n de cierre de mes.
+            Derrame un informe estratégico conciso con:
+            1. Puntos críticos de release (vencimientos próximos).
+            2. Análisis de ocupación y revenue por hotel.
+            3. Recomendaciones de seguimiento comercial (upselling, confirmación de grupos en tentativa).
+            4. Proyección de cierre de mes.
             Utiliza un tono profesional y directo.
             
             DATOS DE GRUPOS:
@@ -86,12 +86,12 @@
 
           if (msg.includes("blocked") || msg.includes("PERMISSION_DENIED")) {
             throw new Error(
-              "ðŸš« ACCESO DENEGADO: Tu API Key estÃ¡ bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' estÃ© activa y que no haya restricciones de IP/dominio.",
+              "ðŸš« ACCESO DENEGADO: Tu API Key está bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' esté activa y que no haya restricciones de IP/dominio.",
             );
           }
           if (msg.includes("leaked")) {
             throw new Error(
-              "âš ï¸ SEGURIDAD: Tu API Key ha sido desactivada por filtraciÃ³n pÃºblica (leaked). Por favor, genera una nueva clave privada en Google AI Studio.",
+              "âš ️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.",
             );
           }
           throw new Error(
@@ -121,23 +121,23 @@
           label: "Seguimiento Presupuestos",
         },
         { id: "invoices", icon: "file-text", label: "Facturas Proforma" },
-        { id: "analytics", icon: "bar-chart-3", label: "AnÃ¡lisis IA" },
+        { id: "analytics", icon: "bar-chart-3", label: "Análisis IA" },
         {
           id: "menus",
           icon: "utensils",
-          label: "MenÃºs Eventos",
+          label: "Menús Eventos",
         },
         {
           id: "turisticos",
           icon: "map",
-          label: "MenÃºs TurÃ­sticos",
+          label: "Menús Turísticos",
         },
         {
           id: "cocteles",
           icon: "martini",
-          label: "MenÃºs CÃ³cteles",
+          label: "Menús Cócteles",
         },
-        { id: "settings", icon: "settings", label: "ConfiguraciÃ³n" },
+        { id: "settings", icon: "settings", label: "Configuración" },
       ];
 
       return (
@@ -330,7 +330,7 @@
 
             // Board Basis / Regimen (kept for map but maybe not for main chart)
             const reg = (
-              g["RÃ©gimen"] ||
+              g["Régimen"] ||
               g.Com_Regime ||
               "OTROS"
             ).toUpperCase();
@@ -458,7 +458,7 @@
                 color: "emerald",
               },
               {
-                label: "OcupaciÃ³n Media",
+                label: "Ocupación Media",
                 val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "â€“",
                 sub: "Estimada por grupo",
                 icon: "Percent",
@@ -565,7 +565,7 @@
                     </div>
                     <div className="flex flex-col min-w-0 pr-2">
                       <span className={`text-[8px] font-black uppercase tracking-[0.15em] mb-1 ${alert.type === "danger" ? "text-rose-400" : alert.type === "warning" ? "text-amber-500" : "text-indigo-400"}`}>
-                        {alert.type === "danger" ? "CrÃ­tico" : alert.type === "warning" ? "AtenciÃ³n" : "Info"}
+                        {alert.type === "danger" ? "Crítico" : alert.type === "warning" ? "Atención" : "Info"}
                       </span>
                       <span className="text-[11px] font-black text-slate-800 uppercase tracking-wide leading-tight line-clamp-2">
                         {alert.label}
@@ -735,11 +735,11 @@
               <div className="flex items-center gap-6">
                 <div>
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">
-                    PrÃ³ximas Llegadas
+                    Próximas Llegadas
                   </h3>
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
-                    PrÃ³ximos{" "}
-                    {timeRange === 365 ? "12 meses" : timeRange + " dÃ­as"} â€¢
+                    Próximos{" "}
+                    {timeRange === 365 ? "12 meses" : timeRange + " días"} â€¢
                     Actualizado hace 1 min.
                   </span>
                 </div>
@@ -809,7 +809,7 @@
                               </span>
                             </div>
 
-                            {/* Alertas CrÃ­ticas DinÃ¡micas */}
+                            {/* Alertas Críticas Dinámicas */}
                             <div className="flex flex-wrap gap-1.5">
                                {/* Warning: Release */}
                                {(() => {
@@ -826,7 +826,7 @@
                                  const st = getStatusProps(group["Estado"]);
                                  const isConfirmed = st.label === "Confirmado" || (group["Estado"] || "").toUpperCase().includes("CONFIRM") || (group["Estado"] || "").toUpperCase().includes("GARANT") || (group["Estado"] || "").toUpperCase().includes("RESERVA");
 
-                                 // Si ya estÃ¡ pagado o confirmado, el release ya no es una alerta crÃ­tica comercial
+                                 // Si ya está pagado o confirmado, el release ya no es una alerta crítica comercial
                                  if (isPaid || isConfirmed) return null;
 
                                  const dRel = group.Com_Vencimiento_Rel ? (group.Com_Vencimiento_Rel instanceof Date ? group.Com_Vencimiento_Rel : new Date(group.Com_Vencimiento_Rel)) : null;
@@ -899,17 +899,17 @@
                                 </div>
                               )}
 
-                              {/* Warning: Falta MenÃºs */}
-                              {((group["RÃ©gimen"] || "").toUpperCase().includes("MP") && !group["Logistica_MenuMP"]) && (
+                              {/* Warning: Falta Menús */}
+                              {((group["Régimen"] || "").toUpperCase().includes("MP") && !group["Logistica_MenuMP"]) && (
                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest">
                                   <LucideIcon name="Utensils" size={10} strokeWidth={3} />
-                                  Falta MenÃº MP
+                                  Falta Menú MP
                                 </div>
                               )}
-                              {((group["RÃ©gimen"] || "").toUpperCase().includes("PC") && !group["Logistica_MenuPC"]) && (
+                              {((group["Régimen"] || "").toUpperCase().includes("PC") && !group["Logistica_MenuPC"]) && (
                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest">
                                   <LucideIcon name="Utensils" size={10} strokeWidth={3} />
-                                  Falta MenÃº PC
+                                  Falta Menú PC
                                 </div>
                               )}
                             </div>
@@ -961,7 +961,7 @@
                         <div className="flex flex-col items-center gap-3 opacity-30">
                           <LucideIcon name="CalendarX" size={40} />
                           <span className="text-xs font-black uppercase tracking-widest">
-                            Sin llegadas prÃ³ximas para el periodo seleccionado
+                            Sin llegadas próximas para el periodo seleccionado
                           </span>
                         </div>
                       </td>
@@ -1065,7 +1065,7 @@
                 Directorio de Grupos
               </h2>
               <p className="text-slate-500 text-sm italic">
-                Accede a las herramientas de anÃ¡lisis y facturaciÃ³n.
+                Accede a las herramientas de análisis y facturación.
               </p>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
@@ -1263,7 +1263,7 @@
             ))}
             {filteredData.length === 0 && (
               <p className="col-span-full text-center py-20 text-slate-400">
-                No se encontraron grupos coincidiendo con tu bÃºsqueda.
+                No se encontraron grupos coincidiendo con tu búsqueda.
               </p>
             )}
           </div>
@@ -1353,7 +1353,7 @@
                 Seguimiento de Presupuestos
               </h2>
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
-                Control comercial y conversiÃ³n de leads
+                Control comercial y conversión de leads
               </p>
             </div>
             <div className="flex flex-wrap gap-3 w-full md:w-auto">
@@ -1481,7 +1481,7 @@
                         className="shrink-0"
                       />
                       <span className="text-[10px] font-bold uppercase">
-                        {budget["Pax."]} Pax â€¢ {budget["RÃ©gimen"]}
+                        {budget["Pax."]} Pax â€¢ {budget["Régimen"]}
                       </span>
                     </div>
                     {budget.Com_Email_Contacto && (
@@ -1505,7 +1505,7 @@
                           "Gestion-de-Grupos.html?reserva=" + budget.Reserva;
                       }}
                       className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center justify-center shadow-lg shadow-emerald-100"
-                      title="Abrir en Panel de GestiÃ³n"
+                      title="Abrir en Panel de Gestión"
                     >
                       <LucideIcon name="external-link" size={14} />
                     </button>
@@ -1517,7 +1517,7 @@
                             JSON.stringify(budget),
                           );
                           console.log(
-                            "Guardado en localStorage p/ ediciÃ³n:",
+                            "Guardado en localStorage p/ edición:",
                             budget.Reserva,
                           );
                         } catch (e) {
@@ -1554,7 +1554,7 @@
                 <div className="flex flex-col items-center gap-4 opacity-20">
                   <LucideIcon name="clipboard-x" size={64} />
                   <p className="text-sm font-black uppercase tracking-[0.3em]">
-                    No hay presupuestos en esta secciÃ³n
+                    No hay presupuestos en esta sección
                   </p>
                 </div>
               </div>
@@ -1592,7 +1592,7 @@
       };
 
       const handleDeleteGroup = async (groupId) => {
-        if (window.confirm("Â¿EstÃ¡s seguro de que deseas desestimar este grupo?")) {
+        if (window.confirm("¿Estás seguro de que deseas desestimar este grupo?")) {
           try {
             const docId = String(groupId || "").trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
             await db.collection("groups").doc(docId).set({
@@ -1607,7 +1607,7 @@
         }
       };
 
-      // Detectar redireccion desde AltaEmail con peticiÃ³n enviada
+      // Detectar redireccion desde AltaEmail con petición enviada
       useEffect(() => {
         setTimeout(() => setSuccessToast(null), 5000);
       }, []);
@@ -1679,7 +1679,7 @@
         };
       };
 
-      // Generar Alertas DinÃ¡micas
+      // Generar Alertas Dinámicas
       const alerts = useMemo(() => {
         const list = [];
         const now = new Date();
@@ -1704,7 +1704,7 @@
 
           if (isCancelled || isPast) return;
 
-          // Alert 1: Release Urgente (< 7 dÃ­as)
+          // Alert 1: Release Urgente (< 7 días)
           let dRel = null;
           if (g["Com_Vencimiento_Rel"]) {
             const val = g["Com_Vencimiento_Rel"];
@@ -1767,7 +1767,7 @@
             }
           } catch (e) { }
 
-          // Alert 4: Tentativa prÃ³xima a llegada
+          // Alert 4: Tentativa próxima a llegada
           const isTentative =
             (g["Estado"] || "").toLowerCase().includes("tentat") ||
             (g["Com_Estado_Interno"] || "").toLowerCase().includes("tentat");
@@ -1804,7 +1804,7 @@
           }
         });
 
-        // 5. Alerta de SincronizaciÃ³n Reciente (Global)
+        // 5. Alerta de Sincronización Reciente (Global)
         const recentCount = data.filter((g) => {
           if (!g.updatedAt) return false;
           const updateDate = g.updatedAt.toDate
@@ -1822,7 +1822,7 @@
           });
         }
 
-        return list.slice(0, 5); // Mostrar top 5 mÃ¡s urgentes
+        return list.slice(0, 5); // Mostrar top 5 más urgentes
       }, [data]);
 
       // Estados para IA
@@ -1837,9 +1837,9 @@
           const analysis = await analizarGrupos(data);
           setAiResult(analysis);
         } catch (error) {
-          console.error("Error en anÃ¡lisis IA:", error);
+          console.error("Error en análisis IA:", error);
           setAiResult(
-            `### Error Detectado\n**Detalles tÃ©cnicos:** ${error.message}\n\n*Posible soluciÃ³n:* Verifica que la API Key tenga activada la "Generative Language API" y que las restricciones de sitio web incluyan tu URL actual.`,
+            `### Error Detectado\n**Detalles técnicos:** ${error.message}\n\n*Posible solución:* Verifica que la API Key tenga activada la "Generative Language API" y que las restricciones de sitio web incluyan tu URL actual.`,
           );
         } finally {
           setIsAiLoading(false);
@@ -1851,7 +1851,7 @@
           const parsed = [];
           snapshot.forEach((doc) => {
             const row = doc.data();
-            // NormalizaciÃ³n de Segmentos
+            // Normalización de Segmentos
             let seg = (row["Segment."] || "").toString().trim().toUpperCase();
             if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") {
               row["Segment."] = "GRUPO TANTEO";
@@ -1920,7 +1920,7 @@
 
               if (isCancelled || isPast) return;
 
-              // Alert 1: Release Urgente (< 7 dÃ­as)
+              // Alert 1: Release Urgente (< 7 días)
               const comRel = g.Com_Vencimiento_Rel
                 ? parseDate(g.Com_Vencimiento_Rel)
                 : null;
@@ -1965,7 +1965,7 @@
                 }
               } catch (e) { }
 
-              // Alert 4: Tentativa prÃ³xima a llegada
+              // Alert 4: Tentativa próxima a llegada
               const isTentative =
                 (g["Estado"] || "").toLowerCase().includes("tentat") ||
                 (g["Com_Estado_Interno"] || "")
@@ -2027,7 +2027,7 @@
             });
 
             const trendData = [];
-            // Generar previsiÃ³n para los prÃ³ximos 9 meses
+            // Generar previsión para los próximos 9 meses
             for (let i = 0; i < 9; i++) {
               const d = new Date(currentYear, currentMonthIdx + i, 1);
               const y = d.getFullYear();
@@ -2116,7 +2116,7 @@
               trendData,
             });
 
-            // 4. Calcular PrÃ³ximas Llegadas
+            // 4. Calcular Próximas Llegadas
             const startOfToday = new Date(now);
             startOfToday.setHours(0, 0, 0, 0);
 
@@ -2157,7 +2157,7 @@
 
       return (
         <div className="min-h-screen">
-          {/* Toast de Ã©xito al regresar de PeticiÃ³n de Grupo */}
+          {/* Toast de éxito al regresar de Petición de Grupo */}
           {successToast && (
             <div className="fixed top-6 right-6 z-50 flex items-start gap-3 bg-white border-2 border-emerald-400 rounded-2xl shadow-2xl shadow-emerald-100 px-6 py-4 max-w-sm animate-fade-in">
               <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0 text-emerald-600">
@@ -2165,7 +2165,7 @@
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-0.5">
-                  Â¡PeticiÃ³n Procesada!
+                  ¡Petición Procesada!
                 </p>
                 <p className="text-sm font-semibold text-slate-800 truncate">
                   {successToast}
@@ -2222,11 +2222,11 @@
                     <LucideIcon name="sparkles" className="w-10 h-10" />
                   </div>
                   <h2 className="text-3xl font-bold text-slate-900 mb-4">
-                    AnÃ¡lisis EstratÃ©gico IA
+                    Análisis Estratégico IA
                   </h2>
                   <p className="text-slate-500 max-w-lg mx-auto mb-10">
                     Utiliza la potencia de Gemini 2.5 Flash para obtener una
-                    visiÃ³n profunda de la rentabilidad, riesgos y
+                    visión profunda de la rentabilidad, riesgos y
                     oportunidades de tus grupos actuales.
                   </p>
                   <button
@@ -2249,10 +2249,10 @@
                   />
                 </div>
                 <h3 className="text-xl font-bold text-slate-800">
-                  Acceso a mÃ³dulo externo
+                  Acceso a módulo externo
                 </h3>
                 <p className="text-slate-500 mb-8 max-w-sm">
-                  Esta secciÃ³n utiliza las herramientas dinÃ¡micas del gestor.
+                  Esta sección utiliza las herramientas dinámicas del gestor.
                   Redirigiendo...
                 </p>
                 <button
@@ -2266,7 +2266,7 @@
                 >
                   Abrir{" "}
                   {activeTab === "invoices"
-                    ? "MÃ³dulo de FacturaciÃ³n"
+                    ? "Módulo de Facturación"
                     : "Gestor de Grupos"}
                 </button>
               </div>
@@ -2284,7 +2284,7 @@
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-                        AnÃ¡lisis EstratÃ©gico IA
+                        Análisis Estratégico IA
                       </h3>
                       <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">
                         Motor: Gemini 2.5 Flash
