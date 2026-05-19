@@ -15787,7 +15787,7 @@
 
                           (
 
-                            com.comision_unitaria *
+                            ((com.base_unitaria * com.porcentaje) / 100) *
 
                             item.qty *
 

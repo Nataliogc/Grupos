@@ -6890,7 +6890,7 @@ var App = function App() {
         }, 0);
       }
       com.comision_unitaria = parseFloat((com.base_unitaria * com.porcentaje / 100).toFixed(2));
-      com.total_comision = parseFloat((com.comision_unitaria * item.qty * item.nights).toFixed(2));
+      com.total_comision = parseFloat((com.base_unitaria * com.porcentaje / 100 * item.qty * item.nights).toFixed(2));
       var newRL = JSON.parse(((_selectedGroupFicha$r54 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r54 === void 0 ? void 0 : _selectedGroupFicha$r54["RoomingList_JSON"]) || "[]");
       newRL[commissionModal.itemIdx].comision = com;
       updateGroupMetadata(selectedGroupFicha.id, "RoomingList_JSON", JSON.stringify(newRL));
