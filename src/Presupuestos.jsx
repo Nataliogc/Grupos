@@ -1,4 +1,4 @@
-﻿
+
     const { useState, useEffect, useMemo } = React;
 
     // --- FIREBASE ---
@@ -87,16 +87,145 @@
       { title: "Rooming List y RÃ©gimen", body: "La lista definitiva de ocupantes (Rooming List) deberÃ¡ ser enviada antes del {RELEASE_7}. Cualquier cambio posterior queda sujeto a disponibilidad." }
     ];
 
+    const calculateDefaultCommission = (price, regime, qty, nights, type = "") => {
+      return 0;
+    };
+
+    const buildRoomingList = (group, existingListJson = "[]") => {
+      let existingList = [];
+      try {
+        existingList = JSON.parse(existingListJson || "[]");
+      } catch (e) {
+        existingList = [];
+      }
+
+      let dates = [];
+      if (group.DateRanges_JSON && Array.isArray(group.DateRanges_JSON) && group.DateRanges_JSON.length > 0) {
+        dates = generateSeriesDates(group.DateRanges_JSON);
+      } else {
+        dates = generateDates(group.Entrada, group.Salida);
+      }
+
+      if (!dates || dates.length === 0) return [];
+
+      const hotelName = group.Hotel_Asignado || group.Hotel || "Sercotel Guadiana";
+      const newList = [];
+
+      dates.forEach(date => {
+        const config = group.dailyConfig?.[date] || {};
+        
+        Object.entries(group.roomCounts || {}).forEach(([type, globalCount]) => {
+          let count = globalCount;
+          if (config.counts) {
+            const countKey = Object.keys(config.counts).find(k => k.toLowerCase() === type.toLowerCase());
+            if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
+              count = Number(config.counts[countKey]);
+            }
+          }
+
+          if (count > 0) {
+            let price = 0;
+            let regime = config.board || group["Régimen"] || "AD";
+            let gratuities = 0;
+            let discount = 0;
+
+            if (config.prices) {
+              const pk = Object.keys(config.prices).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+              price = pk ? parseFloat(config.prices[pk] || 0) : 0;
+              
+              const gratKey = config.gratuities ? Object.keys(config.gratuities).find(k => k.trim().toLowerCase() === type.trim().toLowerCase()) : null;
+              gratuities = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
+
+              const discKey = config.discounts ? Object.keys(config.discounts).find(k => k.trim().toLowerCase() === type.trim().toLowerCase()) : null;
+              discount = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
+            } else {
+              const tk = Object.keys(config).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+              if (tk && config[tk]) {
+                price = parseFloat(config[tk].price || 0);
+                regime = config[tk].board || regime;
+                gratuities = parseInt(config[tk].gratuities || 0);
+                discount = parseFloat(config[tk].discount || 0);
+              }
+            }
+
+            const paxPerRoom = PAX_PER_ROOM[type] || 2;
+            const payingRooms = Math.max(0, count - gratuities);
+            
+            const existingPaying = existingList.find(item => 
+              !item.isService && 
+              item.dateIn === date && 
+              item.type === type.toUpperCase() && 
+              item.hotel === hotelName
+            );
+
+            if (payingRooms > 0) {
+              const regimeShort = regime.split(' ')[0];
+              newList.push({
+                id: existingPaying ? existingPaying.id : (Date.now() + Math.random()),
+                hotel: hotelName,
+                type: type.toUpperCase(),
+                dateIn: date,
+                dateOut: date,
+                qty: payingRooms,
+                regime: regimeShort,
+                price: price,
+                pax: paxPerRoom,
+                nights: 1,
+                total: (payingRooms * price * (1 - discount / 100)).toFixed(2),
+                isService: false,
+                comision: existingPaying && existingPaying.comision ? existingPaying.comision : calculateDefaultCommission(price, regimeShort, payingRooms, 1, type)
+              });
+            }
+
+            if (gratuities > 0) {
+              const regimeShort = regime.split(' ')[0];
+              const existingGrat = existingList.find(item => 
+                !item.isService && 
+                item.dateIn === date && 
+                item.type === (type.toUpperCase() + " (GRATUIDAD)") && 
+                item.hotel === hotelName
+              );
+
+              newList.push({
+                id: existingGrat ? existingGrat.id : (Date.now() + Math.random()),
+                hotel: hotelName,
+                type: type.toUpperCase() + " (GRATUIDAD)",
+                dateIn: date,
+                dateOut: date,
+                qty: gratuities,
+                regime: regimeShort,
+                price: 0,
+                pax: paxPerRoom,
+                nights: 1,
+                total: "0.00",
+                isService: false,
+                comision: existingGrat && existingGrat.comision ? existingGrat.comision : calculateDefaultCommission(0, regimeShort, gratuities, 1, type)
+              });
+            }
+          }
+        });
+      });
+
+      existingList.forEach(item => {
+        if (item.isService && !dates.includes(item.dateIn)) {
+          newList.push(item);
+        }
+      });
+
+      return newList;
+    };
+
     const normalizeGroupData = (groupData) => {
       if (!groupData) return null;
       const newData = { ...groupData };
       
-      // Normalizar Hotel
-      newData.Hotel_Asignado = groupData.Hotel_Asignado || groupData.Hotel || "";
-      if (!newData.Hotel_Asignado) {
-        const lowerName = (newData["Nombre del Grupo"] || "").toLowerCase();
-        if (lowerName.includes("cumbria")) newData.Hotel_Asignado = "Cumbria Spa&Hotel";
-        else if (lowerName.includes("guadiana")) newData.Hotel_Asignado = "Sercotel Guadiana";
+      const rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
+      if (rawHotel.toLowerCase().includes("cumbria")) {
+        newData.Hotel_Asignado = "Cumbria Spa&Hotel";
+      } else if (rawHotel.toLowerCase().includes("guadiana")) {
+        newData.Hotel_Asignado = "Sercotel Guadiana";
+      } else {
+        newData.Hotel_Asignado = "Sercotel Guadiana";
       }
 
       const newRoomCounts = {};
@@ -110,7 +239,36 @@
       if (newData.dailyConfig) {
         newData.dailyConfig = { ...newData.dailyConfig };
         Object.entries(newData.dailyConfig).forEach(([date, dayConf]) => {
-          const newDayConf = { ...dayConf };
+          const newDayConf = {
+            board: dayConf.board || "AD (Alojamiento y Desayuno)",
+            prices: dayConf.prices ? { ...dayConf.prices } : {},
+            counts: dayConf.counts ? { ...dayConf.counts } : {},
+            gratuities: dayConf.gratuities ? { ...dayConf.gratuities } : {},
+            discounts: dayConf.discounts ? { ...dayConf.discounts } : {}
+          };
+
+          Object.entries(dayConf).forEach(([key, val]) => {
+            if (key !== 'board' && key !== 'prices' && key !== 'counts' && key !== 'gratuities' && key !== 'discounts') {
+              const normOld = key.toLowerCase();
+              const newType = ROOM_MIGRATION_MAP[normOld] || key.toUpperCase();
+              if (val && typeof val === 'object') {
+                if (val.price !== undefined && newDayConf.prices[newType] === undefined) {
+                  newDayConf.prices[newType] = val.price;
+                }
+                if (val.count !== undefined && newDayConf.counts[newType] === undefined) {
+                  newDayConf.counts[newType] = val.count;
+                } else if (val.qty !== undefined && newDayConf.counts[newType] === undefined) {
+                  newDayConf.counts[newType] = val.qty;
+                }
+                if (val.gratuities !== undefined && newDayConf.gratuities[newType] === undefined) {
+                  newDayConf.gratuities[newType] = val.gratuities;
+                }
+                if (val.discount !== undefined && newDayConf.discounts[newType] === undefined) {
+                  newDayConf.discounts[newType] = val.discount;
+                }
+              }
+            }
+          });
 
           if (newDayConf.prices) {
             const newPrices = {};
@@ -121,28 +279,43 @@
             });
             newDayConf.prices = newPrices;
           }
-          // The other legacy configuration mode
-          Object.keys(newDayConf).forEach(oldType => {
-            if (oldType !== 'board' && oldType !== 'prices') {
+          if (newDayConf.counts) {
+            const newCounts = {};
+            Object.entries(newDayConf.counts).forEach(([oldType, cnt]) => {
               const normOld = oldType.toLowerCase();
-              if (ROOM_MIGRATION_MAP[normOld] || ['doble', 'triple'].some(x => normOld.includes(x))) {
-                const newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
-                if (oldType !== newType) {
-                  newDayConf[newType] = newDayConf[oldType];
-                  delete newDayConf[oldType];
-                }
-              }
-            }
-          });
+              const newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
+              newCounts[newType] = cnt;
+            });
+            newDayConf.counts = newCounts;
+          }
+          if (newDayConf.gratuities) {
+            const newGratuities = {};
+            Object.entries(newDayConf.gratuities).forEach(([oldType, grat]) => {
+              const normOld = oldType.toLowerCase();
+              const newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
+              newGratuities[newType] = grat;
+            });
+            newDayConf.gratuities = newGratuities;
+          }
+          if (newDayConf.discounts) {
+            const newDiscounts = {};
+            Object.entries(newDayConf.discounts).forEach(([oldType, disc]) => {
+              const normOld = oldType.toLowerCase();
+              const newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
+              newDiscounts[newType] = disc;
+            });
+            newDayConf.discounts = newDiscounts;
+          }
+
+          newData.dailyConfig[date] = newDayConf;
         });
       }
       newData.DateRanges_JSON = Array.isArray(groupData.DateRanges_JSON) ? groupData.DateRanges_JSON : [];
       newData.tracking = Array.isArray(groupData.tracking) ? groupData.tracking : [];
 
-      // Sincronizar campos de contacto si faltan los comerciales
       newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
       newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
-      newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData.TelÃ©fono || "";
+      newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\u00c3\u00a9fono"] || groupData["TelÃ©fono"] || "";
 
       return newData;
     };
@@ -177,8 +350,11 @@
               const gratKey = config.gratuities ? Object.keys(config.gratuities).find(k => k.toLowerCase() === type.toLowerCase()) : null;
               const grat = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
               
+              const discKey = config.discounts ? Object.keys(config.discounts).find(k => k.toLowerCase() === type.toLowerCase()) : null;
+              const disc = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
+              
               const billableCount = Math.max(0, count - grat);
-              lineSubtotal = p * billableCount;
+              lineSubtotal = p * billableCount * (1 - disc / 100);
             } else {
               const typeKey = Object.keys(config).find(k => k.toLowerCase() === type.toLowerCase());
               if (typeKey && config[typeKey]) {
@@ -440,13 +616,15 @@
           }
         }
 
+        const generatedRoomingList = buildRoomingList(formData, formData.RoomingList_JSON || "");
         const groupData = {
           ...formData,
           Reserva: reservaId,
           "Com_Vencimiento_Rel": releaseDate,
           "Segment.": formData["Segment."] || "GRUPOS",
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          "Importe(*)": formatNum(calculateTotal(formData))
+          "Importe(*)": formatNum(calculateTotal(formData)),
+          "RoomingList_JSON": JSON.stringify(generatedRoomingList)
         };
 
         try {
@@ -1635,7 +1813,7 @@
                       <span className="text-slate-200">|</span>
                       <span className="text-indigo-600 font-bold">{formatNum(calculatedTotal)} â‚¬</span>
                     </p>
-                    {(g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g.TelÃ©fono || g.Com_Nombre_Contacto || g.Persona_Contacto) && (
+                    {(g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"] || g.Com_Nombre_Contacto || g.Persona_Contacto) && (
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight flex flex-wrap items-center gap-x-4 gap-y-1">
                         {(g.Com_Nombre_Contacto || g.Persona_Contacto) && (
                           <span className="flex items-center gap-1.5 text-slate-500">
@@ -1647,9 +1825,9 @@
                             <i className="far fa-envelope text-slate-300"></i> {g.Com_Email_Contacto || g.Email}
                           </a>
                         )}
-                        {(g.Com_Telefono_Contacto || g.Telefono || g.TelÃ©fono) && (
-                          <a href={`tel:${g.Com_Telefono_Contacto || g.Telefono || g.TelÃ©fono}`} className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
-                            <i className="fas fa-phone-alt text-slate-300 text-[8px]"></i> {g.Com_Telefono_Contacto || g.Telefono || g.TelÃ©fono}
+                        {(g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]) && (
+                          <a href={`tel:${g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]}`} className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+                            <i className="fas fa-phone-alt text-slate-300 text-[8px]"></i> {g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]}
                           </a>
                         )}
                       </p>
@@ -1827,7 +2005,7 @@
                       </div>
                     </div>
 
-                    {(g.Com_Nombre_Contacto || g.Persona_Contacto || g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g.TelÃ©fono) && (
+                    {(g.Com_Nombre_Contacto || g.Persona_Contacto || g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]) && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4">
                         {(g.Com_Nombre_Contacto || g.Persona_Contacto) && (
                           <div className="space-y-0.5">
@@ -1841,10 +2019,10 @@
                             <p className="text-xs print:text-[10px] font-bold text-slate-800">{g.Com_Email_Contacto || g.Email}</p>
                           </div>
                         )}
-                        {(g.Com_Telefono_Contacto || g.Telefono || g.TelÃ©fono) && (
+                        {(g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]) && (
                           <div className="space-y-0.5">
                             <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">TelÃ©fono</span>
-                            <p className="text-xs print:text-[10px] font-bold text-slate-800">{g.Com_Telefono_Contacto || g.Telefono || g.TelÃ©fono}</p>
+                            <p className="text-xs print:text-[10px] font-bold text-slate-800">{g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]}</p>
                           </div>
                         )}
                         {g["Empresa/Agencia"] && g["Empresa/Agencia"] !== "Venta Directa" && (

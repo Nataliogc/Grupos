@@ -37,6 +37,133 @@ var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (
 var generateDates = NexusUtils.generateDates;
 var formatDate = NexusUtils.formatDate;
 var formatNum = NexusUtils.formatNum;
+var calculateDefaultCommission = function calculateDefaultCommission(price, regime, qty, nights) {
+  var type = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : "";
+  return 0;
+};
+var buildRoomingList = function buildRoomingList(group) {
+  var existingListJson = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "[]";
+  var existingList = [];
+  try {
+    existingList = JSON.parse(existingListJson || "[]");
+  } catch (e) {
+    existingList = [];
+  }
+  var dates = generateDates(group.Entrada, group.Salida);
+  if (!dates || dates.length === 0) return [];
+  var hotelName = group.Hotel_Asignado || group.Hotel || "Sercotel Guadiana";
+  var newList = [];
+  dates.forEach(function (date) {
+    var _group$dailyConfig;
+    var config = ((_group$dailyConfig = group.dailyConfig) === null || _group$dailyConfig === void 0 ? void 0 : _group$dailyConfig[date]) || {};
+    Object.entries(group.roomCounts || {}).forEach(function (_ref) {
+      var _ref2 = _slicedToArray(_ref, 2),
+        type = _ref2[0],
+        globalCount = _ref2[1];
+      var count = globalCount;
+      if (config.counts) {
+        var countKey = Object.keys(config.counts).find(function (k) {
+          return k.toLowerCase() === type.toLowerCase();
+        });
+        if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
+          count = Number(config.counts[countKey]);
+        }
+      } else {
+        var tk = Object.keys(config).find(function (k) {
+          return k.trim().toLowerCase() === type.trim().toLowerCase();
+        });
+        if (tk && config[tk] && config[tk].count !== undefined && config[tk].count !== '' && config[tk].count !== undefined) {
+          count = Number(config[tk].count);
+        }
+      }
+      if (count > 0) {
+        var price = 0;
+        var regime = config.board || group["Régimen"] || "AD";
+        var gratuities = 0;
+        var discount = 0;
+        if (config.prices) {
+          var pk = Object.keys(config.prices).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          });
+          price = pk ? parseFloat(config.prices[pk] || 0) : 0;
+          var gratKey = config.gratuities ? Object.keys(config.gratuities).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          }) : null;
+          gratuities = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
+          var discKey = config.discounts ? Object.keys(config.discounts).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          }) : null;
+          discount = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
+        } else {
+          var _tk = Object.keys(config).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          });
+          if (_tk && config[_tk]) {
+            price = parseFloat(config[_tk].price || 0);
+            regime = config[_tk].board || regime;
+            gratuities = parseInt(config[_tk].gratuities || 0);
+            discount = parseFloat(config[_tk].discount || 0);
+          }
+        }
+        var paxPerRoom = type.toLowerCase().includes('ind') || type.toLowerCase().includes('dui') ? 1 : type.toLowerCase().includes('tri') ? 3 : 2;
+        var payingRooms = Math.max(0, count - gratuities);
+        var match = existingList.find(function (item) {
+          return item.dateIn === date && item.type === type && !item.isService;
+        });
+        if (payingRooms > 0) {
+          var regimeShort = regime.split(' ')[0];
+          newList.push({
+            id: match ? match.id : Date.now() + Math.random(),
+            hotel: hotelName,
+            type: type,
+            dateIn: date,
+            dateOut: date,
+            qty: payingRooms,
+            regime: regimeShort,
+            price: price,
+            pax: paxPerRoom,
+            nights: 1,
+            total: (payingRooms * price * (1 - discount / 100)).toFixed(2),
+            isService: false,
+            comision: match && match.comision ? match.comision : calculateDefaultCommission(price, regimeShort, payingRooms, 1, type)
+          });
+        }
+        if (gratuities > 0) {
+          var _regimeShort = regime.split(' ')[0];
+          var matchGrat = existingList.find(function (item) {
+            return item.dateIn === date && item.type === type + " (GRATUIDAD)" && !item.isService;
+          });
+          newList.push({
+            id: matchGrat ? matchGrat.id : Date.now() + Math.random(),
+            hotel: hotelName,
+            type: type + " (GRATUIDAD)",
+            dateIn: date,
+            dateOut: date,
+            qty: gratuities,
+            regime: _regimeShort,
+            price: 0,
+            pax: paxPerRoom,
+            nights: 1,
+            total: "0.00",
+            isService: false,
+            comision: matchGrat && matchGrat.comision ? matchGrat.comision : calculateDefaultCommission(0, _regimeShort, gratuities, 1, type)
+          });
+        }
+      }
+    });
+    existingList.forEach(function (item) {
+      if (item.isService && item.dateIn === date) {
+        newList.push(item);
+      }
+    });
+  });
+  existingList.forEach(function (item) {
+    if (item.isService && !dates.includes(item.dateIn)) {
+      newList.push(item);
+    }
+  });
+  return newList;
+};
 var App = function App() {
   var _useState = useState(""),
     _useState2 = _slicedToArray(_useState, 2),
@@ -154,10 +281,10 @@ var App = function App() {
 
     // Normalizar accounts evitando duplicar mayus y minus
     var normalizedRoomCounts = {};
-    Object.entries(data.roomCounts || {}).forEach(function (_ref) {
-      var _ref2 = _slicedToArray(_ref, 2),
-        t = _ref2[0],
-        c = _ref2[1];
+    Object.entries(data.roomCounts || {}).forEach(function (_ref3) {
+      var _ref4 = _slicedToArray(_ref3, 2),
+        t = _ref4[0],
+        c = _ref4[1];
       var lowerT = t.toLowerCase();
       normalizedRoomCounts[lowerT] = (normalizedRoomCounts[lowerT] || 0) + Number(c);
     });
@@ -166,10 +293,10 @@ var App = function App() {
     if (dates.length > 0 && Object.keys(dConfig).length > 0) {
       dates.forEach(function (date) {
         var dayData = dConfig[date] || {};
-        Object.entries(normalizedRoomCounts).forEach(function (_ref3) {
-          var _ref4 = _slicedToArray(_ref3, 2),
-            type = _ref4[0],
-            count = _ref4[1];
+        Object.entries(normalizedRoomCounts).forEach(function (_ref5) {
+          var _ref6 = _slicedToArray(_ref5, 2),
+            type = _ref6[0],
+            count = _ref6[1];
           if (count > 0) {
             var lineSubtotal = 0;
             if (dayData.prices) {
@@ -177,7 +304,16 @@ var App = function App() {
                 return k.toLowerCase() === type;
               });
               var p = priceKey ? parseFloat(dayData.prices[priceKey] || 0) : 0;
-              lineSubtotal = p * count;
+              var gratKey = dayData.gratuities ? Object.keys(dayData.gratuities).find(function (k) {
+                return k.toLowerCase() === type;
+              }) : null;
+              var grat = gratKey ? parseInt(dayData.gratuities[gratKey] || 0) : 0;
+              var discKey = dayData.discounts ? Object.keys(dayData.discounts).find(function (k) {
+                return k.toLowerCase() === type;
+              }) : null;
+              var disc = discKey ? parseFloat(dayData.discounts[discKey] || 0) : 0;
+              var billableCount = Math.max(0, count - grat);
+              lineSubtotal = p * billableCount * (1 - disc / 100);
             } else {
               var typeKey = Object.keys(dayData).find(function (k) {
                 return k.toLowerCase() === type;
@@ -186,8 +322,8 @@ var App = function App() {
                 var price = parseFloat(dayData[typeKey].price) || 0;
                 var discount = parseFloat(dayData[typeKey].discount) || 0;
                 var gratuities = parseInt(dayData[typeKey].gratuities) || 0;
-                var billableCount = Math.max(0, count - gratuities);
-                lineSubtotal = billableCount * price * (1 - discount / 100);
+                var _billableCount = Math.max(0, count - gratuities);
+                lineSubtotal = _billableCount * price * (1 - discount / 100);
               }
             }
             total += lineSubtotal;
@@ -207,7 +343,7 @@ var App = function App() {
   // callGemini cargado desde js/gemini.js (window.callGemini)
 
   var handleAnalyze = /*#__PURE__*/function () {
-    var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
       var prompt, result, cleanJson, parsed, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
@@ -246,11 +382,11 @@ var App = function App() {
       }, _callee, null, [[2, 4, 5, 6]]);
     }));
     return function handleAnalyze() {
-      return _ref5.apply(this, arguments);
+      return _ref7.apply(this, arguments);
     };
   }();
   var handleSave = /*#__PURE__*/function () {
-    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
       var isValid, hotelAsignado, rawReservaId, reservaId, entrada, releaseDate, d, now, formattedDate, groupToSave, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
@@ -325,6 +461,9 @@ var App = function App() {
                 text: "Alta Inteligente por Email (Escáner IA)."
               }],
               "dailyConfig": extractedData.dailyConfig || {},
+              "RoomingList_JSON": JSON.stringify(buildRoomingList(_objectSpread(_objectSpread({}, extractedData), {}, {
+                Hotel_Asignado: hotelAsignado
+              }), "")),
               "createdAt": extractedData.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
               "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -351,7 +490,7 @@ var App = function App() {
       }, _callee2, null, [[4, 6]]);
     }));
     return function handleSave() {
-      return _ref6.apply(this, arguments);
+      return _ref8.apply(this, arguments);
     };
   }();
   var updateField = function updateField(key, value) {
@@ -370,15 +509,15 @@ var App = function App() {
     var newCounts = _objectSpread(_objectSpread({}, extractedData.roomCounts || {}), {}, _defineProperty({}, type, count));
 
     // Generar el string de resumen automáticamente
-    var summary = Object.entries(newCounts).filter(function (_ref7) {
-      var _ref8 = _slicedToArray(_ref7, 2),
-        _ = _ref8[0],
-        c = _ref8[1];
-      return c > 0;
-    }).map(function (_ref9) {
+    var summary = Object.entries(newCounts).filter(function (_ref9) {
       var _ref0 = _slicedToArray(_ref9, 2),
-        t = _ref0[0],
+        _ = _ref0[0],
         c = _ref0[1];
+      return c > 0;
+    }).map(function (_ref1) {
+      var _ref10 = _slicedToArray(_ref1, 2),
+        t = _ref10[0],
+        c = _ref10[1];
       return "".concat(c, " ").concat(t);
     }).join(", ");
     setExtractedData(_objectSpread(_objectSpread({}, extractedData), {}, {
@@ -795,7 +934,7 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "min-w-[700px]"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "mb-2 px-4 grid grid-cols-[1fr_40px_90px_110px_65px_65px_100px] gap-3 items-center text-[10px] font-black text-slate-400 uppercase tracking-widest"
+      className: "mb-2 px-4 grid grid-cols-[1fr_50px_90px_110px_65px_65px_100px] gap-3 items-center text-[10px] font-black text-slate-400 uppercase tracking-widest"
     }, /*#__PURE__*/React.createElement("div", {
       className: "truncate"
     }, "HABITACI\xD3N"), /*#__PURE__*/React.createElement("div", {
@@ -820,21 +959,29 @@ var App = function App() {
         gratuities: 0,
         discount: 0
       };
-      var count = (extractedData.roomCounts || {})[type] || 0;
+      var configCount = config.count !== undefined && config.count !== '' ? parseInt(config.count) : null;
+      var count = configCount !== null ? configCount : (extractedData.roomCounts || {})[type] || 0;
       var subtotalWithoutDiscount = (count - (parseInt(config.gratuities) || 0)) * (parseFloat(config.price) || 0);
       var subtotal = subtotalWithoutDiscount * (1 - (parseFloat(config.discount) || 0) / 100);
       return /*#__PURE__*/React.createElement("div", {
         key: type,
-        className: "grid grid-cols-[1fr_40px_90px_110px_65px_65px_100px] gap-3 items-center bg-white rounded-xl px-4 py-2 border border-slate-200 hover:border-indigo-400 hover:shadow-sm transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
+        className: "grid grid-cols-[1fr_50px_90px_110px_65px_65px_100px] gap-3 items-center bg-white rounded-xl px-4 py-2 border border-slate-200 hover:border-indigo-400 hover:shadow-sm transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]"
       }, /*#__PURE__*/React.createElement("div", {
         className: "truncate pr-2"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-[11px] font-black text-slate-700 uppercase leading-none"
       }, type)), /*#__PURE__*/React.createElement("div", {
         className: "text-center"
-      }, /*#__PURE__*/React.createElement("span", {
-        className: "inline-flex items-center justify-center bg-indigo-50 text-indigo-700 w-7 h-7 rounded-lg text-[11px] font-black border border-indigo-100"
-      }, count)), /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "number",
+        min: "0",
+        className: "w-12 bg-slate-50 border border-slate-200 rounded-lg py-1 text-[11px] font-black text-center outline-none focus:bg-white focus:border-indigo-500 text-indigo-700 transition-colors shadow-sm",
+        value: count || '',
+        onChange: function onChange(e) {
+          return handleDailyConfigChange(date, type, 'count', e.target.value);
+        },
+        placeholder: "0"
+      })), /*#__PURE__*/React.createElement("div", {
         className: "flex justify-center"
       }, /*#__PURE__*/React.createElement("input", {
         type: "number",

@@ -4756,113 +4756,66 @@
                   }
 
                   if (count > 0) {
-
                      let price = 0;
-
                      let regime = config.board || group["Régimen"] || "AD";
-
                      let gratuities = 0;
+                     let discount = 0;
 
                      if (config.prices) {
-
                         const pk = Object.keys(config.prices).find(k => k.trim().toLowerCase() === v.type.trim().toLowerCase());
-
                         price = pk ? parseFloat(config.prices[pk] || 0) : 0;
-
+                        const discKey = config.discounts ? Object.keys(config.discounts).find(k => k.trim().toLowerCase() === v.type.trim().toLowerCase()) : null;
+                        discount = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
                         const gratKey = config.gratuities ? Object.keys(config.gratuities).find(k => k.trim().toLowerCase() === v.type.trim().toLowerCase()) : null;
-
                         gratuities = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
-
                      } else {
-
                         const tk = Object.keys(config).find(k => k.trim().toLowerCase() === v.type.trim().toLowerCase());
-
                         if (tk && config[tk]) {
-
                           price = parseFloat(config[tk].price || 0);
-
                           regime = config[tk].board || regime;
-
                           gratuities = parseInt(config[tk].gratuities || 0);
-
+                          discount = parseFloat(config[tk].discount || 0);
                         }
-
                      }
-
                      
-
                      // Fallback to approximate logic since getPaxByRoomType might be out of scope or we pass string directly
-
                      const paxPerRoom = typeof getPaxByRoomType === 'function' ? getPaxByRoomType(v.type) : (v.type.toLowerCase().includes('ind') || v.type.toLowerCase().includes('dui') ? 1 : (v.type.toLowerCase().includes('tri') ? 3 : 2));
-
                      
-
                      const payingRooms = Math.max(0, count - gratuities);
-
                      if (payingRooms > 0) {
-
                        newAutoList.push({
-
-                          id: Date.now() + Math.random(),
-
-                          hotel: hotelName,
-
-                          type: v.type.toUpperCase(),
-
-                          dateIn: date,
-
-                          dateOut: date,
-
-                          qty: payingRooms,
-
-                          regime: regime,
-
-                          price: price,
-
-                          pax: paxPerRoom,
-
-                          nights: 1,
-
-                          total: (payingRooms * price).toFixed(2),
-
-                          isService: false
-
+                           id: Date.now() + Math.random(),
+                           hotel: hotelName,
+                           type: v.type.toUpperCase(),
+                           dateIn: date,
+                           dateOut: date,
+                           qty: payingRooms,
+                           regime: regime.split(' ')[0],
+                           price: price,
+                           pax: paxPerRoom,
+                           nights: 1,
+                           total: (payingRooms * price * (1 - discount / 100)).toFixed(2),
+                           comision: calculateDefaultCommission(price, regime.split(' ')[0], payingRooms, 1, v.type),
+                           isService: false
                        });
-
                      }
-
                      if (gratuities > 0) {
-
                        newAutoList.push({
-
-                          id: Date.now() + Math.random(),
-
-                          hotel: hotelName,
-
-                          type: v.type.toUpperCase() + " (GRATUIDAD)",
-
-                          dateIn: date,
-
-                          dateOut: date,
-
-                          qty: gratuities,
-
-                          regime: regime,
-
-                          price: 0,
-
-                          pax: paxPerRoom,
-
-                          nights: 1,
-
-                          total: "0.00",
-
-                          isService: false
-
+                           id: Date.now() + Math.random(),
+                           hotel: hotelName,
+                           type: v.type.toUpperCase() + " (GRATUIDAD)",
+                           dateIn: date,
+                           dateOut: date,
+                           qty: gratuities,
+                           regime: regime.split(' ')[0],
+                           price: 0,
+                           pax: paxPerRoom,
+                           nights: 1,
+                           total: "0.00",
+                           comision: calculateDefaultCommission(0, regime.split(' ')[0], gratuities, 1, v.type),
+                           isService: false
                        });
-
                      }
-
                   }
 
                 });

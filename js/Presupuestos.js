@@ -1,6 +1,5 @@
 "use strict";
 
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -9,17 +8,18 @@ function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Sym
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 var _React = React,
   useState = _React.useState,
   useEffect = _React.useEffect,
@@ -30,18 +30,18 @@ var db = window.db;
 
 // --- CONSTANTES ---
 var ROOM_TYPES = {
-  "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE"],
+  "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÃDRUPLE"],
   "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
 };
-var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (Media Pensión)", "PC (Pensión Completa)"];
+var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (Media PensiÃ³n)", "PC (PensiÃ³n Completa)"];
 
-// Personas por tipo de habitación (auto-cálculo PAX)
+// Personas por tipo de habitaciÃ³n (auto-cÃ¡lculo PAX)
 var PAX_PER_ROOM = {
   // Nuevos tipos oficiales
   "DOBLE DE USO INDIVIDUAL": 1,
   "DOBLE": 2,
   "DOBLE + SUPLETORIA": 3,
-  "CUÁDRUPLE": 4,
+  "CUÃDRUPLE": 4,
   // Retrocompatibilidad
   "Doble Individual": 1,
   "Doble de Uso Individual": 1,
@@ -51,7 +51,7 @@ var PAX_PER_ROOM = {
   "Doble + Supletoria": 3,
   "Triple": 3,
   "Junior Suite": 2,
-  "Cuádruple": 4
+  "CuÃ¡druple": 4
 };
 
 // --- UTILS (cargadas desde js/utils.js) ---
@@ -86,49 +86,170 @@ var ROOM_MIGRATION_MAP = {
   "doble + supletoria": "DOBLE + SUPLETORIA",
   "triple": "DOBLE + SUPLETORIA",
   "junior suite": "DOBLE",
-  "cuádruple": "CUÁDRUPLE"
+  "cuÃ¡druple": "CUÃDRUPLE"
 };
 var BUDGET_DEFAULT_CLAUSES = [{
   title: "Cupo y Disponibilidad",
-  body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito."
+  body: "La presente oferta es vÃ¡lida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depÃ³sito."
 }, {
-  title: "Confirmación y Depósito",
-  body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada."
+  title: "ConfirmaciÃ³n y DepÃ³sito",
+  body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberÃ¡ liquidarse 7 dÃ­as antes de la entrada."
 }, {
-  title: "Política de Cancelación",
-  body: "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES."
+  title: "PolÃ­tica de CancelaciÃ³n",
+  body: "Al ser un evento de carÃ¡cter exclusivo con bloqueo de inventario, todos los depÃ³sitos entregados tienen carÃ¡cter de NO REEMBOLSABLES."
 }, {
   title: "Rooming List",
-  body: "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero."
+  body: "La relaciÃ³n detallada de ocupantes deberÃ¡ entregarse 5 dÃ­as hÃ¡biles antes de la llegada del primer pasajero."
 }];
 var CONF_DEFAULT_CLAUSES = [{
-  title: "Confirmación y Depósito",
-  body: "Para garantizar la reserva definitiva, se requiere un primer depósito del 30% ({DEP_30}) en concepto de garantía. La reserva no se considerará confirmada hasta la recepción del mismo."
+  title: "ConfirmaciÃ³n y DepÃ³sito",
+  body: "Para garantizar la reserva definitiva, se requiere un primer depÃ³sito del 30% ({DEP_30}) en concepto de garantÃ­a. La reserva no se considerarÃ¡ confirmada hasta la recepciÃ³n del mismo."
 }, {
   title: "Calendario de Pagos y Release",
-  body: "Se establece un release de 30 días previos a la entrada ({RELEASE_30}), fecha en la cual el hotel deberá haber recibido el 50% del total ({DEP_50}). El pago final del 100% ({DEP_100}) deberá estar liquidado 7 días antes de la llegada ({RELEASE_7})."
+  body: "Se establece un release de 30 dÃ­as previos a la entrada ({RELEASE_30}), fecha en la cual el hotel deberÃ¡ haber recibido el 50% del total ({DEP_50}). El pago final del 100% ({DEP_100}) deberÃ¡ estar liquidado 7 dÃ­as antes de la llegada ({RELEASE_7})."
 }, {
   title: "Reducciones y Cancelaciones",
-  body: "Se permite una reducción de hasta el 10% del número de habitaciones contratadas sin gastos hasta 15 días antes de la llegada ({RELEASE_15}). Cancelaciones totales posteriores a esta fecha incurrirán en un 100% de gastos."
+  body: "Se permite una reducciÃ³n de hasta el 10% del nÃºmero de habitaciones contratadas sin gastos hasta 15 dÃ­as antes de la llegada ({RELEASE_15}). Cancelaciones totales posteriores a esta fecha incurrirÃ¡n en un 100% de gastos."
 }, {
-  title: "Rooming List y Régimen",
-  body: "La lista definitiva de ocupantes (Rooming List) deberá ser enviada antes del {RELEASE_7}. Cualquier cambio posterior queda sujeto a disponibilidad."
+  title: "Rooming List y RÃ©gimen",
+  body: "La lista definitiva de ocupantes (Rooming List) deberÃ¡ ser enviada antes del {RELEASE_7}. Cualquier cambio posterior queda sujeto a disponibilidad."
 }];
+var calculateDefaultCommission = function calculateDefaultCommission(price, regime, qty, nights) {
+  var type = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : "";
+  return 0;
+};
+var buildRoomingList = function buildRoomingList(group) {
+  var existingListJson = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "[]";
+  var existingList = [];
+  try {
+    existingList = JSON.parse(existingListJson || "[]");
+  } catch (e) {
+    existingList = [];
+  }
+  var dates = [];
+  if (group.DateRanges_JSON && Array.isArray(group.DateRanges_JSON) && group.DateRanges_JSON.length > 0) {
+    dates = generateSeriesDates(group.DateRanges_JSON);
+  } else {
+    dates = generateDates(group.Entrada, group.Salida);
+  }
+  if (!dates || dates.length === 0) return [];
+  var hotelName = group.Hotel_Asignado || group.Hotel || "Sercotel Guadiana";
+  var newList = [];
+  dates.forEach(function (date) {
+    var _group$dailyConfig;
+    var config = ((_group$dailyConfig = group.dailyConfig) === null || _group$dailyConfig === void 0 ? void 0 : _group$dailyConfig[date]) || {};
+    Object.entries(group.roomCounts || {}).forEach(function (_ref) {
+      var _ref2 = _slicedToArray(_ref, 2),
+        type = _ref2[0],
+        globalCount = _ref2[1];
+      var count = globalCount;
+      if (config.counts) {
+        var countKey = Object.keys(config.counts).find(function (k) {
+          return k.toLowerCase() === type.toLowerCase();
+        });
+        if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
+          count = Number(config.counts[countKey]);
+        }
+      }
+      if (count > 0) {
+        var price = 0;
+        var regime = config.board || group["Régimen"] || "AD";
+        var gratuities = 0;
+        var discount = 0;
+        if (config.prices) {
+          var pk = Object.keys(config.prices).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          });
+          price = pk ? parseFloat(config.prices[pk] || 0) : 0;
+          var gratKey = config.gratuities ? Object.keys(config.gratuities).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          }) : null;
+          gratuities = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
+          var discKey = config.discounts ? Object.keys(config.discounts).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          }) : null;
+          discount = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
+        } else {
+          var tk = Object.keys(config).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          });
+          if (tk && config[tk]) {
+            price = parseFloat(config[tk].price || 0);
+            regime = config[tk].board || regime;
+            gratuities = parseInt(config[tk].gratuities || 0);
+            discount = parseFloat(config[tk].discount || 0);
+          }
+        }
+        var paxPerRoom = PAX_PER_ROOM[type] || 2;
+        var payingRooms = Math.max(0, count - gratuities);
+        var existingPaying = existingList.find(function (item) {
+          return !item.isService && item.dateIn === date && item.type === type.toUpperCase() && item.hotel === hotelName;
+        });
+        if (payingRooms > 0) {
+          var regimeShort = regime.split(' ')[0];
+          newList.push({
+            id: existingPaying ? existingPaying.id : Date.now() + Math.random(),
+            hotel: hotelName,
+            type: type.toUpperCase(),
+            dateIn: date,
+            dateOut: date,
+            qty: payingRooms,
+            regime: regimeShort,
+            price: price,
+            pax: paxPerRoom,
+            nights: 1,
+            total: (payingRooms * price * (1 - discount / 100)).toFixed(2),
+            isService: false,
+            comision: existingPaying && existingPaying.comision ? existingPaying.comision : calculateDefaultCommission(price, regimeShort, payingRooms, 1, type)
+          });
+        }
+        if (gratuities > 0) {
+          var _regimeShort = regime.split(' ')[0];
+          var existingGrat = existingList.find(function (item) {
+            return !item.isService && item.dateIn === date && item.type === type.toUpperCase() + " (GRATUIDAD)" && item.hotel === hotelName;
+          });
+          newList.push({
+            id: existingGrat ? existingGrat.id : Date.now() + Math.random(),
+            hotel: hotelName,
+            type: type.toUpperCase() + " (GRATUIDAD)",
+            dateIn: date,
+            dateOut: date,
+            qty: gratuities,
+            regime: _regimeShort,
+            price: 0,
+            pax: paxPerRoom,
+            nights: 1,
+            total: "0.00",
+            isService: false,
+            comision: existingGrat && existingGrat.comision ? existingGrat.comision : calculateDefaultCommission(0, _regimeShort, gratuities, 1, type)
+          });
+        }
+      }
+    });
+  });
+  existingList.forEach(function (item) {
+    if (item.isService && !dates.includes(item.dateIn)) {
+      newList.push(item);
+    }
+  });
+  return newList;
+};
 var normalizeGroupData = function normalizeGroupData(groupData) {
   if (!groupData) return null;
   var newData = _objectSpread({}, groupData);
-
-  // Normalizar Hotel
-  newData.Hotel_Asignado = groupData.Hotel_Asignado || groupData.Hotel || "";
-  if (!newData.Hotel_Asignado) {
-    var lowerName = (newData["Nombre del Grupo"] || "").toLowerCase();
-    if (lowerName.includes("cumbria")) newData.Hotel_Asignado = "Cumbria Spa&Hotel";else if (lowerName.includes("guadiana")) newData.Hotel_Asignado = "Sercotel Guadiana";
+  var rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
+  if (rawHotel.toLowerCase().includes("cumbria")) {
+    newData.Hotel_Asignado = "Cumbria Spa&Hotel";
+  } else if (rawHotel.toLowerCase().includes("guadiana")) {
+    newData.Hotel_Asignado = "Sercotel Guadiana";
+  } else {
+    newData.Hotel_Asignado = "Sercotel Guadiana";
   }
   var newRoomCounts = {};
-  Object.entries(newData.roomCounts || {}).forEach(function (_ref) {
-    var _ref2 = _slicedToArray(_ref, 2),
-      oldType = _ref2[0],
-      count = _ref2[1];
+  Object.entries(newData.roomCounts || {}).forEach(function (_ref3) {
+    var _ref4 = _slicedToArray(_ref3, 2),
+      oldType = _ref4[0],
+      count = _ref4[1];
     var normOld = oldType.toLowerCase();
     var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
     newRoomCounts[newType] = (newRoomCounts[newType] || 0) + Number(count);
@@ -136,47 +257,98 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   newData.roomCounts = newRoomCounts;
   if (newData.dailyConfig) {
     newData.dailyConfig = _objectSpread({}, newData.dailyConfig);
-    Object.entries(newData.dailyConfig).forEach(function (_ref3) {
-      var _ref4 = _slicedToArray(_ref3, 2),
-        date = _ref4[0],
-        dayConf = _ref4[1];
-      var newDayConf = _objectSpread({}, dayConf);
+    Object.entries(newData.dailyConfig).forEach(function (_ref5) {
+      var _ref6 = _slicedToArray(_ref5, 2),
+        date = _ref6[0],
+        dayConf = _ref6[1];
+      var newDayConf = {
+        board: dayConf.board || "AD (Alojamiento y Desayuno)",
+        prices: dayConf.prices ? _objectSpread({}, dayConf.prices) : {},
+        counts: dayConf.counts ? _objectSpread({}, dayConf.counts) : {},
+        gratuities: dayConf.gratuities ? _objectSpread({}, dayConf.gratuities) : {},
+        discounts: dayConf.discounts ? _objectSpread({}, dayConf.discounts) : {}
+      };
+      Object.entries(dayConf).forEach(function (_ref7) {
+        var _ref8 = _slicedToArray(_ref7, 2),
+          key = _ref8[0],
+          val = _ref8[1];
+        if (key !== 'board' && key !== 'prices' && key !== 'counts' && key !== 'gratuities' && key !== 'discounts') {
+          var normOld = key.toLowerCase();
+          var newType = ROOM_MIGRATION_MAP[normOld] || key.toUpperCase();
+          if (val && _typeof(val) === 'object') {
+            if (val.price !== undefined && newDayConf.prices[newType] === undefined) {
+              newDayConf.prices[newType] = val.price;
+            }
+            if (val.count !== undefined && newDayConf.counts[newType] === undefined) {
+              newDayConf.counts[newType] = val.count;
+            } else if (val.qty !== undefined && newDayConf.counts[newType] === undefined) {
+              newDayConf.counts[newType] = val.qty;
+            }
+            if (val.gratuities !== undefined && newDayConf.gratuities[newType] === undefined) {
+              newDayConf.gratuities[newType] = val.gratuities;
+            }
+            if (val.discount !== undefined && newDayConf.discounts[newType] === undefined) {
+              newDayConf.discounts[newType] = val.discount;
+            }
+          }
+        }
+      });
       if (newDayConf.prices) {
         var newPrices = {};
-        Object.entries(newDayConf.prices).forEach(function (_ref5) {
-          var _ref6 = _slicedToArray(_ref5, 2),
-            oldType = _ref6[0],
-            price = _ref6[1];
+        Object.entries(newDayConf.prices).forEach(function (_ref9) {
+          var _ref0 = _slicedToArray(_ref9, 2),
+            oldType = _ref0[0],
+            price = _ref0[1];
           var normOld = oldType.toLowerCase();
           var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
           newPrices[newType] = price;
         });
         newDayConf.prices = newPrices;
       }
-      // The other legacy configuration mode
-      Object.keys(newDayConf).forEach(function (oldType) {
-        if (oldType !== 'board' && oldType !== 'prices') {
+      if (newDayConf.counts) {
+        var newCounts = {};
+        Object.entries(newDayConf.counts).forEach(function (_ref1) {
+          var _ref10 = _slicedToArray(_ref1, 2),
+            oldType = _ref10[0],
+            cnt = _ref10[1];
           var normOld = oldType.toLowerCase();
-          if (ROOM_MIGRATION_MAP[normOld] || ['doble', 'triple'].some(function (x) {
-            return normOld.includes(x);
-          })) {
-            var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
-            if (oldType !== newType) {
-              newDayConf[newType] = newDayConf[oldType];
-              delete newDayConf[oldType];
-            }
-          }
-        }
-      });
+          var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
+          newCounts[newType] = cnt;
+        });
+        newDayConf.counts = newCounts;
+      }
+      if (newDayConf.gratuities) {
+        var newGratuities = {};
+        Object.entries(newDayConf.gratuities).forEach(function (_ref11) {
+          var _ref12 = _slicedToArray(_ref11, 2),
+            oldType = _ref12[0],
+            grat = _ref12[1];
+          var normOld = oldType.toLowerCase();
+          var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
+          newGratuities[newType] = grat;
+        });
+        newDayConf.gratuities = newGratuities;
+      }
+      if (newDayConf.discounts) {
+        var newDiscounts = {};
+        Object.entries(newDayConf.discounts).forEach(function (_ref13) {
+          var _ref14 = _slicedToArray(_ref13, 2),
+            oldType = _ref14[0],
+            disc = _ref14[1];
+          var normOld = oldType.toLowerCase();
+          var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
+          newDiscounts[newType] = disc;
+        });
+        newDayConf.discounts = newDiscounts;
+      }
+      newData.dailyConfig[date] = newDayConf;
     });
   }
   newData.DateRanges_JSON = Array.isArray(groupData.DateRanges_JSON) ? groupData.DateRanges_JSON : [];
   newData.tracking = Array.isArray(groupData.tracking) ? groupData.tracking : [];
-
-  // Sincronizar campos de contacto si faltan los comerciales
   newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
   newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
-  newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData.Teléfono || "";
+  newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["TelÃ©fono"] || "";
   return newData;
 };
 var calculateTotal = function calculateTotal(rawGroupData) {
@@ -192,10 +364,10 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   dates.forEach(function (date) {
     var _groupData$dailyConfi;
     var config = ((_groupData$dailyConfi = groupData.dailyConfig) === null || _groupData$dailyConfi === void 0 ? void 0 : _groupData$dailyConfi[date]) || {};
-    Object.entries(groupData.roomCounts || {}).forEach(function (_ref7) {
-      var _ref8 = _slicedToArray(_ref7, 2),
-        type = _ref8[0],
-        globalCount = _ref8[1];
+    Object.entries(groupData.roomCounts || {}).forEach(function (_ref15) {
+      var _ref16 = _slicedToArray(_ref15, 2),
+        type = _ref16[0],
+        globalCount = _ref16[1];
       var count = globalCount;
       if (config.counts) {
         var countKey = Object.keys(config.counts).find(function (k) {
@@ -216,8 +388,12 @@ var calculateTotal = function calculateTotal(rawGroupData) {
             return k.toLowerCase() === type.toLowerCase();
           }) : null;
           var grat = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
+          var discKey = config.discounts ? Object.keys(config.discounts).find(function (k) {
+            return k.toLowerCase() === type.toLowerCase();
+          }) : null;
+          var disc = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
           var billableCount = Math.max(0, count - grat);
-          lineSubtotal = p * billableCount;
+          lineSubtotal = p * billableCount * (1 - disc / 100);
         } else {
           var typeKey = Object.keys(config).find(function (k) {
             return k.toLowerCase() === type.toLowerCase();
@@ -239,7 +415,7 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   var descuentos = parseFloat(groupData.Descuentos) || 0;
   total = total + suplementos - descuentos;
 
-  // Otros Cargos (Extras Dinámicos)
+  // Otros Cargos (Extras DinÃ¡micos)
   var extras = groupData.extraCharges || [];
   extras.forEach(function (extra) {
     var isGlobal = !extra.date;
@@ -247,7 +423,7 @@ var calculateTotal = function calculateTotal(rawGroupData) {
     total += isGlobal ? px * Math.max(1, dates.length) : px;
   });
 
-  // Si no hay configuración diaria pero hay un importe fijado (desde IA)
+  // Si no hay configuraciÃ³n diaria pero hay un importe fijado (desde IA)
   if (total === 0 && groupData["Importe(*)"]) {
     var imp = parseFloat(String(groupData["Importe(*)"]).replace(',', '.'));
     return isNaN(imp) ? 0 : imp;
@@ -351,7 +527,7 @@ function App() {
     formData = _useState32[0],
     setFormData = _useState32[1];
 
-  // Cargar datos y manejar parámetros de URL
+  // Cargar datos y manejar parÃ¡metros de URL
   useEffect(function () {
     var unsubscribe = db.collection("groups").onSnapshot(function (snapshot) {
       var docs = snapshot.docs.map(function (doc) {
@@ -365,13 +541,13 @@ function App() {
         if (!isBudget) return false;
 
         // En el cargador general de Presupuestos, permitimos todos los estados
-        // (la lógica de visualización se encarga de filtrar por la pestaña seleccionada)
+        // (la lÃ³gica de visualizaciÃ³n se encarga de filtrar por la pestaÃ±a seleccionada)
         return true;
       });
       setGroups(docs);
       setLoading(false);
 
-      // Lógica de Deep-link (?id=XXXX)
+      // LÃ³gica de Deep-link (?id=XXXX)
       var urlParams = new URLSearchParams(window.location.search);
       var budgetId = urlParams.get('id');
       var shouldEdit = urlParams.get('edit') === '1';
@@ -413,7 +589,7 @@ function App() {
       var departureStr = g.Salida || g.Entrada || "";
       var isPast = departureStr && departureStr < todayStr;
 
-      // Filtro por Pestaña
+      // Filtro por PestaÃ±a
       if (filterTab === 'confirmados' && !isConfirmed) return false;
       if (filterTab === 'desestimados' && !isCancelled) return false;
       if (filterTab === 'activos') {
@@ -423,7 +599,7 @@ function App() {
         if (isCancelled || isConfirmed || isPast && !isActiveStatus) return false;
       }
 
-      // Filtro de Búsqueda (usar debouncedSearchTerm)
+      // Filtro de BÃºsqueda (usar debouncedSearchTerm)
       if (debouncedSearchTerm) {
         var term = debouncedSearchTerm.toLowerCase();
         var groupName = (g["Nombre del Grupo"] || "").toLowerCase();
@@ -458,10 +634,10 @@ function App() {
   var handleRoomCountChange = function handleRoomCountChange(type, value) {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
     // Auto-calcular PAX total
-    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref9) {
-      var _ref0 = _slicedToArray(_ref9, 2),
-        roomType = _ref0[0],
-        count = _ref0[1];
+    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref17) {
+      var _ref18 = _slicedToArray(_ref17, 2),
+        roomType = _ref18[0],
+        count = _ref18[1];
       return sum + (count || 0) * (PAX_PER_ROOM[roomType] || 2);
     }, 0);
     setFormData(_objectSpread(_objectSpread({}, formData), {}, {
@@ -509,8 +685,8 @@ function App() {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
-      var now, formattedDate, hotelAsignado, reservaId, isNew, entrada, releaseDate, d, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t;
+    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
+      var now, formattedDate, hotelAsignado, reservaId, isNew, entrada, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
@@ -522,7 +698,7 @@ function App() {
               _context.n = 1;
               break;
             }
-            alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
+            alert("âš ï¸ Error de Integridad: Debe asignar un hotel vÃ¡lido. No se permiten registros 'Pendientes'.");
             return _context.a(2);
           case 1:
             reservaId = formData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
@@ -536,12 +712,14 @@ function App() {
                 releaseDate = d.toISOString().split("T")[0];
               }
             }
+            generatedRoomingList = buildRoomingList(formData, formData.RoomingList_JSON || "");
             groupData = _objectSpread(_objectSpread({}, formData), {}, {
               Reserva: reservaId,
               "Com_Vencimiento_Rel": releaseDate,
               "Segment.": formData["Segment."] || "GRUPOS",
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              "Importe(*)": formatNum(calculateTotal(formData))
+              "Importe(*)": formatNum(calculateTotal(formData)),
+              "RoomingList_JSON": JSON.stringify(generatedRoomingList)
             });
             _context.p = 2;
             if (!isNew) {
@@ -575,19 +753,19 @@ function App() {
               "Empresa/Agencia": "Empresa",
               "Pax.": "Pax"
             };
-            Object.entries(fieldsToTrack).forEach(function (_ref10) {
-              var _ref11 = _slicedToArray(_ref10, 2),
-                field = _ref11[0],
-                label = _ref11[1];
+            Object.entries(fieldsToTrack).forEach(function (_ref20) {
+              var _ref21 = _slicedToArray(_ref20, 2),
+                field = _ref21[0],
+                label = _ref21[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
-                changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
+                changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacÃ­o', " \xE2\u017E\u201D ").concat(formData[field] || 'vacÃ­o'));
               }
             });
             if (changes.length > 0) {
               groupData.tracking = [{
                 id: Date.now(),
                 date: formattedDate,
-                text: "📝 " + changes.join(" | ")
+                text: "ðŸ“ " + changes.join(" | ")
               }].concat(_toConsumableArray(Array.isArray(oldDoc.tracking) ? oldDoc.tracking : []));
             } else {
               groupData.tracking = Array.isArray(oldDoc.tracking) ? oldDoc.tracking : [];
@@ -636,7 +814,7 @@ function App() {
       }, _callee, null, [[2, 7]]);
     }));
     return function handleSave(_x) {
-      return _ref1.apply(this, arguments);
+      return _ref19.apply(this, arguments);
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
@@ -651,7 +829,7 @@ function App() {
     setCurrentView('detail');
   };
   var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx) {
+    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx) {
       var type,
         clauses,
         textToTranslate,
@@ -672,7 +850,7 @@ function App() {
             return _context2.a(2);
           case 1:
             _context2.p = 1;
-            _prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xE9s. Mant\xE9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
+            _prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xC3\xA9s. Mant\xC3\xA9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
             _context2.n = 2;
             return window.callGemini(_prompt);
           case 2:
@@ -681,7 +859,7 @@ function App() {
               clauses[idx].body = "".concat(textToTranslate, " [EN] ").concat(translated.trim());
               if (type === 'budget') setTempClauses(clauses);else setTempClausesConf(clauses);
             } else {
-              alert("Error en la traducción: " + translated);
+              alert("Error en la traducciÃ³n: " + translated);
             }
             _context2.n = 4;
             break;
@@ -695,7 +873,7 @@ function App() {
       }, _callee2, null, [[1, 3]]);
     }));
     return function handleTranslateClause(_x2) {
-      return _ref12.apply(this, arguments);
+      return _ref22.apply(this, arguments);
     };
   }();
   var renderClauseText = function renderClauseText(text) {
@@ -709,12 +887,12 @@ function App() {
     return text;
   };
   var handleDelete = /*#__PURE__*/function () {
-    var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(uid) {
+    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(uid) {
       var _t3;
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
           case 0:
-            if (confirm("¿Eliminar este presupuesto?")) {
+            if (confirm("Â¿Eliminar este presupuesto?")) {
               _context3.n = 1;
               break;
             }
@@ -736,11 +914,11 @@ function App() {
       }, _callee3, null, [[1, 3]]);
     }));
     return function handleDelete(_x3) {
-      return _ref13.apply(this, arguments);
+      return _ref23.apply(this, arguments);
     };
   }();
   var updateStatus = /*#__PURE__*/function () {
-    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(uid, newStatus) {
+    var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(uid, newStatus) {
       var now, formattedDate, budget, newTracking, _t4;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
@@ -774,11 +952,11 @@ function App() {
       }, _callee4, null, [[0, 2]]);
     }));
     return function updateStatus(_x4, _x5) {
-      return _ref14.apply(this, arguments);
+      return _ref24.apply(this, arguments);
     };
   }();
   var addTrackingNote = /*#__PURE__*/function () {
-    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(e) {
+    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(e) {
       var now, formattedDate, newTracking, _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
@@ -816,11 +994,11 @@ function App() {
       }, _callee5, null, [[1, 3]]);
     }));
     return function addTrackingNote(_x6) {
-      return _ref15.apply(this, arguments);
+      return _ref25.apply(this, arguments);
     };
   }();
   var addQuickNote = /*#__PURE__*/function () {
-    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, note) {
+    var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, note) {
       var now, formattedDate, budget, newTracking, _t6;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
@@ -859,7 +1037,7 @@ function App() {
       }, _callee6, null, [[1, 3]]);
     }));
     return function addQuickNote(_x7, _x8) {
-      return _ref16.apply(this, arguments);
+      return _ref26.apply(this, arguments);
     };
   }();
 
@@ -896,7 +1074,7 @@ function App() {
       className: "text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ".concat(filterTab === 'desestimados' ? 'text-rose-600 border-rose-600' : 'text-slate-400 border-transparent hover:text-slate-600')
     }, "Desestimados")), (globalConfig === null || globalConfig === void 0 ? void 0 : globalConfig.lastImportDate) && /*#__PURE__*/React.createElement("p", {
       className: "text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2"
-    }, "\xDAltima Importaci\xF3n: ", /*#__PURE__*/React.createElement("span", {
+    }, "\xC3\u0161ltima Importaci\xC3\xB3n: ", /*#__PURE__*/React.createElement("span", {
       className: "text-indigo-500"
     }, new Date(globalConfig.lastImportDate).toLocaleString("es-ES")))), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-2 w-full sm:w-auto"
@@ -977,13 +1155,13 @@ function App() {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
-    }, "L\xEDmite 7d"), /*#__PURE__*/React.createElement("th", {
+    }, "L\xC3\xADmite 7d"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Importe"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
     }, "Pax / Hab"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]"
-    }, "Gesti\xF3n"), /*#__PURE__*/React.createElement("th", {
+    }, "Gesti\xC3\xB3n"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center"
     }, "Estado"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right"
@@ -1006,10 +1184,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref17) {
-        var _ref18 = _slicedToArray(_ref17, 2),
-          t = _ref18[0],
-          c = _ref18[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref27) {
+        var _ref28 = _slicedToArray(_ref27, 2),
+          t = _ref28[0],
+          c = _ref28[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -1044,7 +1222,7 @@ function App() {
       }, g["Nombre del Grupo"], /*#__PURE__*/React.createElement("button", {
         onClick: function onClick(e) {
           e.stopPropagation();
-          var note = prompt("Añadir nota rápida de seguimiento:");
+          var note = prompt("AÃ±adir nota rÃ¡pida de seguimiento:");
           if (note) addQuickNote(g.uid, note);
         },
         className: "group relative inline-flex items-center align-middle"
@@ -1053,21 +1231,21 @@ function App() {
         title: g.Com_Notas || "Ver seguimiento"
       }) : /*#__PURE__*/React.createElement("i", {
         className: "far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all",
-        title: "A\xF1adir nota"
+        title: "A\xC3\xB1adir nota"
       }))), /*#__PURE__*/React.createElement("p", {
         className: "text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 opacity-60"
-      }, hotelName, " \u2022 ID: ", g.Reserva)))), /*#__PURE__*/React.createElement("td", {
+      }, hotelName, " \xE2\u20AC\xA2 ID: ", g.Reserva)))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4"
       }, /*#__PURE__*/React.createElement("div", {
         onClick: function onClick() {
-          return window.location.href = "Gesti\xF3n de Grupos.html?reserva=".concat(g.Reserva);
+          return window.location.href = "Gestion-de-Grupos.html?reserva=".concat(g.Reserva);
         },
         className: "inline-flex flex-col cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded-lg transition-all"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-xs font-black text-slate-700"
       }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
-      }, "Click p/ Gesti\xF3n"))), /*#__PURE__*/React.createElement("td", {
+      }, "Click p/ Gesti\xC3\xB3n"))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4 text-center"
       }, function (_g$createdAt) {
         var created = (_g$createdAt = g.createdAt) !== null && _g$createdAt !== void 0 && _g$createdAt.seconds ? new Date(g.createdAt.seconds * 1000) : g.createdAt ? new Date(g.createdAt) : null;
@@ -1090,7 +1268,7 @@ function App() {
         className: "flex flex-col"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-sm font-black text-indigo-600 tracking-tight"
-      }, formatNum(totalAmount), "\u20AC"), totalPaid > 0 && /*#__PURE__*/React.createElement("div", {
+      }, formatNum(totalAmount), "\xE2\u201A\xAC"), totalPaid > 0 && /*#__PURE__*/React.createElement("div", {
         className: "flex gap-2 mt-1"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-black text-emerald-600 uppercase"
@@ -1114,10 +1292,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref19) {
-          var _ref20 = _slicedToArray(_ref19, 2),
-            _ = _ref20[0],
-            b = _ref20[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref29) {
+          var _ref30 = _slicedToArray(_ref29, 2),
+            _ = _ref30[0],
+            b = _ref30[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -1234,7 +1412,7 @@ function App() {
       className: "fas fa-arrow-left"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
       className: "text-xl font-black text-slate-800 tracking-tight"
-    }, formData.uid ? 'Editar Presupuesto' : 'Nueva Cotización de Grupo'), /*#__PURE__*/React.createElement("p", {
+    }, formData.uid ? 'Editar Presupuesto' : 'Nueva CotizaciÃ³n de Grupo'), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1"
     }, "Completa los campos para generar el documento"))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center gap-4"
@@ -1292,7 +1470,7 @@ function App() {
       className: "fas fa-info-circle text-[10px]"
     })), /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "1. Informaci\xF3n del Grupo y Cliente")), /*#__PURE__*/React.createElement("div", {
+    }, "1. Informaci\xC3\xB3n del Grupo y Cliente")), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 gap-6"
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
@@ -1306,7 +1484,7 @@ function App() {
           "Nombre del Grupo": e.target.value
         }));
       },
-      placeholder: "Ej: Boda Garc\xEDa-P\xE9rez o Grupo Jubilados...",
+      placeholder: "Ej: Boda Garc\xC3\xADa-P\xC3\xA9rez o Grupo Jubilados...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
     })), /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
@@ -1356,7 +1534,7 @@ function App() {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Tel\xE9fono"), /*#__PURE__*/React.createElement("input", {
+    }, "Tel\xC3\xA9fono"), /*#__PURE__*/React.createElement("input", {
       type: "text",
       value: formData.Com_Telefono_Contacto,
       onChange: function onChange(e) {
@@ -1364,7 +1542,7 @@ function App() {
           Com_Telefono_Contacto: e.target.value
         }));
       },
-      placeholder: "N\xFAmero de tel\xE9fono...",
+      placeholder: "N\xC3\xBAmero de tel\xC3\xA9fono...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
     }))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 gap-6 pt-2"
@@ -1404,7 +1582,7 @@ function App() {
       className: "fas fa-bed text-[10px]"
     })), /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "2. Tipolog\xEDa y Cupo de Habitaciones")), /*#__PURE__*/React.createElement("div", {
+    }, "2. Tipolog\xC3\xADa y Cupo de Habitaciones")), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
     }, currentRooms.map(function (type) {
       var _formData$roomCounts;
@@ -1447,10 +1625,10 @@ function App() {
     }, /*#__PURE__*/React.createElement("button", {
       onClick: handleCopyFirstDay,
       className: "bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95",
-      title: "Copiar precios y cupos del primer d\xEDa a todos los siguientes"
+      title: "Copiar precios y cupos del primer d\xC3\xADa a todos los siguientes"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-copy"
-    }), " Copiar 1\xBA D\xEDa a Todos"))), /*#__PURE__*/React.createElement("div", {
+    }), " Copiar 1\xC2\xBA D\xC3\xADa a Todos"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
       var _formData$dailyConfig5;
@@ -1502,7 +1680,7 @@ function App() {
           title: "Precio"
         }), /*#__PURE__*/React.createElement("span", {
           className: "absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black"
-        }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
+        }, "\xE2\u201A\xAC")), /*#__PURE__*/React.createElement("div", {
           className: "relative group flex w-12 ml-0.5 items-center border border-emerald-100 rounded-md bg-emerald-50 px-1 py-1",
           title: "Gratuidades (Habitaciones Gratis)"
         }, /*#__PURE__*/React.createElement("span", {
@@ -1521,7 +1699,7 @@ function App() {
         className: "shrink-0 w-32 flex flex-col gap-0.5"
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
-      }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
+      }, "R\xC3\xA9gimen"), /*#__PURE__*/React.createElement("select", {
         value: ((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.board) || 'AD (Alojamiento y Desayuno)',
         onChange: function onChange(e) {
           return handleDailyConfigChange(date, 'board', e.target.value);
@@ -1551,7 +1729,7 @@ function App() {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Suplementos Totales (\u20AC)"), /*#__PURE__*/React.createElement("div", {
+    }, "Suplementos Totales (\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
@@ -1565,11 +1743,11 @@ function App() {
       placeholder: "0"
     }), /*#__PURE__*/React.createElement("span", {
       className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black"
-    }, "\u20AC"))), /*#__PURE__*/React.createElement("div", {
+    }, "\xE2\u201A\xAC"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Descuento Global (\u20AC)"), /*#__PURE__*/React.createElement("div", {
+    }, "Descuento Global (\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
@@ -1583,7 +1761,7 @@ function App() {
       placeholder: "0"
     }), /*#__PURE__*/React.createElement("span", {
       className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black"
-    }, "\u20AC"))))), /*#__PURE__*/React.createElement("div", {
+    }, "\xE2\u201A\xAC"))))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -1614,7 +1792,7 @@ function App() {
       className: "bg-teal-50 hover:bg-teal-100 text-teal-600 px-3 py-1.5 rounded-lg border border-teal-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
-    }), " A\xF1adir Cargo")), /*#__PURE__*/React.createElement("div", {
+    }), " A\xC3\xB1adir Cargo")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, (formData.extraCharges || []).map(function (extra, index) {
       return /*#__PURE__*/React.createElement("div", {
@@ -1693,9 +1871,9 @@ function App() {
         className: "w-full pl-2 pr-5 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 text-right"
       }), /*#__PURE__*/React.createElement("span", {
         className: "absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold"
-      }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
+      }, "\xE2\u201A\xAC")), /*#__PURE__*/React.createElement("div", {
         className: "w-20 md:w-24 px-2 py-2 bg-teal-50/50 border border-teal-100 rounded-lg text-[11px] font-black text-teal-700 text-right"
-      }, formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0)), " \u20AC"), /*#__PURE__*/React.createElement("button", {
+      }, formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0)), " \xE2\u201A\xAC"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         onClick: function onClick() {
           var newExtras = formData.extraCharges.filter(function (_, i) {
@@ -1719,7 +1897,7 @@ function App() {
       className: "fas fa-file-signature text-[10px]"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "5. Cl\xE1usulas de Documentos"), /*#__PURE__*/React.createElement("p", {
+    }, "5. Cl\xC3\xA1usulas de Documentos"), /*#__PURE__*/React.createElement("p", {
       className: "text-[8px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
     }, "Define las condiciones legales para este grupo"))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 gap-8"
@@ -1737,13 +1915,13 @@ function App() {
         var current = Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES;
         setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           clauses: [].concat(_toConsumableArray(current), [{
-            title: "Nueva Cláusula",
+            title: "Nueva ClÃ¡usula",
             body: ""
           }])
         }));
       },
       className: "text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
-    }, "+ A\xF1adir")), /*#__PURE__*/React.createElement("div", {
+    }, "+ A\xC3\xB1adir")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, (Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES).map(function (c, i) {
       return /*#__PURE__*/React.createElement("div", {
@@ -1760,7 +1938,7 @@ function App() {
           }));
         },
         className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-indigo-400",
-        placeholder: "T\xEDtulo de la cl\xE1usula"
+        placeholder: "T\xC3\xADtulo de la cl\xC3\xA1usula"
       }), /*#__PURE__*/React.createElement("textarea", {
         value: c.body,
         onChange: function onChange(e) {
@@ -1795,19 +1973,19 @@ function App() {
       className: "text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-file-check text-emerald-500"
-    }), " Confirmaci\xF3n"), /*#__PURE__*/React.createElement("button", {
+    }), " Confirmaci\xC3\xB3n"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
         var current = Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES;
         setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           clauses_conf: [].concat(_toConsumableArray(current), [{
-            title: "Nueva Cláusula Conf.",
+            title: "Nueva ClÃ¡usula Conf.",
             body: ""
           }])
         }));
       },
       className: "text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
-    }, "+ A\xF1adir")), /*#__PURE__*/React.createElement("div", {
+    }, "+ A\xC3\xB1adir")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, (Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES).map(function (c, i) {
       return /*#__PURE__*/React.createElement("div", {
@@ -1824,7 +2002,7 @@ function App() {
           }));
         },
         className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-emerald-400",
-        placeholder: "T\xEDtulo de la cl\xE1usula"
+        placeholder: "T\xC3\xADtulo de la cl\xC3\xA1usula"
       }), /*#__PURE__*/React.createElement("textarea", {
         value: c.body,
         onChange: function onChange(e) {
@@ -1868,7 +2046,7 @@ function App() {
           Com_Notas: e.target.value
         }));
       },
-      placeholder: "A\xF1ade detalles relevantes...",
+      placeholder: "A\xC3\xB1ade detalles relevantes...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-medium text-slate-600 outline-none focus:border-indigo-500 min-h-[80px] resize-none transition-all shadow-sm"
     })), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-3 justify-end pt-2"
@@ -1881,19 +2059,19 @@ function App() {
     }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
       onClick: handleSave,
       className: "bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-indigo-200/50"
-    }, "Guardar Cotizaci\xF3n"))));
+    }, "Guardar Cotizaci\xC3\xB3n"))));
   };
   var HOTEL_DEFAULTS = {
     guadiana: {
       address: 'C/ Guadiana, 36',
-      city: '13002 - Ciudad Real (España)',
+      city: '13002 - Ciudad Real (EspaÃ±a)',
       phone: '926 22 33 13',
       email: 'info@hotelguadiana.es',
       web: 'www.hotelguadiana.es'
     },
     cumbria: {
       address: 'Ctra. Toledo, 26',
-      city: '13005 - Ciudad Real (España)',
+      city: '13005 - Ciudad Real (EspaÃ±a)',
       phone: '(+34) 926 25 04 04',
       email: 'recepcion@hotelcumbria.es',
       web: 'www.hotelcumbria.es'
@@ -1910,7 +2088,7 @@ function App() {
     var modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
     var groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
 
-    // Lógica de Fallback Multinivel para Cláusulas
+    // LÃ³gica de Fallback Multinivel para ClÃ¡usulas
     var getEffectiveClauses = function getEffectiveClauses() {
       if (Array.isArray(g[groupKey]) && g[groupKey].length > 0) return g[groupKey];
       if (globalConfig && globalConfig[hotelKey] && Array.isArray(globalConfig[hotelKey][modeKey]) && globalConfig[hotelKey][modeKey].length > 0) return globalConfig[hotelKey][modeKey];
@@ -1919,29 +2097,26 @@ function App() {
     };
     var effectiveClauses = getEffectiveClauses();
 
-    // Función auxiliar para reemplazo de variables
-    var parseClauseVariables = function parseClauseVariables(text, title) {
+    // FunciÃ³n auxiliar para reemplazo de variables
+    var parseClauseVariables = function parseClauseVariables(text) {
+      var title = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "";
       if (!text) return "";
       var parsed = text;
-      title = title || "";
 
       // Cargar plan de pagos
       var plan = [];
       try {
         plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-      } catch(e){}
-
+      } catch (e) {}
       var t = title.toLowerCase();
       var isDepositOrPayment = t.includes("depósito") || t.includes("deposito") || t.includes("pago") || t.includes("confirmaci");
-
       if (plan && plan.length > 0 && isDepositOrPayment) {
         var firstPayment = plan[0];
         var secondPayment = plan[1];
 
         // Reemplazar 30% estático con el depósito real
-        parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
-        parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
-
+        parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "â‚¬)");
+        parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "â‚¬)");
         if (secondPayment) {
           // Reemplazar 7 días o 7 dias con la antelación real
           parsed = parsed.replace(/7\s*días/gi, secondPayment.releaseDays + " días");
@@ -1949,17 +2124,15 @@ function App() {
           parsed = parsed.replace(/{RELEASE_7}/g, secondPayment.releaseDays + " días");
 
           // Reemplazar 50% o 100% estático con el segundo pago real
-          parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
-          parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
-          parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
-          parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+          parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
+          parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
+          parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
+          parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
         }
       }
-
-      // Reemplazos tradicionales (fallback)
-      parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + '€');
-      parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + '€');
-      parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + '€');
+      parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + 'â‚¬');
+      parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + 'â‚¬');
+      parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + 'â‚¬');
       var getRelDate = function getRelDate(days) {
         if (!g.Entrada) return "[FECHA]";
         var d = new Date(g.Entrada);
@@ -1971,10 +2144,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref21) {
-      var _ref22 = _slicedToArray(_ref21, 2),
-        type = _ref22[0],
-        count = _ref22[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref31) {
+      var _ref32 = _slicedToArray(_ref31, 2),
+        type = _ref32[0],
+        count = _ref32[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -1990,13 +2163,13 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref23) {
-      var _ref24 = _slicedToArray(_ref23, 2),
-        type = _ref24[0],
-        c = _ref24[1];
+    activeRooms.forEach(function (_ref33) {
+      var _ref34 = _slicedToArray(_ref33, 2),
+        type = _ref34[0],
+        c = _ref34[1];
       var t = type.toUpperCase();
       var multiplier = 2;
-      if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
+      if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÃDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
       calculatedPax += multiplier * c;
     });
     var totalPax = calculatedPax > 0 ? calculatedPax : g["Pax."] || 0;
@@ -2015,7 +2188,7 @@ function App() {
       className: "fas fa-arrow-left"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       className: "text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1"
-    }, hotelName, " ", g.Reserva ? "\u2022 ".concat(g.Reserva) : ''), /*#__PURE__*/React.createElement("h2", {
+    }, hotelName, " ", g.Reserva ? "\xE2\u20AC\xA2 ".concat(g.Reserva) : ''), /*#__PURE__*/React.createElement("h2", {
       className: "text-2xl font-black text-slate-800 tracking-tight leading-none"
     }, g["Nombre del Grupo"]), /*#__PURE__*/React.createElement("div", {
       className: "mt-2 flex flex-col gap-1.5"
@@ -2035,7 +2208,7 @@ function App() {
       className: "text-slate-200"
     }, "|"), /*#__PURE__*/React.createElement("span", {
       className: "text-indigo-600 font-bold"
-    }, formatNum(calculatedTotal), " \u20AC")), (g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g.Teléfono || g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("p", {
+    }, formatNum(calculatedTotal), " \xE2\u201A\xAC")), (g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"] || g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] text-slate-400 font-bold uppercase tracking-tight flex flex-wrap items-center gap-x-4 gap-y-1"
     }, (g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("span", {
       className: "flex items-center gap-1.5 text-slate-500"
@@ -2046,12 +2219,12 @@ function App() {
       className: "flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
     }, /*#__PURE__*/React.createElement("i", {
       className: "far fa-envelope text-slate-300"
-    }), " ", g.Com_Email_Contacto || g.Email), (g.Com_Telefono_Contacto || g.Telefono || g.Teléfono) && /*#__PURE__*/React.createElement("a", {
-      href: "tel:".concat(g.Com_Telefono_Contacto || g.Telefono || g.Teléfono),
+    }), " ", g.Com_Email_Contacto || g.Email), (g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"]) && /*#__PURE__*/React.createElement("a", {
+      href: "tel:".concat(g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"]),
       className: "flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-phone-alt text-slate-300 text-[8px]"
-    }), " ", g.Com_Telefono_Contacto || g.Telefono || g.Teléfono))))), /*#__PURE__*/React.createElement("div", {
+    }), " ", g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"]))))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center gap-3 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100"
@@ -2153,7 +2326,7 @@ function App() {
       onChange: function onChange(e) {
         return setNewNote(e.target.value);
       },
-      placeholder: "A\xF1adir nota de seguimiento...",
+      placeholder: "A\xC3\xB1adir nota de seguimiento...",
       className: "w-full bg-white/5 border border-white/10 rounded-2xl p-4 pr-12 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all resize-none min-h-[80px] custom-scrollbar"
     }), /*#__PURE__*/React.createElement("button", {
       type: "submit",
@@ -2181,7 +2354,7 @@ function App() {
       className: "fas fa-comments text-2xl mb-2 text-slate-400"
     }), /*#__PURE__*/React.createElement("p", {
       className: "text-[9px] font-black text-slate-500 uppercase"
-    }, "Sin historial a\xFAn")) : (Array.isArray(g.tracking) ? g.tracking : []).map(function (t, i) {
+    }, "Sin historial a\xC3\xBAn")) : (Array.isArray(g.tracking) ? g.tracking : []).map(function (t, i) {
       return /*#__PURE__*/React.createElement("div", {
         key: (t === null || t === void 0 ? void 0 : t.id) || i,
         className: "relative pl-6 border-l-2 border-white/5 pb-4 last:pb-0"
@@ -2213,7 +2386,7 @@ function App() {
       className: "text-right"
     }, /*#__PURE__*/React.createElement("h1", {
       className: "text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ".concat(isCumbria ? 'text-blue-900' : 'text-orange-800')
-    }, docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'), /*#__PURE__*/React.createElement("p", {
+    }, docMode === 'confirmacion' ? 'ConfirmaciÃ³n de Grupo' : 'Propuesta de Alojamiento'), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1"
     }, "Ref: ", g.Reserva))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6"
@@ -2241,7 +2414,7 @@ function App() {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
     }, "Reserva ID"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800"
-    }, "#", g.Reserva))), (g.Com_Nombre_Contacto || g.Persona_Contacto || g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g.Teléfono) && /*#__PURE__*/React.createElement("div", {
+    }, "#", g.Reserva))), (g.Com_Nombre_Contacto || g.Persona_Contacto || g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"]) && /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4"
     }, (g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
@@ -2255,13 +2428,13 @@ function App() {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
     }, "Email"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800"
-    }, g.Com_Email_Contacto || g.Email)), (g.Com_Telefono_Contacto || g.Telefono || g.Teléfono) && /*#__PURE__*/React.createElement("div", {
+    }, g.Com_Email_Contacto || g.Email)), (g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"]) && /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
-    }, "Tel\xE9fono"), /*#__PURE__*/React.createElement("p", {
+    }, "Tel\xC3\xA9fono"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800"
-    }, g.Com_Telefono_Contacto || g.Telefono || g.Teléfono)), g["Empresa/Agencia"] && g["Empresa/Agencia"] !== "Venta Directa" && /*#__PURE__*/React.createElement("div", {
+    }, g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"])), g["Empresa/Agencia"] && g["Empresa/Agencia"] !== "Venta Directa" && /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
@@ -2271,7 +2444,7 @@ function App() {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
-    }, "Itinerario y Condiciones Econ\xF3micas"), dates.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    }, "Itinerario y Condiciones Econ\xC3\xB3micas"), dates.length > 0 ? /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse"
@@ -2281,9 +2454,9 @@ function App() {
       className: "p-4 print:py-1.5 print:px-2"
     }, "Fecha (Servicio)"), /*#__PURE__*/React.createElement("th", {
       className: "p-4 print:py-1.5 print:px-2"
-    }, "R\xE9gimen"), /*#__PURE__*/React.createElement("th", {
+    }, "R\xC3\xA9gimen"), /*#__PURE__*/React.createElement("th", {
       className: "p-4 print:py-1.5 print:px-2"
-    }, "Tipolog\xEDa Alojamiento"), /*#__PURE__*/React.createElement("th", {
+    }, "Tipolog\xC3\xADa Alojamiento"), /*#__PURE__*/React.createElement("th", {
       className: "p-4 print:py-1.5 print:px-2 text-right"
     }, "Subtotal"))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
@@ -2303,10 +2476,10 @@ function App() {
         className: "p-4 print:py-1.5 print:px-2"
       }, /*#__PURE__*/React.createElement("ul", {
         className: "text-[11px] print:text-[9px]"
-      }, activeRooms.map(function (_ref25) {
-        var _ref26 = _slicedToArray(_ref25, 2),
-          type = _ref26[0],
-          count = _ref26[1];
+      }, activeRooms.map(function (_ref35) {
+        var _ref36 = _slicedToArray(_ref35, 2),
+          type = _ref36[0],
+          count = _ref36[1];
         var typeKey = type.toUpperCase();
         var price = 0;
         var gratuities = 0;
@@ -2326,12 +2499,12 @@ function App() {
           className: "text-slate-500 mb-1 print:mb-0"
         }, /*#__PURE__*/React.createElement("div", {
           className: "flex justify-between"
-        }, /*#__PURE__*/React.createElement("span", null, count, "x ", type, " ", roomBoard && roomBoard !== boardTitle ? "(".concat(roomBoard, ")") : '', " (", formatNum(price), "\u20AC)")), gratuities > 0 && /*#__PURE__*/React.createElement("div", {
+        }, /*#__PURE__*/React.createElement("span", null, count, "x ", type, " ", roomBoard && roomBoard !== boardTitle ? "(".concat(roomBoard, ")") : '', " (", formatNum(price), "\xE2\u201A\xAC)")), gratuities > 0 && /*#__PURE__*/React.createElement("div", {
           className: "text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0"
         }, "[-", gratuities, "] Gratuidad"));
       }))), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
-      }, formatNum(subtotalDate), " \u20AC"));
+      }, formatNum(subtotalDate), " \xE2\u201A\xAC"));
       var dailyExtrasRows = (g.extraCharges || []).filter(function (ext) {
         return ext.date === date;
       }).map(function (ext, extIdx) {
@@ -2348,9 +2521,9 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60"
         }, "Cargo Extra"), /*#__PURE__*/React.createElement("td", {
           className: "p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic"
-        }, ext.description || ext.concept, " (", u > 0 ? u : pax, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
+        }, ext.description || ext.concept, " (", u > 0 ? u : pax, " x ", formatNum(up), "\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("td", {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
-        }, formatNum(px), " \u20AC"));
+        }, formatNum(px), " \xE2\u201A\xAC"));
       });
       return [roomRow].concat(_toConsumableArray(dailyExtrasRows));
     }), (g.extraCharges || []).filter(function (ext) {
@@ -2366,9 +2539,9 @@ function App() {
         className: "p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest"
       }, "Extra Global"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold"
-      }, ext.description || ext.concept, " (", ext.units || ext.pax || 0, " x ", formatNum(ext.unitPrice || ext.price || 0), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
+      }, ext.description || ext.concept, " (", ext.units || ext.pax || 0, " x ", formatNum(ext.unitPrice || ext.price || 0), "\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums"
-      }, formatNum(px), " \u20AC"));
+      }, formatNum(px), " \xE2\u201A\xAC"));
     })), /*#__PURE__*/React.createElement("tfoot", {
       className: "bg-slate-900 text-white font-black"
     }, parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
@@ -2378,21 +2551,21 @@ function App() {
       className: "px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
     }, "Subtotal Estancia:"), /*#__PURE__*/React.createElement("td", {
       className: "px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - parseFloat(g.Suplementos || 0) + parseFloat(g.Descuentos || 0)), " \u20AC")), parseFloat(g.Suplementos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
+    }, formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - parseFloat(g.Suplementos || 0) + parseFloat(g.Descuentos || 0)), " \xE2\u201A\xAC")), parseFloat(g.Suplementos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
       className: "border-b border-slate-700/50 text-indigo-300"
     }, /*#__PURE__*/React.createElement("td", {
       colSpan: "3",
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
     }, "+ Suplementos:"), /*#__PURE__*/React.createElement("td", {
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, formatNum(parseFloat(g.Suplementos)), " \u20AC")), parseFloat(g.Descuentos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
+    }, formatNum(parseFloat(g.Suplementos)), " \xE2\u201A\xAC")), parseFloat(g.Descuentos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
       className: "border-b border-slate-700/50 text-rose-300"
     }, /*#__PURE__*/React.createElement("td", {
       colSpan: "3",
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
     }, "- Descuentos aplicados:"), /*#__PURE__*/React.createElement("td", {
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, "-", formatNum(parseFloat(g.Descuentos)), " \u20AC")), /*#__PURE__*/React.createElement("tr", {
+    }, "-", formatNum(parseFloat(g.Descuentos)), " \xE2\u201A\xAC")), /*#__PURE__*/React.createElement("tr", {
       style: {
         backgroundColor: '#0f172a',
         color: 'white',
@@ -2408,7 +2581,7 @@ function App() {
         color: 'white',
         fontWeight: 900
       }
-    }, formatNum(calculatedTotal), " \u20AC"))) : /*#__PURE__*/React.createElement("tr", {
+    }, formatNum(calculatedTotal), " \xE2\u201A\xAC"))) : /*#__PURE__*/React.createElement("tr", {
       style: {
         backgroundColor: '#0f172a',
         color: 'white',
@@ -2424,13 +2597,13 @@ function App() {
         color: 'white',
         fontWeight: 900
       }
-    }, formatNum(calculatedTotal), " \u20AC"))))) : /*#__PURE__*/React.createElement("div", {
+    }, formatNum(calculatedTotal), " \xE2\u201A\xAC"))))) : /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50 p-8 rounded-2xl text-center border border-slate-200"
     }, /*#__PURE__*/React.createElement("p", {
       className: "text-lg font-black text-indigo-700"
-    }, formatNum(calculatedTotal), " \u20AC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
+    }, formatNum(calculatedTotal), " \xE2\u201A\xAC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-400 mt-2"
-    }, "Detalle de noches no configurado a\xFAn.")), /*#__PURE__*/React.createElement("div", {
+    }, "Detalle de noches no configurado a\xC3\xBAn.")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100"
@@ -2446,7 +2619,7 @@ function App() {
         return setDocMode('confirmacion');
       },
       className: "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ".concat(docMode === 'confirmacion' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600')
-    }, "Vista Confirmaci\xF3n"))), /*#__PURE__*/React.createElement("div", {
+    }, "Vista Confirmaci\xC3\xB3n"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-16 print:space-y-6 print-break-before"
     }, docMode === 'presupuesto' && /*#__PURE__*/React.createElement("div", {
       className: "relative group"
@@ -2458,7 +2631,7 @@ function App() {
       className: "h-4 w-1 rounded-full ".concat(isCumbria ? 'bg-blue-800' : 'bg-orange-600')
     }), /*#__PURE__*/React.createElement("h4", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]"
-    }, "Cl\xE1usulas de Presupuesto")), /*#__PURE__*/React.createElement("button", {
+    }, "Cl\xC3\xA1usulas de Presupuesto")), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         if (!isEditingClauses) {
           var current = effectiveClauses;
@@ -2467,7 +2640,7 @@ function App() {
           db.collection("groups").doc(g.uid).update({
             clauses: tempClauses
           }).then(function () {
-            return alert("Cláusulas presupuesto guardadas.");
+            return alert("ClÃ¡usulas presupuesto guardadas.");
           });
         }
         setIsEditingClauses(!isEditingClauses);
@@ -2534,14 +2707,14 @@ function App() {
     }(), isEditingClauses && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setTempClauses([].concat(_toConsumableArray(tempClauses), [{
-          title: "Nueva Cláusula",
+          title: "Nueva ClÃ¡usula",
           body: ""
         }]));
       },
       className: "border-2 border-dashed border-slate-200 rounded-xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
-    }), " A\xF1adir Cl\xE1usula"))), docMode === 'confirmacion' && /*#__PURE__*/React.createElement("div", {
+    }), " A\xC3\xB1adir Cl\xC3\xA1usula"))), docMode === 'confirmacion' && /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between mb-5"
@@ -2551,7 +2724,7 @@ function App() {
       className: "h-4 w-1 rounded-full bg-emerald-500"
     }), /*#__PURE__*/React.createElement("h4", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]"
-    }, "Cl\xE1usulas de Confirmaci\xF3n")), /*#__PURE__*/React.createElement("button", {
+    }, "Cl\xC3\xA1usulas de Confirmaci\xC3\xB3n")), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         if (!isEditingClausesConf) {
           var current = effectiveClauses;
@@ -2560,7 +2733,7 @@ function App() {
           db.collection("groups").doc(g.uid).update({
             clauses_conf: tempClausesConf
           }).then(function () {
-            return alert("Cláusulas confirmación guardadas.");
+            return alert("ClÃ¡usulas confirmaciÃ³n guardadas.");
           });
         }
         setIsEditingClausesConf(!isEditingClausesConf);
@@ -2627,14 +2800,14 @@ function App() {
     }(), isEditingClausesConf && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setTempClausesConf([].concat(_toConsumableArray(tempClausesConf), [{
-          title: "Nueva Cláusula Conf.",
+          title: "Nueva ClÃ¡usula Conf.",
           body: ""
         }]));
       },
       className: "border-2 border-dashed border-emerald-100 rounded-xl p-4 text-[10px] font-black text-emerald-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
-    }), " A\xF1adir Cl\xE1usula de Confirmaci\xF3n"))))), /*#__PURE__*/React.createElement("div", {
+    }), " A\xC3\xB1adir Cl\xC3\xA1usula de Confirmaci\xC3\xB3n"))))), /*#__PURE__*/React.createElement("div", {
       className: "pt-5 print:pt-3 border-t-2 ".concat(isCumbria ? 'border-blue-900' : 'border-orange-600', " print:border-t flex items-end justify-between")
     }, /*#__PURE__*/React.createElement("div", {
       className: "print:pl-2"
@@ -2705,21 +2878,21 @@ function App() {
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-utensils"
-  }), " Men\xFAs Eventos"), /*#__PURE__*/React.createElement("a", {
+  }), " Men\xC3\xBAs Eventos"), /*#__PURE__*/React.createElement("a", {
     href: "https://nataliogc.github.io/Menus-Turisticos/",
     target: "_blank",
     rel: "noopener noreferrer",
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-map"
-  }), " Men\xFAs Tur\xEDsticos"), /*#__PURE__*/React.createElement("a", {
+  }), " Men\xC3\xBAs Tur\xC3\xADsticos"), /*#__PURE__*/React.createElement("a", {
     href: "https://nataliogc.github.io/menus-cocteles/",
     target: "_blank",
     rel: "noopener noreferrer",
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-glass-martini-alt"
-  }), " Men\xFAs C\xF3cteles"), /*#__PURE__*/React.createElement("a", {
+  }), " Men\xC3\xBAs C\xC3\xB3cteles"), /*#__PURE__*/React.createElement("a", {
     href: "Gestion-de-Grupos.html",
     className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("i", {

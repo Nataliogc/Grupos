@@ -24,6 +24,137 @@
         const formatDate = NexusUtils.formatDate;
         const formatNum = NexusUtils.formatNum;
 
+        const calculateDefaultCommission = (price, regime, qty, nights, type = "") => {
+            return 0;
+        };
+
+        const buildRoomingList = (group, existingListJson = "[]") => {
+            let existingList = [];
+            try {
+                existingList = JSON.parse(existingListJson || "[]");
+            } catch (e) {
+                existingList = [];
+            }
+
+            const dates = generateDates(group.Entrada, group.Salida);
+            if (!dates || dates.length === 0) return [];
+
+            const hotelName = group.Hotel_Asignado || group.Hotel || "Sercotel Guadiana";
+            const newList = [];
+
+            dates.forEach(date => {
+                const config = group.dailyConfig?.[date] || {};
+
+                Object.entries(group.roomCounts || {}).forEach(([type, globalCount]) => {
+                    let count = globalCount;
+                    if (config.counts) {
+                        const countKey = Object.keys(config.counts).find(k => k.toLowerCase() === type.toLowerCase());
+                        if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
+                            count = Number(config.counts[countKey]);
+                        }
+                    } else {
+                        const tk = Object.keys(config).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                        if (tk && config[tk] && config[tk].count !== undefined && config[tk].count !== '' && config[tk].count !== undefined) {
+                            count = Number(config[tk].count);
+                        }
+                    }
+
+                    if (count > 0) {
+                        let price = 0;
+                        let regime = config.board || group["Régimen"] || "AD";
+                        let gratuities = 0;
+                        let discount = 0;
+
+                        if (config.prices) {
+                            const pk = Object.keys(config.prices).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                            price = pk ? parseFloat(config.prices[pk] || 0) : 0;
+
+                            const gratKey = config.gratuities ? Object.keys(config.gratuities).find(k => k.trim().toLowerCase() === type.trim().toLowerCase()) : null;
+                            gratuities = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
+
+                            const discKey = config.discounts ? Object.keys(config.discounts).find(k => k.trim().toLowerCase() === type.trim().toLowerCase()) : null;
+                            discount = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
+                        } else {
+                            const tk = Object.keys(config).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                            if (tk && config[tk]) {
+                                price = parseFloat(config[tk].price || 0);
+                                regime = config[tk].board || regime;
+                                gratuities = parseInt(config[tk].gratuities || 0);
+                                discount = parseFloat(config[tk].discount || 0);
+                            }
+                        }
+
+                        const paxPerRoom = type.toLowerCase().includes('ind') || type.toLowerCase().includes('dui') ? 1 : type.toLowerCase().includes('tri') ? 3 : 2;
+                        const payingRooms = Math.max(0, count - gratuities);
+
+                        const match = existingList.find(item => 
+                            item.dateIn === date && 
+                            item.type === type && 
+                            !item.isService
+                        );
+
+                        if (payingRooms > 0) {
+                            const regimeShort = regime.split(' ')[0];
+                            newList.push({
+                                id: match ? match.id : Date.now() + Math.random(),
+                                hotel: hotelName,
+                                type: type,
+                                dateIn: date,
+                                dateOut: date,
+                                qty: payingRooms,
+                                regime: regimeShort,
+                                price: price,
+                                pax: paxPerRoom,
+                                nights: 1,
+                                total: (payingRooms * price * (1 - discount / 100)).toFixed(2),
+                                isService: false,
+                                comision: match && match.comision ? match.comision : calculateDefaultCommission(price, regimeShort, payingRooms, 1, type)
+                            });
+                        }
+
+                        if (gratuities > 0) {
+                            const regimeShort = regime.split(' ')[0];
+                            const matchGrat = existingList.find(item => 
+                                item.dateIn === date && 
+                                item.type === (type + " (GRATUIDAD)") && 
+                                !item.isService
+                            );
+
+                            newList.push({
+                                id: matchGrat ? matchGrat.id : Date.now() + Math.random(),
+                                hotel: hotelName,
+                                type: type + " (GRATUIDAD)",
+                                dateIn: date,
+                                dateOut: date,
+                                qty: gratuities,
+                                regime: regimeShort,
+                                price: 0,
+                                pax: paxPerRoom,
+                                nights: 1,
+                                total: "0.00",
+                                isService: false,
+                                comision: matchGrat && matchGrat.comision ? matchGrat.comision : calculateDefaultCommission(0, regimeShort, gratuities, 1, type)
+                            });
+                        }
+                    }
+                });
+
+                existingList.forEach(item => {
+                    if (item.isService && item.dateIn === date) {
+                        newList.push(item);
+                    }
+                });
+            });
+
+            existingList.forEach(item => {
+                if (item.isService && !dates.includes(item.dateIn)) {
+                    newList.push(item);
+                }
+            });
+
+            return newList;
+        };
+
         const App = () => {
             const [emailText, setEmailText] = useState("");
             const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -142,7 +273,12 @@
                                 if (dayData.prices) {
                                     const priceKey = Object.keys(dayData.prices).find(k => k.toLowerCase() === type);
                                     const p = priceKey ? parseFloat(dayData.prices[priceKey] || 0) : 0;
-                                    lineSubtotal = p * count;
+                                    const gratKey = dayData.gratuities ? Object.keys(dayData.gratuities).find(k => k.toLowerCase() === type) : null;
+                                    const grat = gratKey ? parseInt(dayData.gratuities[gratKey] || 0) : 0;
+                                    const discKey = dayData.discounts ? Object.keys(dayData.discounts).find(k => k.toLowerCase() === type) : null;
+                                    const disc = discKey ? parseFloat(dayData.discounts[discKey] || 0) : 0;
+                                    const billableCount = Math.max(0, count - grat);
+                                    lineSubtotal = p * billableCount * (1 - disc / 100);
                                 } else {
                                     const typeKey = Object.keys(dayData).find(k => k.toLowerCase() === type);
                                     if (typeKey && dayData[typeKey]) {
@@ -278,6 +414,7 @@
                         "Com_Comercial": extractedData.Com_Comercial || "",
                         "tracking": extractedData.tracking || [{ id: Date.now(), date: formattedDate, text: "Alta Inteligente por Email (Escáner IA)." }],
                         "dailyConfig": extractedData.dailyConfig || {},
+                        "RoomingList_JSON": JSON.stringify(buildRoomingList({ ...extractedData, Hotel_Asignado: hotelAsignado }, "")),
                         "createdAt": extractedData.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
                         "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                     };
@@ -676,7 +813,7 @@
                                                                                 <div className="flex-1 w-full overflow-x-auto pb-2">
                                                                                     <div className="min-w-[700px]">
                                                                                         {/* Header - Fixed Grid Template for Perfect Alignment */}
-                                                                                        <div className="mb-2 px-4 grid grid-cols-[1fr_40px_90px_110px_65px_65px_100px] gap-3 items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                                                        <div className="mb-2 px-4 grid grid-cols-[1fr_50px_90px_110px_65px_65px_100px] gap-3 items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                                                                             <div className="truncate">HABITACIÓN</div>
                                                                                             <div className="text-center">UDS</div>
                                                                                             <div className="text-center">PRECIO €</div>
@@ -689,16 +826,24 @@
                                                                                         <div className="space-y-1.5">
                                                                                             {selectedTypes.map(type => {
                                                                                                 const config = (extractedData.dailyConfig || {})[date]?.[type] || { price: 0, board: extractedData["Régimen"] || "AD", gratuities: 0, discount: 0 };
-                                                                                                const count = (extractedData.roomCounts || {})[type] || 0;
+                                                                                                const configCount = config.count !== undefined && config.count !== '' ? parseInt(config.count) : null;
+                                                                                                const count = configCount !== null ? configCount : ((extractedData.roomCounts || {})[type] || 0);
                                                                                                 const subtotalWithoutDiscount = (count - (parseInt(config.gratuities) || 0)) * (parseFloat(config.price) || 0);
                                                                                                 const subtotal = subtotalWithoutDiscount * (1 - (parseFloat(config.discount) || 0) / 100);
                                                                                                 return (
-                                                                                                    <div key={type} className="grid grid-cols-[1fr_40px_90px_110px_65px_65px_100px] gap-3 items-center bg-white rounded-xl px-4 py-2 border border-slate-200 hover:border-indigo-400 hover:shadow-sm transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+                                                                                                    <div key={type} className="grid grid-cols-[1fr_50px_90px_110px_65px_65px_100px] gap-3 items-center bg-white rounded-xl px-4 py-2 border border-slate-200 hover:border-indigo-400 hover:shadow-sm transition-all shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
                                                                                                         <div className="truncate pr-2">
                                                                                                             <span className="text-[11px] font-black text-slate-700 uppercase leading-none">{type}</span>
                                                                                                         </div>
                                                                                                         <div className="text-center">
-                                                                                                            <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 w-7 h-7 rounded-lg text-[11px] font-black border border-indigo-100">{count}</span>
+                                                                                                            <input
+                                                                                                                type="number"
+                                                                                                                min="0"
+                                                                                                                className="w-12 bg-slate-50 border border-slate-200 rounded-lg py-1 text-[11px] font-black text-center outline-none focus:bg-white focus:border-indigo-500 text-indigo-700 transition-colors shadow-sm"
+                                                                                                                value={count || ''}
+                                                                                                                onChange={e => handleDailyConfigChange(date, type, 'count', e.target.value)}
+                                                                                                                placeholder="0"
+                                                                                                            />
                                                                                                         </div>
                                                                                                         <div className="flex justify-center">
                                                                                                             <input

@@ -1,4 +1,4 @@
-﻿﻿"use strict";
+"use strict";
 
 var _excluded = ["_diff", "_changes", "_docId"];
 function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
@@ -129,7 +129,7 @@ var BudgetManager = function BudgetManager(_ref) {
       color: "bg-slate-400",
       text: "bg-slate-50 text-slate-500",
       component: IconXCircle,
-      label: "ANULADA"
+      label: "DESESTIMADO"
     };
     if (s.includes("SEGUIMIENTO")) return {
       color: "bg-indigo-500",
@@ -363,7 +363,7 @@ var App = function App() {
     if (s.includes("CANC") || s.includes("ANUL") || s.includes("BAJA") || s.includes("DESESTIMADO") || e.includes("CANC") || e.includes("ANUL") || e.includes("BAJA") || e.includes("DESESTIMADO")) return {
       color: "bg-red-500/80",
       text: "bg-red-100 text-red-700",
-      label: "ANULADA"
+      label: "DESESTIMADO"
     };
 
     // 1. CONFIRMADO / OK / BLOQUEADO (PRIORIDAD SOBRE PASADO)
@@ -785,20 +785,14 @@ var App = function App() {
     // 1. Filtro de Estado
     if (filterStatus !== "all") {
       filtered = filtered.filter(function (row) {
-        var label = (row._stateLabel || "").toLowerCase();
-        if (filterStatus === "activos") {
-          var isAnulada = label.includes("anul") || label.includes("canc") || label.includes("baja") || label.includes("gastos");
-          var isDesestimada = label.includes("desestim");
-          var isPasado = label.includes("pasado");
-          return !isAnulada && !isDesestimada && !isPasado;
-        }
-        if (filterStatus === "activos_y_desestimados") return !label.includes("pasado");
-        if (filterStatus === "confirmada") return label.includes("confirmado");
-        if (filterStatus === "tentativa") return label.includes("tentativa") || label.includes("tanteo");
-        if (filterStatus === "presupuesto") return label.includes("presupuesto");
-        if (filterStatus === "desestimada") return label.includes("desestim") || label.includes("anul") || label.includes("canc");
-        if (filterStatus === "anulada") return label.includes("anul") || label.includes("canc") || label.includes("baja");
-        if (filterStatus === "pasado") return label.includes("pasado");
+        var label = row._stateLabel;
+        if (filterStatus === "activos") return label !== "cancelado" && label !== "desestimado" && label !== "pasado";
+        if (filterStatus === "activos_y_desestimados") return label !== "pasado";
+        if (filterStatus === "confirmada") return label === "confirmado";
+        if (filterStatus === "tentativa") return label === "tentativa";
+        if (filterStatus === "presupuesto") return label === "presupuesto";
+        if (filterStatus === "desestimada") return label === "cancelado" || label === "desestimado";
+        if (filterStatus === "pasado") return label === "pasado";
         return true;
       });
     }
@@ -928,8 +922,14 @@ var App = function App() {
 
     if (filterDirHotel) {
       filtered = filtered.filter(function (row) {
-        var rowHotel = normalizeHotelName(row["Hotel_Asignado"] || row["Hotel"] || "");
-        return rowHotel === normalizeHotelName(filterDirHotel);
+        var raw = (row["Hotel_Asignado"] || row["Hotel"] || "").toLowerCase();
+        if (filterDirHotel === "SERCOTEL GUADIANA") {
+          return raw.includes("guadiana");
+        }
+        if (filterDirHotel === "Cumbria") {
+          return raw.includes("cumb");
+        }
+        return false;
       });
     }
 
@@ -1155,7 +1155,7 @@ var App = function App() {
       var label = ((_group$statusLabel = group.statusLabel) === null || _group$statusLabel === void 0 ? void 0 : _group$statusLabel.toLowerCase()) || "";
       var arrival = group.arrival;
       var today = new Date().toISOString().split("T")[0];
-      var isActivo = label !== "cancelado" && label !== "anulada" && label !== "pasado";
+      var isActivo = label !== "cancelado" && label !== "desestimado" && label !== "pasado";
       var isFuturo = arrival && arrival >= today;
       if (isActivo && isFuturo) {
         setFilterStatus("activos");
@@ -1183,7 +1183,7 @@ var App = function App() {
       // Filtrar grupos cancelados o pasados de la estadística de rentabilidad
 
       var stateProps = getStatusProps(row["Com_Estado_Interno"] || row["Segment."], row["Entrada"], row["Estado"]);
-      if (stateProps.label === "ANULADA" || stateProps.label === "PASADO") {
+      if (stateProps.label === "DESESTIMADO" || stateProps.label === "PASADO") {
         return;
       }
       var segName = (row["Segment."] || "Sin Segmento").toString().trim().toUpperCase();
@@ -2232,7 +2232,7 @@ var App = function App() {
         "Régimen": row["Régimen"] || "",
         "Importe": row["Importe(*)"] || ""
       };
-      if (st.label === "ANULADA") {
+      if (st.label === "DESESTIMADO") {
         anuladas.push(mappedRow);
       } else {
         confirmadas.push(mappedRow);
@@ -2655,11 +2655,16 @@ var App = function App() {
                 var price = 0;
                 var regime = config.board || group["Régimen"] || "AD";
                 var gratuities = 0;
+                var discount = 0;
                 if (config.prices) {
                   var pk = Object.keys(config.prices).find(function (k) {
                     return k.trim().toLowerCase() === v.type.trim().toLowerCase();
                   });
                   price = pk ? parseFloat(config.prices[pk] || 0) : 0;
+                  var discKey = config.discounts ? Object.keys(config.discounts).find(function (k) {
+                    return k.trim().toLowerCase() === v.type.trim().toLowerCase();
+                  }) : null;
+                  discount = discKey ? parseFloat(config.discounts[discKey] || 0) : 0;
                   var gratKey = config.gratuities ? Object.keys(config.gratuities).find(function (k) {
                     return k.trim().toLowerCase() === v.type.trim().toLowerCase();
                   }) : null;
@@ -2672,11 +2677,11 @@ var App = function App() {
                     price = parseFloat(config[tk].price || 0);
                     regime = config[tk].board || regime;
                     gratuities = parseInt(config[tk].gratuities || 0);
+                    discount = parseFloat(config[tk].discount || 0);
                   }
                 }
 
                 // Fallback to approximate logic since getPaxByRoomType might be out of scope or we pass string directly
-
                 var paxPerRoom = typeof getPaxByRoomType === 'function' ? getPaxByRoomType(v.type) : v.type.toLowerCase().includes('ind') || v.type.toLowerCase().includes('dui') ? 1 : v.type.toLowerCase().includes('tri') ? 3 : 2;
                 var payingRooms = Math.max(0, count - gratuities);
                 if (payingRooms > 0) {
@@ -2687,11 +2692,12 @@ var App = function App() {
                     dateIn: date,
                     dateOut: date,
                     qty: payingRooms,
-                    regime: regime,
+                    regime: regime.split(' ')[0],
                     price: price,
                     pax: paxPerRoom,
                     nights: 1,
-                    total: (payingRooms * price).toFixed(2),
+                    total: (payingRooms * price * (1 - discount / 100)).toFixed(2),
+                    comision: calculateDefaultCommission(price, regime.split(' ')[0], payingRooms, 1, v.type),
                     isService: false
                   });
                 }
@@ -2703,11 +2709,12 @@ var App = function App() {
                     dateIn: date,
                     dateOut: date,
                     qty: gratuities,
-                    regime: regime,
+                    regime: regime.split(' ')[0],
                     price: 0,
                     pax: paxPerRoom,
                     nights: 1,
                     total: "0.00",
+                    comision: calculateDefaultCommission(0, regime.split(' ')[0], gratuities, 1, v.type),
                     isService: false
                   });
                 }
@@ -3018,9 +3025,7 @@ var App = function App() {
             // Usamos el ID de Reserva para identificar de forma única, evitando agrupaciones por nombre
             normTargetId = normalizeId(resId);
             currentGroupRows = (data || []).filter(function (r) {
-              var rowHotel = normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "");
-              var filterHotel = hotelFilterArg ? normalizeHotelName(hotelFilterArg) : null;
-              return normalizeId(r.Reserva) === normTargetId && (!filterHotel || rowHotel === filterHotel);
+              return normalizeId(r.Reserva) === normTargetId && (!hotelFilterArg || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg);
             });
             if (!(currentGroupRows.length === 0)) {
               _context8.n = 2;
@@ -3111,9 +3116,8 @@ var App = function App() {
             setSelectedGroupFicha(function (prev) {
               if (!prev || normalizeId(prev.id) !== normTargetId) return prev;
               var updatedRecords = prev.records.map(function (r) {
-                var rowHotel = normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "");
-                var filterHotel = hotelFilterArg ? normalizeHotelName(hotelFilterArg) : null;
-                if (!filterHotel || rowHotel === filterHotel) {
+                var matchesHotel = !hotelFilterArg || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg;
+                if (matchesHotel) {
                   return _objectSpread(_objectSpread({}, r), updates);
                 }
                 return r;
@@ -3144,7 +3148,6 @@ var App = function App() {
                 totalPax: newTotalPax,
                 totalRooms: newTotalRooms,
                 totalRevenue: newTotalRevenue,
-                name: updates["Nombre del Grupo"] || prev.name,
                 // Sincronizar hotel del grupo si se cambió
 
                 hotel: updates["Hotel_Asignado"] || updates["Hotel"] || prev.hotel
@@ -3167,23 +3170,35 @@ var App = function App() {
             _context8.p = 3;
             batch = db.batch();
             currentGroupRows.forEach(function (row) {
-              var targetDocId = row._docId || normalizeId(row.Reserva);
-              if (targetDocId) {
-                var docRef = db.collection("groups").doc(targetDocId);
+              var resID = String(row.Reserva).trim();
+              if (resID) {
+                var normRes = normalizeId(resID);
+                var docRef = db.collection("groups").doc(normRes);
                 var payload = _objectSpread(_objectSpread({}, updates), {}, {
                   updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+
+                // No loggear tracking de forma recursiva o redundante si ya viene en updates
+
                 if (!updates.tracking && !updates.RoomingList_JSON && !updates.PaymentPlan_JSON && !updates.updatedAt) {
                   var changesText = Object.keys(updates).map(function (k) {
                     return "".concat(k, ": ").concat(row[k] || 'vacio', " -> ").concat(updates[k]);
                   }).join(" | ");
                   var now_str = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0') + ' ' + String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0');
-                  var logEntry = { id: Date.now(), date: now_str, text: "Modificaci\xF3n field: ".concat(changesText) };
+                  var logEntry = {
+                    id: Date.now(),
+                    date: now_str,
+                    text: "Modificaci\xF3n field: ".concat(changesText)
+                  };
                   var oldTrack = [];
-                  try { oldTrack = JSON.parse(row.tracking || "[]"); } catch (e) {}
+                  try {
+                    oldTrack = JSON.parse(row.tracking || "[]");
+                  } catch (e) {}
                   payload.tracking = JSON.stringify([].concat(_toConsumableArray(oldTrack), [logEntry]));
                 }
-                batch.set(docRef, payload, { merge: true });
+                batch.set(docRef, payload, {
+                  merge: true
+                });
               }
             });
             if (currentGroupRows.length === 0) {
@@ -3376,15 +3391,13 @@ var App = function App() {
     var distribution = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [100];
     var hotelFilter = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
     var records = hotelFilter ? group.records.filter(function (r) {
-      var rowHotel = normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "");
-      var filterHotel = normalizeHotelName(hotelFilter);
-      return rowHotel === filterHotel;
+      return (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilter;
     }) : group.records;
     if (records.length === 0) return;
     var firstRec = records[0];
     var roomingList = JSON.parse((firstRec === null || firstRec === void 0 ? void 0 : firstRec["RoomingList_JSON"]) || "[]");
     var hotelRoomingItems = hotelFilter ? roomingList.filter(function (i) {
-      return normalizeHotelName(i.hotel) === normalizeHotelName(hotelFilter);
+      return i.hotel === hotelFilter;
     }) : roomingList;
     var grossTotal = hotelRoomingItems.reduce(function (acc, i) {
       return acc + (parseFloat(i.total) || 0);
@@ -3882,8 +3895,6 @@ var App = function App() {
   }, "Tentativas"), /*#__PURE__*/React.createElement("option", {
     value: "presupuesto"
   }, "Presupuestos"), /*#__PURE__*/React.createElement("option", {
-    value: "anulada"
-  }, "Anulados"), /*#__PURE__*/React.createElement("option", {
     value: "desestimada"
   }, "Desestimados"), /*#__PURE__*/React.createElement("option", {
     value: "pasado"
@@ -4119,7 +4130,7 @@ var App = function App() {
       style: {
         width: "40px"
       },
-      className: "shrink-0 h-8 flex flex-col items-center justify-center border-r text-[10px] ".concat(isFirstOfMonth ? "border-l-2 border-l-slate-300" : "border-slate-100", " ").concat(isToday ? "bg-blue-50 border-blue-200" : isWeekend ? "bg-slate-50" : "")
+      className: "shrink-0 h-10 flex flex-col items-center justify-center border-r text-[10px] ".concat(isFirstOfMonth ? "border-l-2 border-l-slate-300" : "border-slate-100", " ").concat(isToday ? "bg-blue-50 border-blue-200" : isWeekend ? "bg-slate-50" : "")
     }, /*#__PURE__*/React.createElement("span", {
       className: "font-bold leading-none ".concat(isToday ? "text-blue-600" : "text-slate-700")
     }, d.getDate()), /*#__PURE__*/React.createElement("span", {
@@ -4486,23 +4497,23 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement("table", {
     className: "w-full text-left border-collapse"
   }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-wider"
+    className: "bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-400 uppercase tracking-wider"
   }, /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black"
+    className: "px-3 py-3 font-black"
   }, "Hotel"), /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black"
+    className: "px-3 py-3 font-black"
   }, "Grupo / ID"), /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black"
+    className: "px-3 py-3 font-black"
   }, "Comercial"), /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black"
+    className: "px-3 py-3 font-black"
   }, "Entrada"), /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black"
+    className: "px-3 py-3 font-black"
   }, "Salida"), /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black text-center"
+    className: "px-3 py-3 font-black text-center"
   }, "Release"), /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black text-right"
+    className: "px-3 py-3 font-black text-right"
   }, "Importe"), /*#__PURE__*/React.createElement("th", {
-    className: "px-2 py-1.5 font-black text-center"
+    className: "px-3 py-3 font-black text-center"
   }, "Estado"))), /*#__PURE__*/React.createElement("tbody", {
     className: "divide-y divide-slate-100"
   }, groupedData.map(function (group, idx) {
@@ -4526,18 +4537,18 @@ var App = function App() {
         return openFicha(group);
       }
     }, /*#__PURE__*/React.createElement("td", {
-      className: "px-2 py-1.5"
+      className: "px-3 py-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "p-1 bg-white border border-slate-100 rounded-lg shadow-sm shrink-0"
+      className: "p-1.5 bg-white border border-slate-100 rounded-lg shadow-sm shrink-0"
     }, /*#__PURE__*/React.createElement(IconBuildingSkyscraper, {
-      size: 12,
+      size: 14,
       className: "text-slate-400"
     })), /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] font-black text-slate-500 uppercase tracking-tight leading-tight"
     }, displayHotel))), /*#__PURE__*/React.createElement("td", {
-      className: "px-2 py-1.5"
+      className: "px-3 py-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "max-w-[250px]"
     }, /*#__PURE__*/React.createElement("div", {
@@ -4598,7 +4609,7 @@ var App = function App() {
     }, "ID:", " ", ((_group$records$9 = group.records[0]) === null || _group$records$9 === void 0 ? void 0 : _group$records$9["Reserva"]) || "---"), ((_group$records$0 = group.records[0]) === null || _group$records$0 === void 0 ? void 0 : _group$records$0["Empresa/Agencia"]) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       className: "opacity-20"
     }, "\u2022"), /*#__PURE__*/React.createElement("span", null, group.records[0]["Empresa/Agencia"]))))), /*#__PURE__*/React.createElement("td", {
-      className: "px-2 py-1.5"
+      className: "px-3 py-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-1"
     }, /*#__PURE__*/React.createElement("div", {
@@ -4606,11 +4617,11 @@ var App = function App() {
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] font-bold text-slate-600 uppercase"
     }, ((_group$records$10 = group.records[0]) === null || _group$records$10 === void 0 ? void 0 : _group$records$10["Com_Comercial"]) || "S/A"))), /*#__PURE__*/React.createElement("td", {
-      className: "px-2 py-1.5"
+      className: "px-3 py-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-[11px] font-bold text-slate-600 tabular-nums"
     }, formatDate(group.arrival))), /*#__PURE__*/React.createElement("td", {
-      className: "px-2 py-1.5"
+      className: "px-3 py-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-[11px] font-bold text-slate-600 tabular-nums"
     }, formatDate(group.departure))), /*#__PURE__*/React.createElement("td", {
@@ -4693,7 +4704,7 @@ var App = function App() {
       }, /*#__PURE__*/React.createElement("div", {
         className: "flex flex-col items-end leading-none"
       }, /*#__PURE__*/React.createElement("span", {
-        className: "text-[11px] font-black text-slate-700 tabular-nums"
+        className: "text-[12px] font-black text-slate-700 tabular-nums"
       }, formatNum(grossRev)), commission > 0 && /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-tighter"
       }, "Neto: ", formatNum(netRev))), isFullyPaid ? /*#__PURE__*/React.createElement("span", {
@@ -4708,7 +4719,7 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-center gap-2 group/status"
     }, /*#__PURE__*/React.createElement("span", {
-      className: "inline-block px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ".concat(statusColor)
+      className: "inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ".concat(statusColor)
     }, statusText), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick(e) {
         var _group$records$12;
@@ -5332,40 +5343,23 @@ var App = function App() {
     var titleColor = isCumbria ? "text-indigo-400" : "text-emerald-400";
     var forecastColor = isCumbria ? "text-indigo-300" : "text-emerald-300";
     return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "".concat(headerBg, " text-white p-1.5 px-4 border-b border-white/10 shrink-0 relative overflow-hidden")
+      className: "".concat(headerBg, " text-white p-4 border-b border-white/10 shrink-0 relative overflow-hidden")
     }, /*#__PURE__*/React.createElement("div", {
       className: "absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"
     }), /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative z-10"
+      className: "flex justify-between items-center gap-6 relative z-10"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-4 items-center flex-1 min-w-0"
+      className: "flex gap-4 items-center"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-8 h-8 ".concat(iconBg, " rounded-lg flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
+      className: "w-12 h-12 ".concat(iconBg, " rounded-xl flex items-center justify-center shadow-2xl shrink-0 border border-white/20")
     }, /*#__PURE__*/React.createElement(IconUsers, {
-      size: 18
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap items-center gap-2 mb-0.5"
-    }, /*#__PURE__*/React.createElement("input", {
-      className: "text-xl font-black tracking-tight leading-tight ".concat(titleColor, " drop-shadow-sm bg-transparent border-none outline-none focus:ring-2 focus:ring-white/10 rounded-lg px-2 -ml-2 w-full lg:max-w-2xl transition-all uppercase"),
-      value: selectedGroupFicha.name || "",
-      onChange: function onChange(e) {
-        var newName = e.target.value;
-        setSelectedGroupFicha(function (prev) {
-          return _objectSpread(_objectSpread({}, prev), {}, {
-            name: newName
-          });
-        });
-      },
-      onBlur: function onBlur(e) {
-        updateGroupMetadata(selectedGroupFicha.id, "Nombre del Grupo", e.target.value);
-      },
-      onKeyDown: function onKeyDown(e) {
-        if (e.key === "Enter") e.target.blur();
-      }
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 h-fit shrink-0"
+      size: 24
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm")
+    }, selectedGroupFicha.name || "NOMBRE DEL GRUPO"), /*#__PURE__*/React.createElement("div", {
+      className: "flex gap-1.5 h-fit"
     }, function (_selectedGroupFicha$r6, _selectedGroupFicha$r7, _selectedGroupFicha$r8) {
       // Prioridad: Com_Estado_Interno > Estado (el campo del Excel no debe sobrescribir el estado interno)
 
@@ -5377,20 +5371,24 @@ var App = function App() {
       var effectiveStatus = internalStatus || ((_selectedGroupFicha$r8 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r8 === void 0 ? void 0 : _selectedGroupFicha$r8["Segment."]);
       var st = getStatusProps(effectiveStatus, selectedGroupFicha.arrival, internalStatus ? null : externalStatus);
       return /*#__PURE__*/React.createElement("span", {
-        className: "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase shadow-lg border border-white/10 ".concat(st.text)
+        className: "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ".concat(st.text)
       }, st.label);
     }(), /*#__PURE__*/React.createElement("span", {
-      className: "bg-white/10 px-2 py-0.5 rounded-lg text-[9px] font-black text-white uppercase border border-white/10 backdrop-blur-sm"
+      className: "bg-white/10 px-2 py-1 rounded-lg text-[9px] font-black text-white/80 uppercase border border-white/10"
     }, ((_selectedGroupFicha$r9 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r9 === void 0 ? void 0 : _selectedGroupFicha$r9["Régimen"]) || "HD"), /*#__PURE__*/React.createElement("span", {
-      className: "bg-blue-500/30 px-2 py-0.5 rounded-lg text-[9px] font-black text-blue-100 uppercase border border-blue-500/30 backdrop-blur-sm"
+      className: "bg-blue-500/20 px-2 py-1 rounded-lg text-[9px] font-black text-blue-200 uppercase border border-blue-500/30"
     }, ((_selectedGroupFicha$r0 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r0 === void 0 ? void 0 : _selectedGroupFicha$r0["Segment."]) || "GRUPOS"))), /*#__PURE__*/React.createElement("p", {
-      className: "text-slate-300 text-[10px] font-bold uppercase tracking-[0.05em] flex flex-wrap items-center gap-x-3 gap-y-1"
+      className: "text-slate-300 text-[10px] font-bold uppercase tracking-[0.15em] mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1"
     }, /*#__PURE__*/React.createElement("span", {
-      className: "text-white/70 bg-white/5 px-2 py-0.5 rounded border border-white/5"
+      className: "text-white/60"
     }, ((_selectedGroupFicha$r1 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r1 === void 0 ? void 0 : _selectedGroupFicha$r1["Empresa/Agencia"]) || ((_selectedGroupFicha$r10 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r10 === void 0 ? void 0 : _selectedGroupFicha$r10["Empresa"]) || "VENTA DIRECTA"), /*#__PURE__*/React.createElement("span", {
-      className: "bg-white/10 px-2 py-0.5 rounded text-white font-black"
+      className: "opacity-30"
+    }, "\u2022"), /*#__PURE__*/React.createElement("span", {
+      className: "bg-white/10 px-1.5 py-0.5 rounded text-white"
     }, selectedGroupFicha.totalPax, " PAX"), /*#__PURE__*/React.createElement("span", {
-      className: "text-white/40 font-mono"
+      className: "opacity-30"
+    }, "\u2022"), /*#__PURE__*/React.createElement("span", {
+      className: "text-white/40"
     }, "REF:", " ", (_selectedGroupFicha$r11 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r11 === void 0 ? void 0 : _selectedGroupFicha$r11["Reserva"]), function () {
       var r = selectedGroupFicha.records[0] || {};
       var contactName = r["Com_Nombre_Contacto"] || r["Persona_Contacto"];
@@ -5430,20 +5428,22 @@ var App = function App() {
       size: 10,
       strokeWidth: 3
     }), " ", "Fusionar PMS"))))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-4 bg-black/30 p-1.5 px-4 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl shrink-0"
+      className: "flex items-center gap-5 bg-black/20 p-3 px-6 rounded-2xl border border-white/10 shadow-inner backdrop-blur-md"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-center"
     }, /*#__PURE__*/React.createElement("p", {
-      className: "text-[8px] font-black uppercase opacity-40 tracking-widest mb-1"
+      className: "text-[8px] font-black uppercase opacity-50 tracking-widest mb-1"
     }, "Cobrado"), /*#__PURE__*/React.createElement("p", {
       className: "text-sm font-black tabular-nums ".concat(totalPaid >= netTotal - 0.01 && netTotal > 0 ? "text-emerald-400" : "text-orange-400")
     }, totalPaid.toLocaleString("es-ES", {
       useGrouping: true,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }), "\u20AC")), /*#__PURE__*/React.createElement("div", {
+    }), "\u20AC"), netTotal > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "text-[8px] font-bold opacity-40 leading-none"
+    }, "(", Math.round(totalPaid / netTotal * 100), "%)")), /*#__PURE__*/React.createElement("div", {
       className: "w-px h-8 bg-white/10"
-    }, " "), function () {
+    }), function () {
       var overpaidAmount = Math.max(0, totalPaid - netTotal);
       if (overpaidAmount > 0.01 && netTotal > 0) {
         return /*#__PURE__*/React.createElement("div", {
@@ -5461,7 +5461,7 @@ var App = function App() {
         return /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, /*#__PURE__*/React.createElement("span", {
-          className: "inline-block px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+          className: "inline-block px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
         }, "\u2713 PAGADO"));
       } else {
         var pVal = Math.max(0, netTotal - totalPaid);
@@ -5478,22 +5478,22 @@ var App = function App() {
       }
     }(), /*#__PURE__*/React.createElement("div", {
       className: "w-px h-8 bg-white/10"
-    }, " "), /*#__PURE__*/React.createElement("div", {
+    }), /*#__PURE__*/React.createElement("div", {
       className: "text-right"
     }, /*#__PURE__*/React.createElement("p", {
-      className: "text-[8px] font-black uppercase tracking-widest text-white/40 mb-1"
-    }, "Total Grupo"), /*#__PURE__*/React.createElement("p", {
-      className: "text-2xl font-black text-white drop-shadow-2xl tabular-nums leading-none tracking-tighter"
+      className: "text-[9px] font-black uppercase tracking-widest text-white/50 mb-0.5"
+    }, "Total"), /*#__PURE__*/React.createElement("p", {
+      className: "text-3xl font-black text-white drop-shadow-lg tabular-nums leading-none"
     }, netTotal.toLocaleString("es-ES", {
       useGrouping: true,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-base ml-1 opacity-40 font-bold"
+      className: "text-base ml-1 opacity-50 font-bold"
     }, "\u20AC")))))), /*#__PURE__*/React.createElement("div", {
       className: "flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50/50"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "space-y-6"
+      className: "space-y-4"
     }, urgentPayments.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "bg-rose-600 text-white p-2.5 rounded-xl flex items-center gap-3 animate-pulse shadow-lg shadow-rose-600/20"
     }, /*#__PURE__*/React.createElement(IconAlertTriangle, {
@@ -5511,7 +5511,7 @@ var App = function App() {
         className: "text-[9px] font-bold opacity-90"
       }, "\u2022 ", up.label, ":", " ", parseFloat(up.amount).toLocaleString("es-ES"), "\u20AC (", up.hotel, ")");
     })))), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-12 gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm items-end"
+      className: "grid grid-cols-1 md:grid-cols-12 gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm items-end"
     }, /*#__PURE__*/React.createElement("div", {
       className: "md:col-span-2"
     }, /*#__PURE__*/React.createElement("label", {
@@ -5675,14 +5675,15 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement(IconFile, {
       size: 16
     })), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1"
     }, /*#__PURE__*/React.createElement("h4", {
       className: "text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1"
     }, "Observaciones de Origen (PMS)"), /*#__PURE__*/React.createElement("p", {
       className: "text-[11px] text-amber-800 leading-relaxed font-medium"
     }, ((_selectedGroupFicha$r36 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r36 === void 0 ? void 0 : _selectedGroupFicha$r36["Observaciones"]) || ((_selectedGroupFicha$r37 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r37 === void 0 ? void 0 : _selectedGroupFicha$r37["Observac."]))))), /*#__PURE__*/React.createElement("div", {
-      className: "bg-slate-50/80 p-2 rounded-xl border border-slate-200 shadow-sm mt-2 backdrop-blur-sm relative overflow-hidden"
+      className: "bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "bg-white p-2 rounded-xl border border-slate-200 shadow-sm mb-2"
+      className: "bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-end gap-2"
     }, /*#__PURE__*/React.createElement("div", {
@@ -6084,28 +6085,27 @@ var App = function App() {
     }, function (_selectedGroupFicha$r43) {
       if (!(selectedGroupFicha !== null && selectedGroupFicha !== void 0 && selectedGroupFicha.records)) return null;
       var uniqueHotels = Array.from(new Set(selectedGroupFicha.records.map(function (r) {
-        return normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "Desconocido");
+        return r["Hotel_Asignado"] || r["Hotel"] || "Desconocido";
       }).filter(function (h) {
-        return h && h !== "-" && h !== "DESCONOCIDO";
+        return h && h !== "-";
       })));
-      if (uniqueHotels.length === 0) uniqueHotels.push("GENERAL");
+      if (uniqueHotels.length === 0) uniqueHotels.push("General");
       var roomingList = JSON.parse(((_selectedGroupFicha$r43 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r43 === void 0 ? void 0 : _selectedGroupFicha$r43["RoomingList_JSON"]) || "[]");
       return /*#__PURE__*/React.createElement("div", {
         className: "flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[400px] custom-scrollbar"
       }, uniqueHotels.map(function (hotelName) {
         var _selectedGroupFicha$r44;
         var hotelRoomingItems = roomingList.filter(function (i) {
-          var normH = normalizeHotelName(i.hotel);
-          return normH === hotelName || hotelName === "GENERAL" && !normH;
+          return i.hotel === hotelName || hotelName === "General" && !i.hotel;
         });
         var hotelTotal = hotelRoomingItems.reduce(function (acc, i) {
-          var _i$comision6;
-          return acc + (parseFloat(i.total) || 0) - (parseFloat((_i$comision6 = i.comision) === null || _i$comision6 === void 0 ? void 0 : _i$comision6.total_comision) || 0);
+          var _i$comision5;
+          return acc + (parseFloat(i.total) || 0) - (parseFloat((_i$comision5 = i.comision) === null || _i$comision5 === void 0 ? void 0 : _i$comision5.total_comision) || 0);
         }, 0) || parseFloat(((_selectedGroupFicha$r44 = selectedGroupFicha.records.find(function (r) {
-          return normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"]) === hotelName;
+          return (r["Hotel_Asignado"] || r["Hotel"]) === hotelName;
         })) === null || _selectedGroupFicha$r44 === void 0 ? void 0 : _selectedGroupFicha$r44["Importe(*)"]) || 0);
         var hotelRecord = selectedGroupFicha.records.find(function (r) {
-          return normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName;
+          return (r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName;
         }) || selectedGroupFicha.records[0];
         var plan = [];
         try {
@@ -6117,23 +6117,7 @@ var App = function App() {
           return acc + (parseFloat(p.percent) || 0);
         }, 0);
         var arrivalDate = hotelRecord["Entrada"];
-        var updatePlanLocally = function updatePlanLocally(newPlan) {
-          setSelectedGroupFicha(function (prev) {
-            if (!prev || normalizeId(prev.id) !== normalizeId(selectedGroupFicha.id)) return prev;
-            var updatedRecords = prev.records.map(function (r) {
-              if (normalizeHotelName(r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName) {
-                return _objectSpread(_objectSpread({}, r), {}, {
-                  PaymentPlan_JSON: JSON.stringify(newPlan)
-                });
-              }
-              return r;
-            });
-            return _objectSpread(_objectSpread({}, prev), {}, {
-              records: updatedRecords
-            });
-          });
-        };
-        var handlePlanChange = function handlePlanChange(idx, field, val, isLocalOnly) {
+        var handlePlanChange = function handlePlanChange(idx, field, val) {
           var newPlan = _toConsumableArray(plan);
           newPlan[idx] = _objectSpread(_objectSpread({}, newPlan[idx]), {}, _defineProperty({}, field, val));
           if (field === "percent" || field === "releaseDays") {
@@ -6152,28 +6136,10 @@ var App = function App() {
             _d6.setDate(_d6.getDate() - days);
             newPlan[idx].date = _d6.toISOString().split("T")[0];
           }
-          if (field === "amount") {
-            var amt = parseFloat(val) || 0;
-            newPlan[idx].percent = (amt / (hotelTotal || 1) * 100).toFixed(1);
-          }
-          if (field === "date") {
-            var _arrival = toInputDate(arrivalDate);
-            var manual = toInputDate(val);
-            if (_arrival && manual) {
-              var dArr = new Date(_arrival);
-              var dMan = new Date(manual);
-              var _diff2 = Math.round((dArr - dMan) / (1000 * 60 * 60 * 24));
-              newPlan[idx].releaseDays = _diff2;
-            }
-          }
-          if (isLocalOnly) {
-            updatePlanLocally(newPlan);
-          } else {
-            updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
-          }
+          updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
         };
         var addPlanRow = function addPlanRow() {
-          var remaining = plan.length === 0 ? 30 : Math.max(0, 100 - totalPercent);
+          var remaining = Math.max(0, 100 - totalPercent);
           var d;
           var sDate = arrivalDate;
           var numDate = parseFloat(sDate);
@@ -6187,7 +6153,7 @@ var App = function App() {
           d.setDate(d.getDate() - days);
           var newRow = {
             id: Date.now(),
-            label: plan.length === 0 ? "Depósito" : remaining === 100 ? "Pago Único" : "Pago Final",
+            label: remaining === 100 ? "Pago Único" : plan.length === 0 ? "Primer Pago" : "Pago Final",
             percent: remaining,
             amount: (hotelTotal * (remaining / 100)).toFixed(2),
             releaseDays: days,
@@ -6233,7 +6199,7 @@ var App = function App() {
         }))), /*#__PURE__*/React.createElement("div", {
           className: "space-y-1.5"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "grid grid-cols-[25px_85px_1fr_75px_105px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
+          className: "grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
         }, /*#__PURE__*/React.createElement("div", null), /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, "%"), /*#__PURE__*/React.createElement("div", {
@@ -6262,7 +6228,7 @@ var App = function App() {
             var isLastUnpaid = idx === lastUnpaidIdx;
             return /*#__PURE__*/React.createElement("div", {
               key: dep.id,
-              className: "grid grid-cols-[25px_85px_1fr_75px_105px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
+              className: "grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
             }, /*#__PURE__*/React.createElement("div", {
               className: "flex justify-center"
             }, isWarning ? /*#__PURE__*/React.createElement(IconAlertTriangle, {
@@ -6275,10 +6241,7 @@ var App = function App() {
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
               className: "bg-transparent border-none text-[10px] font-black text-slate-600 w-16 text-right outline-none",
-              value: dep.percent,
-              onChange: function onChange(e) {
-                return handlePlanChange(idx, "percent", e.target.value, true);
-              },
+              defaultValue: dep.percent,
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "percent", e.target.value);
               }
@@ -6286,30 +6249,16 @@ var App = function App() {
               className: "text-[8px] font-black text-slate-400 ml-0.5"
             }, "%")), /*#__PURE__*/React.createElement("div", {
               className: "text-right pr-2"
-            }, /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center justify-end bg-slate-50/50 rounded px-1 h-6 border border-slate-100"
+            }, /*#__PURE__*/React.createElement("span", {
+              className: "text-[12px] font-black tabular-nums ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700")
+            }, parseFloat(dep.amount || 0).toLocaleString("es-ES", {
+              minimumFractionDigits: 2
+            }), "\u20AC")), /*#__PURE__*/React.createElement("div", {
+              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[45px] h-6 border border-blue-100 mx-auto"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
-              step: "0.01",
-              className: "bg-transparent border-none text-[11px] font-black text-right outline-none w-full ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"),
-              value: dep.amount,
-              onChange: function onChange(e) {
-                return handlePlanChange(idx, "amount", e.target.value, true);
-              },
-              onBlur: function onBlur(e) {
-                return handlePlanChange(idx, "amount", e.target.value);
-              }
-            }), /*#__PURE__*/React.createElement("span", {
-              className: "text-[9px] font-black text-slate-400 ml-0.5"
-            }, "\u20AC"))), /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[75px] h-6 border border-blue-100 mx-auto"
-            }, /*#__PURE__*/React.createElement("input", {
-              type: "number",
-              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-10 text-center outline-none",
-              value: dep.releaseDays,
-              onChange: function onChange(e) {
-                return handlePlanChange(idx, "releaseDays", e.target.value, true);
-              },
+              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none",
+              defaultValue: dep.releaseDays,
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "releaseDays", e.target.value);
               }
@@ -6317,17 +6266,7 @@ var App = function App() {
               className: "text-[8px] font-black text-blue-400 ml-0.5 transition-colors"
             }, "D")), /*#__PURE__*/React.createElement("div", {
               className: "text-[10px] font-bold tabular-nums text-center ".concat(isWarning ? "text-rose-600 font-black" : "text-slate-500")
-            }, /*#__PURE__*/React.createElement("input", {
-              type: "date",
-              className: "bg-transparent border-none text-[10px] font-black text-slate-500 w-full text-center outline-none",
-              value: toInputDate(dep.date),
-              onChange: function onChange(e) {
-                return handlePlanChange(idx, "date", e.target.value, true);
-              },
-              onBlur: function onBlur(e) {
-                return handlePlanChange(idx, "date", e.target.value);
-              }
-            })), /*#__PURE__*/React.createElement("button", {
+            }, formatDate(dep.date)), /*#__PURE__*/React.createElement("button", {
               onClick: function onClick() {
                 return handlePlanChange(idx, "status", isPaid ? "Pendiente" : "Cobrado");
               },
@@ -6485,17 +6424,17 @@ var App = function App() {
     }, /*#__PURE__*/React.createElement("thead", {
       className: "bg-[#0f172a] text-white font-black uppercase"
     }, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
-      className: "px-2 py-1 text-left"
+      className: "px-3 py-1.5 text-left"
     }, "Reserva"), /*#__PURE__*/React.createElement("th", {
-      className: "px-2 py-1 text-left"
+      className: "px-3 py-1.5 text-left"
     }, "Hotel"), /*#__PURE__*/React.createElement("th", {
-      className: "px-2 py-1 text-left"
+      className: "px-3 py-1.5 text-left"
     }, "Periodo"), /*#__PURE__*/React.createElement("th", {
-      className: "px-2 py-1 text-right"
+      className: "px-3 py-1.5 text-right"
     }, "Cantidad"), /*#__PURE__*/React.createElement("th", {
-      className: "px-2 py-1 text-right"
+      className: "px-3 py-1.5 text-right"
     }, "Importe"), /*#__PURE__*/React.createElement("th", {
-      className: "px-2 py-1 text-center"
+      className: "px-3 py-1.5 text-center"
     }, "Estado"))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
     }, (selectedGroupFicha.records || []).map(function (rec, idx) {
@@ -6504,70 +6443,70 @@ var App = function App() {
         key: idx,
         className: "hover:bg-slate-50 transition-colors"
       }, /*#__PURE__*/React.createElement("td", {
-        className: "px-2 py-1 font-bold text-slate-900"
+        className: "px-3 py-1.5 font-bold text-slate-900"
       }, rec["Reserva"]), /*#__PURE__*/React.createElement("td", {
-        className: "px-2 py-1 font-bold text-slate-500"
+        className: "px-3 py-1.5 font-bold text-slate-500"
       }, rec["Hotel_Asignado"] || rec["Hotel"] || "-"), /*#__PURE__*/React.createElement("td", {
-        className: "px-2 py-1 text-slate-600"
+        className: "px-3 py-1.5 text-slate-600"
       }, formatDate(rec["Entrada"]), " -", " ", formatDate(rec["Salida"])), /*#__PURE__*/React.createElement("td", {
-        className: "px-2 py-1 text-right font-bold"
+        className: "px-3 py-1.5 text-right font-bold"
       }, rec["Hab."] || "-"), /*#__PURE__*/React.createElement("td", {
-        className: "px-2 py-1 text-right font-black text-emerald-600"
+        className: "px-3 py-1.5 text-right font-black text-emerald-600"
       }, parseNum(rec["Importe(*)"]).toLocaleString("es-ES", {
         minimumFractionDigits: 2
       }), " ", "\u20AC"), /*#__PURE__*/React.createElement("td", {
-        className: "px-2 py-1 text-center"
+        className: "px-3 py-1.5 text-center"
       }, /*#__PURE__*/React.createElement("span", {
         className: "px-2 py-0.5 rounded text-[7px] font-black uppercase ".concat((_rec$Estado = rec["Estado"]) !== null && _rec$Estado !== void 0 && _rec$Estado.toLowerCase().includes("conf") ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")
       }, rec["Estado"] || "???")));
     }))))), /*#__PURE__*/React.createElement("div", {
-      className: "p-2 bg-white border-t border-slate-200 flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.03)] shrink-0"
+      className: "p-4 bg-white border-t border-slate-200 flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.03)] shrink-0"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex gap-2"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return handleProformaClick(selectedGroupFicha);
       },
-      className: "px-6 h-9 bg-slate-900 hover:bg-black text-white rounded-xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200"
+      className: "px-6 h-11 bg-slate-900 hover:bg-black text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-slate-200"
     }, /*#__PURE__*/React.createElement(IconFileInvoice, {
-      size: 16,
+      size: 18,
       stroke: 2
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-black uppercase tracking-widest"
+      className: "text-[11px] font-black uppercase tracking-widest"
     }, "Generar Proforma")), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
         window.location.href = "Orden Servicio.html";
       },
-      className: "px-6 h-9 bg-amber-600 hover:bg-amber-700 text-white rounded-xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-200/50"
+      className: "px-6 h-11 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-200/50"
     }, /*#__PURE__*/React.createElement(IconUtensils, {
-      size: 16,
+      size: 18,
       stroke: 2
     }), /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-black uppercase tracking-widest"
+      className: "text-[11px] font-black uppercase tracking-widest"
     }, "Orden Servicio")), /*#__PURE__*/React.createElement("button", {
       onClick: openClientDataModal,
-      className: "px-4 h-9 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-xl flex items-center justify-center transition-all",
+      className: "px-4 h-11 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl flex items-center justify-center transition-all",
       title: "Configuraci\xF3n de Factura"
     }, /*#__PURE__*/React.createElement(IconSettings, {
-      size: 16
+      size: 18
     })), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setShowCrmPanel(function (p) {
           return !p;
         });
       },
-      className: "px-4 h-9 rounded-xl flex items-center justify-center transition-all ".concat(showCrmPanel ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'),
+      className: "px-4 h-11 rounded-2xl flex items-center justify-center transition-all ".concat(showCrmPanel ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'),
       title: "Historial / CRM"
     }, /*#__PURE__*/React.createElement(IconMessage, {
-      size: 16
+      size: 18
     }))), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-3"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setShowFichaModal(false);
       },
-      className: "px-6 h-9 text-[11px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all tracking-widest"
+      className: "px-6 h-11 text-[11px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all tracking-widest"
     }, "Cerrar Ficha"), /*#__PURE__*/React.createElement("button", {
       onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
         return _regenerator().w(function (_context0) {
@@ -6584,9 +6523,9 @@ var App = function App() {
           }
         }, _callee0);
       })),
-      className: "px-10 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"
+      className: "px-10 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"
     }, /*#__PURE__*/React.createElement(IconSave, {
-      size: 16,
+      size: 18,
       stroke: 2.5
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[11px] font-black uppercase tracking-widest"
@@ -6964,8 +6903,7 @@ var App = function App() {
     className: "flex-[2] h-11 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl text-[10px] text-white font-black shadow-lg shadow-blue-600/20 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
   }, /*#__PURE__*/React.createElement(IconSave, {
     size: 16
-  }), /*#__PURE__*/React.createElement("span", null, "Aplicar Comisi\xF3n"))))),
- showAddGroupModal && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "Aplicar Comisi\xF3n"))))), showAddGroupModal && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 animate-fade-in"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200"
