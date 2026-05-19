@@ -41,8 +41,8 @@ var safeParseAmount = NexusUtils.parseNum;
 var fmt = NexusUtils.formatCurrency;
 var formatDate = NexusUtils.formatDate;
 
-// --- MÃ“DULO IA (CONEXIÃ“N SEGURA) ---
-// --- MÃ“DULO IA ESTRATÃ‰GICA (CONEXIÃ“N POR PARÁMETROS) ---
+// --- MÓDULO IA (CONEXIÓN SEGURA) ---
+// --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
 function analizarGrupos(_x) {
   return _analizarGrupos.apply(this, arguments);
 }
@@ -116,7 +116,7 @@ function _analizarGrupos() {
             _context4.n = 10;
             break;
           }
-          throw new Error("âš ️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.");
+          throw new Error("⚠️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.");
         case 10:
           throw new Error("Error en API Gemini: ".concat(msg || JSON.stringify(error)));
         case 11:
@@ -440,7 +440,7 @@ var Dashboard = function Dashboard(_ref2) {
     color: "emerald"
   }, {
     label: "Ocupación Media",
-    val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "â€“",
+    val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "–",
     sub: "Estimada por grupo",
     icon: "Percent",
     color: "blue"
@@ -449,7 +449,7 @@ var Dashboard = function Dashboard(_ref2) {
     val: financials.confirmed > 0 ? (financials.totalRevenue / financials.confirmed).toLocaleString("es-ES", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }) + "â‚¬" : "â€“",
+    }) + "€" : "–",
     sub: "Por reserva confirmada",
     icon: "Target",
     color: "amber"
@@ -653,7 +653,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-xs font-black text-slate-800 uppercase tracking-widest"
   }, "Pr\xF3ximas Llegadas"), /*#__PURE__*/React.createElement("span", {
     className: "text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60"
-  }, "Pr\xF3ximos", " ", timeRange === 365 ? "12 meses" : timeRange + " días", " \xE2\u20AC\xA2 Actualizado hace 1 min.")), /*#__PURE__*/React.createElement("div", {
+  }, "Pr\xF3ximos", " ", timeRange === 365 ? "12 meses" : timeRange + " días", " \u2022 Actualizado hace 1 min.")), /*#__PURE__*/React.createElement("div", {
     className: "flex bg-slate-50 rounded-xl p-1 border border-slate-100"
   }, [{
     label: "15D",
@@ -851,7 +851,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition v2.8.5 \xE2\u20AC\xA2 System Normal \xE2\u20AC\xA2 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition v2.8.5 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref9) {
   var data = _ref9.data,
@@ -1255,7 +1255,7 @@ var BudgetManager = function BudgetManager(_ref0) {
       className: "shrink-0"
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] font-bold uppercase"
-    }, budget["Pax."], " Pax \xE2\u20AC\xA2 ", budget["Régimen"])), budget.Com_Email_Contacto && /*#__PURE__*/React.createElement("div", {
+    }, budget["Pax."], " Pax \u2022 ", budget["Régimen"])), budget.Com_Email_Contacto && /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3 text-slate-400"
     }, /*#__PURE__*/React.createElement(LucideIcon, {
       name: "mail",
@@ -1328,7 +1328,7 @@ var App = function App() {
     timeRange = _useState8[0],
     setTimeRange = _useState8[1];
   var _useState9 = useState({
-      revenue: "0â‚¬",
+      revenue: "0€",
       groups: 0,
       pending: 0,
       pax: 0

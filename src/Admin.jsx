@@ -29,8 +29,8 @@
     const formatDate = NexusUtils.formatDate;
 
 
-    // --- MÃ“DULO IA (CONEXIÃ“N SEGURA) ---
-    // --- MÃ“DULO IA ESTRATÃ‰GICA (CONEXIÃ“N POR PARÁMETROS) ---
+    // --- MÓDULO IA (CONEXIÓN SEGURA) ---
+    // --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
     async function analizarGrupos(datos) {
       // 1. Obtener parámetros dinámicos de Firestore
       let apiKey = window.firebaseConfig.apiKey;
@@ -91,7 +91,7 @@
           }
           if (msg.includes("leaked")) {
             throw new Error(
-              "âš ️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.",
+              "⚠️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.",
             );
           }
           throw new Error(
@@ -446,7 +446,7 @@
 
       return (
         <div className="space-y-12 animate-fade-in relative">
-          {/* â•â• KPI ROW â•â• */}
+          {/* ══ KPI ROW ══ */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 hidden">
             {[
               {
@@ -459,14 +459,14 @@
               },
               {
                 label: "Ocupación Media",
-                val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "â€“",
+                val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "–",
                 sub: "Estimada por grupo",
                 icon: "Percent",
                 color: "blue",
               },
               {
                 label: "Ticket Promedio",
-                val: financials.confirmed > 0 ? (financials.totalRevenue / financials.confirmed).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "â‚¬" : "â€“",
+                val: financials.confirmed > 0 ? (financials.totalRevenue / financials.confirmed).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€" : "–",
                 sub: "Por reserva confirmada",
                 icon: "Target",
                 color: "amber",
@@ -504,7 +504,7 @@
             ))}
           </div>
 
-          {/* â•â• ALERTAS PRIORITARIAS (Wrap Display) â•â• */}
+          {/* ══ ALERTAS PRIORITARIAS (Wrap Display) ══ */}
           {(alerts || []).length > 0 && (
             <div className="relative group/alerts">
               <div className="flex flex-wrap items-center gap-4 pb-6 pt-2 animate-fade-in delay-100">
@@ -578,7 +578,7 @@
           )}
 
 
-          {/* â•â• ROW 2: ORIGEN & OCUPACIÃ“N â•â• */}
+          {/* ══ ROW 2: ORIGEN & OCUPACIÓN ══ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <div className="premium-card p-4 flex flex-col h-fit">
               <h3 className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-3">
@@ -729,7 +729,7 @@
             </div>
           </div>
 
-          {/* â•â• PRÃ“XIMAS LLEGADAS â•â• */}
+          {/* ══ PRÓXIMAS LLEGADAS ══ */}
           <div className="premium-card overflow-hidden">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-6">
@@ -739,7 +739,7 @@
                   </h3>
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
                     Próximos{" "}
-                    {timeRange === 365 ? "12 meses" : timeRange + " días"} â€¢
+                    {timeRange === 365 ? "12 meses" : timeRange + " días"} •
                     Actualizado hace 1 min.
                   </span>
                 </div>
@@ -974,7 +974,7 @@
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition v2.8.5 â€¢ System Normal â€¢ Refreshed at{" "}
+              Nexus Gold Edition v2.8.5 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -1481,7 +1481,7 @@
                         className="shrink-0"
                       />
                       <span className="text-[10px] font-bold uppercase">
-                        {budget["Pax."]} Pax â€¢ {budget["Régimen"]}
+                        {budget["Pax."]} Pax • {budget["Régimen"]}
                       </span>
                     </div>
                     {budget.Com_Email_Contacto && (
@@ -1570,7 +1570,7 @@
       const [arrivals, setArrivals] = useState([]);
       const [timeRange, setTimeRange] = useState(30);
       const [stats, setStats] = useState({
-        revenue: "0â‚¬",
+        revenue: "0€",
         groups: 0,
         pending: 0,
         pax: 0,
@@ -2273,7 +2273,7 @@
             )}
           </main>
 
-          {/* MODAL IA ESTRATÃ‰GICA */}
+          {/* MODAL IA ESTRATÉGICA */}
           {isAiModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
               <div className="bg-white w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">

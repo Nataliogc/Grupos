@@ -698,7 +698,7 @@ function App() {
               _context.n = 1;
               break;
             }
-            alert("âš ️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
+            alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
             return _context.a(2);
           case 1:
             reservaId = formData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
@@ -758,7 +758,7 @@ function App() {
                 field = _ref21[0],
                 label = _ref21[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
-                changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \xE2\u017E\u201D ").concat(formData[field] || 'vacío'));
+                changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
               }
             });
             if (changes.length > 0) {
@@ -1074,7 +1074,7 @@ function App() {
       className: "text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ".concat(filterTab === 'desestimados' ? 'text-rose-600 border-rose-600' : 'text-slate-400 border-transparent hover:text-slate-600')
     }, "Desestimados")), (globalConfig === null || globalConfig === void 0 ? void 0 : globalConfig.lastImportDate) && /*#__PURE__*/React.createElement("p", {
       className: "text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2"
-    }, "\xC3\u0161ltima Importaci\xF3n: ", /*#__PURE__*/React.createElement("span", {
+    }, "\xDAltima Importaci\xF3n: ", /*#__PURE__*/React.createElement("span", {
       className: "text-indigo-500"
     }, new Date(globalConfig.lastImportDate).toLocaleString("es-ES")))), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-2 w-full sm:w-auto"
@@ -1234,7 +1234,7 @@ function App() {
         title: "A\xF1adir nota"
       }))), /*#__PURE__*/React.createElement("p", {
         className: "text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 opacity-60"
-      }, hotelName, " \xE2\u20AC\xA2 ID: ", g.Reserva)))), /*#__PURE__*/React.createElement("td", {
+      }, hotelName, " \u2022 ID: ", g.Reserva)))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4"
       }, /*#__PURE__*/React.createElement("div", {
         onClick: function onClick() {
@@ -1268,7 +1268,7 @@ function App() {
         className: "flex flex-col"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-sm font-black text-indigo-600 tracking-tight"
-      }, formatNum(totalAmount), "\xE2\u201A\xAC"), totalPaid > 0 && /*#__PURE__*/React.createElement("div", {
+      }, formatNum(totalAmount), "\u20AC"), totalPaid > 0 && /*#__PURE__*/React.createElement("div", {
         className: "flex gap-2 mt-1"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-black text-emerald-600 uppercase"
@@ -1680,7 +1680,7 @@ function App() {
           title: "Precio"
         }), /*#__PURE__*/React.createElement("span", {
           className: "absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black"
-        }, "\xE2\u201A\xAC")), /*#__PURE__*/React.createElement("div", {
+        }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
           className: "relative group flex w-12 ml-0.5 items-center border border-emerald-100 rounded-md bg-emerald-50 px-1 py-1",
           title: "Gratuidades (Habitaciones Gratis)"
         }, /*#__PURE__*/React.createElement("span", {
@@ -1729,7 +1729,7 @@ function App() {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Suplementos Totales (\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("div", {
+    }, "Suplementos Totales (\u20AC)"), /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
@@ -1743,11 +1743,11 @@ function App() {
       placeholder: "0"
     }), /*#__PURE__*/React.createElement("span", {
       className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black"
-    }, "\xE2\u201A\xAC"))), /*#__PURE__*/React.createElement("div", {
+    }, "\u20AC"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Descuento Global (\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("div", {
+    }, "Descuento Global (\u20AC)"), /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
@@ -1761,7 +1761,7 @@ function App() {
       placeholder: "0"
     }), /*#__PURE__*/React.createElement("span", {
       className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black"
-    }, "\xE2\u201A\xAC"))))), /*#__PURE__*/React.createElement("div", {
+    }, "\u20AC"))))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -1871,9 +1871,9 @@ function App() {
         className: "w-full pl-2 pr-5 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 text-right"
       }), /*#__PURE__*/React.createElement("span", {
         className: "absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold"
-      }, "\xE2\u201A\xAC")), /*#__PURE__*/React.createElement("div", {
+      }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
         className: "w-20 md:w-24 px-2 py-2 bg-teal-50/50 border border-teal-100 rounded-lg text-[11px] font-black text-teal-700 text-right"
-      }, formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0)), " \xE2\u201A\xAC"), /*#__PURE__*/React.createElement("button", {
+      }, formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0)), " \u20AC"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         onClick: function onClick() {
           var newExtras = formData.extraCharges.filter(function (_, i) {
@@ -2115,8 +2115,8 @@ function App() {
         var secondPayment = plan[1];
 
         // Reemplazar 30% estático con el depósito real
-        parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "â‚¬)");
-        parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "â‚¬)");
+        parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+        parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
         if (secondPayment) {
           // Reemplazar 7 días o 7 dias con la antelación real
           parsed = parsed.replace(/7\s*días/gi, secondPayment.releaseDays + " días");
@@ -2124,15 +2124,15 @@ function App() {
           parsed = parsed.replace(/{RELEASE_7}/g, secondPayment.releaseDays + " días");
 
           // Reemplazar 50% o 100% estático con el segundo pago real
-          parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
-          parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
-          parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
-          parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
+          parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+          parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+          parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+          parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
         }
       }
-      parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + 'â‚¬');
-      parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + 'â‚¬');
-      parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + 'â‚¬');
+      parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + '€');
+      parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + '€');
+      parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + '€');
       var getRelDate = function getRelDate(days) {
         if (!g.Entrada) return "[FECHA]";
         var d = new Date(g.Entrada);
@@ -2188,7 +2188,7 @@ function App() {
       className: "fas fa-arrow-left"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       className: "text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1"
-    }, hotelName, " ", g.Reserva ? "\xE2\u20AC\xA2 ".concat(g.Reserva) : ''), /*#__PURE__*/React.createElement("h2", {
+    }, hotelName, " ", g.Reserva ? "\u2022 ".concat(g.Reserva) : ''), /*#__PURE__*/React.createElement("h2", {
       className: "text-2xl font-black text-slate-800 tracking-tight leading-none"
     }, g["Nombre del Grupo"]), /*#__PURE__*/React.createElement("div", {
       className: "mt-2 flex flex-col gap-1.5"
@@ -2208,7 +2208,7 @@ function App() {
       className: "text-slate-200"
     }, "|"), /*#__PURE__*/React.createElement("span", {
       className: "text-indigo-600 font-bold"
-    }, formatNum(calculatedTotal), " \xE2\u201A\xAC")), (g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"] || g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("p", {
+    }, formatNum(calculatedTotal), " \u20AC")), (g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"] || g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] text-slate-400 font-bold uppercase tracking-tight flex flex-wrap items-center gap-x-4 gap-y-1"
     }, (g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("span", {
       className: "flex items-center gap-1.5 text-slate-500"
@@ -2499,12 +2499,12 @@ function App() {
           className: "text-slate-500 mb-1 print:mb-0"
         }, /*#__PURE__*/React.createElement("div", {
           className: "flex justify-between"
-        }, /*#__PURE__*/React.createElement("span", null, count, "x ", type, " ", roomBoard && roomBoard !== boardTitle ? "(".concat(roomBoard, ")") : '', " (", formatNum(price), "\xE2\u201A\xAC)")), gratuities > 0 && /*#__PURE__*/React.createElement("div", {
+        }, /*#__PURE__*/React.createElement("span", null, count, "x ", type, " ", roomBoard && roomBoard !== boardTitle ? "(".concat(roomBoard, ")") : '', " (", formatNum(price), "\u20AC)")), gratuities > 0 && /*#__PURE__*/React.createElement("div", {
           className: "text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0"
         }, "[-", gratuities, "] Gratuidad"));
       }))), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
-      }, formatNum(subtotalDate), " \xE2\u201A\xAC"));
+      }, formatNum(subtotalDate), " \u20AC"));
       var dailyExtrasRows = (g.extraCharges || []).filter(function (ext) {
         return ext.date === date;
       }).map(function (ext, extIdx) {
@@ -2521,9 +2521,9 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60"
         }, "Cargo Extra"), /*#__PURE__*/React.createElement("td", {
           className: "p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic"
-        }, ext.description || ext.concept, " (", u > 0 ? u : pax, " x ", formatNum(up), "\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("td", {
+        }, ext.description || ext.concept, " (", u > 0 ? u : pax, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
-        }, formatNum(px), " \xE2\u201A\xAC"));
+        }, formatNum(px), " \u20AC"));
       });
       return [roomRow].concat(_toConsumableArray(dailyExtrasRows));
     }), (g.extraCharges || []).filter(function (ext) {
@@ -2539,9 +2539,9 @@ function App() {
         className: "p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest"
       }, "Extra Global"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold"
-      }, ext.description || ext.concept, " (", ext.units || ext.pax || 0, " x ", formatNum(ext.unitPrice || ext.price || 0), "\xE2\u201A\xAC)"), /*#__PURE__*/React.createElement("td", {
+      }, ext.description || ext.concept, " (", ext.units || ext.pax || 0, " x ", formatNum(ext.unitPrice || ext.price || 0), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums"
-      }, formatNum(px), " \xE2\u201A\xAC"));
+      }, formatNum(px), " \u20AC"));
     })), /*#__PURE__*/React.createElement("tfoot", {
       className: "bg-slate-900 text-white font-black"
     }, parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
@@ -2551,21 +2551,21 @@ function App() {
       className: "px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
     }, "Subtotal Estancia:"), /*#__PURE__*/React.createElement("td", {
       className: "px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - parseFloat(g.Suplementos || 0) + parseFloat(g.Descuentos || 0)), " \xE2\u201A\xAC")), parseFloat(g.Suplementos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
+    }, formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - parseFloat(g.Suplementos || 0) + parseFloat(g.Descuentos || 0)), " \u20AC")), parseFloat(g.Suplementos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
       className: "border-b border-slate-700/50 text-indigo-300"
     }, /*#__PURE__*/React.createElement("td", {
       colSpan: "3",
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
     }, "+ Suplementos:"), /*#__PURE__*/React.createElement("td", {
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, formatNum(parseFloat(g.Suplementos)), " \xE2\u201A\xAC")), parseFloat(g.Descuentos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
+    }, formatNum(parseFloat(g.Suplementos)), " \u20AC")), parseFloat(g.Descuentos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
       className: "border-b border-slate-700/50 text-rose-300"
     }, /*#__PURE__*/React.createElement("td", {
       colSpan: "3",
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
     }, "- Descuentos aplicados:"), /*#__PURE__*/React.createElement("td", {
       className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, "-", formatNum(parseFloat(g.Descuentos)), " \xE2\u201A\xAC")), /*#__PURE__*/React.createElement("tr", {
+    }, "-", formatNum(parseFloat(g.Descuentos)), " \u20AC")), /*#__PURE__*/React.createElement("tr", {
       style: {
         backgroundColor: '#0f172a',
         color: 'white',
@@ -2581,7 +2581,7 @@ function App() {
         color: 'white',
         fontWeight: 900
       }
-    }, formatNum(calculatedTotal), " \xE2\u201A\xAC"))) : /*#__PURE__*/React.createElement("tr", {
+    }, formatNum(calculatedTotal), " \u20AC"))) : /*#__PURE__*/React.createElement("tr", {
       style: {
         backgroundColor: '#0f172a',
         color: 'white',
@@ -2597,11 +2597,11 @@ function App() {
         color: 'white',
         fontWeight: 900
       }
-    }, formatNum(calculatedTotal), " \xE2\u201A\xAC"))))) : /*#__PURE__*/React.createElement("div", {
+    }, formatNum(calculatedTotal), " \u20AC"))))) : /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50 p-8 rounded-2xl text-center border border-slate-200"
     }, /*#__PURE__*/React.createElement("p", {
       className: "text-lg font-black text-indigo-700"
-    }, formatNum(calculatedTotal), " \xE2\u201A\xAC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
+    }, formatNum(calculatedTotal), " \u20AC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-400 mt-2"
     }, "Detalle de noches no configurado a\xFAn.")), /*#__PURE__*/React.createElement("div", {
       className: "space-y-8 print:space-y-4"

@@ -514,7 +514,7 @@
                     ? [...allRegimes][0] 
                     : (allRegimes.size > 1 ? [...allRegimes].join(' / ') : (topRegime || '---'));
                 document.getElementById('regimen-val').innerText = globalRegime;
-                        // Ã¢ââ¬Ã¢ââ¬ Generate service rows from dayMap Ã¢ââ¬Ã¢ââ¬
+                        // ── Generate service rows from dayMap ──
                         if (dayMap.size > 0) {
                             const servicePaxMap = new Map(); // key = dateKey, value = Map<ServiceName, Pax>
                             const sortedNights = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
@@ -582,7 +582,7 @@
                                 });
                             });
                         } else {
-                    // Ã¢ââ¬Ã¢ââ¬ Fallback: no RoomingList, use basic record dates Ã¢ââ¬Ã¢ââ¬
+                    // ── Fallback: no RoomingList, use basic record dates ──
                     const inDate = rec['Entrada'] || group.arrival || rec['Fecha Entrada'];
                     const outDate = rec['Salida'] || group.departure || rec['Fecha Salida'];
                     const regFallback = topRegime || rec['Régimen'] || 'MP';

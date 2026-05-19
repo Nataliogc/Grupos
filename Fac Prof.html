@@ -507,7 +507,7 @@
 
         </div>
 
-        <!-- MODELO 1: CONFIRMACIÃ“N (Estilo Moderno) -->
+        <!-- MODELO 1: CONFIRMACIÓN (Estilo Moderno) -->
         <div id="tpl-confirmacion" class="template-content font-sans">
             <!-- Header removed and moved to universal container -->
 
@@ -973,7 +973,7 @@
             }
         };
 
-        // --- CARGAR CONFIGURACIÃ“N DESDE CLOUD ---
+        // --- CARGAR CONFIGURACIÓN DESDE CLOUD ---
         async function refreshConfigFromCloud() {
             try {
                 if (typeof db === 'undefined') return;
@@ -987,7 +987,7 @@
                     updateHotel(currentHotel);
                 }
             } catch (e) {
-                console.warn("âš ï¸ Error cargando config cloud:", e);
+                console.warn("⚠️ Error cargando config cloud:", e);
             }
         }
 
@@ -1188,7 +1188,7 @@
         }
 
         async function generateAIEmail() {
-            showAIModal("âœ¨ Redactando Email Profesional");
+            showAIModal("✨ Redactando Email Profesional");
             
             let grandTotal = 0;
             const resumenServicios = items.map(item => {
@@ -1233,7 +1233,7 @@
             1. El tono debe ser muy profesional, formal y elegante (administrativo claro si es proforma/confirmación, o persuasivo y cortés si es propuesta).
             2. Analiza el presupuesto y menciona en el correo de forma resumida los puntos clave acordados (número de habitaciones principales, régimen, total a pagar). No enlistes todo como un robot, hazlo natural.
             3. Invita cortésmente al cliente a revisar el ${context} en formato PDF adjunto.
-            4. DEVUELVE ÃšNICAMENTE el Asunto en la primera línea (ej: **Asunto:** ...) y el cuerpo del correo. NO INCLUYAS frases introductorias tuyas como "Claro, aquííííí tienes una propuesta...". Empieza directamente con el Asunto.`;
+            4. DEVUELVE ÚNICAMENTE el Asunto en la primera línea (ej: **Asunto:** ...) y el cuerpo del correo. NO INCLUYAS frases introductorias tuyas como "Claro, aquííííí tienes una propuesta...". Empieza directamente con el Asunto.`;
 
             const result = await callGeminiHotel(prompt);
             document.getElementById('ai-content').innerText = result;
@@ -1264,7 +1264,7 @@
         }
 
         async function generateAIPlan() {
-            showAIModal("âœ¨ Sugerencia de Plan para el Grupo");
+            showAIModal("✨ Sugerencia de Plan para el Grupo");
             const personas = document.getElementById('reserva-personas-1').innerText;
             const prompt = `Sugiere un plan de ocio en Ciudad Real para ${personas} personas.`;
             const result = await callGemini(prompt);

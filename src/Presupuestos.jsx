@@ -599,7 +599,7 @@
         // Validation: Mandatory Hotel
         const hotelAsignado = formData.Hotel_Asignado || formData.Hotel || "";
         if (!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "") {
-          alert("âš ️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
+          alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
           return;
         }
 
@@ -650,7 +650,7 @@
             };
             Object.entries(fieldsToTrack).forEach(([field, label]) => {
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
-                changes.push(`${label}: ${oldDoc[field] || 'vacío'} âž” ${formData[field] || 'vacío'}`);
+                changes.push(`${label}: ${oldDoc[field] || 'vacío'} ➔ ${formData[field] || 'vacío'}`);
               }
             });
 
@@ -811,7 +811,7 @@
                 </div>
                 {globalConfig?.lastImportDate && (
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2">
-                    Ãšltima Importación: <span className="text-indigo-500">{new Date(globalConfig.lastImportDate).toLocaleString("es-ES")}</span>
+                    Última Importación: <span className="text-indigo-500">{new Date(globalConfig.lastImportDate).toLocaleString("es-ES")}</span>
                   </p>
                 )}
               </div>
@@ -951,7 +951,7 @@
                                 </button>
                               </h4>
                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 opacity-60">
-                                {hotelName} â€¢ ID: {g.Reserva}
+                                {hotelName} • ID: {g.Reserva}
                               </p>
                             </div>
                           </div>
@@ -990,7 +990,7 @@
                         {/* Importe */}
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="text-sm font-black text-indigo-600 tracking-tight">{formatNum(totalAmount)}â‚¬</span>
+                            <span className="text-sm font-black text-indigo-600 tracking-tight">{formatNum(totalAmount)}€</span>
                             {totalPaid > 0 && (
                               <div className="flex gap-2 mt-1">
                                 <span className="text-[8px] font-black text-emerald-600 uppercase">P: {formatNum(totalPaid)}</span>
@@ -1320,7 +1320,7 @@
                                         placeholder="0"
                                         title="Precio"
                                       />
-                                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black">â‚¬</span>
+                                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black">€</span>
                                     </div>
                                     <div className="relative group flex w-12 ml-0.5 items-center border border-emerald-100 rounded-md bg-emerald-50 px-1 py-1" title="Gratuidades (Habitaciones Gratis)">
                                       <span className="text-[7px] font-black leading-none text-emerald-500 mr-0.5 uppercase tracking-tighter">Grat.</span>
@@ -1371,7 +1371,7 @@
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Suplementos Totales (â‚¬)</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Suplementos Totales (€)</label>
                     <div className="relative group">
                       <input
                         type="number"
@@ -1380,11 +1380,11 @@
                         className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-indigo-600"
                         placeholder="0"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black">â‚¬</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black">€</span>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descuento Global (â‚¬)</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descuento Global (€)</label>
                     <div className="relative group">
                       <input
                         type="number"
@@ -1393,7 +1393,7 @@
                         className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all text-rose-600"
                         placeholder="0"
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black">â‚¬</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black">€</span>
                     </div>
                   </div>
                 </div>
@@ -1489,10 +1489,10 @@
                           placeholder="0.00"
                           className="w-full pl-2 pr-5 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 text-right"
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">â‚¬</span>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">€</span>
                       </div>
                       <div className="w-20 md:w-24 px-2 py-2 bg-teal-50/50 border border-teal-100 rounded-lg text-[11px] font-black text-teal-700 text-right">
-                        {formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0))} â‚¬
+                        {formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0))} €
                       </div>
                       <button 
                         type="button"
@@ -1733,8 +1733,8 @@
             const secondPayment = plan[1];
 
             // Reemplazar 30% estático con el depósito real
-            parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "â‚¬)");
-            parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "â‚¬)");
+            parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+            parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
 
             if (secondPayment) {
               // Reemplazar 7 días o 7 dias con la antelación real
@@ -1743,16 +1743,16 @@
               parsed = parsed.replace(/{RELEASE_7}/g, secondPayment.releaseDays + " días");
 
               // Reemplazar 50% o 100% estático con el segundo pago real
-              parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
-              parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
-              parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
-              parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "â‚¬)");
+              parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+              parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+              parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+              parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
             }
           }
 
-          parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + 'â‚¬');
-          parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + 'â‚¬');
-          parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + 'â‚¬');
+          parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + '€');
+          parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + '€');
+          parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + '€');
           
           const getRelDate = (days) => {
             if (!g.Entrada) return "[FECHA]";
@@ -1802,7 +1802,7 @@
                 </button>
                 <div>
                   <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">
-                    {hotelName} {g.Reserva ? `â€¢ ${g.Reserva}` : ''}
+                    {hotelName} {g.Reserva ? `• ${g.Reserva}` : ''}
                   </label>
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{g["Nombre del Grupo"]}</h2>
                   <div className="mt-2 flex flex-col gap-1.5">
@@ -1811,7 +1811,7 @@
                       <span className="text-slate-200">|</span>
                       <span className="flex items-center gap-1.5"><i className="fas fa-users text-slate-300"></i> {totalPax} pax</span>
                       <span className="text-slate-200">|</span>
-                      <span className="text-indigo-600 font-bold">{formatNum(calculatedTotal)} â‚¬</span>
+                      <span className="text-indigo-600 font-bold">{formatNum(calculatedTotal)} €</span>
                     </p>
                     {(g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"] || g.Com_Nombre_Contacto || g.Persona_Contacto) && (
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -2078,7 +2078,7 @@
                                            return (
                                              <li key={type} className="text-slate-500 mb-1 print:mb-0">
                                                <div className="flex justify-between">
-                                                 <span>{count}x {type} {roomBoard && roomBoard !== boardTitle ? `(${roomBoard})` : ''} ({formatNum(price)}â‚¬)</span>
+                                                 <span>{count}x {type} {roomBoard && roomBoard !== boardTitle ? `(${roomBoard})` : ''} ({formatNum(price)}€)</span>
                                                </div>
                                                {gratuities > 0 && <div className="text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0">[-{gratuities}] Gratuidad</div>}
                                              </li>
@@ -2086,7 +2086,7 @@
                                          })}
                                        </ul>
                                      </td>
-                                     <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} â‚¬</td>
+                                     <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} €</td>
                                    </tr>
                                  );
 
@@ -2099,8 +2099,8 @@
                                        <tr key={`ext-${date}-${extIdx}`} className="bg-slate-50 border-t border-slate-100">
                                          <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
                                          <td className="p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60">Cargo Extra</td>
-                                         <td className="p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic">{ext.description || ext.concept} ({u > 0 ? u : pax} x {formatNum(up)}â‚¬)</td>
-                                         <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(px)} â‚¬</td>
+                                         <td className="p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic">{ext.description || ext.concept} ({u > 0 ? u : pax} x {formatNum(up)}€)</td>
+                                         <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(px)} €</td>
                                        </tr>
                                     );
                                  });
@@ -2114,8 +2114,8 @@
                                   <tr key={`ext-global-${idx}`} className="bg-indigo-50/30 border-t border-indigo-100/50 italic">
                                     <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">General</td>
                                     <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">Extra Global</td>
-                                    <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({ext.units || ext.pax || 0} x {formatNum(ext.unitPrice || ext.price || 0)}â‚¬)</td>
-                                    <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} â‚¬</td>
+                                    <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({ext.units || ext.pax || 0} x {formatNum(ext.unitPrice || ext.price || 0)}€)</td>
+                                    <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
                                   </tr>
                                 );
                               })}
@@ -2125,29 +2125,29 @@
                                  <>
                                    <tr className="border-b border-slate-700/50 text-slate-300">
                                      <td colSpan="3" className="px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">Subtotal Estancia:</td>
-                                     <td className="px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - (parseFloat(g.Suplementos || 0)) + (parseFloat(g.Descuentos || 0)))} â‚¬</td>
+                                     <td className="px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - (parseFloat(g.Suplementos || 0)) + (parseFloat(g.Descuentos || 0)))} €</td>
                                    </tr>
                                    {parseFloat(g.Suplementos || 0) > 0 && (
                                      <tr className="border-b border-slate-700/50 text-indigo-300">
                                        <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">+ Suplementos:</td>
-                                       <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(parseFloat(g.Suplementos))} â‚¬</td>
+                                       <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(parseFloat(g.Suplementos))} €</td>
                                      </tr>
                                    )}
                                    {parseFloat(g.Descuentos || 0) > 0 && (
                                      <tr className="border-b border-slate-700/50 text-rose-300">
                                        <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Descuentos aplicados:</td>
-                                       <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(parseFloat(g.Descuentos))} â‚¬</td>
+                                       <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(parseFloat(g.Descuentos))} €</td>
                                      </tr>
                                    )}
                                    <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
                                      <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
-                                     <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} â‚¬</td>
+                                     <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                    </tr>
                                  </>
                                ) : (
                                  <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
                                    <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
-                                   <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} â‚¬</td>
+                                   <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                  </tr>
                                )}
                             </tfoot>
@@ -2155,7 +2155,7 @@
                         </div>
                       ) : (
                         <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-200">
-                          <p className="text-lg font-black text-indigo-700">{formatNum(calculatedTotal)} â‚¬ (Total Estimado)</p>
+                          <p className="text-lg font-black text-indigo-700">{formatNum(calculatedTotal)} € (Total Estimado)</p>
                           <p className="text-xs text-slate-400 mt-2">Detalle de noches no configurado aún.</p>
                         </div>
                       )}
