@@ -1626,7 +1626,7 @@
             const commission = items.reduce((acc, item) => {
                 const sub = (parseFloat(item.precio) || 0) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                 let com = 0;
-                const percent = (item.comision && item.comision.porcentaje !== undefined) ? (parseFloat(item.comision.porcentaje) || 10) : 10;
+                const percent = (item.comision && item.comision.porcentaje !== undefined && !isNaN(parseFloat(item.comision.porcentaje))) ? parseFloat(item.comision.porcentaje) : 0;
                 const base_unitaria = (item.comision && item.comision.base_unitaria !== undefined) ? parseFloat(item.comision.base_unitaria) : (parseFloat(item.precio) || 0);
                 
                 if (item.comision && item.comision.modo === 'manual' && parseFloat(item.comision.comision_unitaria) > 0) {
@@ -1736,7 +1736,7 @@
             items.forEach((item, index) => {
                 const sub = (parseFloat(item.precio) || 0) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                 let com = 0;
-                const percent = (item.comision && item.comision.porcentaje !== undefined) ? (parseFloat(item.comision.porcentaje) || 10) : 10;
+                const percent = (item.comision && item.comision.porcentaje !== undefined && !isNaN(parseFloat(item.comision.porcentaje))) ? parseFloat(item.comision.porcentaje) : 0;
                 const base_unitaria = (item.comision && item.comision.base_unitaria !== undefined) ? parseFloat(item.comision.base_unitaria) : (parseFloat(item.precio) || 0);
                 
                 if (item.comision && item.comision.modo === 'manual' && parseFloat(item.comision.comision_unitaria) > 0) {

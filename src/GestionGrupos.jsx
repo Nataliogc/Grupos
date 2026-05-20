@@ -13142,7 +13142,7 @@
 
                                         <span className="text-[10px] font-bold text-slate-600">
 
-                                          {item.comision?.porcentaje || 10}%
+                                          {item.comision?.porcentaje !== undefined ? item.comision.porcentaje : 0}%
 
                                         </span>
 
@@ -13172,7 +13172,7 @@
 
                                                 (item.comision
 
-                                                  ?.porcentaje || 10)) /
+                                                  ?.porcentaje !== undefined ? item.comision.porcentaje : 0)) /
 
                                               100
 

@@ -6034,13 +6034,13 @@ var App = function App() {
         className: "py-2 px-3 text-center bg-blue-50/10"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-[10px] font-bold text-slate-600"
-      }, ((_item$comision4 = item.comision) === null || _item$comision4 === void 0 ? void 0 : _item$comision4.porcentaje) || 10, "%")), /*#__PURE__*/React.createElement("td", {
+      }, ((_item$comision4 = item.comision) === null || _item$comision4 === void 0 ? void 0 : _item$comision4.porcentaje) !== undefined ? item.comision.porcentaje : 0, "%")), /*#__PURE__*/React.createElement("td", {
         className: "py-2 px-3 text-right bg-blue-50/10 border-r border-blue-50"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-[10px] font-black text-blue-700"
       }, ((_item$comision5 = item.comision) === null || _item$comision5 === void 0 ? void 0 : _item$comision5.total_comision) !== undefined ? item.comision.total_comision.toLocaleString("es-ES", {
         minimumFractionDigits: 2
-      }) : ((((_item$comision6 = item.comision) === null || _item$comision6 === void 0 ? void 0 : _item$comision6.base_calculada) || 0) * (((_item$comision7 = item.comision) === null || _item$comision7 === void 0 ? void 0 : _item$comision7.porcentaje) || 10) / 100).toLocaleString("es-ES", {
+      }) : ((((_item$comision6 = item.comision) === null || _item$comision6 === void 0 ? void 0 : _item$comision6.base_calculada) || 0) * (((_item$comision7 = item.comision) === null || _item$comision7 === void 0 ? void 0 : _item$comision7.porcentaje) !== undefined ? item.comision.porcentaje : 0) / 100).toLocaleString("es-ES", {
         minimumFractionDigits: 2
       }), " ", "\u20AC")), /*#__PURE__*/React.createElement("td", {
         className: "py-1 px-2 text-right font-black text-emerald-600 bg-emerald-50/30"
