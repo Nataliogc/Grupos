@@ -545,7 +545,16 @@
 
 
 
-        // 1. CONFIRMADO / OK / BLOQUEADO (PRIORIDAD SOBRE PASADO)
+        // 1. PASADO (Si la fecha de entrada ya pasó)
+        if (arrival && arrival < today) {
+          return {
+            color: "bg-slate-400",
+            text: "bg-slate-100 text-slate-500",
+            label: "PASADO",
+          };
+        }
+
+        // 2. CONFIRMADO / OK / BLOQUEADO
         if (
           s.includes("CONF") ||
           s.includes("OK") ||
@@ -557,15 +566,6 @@
             color: "bg-emerald-500",
             text: "bg-emerald-100 text-emerald-700",
             label: "CONFIRMADO",
-          };
-        }
-
-        // 2. PASADO (Si la fecha de entrada ya pasó y NO está confirmado)
-        if (arrival && arrival < today) {
-          return {
-            color: "bg-slate-400",
-            text: "bg-slate-100 text-slate-500",
-            label: "PASADO",
           };
         }
 
@@ -6269,8 +6269,9 @@
 
           const getOrdinalLabel = (index, total) => {
             if (total === 1) return "Pago Único";
+            if (index === 0) return "Depósito";
             if (index === total - 1) return "Pago Final";
-            const labels = ["Primer Pago", "Segundo Pago", "Tercer Pago", "Cuarto Pago", "Quinto Pago"];
+            const labels = ["Depósito", "Segundo Pago", "Tercer Pago", "Cuarto Pago", "Quinto Pago"];
             return labels[index] || `Pago ${index + 1}`;
           };
 
@@ -6314,25 +6315,15 @@
 
 
           if (amount > 0.01) {
-
             newPlan.push({
-
               id: Date.now() + Math.random(),
-
               label: meta.label,
-
               percent: ((amount / total) * 100).toFixed(1),
-
               amount: amount.toFixed(2),
-
               releaseDays: meta.days,
-
               date: date.toISOString().split("T")[0],
-
               status: "Pendiente",
-
             });
-
           }
 
         });
@@ -6356,6 +6347,38 @@
 
 
       const updatePaymentPlan = (resId, hotelFilter, plan) => {
+
+        let updatedPlan = plan || [];
+
+        if (updatedPlan.length > 1) {
+
+          updatedPlan = updatedPlan.map((p, idx) => {
+
+            if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
+
+              return { ...p, label: "Depósito" };
+
+            }
+
+            return p;
+
+          });
+
+        } else if (updatedPlan.length === 1) {
+
+          updatedPlan = updatedPlan.map((p) => {
+
+            if (p.label === "Depósito" || p.label === "Primer Pago" || !p.label) {
+
+              return { ...p, label: "Pago Único" };
+
+            }
+
+            return p;
+
+          });
+
+        }
 
         updateGroupMetadata(
 
@@ -9325,9 +9348,7 @@
 
                           >
 
-                            No hay grupos activos que coincidan con los
-
-                            filtros.
+                            No hay grupos que coincidan con los filtros.
 
                           </td>
 
@@ -13414,9 +13435,7 @@
 
                                         );
 
-
-
-                                      const hotelRecord =
+                                        const hotelRecord =
 
                                         selectedGroupFicha.records.find(
 
@@ -13433,21 +13452,28 @@
 
 
                                       let plan = [];
-
                                       try {
-
                                         plan = JSON.parse(
-
                                           hotelRecord.PaymentPlan_JSON ||
-
-                                          "[]",
-
+                                          "[]"
                                         );
-
                                       } catch (e) {
-
                                         plan = [];
-
+                                      }
+                                      if (plan && plan.length > 1) {
+                                        plan = plan.map((p, idx) => {
+                                          if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
+                                            return { ...p, label: "Depósito" };
+                                          }
+                                          return p;
+                                        });
+                                      } else if (plan && plan.length === 1) {
+                                        plan = plan.map((p) => {
+                                          if (p.label === "Depósito" || p.label === "Primer Pago" || !p.label) {
+                                            return { ...p, label: "Pago Único" };
+                                          }
+                                          return p;
+                                        });
                                       }
 
 
@@ -13480,13 +13506,23 @@
 
                                         const newPlan = [...plan];
 
+                                        let updatedVal = val;
+
+                                        if (field === "date") {
+
+                                          updatedVal = toInputDate(val);
+
+                                        }
+
                                         newPlan[idx] = {
 
                                           ...newPlan[idx],
 
-                                          [field]: val,
+                                          [field]: updatedVal,
 
                                         };
+
+
 
                                         if (
 
@@ -13568,7 +13604,77 @@
 
                                             .split("T")[0];
 
+                                        } else if (field === "amount") {
+
+                                          const amt = parseFloat(val) || 0;
+
+                                          newPlan[idx].amount = amt.toFixed(2);
+
+                                          const pct = hotelTotal > 0 ? (amt / hotelTotal) * 100 : 0;
+
+                                          newPlan[idx].percent = parseFloat(pct.toFixed(2));
+
+                                        } else if (field === "date") {
+
+                                          let arrD;
+
+                                          const sDate = arrivalDate;
+
+                                          const numDate = parseFloat(sDate);
+
+                                          if (
+
+                                            !isNaN(numDate) &&
+
+                                            numDate > 40000 &&
+
+                                            numDate < 60000
+
+                                          ) {
+
+                                            arrD = new Date(
+
+                                              Math.round(
+
+                                                (numDate - 25569) *
+
+                                                86400 *
+
+                                                1000,
+
+                                              ),
+
+                                            );
+
+                                          } else {
+
+                                            const dateStr =
+
+                                              toInputDate(sDate);
+
+                                            arrD = new Date(dateStr);
+
+                                          }
+
+                                          const editD = new Date(updatedVal);
+
+                                          if (arrD && !isNaN(arrD.getTime()) && editD && !isNaN(editD.getTime())) {
+
+                                            arrD.setHours(0, 0, 0, 0);
+
+                                            editD.setHours(0, 0, 0, 0);
+
+                                            const diffTime = arrD.getTime() - editD.getTime();
+
+                                            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+                                            newPlan[idx].releaseDays = diffDays;
+
+                                          }
+
                                         }
+
+
 
                                         updatePaymentPlan(
 
@@ -13722,321 +13828,165 @@
                                               </span>
 
                                               <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 rounded">
-
                                                 {hotelTotal.toLocaleString(
-
                                                   "es-ES",
-
                                                   {
-
                                                     style: "currency",
-
                                                     currency: "EUR",
-
                                                   },
-
                                                 )}
-
                                               </span>
-
                                             </div>
-
-                                            <div className="flex bg-slate-100 rounded p-0.5 gap-0.5">
-
-                                              {["30/70", "50/50", "100"].map(
-
-                                                (p) => (
-
-                                                  <button
-
-                                                    key={p}
-
-                                                    onClick={() =>
-
-                                                      calculateDeposits(
-
-                                                        selectedGroupFicha,
-
-                                                        p === "30/70"
-
-                                                          ? [30, 70]
-
-                                                          : p === "50/50"
-
-                                                            ? [50, 50]
-
-                                                            : [100],
-
-                                                        hotelName,
-
-                                                      )
-
-                                                    }
-
-                                                    className="px-1.5 py-0.5 text-[8px] font-black text-slate-500 hover:bg-white hover:text-emerald-500 rounded transition-all"
-
-                                                  >
-
-                                                    {p}
-
-                                                  </button>
-
-                                                ),
-
-                                              )}
-
-                                            </div>
-
                                           </div>
 
-
-
                                           <div className="space-y-1.5">
-
-                                            <div className="grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
-
+                                            <div className="grid grid-cols-[20px_60px_85px_60px_120px_65px_20px] justify-between gap-1.5 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
                                               <div></div>
-
                                               <div className="text-center">
-
                                                 %
-
                                               </div>
-
                                               <div className="text-right pr-2">
-
                                                 Importe
-
                                               </div>
-
                                               <div className="text-center">
-
                                                 Release
-
                                               </div>
-
                                               <div className="text-center">
-
                                                 Fecha
-
                                               </div>
-
                                               <div className="text-center">
-
                                                 Estado
-
                                               </div>
-
                                               <div></div>
-
                                             </div>
 
                                             {(() => {
-
                                               let lastUnpaidIdx = -1;
-
                                               for (
-
                                                 let i = plan.length - 1;
-
                                                 i >= 0;
-
                                                 i--
-
                                               ) {
-
                                                 if (
-
                                                   plan[i].status !== "Cobrado"
-
                                                 ) {
-
                                                   lastUnpaidIdx = i;
-
                                                   break;
-
                                                 }
-
                                               }
 
-
-
                                               return plan.map((dep, idx) => {
-
                                                 const isPaid =
-
                                                   dep.status === "Cobrado";
-
                                                 const today = new Date();
-
                                                 today.setHours(0, 0, 0, 0);
-
                                                 const depDate = new Date(
-
                                                   toInputDate(dep.date),
-
                                                 );
-
                                                 depDate.setHours(0, 0, 0, 0);
-
                                                 const isWarning =
-
                                                   !isPaid &&
-
                                                   Math.ceil(
-
                                                     (depDate - today) /
-
                                                     (1000 * 60 * 60 * 24),
-
                                                   ) <= 2;
-
                                                 const isLastUnpaid =
-
                                                   idx === lastUnpaidIdx;
 
-
-
                                                 return (
-
                                                   <div
-
                                                     key={dep.id}
-
-                                                    className={`grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] items-center gap-1 p-1 rounded border ${isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100"} hover:border-slate-300 transition-all group shadow-sm pl-1`}
-
+                                                    className={`grid grid-cols-[20px_60px_85px_60px_120px_65px_20px] justify-between items-center gap-1.5 p-1 rounded border ${isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100"} hover:border-slate-300 transition-all group shadow-sm pl-1`}
                                                   >
-
-                                                    <div className="flex justify-center">
-
+                                                    <div className="flex justify-center w-5">
                                                       {isWarning ? (
-
                                                         <IconAlertTriangle
-
                                                           size={10}
-
                                                           className="text-rose-500"
-
                                                         />
-
                                                       ) : (
-
                                                         <div
-
                                                           className={`w-1.5 h-1.5 rounded-full ${isPaid ? "bg-emerald-500" : "bg-slate-300"}`}
-
                                                         ></div>
-
                                                       )}
-
                                                     </div>
 
-                                                    <div className="flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[75px] h-5 border border-slate-100">
-
+                                                    {/* % Input */}
+                                                    <div className="flex items-center justify-center bg-slate-50 rounded h-5 border border-slate-100 w-full px-1">
                                                       <input
-
                                                         type="number"
-
-                                                        className="bg-transparent border-none text-[10px] font-black text-slate-600 w-16 text-right outline-none"
-
+                                                        key={idx + "-" + dep.percent}
+                                                        className="bg-transparent border-none text-[10px] font-black text-slate-600 w-full text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         defaultValue={dep.percent}
-
                                                         onBlur={(e) =>
-
                                                           handlePlanChange(
-
                                                             idx,
-
                                                             "percent",
-
                                                             e.target.value,
-
                                                           )
-
                                                         }
-
                                                       />
-
                                                       <span className="text-[8px] font-black text-slate-400 ml-0.5">
-
                                                         %
-
                                                       </span>
-
                                                     </div>
 
-                                                    <div className="text-right pr-2">
-
-                                                      <span
-
-                                                        className={`text-[12px] font-black tabular-nums ${isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"}`}
-
-                                                      >
-
-                                                        {parseFloat(
-
-                                                          dep.amount || 0,
-
-                                                        ).toLocaleString(
-
-                                                          "es-ES",
-
-                                                          {
-
-                                                            minimumFractionDigits: 2,
-
-                                                          },
-
-                                                        )}
-
-                                                        €
-
-                                                      </span>
-
-                                                    </div>
-
-                                                    <div className="flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[45px] h-6 border border-blue-100 mx-auto">
-
+                                                    {/* Importe Input */}
+                                                    <div className="flex items-center justify-end bg-slate-50 rounded px-1 h-5 border border-slate-100 w-full">
                                                       <input
-
                                                         type="number"
-
-                                                        className="bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none"
-
-                                                        defaultValue={dep.releaseDays}
-
+                                                        step="0.01"
+                                                        key={idx + "-" + dep.amount}
+                                                        className={`bg-transparent border-none text-[10px] font-black text-right outline-none w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"}`}
+                                                        defaultValue={dep.amount}
                                                         onBlur={(e) =>
-
                                                           handlePlanChange(
-
                                                             idx,
-
-                                                            "releaseDays",
-
+                                                            "amount",
                                                             e.target.value,
-
                                                           )
-
                                                         }
-
                                                       />
-
-                                                      <span className="text-[8px] font-black text-blue-400 ml-0.5 transition-colors">
-
-                                                        D
-
+                                                      <span className={`text-[9px] font-black ml-0.5 ${isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"}`}>
+                                                        €
                                                       </span>
-
                                                     </div>
 
-                                                    <div
+                                                    {/* Release Input */}
+                                                    <div className="flex items-center justify-center bg-blue-50/70 rounded h-5 border border-blue-100 w-full px-1">
+                                                      <input
+                                                        type="number"
+                                                        key={idx + "-" + dep.releaseDays}
+                                                        className="bg-transparent border-none text-[10px] font-black text-blue-700 w-full text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                        defaultValue={dep.releaseDays}
+                                                        onBlur={(e) =>
+                                                          handlePlanChange(
+                                                            idx,
+                                                            "releaseDays",
+                                                            e.target.value,
+                                                          )
+                                                        }
+                                                      />
+                                                      <span className="text-[8px] font-black text-blue-400 ml-0.5">
+                                                        D
+                                                      </span>
+                                                    </div>
 
-                                                      className={`text-[10px] font-bold tabular-nums text-center ${isWarning ? "text-rose-600 font-black" : "text-slate-500"}`}
-
-                                                    >
-
-                                                      {formatDate(dep.date)}
-
+                                                    {/* Date (Fecha) Input */}
+                                                    <div className="flex items-center justify-center bg-slate-50 border border-slate-100 rounded px-1 h-5 w-full">
+                                                      <input
+                                                        type="date"
+                                                        key={idx + "-" + dep.date}
+                                                        className={`bg-transparent border-none text-[10px] font-black outline-none text-center w-full cursor-pointer ${isWarning ? "text-rose-600" : "text-slate-600"}`}
+                                                        defaultValue={toInputDate(dep.date)}
+                                                        onChange={(e) =>
+                                                          handlePlanChange(
+                                                            idx,
+                                                            "date",
+                                                            e.target.value,
+                                                          )
+                                                        }
+                                                      />
                                                     </div>
 
 

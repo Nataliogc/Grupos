@@ -1523,6 +1523,21 @@
                 }
 
                 paymentPlan = JSON.parse(group.PaymentPlan_JSON || "[]");
+                if (paymentPlan && paymentPlan.length > 1) {
+                    paymentPlan = paymentPlan.map((p, idx) => {
+                        if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
+                            return { ...p, label: "Depósito" };
+                        }
+                        return p;
+                    });
+                } else if (paymentPlan && paymentPlan.length === 1) {
+                    paymentPlan = paymentPlan.map((p) => {
+                        if (p.label === "Depósito" || p.label === "Primer Pago" || !p.label) {
+                            return { ...p, label: "Pago Único" };
+                        }
+                        return p;
+                    });
+                }
                 if (paymentPlan.length === 0) {
                     const entradaStr = mapping['reserva-entrada'] || today;
                     const [d, m, yRaw] = entradaStr.split(/[-\/]/).map(Number);
@@ -1561,7 +1576,7 @@
                 const base = remaining;
                 p.percent = base > 0 ? ((amount / base) * 100).toFixed(2) : 0;
                 p.amount = amount.toFixed(2);
-                if (!p.label || !String(p.label).trim()) p.label = `Pago ${idx + 1}`;
+                if (!p.label || !String(p.label).trim()) p.label = idx === 0 ? "Depósito" : `Pago ${idx + 1}`;
                 if (!p.date) p.date = today;
                 if (!p.status) p.status = "Pendiente";
                 remaining = Math.max(0, remaining - amount);
@@ -1578,10 +1593,10 @@
                 if (canReuseLast) {
                     last.amount = remaining.toFixed(2);
                     last.percent = 100;
-                    if (!last.label || !String(last.label).trim()) last.label = `Pago ${paymentPlan.length}`;
+                    if (!last.label || !String(last.label).trim()) last.label = paymentPlan.length === 1 ? "Depósito" : `Pago ${paymentPlan.length}`;
                 } else {
                     paymentPlan.push({
-                        label: `Pago ${paymentPlan.length + 1}`,
+                        label: paymentPlan.length === 0 ? "Depósito" : `Pago ${paymentPlan.length + 1}`,
                         percent: 100,
                         amount: remaining.toFixed(2),
                         date: today,

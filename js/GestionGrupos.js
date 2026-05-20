@@ -366,21 +366,21 @@ var App = function App() {
       label: "DESESTIMADO"
     };
 
-    // 1. CONFIRMADO / OK / BLOQUEADO (PRIORIDAD SOBRE PASADO)
-    if (s.includes("CONF") || s.includes("OK") || s.includes("BLOQ") || s === "GRUPOS" || s === "GRUPO") {
-      return {
-        color: "bg-emerald-500",
-        text: "bg-emerald-100 text-emerald-700",
-        label: "CONFIRMADO"
-      };
-    }
-
-    // 2. PASADO (Si la fecha de entrada ya pasó y NO está confirmado)
+    // 1. PASADO (Si la fecha de entrada ya pasó)
     if (arrival && arrival < today) {
       return {
         color: "bg-slate-400",
         text: "bg-slate-100 text-slate-500",
         label: "PASADO"
+      };
+    }
+
+    // 2. CONFIRMADO / OK / BLOQUEADO
+    if (s.includes("CONF") || s.includes("OK") || s.includes("BLOQ") || s === "GRUPOS" || s === "GRUPO") {
+      return {
+        color: "bg-emerald-500",
+        text: "bg-emerald-100 text-emerald-700",
+        label: "CONFIRMADO"
       };
     }
 
@@ -3461,8 +3461,9 @@ var App = function App() {
     }
     var getOrdinalLabel = function getOrdinalLabel(index, total) {
       if (total === 1) return "Pago Único";
+      if (index === 0) return "Depósito";
       if (index === total - 1) return "Pago Final";
-      var labels = ["Primer Pago", "Segundo Pago", "Tercer Pago", "Cuarto Pago", "Quinto Pago"];
+      var labels = ["Depósito", "Segundo Pago", "Tercer Pago", "Cuarto Pago", "Quinto Pago"];
       return labels[index] || "Pago ".concat(index + 1);
     };
     distribution.forEach(function (pct, idx) {
@@ -3504,6 +3505,26 @@ var App = function App() {
     }, null, hotelFilter);
   };
   var updatePaymentPlan = function updatePaymentPlan(resId, hotelFilter, plan) {
+    var updatedPlan = plan || [];
+    if (updatedPlan.length > 1) {
+      updatedPlan = updatedPlan.map(function (p, idx) {
+        if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
+          return _objectSpread(_objectSpread({}, p), {}, {
+            label: "Depósito"
+          });
+        }
+        return p;
+      });
+    } else if (updatedPlan.length === 1) {
+      updatedPlan = updatedPlan.map(function (p) {
+        if (p.label === "Depósito" || p.label === "Primer Pago" || !p.label) {
+          return _objectSpread(_objectSpread({}, p), {}, {
+            label: "Pago Único"
+          });
+        }
+        return p;
+      });
+    }
     updateGroupMetadata(resId, "PaymentPlan_JSON", JSON.stringify(plan), hotelFilter);
   };
   var addNewRow = function addNewRow() {
@@ -4735,7 +4756,7 @@ var App = function App() {
   })), groupedData.length === 0 && /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     colSpan: "7",
     className: "px-6 py-12 text-center text-slate-400 text-sm font-medium opacity-60"
-  }, "No hay grupos activos que coincidan con los filtros.")))))), activeTab === "table" && /*#__PURE__*/React.createElement("div", {
+  }, "No hay grupos que coincidan con los filtros.")))))), activeTab === "table" && /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-lg shadow flex flex-col h-[70vh] animate-fade-in"
   }, /*#__PURE__*/React.createElement("div", {
     className: "p-4 border-b flex flex-wrap gap-4 justify-between items-center"
@@ -6113,13 +6134,36 @@ var App = function App() {
         } catch (e) {
           plan = [];
         }
+        if (plan && plan.length > 1) {
+          plan = plan.map(function (p, idx) {
+            if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
+              return _objectSpread(_objectSpread({}, p), {}, {
+                label: "Depósito"
+              });
+            }
+            return p;
+          });
+        } else if (plan && plan.length === 1) {
+          plan = plan.map(function (p) {
+            if (p.label === "Depósito" || p.label === "Primer Pago" || !p.label) {
+              return _objectSpread(_objectSpread({}, p), {}, {
+                label: "Pago Único"
+              });
+            }
+            return p;
+          });
+        }
         var totalPercent = plan.reduce(function (acc, p) {
           return acc + (parseFloat(p.percent) || 0);
         }, 0);
         var arrivalDate = hotelRecord["Entrada"];
         var handlePlanChange = function handlePlanChange(idx, field, val) {
           var newPlan = _toConsumableArray(plan);
-          newPlan[idx] = _objectSpread(_objectSpread({}, newPlan[idx]), {}, _defineProperty({}, field, val));
+          var updatedVal = val;
+          if (field === "date") {
+            updatedVal = toInputDate(val);
+          }
+          newPlan[idx] = _objectSpread(_objectSpread({}, newPlan[idx]), {}, _defineProperty({}, field, updatedVal));
           if (field === "percent" || field === "releaseDays") {
             var pct = parseFloat(newPlan[idx].percent) || 0;
             var days = parseInt(newPlan[idx].releaseDays) || 0;
@@ -6135,6 +6179,29 @@ var App = function App() {
             }
             _d6.setDate(_d6.getDate() - days);
             newPlan[idx].date = _d6.toISOString().split("T")[0];
+          } else if (field === "amount") {
+            var amt = parseFloat(val) || 0;
+            newPlan[idx].amount = amt.toFixed(2);
+            var _pct = hotelTotal > 0 ? amt / hotelTotal * 100 : 0;
+            newPlan[idx].percent = parseFloat(_pct.toFixed(2));
+          } else if (field === "date") {
+            var arrD;
+            var _sDate = arrivalDate;
+            var _numDate = parseFloat(_sDate);
+            if (!isNaN(_numDate) && _numDate > 40000 && _numDate < 60000) {
+              arrD = new Date(Math.round((_numDate - 25569) * 86400 * 1000));
+            } else {
+              var _dateStr = toInputDate(_sDate);
+              arrD = new Date(_dateStr);
+            }
+            var editD = new Date(updatedVal);
+            if (arrD && !isNaN(arrD.getTime()) && editD && !isNaN(editD.getTime())) {
+              arrD.setHours(0, 0, 0, 0);
+              editD.setHours(0, 0, 0, 0);
+              var _diffTime = arrD.getTime() - editD.getTime();
+              var diffDays = Math.round(_diffTime / (1000 * 60 * 60 * 24));
+              newPlan[idx].releaseDays = diffDays;
+            }
           }
           updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
         };
@@ -6186,20 +6253,10 @@ var App = function App() {
         }, hotelTotal.toLocaleString("es-ES", {
           style: "currency",
           currency: "EUR"
-        }))), /*#__PURE__*/React.createElement("div", {
-          className: "flex bg-slate-100 rounded p-0.5 gap-0.5"
-        }, ["30/70", "50/50", "100"].map(function (p) {
-          return /*#__PURE__*/React.createElement("button", {
-            key: p,
-            onClick: function onClick() {
-              return calculateDeposits(selectedGroupFicha, p === "30/70" ? [30, 70] : p === "50/50" ? [50, 50] : [100], hotelName);
-            },
-            className: "px-1.5 py-0.5 text-[8px] font-black text-slate-500 hover:bg-white hover:text-emerald-500 rounded transition-all"
-          }, p);
-        }))), /*#__PURE__*/React.createElement("div", {
+        })))), /*#__PURE__*/React.createElement("div", {
           className: "space-y-1.5"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] gap-1 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
+          className: "grid grid-cols-[20px_60px_85px_60px_120px_65px_20px] justify-between gap-1.5 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter"
         }, /*#__PURE__*/React.createElement("div", null), /*#__PURE__*/React.createElement("div", {
           className: "text-center"
         }, "%"), /*#__PURE__*/React.createElement("div", {
@@ -6228,19 +6285,20 @@ var App = function App() {
             var isLastUnpaid = idx === lastUnpaidIdx;
             return /*#__PURE__*/React.createElement("div", {
               key: dep.id,
-              className: "grid grid-cols-[25px_50px_1fr_60px_70px_60px_25px] items-center gap-1 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
+              className: "grid grid-cols-[20px_60px_85px_60px_120px_65px_20px] justify-between items-center gap-1.5 p-1 rounded border ".concat(isPaid ? "bg-emerald-50/40 border-emerald-100/50" : isWarning ? "bg-rose-50 border-rose-200 animate-pulse" : "bg-white border-slate-100", " hover:border-slate-300 transition-all group shadow-sm pl-1")
             }, /*#__PURE__*/React.createElement("div", {
-              className: "flex justify-center"
+              className: "flex justify-center w-5"
             }, isWarning ? /*#__PURE__*/React.createElement(IconAlertTriangle, {
               size: 10,
               className: "text-rose-500"
             }) : /*#__PURE__*/React.createElement("div", {
               className: "w-1.5 h-1.5 rounded-full ".concat(isPaid ? "bg-emerald-500" : "bg-slate-300")
             })), /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center gap-0.5 justify-center bg-slate-50 rounded px-1 min-w-[75px] h-5 border border-slate-100"
+              className: "flex items-center justify-center bg-slate-50 rounded h-5 border border-slate-100 w-full px-1"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
-              className: "bg-transparent border-none text-[10px] font-black text-slate-600 w-16 text-right outline-none",
+              key: idx + "-" + dep.percent,
+              className: "bg-transparent border-none text-[10px] font-black text-slate-600 w-full text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
               defaultValue: dep.percent,
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "percent", e.target.value);
@@ -6248,25 +6306,41 @@ var App = function App() {
             }), /*#__PURE__*/React.createElement("span", {
               className: "text-[8px] font-black text-slate-400 ml-0.5"
             }, "%")), /*#__PURE__*/React.createElement("div", {
-              className: "text-right pr-2"
-            }, /*#__PURE__*/React.createElement("span", {
-              className: "text-[12px] font-black tabular-nums ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700")
-            }, parseFloat(dep.amount || 0).toLocaleString("es-ES", {
-              minimumFractionDigits: 2
-            }), "\u20AC")), /*#__PURE__*/React.createElement("div", {
-              className: "flex items-center justify-center bg-blue-50 shadow-inner rounded px-1 min-w-[45px] h-6 border border-blue-100 mx-auto"
+              className: "flex items-center justify-end bg-slate-50 rounded px-1 h-5 border border-slate-100 w-full"
             }, /*#__PURE__*/React.createElement("input", {
               type: "number",
-              className: "bg-transparent border-none text-[11px] font-black text-blue-700 w-8 text-center outline-none",
+              step: "0.01",
+              key: idx + "-" + dep.amount,
+              className: "bg-transparent border-none text-[10px] font-black text-right outline-none w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"),
+              defaultValue: dep.amount,
+              onBlur: function onBlur(e) {
+                return handlePlanChange(idx, "amount", e.target.value);
+              }
+            }), /*#__PURE__*/React.createElement("span", {
+              className: "text-[9px] font-black ml-0.5 ".concat(isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700")
+            }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
+              className: "flex items-center justify-center bg-blue-50/70 rounded h-5 border border-blue-100 w-full px-1"
+            }, /*#__PURE__*/React.createElement("input", {
+              type: "number",
+              key: idx + "-" + dep.releaseDays,
+              className: "bg-transparent border-none text-[10px] font-black text-blue-700 w-full text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
               defaultValue: dep.releaseDays,
               onBlur: function onBlur(e) {
                 return handlePlanChange(idx, "releaseDays", e.target.value);
               }
             }), /*#__PURE__*/React.createElement("span", {
-              className: "text-[8px] font-black text-blue-400 ml-0.5 transition-colors"
+              className: "text-[8px] font-black text-blue-400 ml-0.5"
             }, "D")), /*#__PURE__*/React.createElement("div", {
-              className: "text-[10px] font-bold tabular-nums text-center ".concat(isWarning ? "text-rose-600 font-black" : "text-slate-500")
-            }, formatDate(dep.date)), /*#__PURE__*/React.createElement("button", {
+              className: "flex items-center justify-center bg-slate-50 border border-slate-100 rounded px-1 h-5 w-full"
+            }, /*#__PURE__*/React.createElement("input", {
+              type: "date",
+              key: idx + "-" + dep.date,
+              className: "bg-transparent border-none text-[10px] font-black outline-none text-center w-full cursor-pointer ".concat(isWarning ? "text-rose-600" : "text-slate-600"),
+              defaultValue: toInputDate(dep.date),
+              onChange: function onChange(e) {
+                return handlePlanChange(idx, "date", e.target.value);
+              }
+            })), /*#__PURE__*/React.createElement("button", {
               onClick: function onClick() {
                 return handlePlanChange(idx, "status", isPaid ? "Pendiente" : "Cobrado");
               },
