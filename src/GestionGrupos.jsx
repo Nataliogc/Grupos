@@ -1845,7 +1845,7 @@
                 
                 const rlTotal = rl.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
                 if (rlTotal > 0) {
-                   groups[key].totalRevenue = rlTotal - commVal;
+                   groups[key].totalRevenue = rlTotal + suplementos - descuentos;
                    groups[key].hasRoomingListOverride = true;
                 }
               } catch(e) {}
@@ -3793,6 +3793,62 @@
 
 
 
+      useEffect(() => {
+
+        window.handleNexusUpload = handleFileUpload;
+
+        window.handleNexusExport = exportExcel;
+
+        window.handleNexusConsultantClick = handleConsultantClick;
+
+        return () => {
+
+          delete window.handleNexusUpload;
+
+          delete window.handleNexusExport;
+
+          delete window.handleNexusConsultantClick;
+
+        };
+
+      }, [handleFileUpload, exportExcel, handleConsultantClick]);
+
+
+
+      useEffect(() => {
+
+        if (hotelSettings?.lastImportDate) {
+
+          const dateStr = new Date(hotelSettings.lastImportDate).toLocaleDateString("es-ES", { 
+
+            day: '2-digit', 
+
+            month: '2-digit', 
+
+            year: '2-digit' 
+
+          });
+
+          if (window.updateNexusHeaderImportDate) {
+
+            window.updateNexusHeaderImportDate(dateStr);
+
+          }
+
+        } else {
+
+          if (window.updateNexusHeaderImportDate) {
+
+            window.updateNexusHeaderImportDate("");
+
+          }
+
+        }
+
+      }, [hotelSettings]);
+
+
+
       const requestSort = (key) => {
 
         let direction = "asc";
@@ -4373,8 +4429,23 @@
 
 
 
-      // Load CRM history when a group ficha is opened
+      // Ocultar/mostrar la cabecera global cuando se abre/cierra la ficha
+      useEffect(() => {
+        const header = document.getElementById('nexus-global-header');
+        if (showFichaModal) {
+          document.body.classList.add('nexus-ficha-open');
+          if (header) header.style.display = 'none';
+        } else {
+          document.body.classList.remove('nexus-ficha-open');
+          if (header) header.style.display = '';
+        }
+        return () => {
+          document.body.classList.remove('nexus-ficha-open');
+          if (header) header.style.display = '';
+        };
+      }, [showFichaModal]);
 
+      // Load CRM history when a group ficha is opened
       useEffect(() => {
 
         if (!selectedGroupFicha) { setCrmHistory([]); return; }
@@ -6688,187 +6759,9 @@
 
       };
 
-
-
       return (
-
         <div className="min-h-screen pb-10 bg-dot-pattern">
-
-          {/* Header */}
-
-          {/* Header: Global Navigation & Status */}
-
-          <header className="bg-white border-b border-slate-200 py-3 shadow-sm sticky top-0 z-50">
-
-            <div className="container mx-auto px-4 flex items-center justify-between gap-4">
-
-              {/* Brand & Subtitle */}
-
-              <div className="flex items-center gap-4 flex-1">
-
-                <a
-
-                  href="Admin.html"
-
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
-
-                  title="Volver al Admin"
-
-                >
-
-                  <IconChevronLeft size={20} />
-
-                </a>
-
-                <div className="flex items-center gap-3">
-
-                  <div className="bg-slate-50 rounded-xl p-1.5 shadow-inner border border-slate-100">
-
-                    <img
-
-                      src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png"
-
-                      className="h-8 w-auto object-contain"
-
-                      alt="Nexus Logo"
-
-                    />
-
-                  </div>
-
-                  <div>
-
-                    <h1 className="text-xl font-black text-slate-800 leading-none flex items-center gap-2">
-
-                      Nexus <span className="text-emerald-600">Groups</span>
-
-                      {hotelSettings?.lastImportDate && (
-
-                        <span className="ml-3 px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest animate-pulse-slow">
-
-                          Actualizado: {new Date(hotelSettings.lastImportDate).toLocaleDateString("es-ES", { day: '2-digit', month: '2-digit', year: '2-digit' })}
-
-                        </span>
-
-                      )}
-                    </h1>
-                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                      Gestión unificada de grupos y análisis predictivo.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Middle: Consultant Trigger */}
-              <div className="hidden lg:flex items-center gap-4">
-                <a
-                  href="https://nataliogc.github.io/menus-eventos/admin.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all"
-                  title="Menús Eventos"
-                >
-                  <IconUtensils size={20} />
-                </a>
-
-                <a
-                  href="https://nataliogc.github.io/Menus-Turisticos/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all"
-                  title="Menús Turísticos"
-                >
-                  <IconMap size={20} />
-                </a>
-
-                <a
-                  href="https://nataliogc.github.io/menus-cocteles/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all"
-                  title="Menús Cócteles"
-                >
-                  <IconMartini size={20} />
-                </a>
-
-                <button
-
-                  onClick={handleConsultantClick}
-
-                  className="p-2 text-slate-400 hover:text-[#2d5a43] hover:bg-emerald-50 rounded-full transition-all group relative"
-
-                  title="Nexus AI Hub - Análisis de Estrategia"
-
-                >
-
-                  <IconBrain
-
-                    size={22}
-
-                    className="group-hover:scale-110 transition-transform"
-
-                  />
-
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
-
-                </button>
-
-              </div>
-
-
-
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
-
-
-
-                <div className="flex gap-1 md:gap-2">
-
-                  <label
-
-                    className="p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-
-                    title="Importar"
-
-                  >
-
-                    <IconUpload size={20} />
-
-                    <input
-
-                      type="file"
-
-                      className="hidden"
-
-                      accept=".csv, .xlsx, .xls"
-
-                      onChange={handleFileUpload}
-
-                    />
-
-                  </label>
-
-                  <button
-
-                    onClick={exportExcel}
-
-                    className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
-
-                    title="Exportar Excel"
-
-                  >
-
-                    <i className="fas fa-file-excel text-xl"></i>
-
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </header>
+          {/* Cabecera unificada administrada por js/navigation.js */}
 
 
 

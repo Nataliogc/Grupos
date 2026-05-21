@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -180,6 +180,7 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/firebase-init.js"></script>
+    <script src="js/navigation.js"></script>
     <script>
         const db = window.db;
         let allProformas = [];
@@ -237,6 +238,40 @@
             }
         }
 
+        function calculateNetTotal(p) {
+            const items = p.ProformaItems || [];
+            let gross = 0;
+            let commission = 0;
+            if (items.length > 0) {
+                gross = items.reduce((acc, item) => {
+                    const pPrice = parseFloat(item.precio) || 0;
+                    const hab = parseFloat(item.hab) || 1;
+                    const cant = parseFloat(item.cant) || 1;
+                    const dias = parseFloat(item.dias) || 1;
+                    return acc + (pPrice * hab * cant * dias);
+                }, 0);
+                commission = items.reduce((acc, item) => {
+                    const sub = (parseFloat(item.precio) || 0) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
+                    let com = 0;
+                    const percent = (item.comision && item.comision.porcentaje !== undefined && !isNaN(parseFloat(item.comision.porcentaje))) ? parseFloat(item.comision.porcentaje) : 0;
+                    const base_unitaria = (item.comision && item.comision.base_unitaria !== undefined) ? parseFloat(item.comision.base_unitaria) : (parseFloat(item.precio) || 0);
+                    
+                    if (item.comision && item.comision.modo === 'manual' && parseFloat(item.comision.comision_unitaria) > 0) {
+                        com = parseFloat(item.comision.comision_unitaria) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
+                    } else {
+                        com = parseFloat((((base_unitaria * percent) / 100) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1)).toFixed(2));
+                    }
+                    return acc + com;
+                }, 0);
+            } else {
+                gross = parseFloat(p.total || p['Importe(*)'] || 0) || 0;
+                commission = parseFloat(p.totalCommission || p.Comision || 0) || 0;
+            }
+            const supl = parseFloat(p.Suplementos || 0) || 0;
+            const desc = parseFloat(p.Descuentos || 0) || 0;
+            return (gross - commission) + supl - desc;
+        }
+
         function renderProformas() {
             const list = document.getElementById('proforma-list');
             const search = document.getElementById('search-input').value.toLowerCase();
@@ -271,8 +306,8 @@
                 const hotelName = p.hotel === 'cumbria' ? 'Cumbria' : 'Guadiana';
                 const hotelColor = p.hotel === 'cumbria' ? 'bg-slate-100 text-slate-700' : 'bg-emerald-50 text-emerald-700';
                 const displayId = p.Reserva || p.id;
-                const total = p.total || 0;
-                const depositSummary = getDepositSummary(p, total);
+                const netTotal = calculateNetTotal(p);
+                const depositSummary = getDepositSummary(p, netTotal);
 
                 return `
                     <tr class="hover:bg-slate-50 transition-colors group">
@@ -304,7 +339,7 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 text-right">
-                            <span class="text-sm font-black text-slate-800 tabular-nums">${NexusUtils.formatCurrency(total)}</span>
+                            <span class="text-sm font-black text-slate-800 tabular-nums">${NexusUtils.formatCurrency(netTotal)}</span>
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

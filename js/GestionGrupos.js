@@ -1116,7 +1116,7 @@ var App = function App() {
             return acc + (parseFloat(i.total) || 0);
           }, 0);
           if (rlTotal > 0) {
-            groups[key].totalRevenue = rlTotal - commVal;
+            groups[key].totalRevenue = rlTotal + suplementos - descuentos;
             groups[key].hasRoomingListOverride = true;
           }
         } catch (e) {}
@@ -2095,6 +2095,32 @@ var App = function App() {
       }
     }
   }, [groupedData]);
+  useEffect(function () {
+    window.handleNexusUpload = handleFileUpload;
+    window.handleNexusExport = exportExcel;
+    window.handleNexusConsultantClick = handleConsultantClick;
+    return function () {
+      delete window.handleNexusUpload;
+      delete window.handleNexusExport;
+      delete window.handleNexusConsultantClick;
+    };
+  }, [handleFileUpload, exportExcel, handleConsultantClick]);
+  useEffect(function () {
+    if (hotelSettings !== null && hotelSettings !== void 0 && hotelSettings.lastImportDate) {
+      var dateStr = new Date(hotelSettings.lastImportDate).toLocaleDateString("es-ES", {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      });
+      if (window.updateNexusHeaderImportDate) {
+        window.updateNexusHeaderImportDate(dateStr);
+      }
+    } else {
+      if (window.updateNexusHeaderImportDate) {
+        window.updateNexusHeaderImportDate("");
+      }
+    }
+  }, [hotelSettings]);
   var requestSort = function requestSort(key) {
     var direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -2417,8 +2443,23 @@ var App = function App() {
     crmHistory = _useState82[0],
     setCrmHistory = _useState82[1];
 
-  // Load CRM history when a group ficha is opened
+  // Ocultar/mostrar la cabecera global cuando se abre/cierra la ficha
+  useEffect(function () {
+    var header = document.getElementById('nexus-global-header');
+    if (showFichaModal) {
+      document.body.classList.add('nexus-ficha-open');
+      if (header) header.style.display = 'none';
+    } else {
+      document.body.classList.remove('nexus-ficha-open');
+      if (header) header.style.display = '';
+    }
+    return function () {
+      document.body.classList.remove('nexus-ficha-open');
+      if (header) header.style.display = '';
+    };
+  }, [showFichaModal]);
 
+  // Load CRM history when a group ficha is opened
   useEffect(function () {
     if (!selectedGroupFicha) {
       setCrmHistory([]);
@@ -3762,96 +3803,7 @@ var App = function App() {
   }();
   return /*#__PURE__*/React.createElement("div", {
     className: "min-h-screen pb-10 bg-dot-pattern"
-  }, /*#__PURE__*/React.createElement("header", {
-    className: "bg-white border-b border-slate-200 py-3 shadow-sm sticky top-0 z-50"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "container mx-auto px-4 flex items-center justify-between gap-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4 flex-1"
-  }, /*#__PURE__*/React.createElement("a", {
-    href: "Admin.html",
-    className: "p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500",
-    title: "Volver al Admin"
-  }, /*#__PURE__*/React.createElement(IconChevronLeft, {
-    size: 20
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-slate-50 rounded-xl p-1.5 shadow-inner border border-slate-100"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: "Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png",
-    className: "h-8 w-auto object-contain",
-    alt: "Nexus Logo"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
-    className: "text-xl font-black text-slate-800 leading-none flex items-center gap-2"
-  }, "Nexus ", /*#__PURE__*/React.createElement("span", {
-    className: "text-emerald-600"
-  }, "Groups"), (hotelSettings === null || hotelSettings === void 0 ? void 0 : hotelSettings.lastImportDate) && /*#__PURE__*/React.createElement("span", {
-    className: "ml-3 px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest animate-pulse-slow"
-  }, "Actualizado: ", new Date(hotelSettings.lastImportDate).toLocaleDateString("es-ES", {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit'
-  }))), /*#__PURE__*/React.createElement("p", {
-    className: "text-[11px] text-slate-500 font-medium mt-0.5"
-  }, "Gesti\xF3n unificada de grupos y an\xE1lisis predictivo.")))), /*#__PURE__*/React.createElement("div", {
-    className: "hidden lg:flex items-center gap-4"
-  }, /*#__PURE__*/React.createElement("a", {
-    href: "https://nataliogc.github.io/menus-eventos/admin.html",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all",
-    title: "Men\xFAs Eventos"
-  }, /*#__PURE__*/React.createElement(IconUtensils, {
-    size: 20
-  })), /*#__PURE__*/React.createElement("a", {
-    href: "https://nataliogc.github.io/Menus-Turisticos/",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all",
-    title: "Men\xFAs Tur\xEDsticos"
-  }, /*#__PURE__*/React.createElement(IconMap, {
-    size: 20
-  })), /*#__PURE__*/React.createElement("a", {
-    href: "https://nataliogc.github.io/menus-cocteles/",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all",
-    title: "Men\xFAs C\xF3cteles"
-  }, /*#__PURE__*/React.createElement(IconMartini, {
-    size: 20
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: handleConsultantClick,
-    className: "p-2 text-slate-400 hover:text-[#2d5a43] hover:bg-emerald-50 rounded-full transition-all group relative",
-    title: "Nexus AI Hub - An\xE1lisis de Estrategia"
-  }, /*#__PURE__*/React.createElement(IconBrain, {
-    size: 22,
-    className: "group-hover:scale-110 transition-transform"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "absolute top-1 right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1 md:gap-2"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer",
-    title: "Importar"
-  }, /*#__PURE__*/React.createElement(IconUpload, {
-    size: 20
-  }), /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    className: "hidden",
-    accept: ".csv, .xlsx, .xls",
-    onChange: handleFileUpload
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: exportExcel,
-    className: "p-2 text-slate-400 hover:text-emerald-600 transition-colors",
-    title: "Exportar Excel"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-file-excel text-xl"
-  })))))), /*#__PURE__*/React.createElement("div", {
     className: "w-full px-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-row flex-nowrap gap-3 mb-4 overflow-x-auto pb-2 custom-scrollbar"

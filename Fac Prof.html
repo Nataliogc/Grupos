@@ -932,6 +932,7 @@
     <script src="js/utils.js"></script>
     <script src="js/gemini.js"></script>
     <script src="js/firebase-init.js"></script>
+    <script src="js/navigation.js"></script>
 
     <script>
         const HOTELS = {
@@ -1179,7 +1180,7 @@
             if (saved) {
                 try {
                     const group = JSON.parse(saved);
-                    reservaId = group.Reserva || group["Reserva"] || "";
+                    reservaId = group.Reserva || group["Reserva"] || group.id || "";
                     isIndependent = group.isIndependentProforma;
                 } catch (e) { }
             }
@@ -1190,7 +1191,9 @@
             }
 
             if (reservaId) {
+                // Guardar en localStorage para que GestionGrupos lo detecte y abra la ficha
                 localStorage.setItem('nexus_return_reserva', reservaId);
+                localStorage.setItem('nexus_open_ficha', reservaId);
             }
 
             const url = targetFile + (reservaId ? '?reserva=' + encodeURIComponent(reservaId) : '');
@@ -1604,7 +1607,13 @@
             renderItems();
         }
         function removeItem(index) { if (confirm("¿Eliminar este concepto?")) { items.splice(index, 1); renderItems(); } }
-        function updateItem(index, field, value) { if (items[index]) { items[index][field] = field === 'iva' ? parseInt(value) : value; renderItems(); } }
+        function updateItem(index, field, value) {
+            if (!items[index]) return;
+            items[index][field] = field === 'iva' ? parseInt(value) : value;
+            // Si solo cambia la fecha no re-renderizamos (evita cerrar el datepicker al cambiar de mes)
+            if (field === 'fecha') return;
+            renderItems();
+        }
 
         function isIndependentProforma() {
             const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
