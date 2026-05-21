@@ -1069,6 +1069,7 @@
 
             try {
                 const normId = String(id).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+                const isIndep = isIndependentProforma();
                 
                 // Capturar campos manuales para persistencia
                 const customFields = {};
@@ -1093,6 +1094,10 @@
                     }
                 });
 
+                if (!isIndep) {
+                    customFields["reserva-id"] = String(id).trim().replace(/\.0$/, "");
+                }
+
                 customFields.dynamicRows = Array.from(document.querySelectorAll('#ocupante-box [data-dynamic="true"]')).map(row => {
                     const editableCells = row.querySelectorAll('.editable');
                     return {
@@ -1101,7 +1106,9 @@
                     };
                 }).filter(row => row.key || row.value);
 
-                const editedReserva = (customFields["reserva-id"] || id || "").toString().trim();
+                const editedReserva = isIndep 
+                    ? (customFields["reserva-id"] || id || "").toString().trim()
+                    : String(id).trim().replace(/\.0$/, "");
                 const normalizedReservaId = editedReserva.replace(/\.0$/, "").replace(/[\/\\]/g, "-");
                 const payload = {
                     "ProformaItems": items,
@@ -1111,18 +1118,17 @@
                     "total": total || 0,
                     "solicitante_org": customFields["solicitante-org"] || "",
                     "programa": customFields["programa"] || "",
-                    "Reserva": customFields["reserva-id"] || id, // Guardar el número modificado
+                    "Reserva": editedReserva,
                     "hotel": currentHotel
                 };
-                payload["Reserva"] = editedReserva;
 
-                if (group.isIndependentProforma) {
+                if (isIndep) {
                     payload.isIndependentProforma = true;
                 }
 
-                const targetDocId = group.isIndependentProforma ? normalizedReservaId : normId;
+                const targetDocId = isIndep ? normalizedReservaId : normId;
                 await db.collection("groups").doc(targetDocId).set(payload, { merge: true });
-                if (group.isIndependentProforma && normId !== targetDocId) {
+                if (isIndep && normId !== targetDocId) {
                     await db.collection("groups").doc(normId).delete();
                 }
                 
@@ -1441,6 +1447,34 @@
                         if (ridU) ridU.innerText = finalVal;
                     }
                 });
+
+                if (!isIndependentProforma()) {
+                    const rid2 = document.getElementById('reserva-id-2');
+                    if (rid2) {
+                        rid2.contentEditable = "false";
+                        rid2.classList.remove('editable');
+                        rid2.title = "No se puede editar el número de reserva de un grupo enlazado.";
+                    }
+                    const ridU = document.getElementById('reserva-id-universal');
+                    if (ridU) {
+                        ridU.contentEditable = "false";
+                        ridU.classList.remove('editable');
+                        ridU.title = "No se puede editar el número de reserva de un grupo enlazado.";
+                    }
+                } else {
+                    const rid2 = document.getElementById('reserva-id-2');
+                    if (rid2) {
+                        rid2.contentEditable = "true";
+                        rid2.classList.add('editable');
+                        rid2.removeAttribute('title');
+                    }
+                    const ridU = document.getElementById('reserva-id-universal');
+                    if (ridU) {
+                        ridU.contentEditable = "true";
+                        ridU.classList.add('editable');
+                        ridU.removeAttribute('title');
+                    }
+                }
 
                 if (customFields.dynamicRows) {
                     const container = document.querySelector('#ocupante-box .flex-1');

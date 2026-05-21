@@ -4277,6 +4277,10 @@
 
       const [selectedGroupFicha, setSelectedGroupFicha] = useState(null);
 
+      const [isEditingGroupName, setIsEditingGroupName] = useState(false);
+
+      const [tempGroupName, setTempGroupName] = useState("");
+
       const [showClientData, setShowClientData] = useState(false);
 
       const [tempClientData, setTempClientData] = useState({});
@@ -5114,6 +5118,50 @@
 
         setShowFichaModal(true);
 
+        setIsEditingGroupName(false);
+
+        setTempGroupName(group.name || "");
+
+      };
+
+
+
+      const saveGroupName = async () => {
+
+        if (!selectedGroupFicha) return;
+
+        const newName = tempGroupName.trim();
+
+        if (!newName) {
+
+          alert("⚠️ El nombre del grupo no puede estar vacío.");
+
+          return;
+
+        }
+
+
+
+        try {
+
+          setIsSaving(true);
+
+          await updateGroupMetadata(selectedGroupFicha.id, { "Nombre del Grupo": newName });
+
+          setIsEditingGroupName(false);
+
+        } catch (error) {
+
+          console.error("Error saving group name:", error);
+
+          alert("❌ Error al guardar el nombre del grupo.");
+
+        } finally {
+
+          setIsSaving(false);
+
+        }
+
       };
 
 
@@ -5581,6 +5629,12 @@
             hotel:
 
               updates["Hotel_Asignado"] || updates["Hotel"] || prev.hotel,
+
+            // Sincronizar nombre del grupo si se cambió
+
+            name:
+
+              updates["Nombre del Grupo"] || prev.name,
 
           };
 
@@ -11051,17 +11105,123 @@
 
                                 <div className="flex items-center gap-3">
 
-                                  <h3
+                                  {isEditingGroupName ? (
 
-                                    className={`text-2xl font-black tracking-tight leading-none ${titleColor} drop-shadow-sm`}
+                                    <div className="flex items-center gap-2">
 
-                                  >
+                                      <input
 
-                                    {selectedGroupFicha.name ||
+                                        type="text"
 
-                                      "NOMBRE DEL GRUPO"}
+                                        className="bg-white/10 border border-white/20 text-2xl font-black tracking-tight leading-none rounded-xl px-3 py-1 text-white outline-none focus:ring-2 focus:ring-white/30 uppercase max-w-[400px]"
 
-                                  </h3>
+                                        value={tempGroupName}
+
+                                        onChange={(e) => setTempGroupName(e.target.value)}
+
+                                        onKeyDown={(e) => {
+
+                                          if (e.key === "Enter") {
+
+                                            saveGroupName();
+
+                                          } else if (e.key === "Escape") {
+
+                                            setIsEditingGroupName(false);
+
+                                            setTempGroupName(selectedGroupFicha.name || "");
+
+                                          }
+
+                                        }}
+
+                                        autoFocus
+
+                                      />
+
+                                      <button
+
+                                        onClick={saveGroupName}
+
+                                        className="p-1 hover:bg-white/10 rounded-lg text-emerald-400 hover:text-emerald-300 transition-colors"
+
+                                        title="Guardar nombre"
+
+                                      >
+
+                                        <IconCheck size={20} strokeWidth={3} />
+
+                                      </button>
+
+                                      <button
+
+                                        onClick={() => {
+
+                                          setIsEditingGroupName(false);
+
+                                          setTempGroupName(selectedGroupFicha.name || "");
+
+                                        }}
+
+                                        className="p-1 hover:bg-white/10 rounded-lg text-rose-400 hover:text-rose-300 transition-colors"
+
+                                        title="Cancelar"
+
+                                      >
+
+                                        <IconX size={20} strokeWidth={3} />
+
+                                      </button>
+
+                                    </div>
+
+                                  ) : (
+
+                                    <div className="flex items-center gap-2 group/title">
+
+                                      <h3
+
+                                        onClick={() => {
+
+                                          setIsEditingGroupName(true);
+
+                                          setTempGroupName(selectedGroupFicha.name || "");
+
+                                        }}
+
+                                        className={`text-2xl font-black tracking-tight leading-none ${titleColor} drop-shadow-sm cursor-pointer hover:opacity-80 transition-opacity`}
+
+                                        title="Haz clic para editar el nombre del grupo"
+
+                                      >
+
+                                        {selectedGroupFicha.name || "NOMBRE DEL GRUPO"}
+
+                                      </h3>
+
+                                      <button
+
+                                        onClick={() => {
+
+                                          setIsEditingGroupName(true);
+
+                                          setTempGroupName(selectedGroupFicha.name || "");
+
+                                        }}
+
+                                        className="opacity-0 group-hover/title:opacity-100 p-1 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-all"
+
+                                        title="Editar nombre"
+
+                                      >
+
+                                        <IconEdit size={16} />
+
+                                      </button>
+
+                                    </div>
+
+                                  )}
 
                                   <div className="flex gap-1.5 h-fit">
 

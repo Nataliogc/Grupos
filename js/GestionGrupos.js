@@ -2302,16 +2302,24 @@ var App = function App() {
     setSelectedGroupFicha = _useState66[1];
   var _useState67 = useState(false),
     _useState68 = _slicedToArray(_useState67, 2),
-    showClientData = _useState68[0],
-    setShowClientData = _useState68[1];
-  var _useState69 = useState({}),
+    isEditingGroupName = _useState68[0],
+    setIsEditingGroupName = _useState68[1];
+  var _useState69 = useState(""),
     _useState70 = _slicedToArray(_useState69, 2),
-    tempClientData = _useState70[0],
-    setTempClientData = _useState70[1];
+    tempGroupName = _useState70[0],
+    setTempGroupName = _useState70[1];
   var _useState71 = useState(false),
     _useState72 = _slicedToArray(_useState71, 2),
-    isSaving = _useState72[0],
-    setIsSaving = _useState72[1]; // Spinner mientras acceptChanges guarda
+    showClientData = _useState72[0],
+    setShowClientData = _useState72[1];
+  var _useState73 = useState({}),
+    _useState74 = _slicedToArray(_useState73, 2),
+    tempClientData = _useState74[0],
+    setTempClientData = _useState74[1];
+  var _useState75 = useState(false),
+    _useState76 = _slicedToArray(_useState75, 2),
+    isSaving = _useState76[0],
+    setIsSaving = _useState76[1]; // Spinner mientras acceptChanges guarda
 
   // Ref con la última lista de inventario guardada (para PROFORMA, evita desincronía con el estado)
 
@@ -2322,18 +2330,18 @@ var App = function App() {
 
   // CRM History Panel
 
-  var _useState73 = useState(false),
-    _useState74 = _slicedToArray(_useState73, 2),
-    showCrmPanel = _useState74[0],
-    setShowCrmPanel = _useState74[1];
-  var _useState75 = useState(''),
-    _useState76 = _slicedToArray(_useState75, 2),
-    crmNote = _useState76[0],
-    setCrmNote = _useState76[1];
-  var _useState77 = useState([]),
+  var _useState77 = useState(false),
     _useState78 = _slicedToArray(_useState77, 2),
-    crmHistory = _useState78[0],
-    setCrmHistory = _useState78[1];
+    showCrmPanel = _useState78[0],
+    setShowCrmPanel = _useState78[1];
+  var _useState79 = useState(''),
+    _useState80 = _slicedToArray(_useState79, 2),
+    crmNote = _useState80[0],
+    setCrmNote = _useState80[1];
+  var _useState81 = useState([]),
+    _useState82 = _slicedToArray(_useState81, 2),
+    crmHistory = _useState82[0],
+    setCrmHistory = _useState82[1];
 
   // Load CRM history when a group ficha is opened
 
@@ -2387,7 +2395,7 @@ var App = function App() {
       return _ref8.apply(this, arguments);
     };
   }();
-  var _useState79 = useState([{
+  var _useState83 = useState([{
       label: "Habitación Doble (DBL)",
       pax: 2,
       placeholder: "2 Pax"
@@ -2436,9 +2444,9 @@ var App = function App() {
       pax: 0,
       isService: true
     }]),
-    _useState80 = _slicedToArray(_useState79, 2),
-    ROOM_CONFIGURATIONS = _useState80[0],
-    setRoomConfigurations = _useState80[1];
+    _useState84 = _slicedToArray(_useState83, 2),
+    ROOM_CONFIGURATIONS = _useState84[0],
+    setRoomConfigurations = _useState84[1];
   useEffect(function () {
     var fetchCommonConfig = /*#__PURE__*/function () {
       var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
@@ -2477,7 +2485,7 @@ var App = function App() {
 
   // State for Room Manager Form
 
-  var _useState81 = useState({
+  var _useState85 = useState({
       hotel: "",
       type: "Habitación Doble (DBL)",
       dateIn: "",
@@ -2489,24 +2497,24 @@ var App = function App() {
       iva: 10,
       isService: true
     }),
-    _useState82 = _slicedToArray(_useState81, 2),
-    roomManagerForm = _useState82[0],
-    setRoomManagerForm = _useState82[1];
-  var _useState83 = useState(null),
-    _useState84 = _slicedToArray(_useState83, 2),
-    editingId = _useState84[0],
-    setEditingId = _useState84[1];
+    _useState86 = _slicedToArray(_useState85, 2),
+    roomManagerForm = _useState86[0],
+    setRoomManagerForm = _useState86[1];
+  var _useState87 = useState(null),
+    _useState88 = _slicedToArray(_useState87, 2),
+    editingId = _useState88[0],
+    setEditingId = _useState88[1];
 
   // State for Commission Modal
 
-  var _useState85 = useState({
+  var _useState89 = useState({
       isOpen: false,
       itemIdx: null,
       tempCom: null
     }),
-    _useState86 = _slicedToArray(_useState85, 2),
-    commissionModal = _useState86[0],
-    setCommissionModal = _useState86[1];
+    _useState90 = _slicedToArray(_useState89, 2),
+    commissionModal = _useState90[0],
+    setCommissionModal = _useState90[1];
   var getPaxByRoomType = function getPaxByRoomType(type) {
     var found = ROOM_CONFIGURATIONS.find(function (c) {
       return c.label === type;
@@ -2869,19 +2877,69 @@ var App = function App() {
     } catch (e) {}
     setSelectedGroupFicha(group);
     setShowFichaModal(true);
+    setIsEditingGroupName(false);
+    setTempGroupName(group.name || "");
   };
-  var handleMergeGroup = /*#__PURE__*/function () {
-    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(sourceGroup) {
-      var targetReserva, destId, sourceRecords, sourceIds, batch, destDoc, targetName, _iterator4, _step4, row, oldId, newId, oldRef, newRef, payload, _t5;
+  var saveGroupName = /*#__PURE__*/function () {
+    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+      var newName, _t5;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
-            targetReserva = prompt("Fusionar \"".concat(sourceGroup.name, "\" con otra reserva existente.\n\nIntroduce el ID de Reserva PMS destino (ej: 205249):"), "");
-            if (!(!targetReserva || targetReserva.trim() === "")) {
+            if (selectedGroupFicha) {
               _context7.n = 1;
               break;
             }
             return _context7.a(2);
+          case 1:
+            newName = tempGroupName.trim();
+            if (newName) {
+              _context7.n = 2;
+              break;
+            }
+            alert("⚠️ El nombre del grupo no puede estar vacío.");
+            return _context7.a(2);
+          case 2:
+            _context7.p = 2;
+            setIsSaving(true);
+            _context7.n = 3;
+            return updateGroupMetadata(selectedGroupFicha.id, {
+              "Nombre del Grupo": newName
+            });
+          case 3:
+            setIsEditingGroupName(false);
+            _context7.n = 5;
+            break;
+          case 4:
+            _context7.p = 4;
+            _t5 = _context7.v;
+            console.error("Error saving group name:", _t5);
+            alert("❌ Error al guardar el nombre del grupo.");
+          case 5:
+            _context7.p = 5;
+            setIsSaving(false);
+            return _context7.f(5);
+          case 6:
+            return _context7.a(2);
+        }
+      }, _callee7, null, [[2, 4, 5, 6]]);
+    }));
+    return function saveGroupName() {
+      return _ref12.apply(this, arguments);
+    };
+  }();
+  var handleMergeGroup = /*#__PURE__*/function () {
+    var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(sourceGroup) {
+      var targetReserva, destId, sourceRecords, sourceIds, batch, destDoc, targetName, _iterator4, _step4, row, oldId, newId, oldRef, newRef, payload, _t6;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
+          case 0:
+            targetReserva = prompt("Fusionar \"".concat(sourceGroup.name, "\" con otra reserva existente.\n\nIntroduce el ID de Reserva PMS destino (ej: 205249):"), "");
+            if (!(!targetReserva || targetReserva.trim() === "")) {
+              _context8.n = 1;
+              break;
+            }
+            return _context8.a(2);
           case 1:
             destId = normalizeId(targetReserva);
             sourceRecords = sourceGroup.records || [];
@@ -2891,24 +2949,24 @@ var App = function App() {
               return id !== destId;
             });
             if (!(sourceIds.length === 0)) {
-              _context7.n = 2;
+              _context8.n = 2;
               break;
             }
             alert("No hay registros que mover o ya tienen ese ID.");
-            return _context7.a(2);
+            return _context8.a(2);
           case 2:
             if (confirm("\xBFEst\xE1s seguro de fusionar todos los datos de \"".concat(sourceGroup.name, "\" en la reserva ").concat(targetReserva, "?\n\nLos registros manuales o de presupuesto se vincular\xE1n al nuevo ID y se eliminar\xE1n los documentos antiguos."))) {
-              _context7.n = 3;
+              _context8.n = 3;
               break;
             }
-            return _context7.a(2);
+            return _context8.a(2);
           case 3:
-            _context7.p = 3;
+            _context8.p = 3;
             batch = db.batch(); // 1. Buscar si la reserva destino ya existe en Firestore para heredar su Nombre del Grupo si es necesario
-            _context7.n = 4;
+            _context8.n = 4;
             return db.collection("groups").doc(destId).get();
           case 4:
-            destDoc = _context7.v;
+            destDoc = _context8.v;
             targetName = sourceGroup.name;
             if (destDoc.exists) {
               targetName = destDoc.data()["Nombre del Grupo"] || targetName;
@@ -2940,25 +2998,25 @@ var App = function App() {
             } finally {
               _iterator4.f();
             }
-            _context7.n = 5;
+            _context8.n = 5;
             return batch.commit();
           case 5:
             alert("✅ Fusión completada con éxito. Pulsa Aceptar para recargar.");
             window.location.reload();
-            _context7.n = 7;
+            _context8.n = 7;
             break;
           case 6:
-            _context7.p = 6;
-            _t5 = _context7.v;
-            console.error("Error en fusión:", _t5);
-            alert("❌ Error al fusionar: " + _t5.message);
+            _context8.p = 6;
+            _t6 = _context8.v;
+            console.error("Error en fusión:", _t6);
+            alert("❌ Error al fusionar: " + _t6.message);
           case 7:
-            return _context7.a(2);
+            return _context8.a(2);
         }
-      }, _callee7, null, [[3, 6]]);
+      }, _callee8, null, [[3, 6]]);
     }));
     return function handleMergeGroup(_x2) {
-      return _ref12.apply(this, arguments);
+      return _ref13.apply(this, arguments);
     };
   }();
   var openClientDataModal = function openClientDataModal() {
@@ -2973,7 +3031,7 @@ var App = function App() {
     setShowClientData(true);
   };
   var updateGroupMetadata = /*#__PURE__*/function () {
-    var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(resId, fieldOrUpdates) {
+    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(resId, fieldOrUpdates) {
       var valueIfSingle,
         hotelFilterArg,
         updates,
@@ -2993,26 +3051,26 @@ var App = function App() {
         remainingToSubtract,
         hSync,
         batch,
-        _args8 = arguments,
-        _t6;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+        _args9 = arguments,
+        _t7;
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
-            valueIfSingle = _args8.length > 2 && _args8[2] !== undefined ? _args8[2] : null;
-            hotelFilterArg = _args8.length > 3 && _args8[3] !== undefined ? _args8[3] : null;
+            valueIfSingle = _args9.length > 2 && _args9[2] !== undefined ? _args9[2] : null;
+            hotelFilterArg = _args9.length > 3 && _args9[3] !== undefined ? _args9[3] : null;
             updates = _typeof(fieldOrUpdates) === "object" ? _objectSpread({}, fieldOrUpdates) : _defineProperty({}, fieldOrUpdates, valueIfSingle); // --- VALIDACIÓN HOTEL ---
             hVal = updates["Hotel_Asignado"] || updates["Hotel"];
             if (!(hVal !== undefined)) {
-              _context8.n = 1;
+              _context9.n = 1;
               break;
             }
             normH = String(hVal).toLowerCase();
             if (!(!normH || normH.includes("pend") || normH.trim() === "")) {
-              _context8.n = 1;
+              _context9.n = 1;
               break;
             }
             alert("⚠️ Error: No se puede asignar un hotel 'PENDIENTE' o vacío.");
-            return _context8.a(2);
+            return _context9.a(2);
           case 1:
             // Si el usuario cambia a CANCELADO desde el dropdown, sincronizar también el campo Estado
 
@@ -3028,10 +3086,10 @@ var App = function App() {
               return normalizeId(r.Reserva) === normTargetId && (!hotelFilterArg || (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg);
             });
             if (!(currentGroupRows.length === 0)) {
-              _context8.n = 2;
+              _context9.n = 2;
               break;
             }
-            return _context8.a(2);
+            return _context9.a(2);
           case 2:
             // --- SYNC PAYMENT PLAN LOGIC (Apply to all affected rows) ---
             if (updates["Com_Pagado"] !== undefined) {
@@ -3150,7 +3208,10 @@ var App = function App() {
                 totalRevenue: newTotalRevenue,
                 // Sincronizar hotel del grupo si se cambió
 
-                hotel: updates["Hotel_Asignado"] || updates["Hotel"] || prev.hotel
+                hotel: updates["Hotel_Asignado"] || updates["Hotel"] || prev.hotel,
+                // Sincronizar nombre del grupo si se cambió
+
+                name: updates["Nombre del Grupo"] || prev.name
               });
             });
 
@@ -3167,7 +3228,7 @@ var App = function App() {
             }
 
             // 3. Persist to Firestore (usa currentGroupRows capturados antes del update optimista)
-            _context8.p = 3;
+            _context9.p = 3;
             batch = db.batch();
             currentGroupRows.forEach(function (row) {
               var resID = String(row.Reserva).trim();
@@ -3204,22 +3265,22 @@ var App = function App() {
             if (currentGroupRows.length === 0) {
               console.warn("⚠️ updateGroupMetadata: No se encontraron filas para", resId, "- el cambio puede no haberse guardado en Firestore.");
             }
-            _context8.n = 4;
+            _context9.n = 4;
             return batch.commit();
           case 4:
-            _context8.n = 6;
+            _context9.n = 6;
             break;
           case 5:
-            _context8.p = 5;
-            _t6 = _context8.v;
-            console.error("❌ Error updating metadata:", _t6);
+            _context9.p = 5;
+            _t7 = _context9.v;
+            console.error("❌ Error updating metadata:", _t7);
           case 6:
-            return _context8.a(2);
+            return _context9.a(2);
         }
-      }, _callee8, null, [[3, 5]]);
+      }, _callee9, null, [[3, 5]]);
     }));
     return function updateGroupMetadata(_x3, _x4) {
-      return _ref13.apply(this, arguments);
+      return _ref14.apply(this, arguments);
     };
   }();
 
@@ -3567,41 +3628,41 @@ var App = function App() {
     if (expandedGroup === groupName) setExpandedGroup(null);else setExpandedGroup(groupName);
   };
   var clearDatabase = /*#__PURE__*/function () {
-    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var secondConfirm, snapshot, batch, _t7;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.p = _context9.n) {
+    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+      var secondConfirm, snapshot, batch, _t8;
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
             if (window.confirm("⚠️ ATENCIÓN: ¿Estás ABSOLUTAMENTE seguro de que quieres BORRAR TODA la base de datos de grupos?\n\nEsta acción eliminará todos los registros en Firestore y NO se puede deshacer.")) {
-              _context9.n = 1;
+              _context0.n = 1;
               break;
             }
-            return _context9.a(2);
+            return _context0.a(2);
           case 1:
             secondConfirm = window.confirm("Segunda confirmación: ¿Realmente quieres borrar TODO?");
             if (secondConfirm) {
-              _context9.n = 2;
+              _context0.n = 2;
               break;
             }
-            return _context9.a(2);
+            return _context0.a(2);
           case 2:
-            _context9.p = 2;
-            _context9.n = 3;
+            _context0.p = 2;
+            _context0.n = 3;
             return db.collection("groups").get();
           case 3:
-            snapshot = _context9.v;
+            snapshot = _context0.v;
             if (!snapshot.empty) {
-              _context9.n = 4;
+              _context0.n = 4;
               break;
             }
             alert("La base de datos ya está vacía.");
-            return _context9.a(2);
+            return _context0.a(2);
           case 4:
             batch = db.batch();
             snapshot.docs.forEach(function (doc) {
               batch.delete(doc.ref);
             });
-            _context9.n = 5;
+            _context0.n = 5;
             return batch.commit();
           case 5:
             alert("✅ Base de datos borrada con éxito. El sistema está ahora vacío y listo para una nueva importación.");
@@ -3609,20 +3670,20 @@ var App = function App() {
             // log
 
             setData([]); // Leave completely empty for debug
-            _context9.n = 7;
+            _context0.n = 7;
             break;
           case 6:
-            _context9.p = 6;
-            _t7 = _context9.v;
-            console.error("❌ Error al borrar DB:", _t7);
-            alert("Error al borrar la base de datos: " + _t7.message);
+            _context0.p = 6;
+            _t8 = _context0.v;
+            console.error("❌ Error al borrar DB:", _t8);
+            alert("Error al borrar la base de datos: " + _t8.message);
           case 7:
-            return _context9.a(2);
+            return _context0.a(2);
         }
-      }, _callee9, null, [[2, 6]]);
+      }, _callee0, null, [[2, 6]]);
     }));
     return function clearDatabase() {
-      return _ref15.apply(this, arguments);
+      return _ref16.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -3792,10 +3853,10 @@ var App = function App() {
     className: "w-[1px] bg-slate-200 mx-2 flex-shrink-0 self-stretch my-2"
   }), Object.entries(stats.commercialsCount || {}).sort(function (a, b) {
     return b[1] - a[1];
-  }).map(function (_ref16) {
-    var _ref17 = _slicedToArray(_ref16, 2),
-      name = _ref17[0],
-      count = _ref17[1];
+  }).map(function (_ref17) {
+    var _ref18 = _slicedToArray(_ref17, 2),
+      name = _ref18[0],
+      count = _ref18[1];
     return /*#__PURE__*/React.createElement("div", {
       key: name,
       className: "min-w-[140px] flex-1 bg-slate-50/50 p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:bg-white transition-colors"
@@ -4837,8 +4898,8 @@ var App = function App() {
       row: row,
       absIndex: absIndex
     };
-  }).filter(function (_ref18) {
-    var row = _ref18.row;
+  }).filter(function (_ref19) {
+    var row = _ref19.row;
     if (!row._diff) return false;
     if (searchTerm) {
       var lowerTerm = searchTerm.toLowerCase();
@@ -4848,9 +4909,9 @@ var App = function App() {
       if (!matches) return false;
     }
     return true;
-  }).map(function (_ref19) {
-    var row = _ref19.row,
-      absIndex = _ref19.absIndex;
+  }).map(function (_ref20) {
+    var row = _ref20.row,
+      absIndex = _ref20.absIndex;
     var rowClass = "hover:bg-slate-50 transition-colors group";
     var badge = null;
     var btnColor = "bg-slate-800 hover:bg-slate-900";
@@ -5377,9 +5438,60 @@ var App = function App() {
       size: 24
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
+    }, isEditingGroupName ? /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      className: "bg-white/10 border border-white/20 text-2xl font-black tracking-tight leading-none rounded-xl px-3 py-1 text-white outline-none focus:ring-2 focus:ring-white/30 uppercase max-w-[400px]",
+      value: tempGroupName,
+      onChange: function onChange(e) {
+        return setTempGroupName(e.target.value);
+      },
+      onKeyDown: function onKeyDown(e) {
+        if (e.key === "Enter") {
+          saveGroupName();
+        } else if (e.key === "Escape") {
+          setIsEditingGroupName(false);
+          setTempGroupName(selectedGroupFicha.name || "");
+        }
+      },
+      autoFocus: true
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: saveGroupName,
+      className: "p-1 hover:bg-white/10 rounded-lg text-emerald-400 hover:text-emerald-300 transition-colors",
+      title: "Guardar nombre"
+    }, /*#__PURE__*/React.createElement(IconCheck, {
+      size: 20,
+      strokeWidth: 3
+    })), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        setIsEditingGroupName(false);
+        setTempGroupName(selectedGroupFicha.name || "");
+      },
+      className: "p-1 hover:bg-white/10 rounded-lg text-rose-400 hover:text-rose-300 transition-colors",
+      title: "Cancelar"
+    }, /*#__PURE__*/React.createElement(IconX, {
+      size: 20,
+      strokeWidth: 3
+    }))) : /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 group/title"
     }, /*#__PURE__*/React.createElement("h3", {
-      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm")
-    }, selectedGroupFicha.name || "NOMBRE DEL GRUPO"), /*#__PURE__*/React.createElement("div", {
+      onClick: function onClick() {
+        setIsEditingGroupName(true);
+        setTempGroupName(selectedGroupFicha.name || "");
+      },
+      className: "text-2xl font-black tracking-tight leading-none ".concat(titleColor, " drop-shadow-sm cursor-pointer hover:opacity-80 transition-opacity"),
+      title: "Haz clic para editar el nombre del grupo"
+    }, selectedGroupFicha.name || "NOMBRE DEL GRUPO"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        setIsEditingGroupName(true);
+        setTempGroupName(selectedGroupFicha.name || "");
+      },
+      className: "opacity-0 group-hover/title:opacity-100 p-1 hover:bg-white/10 rounded-lg text-white/50 hover:text-white transition-all",
+      title: "Editar nombre"
+    }, /*#__PURE__*/React.createElement(IconEdit, {
+      size: 16
+    }))), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-1.5 h-fit"
     }, function (_selectedGroupFicha$r6, _selectedGroupFicha$r7, _selectedGroupFicha$r8) {
       // Prioridad: Com_Estado_Interno > Estado (el campo del Excel no debe sobrescribir el estado interno)
@@ -6582,9 +6694,9 @@ var App = function App() {
       },
       className: "px-6 h-11 text-[11px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all tracking-widest"
     }, "Cerrar Ficha"), /*#__PURE__*/React.createElement("button", {
-      onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-        return _regenerator().w(function (_context0) {
-          while (1) switch (_context0.n) {
+      onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+        return _regenerator().w(function (_context1) {
+          while (1) switch (_context1.n) {
             case 0:
               // La mayoría de los campos ya se autoguardan,
 
@@ -6593,9 +6705,9 @@ var App = function App() {
               alert("✅ Cambios registrados y sincronizados con éxito.");
               setShowFichaModal(false);
             case 1:
-              return _context0.a(2);
+              return _context1.a(2);
           }
-        }, _callee0);
+        }, _callee1);
       })),
       className: "px-10 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"
     }, /*#__PURE__*/React.createElement(IconSave, {
@@ -6780,10 +6892,10 @@ var App = function App() {
     className: "text-[7px] font-bold text-slate-400 uppercase"
   }, "Comisionable"))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 gap-2"
-  }, Object.entries(commissionModal.tempCom.desglose || {}).map(function (_ref21) {
-    var _ref22 = _slicedToArray(_ref21, 2),
-      key = _ref22[0],
-      data = _ref22[1];
+  }, Object.entries(commissionModal.tempCom.desglose || {}).map(function (_ref22) {
+    var _ref23 = _slicedToArray(_ref22, 2),
+      key = _ref23[0],
+      data = _ref23[1];
     return /*#__PURE__*/React.createElement("div", {
       key: key,
       className: "flex items-center gap-2 p-1.5 rounded-xl border transition-all ".concat(data.comisionable ? "bg-white border-blue-100 shadow-sm" : "bg-slate-50 border-slate-100 opacity-60")
@@ -7248,19 +7360,19 @@ var App = function App() {
     },
     className: "px-6 py-3 text-[11px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all tracking-[0.2em]"
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
-      return _regenerator().w(function (_context1) {
-        while (1) switch (_context1.n) {
+    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.n) {
           case 0:
-            _context1.n = 1;
+            _context10.n = 1;
             return updateGroupMetadata(selectedGroupFicha.id, tempClientData);
           case 1:
             setShowClientData(false);
             alert("✅ Datos de empresa actualizados correctamente.");
           case 2:
-            return _context1.a(2);
+            return _context10.a(2);
         }
-      }, _callee1);
+      }, _callee10);
     })),
     className: "px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-black uppercase rounded-2xl shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all tracking-[0.2em] flex items-center gap-3"
   }, /*#__PURE__*/React.createElement(IconSave, {
@@ -7532,11 +7644,11 @@ var ErrorBoundary = /*#__PURE__*/function (_React$Component) {
   }]);
 }(React.Component);
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(ErrorBoundary, null, /*#__PURE__*/React.createElement(App, null)));
-var DebouncedSearchInput = function DebouncedSearchInput(_ref24) {
-  var parentValue = _ref24.value,
-    onChange = _ref24.onChange,
-    placeholder = _ref24.placeholder,
-    className = _ref24.className;
+var DebouncedSearchInput = function DebouncedSearchInput(_ref25) {
+  var parentValue = _ref25.value,
+    onChange = _ref25.onChange,
+    placeholder = _ref25.placeholder,
+    className = _ref25.className;
   var _React$useState5 = React.useState(parentValue),
     _React$useState6 = _slicedToArray(_React$useState5, 2),
     value = _React$useState6[0],
