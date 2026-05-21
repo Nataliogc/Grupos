@@ -1635,7 +1635,6 @@ var App = function App() {
       var parsed = [];
       snapshot.forEach(function (doc) {
         var row = doc.data();
-        if (row.isIndependentProforma === true) return; // Skip independent proformas
         // Normalización de Segmentos
         var seg = (row["Segment."] || "").toString().trim().toUpperCase();
         if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") {

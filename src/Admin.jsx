@@ -1851,7 +1851,6 @@
           const parsed = [];
           snapshot.forEach((doc) => {
             const row = doc.data();
-            if (row.isIndependentProforma === true) return; // Skip independent proformas
             // Normalización de Segmentos
             let seg = (row["Segment."] || "").toString().trim().toUpperCase();
             if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") {

@@ -1779,7 +1779,6 @@ var App = function App() {
       var dedupedMap = new Map();
       snapshot.forEach(function (doc) {
         var d = doc.data();
-        if (d.isIndependentProforma === true) return; // Skip independent proformas
         var reserva = d.Reserva || doc.id;
         var normId = normalizeId(reserva);
         var row = _objectSpread(_objectSpread({}, d), {}, {
@@ -5463,12 +5462,13 @@ var App = function App() {
       return acc + (parseFloat((_i$comision4 = i.comision) === null || _i$comision4 === void 0 ? void 0 : _i$comision4.total_comision) || 0);
     }, 0);
     var firstRec = selectedGroupFicha.records[0] || {};
-    var netTotal = grandTotal - totalComision;
+    var baseTotal = grandTotal;
     if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
-      netTotal = parseFloat(firstRec.total) || 0;
+      baseTotal = parseFloat(firstRec.total) || 0;
     } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
-      netTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+      baseTotal = parseFloat(firstRec["Importe(*)"]) || 0;
     }
+    var netTotal = baseTotal - totalComision;
     var totalPaidFromPlan = 0;
     (selectedGroupFicha.records || []).forEach(function (r) {
       try {

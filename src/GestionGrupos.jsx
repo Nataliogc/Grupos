@@ -3094,7 +3094,6 @@
             const dedupedMap = new Map();
             snapshot.forEach((doc) => {
               const d = doc.data();
-              if (d.isIndependentProforma === true) return; // Skip independent proformas
               const reserva = d.Reserva || doc.id;
               const normId = normalizeId(reserva);
               const row = { ...d, _docId: doc.id, Reserva: reserva };
@@ -11009,12 +11008,13 @@
                     );
 
                     const firstRec = selectedGroupFicha.records[0] || {};
-                    let netTotal = grandTotal - totalComision;
+                    let baseTotal = grandTotal;
                     if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
-                      netTotal = parseFloat(firstRec.total) || 0;
+                      baseTotal = parseFloat(firstRec.total) || 0;
                     } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
-                      netTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+                      baseTotal = parseFloat(firstRec["Importe(*)"]) || 0;
                     }
+                    let netTotal = baseTotal - totalComision;
 
 
 
