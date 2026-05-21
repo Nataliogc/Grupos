@@ -11,10 +11,6 @@ function _isNativeReflectConstruct() { try { var t = !Boolean.prototype.valueOf.
 function _getPrototypeOf(t) { return _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf.bind() : function (t) { return t.__proto__ || Object.getPrototypeOf(t); }, _getPrototypeOf(t); }
 function _inherits(t, e) { if ("function" != typeof e && null !== e) throw new TypeError("Super expression must either be null or a function"); t.prototype = Object.create(e && e.prototype, { constructor: { value: t, writable: !0, configurable: !0 } }), Object.defineProperty(t, "prototype", { writable: !1 }), e && _setPrototypeOf(t, e); }
 function _setPrototypeOf(t, e) { return _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function (t, e) { return t.__proto__ = e, t; }, _setPrototypeOf(t, e); }
-function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
-function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
-function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
@@ -22,12 +18,16 @@ function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present,
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -491,6 +491,80 @@ var App = function App() {
       }
     }
     return str;
+  };
+  var reconcileReactPaymentPlan = function reconcileReactPaymentPlan(paymentPlan, netTotal, arrivalDate) {
+    if (!paymentPlan || paymentPlan.length === 0) return paymentPlan || [];
+    var planCopy = paymentPlan.map(function (p) {
+      return _objectSpread({}, p);
+    });
+
+    // 1. Recalculate percent/amount for each row
+    planCopy.forEach(function (p) {
+      if (p.status === "Cobrado") {
+        var amount = parseFloat(p.amount) || 0;
+        p.percent = netTotal > 0 ? parseFloat((amount / netTotal * 100).toFixed(2)) : 0;
+        p.amount = amount.toFixed(2);
+      } else {
+        var percent = parseFloat(p.percent) || 0;
+        p.amount = (netTotal * percent / 100).toFixed(2);
+        p.percent = parseFloat(percent.toFixed(2));
+      }
+    });
+
+    // 2. Adjust for any rounding difference in the last pending row (or last row)
+    var sumOfAmounts = planCopy.reduce(function (acc, p) {
+      return acc + (parseFloat(p.amount) || 0);
+    }, 0);
+    var diff = netTotal - sumOfAmounts;
+    if (Math.abs(diff) > 0.001) {
+      var targetRow = _toConsumableArray(planCopy).reverse().find(function (p) {
+        return p.status !== "Cobrado";
+      });
+      if (targetRow) {
+        var currentAmt = parseFloat(targetRow.amount) || 0;
+        targetRow.amount = (currentAmt + diff).toFixed(2);
+        targetRow.percent = netTotal > 0 ? parseFloat(((parseFloat(targetRow.amount) || 0) / netTotal * 100).toFixed(2)) : 0;
+      } else if (diff > 0.01) {
+        // No pending rows to absorb the positive remainder, add a new pending row
+        var dateStr = new Date().toISOString().split('T')[0];
+        if (arrivalDate) {
+          try {
+            var d;
+            var numDate = parseFloat(arrivalDate);
+            if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
+              d = new Date(Math.round((numDate - 25569) * 86400 * 1000));
+            } else {
+              d = new Date(toInputDate(arrivalDate));
+            }
+            if (d && !isNaN(d.getTime())) {
+              d.setDate(d.getDate() - 30);
+              dateStr = d.toISOString().split('T')[0];
+            }
+          } catch (e) {}
+        }
+        planCopy.push({
+          id: Date.now() + Math.random(),
+          label: "Pago ".concat(planCopy.length + 1),
+          percent: parseFloat((diff / netTotal * 100).toFixed(2)),
+          amount: diff.toFixed(2),
+          date: dateStr,
+          status: "Pendiente",
+          releaseDays: 30,
+          Enlace_TPV: ""
+        });
+      }
+    }
+
+    // 3. Clean up tiny leftover pending rows if difference is zero or negative
+    if (diff <= 0.01) {
+      for (var i = planCopy.length - 1; i >= 0; i--) {
+        var p = planCopy[i];
+        if (p.status !== "Cobrado" && (parseFloat(p.amount) || 0) <= 0.01) {
+          planCopy.splice(i, 1);
+        }
+      }
+    }
+    return planCopy;
   };
   var formatDate = function formatDate(val) {
     if (!val) return "-";
@@ -1705,6 +1779,7 @@ var App = function App() {
       var dedupedMap = new Map();
       snapshot.forEach(function (doc) {
         var d = doc.data();
+        if (d.isIndependentProforma === true) return; // Skip independent proformas
         var reserva = d.Reserva || doc.id;
         var normId = normalizeId(reserva);
         var row = _objectSpread(_objectSpread({}, d), {}, {
@@ -3586,7 +3661,7 @@ var App = function App() {
         return p;
       });
     }
-    updateGroupMetadata(resId, "PaymentPlan_JSON", JSON.stringify(plan), hotelFilter);
+    updateGroupMetadata(resId, "PaymentPlan_JSON", JSON.stringify(updatedPlan), hotelFilter);
   };
   var addNewRow = function addNewRow() {
     var emptyRow = {};
@@ -5387,7 +5462,13 @@ var App = function App() {
       var _i$comision4;
       return acc + (parseFloat((_i$comision4 = i.comision) === null || _i$comision4 === void 0 ? void 0 : _i$comision4.total_comision) || 0);
     }, 0);
+    var firstRec = selectedGroupFicha.records[0] || {};
     var netTotal = grandTotal - totalComision;
+    if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
+      netTotal = parseFloat(firstRec.total) || 0;
+    } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
+      netTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+    }
     var totalPaidFromPlan = 0;
     (selectedGroupFicha.records || []).forEach(function (r) {
       try {
@@ -5574,7 +5655,7 @@ var App = function App() {
       maximumFractionDigits: 2
     }), "\u20AC"), netTotal > 0 && /*#__PURE__*/React.createElement("span", {
       className: "text-[8px] font-bold opacity-40 leading-none"
-    }, "(", Math.round(totalPaid / netTotal * 100), "%)")), /*#__PURE__*/React.createElement("div", {
+    }, "(", totalPaid >= netTotal - 0.01 ? 100 : Math.min(99, Math.round(totalPaid / netTotal * 100)), "%)")), /*#__PURE__*/React.createElement("div", {
       className: "w-px h-8 bg-white/10"
     }), function () {
       var overpaidAmount = Math.max(0, totalPaid - netTotal);
@@ -6240,12 +6321,14 @@ var App = function App() {
         var hotelRecord = selectedGroupFicha.records.find(function (r) {
           return (r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName;
         }) || selectedGroupFicha.records[0];
+        var arrivalDate = hotelRecord["Entrada"];
         var plan = [];
         try {
           plan = JSON.parse(hotelRecord.PaymentPlan_JSON || "[]");
         } catch (e) {
           plan = [];
         }
+        plan = reconcileReactPaymentPlan(plan, hotelTotal, arrivalDate);
         if (plan && plan.length > 1) {
           plan = plan.map(function (p, idx) {
             if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
@@ -6268,7 +6351,6 @@ var App = function App() {
         var totalPercent = plan.reduce(function (acc, p) {
           return acc + (parseFloat(p.percent) || 0);
         }, 0);
-        var arrivalDate = hotelRecord["Entrada"];
         var handlePlanChange = function handlePlanChange(idx, field, val) {
           var newPlan = _toConsumableArray(plan);
           var updatedVal = val;
@@ -6315,7 +6397,8 @@ var App = function App() {
               newPlan[idx].releaseDays = diffDays;
             }
           }
-          updatePaymentPlan(selectedGroupFicha.id, hotelName, newPlan);
+          var reconciled = reconcileReactPaymentPlan(newPlan, hotelTotal, arrivalDate);
+          updatePaymentPlan(selectedGroupFicha.id, hotelName, reconciled);
         };
         var addPlanRow = function addPlanRow() {
           var remaining = Math.max(0, 100 - totalPercent);
@@ -6340,12 +6423,15 @@ var App = function App() {
             status: "Pendiente",
             Enlace_TPV: ""
           };
-          updatePaymentPlan(selectedGroupFicha.id, hotelName, [].concat(_toConsumableArray(plan), [newRow]));
+          var reconciled = reconcileReactPaymentPlan([].concat(_toConsumableArray(plan), [newRow]), hotelTotal, arrivalDate);
+          updatePaymentPlan(selectedGroupFicha.id, hotelName, reconciled);
         };
         var removePlanRow = function removePlanRow(idx) {
-          updatePaymentPlan(selectedGroupFicha.id, hotelName, plan.filter(function (_, i) {
+          var filtered = plan.filter(function (_, i) {
             return i !== idx;
-          }));
+          });
+          var reconciled = reconcileReactPaymentPlan(filtered, hotelTotal, arrivalDate);
+          updatePaymentPlan(selectedGroupFicha.id, hotelName, reconciled);
         };
         return /*#__PURE__*/React.createElement("div", {
           key: hotelName,

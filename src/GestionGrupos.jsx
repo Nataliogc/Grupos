@@ -770,6 +770,76 @@
 
       };
 
+      const reconcileReactPaymentPlan = (paymentPlan, netTotal, arrivalDate) => {
+        if (!paymentPlan || paymentPlan.length === 0) return paymentPlan || [];
+        const planCopy = paymentPlan.map(p => ({ ...p }));
+
+        // 1. Recalculate percent/amount for each row
+        planCopy.forEach((p) => {
+          if (p.status === "Cobrado") {
+            const amount = parseFloat(p.amount) || 0;
+            p.percent = netTotal > 0 ? parseFloat(((amount / netTotal) * 100).toFixed(2)) : 0;
+            p.amount = amount.toFixed(2);
+          } else {
+            const percent = parseFloat(p.percent) || 0;
+            p.amount = ((netTotal * percent) / 100).toFixed(2);
+            p.percent = parseFloat(percent.toFixed(2));
+          }
+        });
+
+        // 2. Adjust for any rounding difference in the last pending row (or last row)
+        let sumOfAmounts = planCopy.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+        let diff = netTotal - sumOfAmounts;
+        if (Math.abs(diff) > 0.001) {
+          let targetRow = [...planCopy].reverse().find(p => p.status !== "Cobrado");
+          if (targetRow) {
+            const currentAmt = parseFloat(targetRow.amount) || 0;
+            targetRow.amount = (currentAmt + diff).toFixed(2);
+            targetRow.percent = netTotal > 0 ? parseFloat(((parseFloat(targetRow.amount) || 0) / netTotal * 100).toFixed(2)) : 0;
+          } else if (diff > 0.01) {
+            // No pending rows to absorb the positive remainder, add a new pending row
+            let dateStr = new Date().toISOString().split('T')[0];
+            if (arrivalDate) {
+              try {
+                let d;
+                const numDate = parseFloat(arrivalDate);
+                if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
+                  d = new Date(Math.round((numDate - 25569) * 86400 * 1000));
+                } else {
+                  d = new Date(toInputDate(arrivalDate));
+                }
+                if (d && !isNaN(d.getTime())) {
+                  d.setDate(d.getDate() - 30);
+                  dateStr = d.toISOString().split('T')[0];
+                }
+              } catch(e){}
+            }
+            planCopy.push({
+              id: Date.now() + Math.random(),
+              label: `Pago ${planCopy.length + 1}`,
+              percent: parseFloat(((diff / netTotal) * 100).toFixed(2)),
+              amount: diff.toFixed(2),
+              date: dateStr,
+              status: "Pendiente",
+              releaseDays: 30,
+              Enlace_TPV: ""
+            });
+          }
+        }
+
+        // 3. Clean up tiny leftover pending rows if difference is zero or negative
+        if (diff <= 0.01) {
+          for (let i = planCopy.length - 1; i >= 0; i--) {
+            const p = planCopy[i];
+            if (p.status !== "Cobrado" && (parseFloat(p.amount) || 0) <= 0.01) {
+              planCopy.splice(i, 1);
+            }
+          }
+        }
+
+        return planCopy;
+      };
+
 
 
       const formatDate = (val) => {
@@ -3024,6 +3094,7 @@
             const dedupedMap = new Map();
             snapshot.forEach((doc) => {
               const d = doc.data();
+              if (d.isIndependentProforma === true) return; // Skip independent proformas
               const reserva = d.Reserva || doc.id;
               const normId = normalizeId(reserva);
               const row = { ...d, _docId: doc.id, Reserva: reserva };
@@ -6440,7 +6511,7 @@
 
           "PaymentPlan_JSON",
 
-          JSON.stringify(plan),
+          JSON.stringify(updatedPlan),
 
           hotelFilter,
 
@@ -10928,22 +10999,22 @@
                     });
 
                     const grandTotal = roomList.reduce(
-
                       (acc, i) => acc + (parseFloat(i.total) || 0),
-
                       0,
-
                     );
 
                     const totalComision = roomList.reduce(
-
                       (acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0),
-
                       0,
-
                     );
 
-                    const netTotal = grandTotal - totalComision;
+                    const firstRec = selectedGroupFicha.records[0] || {};
+                    let netTotal = grandTotal - totalComision;
+                    if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
+                      netTotal = parseFloat(firstRec.total) || 0;
+                    } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
+                      netTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+                    }
 
 
 
@@ -11454,11 +11525,10 @@
 
                                     (
 
-                                    {Math.round(
-
-                                      (totalPaid / netTotal) * 100,
-
-                                    )}
+                                    {totalPaid >= netTotal - 0.01
+                                      ? 100
+                                      : Math.min(99, Math.round((totalPaid / netTotal) * 100))
+                                    }
 
                                     %)
 
@@ -13609,7 +13679,9 @@
 
                                         ) || selectedGroupFicha.records[0];
 
+                                      const arrivalDate =
 
+                                        hotelRecord["Entrada"];
 
                                       let plan = [];
                                       try {
@@ -13620,6 +13692,7 @@
                                       } catch (e) {
                                         plan = [];
                                       }
+                                      plan = reconcileReactPaymentPlan(plan, hotelTotal, arrivalDate);
                                       if (plan && plan.length > 1) {
                                         plan = plan.map((p, idx) => {
                                           if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
@@ -13647,10 +13720,6 @@
                                         0,
 
                                       );
-
-                                      const arrivalDate =
-
-                                        hotelRecord["Entrada"];
 
 
 
@@ -13836,13 +13905,15 @@
 
 
 
+                                        const reconciled = reconcileReactPaymentPlan(newPlan, hotelTotal, arrivalDate);
+
                                         updatePaymentPlan(
 
                                           selectedGroupFicha.id,
 
                                           hotelName,
 
-                                          newPlan,
+                                          reconciled,
 
                                         );
 
@@ -13907,8 +13978,11 @@
                                           id: Date.now(),
 
                                           label:
+
                                             remaining === 100
+
                                               ? "Pago Único"
+
                                               : (plan.length === 0 ? "Primer Pago" : "Pago Final"),
 
                                           percent: remaining,
@@ -13931,13 +14005,15 @@
 
                                         };
 
+                                        const reconciled = reconcileReactPaymentPlan([...plan, newRow], hotelTotal, arrivalDate);
+
                                         updatePaymentPlan(
 
                                           selectedGroupFicha.id,
 
                                           hotelName,
 
-                                          [...plan, newRow],
+                                          reconciled,
 
                                         );
 
@@ -13947,13 +14023,17 @@
 
                                       const removePlanRow = (idx) => {
 
+                                        const filtered = plan.filter((_, i) => i !== idx);
+
+                                        const reconciled = reconcileReactPaymentPlan(filtered, hotelTotal, arrivalDate);
+
                                         updatePaymentPlan(
 
                                           selectedGroupFicha.id,
 
                                           hotelName,
 
-                                          plan.filter((_, i) => i !== idx),
+                                          reconciled,
 
                                         );
 

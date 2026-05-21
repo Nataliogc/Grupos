@@ -415,6 +415,13 @@
                 <span id="bank-btn-text">Banco: ON</span>
             </button>
 
+            <!-- Alternar Registro Proforma -->
+            <button id="toggle-independent-btn" onclick="toggleIndependentMode()"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <span id="independent-btn-text">Enviar a Registro: OFF</span>
+            </button>
+
             <!-- Separador -->
             <div class="flex-1"></div>
 
@@ -1068,6 +1075,7 @@
             if (!id) return;
 
             try {
+                reconcilePaymentPlan(); // Ensure payments are fully reconciled before saving
                 const normId = String(id).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
                 const isIndep = isIndependentProforma();
                 
@@ -1116,6 +1124,7 @@
                     "PaymentPlan_JSON": JSON.stringify(paymentPlan), // Save the payment plan/advances
                     "updatedAt": firebase.firestore.FieldValue.serverTimestamp(),
                     "total": total || 0,
+                    "Importe(*)": total || 0, // Keep in sync with the rest of the application
                     "solicitante_org": customFields["solicitante-org"] || "",
                     "programa": customFields["programa"] || "",
                     "Reserva": editedReserva,
@@ -1124,6 +1133,8 @@
 
                 if (isIndep) {
                     payload.isIndependentProforma = true;
+                } else {
+                    payload.isIndependentProforma = false;
                 }
 
                 const targetDocId = isIndep ? normalizedReservaId : normId;
@@ -1137,6 +1148,7 @@
                 group.ProformaCustomFields = customFields;
                 group.Reserva = editedReserva;
                 group.id = targetDocId;
+                group.isIndependentProforma = isIndep;
                 localStorage.setItem('selectedGroup', JSON.stringify(group));
                 
                 if (!silent) {
@@ -1584,6 +1596,7 @@
                     ];
                 }
             } catch (e) { console.error(e); }
+            updateIndependentToggleUI();
         }
 
         function addItem() {
@@ -1599,43 +1612,69 @@
             return !!groupData.isIndependentProforma || rawRef.includes('prof-');
         }
 
-        function reconcileIndependentPaymentPlan() {
-            if (!isIndependentProforma()) return;
+        function reconcilePaymentPlan() {
             const netTotal = Math.max(0, getCurrentNetTotal());
-            let remaining = netTotal;
-            const today = new Date().toISOString().split('T')[0];
+            if (paymentPlan.length === 0) return;
 
-            paymentPlan.forEach((p, idx) => {
-                const amount = Math.max(0, parseFloat(p.amount) || 0);
-                const base = remaining;
-                p.percent = base > 0 ? ((amount / base) * 100).toFixed(2) : 0;
-                p.amount = amount.toFixed(2);
-                if (!p.label || !String(p.label).trim()) p.label = idx === 0 ? "Depósito" : `Pago ${idx + 1}`;
-                if (!p.date) p.date = today;
-                if (!p.status) p.status = "Pendiente";
-                remaining = Math.max(0, remaining - amount);
+            // 1. Recalculate percent/amount for each row
+            paymentPlan.forEach((p) => {
+                if (p.status === "Cobrado") {
+                    const amount = parseFloat(p.amount) || 0;
+                    p.percent = netTotal > 0 ? ((amount / netTotal) * 100).toFixed(2) : "0.00";
+                    p.amount = amount.toFixed(2);
+                } else {
+                    const percent = parseFloat(p.percent) || 0;
+                    p.amount = ((netTotal * percent) / 100).toFixed(2);
+                    p.percent = percent.toFixed(2);
+                }
             });
 
-            // Si queda pendiente, dejamos siempre una línea adicional para el restante.
-            if (remaining > 0.01) {
-                const last = paymentPlan[paymentPlan.length - 1];
-                const canReuseLast =
-                    last &&
-                    String(last.status || "").toLowerCase() !== "cobrado" &&
-                    ((parseFloat(last.amount) || 0) <= 0.01);
-
-                if (canReuseLast) {
-                    last.amount = remaining.toFixed(2);
-                    last.percent = 100;
-                    if (!last.label || !String(last.label).trim()) last.label = paymentPlan.length === 1 ? "Depósito" : `Pago ${paymentPlan.length}`;
-                } else {
+            // 2. Adjust for any rounding difference in the last pending row (or last row)
+            let sumOfAmounts = paymentPlan.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+            let diff = netTotal - sumOfAmounts;
+            if (Math.abs(diff) > 0.001) {
+                let targetRow = [...paymentPlan].reverse().find(p => p.status !== "Cobrado");
+                if (targetRow) {
+                    const currentAmt = parseFloat(targetRow.amount) || 0;
+                    targetRow.amount = (currentAmt + diff).toFixed(2);
+                    targetRow.percent = netTotal > 0 ? ((parseFloat(targetRow.amount) || 0) / netTotal * 100).toFixed(2) : "0.00";
+                } else if (diff > 0.01) {
+                    // No pending rows to absorb the positive remainder, add a new pending row
+                    const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                    let dateStr = new Date().toISOString().split('T')[0];
+                    const arrivalDate = groupData.Entrada;
+                    if (arrivalDate) {
+                        try {
+                            let d;
+                            const numDate = parseFloat(arrivalDate);
+                            if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
+                                d = new Date(Math.round((numDate - 25569) * 86400 * 1000));
+                            } else {
+                                d = new Date(toInputDate(arrivalDate));
+                            }
+                            if (d && !isNaN(d.getTime())) {
+                                d.setDate(d.getDate() - 30);
+                                dateStr = d.toISOString().split('T')[0];
+                            }
+                        } catch(e){}
+                    }
                     paymentPlan.push({
-                        label: paymentPlan.length === 0 ? "Depósito" : `Pago ${paymentPlan.length + 1}`,
-                        percent: 100,
-                        amount: remaining.toFixed(2),
-                        date: today,
+                        label: `Pago ${paymentPlan.length + 1}`,
+                        percent: ((diff / netTotal) * 100).toFixed(2),
+                        amount: diff.toFixed(2),
+                        date: dateStr,
                         status: "Pendiente"
                     });
+                }
+            }
+
+            // 3. Clean up tiny leftover pending rows if difference is zero or negative
+            if (diff <= 0.01) {
+                for (let i = paymentPlan.length - 1; i >= 0; i--) {
+                    const p = paymentPlan[i];
+                    if (p.status !== "Cobrado" && (parseFloat(p.amount) || 0) <= 0.01) {
+                        paymentPlan.splice(i, 1);
+                    }
                 }
             }
         }
@@ -1643,25 +1682,38 @@
         function addPayment() {
             const today = new Date().toISOString().split('T')[0];
             paymentPlan.push({ label: `Pago ${paymentPlan.length + 1}`, percent: 0, amount: 0, date: today, status: "Pendiente" });
-            reconcileIndependentPaymentPlan();
+            reconcilePaymentPlan();
             renderItems();
         }
+
         function updatePayment(index, field, value) {
             if (!paymentPlan[index]) return;
-            paymentPlan[index][field] = value;
 
-            if (isIndependentProforma() && field === 'percent') {
-                const netTotal = getCurrentNetTotal();
-                const paidBefore = paymentPlan.slice(0, index).reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
-                const baseRemaining = Math.max(0, netTotal - paidBefore);
+            if (field === 'percent') {
                 const percent = parseFloat(value) || 0;
                 paymentPlan[index].percent = percent.toFixed(2);
-                paymentPlan[index].amount = baseRemaining > 0 ? ((baseRemaining * percent) / 100).toFixed(2) : 0;
+                const netTotal = getCurrentNetTotal();
+                paymentPlan[index].amount = ((netTotal * percent) / 100).toFixed(2);
+            } else if (field === 'amount') {
+                const amount = parseFloat(value) || 0;
+                paymentPlan[index].amount = amount.toFixed(2);
+                const netTotal = getCurrentNetTotal();
+                paymentPlan[index].percent = netTotal > 0 ? ((amount / netTotal) * 100).toFixed(2) : "0.00";
+            } else {
+                paymentPlan[index][field] = value;
             }
-            if (isIndependentProforma()) reconcileIndependentPaymentPlan();
+
+            reconcilePaymentPlan();
             renderItems();
         }
-        function removePayment(index) { if (confirm("¿Eliminar este pago/anticipo?")) { paymentPlan.splice(index, 1); renderItems(); } }
+
+        function removePayment(index) {
+            if (confirm("¿Eliminar este pago/anticipo?")) {
+                paymentPlan.splice(index, 1);
+                reconcilePaymentPlan();
+                renderItems();
+            }
+        }
 
         function getCurrentNetTotal() {
             const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
@@ -1830,23 +1882,12 @@
             }
 
             if (currentTemplate === 'confirmacion') {
+                reconcilePaymentPlan(); // Ensure payments are fully reconciled before rendering
                 const totalNetoPagar = (total - totalComision) + parseFloat(groupData.Suplementos || 0) - parseFloat(groupData.Descuentos || 0);
                 const totalPaid = paymentPlan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
                 const totalPending = totalNetoPagar - totalPaid;
                 const rawRef = String(groupData.Reserva || groupData.id || "").toLowerCase();
                 const isIndependent = !!groupData.isIndependentProforma || rawRef.includes('prof-');
-
-                if (!isIndependent && paymentPlan.length > 0) {
-                    const pendingRows = paymentPlan.filter(p => p.status !== "Cobrado");
-                    const totalToDistribute = totalNetoPagar - totalPaid;
-                    if (pendingRows.length > 0) {
-                        const totalPendingPercent = pendingRows.reduce((acc, p) => acc + (parseFloat(p.percent) || 0), 0) || 100;
-                        pendingRows.forEach(p => {
-                            if (pendingRows.length === 1) p.amount = totalToDistribute.toFixed(2);
-                            else p.amount = (totalToDistribute * ((parseFloat(p.percent) || 0) / totalPendingPercent)).toFixed(2);
-                        });
-                    }
-                }
                 footer.innerHTML = `
                     <div class="mt-4 font-pro" style="page-break-inside: avoid; break-inside: avoid;">
                         <div class="flex items-center gap-4 mb-4">
@@ -2098,6 +2139,62 @@
             const current = sessionStorage.getItem('proforma_bank_hidden');
             sessionStorage.setItem('proforma_bank_hidden', current === '1' ? '0' : '1');
             renderItems();
+        }
+
+        function toggleIndependentMode() {
+            const saved = localStorage.getItem('selectedGroup');
+            if (!saved) return;
+            try {
+                const group = JSON.parse(saved);
+                group.isIndependentProforma = !group.isIndependentProforma;
+                localStorage.setItem('selectedGroup', JSON.stringify(group));
+                updateIndependentToggleUI();
+            } catch (e) {
+                console.error("Error toggling independent mode:", e);
+            }
+        }
+
+        function updateIndependentToggleUI() {
+            const btn = document.getElementById('toggle-independent-btn');
+            const btnText = document.getElementById('independent-btn-text');
+            if (!btn || !btnText) return;
+
+            const isIndep = isIndependentProforma();
+            if (isIndep) {
+                btnText.innerText = 'Enviar a Registro: ON';
+                btn.className = 'flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg text-[10px] font-black uppercase tracking-wider transition-all';
+                
+                // Enable editing for reserva-id
+                const rid2 = document.getElementById('reserva-id-2');
+                if (rid2) {
+                    rid2.contentEditable = "true";
+                    rid2.classList.add('editable');
+                    rid2.removeAttribute('title');
+                }
+                const ridU = document.getElementById('reserva-id-universal');
+                if (ridU) {
+                    ridU.contentEditable = "true";
+                    ridU.classList.add('editable');
+                    ridU.removeAttribute('title');
+                }
+            } else {
+                btnText.innerText = 'Enviar a Registro: OFF';
+                btn.className = 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all';
+                
+                // Disable editing for reserva-id
+                const rid2 = document.getElementById('reserva-id-2');
+                if (rid2) {
+                    rid2.contentEditable = "false";
+                    rid2.classList.remove('editable');
+                    rid2.title = "No se puede editar el número de reserva de un grupo enlazado.";
+                }
+                const ridU = document.getElementById('reserva-id-universal');
+                if (ridU) {
+                    ridU.contentEditable = "false";
+                    ridU.classList.remove('editable');
+                    ridU.title = "No se puede editar el número de reserva de un grupo enlazado.";
+                }
+            }
         }
 
         function cleanWeirdChars(s) {
