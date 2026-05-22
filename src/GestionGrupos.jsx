@@ -15854,31 +15854,8 @@
 
                         }
 
-                        com.comision_unitaria = parseFloat(
-
-                          (
-
-                            (com.base_unitaria * com.porcentaje) /
-
-                            100
-
-                          ).toFixed(2),
-
-                        );
-
-                        com.total_comision = parseFloat(
-
-                          (
-
-                            ((com.base_unitaria * com.porcentaje) / 100) *
-
-                            item.qty *
-
-                            item.nights
-
-                          ).toFixed(2),
-
-                        );
+                        com.comision_unitaria = Math.round((((com.base_unitaria * com.porcentaje) / 100) + Number.EPSILON) * 100) / 100;
+                        com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + Number.EPSILON) * 100) / 100;
 
 
 

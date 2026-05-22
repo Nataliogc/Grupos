@@ -2259,7 +2259,7 @@
                   onClick={() =>
                   (window.location.href =
                     activeTab === "invoices"
-                      ? "Fac Prof.html"
+                      ? "Proformas.html"
                       : "Gestion-de-Grupos.html")
                   }
                   className="bg-slate-900 px-8 py-4 rounded-2xl text-white font-bold hover:bg-slate-800 transition-all shadow-xl"

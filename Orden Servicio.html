@@ -193,7 +193,8 @@
         function goBackToReserva() {
             // Guardamos la referencia para que Gestion de Grupos sepa qué ficha abrir
             localStorage.setItem('nexus_return_reserva', currentReservaId);
-            window.location.href = 'Gestion-de-Grupos.html';
+            localStorage.setItem('nexus_open_ficha', currentReservaId);
+            window.location.href = 'Gestion-de-Grupos.html?reserva=' + encodeURIComponent(currentReservaId);
         }
         let saveTimeout = null;
         // Auto Save Trigger

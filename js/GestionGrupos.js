@@ -7113,8 +7113,8 @@ var App = function App() {
           return acc + (c.comisionable ? c.valor : 0);
         }, 0);
       }
-      com.comision_unitaria = parseFloat((com.base_unitaria * com.porcentaje / 100).toFixed(2));
-      com.total_comision = parseFloat((com.base_unitaria * com.porcentaje / 100 * item.qty * item.nights).toFixed(2));
+      com.comision_unitaria = Math.round((com.base_unitaria * com.porcentaje / 100 + Number.EPSILON) * 100) / 100;
+      com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + Number.EPSILON) * 100) / 100;
       var newRL = JSON.parse(((_selectedGroupFicha$r54 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r54 === void 0 ? void 0 : _selectedGroupFicha$r54["RoomingList_JSON"]) || "[]");
       newRL[commissionModal.itemIdx].comision = com;
       updateGroupMetadata(selectedGroupFicha.id, "RoomingList_JSON", JSON.stringify(newRL));

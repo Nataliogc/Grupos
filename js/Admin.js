@@ -1927,7 +1927,7 @@ var App = function App() {
     className: "text-slate-500 mb-8 max-w-sm"
   }, "Esta secci\xF3n utiliza las herramientas din\xE1micas del gestor. Redirigiendo..."), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
-      return window.location.href = activeTab === "invoices" ? "Fac Prof.html" : "Gestion-de-Grupos.html";
+      return window.location.href = activeTab === "invoices" ? "Proformas.html" : "Gestion-de-Grupos.html";
     },
     className: "bg-slate-900 px-8 py-4 rounded-2xl text-white font-bold hover:bg-slate-800 transition-all shadow-xl"
   }, "Abrir", " ", activeTab === "invoices" ? "Módulo de Facturación" : "Gestor de Grupos"))), isAiModalOpen && /*#__PURE__*/React.createElement("div", {

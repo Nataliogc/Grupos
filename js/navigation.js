@@ -15,12 +15,29 @@
         if (document.getElementById("nexus-global-header")) return;
 
         // Determinar página actual para configurar comportamiento del botón atrás
-        var path = window.location.pathname;
-        var currentPage = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+        var currentPage = "";
+        try {
+            var path = window.location.pathname;
+            currentPage = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1));
+        } catch (e) {
+            var path = window.location.pathname;
+            currentPage = path.substring(path.lastIndexOf('/') + 1);
+        }
+        currentPage = currentPage.split('?')[0].split('#')[0];
+        if (!currentPage) {
+            currentPage = "index.html";
+        }
+
+        // No inyectar la cabecera global en plantillas de impresión/generación
+        if (currentPage === "Fac Prof.html" || currentPage === "Orden Servicio.html") {
+            return;
+        }
 
         var backUrl = "Admin.html";
+        var showBackBtn = true;
         if (currentPage === "Admin.html" || currentPage === "index.html" || currentPage === "") {
             backUrl = "index.html";
+            showBackBtn = false;
         }
 
         // 1. Inyectar estilos CSS para el margen superior del body y ajustes de sidebars
@@ -73,13 +90,22 @@
         header.id = "nexus-global-header";
         header.className = "bg-white/85 backdrop-blur-md border-b border-slate-200/80 py-3 shadow-sm fixed top-0 left-0 right-0 z-[9999] no-print";
         
+        // Si el body ya tiene la clase nexus-ficha-open, ocultarla inmediatamente
+        if (document.body.classList.contains("nexus-ficha-open")) {
+            header.style.display = "none";
+        }
+
+        var backBtnHtml = showBackBtn ? `
+                    <a href="${backUrl}" class="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 border border-slate-200/60 bg-white shadow-sm flex items-center justify-center" title="Volver">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </a>
+        ` : '';
+
         header.innerHTML = `
             <div class="container mx-auto px-4 flex items-center justify-between gap-4">
                 <!-- Izquierda: Botón volver, Logo y Título -->
                 <div class="flex items-center gap-4 flex-1">
-                    <a href="${backUrl}" class="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 border border-slate-200/60 bg-white shadow-sm flex items-center justify-center" title="Volver">
-                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
-                    </a>
+                    ${backBtnHtml}
                     <div class="flex items-center gap-3">
                         <div class="bg-slate-50 rounded-xl p-1.5 shadow-inner border border-slate-100 flex items-center justify-center">
                             <img src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png" class="h-8 w-auto object-contain" alt="Nexus Logo" />
@@ -172,6 +198,22 @@
         // Insertar al inicio de body
         document.body.prepend(header);
 
+        // MutationObserver para reaccionar a cambios en body.nexus-ficha-open
+        if (window.MutationObserver) {
+            var observer = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    if (mutation.attributeName === "class") {
+                        if (document.body.classList.contains("nexus-ficha-open")) {
+                            header.style.display = "none";
+                        } else {
+                            header.style.display = "";
+                        }
+                    }
+                });
+            });
+            observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+        }
+
         // 3. Cargar dinámicamente Lucide si no existe
         if (!window.lucide) {
             var script = document.createElement("script");
@@ -243,8 +285,18 @@
 
     // Marcar el enlace activo según la página actual
     function highlightActivePage() {
-        var path = window.location.pathname;
-        var currentPage = path.substring(path.lastIndexOf('/') + 1).toLowerCase() || 'admin.html';
+        var currentPage = "";
+        try {
+            var path = window.location.pathname;
+            currentPage = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1)).toLowerCase();
+        } catch (e) {
+            var path = window.location.pathname;
+            currentPage = path.substring(path.lastIndexOf('/') + 1).toLowerCase();
+        }
+        currentPage = currentPage.split('?')[0].split('#')[0];
+        if (!currentPage) {
+            currentPage = "admin.html";
+        }
         var header = document.getElementById("nexus-global-header");
         if (!header) return;
         var links = header.querySelectorAll("a[href]");

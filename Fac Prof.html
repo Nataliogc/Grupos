@@ -1173,7 +1173,6 @@
         async function saveAndExit() {
             await saveProforma(true);
             const saved = localStorage.getItem('selectedGroup');
-            let isIndependent = false;
             let reservaId = "";
             let targetFile = "Gestion-de-Grupos.html";
 
@@ -1181,22 +1180,21 @@
                 try {
                     const group = JSON.parse(saved);
                     reservaId = group.Reserva || group["Reserva"] || group.id || "";
-                    isIndependent = group.isIndependentProforma;
                 } catch (e) { }
             }
 
-            if (isIndependent) {
+            const hasRealReservation = reservaId && !reservaId.startsWith("prof-");
+
+            if (!hasRealReservation) {
                 window.location.href = "Proformas.html";
                 return;
             }
 
-            if (reservaId) {
-                // Guardar en localStorage para que GestionGrupos lo detecte y abra la ficha
-                localStorage.setItem('nexus_return_reserva', reservaId);
-                localStorage.setItem('nexus_open_ficha', reservaId);
-            }
+            // Guardar en localStorage para que GestionGrupos lo detecte y abra la ficha
+            localStorage.setItem('nexus_return_reserva', reservaId);
+            localStorage.setItem('nexus_open_ficha', reservaId);
 
-            const url = targetFile + (reservaId ? '?reserva=' + encodeURIComponent(reservaId) : '');
+            const url = targetFile + '?reserva=' + encodeURIComponent(reservaId);
             window.location.href = url;
         }
 
@@ -1740,9 +1738,11 @@
                 const base_unitaria = (item.comision && item.comision.base_unitaria !== undefined) ? parseFloat(item.comision.base_unitaria) : (parseFloat(item.precio) || 0);
                 
                 if (item.comision && item.comision.modo === 'manual' && parseFloat(item.comision.comision_unitaria) > 0) {
-                    com = parseFloat(item.comision.comision_unitaria) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
+                    const comUnitario = Math.round((parseFloat(item.comision.comision_unitaria) + Number.EPSILON) * 100) / 100;
+                    com = comUnitario * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                 } else {
-                    com = parseFloat((((base_unitaria * percent) / 100) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1)).toFixed(2));
+                    const comUnitario = Math.round((((base_unitaria * percent) / 100) + Number.EPSILON) * 100) / 100;
+                    com = comUnitario * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                 }
                 return acc + com;
             }, 0);
@@ -1850,9 +1850,11 @@
                 const base_unitaria = (item.comision && item.comision.base_unitaria !== undefined) ? parseFloat(item.comision.base_unitaria) : (parseFloat(item.precio) || 0);
                 
                 if (item.comision && item.comision.modo === 'manual' && parseFloat(item.comision.comision_unitaria) > 0) {
-                    com = parseFloat(item.comision.comision_unitaria) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
+                    const comUnitario = Math.round((parseFloat(item.comision.comision_unitaria) + Number.EPSILON) * 100) / 100;
+                    com = comUnitario * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                 } else {
-                    com = parseFloat((((base_unitaria * percent) / 100) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1)).toFixed(2));
+                    const comUnitario = Math.round((((base_unitaria * percent) / 100) + Number.EPSILON) * 100) / 100;
+                    com = comUnitario * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                 }
                 totalComision += com; total += sub; runningTotal += sub;
                 const net = sub - com;
