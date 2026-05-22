@@ -2686,13 +2686,14 @@ var App = function App() {
         c = _ref1[1];
       return acc + (c.comisionable ? c.valor : 0);
     }, 0);
+    var comUnit = Math.round((baseUnitaria * porcentaje / 100 + 1e-9) * 100) / 100;
     return {
       porcentaje: porcentaje,
       modo: "manual",
       desglose: desglose,
       base_unitaria: parseFloat(baseUnitaria.toFixed(2)),
-      comision_unitaria: parseFloat((baseUnitaria * porcentaje / 100).toFixed(2)),
-      total_comision: parseFloat((baseUnitaria * porcentaje / 100 * q * n).toFixed(2))
+      comision_unitaria: comUnit,
+      total_comision: Math.round((comUnit * q * n + 1e-9) * 100) / 100
     };
   };
   var openFicha = function openFicha(groupOrRow) {
@@ -7113,8 +7114,8 @@ var App = function App() {
           return acc + (c.comisionable ? c.valor : 0);
         }, 0);
       }
-      com.comision_unitaria = Math.round((com.base_unitaria * com.porcentaje / 100 + Number.EPSILON) * 100) / 100;
-      com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + Number.EPSILON) * 100) / 100;
+      com.comision_unitaria = Math.round((com.base_unitaria * com.porcentaje / 100 + 1e-9) * 100) / 100;
+      com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + 1e-9) * 100) / 100;
       var newRL = JSON.parse(((_selectedGroupFicha$r54 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r54 === void 0 ? void 0 : _selectedGroupFicha$r54["RoomingList_JSON"]) || "[]");
       newRL[commissionModal.itemIdx].comision = com;
       updateGroupMetadata(selectedGroupFicha.id, "RoomingList_JSON", JSON.stringify(newRL));

@@ -4730,6 +4730,7 @@
 
 
 
+        const comUnit = Math.round((((baseUnitaria * porcentaje) / 100) + 1e-9) * 100) / 100;
         return {
 
           porcentaje,
@@ -4740,17 +4741,9 @@
 
           base_unitaria: parseFloat(baseUnitaria.toFixed(2)),
 
-          comision_unitaria: parseFloat(
+          comision_unitaria: comUnit,
 
-            ((baseUnitaria * porcentaje) / 100).toFixed(2),
-
-          ),
-
-          total_comision: parseFloat(
-
-            (((baseUnitaria * porcentaje) / 100) * q * n).toFixed(2),
-
-          ),
+          total_comision: Math.round((comUnit * q * n + 1e-9) * 100) / 100,
 
         };
 
@@ -15854,8 +15847,8 @@
 
                         }
 
-                        com.comision_unitaria = Math.round((((com.base_unitaria * com.porcentaje) / 100) + Number.EPSILON) * 100) / 100;
-                        com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + Number.EPSILON) * 100) / 100;
+                        com.comision_unitaria = Math.round((((com.base_unitaria * com.porcentaje) / 100) + 1e-9) * 100) / 100;
+                        com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + 1e-9) * 100) / 100;
 
 
 

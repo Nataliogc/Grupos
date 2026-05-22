@@ -257,10 +257,10 @@
                     const base_unitaria = (item.comision && item.comision.base_unitaria !== undefined) ? parseFloat(item.comision.base_unitaria) : (parseFloat(item.precio) || 0);
                     
                     if (item.comision && item.comision.modo === 'manual' && parseFloat(item.comision.comision_unitaria) > 0) {
-                        const comUnitario = Math.round((parseFloat(item.comision.comision_unitaria) + Number.EPSILON) * 100) / 100;
+                        const comUnitario = Math.round((parseFloat(item.comision.comision_unitaria) + 1e-9) * 100) / 100;
                         com = comUnitario * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                     } else {
-                        const comUnitario = Math.round((((base_unitaria * percent) / 100) + Number.EPSILON) * 100) / 100;
+                        const comUnitario = Math.round((((base_unitaria * percent) / 100) + 1e-9) * 100) / 100;
                         com = comUnitario * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                     }
                     return acc + com;
@@ -280,7 +280,7 @@
             const hotelFilter = document.getElementById('hotel-filter').value;
 
             const filtered = allProformas.filter(p => {
-                const searchRef = (p.Reserva || p.id).toLowerCase();
+                const searchRef = String(p.Reserva || p.id || "").toLowerCase();
                 const matchesSearch = 
                     searchRef.includes(search) || 
                     (p.solicitante_org || "").toLowerCase().includes(search) || 
