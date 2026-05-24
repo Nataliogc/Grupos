@@ -235,741 +235,510 @@
       onRangeChange,
       data,
     }) => {
-      // --- Compute financials from data ---
-      const financials = React.useMemo(() => {
-        let totalRevenue = 0,
-          totalPaid = 0;
-        let confirmed = 0,
-          tentative = 0,
-          cancelled = 0,
-          prospect = 0;
-        let bPend = 0,
-          bEnv = 0,
-          bSeg = 0;
+      const [selectedHotel, setSelectedHotel] = React.useState("todos");
 
-        const seenGroups = new Set();
-        const segMap = {};
-        (data || []).forEach((g) => {
-          const id = g.Com_Id || g["Reserva"] || g["Nombre del Grupo"] || "";
-          const isNew = !seenGroups.has(id);
-          if (isNew) {
-            seenGroups.add(id);
-            const rev = safeParseAmount(
-              g["Importe(*)"] || g.Com_Total_Revenue || "0",
-            );
-            totalRevenue += rev;
+      // Helper robusto para parsear fechas de diversas fuentes
+      const parseDate = (val) => {
+        if (!val) return null;
+        if (val instanceof Date) return val;
+        if (val && typeof val === 'object' && typeof val.toDate === 'function') {
+          return val.toDate();
+        }
+        const str = String(val).trim();
+        if (!str) return null;
 
-            const s = (
-              g.Com_Estado_Interno ||
-              g["Estado"] ||
-              g["Segment."] ||
-              ""
-            ).toUpperCase();
+        if (!isNaN(str) && str.length > 4 && !str.includes("/") && !str.includes("-")) {
+          const excelEpoch = new Date(1899, 11, 30);
+          excelEpoch.setDate(excelEpoch.getDate() + parseInt(str));
+          return excelEpoch;
+        }
 
-            if (
-              s.includes("ANUL") ||
-              s.includes("CANC") ||
-              s.includes("BAJA") ||
-              s.includes("DESESTIMADO")
-            ) {
-              cancelled++;
-            } else if (
-              s.includes("CONFIRM") ||
-              s.includes("GARANT") ||
-              s.includes("RESERVA")
-            ) {
-              confirmed++;
-            } else if (
-              s.includes("BLOQ") ||
-              s.includes("OPCI") ||
-              s.includes("TENTATI")
-            ) {
-              tentative++;
-            } else if (s.includes("SEGUIMIENTO") || String(id).startsWith("PRES-")) {
-              if (s.includes("SEGUIMIENTO")) {
-                bSeg++;
-              } else if (s.includes("ENVIADO")) {
-                bEnv++;
-              } else {
-                bPend++;
-              }
-              prospect++;
-            } else if (s.includes("ENVIADO")) {
-              bEnv++;
-              prospect++;
-            } else if (
-              s.includes("PRESUPUESTO") ||
-              s.includes("PENDIE") ||
-              s.includes("PROSPEC")
-            ) {
-              bPend++;
-              prospect++;
-            } else {
-              confirmed++;
-            }
+        const parts = str.split(/[\/-]/);
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          }
+          return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
 
-            // Segments
-            const segmentName = (
-              g.Com_Segmento ||
-              g["Segment."] ||
-              "OTROS"
-            ).toUpperCase();
-            segMap[segmentName] = (segMap[segmentName] || 0) + rev;
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? null : d;
+      };
 
-            let gPaid = parseFloat(g.Com_Pagado) || 0;
-            if (gPaid === 0) {
-              try {
-                const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-                plan.forEach((p) => {
-                  if (p.status === "Cobrado")
-                    gPaid += parseFloat(p.amount) || 0;
-                });
-              } catch (e) { }
-            }
-            totalPaid += gPaid;
+      // Filtrado por hotel seleccionado
+      const filteredGroups = React.useMemo(() => {
+        if (selectedHotel === "todos") return data || [];
+        return (data || []).filter((g) => {
+          const hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+          if (selectedHotel === "guadiana") return hotel.includes("guad") || hotel.includes("guadiana");
+          if (selectedHotel === "cumbria") return hotel.includes("cumb") || hotel.includes("cumbria");
+          return true;
+        });
+      }, [data, selectedHotel]);
 
-            // Board Basis / Regimen (kept for map but maybe not for main chart)
-            const reg = (
-              g["Régimen"] ||
-              g.Com_Regime ||
-              "OTROS"
-            ).toUpperCase();
-            segMap.regimes = segMap.regimes || {};
-            segMap.regimes[reg] = (segMap.regimes[reg] || 0) + 1;
+      // Cálculo de contadores para las pestañas de hotel (sobre el total sin filtrar por hotel)
+      const counts = React.useMemo(() => {
+        let total = 0;
+        let cumbria = 0;
+        let guadiana = 0;
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const fiveDaysFromNow = new Date(startOfToday);
+        fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+        const fifteenDaysFromNow = new Date(startOfToday);
+        fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
+
+        (data || []).forEach(g => {
+          const status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
+          const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
+          const departureDate = parseDate(g.Salida || g.Entrada);
+          const isPast = departureDate && departureDate < startOfToday;
+
+          if (isCancelled || isPast) return;
+
+          const isConfirmed = status.includes("CONFIRM") || status.includes("GARANT") || status.includes("RESERVA");
+          const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT");
+          const entryDate = parseDate(g.Entrada);
+
+          const totalAmt = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
+          let paid = parseFloat(g.Com_Pagado) || 0;
+          try {
+            const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+            plan.forEach(p => { if (p.status === "Cobrado") paid += parseFloat(p.amount) || 0; });
+          } catch (e) {}
+          const pending = Math.max(0, totalAmt - paid);
+
+          let hasAlert = false;
+
+          // 1. Financial
+          if ((isConfirmed || isTentative) && pending > 0.1) {
+            try {
+              const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+              const pastDueMilestones = plan.filter(p => {
+                const pDate = parseDate(p.date);
+                return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
+              });
+              if (pastDueMilestones.length > 0) hasAlert = true;
+            } catch (e) {}
+          }
+
+          // 2. Release
+          const dRel = parseDate(g.Com_Vencimiento_Rel);
+          if (!hasAlert && (!isConfirmed || pending > 0.1) && dRel && dRel <= fiveDaysFromNow) {
+            hasAlert = true;
+          }
+
+          // 3. Logistics
+          if (!hasAlert && isConfirmed && entryDate && entryDate >= startOfToday && entryDate <= fifteenDaysFromNow) {
+            if (!g.Logistica_Rooming) hasAlert = true;
+            const regime = (g["Régimen"] || "").toUpperCase();
+            if (regime.includes("MP") && !g.Logistica_MenuMP) hasAlert = true;
+            if (regime.includes("PC") && !g.Logistica_MenuPC) hasAlert = true;
+          }
+
+          // 4. CRM
+          const dFollow = parseDate(g.Com_Seguimiento);
+          if (!hasAlert && dFollow && dFollow <= endOfToday) {
+            hasAlert = true;
+          }
+
+          if (hasAlert) {
+            total++;
+            const hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+            if (hotel.includes("cumb")) cumbria++;
+            else if (hotel.includes("guad") || hotel.includes("guadiana")) guadiana++;
           }
         });
 
-        const segmentData = Object.entries(segMap)
-          .filter(([k]) => k !== "regimes")
-          .map(([name, val]) => ({ name, val }))
-          .sort((a, b) => b.val - a.val)
-          .slice(0, 4);
-
-        const budgetDataStats = [
-          { name: "Pendiente", val: bPend, color: "#f59e0b" },
-          { name: "Enviado", val: bEnv, color: "#3b82f6" },
-          { name: "Seguimiento", val: bSeg, color: "#6366f1" },
-        ];
-
-        return {
-          totalRevenue,
-          effectivePaid: totalPaid,
-          pending: Math.max(0, totalRevenue - totalPaid),
-          confirmed,
-          tentative,
-          cancelled,
-          prospect,
-          segmentData,
-          budgetDataStats,
-        };
+        return { total, cumbria, guadiana };
       }, [data]);
 
-      const getStatusProps = (status) => {
-        const s = (status || "").toUpperCase();
-        if (
-          s.includes("ANUL") ||
-          s.includes("CANC") ||
-          s.includes("BAJA") ||
-          s.includes("DESESTIMADO")
-        )
-          return {
-            label: "Anulado",
-            text: "text-rose-500 bg-rose-50",
-            border: "border-rose-100",
-          };
-        if (
-          s.includes("CONFIRM") ||
-          s.includes("GARANT") ||
-          s.includes("RESERVA")
-        )
-          return {
-            label: "Confirmado",
-            text: "text-emerald-500 bg-emerald-50",
-            border: "border-emerald-100",
-          };
-        if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI"))
-          return {
-            label: "Tentativa",
-            text: "text-blue-500 bg-blue-50",
-            border: "border-blue-100",
-          };
-        if (s.includes("PROSPEC") || s.includes("PENDIE"))
-          return {
-            label: "Prospect",
-            text: "text-amber-500 bg-amber-50",
-            border: "border-amber-100",
-          };
-        if (s.includes("SEGUIMIENTO"))
-          return {
-            label: "Seguimiento",
-            text: "text-indigo-500 bg-indigo-50",
-            border: "border-indigo-100",
-          };
-        if (s.includes("ENVIADO"))
-          return {
-            label: "Enviado",
-            text: "text-blue-500 bg-blue-50",
-            border: "border-blue-100",
-          };
-        if (s.includes("PRESUPUESTO"))
-          return {
-            label: "Presupuesto",
-            text: "text-purple-500 bg-purple-50",
-            border: "border-purple-100",
-          };
+      // Cálculo de alertas en 4 columnas
+      const columnsData = React.useMemo(() => {
+        const financialAlerts = [];
+        const releaseAlerts = [];
+        const logisticsAlerts = [];
+        const crmAlerts = [];
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const fiveDaysFromNow = new Date(startOfToday);
+        fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+        const fifteenDaysFromNow = new Date(startOfToday);
+        fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
+
+        const seenFinancial = new Set();
+        const seenRelease = new Set();
+        const seenLogistics = new Set();
+        const seenCrm = new Set();
+
+        filteredGroups.forEach((g) => {
+          const resId = g.Reserva || g.Com_Id || "";
+          const status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
+          const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
+          
+          const departureDate = parseDate(g.Salida || g.Entrada);
+          const isPast = departureDate && departureDate < startOfToday;
+
+          if (isCancelled || isPast) return;
+
+          const isConfirmed = status.includes("CONFIRM") || status.includes("GARANT") || status.includes("RESERVA");
+          const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT");
+          const entryDate = parseDate(g.Entrada);
+
+          const total = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
+          let paid = parseFloat(g.Com_Pagado) || 0;
+          try {
+            const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+            plan.forEach(p => {
+              if (p.status === "Cobrado") paid += parseFloat(p.amount) || 0;
+            });
+          } catch (e) {}
+          const pending = Math.max(0, total - paid);
+
+          // 1. Column 1: Financial Alerts
+          if ((isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
+            try {
+              const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+              const pastDueMilestones = plan.filter(p => {
+                const pDate = parseDate(p.date);
+                return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
+              });
+              if (pastDueMilestones.length > 0) {
+                seenFinancial.add(resId);
+                const firstPastDue = pastDueMilestones[0];
+                const amt = parseFloat(firstPastDue.amount) || 0;
+                financialAlerts.push({
+                  group: g,
+                  icon: "AlertTriangle",
+                  label: "Hito Vencido",
+                  detail: `Pago de ${fmt(amt)} vencido el ${formatDate(firstPastDue.date)}`,
+                  type: "danger"
+                });
+              }
+            } catch (e) {}
+          }
+
+          // 2. Column 2: Releases y Plazos
+          if ((!isConfirmed || pending > 0.1) && !seenRelease.has(resId)) {
+            const dRel = parseDate(g.Com_Vencimiento_Rel);
+            if (dRel && dRel <= fiveDaysFromNow) {
+              seenRelease.add(resId);
+              const diffTime = dRel - now;
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const isOverdue = dRel < startOfToday;
+              
+              releaseAlerts.push({
+                group: g,
+                icon: "Clock",
+                label: isOverdue ? "Release Vencido" : "Próximo Release",
+                detail: isOverdue 
+                  ? `Venció hace ${Math.abs(diffDays)} días (${formatDate(dRel)})`
+                  : `Vence en ${diffDays} días (${formatDate(dRel)})`,
+                type: isOverdue ? "danger" : "warning"
+              });
+            }
+          }
+
+          // 3. Column 3: Datos Operativos Faltantes
+          if (isConfirmed && entryDate && entryDate >= startOfToday && entryDate <= fifteenDaysFromNow && !seenLogistics.has(resId)) {
+            const missingDetails = [];
+            if (!g.Logistica_Rooming) {
+              missingDetails.push({ text: "Falta Rooming List", icon: "FileText" });
+            }
+            
+            const regime = (g["Régimen"] || "").toUpperCase();
+            if (regime.includes("MP") && !g.Logistica_MenuMP) {
+              missingDetails.push({ text: "Falta Menú MP", icon: "Utensils" });
+            }
+            if (regime.includes("PC") && !g.Logistica_MenuPC) {
+              missingDetails.push({ text: "Falta Menú PC", icon: "Utensils" });
+            }
+
+            if (missingDetails.length > 0) {
+              seenLogistics.add(resId);
+              logisticsAlerts.push({
+                group: g,
+                icon: "FileWarning",
+                label: "Datos Faltantes",
+                detail: missingDetails.map(d => d.text).join(", "),
+                details: missingDetails,
+                type: "warning"
+              });
+            }
+          }
+
+          // 4. Column 4: CRM Tasks
+          if (!seenCrm.has(resId)) {
+            const dFollow = parseDate(g.Com_Seguimiento);
+            if (dFollow && dFollow <= endOfToday) {
+              seenCrm.add(resId);
+              const isPastDue = dFollow < startOfToday;
+              crmAlerts.push({
+                group: g,
+                icon: "PhoneCall",
+                label: isPastDue ? "CRM Retrasado" : "CRM Hoy",
+                detail: isPastDue
+                  ? `Planificado para el ${formatDate(dFollow)}`
+                  : `Programado para hoy (${formatDate(dFollow)})`,
+                type: isPastDue ? "danger" : "info"
+              });
+            }
+          }
+        });
+
+        // Ordenamiento por prioridad/fecha
+        financialAlerts.sort((a, b) => {
+          const aDate = parseDate(JSON.parse(a.group.PaymentPlan_JSON || "[]").find(p => p.status !== "Cobrado" && p.status !== "Pagado")?.date);
+          const bDate = parseDate(JSON.parse(b.group.PaymentPlan_JSON || "[]").find(p => p.status !== "Cobrado" && p.status !== "Pagado")?.date);
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate - bDate;
+        });
+
+        releaseAlerts.sort((a, b) => {
+          const aDate = parseDate(a.group.Com_Vencimiento_Rel);
+          const bDate = parseDate(b.group.Com_Vencimiento_Rel);
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate - bDate;
+        });
+
+        logisticsAlerts.sort((a, b) => {
+          const aDate = parseDate(a.group.Entrada);
+          const bDate = parseDate(b.group.Entrada);
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate - bDate;
+        });
+
+        crmAlerts.sort((a, b) => {
+          const aDate = parseDate(a.group.Com_Seguimiento);
+          const bDate = parseDate(b.group.Com_Seguimiento);
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate - bDate;
+        });
+
         return {
-          label: status,
-          text: "text-slate-500 bg-slate-50",
-          border: "border-slate-100",
+          financialAlerts,
+          releaseAlerts,
+          logisticsAlerts,
+          crmAlerts
         };
-      };
+      }, [filteredGroups]);
 
-      // Chart Data
-      const pieData = [
-        { name: "Confirmado", value: financials.confirmed, color: "#10b981" },
-        { name: "Tentativa", value: financials.tentative, color: "#3b82f6" },
-        { name: "Prospect", value: financials.prospect, color: "#f59e0b" },
-        { name: "Anulado", value: financials.cancelled, color: "#94a3b8" },
-      ];
+      const AlertColumn = ({ title, icon, colorClass, alerts }) => {
+        const theme = {
+          rose: {
+            bg: "bg-rose-50/50",
+            border: "border-rose-100",
+            text: "text-rose-700",
+            iconBg: "bg-rose-100 text-rose-600",
+            bubble: "bg-rose-600 text-white",
+            cardHover: "hover:border-rose-300 hover:shadow-rose-100/50"
+          },
+          amber: {
+            bg: "bg-amber-50/50",
+            border: "border-amber-100",
+            text: "text-amber-800",
+            iconBg: "bg-amber-100 text-amber-600",
+            bubble: "bg-amber-500 text-white",
+            cardHover: "hover:border-amber-300 hover:shadow-amber-100/50"
+          },
+          orange: {
+            bg: "bg-orange-50/50",
+            border: "border-orange-100",
+            text: "text-orange-800",
+            iconBg: "bg-orange-100 text-orange-600",
+            bubble: "bg-orange-500 text-white",
+            cardHover: "hover:border-orange-300 hover:shadow-orange-100/50"
+          },
+          indigo: {
+            bg: "bg-indigo-50/50",
+            border: "border-indigo-100",
+            text: "text-indigo-800",
+            iconBg: "bg-indigo-100 text-indigo-600",
+            bubble: "bg-indigo-600 text-white",
+            cardHover: "hover:border-indigo-300 hover:shadow-indigo-100/50"
+          }
+        }[colorClass];
 
-      const trendData =
-        stats.trendData && stats.trendData.length > 0
-          ? stats.trendData
-          : [
-            { name: "Feb", val: 0 },
-            { name: "Mar", val: 0 },
-            { name: "Abr", val: 0 },
-            { name: "May", val: 0 },
-            { name: "Jun", val: 0 },
-            { name: "Jul", val: 0 },
-          ];
-
-      return (
-        <div className="space-y-12 animate-fade-in relative">
-          {/* ══ KPI ROW ══ */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 hidden">
-            {[
-              {
-                label: "Ingresos Totales",
-                val: fmt(financials.totalRevenue),
-                trend: "+12%",
-                sub: "Incremento vs mes anterior",
-                icon: "Euro",
-                color: "emerald",
-              },
-              {
-                label: "Ocupación Media",
-                val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "–",
-                sub: "Estimada por grupo",
-                icon: "Percent",
-                color: "blue",
-              },
-              {
-                label: "Ticket Promedio",
-                val: financials.confirmed > 0 ? (financials.totalRevenue / financials.confirmed).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€" : "–",
-                sub: "Por reserva confirmada",
-                icon: "Target",
-                color: "amber",
-              },
-              {
-                label: "Grupos Activos",
-                val: financials.confirmed + financials.tentative,
-                trend: "+4",
-                sub: "Pendientes de llegada",
-                icon: "Users",
-                color: "indigo",
-              },
-            ].map((k) => (
-              <div
-                key={k.label}
-                className="premium-card p-5 group hover:border-emerald-200 transition-all text-center flex flex-col items-center justify-center min-h-[100px]"
-              >
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {k.label}
-                  </span>
-                  {k.trend && (
-                    <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded-md">
-                      {k.trend}
-                    </span>
-                  )}
+        return (
+          <div className={`flex flex-col rounded-[2rem] border ${theme.border} ${theme.bg} p-5 min-h-[500px] shadow-sm`}>
+            {/* Cabecera de la Columna */}
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-inner ${theme.iconBg}`}>
+                  <LucideIcon name={icon} size={16} strokeWidth={2.5} />
                 </div>
-                <h4 className="text-2xl font-black text-slate-800 tracking-tighter mb-1">
-                  {k.val}
-                </h4>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tight opacity-60 truncate">
-                  {k.sub}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* ══ ALERTAS PRIORITARIAS (Wrap Display) ══ */}
-          {(alerts || []).length > 0 && (
-            <div className="relative group/alerts">
-              <div className="flex flex-wrap items-center gap-4 pb-6 pt-2 animate-fade-in delay-100">
-                {/* Fixed Label Badge */}
-                <div className="shrink-0 flex items-center gap-3 px-6 py-4 bg-slate-900 text-white rounded-[2rem] shadow-2xl shadow-slate-900/20 border border-slate-800/50 group hover:bg-slate-800 transition-all cursor-default">
-                  <div className="relative">
-                    <LucideIcon
-                      name="Bell"
-                      size={16}
-                      className="text-rose-400 animate-pulse relative z-10"
-                    />
-                    <div className="absolute inset-0 bg-rose-400/20 blur-lg rounded-full animate-ping"></div>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-[0.25em] leading-none text-rose-400 mb-1">
-                      Priority
-                    </span>
-                    <span className="text-[11px] font-black uppercase tracking-widest leading-none text-white whitespace-nowrap">
-                      Acciones Urgentes
-                    </span>
-                  </div>
-                </div>
-
-                {/* Alert Cards */}
-                {alerts.map((alert, i) => (
-                  <div
-                    key={i}
-                    onClick={() => {
-                      if (alert.group) {
-                        const resId = alert.group["Reserva"];
-                        localStorage.setItem("nexus_return_reserva", resId);
-                        window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(resId)}`;
-                      }
-                    }}
-                    className={`
-                      shrink-0 min-w-[240px] px-5 py-4 rounded-[2rem] flex items-center gap-4 
-                      cursor-pointer transition-all duration-300 border
-                      hover:scale-[1.03] hover:-translate-y-1 active:scale-95
-                      shadow-sm hover:shadow-xl
-                      ${alert.type === "danger"
-                        ? "bg-gradient-to-br from-rose-50 to-white border-rose-100 hover:border-rose-300 hover:shadow-rose-100/50"
-                        : alert.type === "warning"
-                          ? "bg-gradient-to-br from-amber-50 to-white border-amber-100 hover:border-amber-300 hover:shadow-amber-100/50"
-                          : "bg-gradient-to-br from-indigo-50 to-white border-indigo-100 hover:border-indigo-300 hover:shadow-indigo-100/50"}
-                    `}
-                  >
-                    <div
-                      className={`
-                        shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center shadow-inner
-                        ${alert.type === "danger"
-                          ? "bg-white text-rose-500 border border-rose-100"
-                          : alert.type === "warning"
-                            ? "bg-white text-amber-500 border border-amber-100"
-                            : "bg-white text-indigo-500 border border-indigo-100"}
-                      `}
-                    >
-                      <LucideIcon name={alert.icon || "Info"} size={18} strokeWidth={2.5} />
-                    </div>
-                    <div className="flex flex-col min-w-0 pr-2">
-                      <span className={`text-[8px] font-black uppercase tracking-[0.15em] mb-1 ${alert.type === "danger" ? "text-rose-400" : alert.type === "warning" ? "text-amber-500" : "text-indigo-400"}`}>
-                        {alert.type === "danger" ? "Crítico" : alert.type === "warning" ? "Atención" : "Info"}
-                      </span>
-                      <span className="text-[11px] font-black text-slate-800 uppercase tracking-wide leading-tight line-clamp-2">
-                        {alert.label}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-
-          {/* ══ ROW 2: ORIGEN & OCUPACIÓN ══ */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            <div className="premium-card p-4 flex flex-col h-fit">
-              <h3 className="text-[9px] font-black text-slate-800 uppercase tracking-widest mb-3">
-                Estado General de Grupos
-              </h3>
-              <div className="flex gap-4 items-center justify-between w-full">
-                <div className="flex-1 flex flex-col justify-center space-y-1.5">
-                  {pieData.map((item) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                        <div
-                          className="w-1 h-1 rounded-full shrink-0"
-                          style={{ background: item.color }}
-                        ></div>
-                        <span className="text-[9px] font-black text-slate-500 uppercase truncate">
-                          {item.name}
-                        </span>
-                      </div>
-                      <span className="text-[9px] font-black text-slate-800 ml-2">
-                        {(
-                          (item.value /
-                            Math.max(
-                              1,
-                              financials.confirmed +
-                              financials.tentative +
-                              financials.prospect +
-                              financials.cancelled,
-                            )) *
-                          100
-                        ).toFixed(0)}
-                        %
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="w-24 h-24 shrink-0 -mr-2 flex justify-end">
-                  <PieChart width={96} height={96}>
-                    <Pie
-                      data={pieData}
-                      innerRadius={25}
-                      outerRadius={40}
-                      paddingAngle={2}
-                      dataKey="value"
-                      stroke="none"
-                      cx="50%"
-                      cy="50%"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white p-2 rounded-xl shadow-xl border border-slate-100">
-                              <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">
-                                {payload[0].name}
-                              </p>
-                              <p className="text-xs font-black text-slate-800">
-                                {payload[0].value}
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </PieChart>
-                </div>
-              </div>
-            </div>
-
-            <div className="premium-card p-4 flex flex-col h-fit">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[9px] font-black text-slate-800 uppercase tracking-widest">
-                  Presupuestos por Estado
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                  {title}
                 </h3>
-                <LucideIcon
-                  name="clipboard-list"
-                  size={12}
-                  className="text-slate-300"
-                />
               </div>
-              <div className="flex gap-4 items-center justify-between w-full">
-                <div className="flex-1 flex flex-col justify-center space-y-1.5 overflow-y-auto custom-scrollbar pr-1">
-                  {(financials.budgetDataStats || []).map((item, index) => (
-                    <div
-                      key={item.name}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                        <div
-                          className="w-1 h-1 rounded-full shrink-0"
-                          style={{ background: item.color }}
-                        ></div>
-                        <span className="text-[9px] font-black text-slate-500 uppercase truncate">
-                          {item.name}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-black text-slate-800 ml-2">
-                        {item.val}
+              <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${theme.bubble}`}>
+                {alerts.length}
+              </span>
+            </div>
+
+            {/* Tarjetas de Alerta */}
+            <div className="flex flex-col gap-4 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1">
+              {alerts.map((alert, idx) => {
+                const g = alert.group;
+                const isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
+                
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      localStorage.setItem("nexus_return_reserva", g.Reserva);
+                      window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(g.Reserva)}`;
+                    }}
+                    className={`bg-white p-4 rounded-[1.5rem] border border-slate-100/80 cursor-pointer shadow-sm hover:-translate-y-1 hover:scale-[1.01] transition-all duration-300 ${theme.cardHover} flex flex-col gap-2 relative group`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <img
+                        src={isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg"}
+                        alt="Hotel Logo"
+                        className="h-4 max-w-[80px] object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+                      />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                        {formatDate(g.Entrada)}
                       </span>
                     </div>
-                  ))}
-                </div>
-                <div className="w-24 h-24 shrink-0 -mr-2 flex justify-end">
-                  <PieChart width={96} height={96}>
-                    <Pie
-                      data={financials.budgetDataStats}
-                      innerRadius={25}
-                      outerRadius={40}
-                      paddingAngle={4}
-                      dataKey="val"
-                      stroke="none"
-                      cx="50%"
-                      cy="50%"
-                    >
-                      {(financials.budgetDataStats || []).map(
-                        (entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ),
-                      )}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white p-2 rounded-xl shadow-xl border border-slate-100">
-                              <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">
-                                {payload[0].name}
-                              </p>
-                              <p className="text-xs font-black text-slate-800">
-                                {payload[0].value}
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </PieChart>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* ══ PRÓXIMAS LLEGADAS ══ */}
-          <div className="premium-card overflow-hidden">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div>
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">
-                    Próximas Llegadas
-                  </h3>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
-                    Próximos{" "}
-                    {timeRange === 365 ? "12 meses" : timeRange + " días"} •
-                    Actualizado hace 1 min.
-                  </span>
-                </div>
-                <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-100">
-                  {[
-                    { label: "15D", val: 15 },
-                    { label: "30D", val: 30 },
-                    { label: "1A", val: 365 },
-                  ].map((opt) => (
-                    <button
-                      key={opt.val}
-                      onClick={() => onRangeChange(opt.val)}
-                      className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${timeRange === opt.val ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="relative">
-                <LucideIcon
-                  name="Search"
-                  size={14}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="text"
-                  placeholder="Buscar en grupos..."
-                  className="bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-emerald-500 transition-all w-64"
-                />
-              </div>
-            </div>
+                    <div className="mt-1">
+                      <h4 className="font-bold text-slate-800 text-xs leading-snug group-hover:text-emerald-700 transition-colors uppercase line-clamp-2" title={g["Nombre del Grupo"]}>
+                        {g["Nombre del Grupo"] || "Grupo sin nombre"}
+                      </h4>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">
+                          #{g.Reserva}
+                        </span>
+                        {g.Com_Comercial && (
+                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">
+                            👤 {g.Com_Comercial}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="px-8 py-5">Grupo</th>
-                    <th className="px-8 py-5">Llegada</th>
-                    <th className="px-8 py-5">Cliente</th>
-                    <th className="px-8 py-5">Empresa</th>
-                    <th className="px-8 py-5 text-right">Importe</th>
-                    <th className="px-8 py-5 text-right"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {arrivals.map((group, i) => {
-                    const st = getStatusProps(group["Estado"]);
-                    return (
-                      <tr
-                        key={i}
-                        className="hover:bg-slate-50 transition-colors group cursor-pointer"
-                        onClick={() => {
-                          const resId = group["Reserva"];
-                          localStorage.setItem("nexus_return_reserva", resId);
-                          window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(resId)}`;
-                        }}
-                      >
-                        <td className="px-8 py-6">
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center gap-2">
-                              <h5 className="text-[11px] font-black text-slate-800 uppercase tracking-tight group-hover:text-emerald-600 transition-colors">
-                                {group["Nombre del Grupo"]}
-                              </h5>
-                              <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest px-1.5 py-0.5 bg-slate-50 rounded border border-slate-100">
-                                #{group["Reserva"]}
-                              </span>
-                            </div>
-
-                            {/* Alertas Críticas Dinámicas */}
-                            <div className="flex flex-wrap gap-1.5">
-                               {/* Warning: Release */}
-                               {(() => {
-                                 const total = safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0);
-                                 let paid = typeof group["Com_Pagado"] === 'number' ? group["Com_Pagado"] : safeParseAmount(group["Com_Pagado"] || 0);
-                                 try {
-                                   const plan = JSON.parse(group.PaymentPlan_JSON || "[]");
-                                   let planPaid = 0;
-                                   plan.forEach(p => { if (p.status === "Cobrado" || p.status === "Pagado") planPaid += safeParseAmount(p.amount || 0); });
-                                   if (planPaid > paid) paid = planPaid;
-                                 } catch (e) {}
-                                 
-                                 const isPaid = group["Com_Pagado"] === true || (total > 0 && paid >= (total - 0.1));
-                                 const st = getStatusProps(group["Estado"]);
-                                 const isConfirmed = st.label === "Confirmado" || (group["Estado"] || "").toUpperCase().includes("CONFIRM") || (group["Estado"] || "").toUpperCase().includes("GARANT") || (group["Estado"] || "").toUpperCase().includes("RESERVA");
-
-                                 // Si ya está pagado o confirmado, el release ya no es una alerta crítica comercial
-                                 if (isPaid || isConfirmed) return null;
-
-                                 const dRel = group.Com_Vencimiento_Rel ? (group.Com_Vencimiento_Rel instanceof Date ? group.Com_Vencimiento_Rel : new Date(group.Com_Vencimiento_Rel)) : null;
-                                 if (dRel && !isNaN(dRel.getTime())) {
-                                   const diff = dRel - new Date();
-                                   if (diff < 7 * 24 * 60 * 60 * 1000) {
-                                     const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                                     const isUrgent = daysLeft <= 2;
-                                     return (
-                                       <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${isUrgent ? 'bg-rose-50 text-rose-500 border-rose-100 animate-pulse ring-4 ring-rose-500/10' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                         <LucideIcon name="Clock" size={10} strokeWidth={3} />
-                                         Rel: {formatDate(group.Com_Vencimiento_Rel)}
-                                       </div>
-                                     );
-                                   }
-                                 }
-                                 return null;
-                               })()}
-
-                              {/* Warning: Sin Comercial */}
-                              {!group.Com_Comercial && (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[8px] font-black uppercase tracking-widest">
-                                  <LucideIcon name="UserPlus" size={10} strokeWidth={3} />
-                                  Sin Comercial
-                                </div>
-                              )}
-
-                              {safeParseAmount(group["Importe(*)"] || group["Total_Importe_Facturable"] || 0) === 0 && (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full border border-indigo-100 text-[8px] font-black uppercase tracking-widest">
-                                  <LucideIcon name="HelpCircle" size={10} strokeWidth={3} />
-                                  Falta Precio
-                                </div>
-                              )}
-
-                              {/* Warning: Pago Pendiente */}
-                              {(() => {
-                                const total = safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0);
-                                if (total <= 0) return null;
-
-                                let paid = typeof group["Com_Pagado"] === 'number' ? group["Com_Pagado"] : safeParseAmount(group["Com_Pagado"] || 0);
-                                
-                                // Si no hay pago directo, buscamos en el plan de pagos
-                                try {
-                                  const plan = JSON.parse(group.PaymentPlan_JSON || "[]");
-                                  let planPaid = 0;
-                                  plan.forEach(p => {
-                                    if (p.status === "Cobrado" || p.status === "Pagado") planPaid += safeParseAmount(p.amount || 0);
-                                  });
-                                  if (planPaid > paid) paid = planPaid;
-                                } catch (e) {}
-
-                                const isActuallyPaid = group["Com_Pagado"] === true || paid >= (total - 0.1);
-
-                                if (!isActuallyPaid) {
-                                  return (
-                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full border border-rose-100 text-[8px] font-black uppercase tracking-widest">
-                                      <LucideIcon name="CreditCard" size={10} strokeWidth={3} />
-                                      Pago Pendiente
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()}
-
-                              {/* Warning: Falta Rooming */}
-                              {!group["Logistica_Rooming"] && (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[8px] font-black uppercase tracking-widest">
-                                  <LucideIcon name="FileText" size={10} strokeWidth={3} />
-                                  Falta Rooming
-                                </div>
-                              )}
-
-                              {/* Warning: Falta Menús */}
-                              {((group["Régimen"] || "").toUpperCase().includes("MP") && !group["Logistica_MenuMP"]) && (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest">
-                                  <LucideIcon name="Utensils" size={10} strokeWidth={3} />
-                                  Falta Menú MP
-                                </div>
-                              )}
-                              {((group["Régimen"] || "").toUpperCase().includes("PC") && !group["Logistica_MenuPC"]) && (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest">
-                                  <LucideIcon name="Utensils" size={10} strokeWidth={3} />
-                                  Falta Menú PC
-                                </div>
-                              )}
-                            </div>
+                    <div className="mt-2 border-t border-slate-50 pt-2 flex flex-col gap-1.5">
+                      {alert.details ? (
+                        alert.details.map((det, dIdx) => (
+                          <div key={dIdx} className="flex items-center gap-1.5 text-[9px] font-bold text-slate-600 leading-tight">
+                            <LucideIcon name={det.icon} size={10} className={theme.text} strokeWidth={2.5} />
+                            <span className="truncate">{det.text}</span>
                           </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className="text-[10px] font-black text-slate-600 tracking-widest">
-                            {formatDate(group["Entrada"])}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${st.text} border ${st.border || "border-transparent"}`}
-                            >
-                              {st.label}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                            {group["Empresa/Agencia"] || "Directo"}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <span className="text-[11px] font-black text-slate-800 tracking-tight">
-                            {fmt(
-                              safeParseAmount(
-                                group["Total_Importe_Facturable"] ||
-                                group["Importe(*)"] ||
-                                0,
-                              ),
-                            )}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <LucideIcon
-                            name="ChevronRight"
-                            size={14}
-                            className="text-slate-300 opacity-0 group-hover:opacity-100"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {arrivals.length === 0 && (
-                    <tr>
-                      <td colSpan="6" className="px-8 py-20 text-center">
-                        <div className="flex flex-col items-center gap-3 opacity-30">
-                          <LucideIcon name="CalendarX" size={40} />
-                          <span className="text-xs font-black uppercase tracking-widest">
-                            Sin llegadas próximas para el periodo seleccionado
+                        ))
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-600 leading-tight">
+                          <LucideIcon name={alert.icon} size={10} className={theme.text} strokeWidth={2.5} />
+                          <span className="line-clamp-2" title={alert.detail}>
+                            {alert.detail}
                           </span>
                         </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {alerts.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 px-4 bg-white/50 border border-dashed border-slate-200 rounded-[1.5rem] opacity-70">
+                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-3 shadow-inner">
+                    <LucideIcon name="check" size={18} strokeWidth={3} />
+                  </div>
+                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-wider text-center">
+                    Todo al día
+                  </p>
+                  <p className="text-[8px] text-slate-400 text-center mt-0.5">
+                    Sin actuaciones pendientes
+                  </p>
+                </div>
+              )}
             </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="space-y-8 animate-fade-in relative">
+          {/* Banner de Bienvenida */}
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden mb-2">
+            <div className="absolute right-0 top-0 opacity-10 translate-x-10 -translate-y-10">
+              <LucideIcon name="bell" size={300} />
+            </div>
+            <div className="relative z-10 max-w-2xl">
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.2em] bg-emerald-500/10 px-3 py-1.5 rounded-full">
+                Centro de Operaciones
+              </span>
+              <h2 className="text-3xl font-black tracking-tight mt-4 mb-2">
+                Panel de Alertas y Actuaciones Críticas
+              </h2>
+              <p className="text-sm text-slate-300 font-medium leading-relaxed">
+                Supervisa vencimientos financieros, plazos de release, información logística ausente y tareas CRM pendientes. Filtra por establecimiento y abre las fichas correspondientes con un clic.
+              </p>
+            </div>
+          </div>
+
+          {/* Selector de Hotel */}
+          <div className="flex bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/50 w-fit gap-1.5 shadow-sm">
+            {[
+              { id: "todos", label: "Todos los Hoteles", icon: "Hotel" },
+              { id: "guadiana", label: "Sercotel Guadiana", logo: "Logos/Sercotel Guadiana.jpg" },
+              { id: "cumbria", label: "Cumbria Spa & Hotel", logo: "Logos/Cumbria Spa&Hotel.jpg" }
+            ].map(hotel => {
+              const active = selectedHotel === hotel.id;
+              return (
+                <button
+                  key={hotel.id}
+                  onClick={() => setSelectedHotel(hotel.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${active ? "bg-white text-slate-900 shadow-md scale-102 border border-slate-100" : "text-slate-500 hover:text-slate-800 hover:bg-white/40"}`}
+                >
+                  {hotel.logo ? (
+                    <img src={hotel.logo} className="h-4 object-contain" alt={hotel.label} />
+                  ) : (
+                    <LucideIcon name={hotel.icon} size={14} />
+                  )}
+                  {hotel.label}
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1.5 ${active ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"}`}>
+                    {hotel.id === "todos" ? counts.total : hotel.id === "guadiana" ? counts.guadiana : counts.cumbria}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Grid de Alertas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+            <AlertColumn
+              title="Alertas Financieras"
+              icon="CreditCard"
+              colorClass="rose"
+              alerts={columnsData.financialAlerts}
+            />
+            <AlertColumn
+              title="Releases y Plazos"
+              icon="Clock"
+              colorClass="amber"
+              alerts={columnsData.releaseAlerts}
+            />
+            <AlertColumn
+              title="Datos Faltantes"
+              icon="FileWarning"
+              colorClass="orange"
+              alerts={columnsData.logisticsAlerts}
+            />
+            <AlertColumn
+              title="Seguimientos CRM"
+              icon="PhoneCall"
+              colorClass="indigo"
+              alerts={columnsData.crmAlerts}
+            />
           </div>
 
           <footer className="text-center py-12">
@@ -978,7 +747,7 @@
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
-        </div >
+        </div>
       );
     };
 

@@ -2,6 +2,7 @@
 
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -240,627 +241,510 @@ var Dashboard = function Dashboard(_ref2) {
     timeRange = _ref2.timeRange,
     onRangeChange = _ref2.onRangeChange,
     data = _ref2.data;
-  // --- Compute financials from data ---
-  var financials = React.useMemo(function () {
-    var totalRevenue = 0,
-      totalPaid = 0;
-    var confirmed = 0,
-      tentative = 0,
-      cancelled = 0,
-      prospect = 0;
-    var bPend = 0,
-      bEnv = 0,
-      bSeg = 0;
-    var seenGroups = new Set();
-    var segMap = {};
-    (data || []).forEach(function (g) {
-      var id = g.Com_Id || g["Reserva"] || g["Nombre del Grupo"] || "";
-      var isNew = !seenGroups.has(id);
-      if (isNew) {
-        seenGroups.add(id);
-        var rev = safeParseAmount(g["Importe(*)"] || g.Com_Total_Revenue || "0");
-        totalRevenue += rev;
-        var s = (g.Com_Estado_Interno || g["Estado"] || g["Segment."] || "").toUpperCase();
-        if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA") || s.includes("DESESTIMADO")) {
-          cancelled++;
-        } else if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA")) {
-          confirmed++;
-        } else if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI")) {
-          tentative++;
-        } else if (s.includes("SEGUIMIENTO") || String(id).startsWith("PRES-")) {
-          if (s.includes("SEGUIMIENTO")) {
-            bSeg++;
-          } else if (s.includes("ENVIADO")) {
-            bEnv++;
-          } else {
-            bPend++;
-          }
-          prospect++;
-        } else if (s.includes("ENVIADO")) {
-          bEnv++;
-          prospect++;
-        } else if (s.includes("PRESUPUESTO") || s.includes("PENDIE") || s.includes("PROSPEC")) {
-          bPend++;
-          prospect++;
-        } else {
-          confirmed++;
-        }
+  var _React$useState = React.useState("todos"),
+    _React$useState2 = _slicedToArray(_React$useState, 2),
+    selectedHotel = _React$useState2[0],
+    setSelectedHotel = _React$useState2[1];
 
-        // Segments
-        var segmentName = (g.Com_Segmento || g["Segment."] || "OTROS").toUpperCase();
-        segMap[segmentName] = (segMap[segmentName] || 0) + rev;
-        var gPaid = parseFloat(g.Com_Pagado) || 0;
-        if (gPaid === 0) {
-          try {
-            var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-            plan.forEach(function (p) {
-              if (p.status === "Cobrado") gPaid += parseFloat(p.amount) || 0;
-            });
-          } catch (e) {}
-        }
-        totalPaid += gPaid;
-
-        // Board Basis / Regimen (kept for map but maybe not for main chart)
-        var reg = (g["Régimen"] || g.Com_Regime || "OTROS").toUpperCase();
-        segMap.regimes = segMap.regimes || {};
-        segMap.regimes[reg] = (segMap.regimes[reg] || 0) + 1;
+  // Helper robusto para parsear fechas de diversas fuentes
+  var parseDate = function parseDate(val) {
+    if (!val) return null;
+    if (val instanceof Date) return val;
+    if (val && _typeof(val) === 'object' && typeof val.toDate === 'function') {
+      return val.toDate();
+    }
+    var str = String(val).trim();
+    if (!str) return null;
+    if (!isNaN(str) && str.length > 4 && !str.includes("/") && !str.includes("-")) {
+      var excelEpoch = new Date(1899, 11, 30);
+      excelEpoch.setDate(excelEpoch.getDate() + parseInt(str));
+      return excelEpoch;
+    }
+    var parts = str.split(/[\/-]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
       }
-    });
-    var segmentData = Object.entries(segMap).filter(function (_ref3) {
-      var _ref4 = _slicedToArray(_ref3, 1),
-        k = _ref4[0];
-      return k !== "regimes";
-    }).map(function (_ref5) {
-      var _ref6 = _slicedToArray(_ref5, 2),
-        name = _ref6[0],
-        val = _ref6[1];
-      return {
-        name: name,
-        val: val
-      };
-    }).sort(function (a, b) {
-      return b.val - a.val;
-    }).slice(0, 4);
-    var budgetDataStats = [{
-      name: "Pendiente",
-      val: bPend,
-      color: "#f59e0b"
-    }, {
-      name: "Enviado",
-      val: bEnv,
-      color: "#3b82f6"
-    }, {
-      name: "Seguimiento",
-      val: bSeg,
-      color: "#6366f1"
-    }];
-    return {
-      totalRevenue: totalRevenue,
-      effectivePaid: totalPaid,
-      pending: Math.max(0, totalRevenue - totalPaid),
-      confirmed: confirmed,
-      tentative: tentative,
-      cancelled: cancelled,
-      prospect: prospect,
-      segmentData: segmentData,
-      budgetDataStats: budgetDataStats
-    };
-  }, [data]);
-  var getStatusProps = function getStatusProps(status) {
-    var s = (status || "").toUpperCase();
-    if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA") || s.includes("DESESTIMADO")) return {
-      label: "Anulado",
-      text: "text-rose-500 bg-rose-50",
-      border: "border-rose-100"
-    };
-    if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA")) return {
-      label: "Confirmado",
-      text: "text-emerald-500 bg-emerald-50",
-      border: "border-emerald-100"
-    };
-    if (s.includes("BLOQ") || s.includes("OPCI") || s.includes("TENTATI")) return {
-      label: "Tentativa",
-      text: "text-blue-500 bg-blue-50",
-      border: "border-blue-100"
-    };
-    if (s.includes("PROSPEC") || s.includes("PENDIE")) return {
-      label: "Prospect",
-      text: "text-amber-500 bg-amber-50",
-      border: "border-amber-100"
-    };
-    if (s.includes("SEGUIMIENTO")) return {
-      label: "Seguimiento",
-      text: "text-indigo-500 bg-indigo-50",
-      border: "border-indigo-100"
-    };
-    if (s.includes("ENVIADO")) return {
-      label: "Enviado",
-      text: "text-blue-500 bg-blue-50",
-      border: "border-blue-100"
-    };
-    if (s.includes("PRESUPUESTO")) return {
-      label: "Presupuesto",
-      text: "text-purple-500 bg-purple-50",
-      border: "border-purple-100"
-    };
-    return {
-      label: status,
-      text: "text-slate-500 bg-slate-50",
-      border: "border-slate-100"
-    };
+      return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    }
+    var d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
   };
 
-  // Chart Data
-  var pieData = [{
-    name: "Confirmado",
-    value: financials.confirmed,
-    color: "#10b981"
-  }, {
-    name: "Tentativa",
-    value: financials.tentative,
-    color: "#3b82f6"
-  }, {
-    name: "Prospect",
-    value: financials.prospect,
-    color: "#f59e0b"
-  }, {
-    name: "Anulado",
-    value: financials.cancelled,
-    color: "#94a3b8"
-  }];
-  var trendData = stats.trendData && stats.trendData.length > 0 ? stats.trendData : [{
-    name: "Feb",
-    val: 0
-  }, {
-    name: "Mar",
-    val: 0
-  }, {
-    name: "Abr",
-    val: 0
-  }, {
-    name: "May",
-    val: 0
-  }, {
-    name: "Jun",
-    val: 0
-  }, {
-    name: "Jul",
-    val: 0
-  }];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "space-y-12 animate-fade-in relative"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 md:grid-cols-4 gap-4 hidden"
-  }, [{
-    label: "Ingresos Totales",
-    val: fmt(financials.totalRevenue),
-    trend: "+12%",
-    sub: "Incremento vs mes anterior",
-    icon: "Euro",
-    color: "emerald"
-  }, {
-    label: "Ocupación Media",
-    val: financials.totalGroups > 0 ? (financials.totalPax / Math.max(financials.totalGroups, 1) * 1.2).toFixed(1) + "%" : "–",
-    sub: "Estimada por grupo",
-    icon: "Percent",
-    color: "blue"
-  }, {
-    label: "Ticket Promedio",
-    val: financials.confirmed > 0 ? (financials.totalRevenue / financials.confirmed).toLocaleString("es-ES", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }) + "€" : "–",
-    sub: "Por reserva confirmada",
-    icon: "Target",
-    color: "amber"
-  }, {
-    label: "Grupos Activos",
-    val: financials.confirmed + financials.tentative,
-    trend: "+4",
-    sub: "Pendientes de llegada",
-    icon: "Users",
-    color: "indigo"
-  }].map(function (k) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: k.label,
-      className: "premium-card p-5 group hover:border-emerald-200 transition-all text-center flex flex-col items-center justify-center min-h-[100px]"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center justify-center gap-2 mb-1"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-black text-slate-400 uppercase tracking-widest"
-    }, k.label), k.trend && /*#__PURE__*/React.createElement("span", {
-      className: "bg-emerald-50 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded-md"
-    }, k.trend)), /*#__PURE__*/React.createElement("h4", {
-      className: "text-2xl font-black text-slate-800 tracking-tighter mb-1"
-    }, k.val), /*#__PURE__*/React.createElement("span", {
-      className: "text-[8px] font-bold text-slate-400 uppercase tracking-tight opacity-60 truncate"
-    }, k.sub));
-  })), (alerts || []).length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "relative group/alerts"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap items-center gap-4 pb-6 pt-2 animate-fade-in delay-100"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "shrink-0 flex items-center gap-3 px-6 py-4 bg-slate-900 text-white rounded-[2rem] shadow-2xl shadow-slate-900/20 border border-slate-800/50 group hover:bg-slate-800 transition-all cursor-default"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "Bell",
-    size: 16,
-    className: "text-rose-400 animate-pulse relative z-10"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute inset-0 bg-rose-400/20 blur-lg rounded-full animate-ping"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px] font-black uppercase tracking-[0.25em] leading-none text-rose-400 mb-1"
-  }, "Priority"), /*#__PURE__*/React.createElement("span", {
-    className: "text-[11px] font-black uppercase tracking-widest leading-none text-white whitespace-nowrap"
-  }, "Acciones Urgentes"))), alerts.map(function (alert, i) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: i,
-      onClick: function onClick() {
-        if (alert.group) {
-          var resId = alert.group["Reserva"];
-          localStorage.setItem("nexus_return_reserva", resId);
-          window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(resId));
+  // Filtrado por hotel seleccionado
+  var filteredGroups = React.useMemo(function () {
+    if (selectedHotel === "todos") return data || [];
+    return (data || []).filter(function (g) {
+      var hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+      if (selectedHotel === "guadiana") return hotel.includes("guad") || hotel.includes("guadiana");
+      if (selectedHotel === "cumbria") return hotel.includes("cumb") || hotel.includes("cumbria");
+      return true;
+    });
+  }, [data, selectedHotel]);
+
+  // Cálculo de contadores para las pestañas de hotel (sobre el total sin filtrar por hotel)
+  var counts = React.useMemo(function () {
+    var total = 0;
+    var cumbria = 0;
+    var guadiana = 0;
+    var now = new Date();
+    var startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    var fiveDaysFromNow = new Date(startOfToday);
+    fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+    var fifteenDaysFromNow = new Date(startOfToday);
+    fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
+    (data || []).forEach(function (g) {
+      var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
+      var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(function (s) {
+        return status.includes(s);
+      });
+      var departureDate = parseDate(g.Salida || g.Entrada);
+      var isPast = departureDate && departureDate < startOfToday;
+      if (isCancelled || isPast) return;
+      var isConfirmed = status.includes("CONFIRM") || status.includes("GARANT") || status.includes("RESERVA");
+      var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT");
+      var entryDate = parseDate(g.Entrada);
+      var totalAmt = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
+      var paid = parseFloat(g.Com_Pagado) || 0;
+      try {
+        var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+        plan.forEach(function (p) {
+          if (p.status === "Cobrado") paid += parseFloat(p.amount) || 0;
+        });
+      } catch (e) {}
+      var pending = Math.max(0, totalAmt - paid);
+      var hasAlert = false;
+
+      // 1. Financial
+      if ((isConfirmed || isTentative) && pending > 0.1) {
+        try {
+          var _plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+          var pastDueMilestones = _plan.filter(function (p) {
+            var pDate = parseDate(p.date);
+            return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
+          });
+          if (pastDueMilestones.length > 0) hasAlert = true;
+        } catch (e) {}
+      }
+
+      // 2. Release
+      var dRel = parseDate(g.Com_Vencimiento_Rel);
+      if (!hasAlert && (!isConfirmed || pending > 0.1) && dRel && dRel <= fiveDaysFromNow) {
+        hasAlert = true;
+      }
+
+      // 3. Logistics
+      if (!hasAlert && isConfirmed && entryDate && entryDate >= startOfToday && entryDate <= fifteenDaysFromNow) {
+        if (!g.Logistica_Rooming) hasAlert = true;
+        var regime = (g["Régimen"] || "").toUpperCase();
+        if (regime.includes("MP") && !g.Logistica_MenuMP) hasAlert = true;
+        if (regime.includes("PC") && !g.Logistica_MenuPC) hasAlert = true;
+      }
+
+      // 4. CRM
+      var dFollow = parseDate(g.Com_Seguimiento);
+      if (!hasAlert && dFollow && dFollow <= endOfToday) {
+        hasAlert = true;
+      }
+      if (hasAlert) {
+        total++;
+        var hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+        if (hotel.includes("cumb")) cumbria++;else if (hotel.includes("guad") || hotel.includes("guadiana")) guadiana++;
+      }
+    });
+    return {
+      total: total,
+      cumbria: cumbria,
+      guadiana: guadiana
+    };
+  }, [data]);
+
+  // Cálculo de alertas en 4 columnas
+  var columnsData = React.useMemo(function () {
+    var financialAlerts = [];
+    var releaseAlerts = [];
+    var logisticsAlerts = [];
+    var crmAlerts = [];
+    var now = new Date();
+    var startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    var fiveDaysFromNow = new Date(startOfToday);
+    fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+    var fifteenDaysFromNow = new Date(startOfToday);
+    fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
+    var seenFinancial = new Set();
+    var seenRelease = new Set();
+    var seenLogistics = new Set();
+    var seenCrm = new Set();
+    filteredGroups.forEach(function (g) {
+      var resId = g.Reserva || g.Com_Id || "";
+      var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
+      var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(function (s) {
+        return status.includes(s);
+      });
+      var departureDate = parseDate(g.Salida || g.Entrada);
+      var isPast = departureDate && departureDate < startOfToday;
+      if (isCancelled || isPast) return;
+      var isConfirmed = status.includes("CONFIRM") || status.includes("GARANT") || status.includes("RESERVA");
+      var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT");
+      var entryDate = parseDate(g.Entrada);
+      var total = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
+      var paid = parseFloat(g.Com_Pagado) || 0;
+      try {
+        var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+        plan.forEach(function (p) {
+          if (p.status === "Cobrado") paid += parseFloat(p.amount) || 0;
+        });
+      } catch (e) {}
+      var pending = Math.max(0, total - paid);
+
+      // 1. Column 1: Financial Alerts
+      if ((isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
+        try {
+          var _plan2 = JSON.parse(g.PaymentPlan_JSON || "[]");
+          var pastDueMilestones = _plan2.filter(function (p) {
+            var pDate = parseDate(p.date);
+            return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
+          });
+          if (pastDueMilestones.length > 0) {
+            seenFinancial.add(resId);
+            var firstPastDue = pastDueMilestones[0];
+            var amt = parseFloat(firstPastDue.amount) || 0;
+            financialAlerts.push({
+              group: g,
+              icon: "AlertTriangle",
+              label: "Hito Vencido",
+              detail: "Pago de ".concat(fmt(amt), " vencido el ").concat(formatDate(firstPastDue.date)),
+              type: "danger"
+            });
+          }
+        } catch (e) {}
+      }
+
+      // 2. Column 2: Releases y Plazos
+      if ((!isConfirmed || pending > 0.1) && !seenRelease.has(resId)) {
+        var dRel = parseDate(g.Com_Vencimiento_Rel);
+        if (dRel && dRel <= fiveDaysFromNow) {
+          seenRelease.add(resId);
+          var diffTime = dRel - now;
+          var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          var isOverdue = dRel < startOfToday;
+          releaseAlerts.push({
+            group: g,
+            icon: "Clock",
+            label: isOverdue ? "Release Vencido" : "Próximo Release",
+            detail: isOverdue ? "Venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ")") : "Vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ")"),
+            type: isOverdue ? "danger" : "warning"
+          });
         }
+      }
+
+      // 3. Column 3: Datos Operativos Faltantes
+      if (isConfirmed && entryDate && entryDate >= startOfToday && entryDate <= fifteenDaysFromNow && !seenLogistics.has(resId)) {
+        var missingDetails = [];
+        if (!g.Logistica_Rooming) {
+          missingDetails.push({
+            text: "Falta Rooming List",
+            icon: "FileText"
+          });
+        }
+        var regime = (g["Régimen"] || "").toUpperCase();
+        if (regime.includes("MP") && !g.Logistica_MenuMP) {
+          missingDetails.push({
+            text: "Falta Menú MP",
+            icon: "Utensils"
+          });
+        }
+        if (regime.includes("PC") && !g.Logistica_MenuPC) {
+          missingDetails.push({
+            text: "Falta Menú PC",
+            icon: "Utensils"
+          });
+        }
+        if (missingDetails.length > 0) {
+          seenLogistics.add(resId);
+          logisticsAlerts.push({
+            group: g,
+            icon: "FileWarning",
+            label: "Datos Faltantes",
+            detail: missingDetails.map(function (d) {
+              return d.text;
+            }).join(", "),
+            details: missingDetails,
+            type: "warning"
+          });
+        }
+      }
+
+      // 4. Column 4: CRM Tasks
+      if (!seenCrm.has(resId)) {
+        var dFollow = parseDate(g.Com_Seguimiento);
+        if (dFollow && dFollow <= endOfToday) {
+          seenCrm.add(resId);
+          var isPastDue = dFollow < startOfToday;
+          crmAlerts.push({
+            group: g,
+            icon: "PhoneCall",
+            label: isPastDue ? "CRM Retrasado" : "CRM Hoy",
+            detail: isPastDue ? "Planificado para el ".concat(formatDate(dFollow)) : "Programado para hoy (".concat(formatDate(dFollow), ")"),
+            type: isPastDue ? "danger" : "info"
+          });
+        }
+      }
+    });
+
+    // Ordenamiento por prioridad/fecha
+    financialAlerts.sort(function (a, b) {
+      var _JSON$parse$find, _JSON$parse$find2;
+      var aDate = parseDate((_JSON$parse$find = JSON.parse(a.group.PaymentPlan_JSON || "[]").find(function (p) {
+        return p.status !== "Cobrado" && p.status !== "Pagado";
+      })) === null || _JSON$parse$find === void 0 ? void 0 : _JSON$parse$find.date);
+      var bDate = parseDate((_JSON$parse$find2 = JSON.parse(b.group.PaymentPlan_JSON || "[]").find(function (p) {
+        return p.status !== "Cobrado" && p.status !== "Pagado";
+      })) === null || _JSON$parse$find2 === void 0 ? void 0 : _JSON$parse$find2.date);
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return aDate - bDate;
+    });
+    releaseAlerts.sort(function (a, b) {
+      var aDate = parseDate(a.group.Com_Vencimiento_Rel);
+      var bDate = parseDate(b.group.Com_Vencimiento_Rel);
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return aDate - bDate;
+    });
+    logisticsAlerts.sort(function (a, b) {
+      var aDate = parseDate(a.group.Entrada);
+      var bDate = parseDate(b.group.Entrada);
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return aDate - bDate;
+    });
+    crmAlerts.sort(function (a, b) {
+      var aDate = parseDate(a.group.Com_Seguimiento);
+      var bDate = parseDate(b.group.Com_Seguimiento);
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return aDate - bDate;
+    });
+    return {
+      financialAlerts: financialAlerts,
+      releaseAlerts: releaseAlerts,
+      logisticsAlerts: logisticsAlerts,
+      crmAlerts: crmAlerts
+    };
+  }, [filteredGroups]);
+  var AlertColumn = function AlertColumn(_ref3) {
+    var title = _ref3.title,
+      icon = _ref3.icon,
+      colorClass = _ref3.colorClass,
+      alerts = _ref3.alerts;
+    var theme = {
+      rose: {
+        bg: "bg-rose-50/50",
+        border: "border-rose-100",
+        text: "text-rose-700",
+        iconBg: "bg-rose-100 text-rose-600",
+        bubble: "bg-rose-600 text-white",
+        cardHover: "hover:border-rose-300 hover:shadow-rose-100/50"
       },
-      className: "\n                      shrink-0 min-w-[240px] px-5 py-4 rounded-[2rem] flex items-center gap-4 \n                      cursor-pointer transition-all duration-300 border\n                      hover:scale-[1.03] hover:-translate-y-1 active:scale-95\n                      shadow-sm hover:shadow-xl\n                      ".concat(alert.type === "danger" ? "bg-gradient-to-br from-rose-50 to-white border-rose-100 hover:border-rose-300 hover:shadow-rose-100/50" : alert.type === "warning" ? "bg-gradient-to-br from-amber-50 to-white border-amber-100 hover:border-amber-300 hover:shadow-amber-100/50" : "bg-gradient-to-br from-indigo-50 to-white border-indigo-100 hover:border-indigo-300 hover:shadow-indigo-100/50", "\n                    ")
+      amber: {
+        bg: "bg-amber-50/50",
+        border: "border-amber-100",
+        text: "text-amber-800",
+        iconBg: "bg-amber-100 text-amber-600",
+        bubble: "bg-amber-500 text-white",
+        cardHover: "hover:border-amber-300 hover:shadow-amber-100/50"
+      },
+      orange: {
+        bg: "bg-orange-50/50",
+        border: "border-orange-100",
+        text: "text-orange-800",
+        iconBg: "bg-orange-100 text-orange-600",
+        bubble: "bg-orange-500 text-white",
+        cardHover: "hover:border-orange-300 hover:shadow-orange-100/50"
+      },
+      indigo: {
+        bg: "bg-indigo-50/50",
+        border: "border-indigo-100",
+        text: "text-indigo-800",
+        iconBg: "bg-indigo-100 text-indigo-600",
+        bubble: "bg-indigo-600 text-white",
+        cardHover: "hover:border-indigo-300 hover:shadow-indigo-100/50"
+      }
+    }[colorClass];
+    return /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-col rounded-[2rem] border ".concat(theme.border, " ").concat(theme.bg, " p-5 min-h-[500px] shadow-sm")
     }, /*#__PURE__*/React.createElement("div", {
-      className: "\n                        shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center shadow-inner\n                        ".concat(alert.type === "danger" ? "bg-white text-rose-500 border border-rose-100" : alert.type === "warning" ? "bg-white text-amber-500 border border-amber-100" : "bg-white text-indigo-500 border border-indigo-100", "\n                      ")
+      className: "flex justify-between items-center mb-6"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-9 h-9 rounded-xl flex items-center justify-center shadow-inner ".concat(theme.iconBg)
     }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: alert.icon || "Info",
-      size: 18,
+      name: icon,
+      size: 16,
       strokeWidth: 2.5
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col min-w-0 pr-2"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[8px] font-black uppercase tracking-[0.15em] mb-1 ".concat(alert.type === "danger" ? "text-rose-400" : alert.type === "warning" ? "text-amber-500" : "text-indigo-400")
-    }, alert.type === "danger" ? "Crítico" : alert.type === "warning" ? "Atención" : "Info"), /*#__PURE__*/React.createElement("span", {
-      className: "text-[11px] font-black text-slate-800 uppercase tracking-wide leading-tight line-clamp-2"
-    }, alert.label)));
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 md:grid-cols-2 gap-6 items-start"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "premium-card p-4 flex flex-col h-fit"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "text-[9px] font-black text-slate-800 uppercase tracking-widest mb-3"
-  }, "Estado General de Grupos"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-4 items-center justify-between w-full"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 flex flex-col justify-center space-y-1.5"
-  }, pieData.map(function (item) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: item.name,
-      className: "flex items-center justify-between"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 min-w-0 flex-1"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-1 h-1 rounded-full shrink-0",
-      style: {
-        background: item.color
-      }
-    }), /*#__PURE__*/React.createElement("span", {
-      className: "text-[9px] font-black text-slate-500 uppercase truncate"
-    }, item.name)), /*#__PURE__*/React.createElement("span", {
-      className: "text-[9px] font-black text-slate-800 ml-2"
-    }, (item.value / Math.max(1, financials.confirmed + financials.tentative + financials.prospect + financials.cancelled) * 100).toFixed(0), "%"));
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "w-24 h-24 shrink-0 -mr-2 flex justify-end"
-  }, /*#__PURE__*/React.createElement(PieChart, {
-    width: 96,
-    height: 96
-  }, /*#__PURE__*/React.createElement(Pie, {
-    data: pieData,
-    innerRadius: 25,
-    outerRadius: 40,
-    paddingAngle: 2,
-    dataKey: "value",
-    stroke: "none",
-    cx: "50%",
-    cy: "50%"
-  }, pieData.map(function (entry, index) {
-    return /*#__PURE__*/React.createElement(Cell, {
-      key: "cell-".concat(index),
-      fill: entry.color
-    });
-  })), /*#__PURE__*/React.createElement(Tooltip, {
-    content: function content(_ref7) {
-      var active = _ref7.active,
-        payload = _ref7.payload;
-      if (active && payload && payload.length) {
+    })), /*#__PURE__*/React.createElement("h3", {
+      className: "text-xs font-black text-slate-800 uppercase tracking-wider"
+    }, title)), /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] font-black px-2.5 py-1 rounded-full ".concat(theme.bubble)
+    }, alerts.length)), /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-col gap-4 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1"
+    }, alerts.map(function (alert, idx) {
+      var g = alert.group;
+      var isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
+      return /*#__PURE__*/React.createElement("div", {
+        key: idx,
+        onClick: function onClick() {
+          localStorage.setItem("nexus_return_reserva", g.Reserva);
+          window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(g.Reserva));
+        },
+        className: "bg-white p-4 rounded-[1.5rem] border border-slate-100/80 cursor-pointer shadow-sm hover:-translate-y-1 hover:scale-[1.01] transition-all duration-300 ".concat(theme.cardHover, " flex flex-col gap-2 relative group")
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex justify-between items-center"
+      }, /*#__PURE__*/React.createElement("img", {
+        src: isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg",
+        alt: "Hotel Logo",
+        className: "h-4 max-w-[80px] object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+      }), /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] font-bold text-slate-400 uppercase tracking-widest"
+      }, formatDate(g.Entrada))), /*#__PURE__*/React.createElement("div", {
+        className: "mt-1"
+      }, /*#__PURE__*/React.createElement("h4", {
+        className: "font-bold text-slate-800 text-xs leading-snug group-hover:text-emerald-700 transition-colors uppercase line-clamp-2",
+        title: g["Nombre del Grupo"]
+      }, g["Nombre del Grupo"] || "Grupo sin nombre"), /*#__PURE__*/React.createElement("div", {
+        className: "flex justify-between items-center mt-1"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[8px] font-black text-slate-300 uppercase tracking-widest bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded"
+      }, "#", g.Reserva), g.Com_Comercial && /*#__PURE__*/React.createElement("span", {
+        className: "text-[8px] font-bold text-slate-400 uppercase tracking-wider"
+      }, "\uD83D\uDC64 ", g.Com_Comercial))), /*#__PURE__*/React.createElement("div", {
+        className: "mt-2 border-t border-slate-50 pt-2 flex flex-col gap-1.5"
+      }, alert.details ? alert.details.map(function (det, dIdx) {
         return /*#__PURE__*/React.createElement("div", {
-          className: "bg-white p-2 rounded-xl shadow-xl border border-slate-100"
-        }, /*#__PURE__*/React.createElement("p", {
-          className: "text-[9px] font-black text-slate-400 uppercase mb-0.5"
-        }, payload[0].name), /*#__PURE__*/React.createElement("p", {
-          className: "text-xs font-black text-slate-800"
-        }, payload[0].value));
-      }
-      return null;
-    }
-  }))))), /*#__PURE__*/React.createElement("div", {
-    className: "premium-card p-4 flex flex-col h-fit"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-3"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "text-[9px] font-black text-slate-800 uppercase tracking-widest"
-  }, "Presupuestos por Estado"), /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "clipboard-list",
-    size: 12,
-    className: "text-slate-300"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-4 items-center justify-between w-full"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 flex flex-col justify-center space-y-1.5 overflow-y-auto custom-scrollbar pr-1"
-  }, (financials.budgetDataStats || []).map(function (item, index) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: item.name,
-      className: "flex items-center justify-between"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 min-w-0 flex-1"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-1 h-1 rounded-full shrink-0",
-      style: {
-        background: item.color
-      }
-    }), /*#__PURE__*/React.createElement("span", {
-      className: "text-[9px] font-black text-slate-500 uppercase truncate"
-    }, item.name)), /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-black text-slate-800 ml-2"
-    }, item.val));
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "w-24 h-24 shrink-0 -mr-2 flex justify-end"
-  }, /*#__PURE__*/React.createElement(PieChart, {
-    width: 96,
-    height: 96
-  }, /*#__PURE__*/React.createElement(Pie, {
-    data: financials.budgetDataStats,
-    innerRadius: 25,
-    outerRadius: 40,
-    paddingAngle: 4,
-    dataKey: "val",
-    stroke: "none",
-    cx: "50%",
-    cy: "50%"
-  }, (financials.budgetDataStats || []).map(function (entry, index) {
-    return /*#__PURE__*/React.createElement(Cell, {
-      key: "cell-".concat(index),
-      fill: entry.color
-    });
-  })), /*#__PURE__*/React.createElement(Tooltip, {
-    content: function content(_ref8) {
-      var active = _ref8.active,
-        payload = _ref8.payload;
-      if (active && payload && payload.length) {
-        return /*#__PURE__*/React.createElement("div", {
-          className: "bg-white p-2 rounded-xl shadow-xl border border-slate-100"
-        }, /*#__PURE__*/React.createElement("p", {
-          className: "text-[9px] font-black text-slate-400 uppercase mb-0.5"
-        }, payload[0].name), /*#__PURE__*/React.createElement("p", {
-          className: "text-xs font-black text-slate-800"
-        }, payload[0].value));
-      }
-      return null;
-    }
-  })))))), /*#__PURE__*/React.createElement("div", {
-    className: "premium-card overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "p-8 border-b border-slate-100 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-6"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "text-xs font-black text-slate-800 uppercase tracking-widest"
-  }, "Pr\xF3ximas Llegadas"), /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60"
-  }, "Pr\xF3ximos", " ", timeRange === 365 ? "12 meses" : timeRange + " días", " \u2022 Actualizado hace 1 min.")), /*#__PURE__*/React.createElement("div", {
-    className: "flex bg-slate-50 rounded-xl p-1 border border-slate-100"
-  }, [{
-    label: "15D",
-    val: 15
-  }, {
-    label: "30D",
-    val: 30
-  }, {
-    label: "1A",
-    val: 365
-  }].map(function (opt) {
-    return /*#__PURE__*/React.createElement("button", {
-      key: opt.val,
-      onClick: function onClick() {
-        return onRangeChange(opt.val);
-      },
-      className: "px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ".concat(timeRange === opt.val ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600")
-    }, opt.label);
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "relative"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "Search",
-    size: 14,
-    className: "absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-  }), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    placeholder: "Buscar en grupos...",
-    className: "bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-emerald-500 transition-all w-64"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "overflow-x-auto"
-  }, /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-left"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400"
-  }, /*#__PURE__*/React.createElement("th", {
-    className: "px-8 py-5"
-  }, "Grupo"), /*#__PURE__*/React.createElement("th", {
-    className: "px-8 py-5"
-  }, "Llegada"), /*#__PURE__*/React.createElement("th", {
-    className: "px-8 py-5"
-  }, "Cliente"), /*#__PURE__*/React.createElement("th", {
-    className: "px-8 py-5"
-  }, "Empresa"), /*#__PURE__*/React.createElement("th", {
-    className: "px-8 py-5 text-right"
-  }, "Importe"), /*#__PURE__*/React.createElement("th", {
-    className: "px-8 py-5 text-right"
-  }))), /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-slate-100"
-  }, arrivals.map(function (group, i) {
-    var st = getStatusProps(group["Estado"]);
-    return /*#__PURE__*/React.createElement("tr", {
-      key: i,
-      className: "hover:bg-slate-50 transition-colors group cursor-pointer",
-      onClick: function onClick() {
-        var resId = group["Reserva"];
-        localStorage.setItem("nexus_return_reserva", resId);
-        window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(resId));
-      }
-    }, /*#__PURE__*/React.createElement("td", {
-      className: "px-8 py-6"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col gap-1.5"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement("h5", {
-      className: "text-[11px] font-black text-slate-800 uppercase tracking-tight group-hover:text-emerald-600 transition-colors"
-    }, group["Nombre del Grupo"]), /*#__PURE__*/React.createElement("span", {
-      className: "text-[8px] font-bold text-slate-300 uppercase tracking-widest px-1.5 py-0.5 bg-slate-50 rounded border border-slate-100"
-    }, "#", group["Reserva"])), /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-1.5"
-    }, function () {
-      var total = safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0);
-      var paid = typeof group["Com_Pagado"] === 'number' ? group["Com_Pagado"] : safeParseAmount(group["Com_Pagado"] || 0);
-      try {
-        var plan = JSON.parse(group.PaymentPlan_JSON || "[]");
-        var planPaid = 0;
-        plan.forEach(function (p) {
-          if (p.status === "Cobrado" || p.status === "Pagado") planPaid += safeParseAmount(p.amount || 0);
-        });
-        if (planPaid > paid) paid = planPaid;
-      } catch (e) {}
-      var isPaid = group["Com_Pagado"] === true || total > 0 && paid >= total - 0.1;
-      var st = getStatusProps(group["Estado"]);
-      var isConfirmed = st.label === "Confirmado" || (group["Estado"] || "").toUpperCase().includes("CONFIRM") || (group["Estado"] || "").toUpperCase().includes("GARANT") || (group["Estado"] || "").toUpperCase().includes("RESERVA");
-
-      // Si ya está pagado o confirmado, el release ya no es una alerta crítica comercial
-      if (isPaid || isConfirmed) return null;
-      var dRel = group.Com_Vencimiento_Rel ? group.Com_Vencimiento_Rel instanceof Date ? group.Com_Vencimiento_Rel : new Date(group.Com_Vencimiento_Rel) : null;
-      if (dRel && !isNaN(dRel.getTime())) {
-        var diff = dRel - new Date();
-        if (diff < 7 * 24 * 60 * 60 * 1000) {
-          var daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
-          var isUrgent = daysLeft <= 2;
-          return /*#__PURE__*/React.createElement("div", {
-            className: "flex items-center gap-1.5 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ".concat(isUrgent ? 'bg-rose-50 text-rose-500 border-rose-100 animate-pulse ring-4 ring-rose-500/10' : 'bg-slate-50 text-slate-400 border-slate-100')
-          }, /*#__PURE__*/React.createElement(LucideIcon, {
-            name: "Clock",
-            size: 10,
-            strokeWidth: 3
-          }), "Rel: ", formatDate(group.Com_Vencimiento_Rel));
-        }
-      }
-      return null;
-    }(), !group.Com_Comercial && /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[8px] font-black uppercase tracking-widest"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "UserPlus",
-      size: 10,
-      strokeWidth: 3
-    }), "Sin Comercial"), safeParseAmount(group["Importe(*)"] || group["Total_Importe_Facturable"] || 0) === 0 && /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full border border-indigo-100 text-[8px] font-black uppercase tracking-widest"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "HelpCircle",
-      size: 10,
-      strokeWidth: 3
-    }), "Falta Precio"), function () {
-      var total = safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0);
-      if (total <= 0) return null;
-      var paid = typeof group["Com_Pagado"] === 'number' ? group["Com_Pagado"] : safeParseAmount(group["Com_Pagado"] || 0);
-
-      // Si no hay pago directo, buscamos en el plan de pagos
-      try {
-        var plan = JSON.parse(group.PaymentPlan_JSON || "[]");
-        var planPaid = 0;
-        plan.forEach(function (p) {
-          if (p.status === "Cobrado" || p.status === "Pagado") planPaid += safeParseAmount(p.amount || 0);
-        });
-        if (planPaid > paid) paid = planPaid;
-      } catch (e) {}
-      var isActuallyPaid = group["Com_Pagado"] === true || paid >= total - 0.1;
-      if (!isActuallyPaid) {
-        return /*#__PURE__*/React.createElement("div", {
-          className: "flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full border border-rose-100 text-[8px] font-black uppercase tracking-widest"
+          key: dIdx,
+          className: "flex items-center gap-1.5 text-[9px] font-bold text-slate-600 leading-tight"
         }, /*#__PURE__*/React.createElement(LucideIcon, {
-          name: "CreditCard",
+          name: det.icon,
           size: 10,
-          strokeWidth: 3
-        }), "Pago Pendiente");
-      }
-      return null;
-    }(), !group["Logistica_Rooming"] && /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[8px] font-black uppercase tracking-widest"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "FileText",
-      size: 10,
-      strokeWidth: 3
-    }), "Falta Rooming"), (group["Régimen"] || "").toUpperCase().includes("MP") && !group["Logistica_MenuMP"] && /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "Utensils",
-      size: 10,
-      strokeWidth: 3
-    }), "Falta Men\xFA MP"), (group["Régimen"] || "").toUpperCase().includes("PC") && !group["Logistica_MenuPC"] && /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-600 rounded-full border border-orange-100 text-[8px] font-black uppercase tracking-widest"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "Utensils",
-      size: 10,
-      strokeWidth: 3
-    }), "Falta Men\xFA PC")))), /*#__PURE__*/React.createElement("td", {
-      className: "px-8 py-6"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-black text-slate-600 tracking-widest"
-    }, formatDate(group["Entrada"]))), /*#__PURE__*/React.createElement("td", {
-      className: "px-8 py-6"
+          className: theme.text,
+          strokeWidth: 2.5
+        }), /*#__PURE__*/React.createElement("span", {
+          className: "truncate"
+        }, det.text));
+      }) : /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-1.5 text-[9px] font-bold text-slate-600 leading-tight"
+      }, /*#__PURE__*/React.createElement(LucideIcon, {
+        name: alert.icon,
+        size: 10,
+        className: theme.text,
+        strokeWidth: 2.5
+      }), /*#__PURE__*/React.createElement("span", {
+        className: "line-clamp-2",
+        title: alert.detail
+      }, alert.detail))));
+    }), alerts.length === 0 && /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-col items-center justify-center py-16 px-4 bg-white/50 border border-dashed border-slate-200 rounded-[1.5rem] opacity-70"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ".concat(st.text, " border ").concat(st.border || "border-transparent")
-    }, st.label))), /*#__PURE__*/React.createElement("td", {
-      className: "px-8 py-6"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-    }, group["Empresa/Agencia"] || "Directo")), /*#__PURE__*/React.createElement("td", {
-      className: "px-8 py-6 text-right"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[11px] font-black text-slate-800 tracking-tight"
-    }, fmt(safeParseAmount(group["Total_Importe_Facturable"] || group["Importe(*)"] || 0)))), /*#__PURE__*/React.createElement("td", {
-      className: "px-8 py-6 text-right"
+      className: "w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-3 shadow-inner"
     }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "ChevronRight",
-      size: 14,
-      className: "text-slate-300 opacity-0 group-hover:opacity-100"
-    })));
-  }), arrivals.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-    colSpan: "6",
-    className: "px-8 py-20 text-center"
+      name: "check",
+      size: 18,
+      strokeWidth: 3
+    })), /*#__PURE__*/React.createElement("p", {
+      className: "text-[9px] font-black uppercase text-slate-500 tracking-wider text-center"
+    }, "Todo al d\xEDa"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[8px] text-slate-400 text-center mt-0.5"
+    }, "Sin actuaciones pendientes"))));
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-8 animate-fade-in relative"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col items-center gap-3 opacity-30"
+    className: "bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden mb-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "absolute right-0 top-0 opacity-10 translate-x-10 -translate-y-10"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "CalendarX",
-    size: 40
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-black uppercase tracking-widest"
-  }, "Sin llegadas pr\xF3ximas para el periodo seleccionado")))))))), /*#__PURE__*/React.createElement("footer", {
+    name: "bell",
+    size: 300
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "relative z-10 max-w-2xl"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-bold text-emerald-400 uppercase tracking-[0.2em] bg-emerald-500/10 px-3 py-1.5 rounded-full"
+  }, "Centro de Operaciones"), /*#__PURE__*/React.createElement("h2", {
+    className: "text-3xl font-black tracking-tight mt-4 mb-2"
+  }, "Panel de Alertas y Actuaciones Cr\xEDticas"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-slate-300 font-medium leading-relaxed"
+  }, "Supervisa vencimientos financieros, plazos de release, informaci\xF3n log\xEDstica ausente y tareas CRM pendientes. Filtra por establecimiento y abre las fichas correspondientes con un clic."))), /*#__PURE__*/React.createElement("div", {
+    className: "flex bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/50 w-fit gap-1.5 shadow-sm"
+  }, [{
+    id: "todos",
+    label: "Todos los Hoteles",
+    icon: "Hotel"
+  }, {
+    id: "guadiana",
+    label: "Sercotel Guadiana",
+    logo: "Logos/Sercotel Guadiana.jpg"
+  }, {
+    id: "cumbria",
+    label: "Cumbria Spa & Hotel",
+    logo: "Logos/Cumbria Spa&Hotel.jpg"
+  }].map(function (hotel) {
+    var active = selectedHotel === hotel.id;
+    return /*#__PURE__*/React.createElement("button", {
+      key: hotel.id,
+      onClick: function onClick() {
+        return setSelectedHotel(hotel.id);
+      },
+      className: "flex items-center gap-2 px-4 py-2.5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-wider transition-all duration-300 ".concat(active ? "bg-white text-slate-900 shadow-md scale-102 border border-slate-100" : "text-slate-500 hover:text-slate-800 hover:bg-white/40")
+    }, hotel.logo ? /*#__PURE__*/React.createElement("img", {
+      src: hotel.logo,
+      className: "h-4 object-contain",
+      alt: hotel.label
+    }) : /*#__PURE__*/React.createElement(LucideIcon, {
+      name: hotel.icon,
+      size: 14
+    }), hotel.label, /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1.5 ".concat(active ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600")
+    }, hotel.id === "todos" ? counts.total : hotel.id === "guadiana" ? counts.guadiana : counts.cumbria));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start"
+  }, /*#__PURE__*/React.createElement(AlertColumn, {
+    title: "Alertas Financieras",
+    icon: "CreditCard",
+    colorClass: "rose",
+    alerts: columnsData.financialAlerts
+  }), /*#__PURE__*/React.createElement(AlertColumn, {
+    title: "Releases y Plazos",
+    icon: "Clock",
+    colorClass: "amber",
+    alerts: columnsData.releaseAlerts
+  }), /*#__PURE__*/React.createElement(AlertColumn, {
+    title: "Datos Faltantes",
+    icon: "FileWarning",
+    colorClass: "orange",
+    alerts: columnsData.logisticsAlerts
+  }), /*#__PURE__*/React.createElement(AlertColumn, {
+    title: "Seguimientos CRM",
+    icon: "PhoneCall",
+    colorClass: "indigo",
+    alerts: columnsData.crmAlerts
+  })), /*#__PURE__*/React.createElement("footer", {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
   }, "Nexus Gold Edition v2.8.5 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
-var GroupsManager = function GroupsManager(_ref9) {
-  var data = _ref9.data,
-    onUpdateStatus = _ref9.onUpdateStatus,
-    onDeleteGroup = _ref9.onDeleteGroup;
-  var _React$useState = React.useState(""),
-    _React$useState2 = _slicedToArray(_React$useState, 2),
-    searchTerm = _React$useState2[0],
-    setSearchTerm = _React$useState2[1];
+var GroupsManager = function GroupsManager(_ref4) {
+  var data = _ref4.data,
+    onUpdateStatus = _ref4.onUpdateStatus,
+    onDeleteGroup = _ref4.onDeleteGroup;
+  var _React$useState3 = React.useState(""),
+    _React$useState4 = _slicedToArray(_React$useState3, 2),
+    searchTerm = _React$useState4[0],
+    setSearchTerm = _React$useState4[1];
   var filteredData = data.filter(function (group) {
     var term = searchTerm.toLowerCase();
     var name = (group["Nombre del Grupo"] || "").toLowerCase();
@@ -1067,18 +951,18 @@ var GroupsManager = function GroupsManager(_ref9) {
     className: "col-span-full text-center py-20 text-slate-400"
   }, "No se encontraron grupos coincidiendo con tu b\xFAsqueda.")));
 };
-var BudgetManager = function BudgetManager(_ref0) {
-  var data = _ref0.data,
-    onUpdateStatus = _ref0.onUpdateStatus,
-    onDeleteGroup = _ref0.onDeleteGroup;
-  var _React$useState3 = React.useState(""),
-    _React$useState4 = _slicedToArray(_React$useState3, 2),
-    searchTerm = _React$useState4[0],
-    setSearchTerm = _React$useState4[1];
-  var _React$useState5 = React.useState("TODOS"),
+var BudgetManager = function BudgetManager(_ref5) {
+  var data = _ref5.data,
+    onUpdateStatus = _ref5.onUpdateStatus,
+    onDeleteGroup = _ref5.onDeleteGroup;
+  var _React$useState5 = React.useState(""),
     _React$useState6 = _slicedToArray(_React$useState5, 2),
-    statusFilter = _React$useState6[0],
-    setStatusFilter = _React$useState6[1];
+    searchTerm = _React$useState6[0],
+    setSearchTerm = _React$useState6[1];
+  var _React$useState7 = React.useState("TODOS"),
+    _React$useState8 = _slicedToArray(_React$useState7, 2),
+    statusFilter = _React$useState8[0],
+    setStatusFilter = _React$useState8[1];
   var budgetData = data.filter(function (g) {
     var isBudget = String(g.Reserva || "").startsWith("PRES-") || (g.Estado || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("ENVIADO") || (g.Com_Estado_Interno || "").toUpperCase().includes("SEGUIMIENTO");
     if (!isBudget) return false;
@@ -1341,7 +1225,7 @@ var App = function App() {
     successToast = _useState10[0],
     setSuccessToast = _useState10[1];
   var handleUpdateStatus = /*#__PURE__*/function () {
-    var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(groupId, newStatus) {
+    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(groupId, newStatus) {
       var docId, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
@@ -1372,11 +1256,11 @@ var App = function App() {
       }, _callee, null, [[0, 2]]);
     }));
     return function handleUpdateStatus(_x2, _x3) {
-      return _ref1.apply(this, arguments);
+      return _ref6.apply(this, arguments);
     };
   }();
   var handleDeleteGroup = /*#__PURE__*/function () {
-    var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(groupId) {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(groupId) {
       var docId, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
@@ -1411,7 +1295,7 @@ var App = function App() {
       }, _callee2, null, [[1, 3]]);
     }));
     return function handleDeleteGroup(_x4) {
-      return _ref10.apply(this, arguments);
+      return _ref7.apply(this, arguments);
     };
   }();
 
@@ -1597,7 +1481,7 @@ var App = function App() {
     aiResult = _useState16[0],
     setAiResult = _useState16[1];
   var runStrategicAnalysis = /*#__PURE__*/function () {
-    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
       var analysis, _t3;
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
@@ -1627,7 +1511,7 @@ var App = function App() {
       }, _callee3, null, [[1, 3, 4, 5]]);
     }));
     return function runStrategicAnalysis() {
-      return _ref11.apply(this, arguments);
+      return _ref8.apply(this, arguments);
     };
   }();
   useEffect(function () {
