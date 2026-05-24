@@ -2107,11 +2107,11 @@ var App = function App() {
   }, [handleFileUpload, exportExcel, handleConsultantClick]);
   useEffect(function () {
     if (hotelSettings !== null && hotelSettings !== void 0 && hotelSettings.lastImportDate) {
-      var dateStr = new Date(hotelSettings.lastImportDate).toLocaleDateString("es-ES", {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit'
-      });
+      var date = new Date(hotelSettings.lastImportDate);
+      var pad = function pad(n) {
+        return n < 10 ? '0' + n : n;
+      };
+      var dateStr = "".concat(pad(date.getDate()), "/").concat(pad(date.getMonth() + 1), "/").concat(date.getFullYear(), " ").concat(pad(date.getHours()), ":").concat(pad(date.getMinutes()));
       if (window.updateNexusHeaderImportDate) {
         window.updateNexusHeaderImportDate(dateStr);
       }
@@ -2268,6 +2268,16 @@ var App = function App() {
     });
     batch.commit().then(function () {
       console.log("\u2705 Autorizaci\xF3n guardada en Firestore para ".concat(pendingRows.length, " grupo(s)"));
+
+      // Guardar la fecha y hora de importación en configuración
+
+      db.collection("settings").doc("main").set({
+        lastImportDate: Date.now()
+      }, {
+        merge: true
+      }).catch(function (err) {
+        return console.error("Error al guardar la fecha de importación:", err);
+      });
 
       // IMPORTANTE: mantener 6s de bloqueo para que onSnapshot no restaure datos viejos
 

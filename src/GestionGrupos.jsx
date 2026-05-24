@@ -3816,35 +3816,19 @@
 
 
       useEffect(() => {
-
         if (hotelSettings?.lastImportDate) {
-
-          const dateStr = new Date(hotelSettings.lastImportDate).toLocaleDateString("es-ES", { 
-
-            day: '2-digit', 
-
-            month: '2-digit', 
-
-            year: '2-digit' 
-
-          });
+          const date = new Date(hotelSettings.lastImportDate);
+          const pad = (n) => n < 10 ? '0' + n : n;
+          const dateStr = `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
           if (window.updateNexusHeaderImportDate) {
-
             window.updateNexusHeaderImportDate(dateStr);
-
           }
-
         } else {
-
           if (window.updateNexusHeaderImportDate) {
-
             window.updateNexusHeaderImportDate("");
-
           }
-
         }
-
       }, [hotelSettings]);
 
 
@@ -4138,6 +4122,18 @@
               `✅ Autorización guardada en Firestore para ${pendingRows.length} grupo(s)`,
 
             );
+
+            // Guardar la fecha y hora de importación en configuración
+
+            db.collection("settings")
+
+              .doc("main")
+
+              .set({ lastImportDate: Date.now() }, { merge: true })
+
+              .catch((err) => console.error("Error al guardar la fecha de importación:", err));
+
+
 
             // IMPORTANTE: mantener 6s de bloqueo para que onSnapshot no restaure datos viejos
 
