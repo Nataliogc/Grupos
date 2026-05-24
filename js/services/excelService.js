@@ -68,70 +68,121 @@
     const errorLog = [];
     if (!matrix || matrix.length < 2) return { validData: [], errors: errorLog };
 
-    // Find headers row dynamically
     let headers = [];
-    let dataStartRow = 1;
+    let currentStatus = defaultStatus;
 
+    const isHeaderRow = (row) => {
+      if (!Array.isArray(row) || row.length < 5) return false;
+      const requiredKeys = ["reserva", "nombre del grupo", "entrada", "salida", "pax.", "noches", "régimen", "regimen", "importe(*)"];
+      let matchCount = 0;
+      row.forEach((val) => {
+        if (val && typeof val === "string") {
+          const lowerVal = val.toLowerCase().trim();
+          if (requiredKeys.indexOf(lowerVal) !== -1) {
+            matchCount++;
+          }
+        }
+      });
+      return matchCount >= 4;
+    };
+
+    const detectStatusChange = (row, status) => {
+      if (!Array.isArray(row)) return status;
+      const text = row.filter((v) => v !== null && v !== undefined && String(v).trim() !== "").join(" ").toUpperCase();
+      if (text.indexOf("CONFIRMADA") !== -1) return "Confirmada";
+      if (text.indexOf("ANULADA") !== -1) return "Anulada";
+      return status;
+    };
+
+    // Find initial headers row dynamically
+    let dataStartRow = 0;
     for (let r = 0; r < Math.min(15, matrix.length); r++) {
       let rowVals = matrix[r];
-      if (Array.isArray(rowVals) && rowVals.length >= 2) {
-        // Buscamos una fila que tenga al menos 2 celdas con texto (headers)
-        let textValues = rowVals.filter((v) => v !== null && v !== undefined && String(v).trim().length > 1);
-        if (textValues.length >= 2) {
-          headers = rowVals.map((v) => String(v || "").trim());
-          dataStartRow = r + 1;
-          break;
+      if (isHeaderRow(rowVals)) {
+        headers = rowVals.map((v) => String(v || "").trim());
+        dataStartRow = r + 1;
+        break;
+      }
+    }
+
+    // Fallback detection if no formal header row matches
+    if (headers.length === 0) {
+      for (let r = 0; r < Math.min(15, matrix.length); r++) {
+        let rowVals = matrix[r];
+        if (Array.isArray(rowVals) && rowVals.length >= 2) {
+          let textValues = rowVals.filter((v) => v !== null && v !== undefined && String(v).trim().length > 1);
+          if (textValues.length >= 2) {
+            headers = rowVals.map((v) => String(v || "").trim());
+            dataStartRow = r + 1;
+            break;
+          }
         }
       }
     }
 
     if (headers.length === 0) return { validData: [], errors: ["No se encontraron cabeceras válidas."] };
 
+    const HEADER_ALIASES = {
+      "CÓDIGO": "Reserva", "CODIGO": "Reserva", "LOCALIZADOR": "Reserva", "RES.": "Reserva", "REF.": "Reserva",
+      "NOMBRE": "Nombre del Grupo", "GRUPO": "Nombre del Grupo", "CLIENTE": "Nombre del Grupo",
+      "AGENCIA": "Empresa/Agencia", "EMPRESA": "Empresa/Agencia",
+      "PAX": "Pax.", "PERS.": "Pax.", "PERSONAS": "Pax.",
+      "PERNOCTACIONES": "Pernoct.", "PERN.": "Pernoct.",
+      "RÉGIMEN": "Régimen", "REGIMEN": "Régimen",
+      "ESTADO": "Estado", "SITUACIÓN": "Estado", "SITUACION": "Estado",
+      "ENTRADA": "Entrada", "LLEGADA": "Entrada",
+      "SALIDA": "Salida",
+      "SEGMENTO": "Segment.", "SEGMENT.": "Segment."
+    };
+
     const cleanData = [];
     for (let i = dataStartRow; i < matrix.length; i++) {
-        const rowData = matrix[i];
-        if (rowData.length === 0) continue;
-        
-        const HEADER_ALIASES = {
-            "CÓDIGO": "Reserva", "CODIGO": "Reserva", "LOCALIZADOR": "Reserva", "RES.": "Reserva", "REF.": "Reserva",
-            "NOMBRE": "Nombre del Grupo", "GRUPO": "Nombre del Grupo", "CLIENTE": "Nombre del Grupo",
-            "AGENCIA": "Empresa/Agencia", "EMPRESA": "Empresa/Agencia",
-            "PAX": "Pax.", "PERS.": "Pax.", "PERSONAS": "Pax.",
-            "PERNOCTACIONES": "Pernoct.", "PERN.": "Pernoct.",
-            "RÉGIMEN": "Régimen", "REGIMEN": "Régimen",
-            "ESTADO": "Estado", "SITUACIÓN": "Estado", "SITUACION": "Estado",
-            "ENTRADA": "Entrada", "LLEGADA": "Entrada",
-            "SALIDA": "Salida",
-            "SEGMENTO": "Segment.", "SEGMENT.": "Segment."
-        };
+      const rowData = matrix[i];
+      if (!rowData || rowData.length === 0) continue;
 
-        let rowObj = {};
-        headers.forEach((h, idx) => {
-            if (h && h !== "") {
-                const upperH = h.toUpperCase();
-                const standardKey = HEADER_ALIASES[upperH] || h;
-                rowObj[standardKey] = rowData[idx] !== undefined ? rowData[idx] : "";
-            }
-        });
-        
-        // Skip obvious empty or totals rows
-        const checkStr = JSON.stringify(rowObj).toLowerCase();
-        if (checkStr.includes("total") || Object.values(rowObj).every(v => v === "")) {
-            continue;
+      // Detect Segment Summary block to stop
+      const hasSegmentacion = rowData.some((v) => typeof v === "string" && (v.toUpperCase().indexOf("SEGMENTACION") !== -1 || v.toUpperCase().indexOf("SEGMENTACIÓN") !== -1));
+      if (hasSegmentacion) {
+        break;
+      }
+
+      currentStatus = detectStatusChange(rowData, currentStatus);
+
+      if (isHeaderRow(rowData)) {
+        headers = rowData.map((v) => String(v || "").trim());
+        continue;
+      }
+
+      let rowObj = {};
+      headers.forEach((h, idx) => {
+        if (h && h !== "") {
+          const upperH = h.toUpperCase();
+          const standardKey = HEADER_ALIASES[upperH] || h;
+          rowObj[standardKey] = rowData[idx] !== undefined ? rowData[idx] : "";
         }
+      });
 
-        // Apply defaults
-        if (!rowObj["Estado"] || String(rowObj["Estado"]).trim() === "") {
-            rowObj["Estado"] = defaultStatus;
-        }
+      const checkStr = JSON.stringify(rowObj).toLowerCase();
+      if (checkStr.includes("total") || Object.values(rowObj).every(v => v === "")) {
+        continue;
+      }
 
-        if (specificHotelConfigId) {
-            rowObj["Hotel_Asignado"] = specificHotelConfigId;
-        }
+      // Ignore totals / summary rows or section titles (valid bookings MUST have both Entrada and Salida dates)
+      const hasNoDates = (!rowObj["Entrada"] || String(rowObj["Entrada"]).trim() === "") ||
+                         (!rowObj["Salida"] || String(rowObj["Salida"]).trim() === "");
+      if (hasNoDates) {
+        continue;
+      }
 
-        cleanData.push(rowObj);
+      rowObj["Estado"] = currentStatus;
+
+      if (specificHotelConfigId) {
+        rowObj["Hotel_Asignado"] = specificHotelConfigId;
+      }
+
+      cleanData.push(rowObj);
     }
-    
+
     return { validData: cleanData, errors: errorLog };
   };
 

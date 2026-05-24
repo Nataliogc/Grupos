@@ -179,6 +179,7 @@
 
                 <!-- Derecha: Acciones de Importación y Exportación -->
                 <div class="flex items-center gap-2">
+                    <span id="nexus-header-export-badge" class="hidden sm:inline-block"></span>
                     <div class="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
                     <div class="flex gap-1 md:gap-2">
@@ -272,14 +273,33 @@
         var excelBtn = document.getElementById("nexus-header-excel-btn");
         if (excelBtn) {
             excelBtn.addEventListener("click", function () {
+                var exported = false;
                 if (typeof window.handleNexusExport === "function") {
                     window.handleNexusExport();
+                    exported = true;
                 } else if (typeof window.exportExcel === "function") {
                     window.exportExcel();
+                    exported = true;
                 } else {
                     console.log("[Navigation] Exportar Excel no soportado en este módulo.");
                 }
+
+                if (exported) {
+                    var now = new Date();
+                    var pad = function(n) { return n < 10 ? '0' + n : n; };
+                    var dateStr = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear() + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+                    localStorage.setItem("nexus_last_excel_export", dateStr);
+                    if (typeof window.updateNexusHeaderExportDate === "function") {
+                        window.updateNexusHeaderExportDate(dateStr);
+                    }
+                }
             });
+        }
+
+        // Cargar última exportación de Excel al iniciar si existe
+        var savedExportDate = localStorage.getItem("nexus_last_excel_export");
+        if (savedExportDate && typeof window.updateNexusHeaderExportDate === "function") {
+            window.updateNexusHeaderExportDate(savedExportDate);
         }
     }
 
@@ -320,6 +340,22 @@
                 badge.innerHTML = `
                     <span class="ml-3 px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest animate-pulse-slow">
                         Actualizado: ${dateStr}
+                    </span>
+                `;
+            } else {
+                badge.innerHTML = "";
+            }
+        }
+    };
+
+    // Registrar actualización para el badge de última exportación de Excel
+    window.updateNexusHeaderExportDate = function (dateStr) {
+        var badge = document.getElementById("nexus-header-export-badge");
+        if (badge) {
+            if (dateStr) {
+                badge.innerHTML = `
+                    <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest">
+                        Exportado: ${dateStr}
                     </span>
                 `;
             } else {
