@@ -355,12 +355,13 @@
         return { total, cumbria, guadiana };
       }, [data]);
 
-      // Cálculo de alertas en 4 columnas
+      // Cálculo de alertas en 5 columnas
       const columnsData = React.useMemo(() => {
         const financialAlerts = [];
         const releaseAlerts = [];
         const logisticsAlerts = [];
         const crmAlerts = [];
+        const tentativeAlerts = [];
 
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -374,6 +375,9 @@
         const seenRelease = new Set();
         const seenLogistics = new Set();
         const seenCrm = new Set();
+        const seenTentative = new Set();
+        const twentyFiveDaysFromNow = new Date(startOfToday);
+        twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
 
         filteredGroups.forEach((g) => {
           const resId = g.Reserva || g.Com_Id || "";
@@ -488,6 +492,22 @@
               });
             }
           }
+
+          // 5. Column 5: Tentativas Urgentes (< 25 días para la llegada)
+          if (isTentative && entryDate && !seenTentative.has(resId)) {
+            if (entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+              seenTentative.add(resId);
+              const diffDays = Math.ceil((entryDate - startOfToday) / (1000 * 60 * 60 * 24));
+              const urgency = diffDays <= 7 ? "danger" : diffDays <= 14 ? "warning" : "info";
+              tentativeAlerts.push({
+                group: g,
+                icon: "calendar-clock",
+                label: diffDays <= 7 ? "Llegada Crítica" : diffDays <= 14 ? "Confirmar Pronto" : "Confirmar Antes de Plazo",
+                detail: `Entrada en ${diffDays} día${diffDays !== 1 ? 's' : ''} (${formatDate(entryDate)}) — aún en Tentativa`,
+                type: urgency
+              });
+            }
+          }
         });
 
         // Ordenamiento por prioridad/fecha
@@ -524,11 +544,20 @@
           return aDate - bDate;
         });
 
+        tentativeAlerts.sort((a, b) => {
+          const aDate = parseDate(a.group.Entrada);
+          const bDate = parseDate(b.group.Entrada);
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate - bDate;
+        });
+
         return {
           financialAlerts,
           releaseAlerts,
           logisticsAlerts,
-          crmAlerts
+          crmAlerts,
+          tentativeAlerts
         };
       }, [filteredGroups]);
 
