@@ -3878,18 +3878,36 @@
 
 
       useEffect(() => {
-        if (hotelSettings?.lastImportDate) {
-          const date = new Date(hotelSettings.lastImportDate);
+        const formatImportDate = (timestamp) => {
+          if (!timestamp) return "";
+          const date = new Date(timestamp);
+          if (isNaN(date.getTime())) return "";
           const pad = (n) => n < 10 ? '0' + n : n;
-          const dateStr = `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+          return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear()).slice(-2)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        };
 
-          if (window.updateNexusHeaderImportDate) {
-            window.updateNexusHeaderImportDate(dateStr);
-          }
+        const gDate = hotelSettings.guadiana?.lastImportDate;
+        const cDate = hotelSettings.cumbria?.lastImportDate;
+
+        let dateStr = "";
+        if (gDate || cDate) {
+          const gStr = gDate ? formatImportDate(gDate) : "---";
+          const cStr = cDate ? formatImportDate(cDate) : "---";
+          dateStr = `Guadiana: ${gStr} | Cumbria: ${cStr}`;
+        } else if (hotelSettings.lastImportDate) {
+          // Fallback to legacy single import date
+          dateStr = formatImportDate(hotelSettings.lastImportDate);
+        }
+
+        if (window.updateNexusHeaderImportDate) {
+          window.updateNexusHeaderImportDate(dateStr);
+        }
+        
+        // Save to localStorage for cross-page sync
+        if (dateStr) {
+          localStorage.setItem("nexus_last_import_str", dateStr);
         } else {
-          if (window.updateNexusHeaderImportDate) {
-            window.updateNexusHeaderImportDate("");
-          }
+          localStorage.removeItem("nexus_last_import_str");
         }
       }, [hotelSettings]);
 
@@ -4187,11 +4205,38 @@
 
             // Guardar la fecha y hora de importación en configuración
 
+                        let detectedHotel = "";
+            if (pendingRows.length > 0) {
+              const firstRow = pendingRows[0];
+              const hVal = String(firstRow["Hotel_Asignado"] || firstRow["Hotel"] || "").toLowerCase();
+              if (hVal.includes("guadiana")) {
+                detectedHotel = "guadiana";
+              } else if (hVal.includes("cumbria")) {
+                detectedHotel = "cumbria";
+              }
+            }
+
+            const updatePayload = {
+              lastImportDate: Date.now()
+            };
+            const guadianaData = hotelSettings.guadiana || {};
+            const cumbriaData = hotelSettings.cumbria || {};
+
+            if (detectedHotel === "guadiana") {
+              updatePayload["guadiana"] = {
+                ...guadianaData,
+                lastImportDate: Date.now()
+              };
+            } else if (detectedHotel === "cumbria") {
+              updatePayload["cumbria"] = {
+                ...cumbriaData,
+                lastImportDate: Date.now()
+              };
+            }
+
             db.collection("settings")
-
               .doc("main")
-
-              .set({ lastImportDate: Date.now() }, { merge: true })
+              .set(updatePayload, { merge: true })
 
               .catch((err) => console.error("Error al guardar la fecha de importación:", err));
 
@@ -7068,7 +7113,7 @@
 
             {/* --- UNIFIED HEADER & FILTERS --- */}
 
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col xl:flex-row items-center justify-between gap-4">
+            <div className="bg-white p-2 px-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col xl:flex-row items-center justify-between gap-3">
 
               <div className="flex items-center gap-3 w-full xl:w-auto">
 
@@ -7098,7 +7143,7 @@
 
 
 
-              <div className="flex flex-wrap gap-2 items-center w-full xl:flex-1 xl:justify-end">
+              <div className="flex flex-wrap gap-1.5 items-center w-full xl:flex-1 xl:justify-end">
 
                 {kpiFilter && (
 
@@ -7129,119 +7174,70 @@
 
 
                 {/* Buscador Global */}
-
-                <div className="relative w-full sm:w-64">
-
+                <div className="relative w-full sm:w-44 h-8 flex items-center">
                   <IconSearch
-
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-
-                    size={14}
-
+                    className="absolute left-2.5 text-slate-400"
+                    size={12}
                   />
-
                   <DebouncedSearchInput
                     placeholder="Buscar..."
-                    className="w-full border-slate-200 border rounded-lg pl-11 pr-10 py-1.5 text-[11px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-slate-50 font-bold text-slate-700"
+                    className="w-full h-full border-slate-200 border rounded-lg pl-8 pr-8 py-1 text-[10px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-slate-50 font-bold text-slate-700"
                     value={searchTerm}
                     onChange={setSearchTerm}
                   />
-
                   {searchTerm && (
-
                     <button
-
                       onClick={() => setSearchTerm("")}
-
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-rose-500 transition-colors"
-
+                      className="absolute right-2.5 text-slate-300 hover:text-rose-500 transition-colors flex items-center justify-center"
                       title="Limpiar búsqueda"
-
                     >
-
-                      <IconX size={12} />
-
+                      <IconX size={10} />
                     </button>
-
                   )}
-
                 </div>
 
 
 
                 {/* Filtro por Fecha */}
-
-                <div className="flex items-center gap-2 bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5">
-
-                  <IconCalendar size={16} className="text-slate-500" />
-
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
+                  <IconCalendar size={12} className="text-slate-400" />
                   <div className="flex items-center gap-1">
-
-                    <span className="text-[9px] font-bold text-slate-500 uppercase">Desde:</span>
-
+                    <span className="text-[8px] font-black text-slate-400 uppercase">Desde:</span>
                     <input
-
                       type="date"
-
-                      className="bg-white border border-slate-200 rounded px-1 text-[10px] font-bold text-slate-700 outline-none w-[110px]"
-
+                      className="bg-white border border-slate-200 rounded px-1 text-[10px] font-bold text-slate-700 outline-none w-[100px]"
                       value={startDate}
-
                       onChange={(e) => setStartDate(e.target.value)}
-
                     />
-
                   </div>
-
                   <div className="flex items-center gap-1">
-
-                    <span className="text-[9px] font-bold text-slate-500 uppercase">Hasta:</span>
-
+                    <span className="text-[8px] font-black text-slate-400 uppercase">Hasta:</span>
                     <input
-
                       type="date"
-
-                      className="bg-white border border-slate-200 rounded px-1 text-[10px] font-bold text-slate-700 outline-none w-[110px]"
-
+                      className="bg-white border border-slate-200 rounded px-1 text-[10px] font-bold text-slate-700 outline-none w-[100px]"
                       value={endDate}
-
                       onChange={(e) => setEndDate(e.target.value)}
-
                     />
-
                   </div>
-
                   {(startDate || endDate) && (
-
                     <button
-
                       onClick={() => {
-
                         setStartDate("");
-
                         setEndDate("");
-
                       }}
-
-                      className="text-slate-400 hover:text-rose-500 ml-1 transition-colors"
-
+                      className="text-slate-400 hover:text-rose-500 ml-1 transition-colors flex items-center justify-center"
                       title="Limpiar fechas"
-
                     >
-
-                      <IconX size={12} />
-
+                      <IconX size={10} />
                     </button>
-
                   )}
-
                 </div>
 
 
 
-                <div className="flex flex-wrap gap-1.5 items-center">
+                
 
-                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
 
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
 
@@ -7281,7 +7277,7 @@
 
 
 
-                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
 
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
 
@@ -7343,7 +7339,7 @@
 
 
 
-                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
 
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-purple-600">
 
@@ -7385,7 +7381,7 @@
 
 
 
-                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
+                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5 h-8">
 
                     <button
 
@@ -7443,14 +7439,14 @@
 
                   <button
                     onClick={() => window.print()}
-                    className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all shadow-sm"
+                    className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-lg px-2.5 h-8 text-[10px] font-bold transition-all shadow-sm"
                     title="Imprimir Listado A4"
                   >
                     <IconPrinter size={12} />
                     <span>Imprimir A4</span>
                   </button>
 
-                </div>
+                
 
               </div>
 
@@ -17094,28 +17090,49 @@
             
 
             {/* PRINT ONLY LAYOUT CONTAINER */}
-            <div className="print-only-container hidden print:block font-sans p-6 text-slate-800 bg-white">
+            <div className="print-only-container font-sans p-6 text-slate-800 bg-white">
               <style dangerouslySetInnerHTML={{__html: `
+                .print-only-container {
+                  display: none !important;
+                }
                 @media print {
-                  body {
+                  body, html {
                     background-color: #ffffff !important;
                     color: #000000 !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                   }
-                  /* Hide all screen components */
+                  #root,
+                  #root > div:first-child {
+                    display: block !important;
+                    position: relative !important;
+                    height: auto !important;
+                    min-height: 0 !important;
+                    background: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                  }
                   #root > div:first-child > *:not(.print-only-container),
                   .no-print,
                   #nexus-global-header,
                   header,
+                  footer,
                   .fixed,
-                  .modal {
+                  .modal,
+                  iframe,
+                  aside,
+                  nav {
                     display: none !important;
                   }
-                  /* Enable visibility of print container */
                   .print-only-container {
                     display: block !important;
+                    visibility: visible !important;
                     width: 100% !important;
+                    position: relative !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                   }
                   @page {
                     size: A4 landscape;
