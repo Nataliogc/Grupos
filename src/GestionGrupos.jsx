@@ -544,16 +544,6 @@
           };
 
 
-
-        // 1. PASADO (Si la fecha de entrada ya pasó)
-        if (arrival && arrival < today) {
-          return {
-            color: "bg-slate-400",
-            text: "bg-slate-100 text-slate-500",
-            label: "PASADO",
-          };
-        }
-
         // 2. CONFIRMADO / OK / BLOQUEADO
         if (
           s.includes("CONF") ||
@@ -768,6 +758,74 @@
 
         return str;
 
+      };
+
+      const getDeadlineInfo = (group, todayStr) => {
+        let deadlineDateStr = null;
+        let isPaymentPlanDeadline = false;
+
+        // 1. Search in payment plan
+        (group.records || []).forEach((r) => {
+          try {
+            const plan = JSON.parse(r.PaymentPlan_JSON || "[]");
+            plan.forEach((p) => {
+              if (p.status !== "Cobrado" && p.date) {
+                const dStr = toInputDate(p.date);
+                if (dStr) {
+                  if (!deadlineDateStr || dStr < deadlineDateStr) {
+                    deadlineDateStr = dStr;
+                    isPaymentPlanDeadline = true;
+                  }
+                }
+              }
+            });
+          } catch (e) {}
+        });
+
+        // 2. Search in Com_Vencimiento_Rel manual field
+        const manualRel = group.records?.[0]?.["Com_Vencimiento_Rel"];
+        if (manualRel) {
+          const dStr = toInputDate(manualRel);
+          if (dStr) {
+            if (!deadlineDateStr || dStr < deadlineDateStr) {
+              deadlineDateStr = dStr;
+              isPaymentPlanDeadline = false;
+            }
+          }
+        }
+
+        const arrivalDateStr = toInputDate(group.arrival);
+
+        // Determine reference date
+        let refDateStr = null;
+        let isDeadline = false;
+
+        if (deadlineDateStr) {
+          refDateStr = deadlineDateStr;
+          isDeadline = true;
+        } else if (arrivalDateStr) {
+          refDateStr = arrivalDateStr;
+          isDeadline = false;
+        }
+
+        if (!refDateStr) {
+          return { hasDate: false };
+        }
+
+        const today = new Date(todayStr);
+        today.setHours(0, 0, 0, 0);
+        const refDate = new Date(refDateStr);
+        refDate.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.ceil((refDate - today) / (1000 * 60 * 60 * 24));
+
+        return {
+          hasDate: true,
+          dateStr: refDateStr,
+          isDeadline,
+          isPaymentPlanDeadline,
+          diffDays
+        };
       };
 
       const reconcileReactPaymentPlan = (paymentPlan, netTotal, arrivalDate) => {
@@ -1234,14 +1292,16 @@
         if (filterStatus !== "all") {
           filtered = filtered.filter((row) => {
             const label = row._stateLabel;
+            const arrival = row._normArrival;
+            const isPast = arrival && arrival < today;
 
-            if (filterStatus === "activos") return label !== "cancelado" && label !== "desestimado" && label !== "pasado";
-            if (filterStatus === "activos_y_desestimados") return label !== "pasado";
-            if (filterStatus === "confirmada") return label === "confirmado";
-            if (filterStatus === "tentativa") return label === "tentativa";
-            if (filterStatus === "presupuesto") return label === "presupuesto";
+            if (filterStatus === "activos") return label !== "cancelado" && label !== "desestimado" && !isPast;
+            if (filterStatus === "activos_y_desestimados") return !isPast;
+            if (filterStatus === "confirmada") return label === "confirmado" && !isPast;
+            if (filterStatus === "tentativa") return label === "tentativa" && !isPast;
+            if (filterStatus === "presupuesto") return label === "presupuesto" && !isPast;
             if (filterStatus === "desestimada") return label === "cancelado" || label === "desestimado";
-            if (filterStatus === "pasado") return label === "pasado";
+            if (filterStatus === "pasado") return isPast && label !== "cancelado" && label !== "desestimado";
             return true;
           });
         }
@@ -2026,7 +2086,7 @@
           const label = group.statusLabel?.toLowerCase() || "";
           const arrival = group.arrival;
           const today = new Date().toISOString().split("T")[0];
-          const isActivo = label !== "cancelado" && label !== "desestimado" && label !== "pasado";
+          const isActivo = label !== "cancelado" && label !== "desestimado";
           const isFuturo = arrival && arrival >= today;
 
           if (isActivo && isFuturo) {
@@ -2080,7 +2140,9 @@
 
           );
 
-          if (stateProps.label === "DESESTIMADO" || stateProps.label === "PASADO") {
+          const isPast = row._normArrival && row._normArrival < new Date().toISOString().split("T")[0];
+
+          if (stateProps.label === "DESESTIMADO" || isPast) {
 
             return;
 
@@ -7379,6 +7441,15 @@
 
                   </div>
 
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 text-[10px] font-bold transition-all shadow-sm"
+                    title="Imprimir Listado A4"
+                  >
+                    <IconPrinter size={12} />
+                    <span>Imprimir A4</span>
+                  </button>
+
                 </div>
 
               </div>
@@ -8896,7 +8967,10 @@
                                       const internalSt = (record["Com_Estado_Interno"] || "").toUpperCase();
                                       const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => internalSt.includes(s));
 
-                                      if (isClose && missingCritical && !isInactive && !isInternalInactive) {
+                                      const recordStatusProps = getStatusProps(record["Com_Estado_Interno"] || record["Segment."], record["Entrada"], record["Estado"]);
+                                       const isConfirmed = recordStatusProps.label === "CONFIRMADO";
+
+                                       if (isConfirmed && isClose && missingCritical && !isInactive && !isInternalInactive) {
                                           const missingList = [!hasRooming && "RRLL", needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
                                           return (
                                               <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Faltan datos: ${missingList}`}>
@@ -9039,208 +9113,71 @@
 
 
                             <td className="px-3 py-2 text-center">
-
                               {(() => {
-
                                 const grossRev = group.totalRevenue || 0;
-                                 const netRev = grossRev - (group.totalCommission || 0);
-
+                                const commission = group.totalCommission || 0;
+                                const netRev = grossRev - commission;
                                 const paid = group.totalPaid || 0;
-
-                                const isFullyPaid =
-
-                                  paid > 0 && netRev > 0 && paid >= netRev - 0.05;
-
-
+                                const isFullyPaid = paid > 0 && netRev > 0 && paid >= netRev - 0.05;
 
                                 if (isFullyPaid) {
-
                                   return (
-
-                                    <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">
-
-                                      OK
-
-                                    </span>
-
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">
+                                        OK
+                                      </span>
+                                      <span className="text-[8px] text-slate-400 font-bold mt-0.5 tracking-tighter">
+                                        Pagado
+                                      </span>
+                                    </div>
                                   );
-
                                 }
 
+                                const todayStr = new Date().toISOString().split("T")[0];
+                                const info = getDeadlineInfo(group, todayStr);
 
-
-                                const now = new Date();
-
-                                now.setHours(0, 0, 0, 0);
-
-
-
-                                // Release: Priority order: 1. First unpaid segment in PaymentPlan_JSON, 2. Com_Vencimiento_Rel manual, 3. Arrival
-
-                                let relDateStr = null;
-
-
-
-                                // Try to find the earliest unpaid segment
-
-                                (group.records || []).forEach((r) => {
-
-                                  try {
-
-                                    const plan = JSON.parse(
-
-                                      r.PaymentPlan_JSON || "[]",
-
-                                    );
-
-                                    plan.forEach((p) => {
-
-                                      if (p.status !== "Cobrado" && p.date) {
-
-                                        if (
-
-                                          !relDateStr ||
-
-                                          new Date(p.date) <
-
-                                          new Date(relDateStr)
-
-                                        ) {
-
-                                          relDateStr = p.date;
-
-                                        }
-
-                                      }
-
-                                    });
-
-                                  } catch (e) { }
-
-                                });
-
-
-
-                                // If no unpaid segment found, use manual field
-
-                                if (!relDateStr) {
-
-                                  relDateStr =
-
-                                    group.records[0]?.["Com_Vencimiento_Rel"];
-
+                                if (!info.hasDate) {
+                                  return <span className="text-slate-400">-</span>;
                                 }
 
+                                let badgeText = "";
+                                let badgeClass = "";
+                                let labelText = info.isDeadline ? "Límite" : "Entrada";
 
-
-                                if (relDateStr) {
-
-                                  const relDate = new Date(
-
-                                    toInputDate
-
-                                      ? toInputDate(relDateStr)
-
-                                      : relDateStr,
-
-                                  );
-
-                                  if (!isNaN(relDate.getTime())) {
-
-                                    const diffRel = Math.ceil(
-
-                                      (relDate - now) / (1000 * 60 * 60 * 24),
-
-                                    );
-
-                                    return (
-
-                                      <div className="flex flex-col items-center">
-
-                                        <span
-
-                                          className={`text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm ${diffRel <= 3 ? "bg-rose-600 text-white animate-pulse" : diffRel <= 7 ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"}`}
-
-                                        >
-
-                                          {diffRel > 0
-
-                                            ? `${diffRel}d`
-
-                                            : diffRel === 0
-
-                                              ? "HOY"
-
-                                              : "PASADO"}
-
-                                        </span>
-
-                                        <span className="text-[8px] text-slate-500 font-bold mt-0.5 tracking-tighter">
-
-                                          {formatDate(relDateStr)}
-
-                                        </span>
-
-                                      </div>
-
-                                    );
-
+                                if (info.diffDays < 0) {
+                                  badgeText = "PASADO";
+                                  badgeClass = "bg-rose-100 text-rose-700 font-bold border border-rose-200";
+                                } else if (info.diffDays === 0) {
+                                  badgeText = "HOY";
+                                  badgeClass = "bg-rose-600 text-white font-black animate-pulse";
+                                } else {
+                                  badgeText = `${info.diffDays}d`;
+                                  if (info.isDeadline) {
+                                    if (info.diffDays <= 7) {
+                                      badgeClass = "bg-amber-500 text-white font-bold";
+                                    } else {
+                                      badgeClass = "bg-slate-100 text-slate-700 font-bold border border-slate-200";
+                                    }
+                                  } else {
+                                    if (info.diffDays <= 15) {
+                                      badgeClass = "bg-amber-50 text-amber-700 font-bold border border-amber-200";
+                                    } else {
+                                      badgeClass = "bg-slate-100 text-slate-500 font-bold border border-slate-200";
+                                    }
                                   }
-
                                 }
-
-
-
-                                // Fallback to days to arrival
-
-                                const dIn = new Date(
-
-                                  toInputDate(group.arrival),
-
-                                );
-
-                                dIn.setHours(0, 0, 0, 0);
-
-                                const diffArr = Math.ceil(
-
-                                  (dIn - now) / (1000 * 60 * 60 * 24),
-
-                                );
 
                                 return (
-
                                   <div className="flex flex-col items-center">
-
-                                    <span
-
-                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${diffArr <= 7 && diffArr > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600"}`}
-
-                                    >
-
-                                      {diffArr > 0
-
-                                        ? `${diffArr}d`
-
-                                        : diffArr === 0
-
-                                          ? "HOY"
-
-                                          : "PASADO"}
-
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap ${badgeClass}`}>
+                                      {badgeText}
                                     </span>
-
-                                    <span className="text-[8px] text-slate-400 font-bold mt-0.5 tracking-tighter">
-
-                                      Entrada
-
+                                    <span className="text-[8px] text-slate-500 font-bold mt-0.5 tracking-tighter">
+                                      {labelText}: {formatDate(info.dateStr)}
                                     </span>
-
                                   </div>
-
                                 );
-
                               })()}
-
                             </td>
 
                             {/* IMPORTE */}
@@ -14369,7 +14306,9 @@
 
                                 const missingCritical = !hasRooming || (needsMP && !hasMP) || (needsPC && !hasPC);
 
-                                const showWarning = isClose && missingCritical;
+                                const stProps = getStatusProps(record["Com_Estado_Interno"] || record["Segment."], record["Entrada"], record["Estado"]);
+                                 const isConfirmed = stProps.label === "CONFIRMADO";
+                                 const showWarning = isConfirmed && isClose && missingCritical;
 
 
 
@@ -17151,6 +17090,250 @@
               </div>
 
             )}
+
+            
+
+            {/* PRINT ONLY LAYOUT CONTAINER */}
+            <div className="print-only-container hidden print:block font-sans p-6 text-slate-800 bg-white">
+              <style dangerouslySetInnerHTML={{__html: `
+                @media print {
+                  body {
+                    background-color: #ffffff !important;
+                    color: #000000 !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                  }
+                  /* Hide all screen components */
+                  #root > div:first-child > *:not(.print-only-container),
+                  .no-print,
+                  #nexus-global-header,
+                  header,
+                  .fixed,
+                  .modal {
+                    display: none !important;
+                  }
+                  /* Enable visibility of print container */
+                  .print-only-container {
+                    display: block !important;
+                    width: 100% !important;
+                  }
+                  @page {
+                    size: A4 landscape;
+                    margin: 10mm 15mm;
+                  }
+                }
+              `}} />
+
+              {/* Title & Timestamp */}
+              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4">
+                <div>
+                  <h1 className="text-xl font-black text-slate-900 tracking-wide uppercase">
+                    Nexus Groups — Listado de Grupos
+                  </h1>
+                  <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-wider">
+                    {`${(() => {
+                      const parts = [];
+                      if (filterStatus && filterStatus !== "all") {
+                        const statusLabels = {
+                          activos: "Activos",
+                          activos_y_desestimados: "Activos y Desestimados",
+                          confirmada: "Confirmados",
+                          tentativa: "Tentativas",
+                          presupuesto: "Presupuestos",
+                          desestimada: "Desestimados",
+                          pasado: "Pasados"
+                        };
+                        parts.push("Estado: " + (statusLabels[filterStatus] || filterStatus));
+                      } else {
+                        parts.push("Estado: Todos");
+                      }
+                      if (filterDirHotel) {
+                        parts.push("Hotel: " + filterDirHotel);
+                      } else {
+                        parts.push("Hotel: Todos");
+                      }
+                      if (filterDirCommercial) {
+                        parts.push("Comercial: " + (filterDirCommercial === "SIN_ASIGNAR" ? "S/A" : filterDirCommercial));
+                      } else {
+                        parts.push("Comercial: Todos");
+                      }
+                      if (searchTerm) {
+                        parts.push("Búsqueda: \"" + searchTerm + "\"");
+                      }
+                      if (startDate || endDate) {
+                        const startFormatted = startDate ? formatDate(startDate) : "Inicio";
+                        const endFormatted = endDate ? formatDate(endDate) : "Fin";
+                        parts.push("Rango: " + startFormatted + " al " + endFormatted);
+                      }
+                      return "Filtros aplicados: " + parts.join(" | ");
+                    })()}`}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-slate-700">
+                    Fecha impresión: {new Date().toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}
+                  </p>
+                  <p className="text-[9px] text-slate-500 font-bold mt-0.5">
+                    Total Registros: {groupedData.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+                <thead>
+                  <tr className="bg-slate-100 border-b-2 border-slate-300 font-bold text-slate-700 uppercase">
+                    <th className="border border-slate-300 p-2 font-bold whitespace-nowrap">Localizador / ID</th>
+                    <th className="border border-slate-300 p-2 font-bold max-w-[200px] truncate">Grupo / Razón Social</th>
+                    <th className="border border-slate-300 p-2 font-bold whitespace-nowrap">Hotel</th>
+                    <th className="border border-slate-300 p-2 font-bold whitespace-nowrap">Entrada</th>
+                    <th className="border border-slate-300 p-2 font-bold whitespace-nowrap">Salida</th>
+                    <th className="border border-slate-300 p-2 font-bold whitespace-nowrap">Comercial</th>
+                    <th className="border border-slate-300 p-2 font-bold text-center whitespace-nowrap">Hab.</th>
+                    <th className="border border-slate-300 p-2 font-bold text-center whitespace-nowrap">Pax</th>
+                    <th className="border border-slate-300 p-2 font-bold text-right whitespace-nowrap">Importe</th>
+                    <th className="border border-slate-300 p-2 font-bold text-center whitespace-nowrap">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {groupedData.map((group, idx) => {
+                    const record = group.records?.[0] || {};
+                    const internalSt = record["Com_Estado_Interno"];
+                    const externalSt = record["Estado"];
+                    const effectiveSt = internalSt || record["Segment."];
+                    const st = getStatusProps(effectiveSt, group.arrival, internalSt ? null : externalSt);
+                    
+                    const grossRev = group.totalRevenue || 0;
+                    const commission = group.totalCommission || 0;
+                    const netRev = grossRev - commission;
+                    const paid = group.totalPaid || 0;
+                    const pending = Math.max(0, netRev - paid);
+
+                    return (
+                      <tr key={idx} style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+                        <td className="border border-slate-200 p-2 font-mono whitespace-nowrap">
+                          {group.id || "---"}
+                        </td>
+                        <td className="border border-slate-200 p-2 max-w-[250px] overflow-hidden truncate">
+                          <div className="font-bold text-slate-900 leading-tight">
+                            {group.name}
+                          </div>
+                          {(record["Fiscal_RazonSocial"] || record["Empresa/Agencia"]) && (
+                            <div className="text-[8px] text-slate-500 font-medium">
+                              {record["Fiscal_RazonSocial"] || record["Empresa/Agencia"]}
+                            </div>
+                          )}
+                        </td>
+                        <td className="border border-slate-200 p-2 whitespace-nowrap">
+                          {normalizeHotelName(group.hotel || record["Hotel_Asignado"] || record["Hotel"] || "")}
+                        </td>
+                        <td className="border border-slate-200 p-2 tabular-nums whitespace-nowrap">
+                          {formatDate(group.arrival)}
+                        </td>
+                        <td className="border border-slate-200 p-2 tabular-nums whitespace-nowrap">
+                          {formatDate(group.departure)}
+                        </td>
+                        <td className="border border-slate-200 p-2 whitespace-nowrap">
+                          {record["Com_Comercial"] || "S/A"}
+                        </td>
+                        <td className="border border-slate-200 p-2 text-center tabular-nums whitespace-nowrap">
+                          {group.totalRooms}
+                        </td>
+                        <td className="border border-slate-200 p-2 text-center tabular-nums whitespace-nowrap">
+                          {group.totalPax}
+                        </td>
+                        <td className="border border-slate-200 p-2 text-right tabular-nums whitespace-nowrap">
+                          <div className="font-bold">
+                            {formatNum(grossRev)}
+                          </div>
+                          {pending > 0.05 && (
+                            <div className="text-[8px] text-rose-600 font-bold">
+                              {formatNum(pending, true)} pdte.
+                            </div>
+                          )}
+                        </td>
+                        <td className="border border-slate-200 p-2 text-center whitespace-nowrap font-bold">
+                          {st.label}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+                    <td colSpan="6" className="border border-slate-300 p-2 text-right uppercase tracking-wider font-bold">
+                      Totales
+                    </td>
+                    <td className="border border-slate-300 p-2 text-center tabular-nums font-bold">
+                      {groupedData.reduce((acc, g) => acc + (g.totalRooms || 0), 0)}
+                    </td>
+                    <td className="border border-slate-300 p-2 text-center tabular-nums font-bold">
+                      {groupedData.reduce((acc, g) => acc + (g.totalPax || 0), 0)}
+                    </td>
+                    <td className="border border-slate-300 p-2 text-right tabular-nums font-bold">
+                      <div>
+                        {formatNum(groupedData.reduce((acc, g) => acc + (g.totalRevenue || 0), 0))}
+                      </div>
+                      {(() => {
+                        const totalPending = groupedData.reduce((acc, g) => {
+                          const grossRev = g.totalRevenue || 0;
+                          const commission = g.totalCommission || 0;
+                          const netRev = grossRev - commission;
+                          const paid = g.totalPaid || 0;
+                          return acc + Math.max(0, netRev - paid);
+                        }, 0);
+                        return totalPending > 0.05 ? (
+                          <div className="text-[8px] text-rose-600 font-bold">
+                            {formatNum(totalPending, true)} pdte.
+                          </div>
+                        ) : null;
+                      })()}
+                    </td>
+                    <td className="border border-slate-300 p-2 text-center font-bold">
+                      {groupedData.length} GRUPOS
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              {/* Extra summary card for administrative usage */}
+              <div className="mt-6 grid grid-cols-3 gap-4 border border-slate-200 p-4 rounded-xl bg-slate-50/50" style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
+                <div>
+                  <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-0.5">
+                    Importe Total Neto Facturable
+                  </p>
+                  <p className="text-lg font-black text-slate-800 tabular-nums">
+                    {formatNum(groupedData.reduce((acc, g) => {
+                      const grossRev = g.totalRevenue || 0;
+                      const commission = g.totalCommission || 0;
+                      return acc + (grossRev - commission);
+                    }, 0))} €
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-0.5">
+                    Total Cobrado
+                  </p>
+                  <p className="text-lg font-black text-emerald-600 tabular-nums">
+                    {formatNum(groupedData.reduce((acc, g) => acc + (g.totalPaid || 0), 0))} €
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-0.5">
+                    Total Pendiente de Cobro
+                  </p>
+                  <p className="text-lg font-black text-rose-600 tabular-nums">
+                    {formatNum(groupedData.reduce((acc, g) => {
+                      const grossRev = g.totalRevenue || 0;
+                      const commission = g.totalCommission || 0;
+                      const netRev = grossRev - commission;
+                      const paid = g.totalPaid || 0;
+                      return acc + Math.max(0, netRev - paid);
+                    }, 0))} €
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Overlay de Carga y Guardado */}
 

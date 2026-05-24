@@ -301,6 +301,12 @@
         if (savedExportDate && typeof window.updateNexusHeaderExportDate === "function") {
             window.updateNexusHeaderExportDate(savedExportDate);
         }
+
+        // Cargar última importación de Excel al iniciar si existe
+        var savedImportDate = localStorage.getItem("nexus_last_import_str");
+        if (savedImportDate && typeof window.updateNexusHeaderImportDate === "function") {
+            window.updateNexusHeaderImportDate(savedImportDate);
+        }
     }
 
     // Marcar el enlace activo según la página actual
@@ -337,9 +343,10 @@
         var badge = document.getElementById("nexus-header-import-badge");
         if (badge) {
             if (dateStr) {
+                var prefix = (dateStr.indexOf("Guadiana") !== -1 || dateStr.indexOf("Cumbria") !== -1) ? "" : "Actualizado: ";
                 badge.innerHTML = `
                     <span class="ml-3 px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest animate-pulse-slow">
-                        Actualizado: ${dateStr}
+                        ${prefix}${dateStr}
                     </span>
                 `;
             } else {
