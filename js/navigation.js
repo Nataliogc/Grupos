@@ -10,6 +10,111 @@
 (function () {
     "use strict";
 
+    // ─── Helpers de formato ───────────────────────────────────────────────────
+    function formatImportDate(ts) {
+        if (!ts) return null;
+        var d = new Date(typeof ts === 'number' ? ts : Number(ts));
+        if (isNaN(d.getTime())) return null;
+        var p = function(n) { return n < 10 ? '0' + n : '' + n; };
+        return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + String(d.getFullYear()).slice(-2) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    // ─── Badge: última importación de Excel por hotel ─────────────────────────
+    window.updateNexusHeaderImportDate = function (gDate, cDate) {
+        var badge = document.getElementById('nexus-header-import-badge');
+        if (!badge) return;
+
+        // Acepta también el formato antiguo de string unificado para compatibilidad
+        if (typeof gDate === 'string' && cDate === undefined) {
+            badge.innerHTML = gDate
+                ? '<span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[8px] font-bold uppercase tracking-wider">' +
+                  gDate + '</span>'
+                : '';
+            return;
+        }
+
+        var gStr = gDate ? formatImportDate(gDate) : null;
+        var cStr = cDate ? formatImportDate(cDate) : null;
+
+        var html = '';
+        html += '<span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1">' +
+                '<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>' +
+                'Guadiana: ' + (gStr || 'Sin actualización') + '</span>';
+        html += '<span class="px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1">' +
+                '<span class="inline-block w-1.5 h-1.5 rounded-full bg-sky-500"></span>' +
+                'Cumbria: ' + (cStr || 'Sin actualización') + '</span>';
+
+        badge.innerHTML = html;
+
+        // Guardar en localStorage como respaldo
+        var backup = JSON.stringify({ g: gDate || null, c: cDate || null });
+        try { localStorage.setItem('nexus_last_import_str', backup); } catch(e) {}
+    };
+
+    // ─── Listener Firestore para actualización en tiempo real ─────────────────
+    function listenToImportDate() {
+        // Si db ya está disponible, suscribirse inmediatamente
+        if (window.db && typeof window.db.collection === 'function') {
+            _subscribe();
+            return;
+        }
+        // Si no, intentar cada 300 ms hasta que esté disponible (máx 15 s)
+        var attempts = 0;
+        var interval = setInterval(function () {
+            attempts++;
+            if (window.db && typeof window.db.collection === 'function') {
+                clearInterval(interval);
+                _subscribe();
+            } else if (attempts > 50) {
+                clearInterval(interval);
+                // Fallback: intentar cargar desde localStorage
+                _loadFromLocalStorage();
+            }
+        }, 300);
+    }
+
+    function _subscribe() {
+        try {
+            window.db.collection('settings').doc('main').onSnapshot(function (doc) {
+                if (!doc.exists) {
+                    _loadFromLocalStorage();
+                    return;
+                }
+                var data = doc.data();
+                var gDate = (data.guadiana && data.guadiana.lastImportDate) || null;
+                var cDate = (data.cumbria  && data.cumbria.lastImportDate)  || null;
+                // Fallback al campo legacy
+                if (!gDate && !cDate && data.lastImportDate) {
+                    gDate = data.lastImportDate;
+                }
+                window.updateNexusHeaderImportDate(gDate, cDate);
+            }, function (err) {
+                console.warn('[Navigation] Firestore settings/main onSnapshot error:', err);
+                _loadFromLocalStorage();
+            });
+        } catch (e) {
+            console.warn('[Navigation] _subscribe error:', e);
+            _loadFromLocalStorage();
+        }
+    }
+
+    function _loadFromLocalStorage() {
+        try {
+            var raw = localStorage.getItem('nexus_last_import_str');
+            if (!raw) return;
+            // Intentar parsear nuevo formato JSON
+            try {
+                var parsed = JSON.parse(raw);
+                if (parsed && (parsed.g || parsed.c)) {
+                    window.updateNexusHeaderImportDate(parsed.g, parsed.c);
+                    return;
+                }
+            } catch (je) {}
+            // Formato antiguo de string
+            window.updateNexusHeaderImportDate(raw);
+        } catch (e) {}
+    }
+
     function initHeader() {
         // Evitar duplicación
         if (document.getElementById("nexus-global-header")) return;
@@ -111,13 +216,10 @@
                             <img src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png" class="h-8 w-auto object-contain" alt="Nexus Logo" />
                         </div>
                         <div>
-                            <h1 class="text-lg font-black text-slate-800 leading-none flex items-center gap-2 font-outfit">
+                            <h1 class="text-lg font-black text-slate-800 leading-none font-outfit">
                                 Nexus <span class="text-emerald-600">Groups</span>
-                                <span id="nexus-header-import-badge"></span>
                             </h1>
-                            <p class="text-[10px] text-slate-500 font-medium mt-0.5">
-                                Gestión unificada de grupos y análisis predictivo.
-                            </p>
+                            <div id="nexus-header-import-badge" class="flex items-center gap-1.5 flex-wrap mt-0.5"></div>
                         </div>
                     </div>
                 </div>
@@ -302,11 +404,8 @@
             window.updateNexusHeaderExportDate(savedExportDate);
         }
 
-        // Cargar última importación de Excel al iniciar si existe
-        var savedImportDate = localStorage.getItem("nexus_last_import_str");
-        if (savedImportDate && typeof window.updateNexusHeaderImportDate === "function") {
-            window.updateNexusHeaderImportDate(savedImportDate);
-        }
+        // Suscribirse a Firestore para importación en tiempo real
+        listenToImportDate();
     }
 
     // Marcar el enlace activo según la página actual
@@ -337,23 +436,6 @@
             }
         });
     }
-
-    // Registrar actualización para el badge de última importación de la página principal
-    window.updateNexusHeaderImportDate = function (dateStr) {
-        var badge = document.getElementById("nexus-header-import-badge");
-        if (badge) {
-            if (dateStr) {
-                var prefix = (dateStr.indexOf("Guadiana") !== -1 || dateStr.indexOf("Cumbria") !== -1) ? "" : "Actualizado: ";
-                badge.innerHTML = `
-                    <span class="ml-3 px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest animate-pulse-slow">
-                        ${prefix}${dateStr}
-                    </span>
-                `;
-            } else {
-                badge.innerHTML = "";
-            }
-        }
-    };
 
     // Registrar actualización para el badge de última exportación de Excel
     window.updateNexusHeaderExportDate = function (dateStr) {
