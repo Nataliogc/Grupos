@@ -347,6 +347,11 @@ var Dashboard = function Dashboard(_ref2) {
       if (!hasAlert && dFollow && dFollow <= endOfToday) {
         hasAlert = true;
       }
+
+      // 5. Tentativa Urgente (< 25 días para la llegada)
+      if (!hasAlert && isTentative && entryDate && entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+        hasAlert = true;
+      }
       if (hasAlert) {
         total++;
         var hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
@@ -360,12 +365,13 @@ var Dashboard = function Dashboard(_ref2) {
     };
   }, [data]);
 
-  // Cálculo de alertas en 4 columnas
+  // Cálculo de alertas en 5 columnas
   var columnsData = React.useMemo(function () {
     var financialAlerts = [];
     var releaseAlerts = [];
     var logisticsAlerts = [];
     var crmAlerts = [];
+    var tentativeAlerts = [];
     var now = new Date();
     var startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     var endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
@@ -377,6 +383,9 @@ var Dashboard = function Dashboard(_ref2) {
     var seenRelease = new Set();
     var seenLogistics = new Set();
     var seenCrm = new Set();
+    var seenTentative = new Set();
+    var twentyFiveDaysFromNow = new Date(startOfToday);
+    twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
     filteredGroups.forEach(function (g) {
       var resId = g.Reserva || g.Com_Id || "";
       var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
@@ -492,6 +501,22 @@ var Dashboard = function Dashboard(_ref2) {
           });
         }
       }
+
+      // 5. Column 5: Tentativas Urgentes (< 25 días para la llegada)
+      if (isTentative && entryDate && !seenTentative.has(resId)) {
+        if (entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+          seenTentative.add(resId);
+          var _diffDays = Math.ceil((entryDate - startOfToday) / (1000 * 60 * 60 * 24));
+          var urgency = _diffDays <= 7 ? "danger" : _diffDays <= 14 ? "warning" : "info";
+          tentativeAlerts.push({
+            group: g,
+            icon: "calendar-clock",
+            label: _diffDays <= 7 ? "Llegada Crítica" : _diffDays <= 14 ? "Confirmar Pronto" : "Confirmar Antes de Plazo",
+            detail: "Entrada en ".concat(_diffDays, " d\xEDa").concat(_diffDays !== 1 ? 's' : '', " (").concat(formatDate(entryDate), ") \u2014 a\xFAn en Tentativa"),
+            type: urgency
+          });
+        }
+      }
     });
 
     // Ordenamiento por prioridad/fecha
@@ -524,11 +549,19 @@ var Dashboard = function Dashboard(_ref2) {
       if (!bDate) return -1;
       return aDate - bDate;
     });
+    tentativeAlerts.sort(function (a, b) {
+      var aDate = parseDate(a.group.Entrada);
+      var bDate = parseDate(b.group.Entrada);
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return aDate - bDate;
+    });
     return {
       financialAlerts: financialAlerts,
       releaseAlerts: releaseAlerts,
       logisticsAlerts: logisticsAlerts,
-      crmAlerts: crmAlerts
+      crmAlerts: crmAlerts,
+      tentativeAlerts: tentativeAlerts
     };
   }, [filteredGroups]);
   var AlertColumn = function AlertColumn(_ref3) {
@@ -568,6 +601,14 @@ var Dashboard = function Dashboard(_ref2) {
         iconBg: "bg-indigo-100 text-indigo-600",
         bubble: "bg-indigo-600 text-white",
         cardHover: "hover:border-indigo-300 hover:shadow-indigo-100/50"
+      },
+      violet: {
+        bg: "bg-violet-50/50",
+        border: "border-violet-100",
+        text: "text-violet-800",
+        iconBg: "bg-violet-100 text-violet-600",
+        bubble: "bg-violet-600 text-white",
+        cardHover: "hover:border-violet-300 hover:shadow-violet-100/50"
       }
     }[colorClass];
     return /*#__PURE__*/React.createElement("div", {
@@ -706,7 +747,7 @@ var Dashboard = function Dashboard(_ref2) {
       className: "text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1.5 ".concat(active ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600")
     }, hotel.id === "todos" ? counts.total : hotel.id === "guadiana" ? counts.guadiana : counts.cumbria));
   })), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start"
+    className: "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 items-start"
   }, /*#__PURE__*/React.createElement(AlertColumn, {
     title: "Alertas Financieras",
     icon: "credit-card",
@@ -727,6 +768,11 @@ var Dashboard = function Dashboard(_ref2) {
     icon: "phone-call",
     colorClass: "indigo",
     alerts: columnsData.crmAlerts
+  }), /*#__PURE__*/React.createElement(AlertColumn, {
+    title: "Tentativas Urgentes",
+    icon: "calendar-clock",
+    colorClass: "violet",
+    alerts: columnsData.tentativeAlerts
   })), /*#__PURE__*/React.createElement("footer", {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {

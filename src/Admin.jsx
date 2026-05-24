@@ -344,6 +344,11 @@
             hasAlert = true;
           }
 
+          // 5. Tentativa Urgente (< 25 días para la llegada)
+          if (!hasAlert && isTentative && entryDate && entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+            hasAlert = true;
+          }
+
           if (hasAlert) {
             total++;
             const hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
@@ -594,6 +599,14 @@
             iconBg: "bg-indigo-100 text-indigo-600",
             bubble: "bg-indigo-600 text-white",
             cardHover: "hover:border-indigo-300 hover:shadow-indigo-100/50"
+          },
+          violet: {
+            bg: "bg-violet-50/50",
+            border: "border-violet-100",
+            text: "text-violet-800",
+            iconBg: "bg-violet-100 text-violet-600",
+            bubble: "bg-violet-600 text-white",
+            cardHover: "hover:border-violet-300 hover:shadow-violet-100/50"
           }
         }[colorClass];
 
@@ -743,8 +756,8 @@
             })}
           </div>
 
-          {/* Grid de Alertas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+          {/* Grid de Alertas - 5 columnas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 items-start">
             <AlertColumn
               title="Alertas Financieras"
               icon="credit-card"
@@ -768,6 +781,12 @@
               icon="phone-call"
               colorClass="indigo"
               alerts={columnsData.crmAlerts}
+            />
+            <AlertColumn
+              title="Tentativas Urgentes"
+              icon="calendar-clock"
+              colorClass="violet"
+              alerts={columnsData.tentativeAlerts}
             />
           </div>
 

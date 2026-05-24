@@ -7438,7 +7438,7 @@
                   </div>
 
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => { setTimeout(() => window.print(), 150); }}
                     className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded-lg px-2.5 h-8 text-[10px] font-bold transition-all shadow-sm"
                     title="Imprimir Listado A4"
                   >
@@ -17114,10 +17114,10 @@
                     visibility: visible !important;
                   }
 
-                  /* 3. Posicionar el contenedor en la esquina superior izquierda */
+                  /* 3. Posicionar el contenedor al inicio del documento (NO fixed = no se repite en cada página) */
                   .print-only-container {
                     display: block !important;
-                    position: fixed !important;
+                    position: absolute !important;
                     top: 0 !important;
                     left: 0 !important;
                     width: 100% !important;
