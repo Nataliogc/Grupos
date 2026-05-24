@@ -413,7 +413,7 @@ var Dashboard = function Dashboard(_ref2) {
             var amt = parseFloat(firstPastDue.amount) || 0;
             financialAlerts.push({
               group: g,
-              icon: "AlertTriangle",
+              icon: "alert-triangle",
               label: "Hito Vencido",
               detail: "Pago de ".concat(fmt(amt), " vencido el ").concat(formatDate(firstPastDue.date)),
               type: "danger"
@@ -432,7 +432,7 @@ var Dashboard = function Dashboard(_ref2) {
           var isOverdue = dRel < startOfToday;
           releaseAlerts.push({
             group: g,
-            icon: "Clock",
+            icon: "clock",
             label: isOverdue ? "Release Vencido" : "Próximo Release",
             detail: isOverdue ? "Venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ")") : "Vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ")"),
             type: isOverdue ? "danger" : "warning"
@@ -446,27 +446,27 @@ var Dashboard = function Dashboard(_ref2) {
         if (!g.Logistica_Rooming) {
           missingDetails.push({
             text: "Falta Rooming List",
-            icon: "FileText"
+            icon: "file-text"
           });
         }
         var regime = (g["Régimen"] || "").toUpperCase();
         if (regime.includes("MP") && !g.Logistica_MenuMP) {
           missingDetails.push({
             text: "Falta Menú MP",
-            icon: "Utensils"
+            icon: "utensils"
           });
         }
         if (regime.includes("PC") && !g.Logistica_MenuPC) {
           missingDetails.push({
             text: "Falta Menú PC",
-            icon: "Utensils"
+            icon: "utensils"
           });
         }
         if (missingDetails.length > 0) {
           seenLogistics.add(resId);
           logisticsAlerts.push({
             group: g,
-            icon: "FileWarning",
+            icon: "file-warning",
             label: "Datos Faltantes",
             detail: missingDetails.map(function (d) {
               return d.text;
@@ -485,7 +485,7 @@ var Dashboard = function Dashboard(_ref2) {
           var isPastDue = dFollow < startOfToday;
           crmAlerts.push({
             group: g,
-            icon: "PhoneCall",
+            icon: "phone-call",
             label: isPastDue ? "CRM Retrasado" : "CRM Hoy",
             detail: isPastDue ? "Planificado para el ".concat(formatDate(dFollow)) : "Programado para hoy (".concat(formatDate(dFollow), ")"),
             type: isPastDue ? "danger" : "info"
@@ -496,13 +496,9 @@ var Dashboard = function Dashboard(_ref2) {
 
     // Ordenamiento por prioridad/fecha
     financialAlerts.sort(function (a, b) {
-      var _JSON$parse$find, _JSON$parse$find2;
-      var aDate = parseDate((_JSON$parse$find = JSON.parse(a.group.PaymentPlan_JSON || "[]").find(function (p) {
-        return p.status !== "Cobrado" && p.status !== "Pagado";
-      })) === null || _JSON$parse$find === void 0 ? void 0 : _JSON$parse$find.date);
-      var bDate = parseDate((_JSON$parse$find2 = JSON.parse(b.group.PaymentPlan_JSON || "[]").find(function (p) {
-        return p.status !== "Cobrado" && p.status !== "Pagado";
-      })) === null || _JSON$parse$find2 === void 0 ? void 0 : _JSON$parse$find2.date);
+      // Use cached entry date instead of re-parsing JSON inside the comparator
+      var aDate = parseDate(a.group.Entrada);
+      var bDate = parseDate(b.group.Entrada);
       if (!aDate) return 1;
       if (!bDate) return -1;
       return aDate - bDate;
@@ -682,7 +678,7 @@ var Dashboard = function Dashboard(_ref2) {
   }, [{
     id: "todos",
     label: "Todos los Hoteles",
-    icon: "Hotel"
+    icon: "hotel"
   }, {
     id: "guadiana",
     label: "Sercotel Guadiana",
@@ -713,22 +709,22 @@ var Dashboard = function Dashboard(_ref2) {
     className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start"
   }, /*#__PURE__*/React.createElement(AlertColumn, {
     title: "Alertas Financieras",
-    icon: "CreditCard",
+    icon: "credit-card",
     colorClass: "rose",
     alerts: columnsData.financialAlerts
   }), /*#__PURE__*/React.createElement(AlertColumn, {
     title: "Releases y Plazos",
-    icon: "Clock",
+    icon: "clock",
     colorClass: "amber",
     alerts: columnsData.releaseAlerts
   }), /*#__PURE__*/React.createElement(AlertColumn, {
     title: "Datos Faltantes",
-    icon: "FileWarning",
+    icon: "file-warning",
     colorClass: "orange",
     alerts: columnsData.logisticsAlerts
   }), /*#__PURE__*/React.createElement(AlertColumn, {
     title: "Seguimientos CRM",
-    icon: "PhoneCall",
+    icon: "phone-call",
     colorClass: "indigo",
     alerts: columnsData.crmAlerts
   })), /*#__PURE__*/React.createElement("footer", {

@@ -413,7 +413,7 @@
                 const amt = parseFloat(firstPastDue.amount) || 0;
                 financialAlerts.push({
                   group: g,
-                  icon: "AlertTriangle",
+                  icon: "alert-triangle",
                   label: "Hito Vencido",
                   detail: `Pago de ${fmt(amt)} vencido el ${formatDate(firstPastDue.date)}`,
                   type: "danger"
@@ -433,7 +433,7 @@
               
               releaseAlerts.push({
                 group: g,
-                icon: "Clock",
+                icon: "clock",
                 label: isOverdue ? "Release Vencido" : "Próximo Release",
                 detail: isOverdue 
                   ? `Venció hace ${Math.abs(diffDays)} días (${formatDate(dRel)})`
@@ -447,22 +447,22 @@
           if (isConfirmed && entryDate && entryDate >= startOfToday && entryDate <= fifteenDaysFromNow && !seenLogistics.has(resId)) {
             const missingDetails = [];
             if (!g.Logistica_Rooming) {
-              missingDetails.push({ text: "Falta Rooming List", icon: "FileText" });
+              missingDetails.push({ text: "Falta Rooming List", icon: "file-text" });
             }
             
             const regime = (g["Régimen"] || "").toUpperCase();
             if (regime.includes("MP") && !g.Logistica_MenuMP) {
-              missingDetails.push({ text: "Falta Menú MP", icon: "Utensils" });
+              missingDetails.push({ text: "Falta Menú MP", icon: "utensils" });
             }
             if (regime.includes("PC") && !g.Logistica_MenuPC) {
-              missingDetails.push({ text: "Falta Menú PC", icon: "Utensils" });
+              missingDetails.push({ text: "Falta Menú PC", icon: "utensils" });
             }
 
             if (missingDetails.length > 0) {
               seenLogistics.add(resId);
               logisticsAlerts.push({
                 group: g,
-                icon: "FileWarning",
+                icon: "file-warning",
                 label: "Datos Faltantes",
                 detail: missingDetails.map(d => d.text).join(", "),
                 details: missingDetails,
@@ -479,7 +479,7 @@
               const isPastDue = dFollow < startOfToday;
               crmAlerts.push({
                 group: g,
-                icon: "PhoneCall",
+                icon: "phone-call",
                 label: isPastDue ? "CRM Retrasado" : "CRM Hoy",
                 detail: isPastDue
                   ? `Planificado para el ${formatDate(dFollow)}`
@@ -492,8 +492,9 @@
 
         // Ordenamiento por prioridad/fecha
         financialAlerts.sort((a, b) => {
-          const aDate = parseDate(JSON.parse(a.group.PaymentPlan_JSON || "[]").find(p => p.status !== "Cobrado" && p.status !== "Pagado")?.date);
-          const bDate = parseDate(JSON.parse(b.group.PaymentPlan_JSON || "[]").find(p => p.status !== "Cobrado" && p.status !== "Pagado")?.date);
+          // Use cached entry date instead of re-parsing JSON inside the comparator
+          const aDate = parseDate(a.group.Entrada);
+          const bDate = parseDate(b.group.Entrada);
           if (!aDate) return 1;
           if (!bDate) return -1;
           return aDate - bDate;
@@ -688,7 +689,7 @@
           {/* Selector de Hotel */}
           <div className="flex bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/50 w-fit gap-1.5 shadow-sm">
             {[
-              { id: "todos", label: "Todos los Hoteles", icon: "Hotel" },
+              { id: "todos", label: "Todos los Hoteles", icon: "hotel" },
               { id: "guadiana", label: "Sercotel Guadiana", logo: "Logos/Sercotel Guadiana.jpg" },
               { id: "cumbria", label: "Cumbria Spa & Hotel", logo: "Logos/Cumbria Spa&Hotel.jpg" }
             ].map(hotel => {
@@ -717,25 +718,25 @@
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
             <AlertColumn
               title="Alertas Financieras"
-              icon="CreditCard"
+              icon="credit-card"
               colorClass="rose"
               alerts={columnsData.financialAlerts}
             />
             <AlertColumn
               title="Releases y Plazos"
-              icon="Clock"
+              icon="clock"
               colorClass="amber"
               alerts={columnsData.releaseAlerts}
             />
             <AlertColumn
               title="Datos Faltantes"
-              icon="FileWarning"
+              icon="file-warning"
               colorClass="orange"
               alerts={columnsData.logisticsAlerts}
             />
             <AlertColumn
               title="Seguimientos CRM"
-              icon="PhoneCall"
+              icon="phone-call"
               colorClass="indigo"
               alerts={columnsData.crmAlerts}
             />

@@ -17356,7 +17356,7 @@
 
             {(loading || isSaving) && (
 
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 no-print">
 
                 <div className="bg-white rounded-3xl p-8 flex flex-col items-center gap-4 shadow-2xl animate-fade-in border border-white/20">
 
