@@ -17092,51 +17092,55 @@
             {/* PRINT ONLY LAYOUT CONTAINER */}
             <div className="print-only-container font-sans p-6 text-slate-800 bg-white">
               <style dangerouslySetInnerHTML={{__html: `
+                /* Ocultar siempre en pantalla normal */
                 .print-only-container {
                   display: none !important;
                 }
+
+                /* ── IMPRESIÓN ──────────────────────────────────────────
+                   Técnica visibility: funciona a cualquier profundidad.
+                   display:none en un padre bloquea al hijo;
+                   visibility:hidden NO, por eso este enfoque es correcto.
+                ────────────────────────────────────────────────────────── */
                 @media print {
-                  body, html {
-                    background-color: #ffffff !important;
-                    color: #000000 !important;
+                  /* 1. Ocultar todo el documento */
+                  body * {
+                    visibility: hidden !important;
+                  }
+
+                  /* 2. Mostrar solo el contenedor de impresión y su contenido */
+                  .print-only-container,
+                  .print-only-container * {
+                    visibility: visible !important;
+                  }
+
+                  /* 3. Posicionar el contenedor en la esquina superior izquierda */
+                  .print-only-container {
+                    display: block !important;
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: auto !important;
+                    background: #ffffff !important;
+                    z-index: 999999 !important;
+                    padding: 6mm 10mm !important;
+                    margin: 0 !important;
+                    box-sizing: border-box !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                   }
-                  #root,
-                  #root > div:first-child {
-                    display: block !important;
-                    position: relative !important;
-                    height: auto !important;
-                    min-height: 0 !important;
-                    background: none !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                  }
-                  #root > div:first-child > *:not(.print-only-container),
-                  .no-print,
-                  #nexus-global-header,
-                  header,
-                  footer,
-                  .fixed,
-                  .modal,
-                  iframe,
-                  aside,
-                  nav {
-                    display: none !important;
-                  }
-                  .print-only-container {
-                    display: block !important;
-                    visibility: visible !important;
-                    width: 100% !important;
-                    position: relative !important;
-                    left: 0 !important;
-                    top: 0 !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                  }
+
+                  /* 4. Configuración de página */
                   @page {
                     size: A4 landscape;
                     margin: 10mm 15mm;
+                  }
+
+                  body, html {
+                    background: #ffffff !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
                   }
                 }
               `}} />
