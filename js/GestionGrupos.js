@@ -341,7 +341,7 @@ var BudgetManager = function BudgetManager(_ref) {
   }, "No hay presupuestos en esta secci\xF3n")))));
 };
 var App = function App() {
-  var _selectedGroupFicha$r47, _selectedGroupFicha$r48, _selectedGroupFicha$r49;
+  var _selectedGroupFicha$r48, _selectedGroupFicha$r49, _selectedGroupFicha$r50;
   var _useState = useState([]),
     _useState2 = _slicedToArray(_useState, 2),
     data = _useState2[0],
@@ -4636,7 +4636,7 @@ var App = function App() {
   }, "Estado"))), /*#__PURE__*/React.createElement("tbody", {
     className: "divide-y divide-slate-100"
   }, groupedData.map(function (group, idx) {
-    var _group$records, _group$records2, _group$records3, _group$records$5, _group$records$6, _group$records$7, _group$records$8, _group$records$9, _group$records$0, _group$records$1, _group$records$10;
+    var _group$records, _group$records2, _group$records3, _group$records$5, _group$records$6, _group$records$7, _group$records$8, _group$records$9, _group$records$0, _group$records$1, _group$records$10, _group$records$11;
     // Prioridad: Com_Estado_Interno siempre gana sobre Estado (campo del Excel importado)
 
     var internalSt = (_group$records = group.records) === null || _group$records === void 0 || (_group$records = _group$records[0]) === null || _group$records === void 0 ? void 0 : _group$records["Com_Estado_Interno"];
@@ -4725,17 +4725,17 @@ var App = function App() {
       className: "text-[9px] font-bold text-slate-400 mt-0.5 flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("span", {
       className: "shrink-0"
-    }, "ID:", " ", ((_group$records$9 = group.records[0]) === null || _group$records$9 === void 0 ? void 0 : _group$records$9["Reserva"]) || "---"), ((_group$records$0 = group.records[0]) === null || _group$records$0 === void 0 ? void 0 : _group$records$0["Empresa/Agencia"]) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    }, "ID:", " ", ((_group$records$9 = group.records[0]) === null || _group$records$9 === void 0 ? void 0 : _group$records$9["Reserva"]) || "---"), (((_group$records$0 = group.records[0]) === null || _group$records$0 === void 0 ? void 0 : _group$records$0["Fiscal_RazonSocial"]) || ((_group$records$1 = group.records[0]) === null || _group$records$1 === void 0 ? void 0 : _group$records$1["Empresa/Agencia"])) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       className: "opacity-20"
-    }, "\u2022"), /*#__PURE__*/React.createElement("span", null, group.records[0]["Empresa/Agencia"]))))), /*#__PURE__*/React.createElement("td", {
+    }, "\u2022"), /*#__PURE__*/React.createElement("span", null, group.records[0]["Fiscal_RazonSocial"] || group.records[0]["Empresa/Agencia"]))))), /*#__PURE__*/React.createElement("td", {
       className: "px-3 py-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-1"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-1.5 h-1.5 rounded-full ".concat(getCommColor((_group$records$1 = group.records[0]) === null || _group$records$1 === void 0 ? void 0 : _group$records$1["Com_Comercial"]), " shrink-0")
+      className: "w-1.5 h-1.5 rounded-full ".concat(getCommColor((_group$records$10 = group.records[0]) === null || _group$records$10 === void 0 ? void 0 : _group$records$10["Com_Comercial"]), " shrink-0")
     }), /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] font-bold text-slate-600 uppercase"
-    }, ((_group$records$10 = group.records[0]) === null || _group$records$10 === void 0 ? void 0 : _group$records$10["Com_Comercial"]) || "S/A"))), /*#__PURE__*/React.createElement("td", {
+    }, ((_group$records$11 = group.records[0]) === null || _group$records$11 === void 0 ? void 0 : _group$records$11["Com_Comercial"]) || "S/A"))), /*#__PURE__*/React.createElement("td", {
       className: "px-3 py-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-[11px] font-bold text-slate-600 tabular-nums"
@@ -4780,8 +4780,8 @@ var App = function App() {
       // If no unpaid segment found, use manual field
 
       if (!relDateStr) {
-        var _group$records$11;
-        relDateStr = (_group$records$11 = group.records[0]) === null || _group$records$11 === void 0 ? void 0 : _group$records$11["Com_Vencimiento_Rel"];
+        var _group$records$12;
+        relDateStr = (_group$records$12 = group.records[0]) === null || _group$records$12 === void 0 ? void 0 : _group$records$12["Com_Vencimiento_Rel"];
       }
       if (relDateStr) {
         var relDate = new Date(toInputDate ? toInputDate(relDateStr) : relDateStr);
@@ -4841,9 +4841,9 @@ var App = function App() {
       className: "inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ".concat(statusColor)
     }, statusText), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick(e) {
-        var _group$records$12;
+        var _group$records$13;
         e.stopPropagation();
-        window.location.href = "Presupuestos.html?id=".concat((_group$records$12 = group.records[0]) === null || _group$records$12 === void 0 ? void 0 : _group$records$12["Reserva"]);
+        window.location.href = "Presupuestos.html?id=".concat((_group$records$13 = group.records[0]) === null || _group$records$13 === void 0 ? void 0 : _group$records$13["Reserva"]);
       },
       className: "p-1 px-1.5 bg-slate-100 text-slate-400 hover:bg-purple-600 hover:text-white rounded-lg transition-all opacity-0 group-hover/status:opacity-100 shadow-sm",
       title: "Ver Presupuesto"
@@ -5380,7 +5380,7 @@ var App = function App() {
     className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-xl shadow-2xl w-[98vw] h-[95vh] overflow-y-auto flex flex-col animate-fade-in border border-slate-200 text-sm"
-  }, function (_selectedGroupFicha$r2, _selectedGroupFicha$r3, _selectedGroupFicha$r4, _selectedGroupFicha$r5, _selectedGroupFicha$r9, _selectedGroupFicha$r0, _selectedGroupFicha$r1, _selectedGroupFicha$r10, _selectedGroupFicha$r11, _selectedGroupFicha$r12, _selectedGroupFicha$r21, _selectedGroupFicha$r23, _selectedGroupFicha$r25, _selectedGroupFicha$r26, _selectedGroupFicha$r28, _selectedGroupFicha$r29, _selectedGroupFicha$r30, _selectedGroupFicha$r31, _selectedGroupFicha$r32, _selectedGroupFicha$r33, _selectedGroupFicha$r34, _selectedGroupFicha$r35, _selectedGroupFicha$r36, _selectedGroupFicha$r37, _selectedGroupFicha$r38, _selectedGroupFicha$r42, _selectedGroupFicha$r46) {
+  }, function (_selectedGroupFicha$r2, _selectedGroupFicha$r3, _selectedGroupFicha$r4, _selectedGroupFicha$r5, _selectedGroupFicha$r9, _selectedGroupFicha$r0, _selectedGroupFicha$r1, _selectedGroupFicha$r10, _selectedGroupFicha$r11, _selectedGroupFicha$r12, _selectedGroupFicha$r13, _selectedGroupFicha$r22, _selectedGroupFicha$r24, _selectedGroupFicha$r26, _selectedGroupFicha$r27, _selectedGroupFicha$r29, _selectedGroupFicha$r30, _selectedGroupFicha$r31, _selectedGroupFicha$r32, _selectedGroupFicha$r33, _selectedGroupFicha$r34, _selectedGroupFicha$r35, _selectedGroupFicha$r36, _selectedGroupFicha$r37, _selectedGroupFicha$r38, _selectedGroupFicha$r39, _selectedGroupFicha$r43, _selectedGroupFicha$r47) {
     // --- CÁLCULOS COMPARTIDOS (FINANZAS Y FECHAS) ---
 
     var now = new Date();
@@ -5426,10 +5426,12 @@ var App = function App() {
     }, 0);
     var firstRec = selectedGroupFicha.records[0] || {};
     var baseTotal = grandTotal;
-    if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
-      baseTotal = parseFloat(firstRec.total) || 0;
-    } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
-      baseTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+    if (grandTotal === 0) {
+      if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
+        baseTotal = parseFloat(firstRec.total) || 0;
+      } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
+        baseTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+      }
     }
     var netTotal = baseTotal - totalComision;
     var totalPaidFromPlan = 0;
@@ -5558,7 +5560,7 @@ var App = function App() {
       className: "text-slate-300 text-[10px] font-bold uppercase tracking-[0.15em] mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-white/60"
-    }, ((_selectedGroupFicha$r1 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r1 === void 0 ? void 0 : _selectedGroupFicha$r1["Empresa/Agencia"]) || ((_selectedGroupFicha$r10 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r10 === void 0 ? void 0 : _selectedGroupFicha$r10["Empresa"]) || "VENTA DIRECTA"), /*#__PURE__*/React.createElement("span", {
+    }, ((_selectedGroupFicha$r1 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r1 === void 0 ? void 0 : _selectedGroupFicha$r1["Fiscal_RazonSocial"]) || ((_selectedGroupFicha$r10 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r10 === void 0 ? void 0 : _selectedGroupFicha$r10["Empresa/Agencia"]) || ((_selectedGroupFicha$r11 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r11 === void 0 ? void 0 : _selectedGroupFicha$r11["Empresa"]) || "VENTA DIRECTA"), /*#__PURE__*/React.createElement("span", {
       className: "opacity-30"
     }, "\u2022"), /*#__PURE__*/React.createElement("span", {
       className: "bg-white/10 px-1.5 py-0.5 rounded text-white"
@@ -5566,7 +5568,7 @@ var App = function App() {
       className: "opacity-30"
     }, "\u2022"), /*#__PURE__*/React.createElement("span", {
       className: "text-white/40"
-    }, "REF:", " ", (_selectedGroupFicha$r11 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r11 === void 0 ? void 0 : _selectedGroupFicha$r11["Reserva"]), function () {
+    }, "REF:", " ", (_selectedGroupFicha$r12 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r12 === void 0 ? void 0 : _selectedGroupFicha$r12["Reserva"]), function () {
       var r = selectedGroupFicha.records[0] || {};
       var contactName = r["Com_Nombre_Contacto"] || r["Persona_Contacto"];
       var contactEmail = r["Com_Email_Contacto"] || r["Email"];
@@ -5592,7 +5594,7 @@ var App = function App() {
         size: 12,
         className: "opacity-60"
       }), contactPhone)));
-    }(), (((_selectedGroupFicha$r12 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r12 === void 0 ? void 0 : _selectedGroupFicha$r12["Reserva"]) || "").toString().startsWith("PRES") && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    }(), (((_selectedGroupFicha$r13 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r13 === void 0 ? void 0 : _selectedGroupFicha$r13["Reserva"]) || "").toString().startsWith("PRES") && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       className: "opacity-30"
     }, "\u2022"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick(e) {
@@ -5695,9 +5697,9 @@ var App = function App() {
       className: "text-[9px] font-black text-slate-400 uppercase block mb-1.5 ml-1"
     }, "Estado Seguimiento"), /*#__PURE__*/React.createElement("div", {
       className: "relative"
-    }, function (_selectedGroupFicha$r13, _selectedGroupFicha$r14, _selectedGroupFicha$r15, _selectedGroupFicha$r16, _selectedGroupFicha$r17, _selectedGroupFicha$r18) {
-      var rawStatus = ((_selectedGroupFicha$r13 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r13 === void 0 ? void 0 : _selectedGroupFicha$r13["Com_Estado_Interno"]) || ((_selectedGroupFicha$r14 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r14 === void 0 ? void 0 : _selectedGroupFicha$r14["Segment."]) || ((_selectedGroupFicha$r15 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r15 === void 0 ? void 0 : _selectedGroupFicha$r15["Estado"]) || "PROSPECTO";
-      var st = getStatusProps(rawStatus, selectedGroupFicha.arrival, (_selectedGroupFicha$r16 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r16 === void 0 ? void 0 : _selectedGroupFicha$r16["Estado"]);
+    }, function (_selectedGroupFicha$r14, _selectedGroupFicha$r15, _selectedGroupFicha$r16, _selectedGroupFicha$r17, _selectedGroupFicha$r18, _selectedGroupFicha$r19) {
+      var rawStatus = ((_selectedGroupFicha$r14 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r14 === void 0 ? void 0 : _selectedGroupFicha$r14["Com_Estado_Interno"]) || ((_selectedGroupFicha$r15 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r15 === void 0 ? void 0 : _selectedGroupFicha$r15["Segment."]) || ((_selectedGroupFicha$r16 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r16 === void 0 ? void 0 : _selectedGroupFicha$r16["Estado"]) || "PROSPECTO";
+      var st = getStatusProps(rawStatus, selectedGroupFicha.arrival, (_selectedGroupFicha$r17 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r17 === void 0 ? void 0 : _selectedGroupFicha$r17["Estado"]);
       var selectVal = "PROSPECTO";
       var s = rawStatus.toUpperCase();
       if (s.includes("CONFIRM") || s.includes("GARANT") || s.includes("RESERVA") || s === "GRUPOS") selectVal = "CONFIRMADO";else if (s.includes("TANTEO") || s.includes("TENTA") || s.includes("BLOQ") || s.includes("OPCI")) selectVal = "TENTATIVA";else if (s.includes("PRESUP") || s.includes("ENVIA") || s.includes("COTIZ") || s.includes("OFERT")) selectVal = "PRESUPUESTO";else if (s.includes("CANC") || s.includes("ANUL") || s.includes("BAJA")) selectVal = "CANCELADO";else if (s.includes("PROSPEC") || s.includes("PENDIE")) selectVal = "PROSPECTO";
@@ -5707,7 +5709,7 @@ var App = function App() {
         onChange: function onChange(e) {
           return updateGroupMetadata(selectedGroupFicha.id, "Com_Estado_Interno", e.target.value);
         }
-      }, (String(((_selectedGroupFicha$r17 = selectedGroupFicha.records) === null || _selectedGroupFicha$r17 === void 0 || (_selectedGroupFicha$r17 = _selectedGroupFicha$r17[0]) === null || _selectedGroupFicha$r17 === void 0 ? void 0 : _selectedGroupFicha$r17.Reserva) || '').startsWith('PRES-') || (((_selectedGroupFicha$r18 = selectedGroupFicha.records) === null || _selectedGroupFicha$r18 === void 0 || (_selectedGroupFicha$r18 = _selectedGroupFicha$r18[0]) === null || _selectedGroupFicha$r18 === void 0 ? void 0 : _selectedGroupFicha$r18.Estado) || '').toUpperCase() === 'PRESUPUESTO') && !selectVal.includes('CONFIRM') ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("option", {
+      }, (String(((_selectedGroupFicha$r18 = selectedGroupFicha.records) === null || _selectedGroupFicha$r18 === void 0 || (_selectedGroupFicha$r18 = _selectedGroupFicha$r18[0]) === null || _selectedGroupFicha$r18 === void 0 ? void 0 : _selectedGroupFicha$r18.Reserva) || '').startsWith('PRES-') || (((_selectedGroupFicha$r19 = selectedGroupFicha.records) === null || _selectedGroupFicha$r19 === void 0 || (_selectedGroupFicha$r19 = _selectedGroupFicha$r19[0]) === null || _selectedGroupFicha$r19 === void 0 ? void 0 : _selectedGroupFicha$r19.Estado) || '').toUpperCase() === 'PRESUPUESTO') && !selectVal.includes('CONFIRM') ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("option", {
         value: "PENDIENTE"
       }, "PENDIENTE"), /*#__PURE__*/React.createElement("option", {
         value: "SEGUIMIENTO"
@@ -5735,8 +5737,8 @@ var App = function App() {
       className: "relative"
     }, /*#__PURE__*/React.createElement("select", {
       className: "w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl bg-slate-50 border border-slate-200 text-slate-700 appearance-none outline-none hover:border-blue-400 transition-all cursor-pointer",
-      value: function (_selectedGroupFicha$r19, _selectedGroupFicha$r20) {
-        var raw = ((_selectedGroupFicha$r19 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r19 === void 0 ? void 0 : _selectedGroupFicha$r19["Hotel_Asignado"]) || ((_selectedGroupFicha$r20 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r20 === void 0 ? void 0 : _selectedGroupFicha$r20["Hotel"]) || "Sercotel Guadiana";
+      value: function (_selectedGroupFicha$r20, _selectedGroupFicha$r21) {
+        var raw = ((_selectedGroupFicha$r20 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r20 === void 0 ? void 0 : _selectedGroupFicha$r20["Hotel_Asignado"]) || ((_selectedGroupFicha$r21 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r21 === void 0 ? void 0 : _selectedGroupFicha$r21["Hotel"]) || "Sercotel Guadiana";
         if (raw.toLowerCase().includes("cumbria")) return "Cumbria Spa&Hotel";
         if (raw.toLowerCase().includes("guadiana")) return "Sercotel Guadiana";
         return raw;
@@ -5758,19 +5760,19 @@ var App = function App() {
     }, "Comercial"), /*#__PURE__*/React.createElement("div", {
       className: "relative"
     }, /*#__PURE__*/React.createElement("select", {
-      className: "w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl bg-slate-50 border text-slate-700 appearance-none outline-none transition-all cursor-pointer ".concat((_selectedGroupFicha$r21 = selectedGroupFicha.records[0]) !== null && _selectedGroupFicha$r21 !== void 0 && _selectedGroupFicha$r21["Com_Comercial"] && commercials.some(function (c) {
-        var _selectedGroupFicha$r22;
-        return c.name === ((_selectedGroupFicha$r22 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r22 === void 0 ? void 0 : _selectedGroupFicha$r22["Com_Comercial"]) && !c.active;
+      className: "w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl bg-slate-50 border text-slate-700 appearance-none outline-none transition-all cursor-pointer ".concat((_selectedGroupFicha$r22 = selectedGroupFicha.records[0]) !== null && _selectedGroupFicha$r22 !== void 0 && _selectedGroupFicha$r22["Com_Comercial"] && commercials.some(function (c) {
+        var _selectedGroupFicha$r23;
+        return c.name === ((_selectedGroupFicha$r23 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r23 === void 0 ? void 0 : _selectedGroupFicha$r23["Com_Comercial"]) && !c.active;
       }) ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 hover:border-blue-400"),
-      value: ((_selectedGroupFicha$r23 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r23 === void 0 ? void 0 : _selectedGroupFicha$r23["Com_Comercial"]) || "",
+      value: ((_selectedGroupFicha$r24 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r24 === void 0 ? void 0 : _selectedGroupFicha$r24["Com_Comercial"]) || "",
       onChange: function onChange(e) {
         return updateGroupMetadata(selectedGroupFicha.id, "Com_Comercial", e.target.value);
       }
     }, /*#__PURE__*/React.createElement("option", {
       value: ""
     }, "SIN ASIGNAR"), commercials.filter(function (c) {
-      var _selectedGroupFicha$r24;
-      return c.active || c.name === ((_selectedGroupFicha$r24 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r24 === void 0 ? void 0 : _selectedGroupFicha$r24["Com_Comercial"]);
+      var _selectedGroupFicha$r25;
+      return c.active || c.name === ((_selectedGroupFicha$r25 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r25 === void 0 ? void 0 : _selectedGroupFicha$r25["Com_Comercial"]);
     }).map(function (c) {
       return /*#__PURE__*/React.createElement("option", {
         key: c.name,
@@ -5779,12 +5781,12 @@ var App = function App() {
     })), /*#__PURE__*/React.createElement(IconChevronDown, {
       size: 14,
       className: "absolute right-3 top-2.5 text-slate-400 pointer-events-none"
-    }))), (String(((_selectedGroupFicha$r25 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r25 === void 0 ? void 0 : _selectedGroupFicha$r25["Reserva"]) || "").startsWith("PRES-") || String(((_selectedGroupFicha$r26 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r26 === void 0 ? void 0 : _selectedGroupFicha$r26["Com_Estado_Interno"]) || "").toUpperCase() === "PRESUPUESTO") && /*#__PURE__*/React.createElement("div", {
+    }))), (String(((_selectedGroupFicha$r26 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r26 === void 0 ? void 0 : _selectedGroupFicha$r26["Reserva"]) || "").startsWith("PRES-") || String(((_selectedGroupFicha$r27 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r27 === void 0 ? void 0 : _selectedGroupFicha$r27["Com_Estado_Interno"]) || "").toUpperCase() === "PRESUPUESTO") && /*#__PURE__*/React.createElement("div", {
       className: "md:col-span-1 flex items-end pb-0.5"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        var _selectedGroupFicha$r27;
-        return window.location.href = "Presupuestos.html?id=".concat((_selectedGroupFicha$r27 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r27 === void 0 ? void 0 : _selectedGroupFicha$r27["Reserva"]);
+        var _selectedGroupFicha$r28;
+        return window.location.href = "Presupuestos.html?id=".concat((_selectedGroupFicha$r28 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r28 === void 0 ? void 0 : _selectedGroupFicha$r28["Reserva"]);
       },
       className: "w-full h-9 flex items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl shadow-lg shadow-purple-200 transition-all hover:scale-[1.05] active:scale-[0.95]",
       title: "Abrir en Nexus Presupuestos"
@@ -5797,8 +5799,8 @@ var App = function App() {
       className: "text-[9px] font-black text-slate-400 uppercase block mb-1.5 ml-1"
     }, "Pr\xF3x. Seg."), /*#__PURE__*/React.createElement("input", {
       type: "date",
-      className: "w-full h-9 px-2 text-[10px] font-black rounded-xl border ".concat((_selectedGroupFicha$r28 = selectedGroupFicha.records[0]) !== null && _selectedGroupFicha$r28 !== void 0 && _selectedGroupFicha$r28["Com_Seguimiento"] && new Date((_selectedGroupFicha$r29 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r29 === void 0 ? void 0 : _selectedGroupFicha$r29["Com_Seguimiento"]) <= new Date() ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600", " outline-none focus:border-blue-500 transition-all"),
-      value: ((_selectedGroupFicha$r30 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r30 === void 0 ? void 0 : _selectedGroupFicha$r30["Com_Seguimiento"]) || "",
+      className: "w-full h-9 px-2 text-[10px] font-black rounded-xl border ".concat((_selectedGroupFicha$r29 = selectedGroupFicha.records[0]) !== null && _selectedGroupFicha$r29 !== void 0 && _selectedGroupFicha$r29["Com_Seguimiento"] && new Date((_selectedGroupFicha$r30 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r30 === void 0 ? void 0 : _selectedGroupFicha$r30["Com_Seguimiento"]) <= new Date() ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600", " outline-none focus:border-blue-500 transition-all"),
+      value: ((_selectedGroupFicha$r31 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r31 === void 0 ? void 0 : _selectedGroupFicha$r31["Com_Seguimiento"]) || "",
       onChange: function onChange(e) {
         return updateGroupMetadata(selectedGroupFicha.id, "Com_Seguimiento", e.target.value);
       }
@@ -5832,7 +5834,7 @@ var App = function App() {
       className: "text-[7px] font-black text-blue-400 uppercase leading-none"
     }, "Cliente"), /*#__PURE__*/React.createElement("div", {
       className: "text-[9px] font-black text-blue-700 truncate w-full"
-    }, (((_selectedGroupFicha$r31 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r31 === void 0 ? void 0 : _selectedGroupFicha$r31["Fiscal_RazonSocial"]) || ((_selectedGroupFicha$r32 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r32 === void 0 ? void 0 : _selectedGroupFicha$r32["Empresa/Agencia"]) || "Dato Incompleto").substring(0, 15)))), /*#__PURE__*/React.createElement("div", {
+    }, (((_selectedGroupFicha$r32 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r32 === void 0 ? void 0 : _selectedGroupFicha$r32["Fiscal_RazonSocial"]) || ((_selectedGroupFicha$r33 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r33 === void 0 ? void 0 : _selectedGroupFicha$r33["Empresa/Agencia"]) || "Dato Incompleto").substring(0, 15)))), /*#__PURE__*/React.createElement("div", {
       className: "bg-emerald-50 border border-emerald-100 rounded-xl px-2 h-9 flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "text-center"
@@ -5841,11 +5843,11 @@ var App = function App() {
     }, "Pagado")), /*#__PURE__*/React.createElement("input", {
       type: "number",
       className: "bg-transparent border-none text-[12px] font-black text-emerald-700 outline-none w-full tabular-nums",
-      value: ((_selectedGroupFicha$r33 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r33 === void 0 ? void 0 : _selectedGroupFicha$r33["Com_Pagado"]) || "",
+      value: ((_selectedGroupFicha$r34 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r34 === void 0 ? void 0 : _selectedGroupFicha$r34["Com_Pagado"]) || "",
       onChange: function onChange(e) {
         return updateGroupMetadata(selectedGroupFicha.id, "Com_Pagado", e.target.value);
       }
-    })))), (((_selectedGroupFicha$r34 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r34 === void 0 ? void 0 : _selectedGroupFicha$r34["Observaciones"]) || ((_selectedGroupFicha$r35 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r35 === void 0 ? void 0 : _selectedGroupFicha$r35["Observac."])) && /*#__PURE__*/React.createElement("div", {
+    })))), (((_selectedGroupFicha$r35 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r35 === void 0 ? void 0 : _selectedGroupFicha$r35["Observaciones"]) || ((_selectedGroupFicha$r36 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r36 === void 0 ? void 0 : _selectedGroupFicha$r36["Observac."])) && /*#__PURE__*/React.createElement("div", {
       className: "bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-3 items-start animate-fade-in shadow-sm"
     }, /*#__PURE__*/React.createElement("div", {
       className: "bg-amber-100 text-amber-600 p-1.5 rounded-lg shrink-0 mt-0.5"
@@ -5857,7 +5859,7 @@ var App = function App() {
       className: "text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1"
     }, "Observaciones de Origen (PMS)"), /*#__PURE__*/React.createElement("p", {
       className: "text-[11px] text-amber-800 leading-relaxed font-medium"
-    }, ((_selectedGroupFicha$r36 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r36 === void 0 ? void 0 : _selectedGroupFicha$r36["Observaciones"]) || ((_selectedGroupFicha$r37 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r37 === void 0 ? void 0 : _selectedGroupFicha$r37["Observac."]))))), /*#__PURE__*/React.createElement("div", {
+    }, ((_selectedGroupFicha$r37 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r37 === void 0 ? void 0 : _selectedGroupFicha$r37["Observaciones"]) || ((_selectedGroupFicha$r38 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r38 === void 0 ? void 0 : _selectedGroupFicha$r38["Observac."]))))), /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden"
     }, /*#__PURE__*/React.createElement("div", {
       className: "bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4"
@@ -6114,8 +6116,8 @@ var App = function App() {
       className: "py-2.5 px-3 w-8"
     }))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
-    }, JSON.parse(((_selectedGroupFicha$r38 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r38 === void 0 ? void 0 : _selectedGroupFicha$r38["RoomingList_JSON"]) || "[]").map(function (item, index) {
-      var _selectedGroupFicha$r39, _selectedGroupFicha$r40, _item$comision, _item$comision2, _item$comision4, _item$comision5, _item$comision6, _item$comision7;
+    }, JSON.parse(((_selectedGroupFicha$r39 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r39 === void 0 ? void 0 : _selectedGroupFicha$r39["RoomingList_JSON"]) || "[]").map(function (item, index) {
+      var _selectedGroupFicha$r40, _selectedGroupFicha$r41, _item$comision, _item$comision2, _item$comision4, _item$comision5, _item$comision6, _item$comision7;
       return /*#__PURE__*/React.createElement("tr", {
         key: item.id,
         draggable: true,
@@ -6144,16 +6146,16 @@ var App = function App() {
         className: "text-slate-400"
       }), /*#__PURE__*/React.createElement("span", {
         className: "text-[10px] font-bold text-slate-500 uppercase"
-      }, item.hotel && item.hotel !== "S/H" ? item.hotel : ((_selectedGroupFicha$r39 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r39 === void 0 ? void 0 : _selectedGroupFicha$r39["Hotel_Asignado"]) || ((_selectedGroupFicha$r40 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r40 === void 0 ? void 0 : _selectedGroupFicha$r40["Hotel"]) || "H. Pendiente"))), /*#__PURE__*/React.createElement("td", {
+      }, item.hotel && item.hotel !== "S/H" ? item.hotel : ((_selectedGroupFicha$r40 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r40 === void 0 ? void 0 : _selectedGroupFicha$r40["Hotel_Asignado"]) || ((_selectedGroupFicha$r41 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r41 === void 0 ? void 0 : _selectedGroupFicha$r41["Hotel"]) || "H. Pendiente"))), /*#__PURE__*/React.createElement("td", {
         className: "py-2 px-3"
       }, /*#__PURE__*/React.createElement("input", {
         type: "text",
         className: "bg-transparent border-none font-bold text-slate-700 outline-none w-full uppercase text-[11px]",
         value: item.type,
         onChange: function onChange(e) {
-          var _selectedGroupFicha$r41;
+          var _selectedGroupFicha$r42;
           var newType = e.target.value.toUpperCase();
-          var newRL = JSON.parse(((_selectedGroupFicha$r41 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r41 === void 0 ? void 0 : _selectedGroupFicha$r41["RoomingList_JSON"]) || "[]");
+          var newRL = JSON.parse(((_selectedGroupFicha$r42 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r42 === void 0 ? void 0 : _selectedGroupFicha$r42["RoomingList_JSON"]) || "[]");
           newRL[index].type = newType;
           newRL[index].pax = getPaxByRoomType(newType);
           var newTotalPax = newRL.reduce(function (acc, i) {
@@ -6242,7 +6244,7 @@ var App = function App() {
       }, /*#__PURE__*/React.createElement(IconTrash, {
         size: 14
       }))));
-    }), JSON.parse(((_selectedGroupFicha$r42 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r42 === void 0 ? void 0 : _selectedGroupFicha$r42["RoomingList_JSON"]) || "[]").length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    }), JSON.parse(((_selectedGroupFicha$r43 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r43 === void 0 ? void 0 : _selectedGroupFicha$r43["RoomingList_JSON"]) || "[]").length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
       colSpan: "8",
       className: "py-8 text-center"
     }, /*#__PURE__*/React.createElement("div", {
@@ -6259,7 +6261,7 @@ var App = function App() {
       className: "grid grid-cols-1 lg:grid-cols-12 gap-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
-    }, function (_selectedGroupFicha$r43) {
+    }, function (_selectedGroupFicha$r44) {
       if (!(selectedGroupFicha !== null && selectedGroupFicha !== void 0 && selectedGroupFicha.records)) return null;
       var uniqueHotels = Array.from(new Set(selectedGroupFicha.records.map(function (r) {
         return r["Hotel_Asignado"] || r["Hotel"] || "Desconocido";
@@ -6267,20 +6269,20 @@ var App = function App() {
         return h && h !== "-";
       })));
       if (uniqueHotels.length === 0) uniqueHotels.push("General");
-      var roomingList = JSON.parse(((_selectedGroupFicha$r43 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r43 === void 0 ? void 0 : _selectedGroupFicha$r43["RoomingList_JSON"]) || "[]");
+      var roomingList = JSON.parse(((_selectedGroupFicha$r44 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r44 === void 0 ? void 0 : _selectedGroupFicha$r44["RoomingList_JSON"]) || "[]");
       return /*#__PURE__*/React.createElement("div", {
         className: "flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[400px] custom-scrollbar"
       }, uniqueHotels.map(function (hotelName) {
-        var _selectedGroupFicha$r44;
+        var _selectedGroupFicha$r45;
         var hotelRoomingItems = roomingList.filter(function (i) {
           return i.hotel === hotelName || hotelName === "General" && !i.hotel;
         });
         var hotelTotal = hotelRoomingItems.reduce(function (acc, i) {
           var _i$comision5;
           return acc + (parseFloat(i.total) || 0) - (parseFloat((_i$comision5 = i.comision) === null || _i$comision5 === void 0 ? void 0 : _i$comision5.total_comision) || 0);
-        }, 0) || parseFloat(((_selectedGroupFicha$r44 = selectedGroupFicha.records.find(function (r) {
+        }, 0) || parseFloat(((_selectedGroupFicha$r45 = selectedGroupFicha.records.find(function (r) {
           return (r["Hotel_Asignado"] || r["Hotel"]) === hotelName;
-        })) === null || _selectedGroupFicha$r44 === void 0 ? void 0 : _selectedGroupFicha$r44["Importe(*)"]) || 0);
+        })) === null || _selectedGroupFicha$r45 === void 0 ? void 0 : _selectedGroupFicha$r45["Importe(*)"]) || 0);
         var hotelRecord = selectedGroupFicha.records.find(function (r) {
           return (r["Hotel_Asignado"] || r["Hotel"] || "Desconocido") === hotelName;
         }) || selectedGroupFicha.records[0];
@@ -6542,8 +6544,8 @@ var App = function App() {
       size: 14
     })), /*#__PURE__*/React.createElement("h4", {
       className: "text-[10px] font-black text-slate-700 uppercase tracking-widest"
-    }, "Notas de Control"), function (_selectedGroupFicha$r45) {
-      var specificLink = (_selectedGroupFicha$r45 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r45 === void 0 ? void 0 : _selectedGroupFicha$r45["Enlace_TPV"];
+    }, "Notas de Control"), function (_selectedGroupFicha$r46) {
+      var specificLink = (_selectedGroupFicha$r46 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r46 === void 0 ? void 0 : _selectedGroupFicha$r46["Enlace_TPV"];
       return /*#__PURE__*/React.createElement("div", {
         className: "ml-auto flex items-center gap-2"
       }, /*#__PURE__*/React.createElement("input", {
@@ -6648,7 +6650,7 @@ var App = function App() {
       id: "notas-control-textarea",
       className: "w-full h-full bg-amber-50/50 border border-amber-100 rounded-lg p-2 text-[10px] font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none leading-relaxed placeholder-amber-300",
       placeholder: "Escribe aqu\xED notas operativas, recordatorios o detalles importantes del grupo...",
-      defaultValue: ((_selectedGroupFicha$r46 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r46 === void 0 ? void 0 : _selectedGroupFicha$r46["Com_Notas"]) || "",
+      defaultValue: ((_selectedGroupFicha$r47 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r47 === void 0 ? void 0 : _selectedGroupFicha$r47["Com_Notas"]) || "",
       onBlur: function onBlur(e) {
         return updateGroupMetadata(selectedGroupFicha.id, "Com_Notas", e.target.value);
       }
@@ -6859,7 +6861,7 @@ var App = function App() {
     className: "block text-[7px] font-black text-slate-400 uppercase tracking-widest truncate"
   }, "Precio Unit."), /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-black text-slate-700"
-  }, parseFloat(JSON.parse(((_selectedGroupFicha$r47 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r47 === void 0 ? void 0 : _selectedGroupFicha$r47["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].price).toFixed(2), " ", "\u20AC"))), /*#__PURE__*/React.createElement("div", {
+  }, parseFloat(JSON.parse(((_selectedGroupFicha$r48 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r48 === void 0 ? void 0 : _selectedGroupFicha$r48["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].price).toFixed(2), " ", "\u20AC"))), /*#__PURE__*/React.createElement("div", {
     className: "bg-white p-2 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0"
@@ -6871,7 +6873,7 @@ var App = function App() {
     className: "block text-[7px] font-black text-slate-400 uppercase tracking-widest truncate"
   }, "Pax/Hab."), /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-black text-slate-500"
-  }, getPaxByRoomType(JSON.parse(((_selectedGroupFicha$r48 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r48 === void 0 ? void 0 : _selectedGroupFicha$r48["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].type), " ", "pax"))), /*#__PURE__*/React.createElement("div", {
+  }, getPaxByRoomType(JSON.parse(((_selectedGroupFicha$r49 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r49 === void 0 ? void 0 : _selectedGroupFicha$r49["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].type), " ", "pax"))), /*#__PURE__*/React.createElement("div", {
     className: "bg-white p-2 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0"
@@ -6883,7 +6885,7 @@ var App = function App() {
     className: "block text-[7px] font-black text-slate-400 uppercase tracking-widest truncate"
   }, "R\xE9gimen"), /*#__PURE__*/React.createElement("span", {
     className: "text-xs font-black text-slate-500"
-  }, JSON.parse(((_selectedGroupFicha$r49 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r49 === void 0 ? void 0 : _selectedGroupFicha$r49["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].regime || "HD")))), /*#__PURE__*/React.createElement("div", {
+  }, JSON.parse(((_selectedGroupFicha$r50 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r50 === void 0 ? void 0 : _selectedGroupFicha$r50["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].regime || "HD")))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-[1fr_100px] gap-3"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[8px] font-black text-slate-500 uppercase mb-1.5 ml-1 tracking-widest"
@@ -6969,8 +6971,8 @@ var App = function App() {
           valor: val
         })));
         if (key !== "Alojamiento") {
-          var _selectedGroupFicha$r50;
-          var item = JSON.parse(((_selectedGroupFicha$r50 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r50 === void 0 ? void 0 : _selectedGroupFicha$r50["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx];
+          var _selectedGroupFicha$r51;
+          var item = JSON.parse(((_selectedGroupFicha$r51 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r51 === void 0 ? void 0 : _selectedGroupFicha$r51["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx];
           var paxPerRoom = getPaxByRoomType(item.type);
           var unitPrice = parseFloat(item.price) || 0;
           var des = key === "Desayuno" ? val : newDesglose.Desayuno.valor;
@@ -7010,11 +7012,11 @@ var App = function App() {
     }) : /*#__PURE__*/React.createElement("div", {
       className: "w-1.5 h-1.5 rounded-full bg-slate-200"
     })));
-  })), function (_selectedGroupFicha$r51) {
+  })), function (_selectedGroupFicha$r52) {
     var sum = Object.values(commissionModal.tempCom.desglose || {}).reduce(function (acc, c) {
       return acc + c.valor;
     }, 0);
-    var unitPrice = parseFloat(JSON.parse(((_selectedGroupFicha$r51 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r51 === void 0 ? void 0 : _selectedGroupFicha$r51["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].price);
+    var unitPrice = parseFloat(JSON.parse(((_selectedGroupFicha$r52 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r52 === void 0 ? void 0 : _selectedGroupFicha$r52["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx].price);
     var diff = Math.abs(sum - unitPrice);
     if (diff > 0.01) {
       return /*#__PURE__*/React.createElement("div", {
@@ -7093,8 +7095,8 @@ var App = function App() {
     className: "bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 group-hover:border-emerald-500/30 transition-all"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-lg font-black text-white tabular-nums tracking-tighter"
-  }, function (_selectedGroupFicha$r52) {
-    var item = JSON.parse(((_selectedGroupFicha$r52 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r52 === void 0 ? void 0 : _selectedGroupFicha$r52["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx];
+  }, function (_selectedGroupFicha$r53) {
+    var item = JSON.parse(((_selectedGroupFicha$r53 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r53 === void 0 ? void 0 : _selectedGroupFicha$r53["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx];
     var base = commissionModal.tempCom.modo === "auto" ? Object.values(commissionModal.tempCom.desglose || {}).reduce(function (acc, c) {
       return acc + (c.comisionable ? c.valor : 0);
     }, 0) : commissionModal.tempCom.base_unitaria || 0;
@@ -7116,9 +7118,9 @@ var App = function App() {
     className: "flex-1 h-11 rounded-xl text-[10px] font-black text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all uppercase tracking-widest border border-transparent hover:border-slate-200"
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
-      var _selectedGroupFicha$r53, _selectedGroupFicha$r54;
+      var _selectedGroupFicha$r54, _selectedGroupFicha$r55;
       var com = _objectSpread({}, commissionModal.tempCom);
-      var item = JSON.parse(((_selectedGroupFicha$r53 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r53 === void 0 ? void 0 : _selectedGroupFicha$r53["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx];
+      var item = JSON.parse(((_selectedGroupFicha$r54 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r54 === void 0 ? void 0 : _selectedGroupFicha$r54["RoomingList_JSON"]) || "[]")[commissionModal.itemIdx];
       if (com.modo === "auto") {
         com.base_unitaria = Object.values(com.desglose).reduce(function (acc, c) {
           return acc + (c.comisionable ? c.valor : 0);
@@ -7126,7 +7128,7 @@ var App = function App() {
       }
       com.comision_unitaria = Math.round((com.base_unitaria * com.porcentaje / 100 + 1e-9) * 100) / 100;
       com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + 1e-9) * 100) / 100;
-      var newRL = JSON.parse(((_selectedGroupFicha$r54 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r54 === void 0 ? void 0 : _selectedGroupFicha$r54["RoomingList_JSON"]) || "[]");
+      var newRL = JSON.parse(((_selectedGroupFicha$r55 = selectedGroupFicha.records[0]) === null || _selectedGroupFicha$r55 === void 0 ? void 0 : _selectedGroupFicha$r55["RoomingList_JSON"]) || "[]");
       newRL[commissionModal.itemIdx].comision = com;
       updateGroupMetadata(selectedGroupFicha.id, "RoomingList_JSON", JSON.stringify(newRL));
       setCommissionModal({

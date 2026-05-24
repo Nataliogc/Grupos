@@ -8964,7 +8964,7 @@
 
                                   </span>
 
-                                  {group.records[0]?.["Empresa/Agencia"] && (
+                                  {(group.records[0]?.["Fiscal_RazonSocial"] || group.records[0]?.["Empresa/Agencia"]) && (
 
                                     <>
 
@@ -8972,7 +8972,7 @@
 
                                       <span>
 
-                                        {group.records[0]["Empresa/Agencia"]}
+                                        {group.records[0]["Fiscal_RazonSocial"] || group.records[0]["Empresa/Agencia"]}
 
                                       </span>
 
@@ -10891,10 +10891,12 @@
 
                     const firstRec = selectedGroupFicha.records[0] || {};
                     let baseTotal = grandTotal;
-                    if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
-                      baseTotal = parseFloat(firstRec.total) || 0;
-                    } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
-                      baseTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+                    if (grandTotal === 0) {
+                      if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
+                        baseTotal = parseFloat(firstRec.total) || 0;
+                      } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
+                        baseTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+                      }
                     }
                     let netTotal = baseTotal - totalComision;
 
@@ -11266,7 +11268,7 @@
 
                                 <p className="text-slate-300 text-[10px] font-bold uppercase tracking-[0.15em] mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                                   <span className="text-white/60">
-                                    {selectedGroupFicha.records[0]?.["Empresa/Agencia"] || selectedGroupFicha.records[0]?.["Empresa"] || "VENTA DIRECTA"}
+                                    {selectedGroupFicha.records[0]?.["Fiscal_RazonSocial"] || selectedGroupFicha.records[0]?.["Empresa/Agencia"] || selectedGroupFicha.records[0]?.["Empresa"] || "VENTA DIRECTA"}
                                   </span>
                                   <span className="opacity-30">•</span>
                                   <span className="bg-white/10 px-1.5 py-0.5 rounded text-white">
