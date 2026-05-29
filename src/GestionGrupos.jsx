@@ -72,7 +72,26 @@
 
     const formatNum = NexusUtils.formatNum;
 
+    const normalizeHotelNameLocal = (value, fallbackHotel) => {
+      const raw = String(value || "").trim().toLowerCase();
 
+      if (
+        raw.includes("guadiana") ||
+        raw.includes("sercotel guadiana")
+      ) {
+        return "Sercotel Guadiana";
+      }
+
+      if (
+        raw.includes("cumbria") ||
+        raw.includes("spa & hotel") ||
+        raw.includes("spa&hotel")
+      ) {
+        return "Cumbria Spa&Hotel";
+      }
+
+      return fallbackHotel || "Sercotel Guadiana";
+    };
 
     const BudgetManager = ({ data, openFicha, formatDate }) => {
 
@@ -346,7 +365,7 @@
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 overflow-hidden p-1 shadow-sm group-hover:scale-105 transition-transform">
                             <img
-                              src={hotelName.toLowerCase().includes("cumbria") ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg"}
+                              src={normalizeHotelNameLocal(hotelName, "Sercotel Guadiana") === "Cumbria Spa&Hotel" ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg"}
                               className="w-full h-full object-contain"
                               alt="Hotel"
                             />
@@ -4900,17 +4919,13 @@
 
           // Normalizar el hotel para que coincida con los valores del select (Cumbria / Guadiana)
 
-          let hotelPrincipal =
+          let hotelPrincipal = normalizeHotelNameLocal(
 
-            rec["Hotel_Asignado"] || rec["Hotel"] || "Sercotel Guadiana";
+            rec["Hotel_Asignado"] || rec["Hotel"],
 
-          if (hotelPrincipal.toLowerCase().includes("cumbria"))
+            "Sercotel Guadiana"
 
-            hotelPrincipal = "Cumbria Spa&Hotel";
-
-          else if (hotelPrincipal.toLowerCase().includes("guadiana"))
-
-            hotelPrincipal = "Sercotel Guadiana";
+          );
 
 
 
@@ -4950,7 +4965,18 @@
 
           }
 
-
+          if (Array.isArray(currentList) && currentList.length > 0) {
+            let changed = false;
+            const cleanList = currentList.map(item => {
+              const norm = normalizeHotelNameLocal(item.hotel, hotelPrincipal);
+              if (item.hotel !== norm) changed = true;
+              return { ...item, hotel: norm };
+            });
+            if (changed) {
+              currentList = cleanList;
+              firstRecord["RoomingList_JSON"] = JSON.stringify(cleanList);
+            }
+          }
 
           if (currentList.length === 0) {
 
@@ -4962,7 +4988,13 @@
 
               const dates = Object.keys(group.dailyConfig).sort();
 
-              const hotelName = group.hotel || group.records[0]?.["Hotel_Asignado"] || group.records[0]?.["Hotel"] || "H. Pendiente";
+              const hotelName = normalizeHotelNameLocal(
+
+                group.hotel || group.records[0]?.["Hotel_Asignado"] || group.records[0]?.["Hotel"],
+
+                "Sercotel Guadiana"
+
+              );
 
               
 
@@ -5058,614 +5090,332 @@
                        });
                      }
                   }
-
                 });
-
               });
-
-
 
               if (group.extraCharges && group.extraCharges.length > 0) {
-
-                const hotelName = group.hotel || group.records[0]?.["Hotel_Asignado"] || group.records[0]?.["Hotel"] || "H. Pendiente";
-
+                const hotelName = normalizeHotelNameLocal(group.hotel || group.records[0]?.["Hotel_Asignado"] || group.records[0]?.["Hotel"] || "Sercotel Guadiana");
                 
-
                 // Filtramos cargos extra que sean duplicados del régimen
-
                 const regimesToFilter = ["PC", "MP", "AD", "HB", "FB", "SA", "RO", "BB", "HD", "TI"];
-
                 
-
                 group.extraCharges.forEach(ext => {
-
                    const conceptNorm = (ext.concept || "").trim().toUpperCase();
-
                    // Si el concepto es exactamente un régimen, lo saltamos (ya está en la línea de la habitación)
-
                    if (regimesToFilter.includes(conceptNorm)) return;
 
-
-
                    const isGlobal = !ext.date || ext.date === 'Todas';
-
                    const d = isGlobal ? (dates[0] || "") : ext.date;
-
                    const u = ext.units !== undefined ? ext.units : 1;
-
                    const up = ext.unitPrice !== undefined ? ext.unitPrice : parseFloat(ext.price || 0);
-
                    let qty = u;
-
                    let nights = isGlobal ? Math.max(1, dates.length) : 1;
-
                    
-
                    newAutoList.push({
-
                      id: Date.now() + Math.random(),
-
                      hotel: hotelName,
-
                      type: (ext.concept || "Cargo Extra").toUpperCase(),
-
                      dateIn: d,
-
                      dateOut: d,
-
                      qty: qty,
-
                      regime: "-",
-
                      price: up,
-
                      pax: 0, // for extra, pax isn't strictly meaningful in the table usually
-
                      nights: nights,
-
                      total: (qty * up * nights).toFixed(2),
-
                      isService: true
-
                    });
-
                 });
-
               }
-
             } else {
-
               // Iterate through all records (multi-hotel) - Fallback
-
               const uniqueSegments = new Map();
 
-
-
               group.records.forEach((r) => {
-
                 const rowStatus = (r["Estado"] || "").toLowerCase();
-
                 if (rowStatus.includes("anul") || rowStatus.includes("can"))
-
                   return;
 
-
-
                 const h = r["Hotel_Asignado"] || r["Hotel"] || group.hotel || "H. Pendiente";
-
                 const dIn = r["Entrada"];
-
                 const dOut = r["Salida"];
-
                 const key = `${h}|${dIn}|${dOut}`;
 
-
-
                 const imp = parseNum(r["Importe(*)"]);
-
                 const pax = parseInt(r["Pax."] || "0");
 
-
-
                 if (!uniqueSegments.has(key)) {
-
                   uniqueSegments.set(key, {
-
                     hotel: h,
-
                     dateIn: dIn,
-
                     dateOut: dOut,
-
                     pax: pax,
-
                     price: imp,
-
                     regime: r["Régimen"] || "AD",
-
                   });
-
                 } else {
-
                   const existing = uniqueSegments.get(key);
-
                   existing.pax += pax;
-
                   existing.price += imp;
-
                   if (!existing.regime || existing.regime === "AD") {
-
                     existing.regime = r["Régimen"] || existing.regime;
-
                   }
-
                 }
-
               });
-
-
 
               uniqueSegments.forEach((seg) => {
-
                 if (seg.dateIn && seg.dateOut) {
-
                   const parseDate = (dStr) => {
-
                     if (!dStr) return null;
-
                     const s = dStr.toString();
-
                     if (/^\d{5}$/.test(s)) {
-
                       const serial = parseInt(s, 10);
-
                       if (serial > 25569) {
-
                         return new Date(Math.round((serial - 25569) * 86400 * 1000));
-
                       }
-
                     }
-
                     if (s.includes("-") && s.split("-")[0].length <= 2) {
-
                       const [d, m, y] = s.split("-");
-
                       return new Date(`${y}-${m}-${d}T12:00:00Z`);
-
                     }
-
                     if (s.includes("/") && s.split("/")[0].length <= 2) {
-
                       const [d, m, y] = s.split("/");
-
                       return new Date(`${y}-${m}-${d}T12:00:00Z`);
-
                     }
-
                     if (s.includes("-") && s.split("-")[0].length === 4) {
-
                       return new Date(`${s}T12:00:00Z`);
-
                     }
-
                     return new Date(s);
-
                   };
 
-
-
                   let start = parseDate(seg.dateIn);
-
                   let end = parseDate(seg.dateOut);
 
-
-
                   if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
-
                     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-
                       const nextDay = new Date(d);
-
                       nextDay.setDate(d.getDate() + 1);
 
-
-
                       const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-
                       const dailyPrice = totalDays > 0 ? seg.price / totalDays : 0;
 
-
-
                       newAutoList.push({
-
                         id: Date.now() + Math.random(),
-
-                        hotel: seg.hotel,
-
+                        hotel: normalizeHotelNameLocal(seg.hotel, "Sercotel Guadiana"),
                         type: "Habitación (Auto)",
-
                         dateIn: d.toISOString().split("T")[0],
-
                         dateOut: nextDay.toISOString().split("T")[0],
-
                         qty: Math.ceil(seg.pax / 2) || 1,
-
                         regime: seg.regime || "AD",
-
                         price: (dailyPrice / (Math.ceil(seg.pax / 2) || 1)).toFixed(2),
-
                         nights: 1,
-
                         total: dailyPrice.toFixed(2),
-
                         isService: false
-
                       });
-
                     }
-
                   }
-
                 }
-
               });
-
             }
-
-
 
             if (newAutoList.length > 0) {
-
               if (group.records && group.records[0]) {
-
                 group.records[0]["RoomingList_JSON"] = JSON.stringify(newAutoList);
-
               }
-
             }
-
           }
-
         }
-
-
 
         // Sincronizar ref de inventario para PROFORMA (al abrir ficha)
-
         try {
-
           const rec = group.records && group.records[0];
-
           if (rec) {
-
             const list = JSON.parse(rec["RoomingList_JSON"] || "[]");
-
             if (Array.isArray(list) && list.length > 0)
-
               lastRoomingListRef.current = { groupName: group.name, list };
-
           }
-
         } catch (e) { }
 
-
-
         setSelectedGroupFicha(group);
-
         setShowFichaModal(true);
-
         setIsEditingGroupName(false);
-
         setTempGroupName(group.name || "");
-
       };
-
-
 
       const saveGroupName = async () => {
-
         if (!selectedGroupFicha) return;
-
         const newName = tempGroupName.trim();
-
         if (!newName) {
-
           alert("⚠️ El nombre del grupo no puede estar vacío.");
-
           return;
-
         }
-
-
 
         try {
-
           setIsSaving(true);
-
           await updateGroupMetadata(selectedGroupFicha.id, { "Nombre del Grupo": newName });
-
           setIsEditingGroupName(false);
-
         } catch (error) {
-
           console.error("Error saving group name:", error);
-
           alert("❌ Error al guardar el nombre del grupo.");
-
         } finally {
-
           setIsSaving(false);
-
         }
-
       };
-
-
 
       const handleMergeGroup = async (sourceGroup) => {
-
         const targetReserva = prompt(
-
           `Fusionar "${sourceGroup.name}" con otra reserva existente.\n\nIntroduce el ID de Reserva PMS destino (ej: 205249):`,
-
           "",
-
         );
-
         if (!targetReserva || targetReserva.trim() === "") return;
 
-
-
         const destId = normalizeId(targetReserva);
-
         const sourceRecords = sourceGroup.records || [];
-
         const sourceIds = sourceRecords
-
           .map((r) => normalizeId(r["Reserva"]))
-
           .filter((id) => id !== destId);
 
-
-
         if (sourceIds.length === 0) {
-
           alert("No hay registros que mover o ya tienen ese ID.");
-
           return;
-
         }
 
-
-
         if (
-
           !confirm(
-
             `¿Estás seguro de fusionar todos los datos de "${sourceGroup.name}" en la reserva ${targetReserva}?\n\nLos registros manuales o de presupuesto se vincularán al nuevo ID y se eliminarán los documentos antiguos.`,
-
           )
-
         )
-
           return;
-
-
 
         try {
-
           const batch = db.batch();
 
-
-
           // 1. Buscar si la reserva destino ya existe en Firestore para heredar su Nombre del Grupo si es necesario
-
           const destDoc = await db.collection("groups").doc(destId).get();
-
           let targetName = sourceGroup.name;
-
           if (destDoc.exists) {
-
             targetName = destDoc.data()["Nombre del Grupo"] || targetName;
-
           }
-
-
 
           // 2. Mover registros
-
           for (const row of sourceRecords) {
-
             const oldId = normalizeId(row["Reserva"]);
-
             const newId = destId;
 
-
-
             const oldRef = db.collection("groups").doc(oldId);
-
             const newRef = db.collection("groups").doc(newId);
 
-
-
             const payload = {
-
               ...row,
-
               Reserva: targetReserva,
-
               "Nombre del Grupo": targetName,
-
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-
             };
 
-
-
             batch.set(newRef, payload, { merge: true });
-
             if (oldId !== newId) {
-
               batch.delete(oldRef);
-
             }
-
           }
-
-
 
           await batch.commit();
-
           alert(
-
             "✅ Fusión completada con éxito. Pulsa Aceptar para recargar.",
-
           );
-
           window.location.reload();
-
         } catch (err) {
-
           console.error("Error en fusión:", err);
-
           alert("❌ Error al fusionar: " + err.message);
-
         }
-
       };
-
-
 
       const openClientDataModal = () => {
-
         if (!selectedGroupFicha || !selectedGroupFicha.records) return;
-
         const baseRecord = selectedGroupFicha.records[0] || {};
-
         const fields = [
-
           "Fiscal_RazonSocial",
-
           "Fiscal_CIF",
-
           "Persona_Contacto",
-
           "Email",
-
           "Telefono",
-
           "Fiscal_Direccion",
-
           "Fiscal_CP",
-
           "Fiscal_Poblacion",
-
           "Fiscal_Provincia",
-
           "Fiscal_Pais",
-
           "Observaciones",
-
         ];
-
         const initialData = {};
-
         fields.forEach((f) => {
-
           initialData[f] = baseRecord[f] || "";
-
         });
-
         setTempClientData(initialData);
-
         setShowClientData(true);
-
       };
 
-
-
       const updateGroupMetadata = async (
-
         resId,
-
         fieldOrUpdates,
-
         valueIfSingle = null,
-
         hotelFilterArg = null,
-
       ) => {
-
         let updates =
-
           typeof fieldOrUpdates === "object"
-
             ? { ...fieldOrUpdates }
-
             : { [fieldOrUpdates]: valueIfSingle };
-
-
-
-        // --- VALIDACIÓN HOTEL ---
-
-        const hVal = updates["Hotel_Asignado"] || updates["Hotel"];
-
-        if (hVal !== undefined) {
-
-          const normH = String(hVal).toLowerCase();
-
-          if (!normH || normH.includes("pend") || normH.trim() === "") {
-
-            alert("⚠️ Error: No se puede asignar un hotel 'PENDIENTE' o vacío.");
-
-            return;
-
-          }
-
-        }
-
-
-
-        // Si el usuario cambia a CANCELADO desde el dropdown, sincronizar también el campo Estado
-
-        if (
-
-          updates["Com_Estado_Interno"] === "CANCELADO" &&
-
-          !updates["Estado"]
-
-        ) {
-
-          updates["Estado"] = "ANULADA";
-
-        }
-
-
-
-        // Capturar las filas actuales ANTES del update optimista (para el batch de Firestore)
-
-        // Usamos el ID de Reserva para identificar de forma única, evitando agrupaciones por nombre
-
         const normTargetId = normalizeId(resId);
-
         const currentGroupRows = (data || []).filter(
-
           (r) =>
-
             normalizeId(r.Reserva) === normTargetId &&
-
             (!hotelFilterArg ||
-
               (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg),
-
         );
 
+        // --- VALIDACIÓN HOTEL ---
+        const hVal = updates["Hotel_Asignado"] !== undefined ? updates["Hotel_Asignado"] : updates["Hotel"];
+        if (hVal !== undefined) {
+          const normH = String(hVal).toLowerCase();
+          if (!normH || normH.includes("pend") || normH.trim() === "") {
+            alert("⚠️ Error: No se puede asignar un hotel 'PENDIENTE' o vacío.");
+            return;
+          }
+          // Centralized Normalization
+          const normNewHotel = normalizeHotelNameLocal(hVal, "Sercotel Guadiana");
+          if (updates["Hotel_Asignado"] !== undefined) updates["Hotel_Asignado"] = normNewHotel;
+          if (updates["Hotel"] !== undefined) updates["Hotel"] = normNewHotel;
 
+          // Detect change & Sync RoomingList_JSON
+          const firstRow = currentGroupRows[0];
+          if (firstRow) {
+            const currentHotelRaw = firstRow["Hotel_Asignado"] || firstRow["Hotel"] || "";
+            const normCurrentHotel = normalizeHotelNameLocal(currentHotelRaw, "Sercotel Guadiana");
+            if (normNewHotel !== normCurrentHotel) {
+              // Main hotel changed! Update all RoomingList items to canonical name
+              try {
+                const rl = JSON.parse(firstRow.RoomingList_JSON || "[]");
+                if (Array.isArray(rl)) {
+                  const updatedRl = rl.map(item => ({
+                    ...item,
+                    hotel: normNewHotel
+                  }));
+                  updates["RoomingList_JSON"] = JSON.stringify(updatedRl);
+                }
+              } catch(e) {
+                console.error("Error syncing RoomingList_JSON in updateGroupMetadata:", e);
+              }
+            }
+          }
+        }
+
+        // Si el usuario cambia a CANCELADO desde el dropdown, sincronizar también el campo Estado
+        if (
+          updates["Com_Estado_Interno"] === "CANCELADO" &&
+          !updates["Estado"]
+        ) {
+          updates["Estado"] = "ANULADA";
+        }
 
         if (currentGroupRows.length === 0) return;
-
-
 
         // --- SYNC PAYMENT PLAN LOGIC (Apply to all affected rows) ---
         if (updates["Com_Pagado"] !== undefined) {
@@ -5747,8 +5497,6 @@
 
         }
 
-
-
         // 1. Optimistic UI Update
 
         setData((prevData) => {
@@ -5763,8 +5511,6 @@
 
               (row["Hotel_Asignado"] || row["Hotel"]) === hotelFilterArg;
 
-
-
             if (matchesReserva && matchesHotel) {
 
               return { ...row, ...updates };
@@ -5776,8 +5522,6 @@
           });
 
         });
-
-
 
         // 2. Update selectedGroupFicha if it matches
 
@@ -5803,8 +5547,6 @@
 
           });
 
-
-
           // Recalcular totales para la ficha (Pax e Importe)
 
           const newTotalPax = updatedRecords.reduce(
@@ -5822,8 +5564,6 @@
             0,
 
           );
-
-
 
           // Recalcular total de habitaciones desde RoomingList_JSON
 
@@ -5846,8 +5586,6 @@
             } catch (e) { }
 
           }
-
-
 
           return {
 
@@ -5877,8 +5615,6 @@
 
         });
 
-
-
         // Sincronizar Hotel de Destino en el Room Manager si se cambia el Hotel Principal
 
         if (updates["Hotel_Asignado"]) {
@@ -5897,15 +5633,11 @@
 
         }
 
-
-
         // 3. Persist to Firestore (usa currentGroupRows capturados antes del update optimista)
 
         try {
 
           const batch = db.batch();
-
-
 
           currentGroupRows.forEach((row) => {
 
@@ -5926,8 +5658,6 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
 
               };
-
-
 
               // No loggear tracking de forma recursiva o redundante si ya viene en updates
 
@@ -5963,15 +5693,11 @@
 
               }
 
-
-
               batch.set(docRef, payload, { merge: true });
 
             }
 
           });
-
-
 
           if (currentGroupRows.length === 0) {
 
@@ -5987,11 +5713,7 @@
 
           }
 
-
-
           await batch.commit();
-
-          // log
 
         } catch (err) {
 
@@ -6001,11 +5723,7 @@
 
       };
 
-
-
       // ... (skipping updateGroupMetadata implementation here as I can't easily match large block without context, I will do separate edits if needed) ...
-
-
 
       // --- Room Manager Logic ---
 
@@ -6013,9 +5731,15 @@
 
         if (!selectedGroupFicha) return;
 
-
-
         const currentRecord = selectedGroupFicha.records[0] || {};
+
+        const effectiveMainHotel = normalizeHotelNameLocal(
+
+          currentRecord["Hotel_Asignado"] || currentRecord["Hotel"],
+
+          "Sercotel Guadiana"
+
+        );
 
         let currentList = [];
 
@@ -6029,8 +5753,6 @@
 
         }
 
-
-
         let nights = parseInt(roomManagerForm.nights) || 1;
 
         let dIn = new Date();
@@ -6043,15 +5765,11 @@
 
         if (nights < 1) nights = 1;
 
-
-
         // Calcular dateOut para propósitos informativos si es necesario (1 noche por defecto en dOut si no se especifica)
 
         let dOut = new Date(dIn);
 
         dOut.setDate(dIn.getDate() + nights);
-
-
 
         // --- Generación de Items (Desglosados o Únicos) ---
 
@@ -6071,25 +5789,25 @@
 
             nextDay.setDate(currentDay.getDate() + 1);
 
-
-
             const checkinStr = currentDay.toISOString().split("T")[0];
 
             const checkoutStr = nextDay.toISOString().split("T")[0];
-
-
 
             itemsToAdd.push({
 
               id: Date.now() + Math.random(),
 
-              hotel:
+              hotel: normalizeHotelNameLocal(
 
                 roomManagerForm.hotel ||
 
                 currentRecord["Hotel_Asignado"] ||
 
-                "SERCOTEL GUADIANA",
+                currentRecord["Hotel"],
+
+                effectiveMainHotel
+
+              ),
 
               type: roomManagerForm.type,
 
@@ -6145,13 +5863,7 @@
 
             id: editingId || Date.now(),
 
-            hotel:
-
-              roomManagerForm.hotel ||
-
-              currentRecord["Hotel_Asignado"] ||
-
-              "SERCOTEL GUADIANA",
+            hotel: normalizeHotelNameLocal(roomManagerForm.hotel, effectiveMainHotel),
 
             type: roomManagerForm.type,
 
@@ -6223,8 +5935,6 @@
 
         }
 
-
-
         let newList;
 
         if (editingId) {
@@ -6251,8 +5961,6 @@
 
         }
 
-
-
         const newTotalSum = newList.reduce(
 
           (acc, i) => acc + (parseFloat(i.total) || 0),
@@ -6269,8 +5977,6 @@
 
         );
 
-
-
         const newTotalRooms = newList.reduce(
 
           (acc, i) => acc + (i.isService ? 0 : parseInt(i.qty || 0)),
@@ -6278,8 +5984,6 @@
           0,
 
         );
-
-
 
         updateGroupMetadata(selectedGroupFicha.id, {
 
@@ -6309,19 +6013,19 @@
 
       };
 
-
-
       const handleEditRoomBlock = (item) => {
+
+        const effectiveMainHotel = normalizeHotelNameLocal(
+
+          selectedGroupFicha?.records[0]?.["Hotel_Asignado"] || selectedGroupFicha?.records[0]?.["Hotel"],
+
+          "Sercotel Guadiana"
+
+        );
 
         setRoomManagerForm({
 
-          hotel:
-
-            item.hotel ||
-
-            selectedGroupFicha.records[0]?.["Hotel_Asignado"] ||
-
-            "",
+          hotel: normalizeHotelNameLocal(item.hotel, effectiveMainHotel),
 
           type: item.type,
 
@@ -6347,8 +6051,6 @@
 
       };
 
-
-
       const handleRoomManagerDrop = (sourceIndex, targetIndex) => {
 
         if (sourceIndex === targetIndex) return;
@@ -6367,15 +6069,11 @@
 
         }
 
-
-
         const newList = [...currentList];
 
         const [moved] = newList.splice(sourceIndex, 1);
 
         newList.splice(targetIndex, 0, moved);
-
-
 
         const newTotalSum = newList.reduce(
 
@@ -6384,8 +6082,6 @@
           0,
 
         );
-
-
 
         const newTotalPax = newList.reduce(
 
@@ -6403,8 +6099,6 @@
 
         );
 
-
-
         updateGroupMetadata(selectedGroupFicha.id, {
 
           RoomingList_JSON: JSON.stringify(newList),
@@ -6418,8 +6112,6 @@
         });
 
       };
-
-
 
       const calculateDeposits = (
 
@@ -6441,11 +6133,7 @@
 
           : group.records;
 
-
-
         if (records.length === 0) return;
-
-
 
         const firstRec = records[0];
 
@@ -6462,23 +6150,32 @@
           : roomingList;
 
         const grossTotal =
+
           hotelRoomingItems.reduce(
+
             (acc, i) => acc + (parseFloat(i.total) || 0),
+
             0,
+
           ) ||
+
           records.reduce((acc, r) => {
+
             const val = parseNum(r["Importe(*)"]);
+
             return acc + val;
+
           }, 0);
 
         const totalCommission = hotelRoomingItems.reduce(
+
           (acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0),
+
           0,
+
         );
 
         const total = Math.max(0, grossTotal - totalCommission);
-
-
 
         const entrada = firstRec?.["Entrada"];
 
@@ -6506,8 +6203,6 @@
 
         }
 
-
-
         // Default labels/days for standard distributions
 
         const presetMeta = {
@@ -6522,15 +6217,11 @@
 
         };
 
-
-
         const manualPaid = parseNum(firstRec["Com_Pagado"] || "0");
 
         let remainingManual = manualPaid;
 
         const newPlan = [];
-
-
 
         // Si hay pago manual, lo ponemos como primer bloque si no hay uno previo que lo cubra
 
@@ -6556,32 +6247,37 @@
 
         }
 
+        const getOrdinalLabel = (index, total) => {
 
+          if (total === 1) return "Pago Único";
 
-          const getOrdinalLabel = (index, total) => {
-            if (total === 1) return "Pago Único";
-            if (index === 0) return "Depósito";
-            if (index === total - 1) return "Pago Final";
-            const labels = ["Depósito", "Segundo Pago", "Tercer Pago", "Cuarto Pago", "Quinto Pago"];
-            return labels[index] || `Pago ${index + 1}`;
+          if (index === 0) return "Depósito";
+
+          if (index === total - 1) return "Pago Final";
+
+          const labels = ["Depósito", "Segundo Pago", "Tercer Pago", "Cuarto Pago", "Quinto Pago"];
+
+          return labels[index] || `Pago ${index + 1}`;
+
+        };
+
+        distribution.forEach((pct, idx) => {
+
+          const label = getOrdinalLabel(idx, distribution.length);
+
+          const meta = {
+
+            label: label,
+
+            days: presetMeta[pct.toString()]?.days || 30,
+
           };
-
-          distribution.forEach((pct, idx) => {
-            const label = getOrdinalLabel(idx, distribution.length);
-            const meta = {
-              label: label,
-              days: presetMeta[pct.toString()]?.days || 30,
-            };
 
           const date = new Date(dateEntrada);
 
           date.setDate(date.getDate() - meta.days);
 
-
-
           let amount = total * (pct / 100);
-
-
 
           // Si el pago manual cubre parte o todo de este segmento, lo descontamos
 
@@ -6603,23 +6299,29 @@
 
           }
 
-
-
           if (amount > 0.01) {
+
             newPlan.push({
+
               id: Date.now() + Math.random(),
+
               label: meta.label,
+
               percent: ((amount / total) * 100).toFixed(1),
+
               amount: amount.toFixed(2),
+
               releaseDays: meta.days,
+
               date: date.toISOString().split("T")[0],
+
               status: "Pendiente",
+
             });
+
           }
 
         });
-
-
 
         updateGroupMetadata(
 
@@ -6634,8 +6336,6 @@
         );
 
       };
-
-
 
       const updatePaymentPlan = (resId, hotelFilter, plan) => {
 
@@ -6685,8 +6385,6 @@
 
       };
 
-
-
       const addNewRow = () => {
 
         const emptyRow = {};
@@ -6698,8 +6396,6 @@
         setData([emptyRow, ...data]);
 
       };
-
-
 
       const removeRoomBlock = (id) => {
 
@@ -6719,11 +6415,7 @@
 
         }
 
-
-
         const newList = currentList.filter((item) => item.id !== id);
-
-
 
         const newTotalSum = newList.reduce(
 
@@ -6732,8 +6424,6 @@
           0,
 
         );
-
-
 
         const newTotalPax = newList.reduce(
 
@@ -6751,8 +6441,6 @@
 
         );
 
-
-
         updateGroupMetadata(selectedGroupFicha.id, {
 
           RoomingList_JSON: JSON.stringify(newList),
@@ -6767,8 +6455,6 @@
 
       };
 
-
-
       const toggleGroupExpand = (groupName) => {
 
         if (expandedGroup === groupName) setExpandedGroup(null);
@@ -6776,8 +6462,6 @@
         else setExpandedGroup(groupName);
 
       };
-
-
 
       const clearDatabase = async () => {
 
@@ -6795,8 +6479,6 @@
 
         }
 
-
-
         const secondConfirm = window.confirm(
 
           "Segunda confirmación: ¿Realmente quieres borrar TODO?",
@@ -6804,8 +6486,6 @@
         );
 
         if (!secondConfirm) return;
-
-
 
         try {
 
@@ -6821,8 +6501,6 @@
 
           }
 
-
-
           const batch = db.batch();
 
           snapshot.docs.forEach((doc) => {
@@ -6830,8 +6508,6 @@
             batch.delete(doc.ref);
 
           });
-
-
 
           await batch.commit();
 
@@ -6859,8 +6535,6 @@
         <div className="min-h-screen pb-10 bg-dot-pattern">
           {/* Cabecera unificada administrada por js/navigation.js */}
 
-
-
           <div className="w-full px-4">
 
             {/* KPI Cards: ENFOQUE COMERCIAL */}
@@ -6870,8 +6544,6 @@
             <div className="flex flex-row flex-nowrap gap-3 mb-4 overflow-x-auto pb-2 custom-scrollbar">
 
               {/* TOTAL REVENUE KPI (Removed per user request) */}
-
-
 
               {/* PENDIENTES DE COTIZAR */}
 
@@ -6917,8 +6589,6 @@
 
               )}
 
-
-
               {/* RELEASE 7 DÍAS */}
 
               <div
@@ -6959,8 +6629,6 @@
 
               </div>
 
-
-
               {/* TAREAS HOY */}
 
               <div
@@ -7000,8 +6668,6 @@
                 </div>
 
               </div>
-
-
 
               {/* PRESUPUESTOS SIN ATENDER — pulsante si hay alguno */}
 
@@ -7050,8 +6716,6 @@
                 </div>
 
               )}
-
-
 
               {/* RECUENTO POR COMERCIAL */}
 
@@ -7109,8 +6773,6 @@
 
             </div>
 
-
-
             {/* --- UNIFIED HEADER & FILTERS --- */}
 
             <div className="bg-white p-2 px-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col xl:flex-row items-center justify-between gap-3">
@@ -7141,8 +6803,6 @@
 
               </div>
 
-
-
               <div className="flex flex-wrap gap-1.5 items-center w-full xl:flex-1 xl:justify-end">
 
                 {kpiFilter && (
@@ -7171,8 +6831,6 @@
 
                 )}
 
-
-
                 {/* Buscador Global */}
                 <div className="relative w-full sm:w-44 h-8 flex items-center">
                   <IconSearch
@@ -7195,8 +6853,6 @@
                     </button>
                   )}
                 </div>
-
-
 
                 {/* Filtro por Fecha */}
                 <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
@@ -7232,10 +6888,6 @@
                     </button>
                   )}
                 </div>
-
-
-
-                
 
                   <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
 
@@ -7274,8 +6926,6 @@
                     </select>
 
                   </div>
-
-
 
                   <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
 
@@ -7337,8 +6987,6 @@
 
                   </div>
 
-
-
                   <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 h-8">
 
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-purple-600">
@@ -7378,8 +7026,6 @@
                     </select>
 
                   </div>
-
-
 
                   <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5 h-8">
 
@@ -7446,13 +7092,9 @@
                     <span>Imprimir A4</span>
                   </button>
 
-                
-
               </div>
 
             </div>
-
-
 
             {/* Navigation Tabs */}
 
@@ -7567,11 +7209,7 @@
 
             </div>
 
-
-
             {/* --- CONTENT AREA --- */}
-
-
 
             {/* 1A. CALENDAR (GANTT) VIEW (Priority 1) */}
 
@@ -7634,8 +7272,6 @@
                     </div>
 
                   </div>
-
-                  {/* Buscador eliminado aquí por redundancia - Usar el global superior */}
 
                 </div>
 
@@ -7879,8 +7515,6 @@
 
                         );
 
-
-
                         return processedData.length === 0 ? (
 
                           <div className="p-12 text-center text-slate-400 flex flex-col items-center">
@@ -7997,19 +7631,13 @@
 
                             };
 
-
-
                             let start = parseDateGantt(group["Entrada"]);
 
                             let end = parseDateGantt(group["Salida"]);
 
-
-
                             if (!start) return null;
 
                             if (!end) end = new Date(start);
-
-
 
                             // Calculate Days from Today (index 0)
 
@@ -8031,23 +7659,17 @@
 
                             if (duration < 1) duration = 1;
 
-
-
                             // Skip if completely in past or too far future
 
                             if (startDiff + duration < 0 || startDiff > 90)
 
                               return null;
 
-
-
                             // Calculate Width/Position
 
                             let displayStart = startDiff;
 
                             let displayDuration = duration;
-
-
 
                             if (displayStart < 0) {
 
@@ -8057,15 +7679,11 @@
 
                             }
 
-
-
                             // Calculate pixel-based positions
 
                             const leftPx = displayStart * 40;
 
                             const widthPx = displayDuration * 40;
-
-
 
                             // Color Logic
 
@@ -8082,8 +7700,6 @@
                             );
 
                             const colorClass = `${st.color} hover:brightness-110`;
-
-
 
                             return (
 
@@ -8109,17 +7725,20 @@
 
                                      <span className="truncate max-w-[120px]">
 
-                                       {normalizeHotelName(
+                                       {normalizeHotelNameLocal(
 
                                          group["Hotel_Asignado"] ||
 
                                          group["Hotel"],
+
+                                         "Sercotel Guadiana"
 
                                        )}
 
                                      </span>
 
                                      {group["Importe(*)"] && (() => {
+
                                        const total = parseNum(group["Importe(*)"]);
 
                                        const paid = parseNum(group["Com_Pagado"] || "0");
@@ -8270,8 +7889,6 @@
 
             )}
 
-
-
             {/* 2B. BUDGET TRACKING */}
 
             {activeTab === "budgets" && (
@@ -8287,8 +7904,6 @@
               />
 
             )}
-
-
 
             {/* 2. SEGMENTATION ANALYSIS (NEW) */}
 
@@ -8431,8 +8046,6 @@
                   </div>
 
                 </div>
-
-
 
                 {/* Detailed Table */}
 
@@ -8628,8 +8241,6 @@
 
                                         diffDays <= 30;
 
-
-
                                       return (
 
                                         <div
@@ -8720,7 +8331,7 @@
 
                                               <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded uppercase">
 
-                                                {normalizeHotelName(
+                                                {normalizeHotelNameLocal(
 
                                                   groupObj?.records[0]?.[
 
@@ -8733,6 +8344,8 @@
                                                   "Hotel_Asignado"
 
                                                   ],
+
+                                                  "Sercotel Guadiana"
 
                                                 )}
 
@@ -8780,8 +8393,6 @@
 
             )}
 
-
-
             {/* 3. GROUP ANALYSIS */}
 
             {/* 3. GROUP DIRECTORY */}
@@ -8791,8 +8402,6 @@
               <div className="animate-fade-in space-y-4">
 
                 {/* El header antiguo ha sido movido al toolbar superior unificado */}
-
-
 
                 {/* Listado de Grupos - VISTA DE TABLA (LINEAS) */}
 
@@ -8819,8 +8428,6 @@
                           Release
 
                         </th>
-
-
 
                         <th className="px-3 py-3 font-black text-right">
 
@@ -8868,19 +8475,17 @@
 
                         const statusColor = st.text;
 
-
-
                         // Normalizar nombre hotel para visualización
 
-                        const displayHotel = normalizeHotelName(
+                        const displayHotel = normalizeHotelNameLocal(
 
                           group.records[0]?.["Hotel_Asignado"] ||
 
                           group.records[0]?.["Hotel"],
 
+                          "Sercotel Guadiana"
+
                         );
-
-
 
                         return (
 
@@ -8922,8 +8527,6 @@
 
                             </td>
 
-
-
                             {/* GRUPO / ID */}
 
                             <td className="px-3 py-2">
@@ -8939,43 +8542,77 @@
                                   </div>
 
                                   {(() => {
+
                                       const record = group.records[0] || {};
+
                                       const hasRooming = record["Logistica_Rooming"] === true;
+
                                       const hasMP = record["Logistica_MenuMP"] === true;
+
                                       const hasPC = record["Logistica_MenuPC"] === true;
+
                                       const regimen = (record["Régimen"] || "").toUpperCase();
+
                                       const needsMP = regimen.includes("MP");
+
                                       const needsPC = regimen.includes("PC");
+
                                       
+
                                       let daysToArrival = 999;
+
                                       if (record["Entrada"]) {
+
                                           const arrDateStr = String(record["Entrada"]);
+
                                           const arrDate = new Date(arrDateStr.includes('T') ? arrDateStr : arrDateStr + 'T12:00:00');
+
                                           if (!isNaN(arrDate)) {
+
                                               daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+
                                           }
+
                                       }
+
                                       
+
                                       const isClose = daysToArrival <= 15 && daysToArrival >= 0;
+
                                       const missingCritical = !hasRooming || (needsMP && !hasMP) || (needsPC && !hasPC);
+
                                       const status = (record["Estado"] || "").toUpperCase();
+
                                       const isInactive = ["ANULADA", "CANCELADA", "GASTOS DE ANULACION", "BAJA"].includes(status);
+
                                       const internalSt = (record["Com_Estado_Interno"] || "").toUpperCase();
+
                                       const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => internalSt.includes(s));
 
                                       const recordStatusProps = getStatusProps(record["Com_Estado_Interno"] || record["Segment."], record["Entrada"], record["Estado"]);
+
                                        const isConfirmed = recordStatusProps.label === "CONFIRMADO";
 
                                        if (isConfirmed && isClose && missingCritical && !isInactive && !isInternalInactive) {
+
                                           const missingList = [!hasRooming && "RRLL", needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
+
                                           return (
+
                                               <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Faltan datos: ${missingList}`}>
+
                                                   <IconAlertTriangle size={10} stroke={3} />
+
                                                   <span>ALERTA LOG.</span>
+
                                               </div>
+
                                           );
+
                                       }
+
                                       return null;
+
                                   })()}
 
                                   {group.records[0]?.["Com_Notas"] && (
@@ -9056,8 +8693,6 @@
 
                             </td>
 
-
-
                             {/* COMERCIAL */}
 
                             <td className="px-3 py-2">
@@ -9082,8 +8717,6 @@
 
                             </td>
 
-
-
                             {/* FECHAS */}
 
                             <td className="px-3 py-2">
@@ -9106,109 +8739,190 @@
 
                             </td>
 
-
-
                             <td className="px-3 py-2 text-center">
+
                               {(() => {
+
                                 const grossRev = group.totalRevenue || 0;
+
                                 const commission = group.totalCommission || 0;
+
                                 const netRev = grossRev - commission;
+
                                 const paid = group.totalPaid || 0;
+
                                 const isFullyPaid = paid > 0 && netRev > 0 && paid >= netRev - 0.05;
 
                                 if (isFullyPaid) {
+
                                   return (
+
                                     <div className="flex flex-col items-center">
+
                                       <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">
+
                                         OK
+
                                       </span>
+
                                       <span className="text-[8px] text-slate-400 font-bold mt-0.5 tracking-tighter">
+
                                         Pagado
+
                                       </span>
+
                                     </div>
+
                                   );
+
                                 }
 
                                 const todayStr = new Date().toISOString().split("T")[0];
+
                                 const info = getDeadlineInfo(group, todayStr);
 
                                 if (!info.hasDate) {
+
                                   return <span className="text-slate-400">-</span>;
+
                                 }
 
                                 let badgeText = "";
+
                                 let badgeClass = "";
+
                                 let labelText = info.isDeadline ? "Límite" : "Entrada";
 
                                 if (info.diffDays < 0) {
+
                                   badgeText = "PASADO";
+
                                   badgeClass = "bg-rose-100 text-rose-700 font-bold border border-rose-200";
+
                                 } else if (info.diffDays === 0) {
+
                                   badgeText = "HOY";
+
                                   badgeClass = "bg-rose-600 text-white font-black animate-pulse";
+
                                 } else {
+
                                   badgeText = `${info.diffDays}d`;
+
                                   if (info.isDeadline) {
+
                                     if (info.diffDays <= 7) {
+
                                       badgeClass = "bg-amber-500 text-white font-bold";
+
                                     } else {
+
                                       badgeClass = "bg-slate-100 text-slate-700 font-bold border border-slate-200";
+
                                     }
+
                                   } else {
+
                                     if (info.diffDays <= 15) {
+
                                       badgeClass = "bg-amber-50 text-amber-700 font-bold border border-amber-200";
+
                                     } else {
+
                                       badgeClass = "bg-slate-100 text-slate-500 font-bold border border-slate-200";
+
                                     }
+
                                   }
+
                                 }
 
                                 return (
+
                                   <div className="flex flex-col items-center">
+
                                     <span className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap ${badgeClass}`}>
+
                                       {badgeText}
+
                                     </span>
+
                                     <span className="text-[8px] text-slate-500 font-bold mt-0.5 tracking-tighter">
+
                                       {labelText}: {formatDate(info.dateStr)}
+
                                     </span>
+
                                   </div>
+
                                 );
+
                               })()}
+
                             </td>
 
                             {/* IMPORTE */}
+
                             <td className="px-3 py-2 text-right">
+
                               {(() => {
+
                                 const grossRev = group.totalRevenue || 0;
+
                                 const commission = group.totalCommission || 0;
+
                                 const netRev = grossRev - commission;
+
                                 const paid = group.totalPaid || 0;
+
                                 const pending = netRev - paid;
+
                                 const isFullyPaid = paid > 0 && pending <= 0.05;
-                                
+
                                 return (
+
                                   <div className="flex flex-col items-end gap-0.5">
+
                                     <div className="flex flex-col items-end leading-none">
+
                                       <span className="text-[12px] font-black text-slate-700 tabular-nums">
+
                                         {formatNum(grossRev)}
+
                                       </span>
+
                                       {commission > 0 && (
+
                                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+
                                           Neto: {formatNum(netRev)}
+
                                         </span>
+
                                       )}
+
                                     </div>
-                                    
+
                                     {isFullyPaid ? (
+
                                       <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+
                                         <IconCheck size={10} /> OK
+
                                       </span>
+
                                     ) : (
+
                                       pending > 0.05 && (
+
                                         <span className="text-[10px] font-bold text-rose-600 tabular-nums">
+
                                           {formatNum(pending, true)} pdte.
+
                                         </span>
+
                                       )
+
                                     )}
 
                                   </div>
@@ -9218,8 +8932,6 @@
                               })()}
 
                             </td>
-
-
 
                             {/* ESTADO */}
 
@@ -9261,10 +8973,6 @@
 
                             </td>
 
-
-
-                            {/* ACCIONES (Removed) */}
-
                           </tr>
 
                         );
@@ -9304,8 +9012,6 @@
               </div>
 
             )}
-
-
 
             {/* 4. RAW DATA EDITOR */}
 
@@ -9444,8 +9150,6 @@
 
                 </div>
 
-
-
                 {/* Table Container */}
 
                 <div className="flex-1 overflow-auto custom-scrollbar">
@@ -9544,8 +9248,6 @@
 
                           let changeDetails = [];
 
-
-
                           if (row._diff === "new") {
 
                             rowClass += " bg-green-50/30";
@@ -9598,8 +9300,6 @@
 
                             btnColor = "bg-blue-600 hover:bg-blue-700";
 
-
-
                             // Render specific changes
 
                             if (row._changes) {
@@ -9623,8 +9323,6 @@
                             }
 
                           }
-
-
 
                           return (
 
@@ -9660,8 +9358,6 @@
 
                                             : `¿Confirmas la actualización del grupo ${row["Nombre del Grupo"]}?`;
 
-
-
                                         if (window.confirm(confirmMsg)) {
 
                                           // log
@@ -9674,8 +9370,6 @@
 
                                           );
 
-
-
                                           // Bloquear en la referencia para el listener onSnapshot
 
                                           authorizingIds.current.add(
@@ -9684,13 +9378,9 @@
 
                                           );
 
-
-
                                           // Guardar estado previo para posible rollback
 
                                           const rowStateBefore = { ...row };
-
-
 
                                           // OPTIMISTIC UPDATE: buscar por ID de reserva (robusto, no por índice)
 
@@ -9718,8 +9408,6 @@
 
                                           );
 
-
-
                                           const batch = db.batch();
 
                                           // Sanitize: eliminar campos internos y undefined
@@ -9741,8 +9429,6 @@
                                             }
 
                                           });
-
-
 
                                           const docRef = db
 
@@ -9776,8 +9462,6 @@
 
                                           );
 
-
-
                                           // Si el doc original tenía un ID diferente (ej: "71375.0" vs "71375"),
 
                                           // eliminarlo para evitar que el duplicado restaure los datos viejos
@@ -9807,8 +9491,6 @@
                                             );
 
                                           }
-
-
 
                                           console.log(
 
@@ -10252,8 +9934,6 @@
 
             )}
 
-
-
             {/* Modal Añadir Columna */}
 
             {showColumnModal && (
@@ -10316,8 +9996,6 @@
 
             )}
 
-
-
             {/* Modal Resumen de Importación */}
 
             {showImportSummary && importSummaryData && (
@@ -10367,8 +10045,6 @@
                     </button>
 
                   </div>
-
-
 
                   <div className="p-8 space-y-6">
 
@@ -10434,8 +10110,6 @@
 
                     </div>
 
-
-
                     <div className="space-y-3">
 
                       <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
@@ -10464,8 +10138,6 @@
 
                       </div>
 
-
-
                       <div className="flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-100">
 
                         <div className="flex items-center gap-3">
@@ -10493,8 +10165,6 @@
                       </div>
 
                     </div>
-
-
 
                     {importSummaryData.errors &&
 
@@ -10542,8 +10212,6 @@
 
                       )}
 
-
-
                     <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
 
                       <div className="flex justify-between text-xs font-bold">
@@ -10586,8 +10254,6 @@
 
                     </div>
 
-
-
                     <button
 
                       onClick={() => {
@@ -10615,8 +10281,6 @@
               </div>
 
             )}
-
-
 
             {/* Modal Resultados IA */}
 
@@ -10746,8 +10410,6 @@
 
                     }
 
-
-
                     const releaseDateStr =
 
                       selectedGroupFicha.records[0]?.["Com_Vencimiento_Rel"];
@@ -10769,8 +10431,6 @@
                       }
 
                     }
-
-
 
                     const roomList = JSON.parse(
 
@@ -10813,27 +10473,40 @@
                     });
 
                     const grandTotal = roomList.reduce(
+
                       (acc, i) => acc + (parseFloat(i.total) || 0),
+
                       0,
+
                     );
 
                     const totalComision = roomList.reduce(
+
                       (acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0),
+
                       0,
+
                     );
 
                     const firstRec = selectedGroupFicha.records[0] || {};
+
                     let baseTotal = grandTotal;
+
                     if (grandTotal === 0) {
+
                       if (firstRec.total !== undefined && firstRec.total !== null && firstRec.total !== "") {
+
                         baseTotal = parseFloat(firstRec.total) || 0;
+
                       } else if (firstRec["Importe(*)"] !== undefined && firstRec["Importe(*)"] !== null && firstRec["Importe(*)"] !== "") {
+
                         baseTotal = parseFloat(firstRec["Importe(*)"]) || 0;
+
                       }
+
                     }
+
                     let netTotal = baseTotal - totalComision;
-
-
 
                     let totalPaidFromPlan = 0;
 
@@ -10865,15 +10538,11 @@
 
                     const pendingAmount = Math.max(0, netTotal - totalPaid);
 
-
-
                     const urgentPayments = [];
 
                     const todayForAlert = new Date();
 
                     todayForAlert.setHours(0, 0, 0, 0);
-
-
 
                     (selectedGroupFicha.records || []).forEach((r) => {
 
@@ -10919,8 +10588,6 @@
 
                     });
 
-
-
                     const hotelAsignado =
 
                       selectedGroupFicha.records[0]?.["Hotel_Asignado"] || "";
@@ -10955,8 +10622,6 @@
 
                       : "text-emerald-300";
 
-
-
                     return (
 
                       <>
@@ -10970,8 +10635,6 @@
                           {/* Decorative background element */}
 
                           <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"></div>
-
-
 
                           <div className="flex justify-between items-center gap-6 relative z-10">
 
@@ -11300,8 +10963,6 @@
 
                             </div>
 
-
-
                             {/* RIGHT: Financial Summary — COBRADO | PENDIENTE | TOTAL */}
 
                             <div className="flex items-center gap-5 bg-black/20 p-3 px-6 rounded-2xl border border-white/10 shadow-inner backdrop-blur-md">
@@ -11355,11 +11016,7 @@
 
                               </div>
 
-
-
                               <div className="w-px h-8 bg-white/10"></div>
-
-
 
                                                              {/* PENDIENTE o PAGADO */}
 
@@ -11413,11 +11070,7 @@
 
                                })()}
 
-
-
                               <div className="w-px h-8 bg-white/10"></div>
-
-
 
                               {/* TOTAL */}
 
@@ -11512,8 +11165,6 @@
                               </div>
 
                             )}
-
-
 
                             {/* BARRA DE HERRAMIENTAS - Compacta y Optimizada */}
 
@@ -11637,8 +11288,6 @@
 
                                       selectVal = "PROSPECTO";
 
-
-
                                     return (
 
                                       <select
@@ -11712,8 +11361,6 @@
                                 </div>
 
                               </div>
-
-
 
                               {/* Hotel Principal */}
 
@@ -11811,8 +11458,6 @@
 
                               </div>
 
-
-
                               {/* Comercial */}
 
                               <div className="md:col-span-2">
@@ -11901,8 +11546,6 @@
 
                               </div>
 
-
-
                               {/* Nexus Presupuestos Link */}
 
                               {(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO") && (
@@ -11936,8 +11579,6 @@
                                 </div>
 
                               )}
-
-
 
                               {/* Fechas de Gestión */}
 
@@ -11986,8 +11627,6 @@
                                 </div>
 
                               </div>
-
-
 
                               {/* Finanzas Rápidas */}
 
@@ -12143,8 +11782,6 @@
 
                             </div>
 
-
-
                             {(selectedGroupFicha.records[0]?.[
 
                               "Observaciones"
@@ -12197,19 +11834,9 @@
 
                           </div>
 
-
-
                           {/* GESTOR DE HABITACIONES & INVENTARIO (REDISEÑADO) */}
 
                           <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden">
-
-                            {/* Watermark removed per user request, placed next to Añadir button instead */}
-
-
-
-                            {/* Header Section Removed per User Request */}
-
-
 
                             {/* Formulario de Entrada - Diseño Compacto */}
 
@@ -12259,17 +11886,9 @@
 
                                     </option>
 
-                                    <option value="General">
-
-                                      Varios/Otros
-
-                                    </option>
-
                                   </select>
 
                                 </div>
-
-
 
                                 {/* Product Name */}
 
@@ -12298,10 +11917,6 @@
                                       const val = e.target.value;
 
                                       const valUpper = val.toUpperCase();
-
-                                      // Solo auto-completamos pax si hay un match EXACTO con el label (ignorando mayúsculas)
-
-                                      // Esto evita que el input 'salte' mientras escribes
 
                                       const config = ROOM_CONFIGURATIONS.find(
 
@@ -12353,8 +11968,6 @@
 
                                 </div>
 
-
-
                                 {/* Arrival Date */}
 
                                 <div className="w-28">
@@ -12393,8 +12006,6 @@
 
                                 </div>
 
-
-
                                 {/* Service Toggle */}
 
                                 <div className="w-14">
@@ -12432,8 +12043,6 @@
                                   </div>
 
                                 </div>
-
-
 
                                 {!roomManagerForm.isService && (
 
@@ -12475,8 +12084,6 @@
 
                                 )}
 
-
-
                                 <div className="w-12">
 
                                   <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center">
@@ -12511,8 +12118,6 @@
 
                                 </div>
 
-
-
                                 <div className="w-12">
 
                                   <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center">
@@ -12544,8 +12149,6 @@
                                   />
 
                                 </div>
-
-
 
                                 {!roomManagerForm.isService && (
 
@@ -12595,8 +12198,6 @@
 
                                 )}
 
-
-
                                 <div className="w-24">
 
                                   <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-right">
@@ -12645,8 +12246,6 @@
 
                                 </div>
 
-
-
                                 <div className="w-16">
 
                                   <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center">
@@ -12683,8 +12282,6 @@
 
                                 </div>
 
-
-
                                 {/* Actions */}
 
                                 <div className="flex-1 flex justify-end gap-3 items-center">
@@ -12693,13 +12290,17 @@
 
                                     let formLogo = "";
 
-                                    const lowerFormHotel = (
+                                    const effectiveMainHotel = normalizeHotelNameLocal(
 
-                                      roomManagerForm.hotel || ""
+                                      selectedGroupFicha?.records[0]?.["Hotel_Asignado"] || selectedGroupFicha?.records[0]?.["Hotel"],
 
-                                    ).toLowerCase();
+                                      "Sercotel Guadiana"
 
-                                    if (lowerFormHotel.includes("guadiana"))
+                                    );
+
+                                    const normalizedHotel = normalizeHotelNameLocal(roomManagerForm.hotel, effectiveMainHotel);
+
+                                    if (normalizedHotel === "Sercotel Guadiana")
 
                                       formLogo =
 
@@ -12707,15 +12308,13 @@
 
                                     else if (
 
-                                      lowerFormHotel.includes("cumbria")
+                                      normalizedHotel === "Cumbria Spa&Hotel"
 
                                     )
 
                                       formLogo =
 
                                         "Logos/Cumbria Spa&Hotel.jpg";
-
-
 
                                     if (formLogo) {
 
@@ -12973,10 +12572,9 @@
 
                                           <span className="text-[10px] font-bold text-slate-500 uppercase">
 
-                                            {item.hotel && item.hotel !== "S/H" ? item.hotel :
-                                              (selectedGroupFicha.records[0]?.["Hotel_Asignado"] ||
-                                              selectedGroupFicha.records[0]?.["Hotel"] ||
-                                              "H. Pendiente")}
+                                                "Sercotel Guadiana")
+
+                                            )}
 
                                           </span>
 
@@ -14522,11 +14120,11 @@
 
                                       <td className="px-3 py-1.5 font-bold text-slate-500">
 
-                                        {rec["Hotel_Asignado"] ||
+                                        {normalizeHotelNameLocal(rec["Hotel_Asignado"] ||
 
                                           rec["Hotel"] ||
 
-                                          "-"}
+                                          "-")}
 
                                       </td>
 
