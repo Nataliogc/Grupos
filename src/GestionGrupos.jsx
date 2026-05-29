@@ -4877,6 +4877,8 @@
 
         let group = groupOrRow;
 
+        let hotelPrincipal = "Sercotel Guadiana";
+
 
 
         // Handle case where we receive a flat row (e.g. from Gantt) instead of a grouped object
@@ -4919,7 +4921,7 @@
 
           // Normalizar el hotel para que coincida con los valores del select (Cumbria / Guadiana)
 
-          let hotelPrincipal = normalizeHotelNameLocal(
+          hotelPrincipal = normalizeHotelNameLocal(
 
             rec["Hotel_Asignado"] || rec["Hotel"],
 
