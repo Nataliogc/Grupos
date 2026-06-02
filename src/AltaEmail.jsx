@@ -167,17 +167,6 @@
                 const params = new URLSearchParams(window.location.search);
                 let editId = params.get('edit') || params.get('reserva');
 
-                // Fallback: Si no hay ID en URL, intentar recuperar del localStorage
-                if (!editId) {
-                    try {
-                        const storedRaw = safeStorage.getItem('selectedGroup');
-                        if (storedRaw) {
-                            const stored = JSON.parse(storedRaw);
-                            if (stored && (stored.Reserva || stored.id)) editId = stored.Reserva || stored.id;
-                        }
-                    } catch (e) { }
-                }
-
                 if (editId) {
                     console.log("Detectado ID para edición:", editId);
                     setIsEditMode(true);

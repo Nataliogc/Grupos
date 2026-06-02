@@ -192,17 +192,6 @@ var App = function App() {
   useEffect(function () {
     var params = new URLSearchParams(window.location.search);
     var editId = params.get('edit') || params.get('reserva');
-
-    // Fallback: Si no hay ID en URL, intentar recuperar del localStorage
-    if (!editId) {
-      try {
-        var storedRaw = safeStorage.getItem('selectedGroup');
-        if (storedRaw) {
-          var stored = JSON.parse(storedRaw);
-          if (stored && (stored.Reserva || stored.id)) editId = stored.Reserva || stored.id;
-        }
-      } catch (e) {}
-    }
     if (editId) {
       console.log("Detectado ID para edición:", editId);
       setIsEditMode(true);
@@ -231,10 +220,10 @@ var App = function App() {
         } else {
           console.warn("No se encontró el documento en Firestore con ID:", normId);
           // Si no existe el doc, pero tenemos datos en localStorage, usarlos como base
-          var _storedRaw = safeStorage.getItem('selectedGroup');
-          if (_storedRaw) {
+          var storedRaw = safeStorage.getItem('selectedGroup');
+          if (storedRaw) {
             try {
-              var storedData = JSON.parse(_storedRaw);
+              var storedData = JSON.parse(storedRaw);
               setExtractedData(_objectSpread(_objectSpread({}, storedData), {}, {
                 "Observaciones": storedData.Com_Notas || storedData.Observaciones || "",
                 "Hotel": storedData.Hotel_Asignado || storedData.Hotel || "Sercotel Guadiana"
