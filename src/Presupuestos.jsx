@@ -1796,6 +1796,7 @@
         const calculatedTotal = calculateTotal(mergedForTotal);
         const hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
         const isCumbria = hotelName.toLowerCase().includes("cumbria");
+        const currentRooms = ROOM_TYPES[g.Hotel_Asignado] || [];
         const hotelKey = isCumbria ? 'cumbria' : 'guadiana';
         const modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
         const groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
