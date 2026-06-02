@@ -196,6 +196,20 @@
             localStorage.setItem('nexus_open_ficha', currentReservaId);
             window.location.href = 'Gestion-de-Grupos.html?reserva=' + encodeURIComponent(currentReservaId);
         }
+        let originalTitleBeforePrint = "";
+        window.onbeforeprint = () => {
+            originalTitleBeforePrint = document.title;
+            const refEl = document.getElementById('ref-val');
+            const grupoEl = document.getElementById('grupo-val');
+            const ref = refEl ? refEl.innerText.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() : currentReservaId;
+            const grupo = grupoEl ? grupoEl.innerText.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() : '';
+            document.title = `${ref} - Ord Servicio - ${grupo}`;
+        };
+        window.onafterprint = () => {
+            if (originalTitleBeforePrint) {
+                document.title = originalTitleBeforePrint;
+            }
+        };
         let saveTimeout = null;
         // Auto Save Trigger
         function triggerSave() {
@@ -317,7 +331,7 @@
                 planRows,
                 incidenciaRows
             };
-            document.title = `Orden de Servicio ${currentReservaId} - ${saveData.grupo}`;
+            document.title = `${currentReservaId} - Ord Servicio - ${saveData.grupo}`;
             localStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
         }
         function clearReservaCache() {
@@ -347,7 +361,7 @@
             document.getElementById('title-reserva').innerText = currentReservaId;
             const savedStateStr = localStorage.getItem('ordenServicio_' + currentReservaId);
             const eventName = rec['Nombre del Grupo'] || group.name || '---';
-            document.title = `Orden de Servicio ${currentReservaId} - ${eventName}`;
+            document.title = `${currentReservaId} - Ord Servicio - ${eventName}`;
             // Hotel Logos / Banners Assignment (Always execute, even if cached)
             const hotelName = (rec['Hotel_Asignado'] || rec['Hotel'] || '').toLowerCase();
             const topTitle = document.getElementById('logo-top-title');
@@ -381,7 +395,7 @@
                 document.getElementById('informe-title').innerText = sanitizeText(s.title || `ORDEN DE SERVICIO Nº ${currentReservaId}`);
                 document.getElementById('ref-val').innerText = sanitizeText(s.ref || '');
                 document.getElementById('grupo-val').innerText = sanitizeText(s.grupo || '');
-                document.title = `Orden de Servicio ${currentReservaId} - ${s.grupo || eventName}`;
+                document.title = `${currentReservaId} - Ord Servicio - ${s.grupo || eventName}`;
                 document.getElementById('agencia-val').innerText = sanitizeText(s.agencia || '');
                 document.getElementById('pax-val').innerText = sanitizeText(s.pax || '');
                 document.getElementById('regimen-val').innerText = sanitizeText(s.regimen || '');
