@@ -58,7 +58,9 @@
       Com_Notas: '',
       Com_Estado_Interno: 'PRESUPUESTO',
       clauses: [],
-      clauses_conf: []
+      clauses_conf: [],
+      isRatesOnly: false,
+      ratesOnlyGrid: {}
     };
 
     const ROOM_MIGRATION_MAP = {
@@ -218,6 +220,8 @@
     const normalizeGroupData = (groupData) => {
       if (!groupData) return null;
       const newData = { ...groupData };
+      newData.isRatesOnly = !!groupData.isRatesOnly;
+      newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
       
       const rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
       if (rawHotel.toLowerCase().includes("cumbria")) {
@@ -323,6 +327,7 @@
     const calculateTotal = (rawGroupData) => {
       const groupData = normalizeGroupData(rawGroupData);
       if (!groupData) return 0;
+      if (groupData.isRatesOnly) return 0;
 
       let dates = [];
       if (groupData.DateRanges_JSON && Array.isArray(groupData.DateRanges_JSON) && groupData.DateRanges_JSON.length > 0) {
@@ -1233,125 +1238,215 @@
                 </div>
               </div>
 
-              {/* Bloque 2: Tipología de Habitaciones */}
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
+              {/* Modo de Cotización */}
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                    <i className="fas fa-bed text-[10px]"></i>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                    <i className="fas fa-sliders-h text-[12px]"></i>
                   </div>
-                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tipología y Cupo de Habitaciones</h3>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest leading-none">Modo de Cotización</h4>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-1">Selecciona cómo deseas presupuestar al grupo</p>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  {currentRooms.map(type => (
-                    <div key={type} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 group hover:border-emerald-200 transition-all">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block truncate" title={type}>{type}</label>
-                      <div className="relative">
-                        <input 
-                          type="number" 
-                          min="0"
-                          value={formData.roomCounts?.[type] || ''} 
-                          onChange={e => setFormData({ ...formData, roomCounts: { ...formData.roomCounts, [type]: e.target.value } })}
-                          placeholder="0"
-                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold uppercase tracking-widest">Hab</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isRatesOnly: false })}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Con Distribución
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isRatesOnly: true, ratesOnlyGrid: formData.ratesOnlyGrid || {} })}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Solo Tarifas (Grid)
+                  </button>
                 </div>
               </div>
 
-              {/* Bloque 3: Tarifas Detalladas (si hay fechas) */}
-              {stayDates.length > 0 && (
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6 animate-slide-up">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              {!formData.isRatesOnly ? (
+                <>
+                  {/* Bloque 2: Tipología de Habitaciones */}
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                        <i className="fas fa-calendar-day text-[10px]"></i>
+                      <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                        <i className="fas fa-bed text-[10px]"></i>
                       </div>
-                      <div>
-                        <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">3. Tarifas por Noche</h3>
-                      </div>
+                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tipología y Cupo de Habitaciones</h3>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={handleCopyFirstDay}
-                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95"
-                        title="Copiar precios y cupos del primer día a todos los siguientes"
-                      >
-                        <i className="fas fa-copy"></i> Copiar 1º Día a Todos
-                      </button>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                      {currentRooms.map(type => (
+                        <div key={type} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 group hover:border-emerald-200 transition-all">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block truncate" title={type}>{type}</label>
+                          <div className="relative">
+                            <input 
+                              type="number" 
+                              min="0"
+                              value={formData.roomCounts?.[type] || ''} 
+                              onChange={e => setFormData({ ...formData, roomCounts: { ...formData.roomCounts, [type]: e.target.value } })}
+                              placeholder="0"
+                              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold uppercase tracking-widest">Hab</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {stayDates.map(date => {
-                      const selectedTypes = currentRooms.filter(type => (formData.roomCounts || {})[type] > 0);
-                      return (
-                        <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center">
-                          <div className="shrink-0 w-24 flex flex-col gap-1">
-                            <span className="bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest">{formatDate(date)}</span>
+                  {/* Bloque 3: Tarifas Detalladas (si hay fechas) */}
+                  {stayDates.length > 0 && (
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6 animate-slide-up">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                            <i className="fas fa-calendar-day text-[10px]"></i>
                           </div>
-
-                          <div className="flex-1 flex flex-wrap gap-2 items-center">
-                            {selectedTypes.map(type => {
-                              const dailyCounts = formData.dailyConfig?.[date]?.counts || {};
-                              const countVal = dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '';
-                              return (
-                                <div key={type} className="flex flex-col gap-0.5 min-w-[120px]">
-                                  <label className="text-[7px] font-black text-slate-500 uppercase truncate px-1" title={type}>{type}</label>
-                                  <div className="relative group flex gap-1 items-center">
-                                    <input
-                                      type="number"
-                                      value={countVal}
-                                      onChange={e => handleDailyConfigChange(date, 'counts', e.target.value, type)}
-                                      className="w-10 px-1 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
-                                      placeholder="Cant."
-                                      title="Cantidad de habitaciones"
-                                    />
-                                    <span className="text-[10px] text-slate-400 font-bold mx-0.5">x</span>
-                                    <div className="relative group flex w-[68px]">
-                                      <input
-                                        type="number"
-                                        value={(formData.dailyConfig?.[date]?.prices || {})[type] || ''}
-                                        onChange={e => handleDailyConfigChange(date, 'prices', e.target.value, type)}
-                                        className="w-full pl-2 pr-4 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
-                                        placeholder="0"
-                                        title="Precio"
-                                      />
-                                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black">€</span>
-                                    </div>
-                                    <div className="relative group flex w-12 ml-0.5 items-center border border-emerald-100 rounded-md bg-emerald-50 px-1 py-1" title="Gratuidades (Habitaciones Gratis)">
-                                      <span className="text-[7px] font-black leading-none text-emerald-500 mr-0.5 uppercase tracking-tighter">Grat.</span>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        value={(formData.dailyConfig?.[date]?.gratuities || {})[type] || ''}
-                                        onChange={e => handleDailyConfigChange(date, 'gratuities', e.target.value, type)}
-                                        className="w-full bg-transparent text-[10px] font-black text-center outline-none text-emerald-700 [&::-webkit-inner-spin-button]:appearance-none placeholder:text-emerald-300"
-                                        placeholder="0"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-
-                          <div className="shrink-0 w-32 flex flex-col gap-0.5">
-                            <label className="text-[7px] font-black text-indigo-500 uppercase px-1">Régimen</label>
-                            <select
-                              value={formData.dailyConfig?.[date]?.board || 'AD (Alojamiento y Desayuno)'}
-                              onChange={e => handleDailyConfigChange(date, 'board', e.target.value)}
-                              className="w-full bg-indigo-50/30 border border-indigo-100 text-indigo-700 rounded-md px-2 py-1.5 text-[9px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-indigo-500/10 transition-all cursor-pointer"
-                            >
-                              {BOARD_TYPES.map(board => <option key={board} value={board}>{board.split(' ')[0]}</option>)}
-                            </select>
+                          <div>
+                            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">3. Tarifas por Noche</h3>
                           </div>
                         </div>
-                      )
-                    })}
+                        <div className="flex items-center gap-2">
+                          <button 
+                            type="button"
+                            onClick={handleCopyFirstDay}
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95"
+                            title="Copiar precios y cupos del primer día a todos los siguientes"
+                          >
+                            <i className="fas fa-copy"></i> Copiar 1º Día a Todos
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {stayDates.map(date => {
+                          const selectedTypes = currentRooms.filter(type => (formData.roomCounts || {})[type] > 0);
+                          return (
+                            <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center">
+                              <div className="shrink-0 w-24 flex flex-col gap-1">
+                                <span className="bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest">{formatDate(date)}</span>
+                              </div>
+
+                              <div className="flex-1 flex flex-wrap gap-2 items-center">
+                                {selectedTypes.map(type => {
+                                  const dailyCounts = formData.dailyConfig?.[date]?.counts || {};
+                                  const countVal = dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '';
+                                  return (
+                                    <div key={type} className="flex flex-col gap-0.5 min-w-[120px]">
+                                      <label className="text-[7px] font-black text-slate-500 uppercase truncate px-1" title={type}>{type}</label>
+                                      <div className="relative group flex gap-1 items-center">
+                                        <input
+                                          type="number"
+                                          value={countVal}
+                                          onChange={e => handleDailyConfigChange(date, 'counts', e.target.value, type)}
+                                          className="w-10 px-1 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
+                                          placeholder="Cant."
+                                          title="Cantidad de habitaciones"
+                                        />
+                                        <span className="text-[10px] text-slate-400 font-bold mx-0.5">x</span>
+                                        <div className="relative group flex w-[68px]">
+                                          <input
+                                            type="number"
+                                            value={(formData.dailyConfig?.[date]?.prices || {})[type] || ''}
+                                            onChange={e => handleDailyConfigChange(date, 'prices', e.target.value, type)}
+                                            className="w-full pl-2 pr-4 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
+                                            placeholder="0"
+                                            title="Precio"
+                                          />
+                                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-black">€</span>
+                                        </div>
+                                        <div className="relative group flex w-12 ml-0.5 items-center border border-emerald-100 rounded-md bg-emerald-50 px-1 py-1" title="Gratuidades (Habitaciones Gratis)">
+                                          <span className="text-[7px] font-black leading-none text-emerald-500 mr-0.5 uppercase tracking-tighter">Grat.</span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            value={(formData.dailyConfig?.[date]?.gratuities || {})[type] || ''}
+                                            onChange={e => handleDailyConfigChange(date, 'gratuities', e.target.value, type)}
+                                            className="w-full bg-transparent text-[10px] font-black text-center outline-none text-emerald-700 [&::-webkit-inner-spin-button]:appearance-none placeholder:text-emerald-300"
+                                            placeholder="0"
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+
+                              <div className="shrink-0 w-32 flex flex-col gap-0.5">
+                                <label className="text-[7px] font-black text-indigo-500 uppercase px-1">Régimen</label>
+                                <select
+                                  value={formData.dailyConfig?.[date]?.board || 'AD (Alojamiento y Desayuno)'}
+                                  onChange={e => handleDailyConfigChange(date, 'board', e.target.value)}
+                                  className="w-full bg-indigo-50/30 border border-indigo-100 text-indigo-700 rounded-md px-2 py-1.5 text-[9px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-indigo-500/10 transition-all cursor-pointer"
+                                >
+                                  {BOARD_TYPES.map(board => <option key={board} value={board}>{board.split(' ')[0]}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Bloque 2: Tarifas por Régimen y Habitación (Modo Grid) */
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
+                  <div className="flex items-center gap-3 border-b border-slate-50 pb-4">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                      <i className="fas fa-tags text-[10px]"></i>
+                    </div>
+                    <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tarifas por Régimen y Habitación</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
+                          <th className="p-4">Régimen</th>
+                          {currentRooms.map(room => (
+                            <th key={room} className="p-4 text-center">{room}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {BOARD_TYPES.map(board => {
+                          const boardKey = board.split(' ')[0]; // E.g., "AD", "MP", "PC", "SA"
+                          return (
+                            <tr key={board}>
+                              <td className="p-4 font-bold text-slate-700">{board}</td>
+                              {currentRooms.map(room => {
+                                const priceVal = formData.ratesOnlyGrid?.[boardKey]?.[room] || '';
+                                return (
+                                  <td key={room} className="p-4">
+                                    <div className="relative max-w-[150px] mx-auto">
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={priceVal}
+                                        onChange={e => {
+                                          const grid = { ...formData.ratesOnlyGrid };
+                                          if (!grid[boardKey]) grid[boardKey] = {};
+                                          grid[boardKey][room] = e.target.value;
+                                          setFormData({ ...formData, ratesOnlyGrid: grid });
+                                        }}
+                                        placeholder="0.00"
+                                        className="w-full pl-2 pr-6 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black text-center outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
+                                      />
+                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -2036,124 +2131,165 @@
 
                     <div className="space-y-8 print:space-y-4">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
-                      {dates.length > 0 ? (
-                        <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
-                                <th className="p-4 print:py-1.5 print:px-2">Fecha (Servicio)</th>
-                                <th className="p-4 print:py-1.5 print:px-2">Régimen</th>
-                                <th className="p-4 print:py-1.5 print:px-2">Tipología Alojamiento</th>
-                                <th className="p-4 print:py-1.5 print:px-2 text-right">Subtotal</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {dates.flatMap((date, idx) => {
-                                 let subtotalDate = 0;
-                                 const config = g.dailyConfig?.[date] || {};
-                                 const boardTitle = config.board || g.Regimen || '';
+                      {dates.length > 0 || g.isRatesOnly ? (
+                        g.isRatesOnly ? (
+                          <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px] bg-white">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
+                                  <th className="p-4 print:py-1.5 print:px-2">Régimen</th>
+                                  {currentRooms.map(room => (
+                                    <th key={room} className="p-4 print:py-1.5 print:px-2 text-center">{room}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {BOARD_TYPES.map(board => {
+                                  const boardKey = board.split(' ')[0];
+                                  const hasPrices = currentRooms.some(room => g.ratesOnlyGrid?.[boardKey]?.[room]);
+                                  if (!hasPrices) return null;
+                                  return (
+                                    <tr key={board} className="hover:bg-slate-50/50">
+                                      <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{board}</td>
+                                      {currentRooms.map(room => {
+                                        const price = g.ratesOnlyGrid?.[boardKey]?.[room];
+                                        return (
+                                          <td key={room} className="p-4 print:py-1.5 print:px-2 text-center font-black text-slate-800 tabular-nums">
+                                            {price ? `${formatNum(price)} €` : '---'}
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-slate-900 text-white font-black">
+                                <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
+                                  <td colSpan={currentRooms.length + 1} className="px-6 py-4 print:py-2 print:px-3 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black text-slate-300">
+                                    Tarifas informativas por habitación y noche (IVA incluido)
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
+                                  <th className="p-4 print:py-1.5 print:px-2">Fecha (Servicio)</th>
+                                  <th className="p-4 print:py-1.5 print:px-2">Régimen</th>
+                                  <th className="p-4 print:py-1.5 print:px-2">Tipología Alojamiento</th>
+                                  <th className="p-4 print:py-1.5 print:px-2 text-right">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {dates.flatMap((date, idx) => {
+                                   let subtotalDate = 0;
+                                   const config = g.dailyConfig?.[date] || {};
+                                   const boardTitle = config.board || g.Regimen || '';
 
-                                 const roomRow = (
-                                   <tr key={`${date}-base`} className="group hover:bg-slate-50/50">
-                                     <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
-                                     <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-600">{boardTitle}</td>
-                                     <td className="p-4 print:py-1.5 print:px-2">
-                                       <ul className="text-[11px] print:text-[9px]">
-                                         {activeRooms.map(([type, count]) => {
-                                           const typeKey = type.toUpperCase();
-                                           let price = 0;
-                                           let gratuities = 0;
-                                           let lineSubtotal = 0;
-                                           let roomBoard = '';
+                                   const roomRow = (
+                                     <tr key={`${date}-base`} className="group hover:bg-slate-50/50">
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-600">{boardTitle}</td>
+                                       <td className="p-4 print:py-1.5 print:px-2">
+                                         <ul className="text-[11px] print:text-[9px]">
+                                           {activeRooms.map(([type, count]) => {
+                                             const typeKey = type.toUpperCase();
+                                             let price = 0;
+                                             let gratuities = 0;
+                                             let lineSubtotal = 0;
+                                             let roomBoard = '';
 
-                                           if (config.prices && config.prices[typeKey] !== undefined) {
-                                              price = Number(config.prices[typeKey] || 0);
-                                              roomBoard = config[typeKey]?.board || '';
-                                              gratuities = parseInt(config[typeKey]?.gratuities || 0);
-                                              lineSubtotal = Math.max(0, count - gratuities) * price;
-                                           }
-                                           if (price === 0 && lineSubtotal === 0 && gratuities === 0) return null;
+                                             if (config.prices && config.prices[typeKey] !== undefined) {
+                                                price = Number(config.prices[typeKey] || 0);
+                                                roomBoard = config[typeKey]?.board || '';
+                                                gratuities = parseInt(config[typeKey]?.gratuities || 0);
+                                                lineSubtotal = Math.max(0, count - gratuities) * price;
+                                             }
+                                             if (price === 0 && lineSubtotal === 0 && gratuities === 0) return null;
 
-                                           subtotalDate += lineSubtotal;
-                                           return (
-                                             <li key={type} className="text-slate-500 mb-1 print:mb-0">
-                                               <div className="flex justify-between">
-                                                 <span>{count}x {type} {roomBoard && roomBoard !== boardTitle ? `(${roomBoard})` : ''} ({formatNum(price)}€)</span>
-                                               </div>
-                                               {gratuities > 0 && <div className="text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0">[-{gratuities}] Gratuidad</div>}
-                                             </li>
-                                           );
-                                         })}
-                                       </ul>
-                                     </td>
-                                     <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} €</td>
-                                   </tr>
-                                 );
+                                             subtotalDate += lineSubtotal;
+                                             return (
+                                               <li key={type} className="text-slate-500 mb-1 print:mb-0">
+                                                 <div className="flex justify-between">
+                                                   <span>{count}x {type} {roomBoard && roomBoard !== boardTitle ? `(${roomBoard})` : ''} ({formatNum(price)}€)</span>
+                                                 </div>
+                                                 {gratuities > 0 && <div className="text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0">[-{gratuities}] Gratuidad</div>}
+                                               </li>
+                                             );
+                                           })}
+                                         </ul>
+                                       </td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} €</td>
+                                     </tr>
+                                   );
 
-                                 const dailyExtrasRows = (g.extraCharges || []).filter(ext => ext.date === date).map((ext, extIdx) => {
-                                    const u = ext.units || 0;
-                                    const pax = ext.pax || 0;
-                                    const up = ext.unitPrice !== undefined ? ext.unitPrice : Number(ext.price || 0);
-                                    const px = (u > 0 ? u : pax) * up;
-                                    return (
-                                       <tr key={`ext-${date}-${extIdx}`} className="bg-slate-50 border-t border-slate-100">
-                                         <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
-                                         <td className="p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60">Cargo Extra</td>
-                                         <td className="p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic">{ext.description || ext.concept} ({u > 0 ? u : pax} x {formatNum(up)}€)</td>
-                                         <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(px)} €</td>
+                                   const dailyExtrasRows = (g.extraCharges || []).filter(ext => ext.date === date).map((ext, extIdx) => {
+                                      const u = ext.units || 0;
+                                      const pax = ext.pax || 0;
+                                      const up = ext.unitPrice !== undefined ? ext.unitPrice : Number(ext.price || 0);
+                                      const px = (u > 0 ? u : pax) * up;
+                                      return (
+                                         <tr key={`ext-${date}-${extIdx}`} className="bg-slate-50 border-t border-slate-100">
+                                           <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
+                                           <td className="p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60">Cargo Extra</td>
+                                           <td className="p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic">{ext.description || ext.concept} ({u > 0 ? u : pax} x {formatNum(up)}€)</td>
+                                           <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(px)} €</td>
+                                         </tr>
+                                      );
+                                   });
+
+                                   return [roomRow, ...dailyExtrasRows];
+                                })}
+
+                                {(g.extraCharges || []).filter(ext => !ext.date || ext.date === '' || ext.date === 'Todas' || !dates.includes(ext.date)).map((ext, idx) => {
+                                  const px = (ext.units || ext.pax || 0) * (ext.unitPrice !== undefined ? ext.unitPrice : parseFloat(ext.price || 0));
+                                  return (
+                                    <tr key={`ext-global-${idx}`} className="bg-indigo-50/30 border-t border-indigo-100/50 italic">
+                                      <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">General</td>
+                                      <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">Extra Global</td>
+                                      <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({ext.units || ext.pax || 0} x {formatNum(ext.unitPrice || ext.price || 0)}€)</td>
+                                      <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-slate-900 text-white font-black">
+                                 {parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? (
+                                   <>
+                                     <tr className="border-b border-slate-700/50 text-slate-300">
+                                       <td colSpan="3" className="px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">Subtotal Estancia:</td>
+                                       <td className="px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - (parseFloat(g.Suplementos || 0)) + (parseFloat(g.Descuentos || 0)))} €</td>
+                                     </tr>
+                                     {parseFloat(g.Suplementos || 0) > 0 && (
+                                       <tr className="border-b border-slate-700/50 text-indigo-300">
+                                         <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">+ Suplementos:</td>
+                                         <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(parseFloat(g.Suplementos))} €</td>
                                        </tr>
-                                    );
-                                 });
-
-                                 return [roomRow, ...dailyExtrasRows];
-                              })}
-
-                              {(g.extraCharges || []).filter(ext => !ext.date || ext.date === '' || ext.date === 'Todas' || !dates.includes(ext.date)).map((ext, idx) => {
-                                const px = (ext.units || ext.pax || 0) * (ext.unitPrice !== undefined ? ext.unitPrice : parseFloat(ext.price || 0));
-                                return (
-                                  <tr key={`ext-global-${idx}`} className="bg-indigo-50/30 border-t border-indigo-100/50 italic">
-                                    <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">General</td>
-                                    <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">Extra Global</td>
-                                    <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({ext.units || ext.pax || 0} x {formatNum(ext.unitPrice || ext.price || 0)}€)</td>
-                                    <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                            <tfoot className="bg-slate-900 text-white font-black">
-                               {parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? (
-                                 <>
-                                   <tr className="border-b border-slate-700/50 text-slate-300">
-                                     <td colSpan="3" className="px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">Subtotal Estancia:</td>
-                                     <td className="px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - (parseFloat(g.Suplementos || 0)) + (parseFloat(g.Descuentos || 0)))} €</td>
-                                   </tr>
-                                   {parseFloat(g.Suplementos || 0) > 0 && (
-                                     <tr className="border-b border-slate-700/50 text-indigo-300">
-                                       <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">+ Suplementos:</td>
-                                       <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(parseFloat(g.Suplementos))} €</td>
+                                     )}
+                                     {parseFloat(g.Descuentos || 0) > 0 && (
+                                       <tr className="border-b border-slate-700/50 text-rose-300">
+                                         <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Descuentos aplicados:</td>
+                                         <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(parseFloat(g.Descuentos))} €</td>
+                                       </tr>
+                                     )}
+                                     <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
+                                       <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
+                                       <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                      </tr>
-                                   )}
-                                   {parseFloat(g.Descuentos || 0) > 0 && (
-                                     <tr className="border-b border-slate-700/50 text-rose-300">
-                                       <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Descuentos aplicados:</td>
-                                       <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(parseFloat(g.Descuentos))} €</td>
-                                     </tr>
-                                   )}
+                                   </>
+                                 ) : (
                                    <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
                                      <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
                                      <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                    </tr>
-                                 </>
-                               ) : (
-                                 <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
-                                   <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
-                                   <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
-                                 </tr>
-                               )}
-                            </tfoot>
-                          </table>
-                        </div>
-                      ) : (
+                                 )}
+                              </tfoot>
+                            </table>
+                          </div>
+                        )) : (
                         <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-200">
                           <p className="text-lg font-black text-indigo-700">{formatNum(calculatedTotal)} € (Total Estimado)</p>
                           <p className="text-xs text-slate-400 mt-2">Detalle de noches no configurado aún.</p>

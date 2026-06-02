@@ -101,7 +101,7 @@
             <button onclick="clearReservaCache()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Reiniciar informe a parámetros de fábrica">
                 Restaurar Datos
             </button>
-            <button onclick="window.print()" class="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer">
+            <button onclick="printOrdenServicio()" class="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer">
                 Imprimir / PDF
             </button>
         </div>
@@ -339,6 +339,14 @@
                 localStorage.removeItem('ordenServicio_' + currentReservaId);
                 window.location.reload();
             }
+        }
+        function printOrdenServicio() {
+            const originalTitle = document.title;
+            const ref = document.getElementById('ref-val').innerText || currentReservaId || '';
+            const grupo = document.getElementById('grupo-val').innerText || '';
+            document.title = `${ref} - Ord Servicio - ${grupo}`;
+            window.print();
+            setTimeout(() => { document.title = originalTitle; }, 500);
         }
         function formatD(dtStr) {
             if (!dtStr) return '---';

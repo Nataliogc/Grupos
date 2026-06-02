@@ -75,7 +75,9 @@ var DEFAULT_FORM_DATA = {
   Com_Notas: '',
   Com_Estado_Interno: 'PRESUPUESTO',
   clauses: [],
-  clauses_conf: []
+  clauses_conf: [],
+  isRatesOnly: false,
+  ratesOnlyGrid: {}
 };
 var ROOM_MIGRATION_MAP = {
   "doble individual": "DOBLE DE USO INDIVIDUAL",
@@ -237,6 +239,8 @@ var buildRoomingList = function buildRoomingList(group) {
 var normalizeGroupData = function normalizeGroupData(groupData) {
   if (!groupData) return null;
   var newData = _objectSpread({}, groupData);
+  newData.isRatesOnly = !!groupData.isRatesOnly;
+  newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
   var rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
   if (rawHotel.toLowerCase().includes("cumbria")) {
     newData.Hotel_Asignado = "Cumbria Spa&Hotel";
@@ -354,6 +358,7 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
 var calculateTotal = function calculateTotal(rawGroupData) {
   var groupData = normalizeGroupData(rawGroupData);
   if (!groupData) return 0;
+  if (groupData.isRatesOnly) return 0;
   var dates = [];
   if (groupData.DateRanges_JSON && Array.isArray(groupData.DateRanges_JSON) && groupData.DateRanges_JSON.length > 0) {
     dates = generateSeriesDates(groupData.DateRanges_JSON);
@@ -1573,6 +1578,37 @@ function App() {
       },
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
     })))), /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 flex items-center justify-between gap-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-sliders-h text-[12px]"
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+      className: "text-xs font-black text-slate-800 uppercase tracking-widest leading-none"
+    }, "Modo de Cotizaci\xF3n"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-1"
+    }, "Selecciona c\xF3mo deseas presupuestar al grupo"))), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          isRatesOnly: false
+        }));
+      },
+      className: "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ".concat(!formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600')
+    }, "Con Distribuci\xF3n"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          isRatesOnly: true,
+          ratesOnlyGrid: formData.ratesOnlyGrid || {}
+        }));
+      },
+      className: "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ".concat(formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600')
+    }, "Solo Tarifas (Grid)"))), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
@@ -1623,6 +1659,7 @@ function App() {
     }, "3. Tarifas por Noche"))), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
       onClick: handleCopyFirstDay,
       className: "bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95",
       title: "Copiar precios y cupos del primer d\xEDa a todos los siguientes"
@@ -1711,7 +1748,68 @@ function App() {
           value: board
         }, board.split(' ')[0]);
       }))));
-    }))), /*#__PURE__*/React.createElement("div", {
+    })))) :
+    /*#__PURE__*/
+    /* Bloque 2: Tarifas por Régimen y Habitación (Modo Grid) */
+    React.createElement("div", {
+      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3 border-b border-slate-50 pb-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-tags text-[10px]"
+    })), /*#__PURE__*/React.createElement("h3", {
+      className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
+    }, "2. Tarifas por R\xE9gimen y Habitaci\xF3n")), /*#__PURE__*/React.createElement("div", {
+      className: "overflow-x-auto"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "w-full text-xs text-left border-collapse"
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+      className: "bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100"
+    }, /*#__PURE__*/React.createElement("th", {
+      className: "p-4"
+    }, "R\xE9gimen"), currentRooms.map(function (room) {
+      return /*#__PURE__*/React.createElement("th", {
+        key: room,
+        className: "p-4 text-center"
+      }, room);
+    }))), /*#__PURE__*/React.createElement("tbody", {
+      className: "divide-y divide-slate-100"
+    }, BOARD_TYPES.map(function (board) {
+      var boardKey = board.split(' ')[0]; // E.g., "AD", "MP", "PC", "SA"
+      return /*#__PURE__*/React.createElement("tr", {
+        key: board
+      }, /*#__PURE__*/React.createElement("td", {
+        className: "p-4 font-bold text-slate-700"
+      }, board), currentRooms.map(function (room) {
+        var _formData$ratesOnlyGr;
+        var priceVal = ((_formData$ratesOnlyGr = formData.ratesOnlyGrid) === null || _formData$ratesOnlyGr === void 0 || (_formData$ratesOnlyGr = _formData$ratesOnlyGr[boardKey]) === null || _formData$ratesOnlyGr === void 0 ? void 0 : _formData$ratesOnlyGr[room]) || '';
+        return /*#__PURE__*/React.createElement("td", {
+          key: room,
+          className: "p-4"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "relative max-w-[150px] mx-auto"
+        }, /*#__PURE__*/React.createElement("input", {
+          type: "number",
+          step: "0.01",
+          min: "0",
+          value: priceVal,
+          onChange: function onChange(e) {
+            var grid = _objectSpread({}, formData.ratesOnlyGrid);
+            if (!grid[boardKey]) grid[boardKey] = {};
+            grid[boardKey][room] = e.target.value;
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              ratesOnlyGrid: grid
+            }));
+          },
+          placeholder: "0.00",
+          className: "w-full pl-2 pr-6 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black text-center outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
+        }), /*#__PURE__*/React.createElement("span", {
+          className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold"
+        }, "\u20AC")));
+      }));
+    }))))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -2444,7 +2542,54 @@ function App() {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
-    }, "Itinerario y Condiciones Econ\xF3micas"), dates.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    }, "Itinerario y Condiciones Econ\xF3micas"), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
+      className: "overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px] bg-white"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "w-full text-left border-collapse"
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+      className: "bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100"
+    }, /*#__PURE__*/React.createElement("th", {
+      className: "p-4 print:py-1.5 print:px-2"
+    }, "R\xE9gimen"), currentRooms.map(function (room) {
+      return /*#__PURE__*/React.createElement("th", {
+        key: room,
+        className: "p-4 print:py-1.5 print:px-2 text-center"
+      }, room);
+    }))), /*#__PURE__*/React.createElement("tbody", {
+      className: "divide-y divide-slate-100"
+    }, BOARD_TYPES.map(function (board) {
+      var boardKey = board.split(' ')[0];
+      var hasPrices = currentRooms.some(function (room) {
+        var _g$ratesOnlyGrid;
+        return (_g$ratesOnlyGrid = g.ratesOnlyGrid) === null || _g$ratesOnlyGrid === void 0 || (_g$ratesOnlyGrid = _g$ratesOnlyGrid[boardKey]) === null || _g$ratesOnlyGrid === void 0 ? void 0 : _g$ratesOnlyGrid[room];
+      });
+      if (!hasPrices) return null;
+      return /*#__PURE__*/React.createElement("tr", {
+        key: board,
+        className: "hover:bg-slate-50/50"
+      }, /*#__PURE__*/React.createElement("td", {
+        className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800"
+      }, board), currentRooms.map(function (room) {
+        var _g$ratesOnlyGrid2;
+        var price = (_g$ratesOnlyGrid2 = g.ratesOnlyGrid) === null || _g$ratesOnlyGrid2 === void 0 || (_g$ratesOnlyGrid2 = _g$ratesOnlyGrid2[boardKey]) === null || _g$ratesOnlyGrid2 === void 0 ? void 0 : _g$ratesOnlyGrid2[room];
+        return /*#__PURE__*/React.createElement("td", {
+          key: room,
+          className: "p-4 print:py-1.5 print:px-2 text-center font-black text-slate-800 tabular-nums"
+        }, price ? "".concat(formatNum(price), " \u20AC") : '---');
+      }));
+    })), /*#__PURE__*/React.createElement("tfoot", {
+      className: "bg-slate-900 text-white font-black"
+    }, /*#__PURE__*/React.createElement("tr", {
+      style: {
+        backgroundColor: '#0f172a',
+        color: 'white',
+        WebkitPrintColorAdjust: 'exact',
+        printColorAdjust: 'exact'
+      }
+    }, /*#__PURE__*/React.createElement("td", {
+      colSpan: currentRooms.length + 1,
+      className: "px-6 py-4 print:py-2 print:px-3 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black text-slate-300"
+    }, "Tarifas informativas por habitaci\xF3n y noche (IVA incluido)"))))) : /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse"
