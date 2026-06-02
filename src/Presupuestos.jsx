@@ -2487,7 +2487,7 @@
                           </div>
                         </div>
 
-                        <div className="space-y-16 print:space-y-6 print-break-before">
+                        <div className={`space-y-16 print:space-y-6 ${docMode === 'confirmacion' ? 'print-break-before' : ''}`}>
                           {docMode === 'presupuesto' && (
                             <div className="relative group">
                               <div className="flex items-center justify-between mb-5">

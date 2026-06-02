@@ -2957,7 +2957,7 @@ function App() {
       },
       className: "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ".concat(docMode === 'confirmacion' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600')
     }, "Vista Confirmaci\xF3n"))), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-16 print:space-y-6 print-break-before"
+      className: "space-y-16 print:space-y-6 ".concat(docMode === 'confirmacion' ? 'print-break-before' : '')
     }, docMode === 'presupuesto' && /*#__PURE__*/React.createElement("div", {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("div", {
