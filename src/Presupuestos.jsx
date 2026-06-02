@@ -574,9 +574,58 @@
             newDailyConfig[date][field] = { ...(newDailyConfig[date][field] || {}), [roomType]: value === '' ? '' : Number(value) };
           } else {
             newDailyConfig[date][field] = value;
+            
+            // Auto-fill prices from ratesOnlyGrid if board type (regime) changes
+            if (field === 'board' && prev.ratesOnlyGrid) {
+              const boardKey = value.split(' ')[0]; // e.g. "AD"
+              if (prev.ratesOnlyGrid[boardKey]) {
+                const roomTypes = ROOM_TYPES[prev.Hotel_Asignado] || [];
+                const updatedPrices = { ...(newDailyConfig[date].prices || {}) };
+                roomTypes.forEach(room => {
+                  const gridPrice = prev.ratesOnlyGrid[boardKey][room];
+                  if (gridPrice !== undefined && gridPrice !== '') {
+                    updatedPrices[room] = Number(gridPrice);
+                  }
+                });
+                newDailyConfig[date].prices = updatedPrices;
+              }
+            }
           }
           return { ...prev, dailyConfig: newDailyConfig };
         });
+      };
+
+      const handleToggleToDistribution = () => {
+        const stayDates = getCurrentStayDates(formData);
+        const grid = formData.ratesOnlyGrid || {};
+        const newDailyConfig = { ...(formData.dailyConfig || {}) };
+
+        stayDates.forEach(date => {
+          if (!newDailyConfig[date]) {
+            newDailyConfig[date] = { board: formData["Régimen"] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
+          }
+          const dayConf = newDailyConfig[date];
+          const currentBoard = dayConf.board || formData["Régimen"] || 'AD (Alojamiento y Desayuno)';
+          const boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
+
+          if (grid[boardKey]) {
+            const roomTypes = ROOM_TYPES[formData.Hotel_Asignado] || [];
+            const updatedPrices = { ...(dayConf.prices || {}) };
+            roomTypes.forEach(room => {
+              const gridPrice = grid[boardKey][room];
+              if (gridPrice !== undefined && gridPrice !== '') {
+                updatedPrices[room] = Number(gridPrice);
+              }
+            });
+            dayConf.prices = updatedPrices;
+          }
+        });
+
+        setFormData(prev => ({
+          ...prev,
+          isRatesOnly: false,
+          dailyConfig: newDailyConfig
+        }));
       };
 
       const handleCopyFirstDay = () => {
@@ -1252,7 +1301,7 @@
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, isRatesOnly: false })}
+                    onClick={handleToggleToDistribution}
                     className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
                   >
                     Con Distribución
@@ -2134,29 +2183,35 @@
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
                       {dates.length > 0 || g.isRatesOnly ? (
                         g.isRatesOnly ? (
-                          <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px] bg-white">
+                          <div className={`overflow-hidden print:overflow-visible rounded-2xl border ${isCumbria ? 'border-blue-900/20' : 'border-orange-600/20'} text-xs print:text-[10px] bg-white shadow-sm`}>
                             <table className="w-full text-left border-collapse">
                               <thead>
-                                <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
-                                  <th className="p-4 print:py-1.5 print:px-2">Régimen</th>
+                                <tr className={`${isCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50'} font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ${isCumbria ? 'border-blue-950' : 'border-orange-950'}`} style={{backgroundColor: isCumbria ? '#0f172a' : '#451a03', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                  <th className="p-4 print:py-2 print:px-3 font-extrabold">Régimen</th>
                                   {currentRooms.map(room => (
-                                    <th key={room} className="p-4 print:py-1.5 print:px-2 text-center">{room}</th>
+                                    <th key={room} className="p-4 print:py-2 print:px-3 text-center font-extrabold">{room}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
-                                {BOARD_TYPES.map(board => {
+                                {BOARD_TYPES.map((board, idx) => {
                                   const boardKey = board.split(' ')[0];
                                   const hasPrices = currentRooms.some(room => g.ratesOnlyGrid?.[boardKey]?.[room]);
                                   if (!hasPrices) return null;
                                   return (
-                                    <tr key={board} className="hover:bg-slate-50/50">
-                                      <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{board}</td>
+                                    <tr key={board} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-slate-50/50 transition-colors`}>
+                                      <td className="p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight">{board}</td>
                                       {currentRooms.map(room => {
                                         const price = g.ratesOnlyGrid?.[boardKey]?.[room];
                                         return (
-                                          <td key={room} className="p-4 print:py-1.5 print:px-2 text-center font-black text-slate-800 tabular-nums">
-                                            {price ? `${formatNum(price)} €` : '---'}
+                                          <td key={room} className="p-4 print:py-2.5 print:px-3 text-center align-middle">
+                                            {price ? (
+                                              <span className={`inline-block px-3 py-1 rounded-lg ${isCumbria ? 'bg-blue-50 text-blue-900 border border-blue-100/50' : 'bg-orange-50 text-orange-900 border border-orange-100/50'} text-xs print:text-[10px] font-extrabold tabular-nums`} style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                                {formatNum(price)} €
+                                              </span>
+                                            ) : (
+                                              <span className="text-slate-300 font-medium">-</span>
+                                            )}
                                           </td>
                                         );
                                       })}
@@ -2164,14 +2219,10 @@
                                   );
                                 })}
                               </tbody>
-                              <tfoot className="bg-slate-900 text-white font-black">
-                                <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
-                                  <td colSpan={currentRooms.length + 1} className="px-6 py-4 print:py-2 print:px-3 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black text-slate-300">
-                                    Tarifas informativas por habitación y noche (IVA incluido)
-                                  </td>
-                                </tr>
-                              </tfoot>
                             </table>
+                            <div className={`${isCumbria ? 'bg-slate-50 text-slate-500 border-t border-slate-100' : 'bg-orange-50/30 text-orange-800/80 border-t border-orange-100/50'} px-6 py-3.5 print:py-2 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black`} style={{backgroundColor: isCumbria ? '#f8fafc' : '#fffbeb', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                              Tarifas informativas por habitación y noche (IVA incluido)
+                            </div>
                           </div>
                         ) : (
                           <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]">
