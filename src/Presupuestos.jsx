@@ -93,6 +93,28 @@
       return 0;
     };
 
+    const getRoomDisplayName = (roomName) => {
+      if (!roomName) return "";
+      const r = roomName.toUpperCase().trim();
+      if (r === "DOBLE DE USO INDIVIDUAL" || r === "DOBLE INDIVIDUAL" || r === "DUI") return "Doble (DUI)";
+      if (r === "DOBLE + SUPLETORIA" || r === "DOBLE MAS SUPLETORIA") return "Doble + Supl.";
+      if (r === "CUÁDRUPLE" || r === "CUADRUPLE") return "Cuádruple";
+      if (r === "DOBLE") return "Doble";
+      return roomName.charAt(0).toUpperCase() + roomName.slice(1).toLowerCase();
+    };
+
+    const getBoardDisplayName = (boardName) => {
+      if (!boardName) return "";
+      const b = boardName.toUpperCase().trim();
+      if (b.includes("SOLO ALOJAMIENTO") || b.startsWith("SA")) return "SA";
+      if (b.includes("ALOJAMIENTO Y DESAYUNO") || b.startsWith("AD")) return "AD";
+      if (b.includes("MEDIA PENSIÓN") || b.includes("MEDIA PENSION") || b.startsWith("MP")) return "MP";
+      if (b.includes("PENSIÓN COMPLETA") || b.includes("PENSION COMPLETA") || b.startsWith("PC")) return "PC";
+      const match = boardName.match(/^([A-Z]{2})/);
+      if (match) return match[1];
+      return boardName;
+    };
+
     const buildRoomingList = (group, existingListJson = "[]") => {
       let existingList = [];
       try {
@@ -439,6 +461,49 @@
 
       const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
 
+      // Auto-sync daily configuration prices with ratesOnlyGrid when dates/hotel/grid change
+      useEffect(() => {
+        if (!formData.isRatesOnly) {
+          const stayDates = getCurrentStayDates(formData);
+          const grid = formData.ratesOnlyGrid || {};
+          const newDailyConfig = { ...(formData.dailyConfig || {}) };
+          let changed = false;
+
+          stayDates.forEach(date => {
+            if (!newDailyConfig[date]) {
+              newDailyConfig[date] = { board: formData["Régimen"] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
+              changed = true;
+            }
+            const dayConf = newDailyConfig[date];
+            const currentBoard = dayConf.board || formData["Régimen"] || 'AD (Alojamiento y Desayuno)';
+            const boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
+
+            if (grid[boardKey]) {
+              const roomTypes = ROOM_TYPES[formData.Hotel_Asignado] || [];
+              const updatedPrices = { ...(dayConf.prices || {}) };
+              roomTypes.forEach(room => {
+                const gridPrice = grid[boardKey][room];
+                if (gridPrice !== undefined && gridPrice !== '') {
+                  const numVal = Number(gridPrice);
+                  if (updatedPrices[room] !== numVal) {
+                    updatedPrices[room] = numVal;
+                    changed = true;
+                  }
+                }
+              });
+              if (JSON.stringify(dayConf.prices) !== JSON.stringify(updatedPrices)) {
+                dayConf.prices = updatedPrices;
+                changed = true;
+              }
+            }
+          });
+
+          if (changed) {
+            setFormData(prev => ({ ...prev, dailyConfig: newDailyConfig }));
+          }
+        }
+      }, [formData.Entrada, formData.Salida, formData.Hotel_Asignado, formData.ratesOnlyGrid, formData.isRatesOnly]);
+
       // Cargar datos y manejar parámetros de URL
       useEffect(() => {
         const unsubscribe = db.collection("groups")
@@ -657,10 +722,23 @@
           return;
         }
 
+        // Validation: Dates
+        const entrada = String(formData.Entrada || "").trim();
+        const salida = String(formData.Salida || "").trim();
+
+        if (!entrada || !salida) {
+          alert("⚠️ Error: Debe especificar las fechas de entrada y salida.");
+          return;
+        }
+
+        if (new Date(entrada) >= new Date(salida)) {
+          alert("⚠️ Error: La fecha de salida debe ser estrictamente posterior a la de entrada (mínimo 1 noche).");
+          return;
+        }
+
         const reservaId = formData.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
         const isNew = !formData.uid;
 
-        const entrada = String(formData.Entrada || "");
         let releaseDate = formData.Com_Vencimiento_Rel || "";
         if (!releaseDate && entrada) {
           const d = new Date(entrada);
@@ -1044,12 +1122,18 @@
                         {/* Importe */}
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="text-sm font-black text-indigo-600 tracking-tight">{formatNum(totalAmount)}€</span>
-                            {totalPaid > 0 && (
-                              <div className="flex gap-2 mt-1">
-                                <span className="text-[8px] font-black text-emerald-600 uppercase">P: {formatNum(totalPaid)}</span>
-                                <span className="text-[8px] font-black text-rose-600 uppercase">D: {formatNum(pendingAmount)}</span>
-                              </div>
+                            {g.isRatesOnly ? (
+                              <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-widest w-fit">Solo Tarifas</span>
+                            ) : (
+                              <>
+                                <span className="text-sm font-black text-indigo-600 tracking-tight">{formatNum(totalAmount)}€</span>
+                                {totalPaid > 0 && (
+                                  <div className="flex gap-2 mt-1">
+                                    <span className="text-[8px] font-black text-emerald-600 uppercase">P: {formatNum(totalPaid)}</span>
+                                    <span className="text-[8px] font-black text-rose-600 uppercase">D: {formatNum(pendingAmount)}</span>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>
@@ -1265,7 +1349,7 @@
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Entrada</label>
                     <input 
@@ -1282,6 +1366,18 @@
                       value={toInputDate(formData.Salida)} 
                       onChange={e => setFormData({ ...formData, Salida: e.target.value })}
                       className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pax Estimados</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      value={formData["Pax."] || ''} 
+                      onChange={e => setFormData({ ...formData, "Pax.": e.target.value === '' ? '' : Number(e.target.value) })}
+                      disabled={!formData.isRatesOnly}
+                      placeholder={!formData.isRatesOnly ? "Auto-calculado" : "Ej: 33"}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 disabled:opacity-60"
                     />
                   </div>
                 </div>
@@ -1336,7 +1432,7 @@
                               type="number" 
                               min="0"
                               value={formData.roomCounts?.[type] || ''} 
-                              onChange={e => setFormData({ ...formData, roomCounts: { ...formData.roomCounts, [type]: e.target.value } })}
+                              onChange={e => handleRoomCountChange(type, e.target.value)}
                               placeholder="0"
                               className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
                             />
@@ -1878,8 +1974,13 @@
             const secondPayment = plan[1];
 
             // Reemplazar 30% estático con el depósito real
-            parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
-            parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+            if (calculatedTotal > 0) {
+              parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+              parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + "€)");
+            } else {
+              parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "%");
+              parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "%");
+            }
 
             if (secondPayment) {
               // Reemplazar 7 días o 7 dias con la antelación real
@@ -1888,16 +1989,29 @@
               parsed = parsed.replace(/{RELEASE_7}/g, secondPayment.releaseDays + " días");
 
               // Reemplazar 50% o 100% estático con el segundo pago real
-              parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
-              parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
-              parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
-              parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+              if (calculatedTotal > 0) {
+                parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+                parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+                parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+                parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + "€)");
+              } else {
+                parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "%");
+                parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "%");
+                parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "%");
+                parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "%");
+              }
             }
           }
 
-          parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + '€');
-          parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + '€');
-          parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + '€');
+          if (calculatedTotal > 0) {
+            parsed = parsed.replace(/{DEP_30}/g, formatNum(calculatedTotal * 0.3) + '€');
+            parsed = parsed.replace(/{DEP_50}/g, formatNum(calculatedTotal * 0.5) + '€');
+            parsed = parsed.replace(/{DEP_100}/g, formatNum(calculatedTotal) + '€');
+          } else {
+            parsed = parsed.replace(/{DEP_30}/g, '30% del total');
+            parsed = parsed.replace(/{DEP_50}/g, '50% del total');
+            parsed = parsed.replace(/{DEP_100}/g, '100% del total');
+          }
           
           const getRelDate = (days) => {
             if (!g.Entrada) return "[FECHA]";
@@ -2047,6 +2161,23 @@
                   </div>
                 </div>
 
+                {g.isRatesOnly && (
+                  <div className="bg-indigo-50 border border-indigo-100/50 rounded-3xl p-6 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+                        <i className="fas fa-info-circle"></i>
+                      </div>
+                      <h4 className="text-xs font-black text-indigo-900 uppercase tracking-widest leading-none">Modo Solo Tarifas</h4>
+                    </div>
+                    <p className="text-xs text-indigo-700/80 leading-relaxed font-medium">
+                      Este presupuesto se basa en una grid de tarifas informativas y no tiene un importe total cerrado.
+                    </p>
+                    <p className="text-xs text-indigo-700/80 leading-relaxed font-medium">
+                      Si el cliente te confirma la distribución, haz clic en <strong>Editar Datos</strong>, selecciona <strong>"Con Distribución"</strong> y define el cupo de habitaciones para transferir los precios automáticamente.
+                    </p>
+                  </div>
+                )}
+
                 {/* SEGUIMIENTO & CHAT-STYLE NOTES */}
                 <div className="bg-slate-900 rounded-3xl p-6 shadow-xl shadow-slate-200/50 flex flex-col h-full max-h-[600px]">
                    <div className="flex items-center justify-between mb-6">
@@ -2189,7 +2320,7 @@
                                 <tr className={`${isCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50'} font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ${isCumbria ? 'border-blue-950' : 'border-orange-950'}`} style={{backgroundColor: isCumbria ? '#0f172a' : '#451a03', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
                                   <th className="p-4 print:py-2 print:px-3 font-extrabold">Régimen</th>
                                   {currentRooms.map(room => (
-                                    <th key={room} className="p-4 print:py-2 print:px-3 text-center font-extrabold">{room}</th>
+                                    <th key={room} className="p-4 print:py-2 print:px-3 text-center font-extrabold">{getRoomDisplayName(room)}</th>
                                   ))}
                                 </tr>
                               </thead>
@@ -2200,7 +2331,7 @@
                                   if (!hasPrices) return null;
                                   return (
                                     <tr key={board} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-slate-50/50 transition-colors`}>
-                                      <td className="p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight">{board}</td>
+                                      <td className="p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight">{getBoardDisplayName(board)}</td>
                                       {currentRooms.map(room => {
                                         const price = g.ratesOnlyGrid?.[boardKey]?.[room];
                                         return (
@@ -2266,7 +2397,7 @@
                                              return (
                                                <li key={type} className="text-slate-500 mb-1 print:mb-0">
                                                  <div className="flex justify-between">
-                                                   <span>{count}x {type} {roomBoard && roomBoard !== boardTitle ? `(${roomBoard})` : ''} ({formatNum(price)}€)</span>
+                                                   <span>{count}x {getRoomDisplayName(type)} {roomBoard && roomBoard !== boardTitle ? `(${getBoardDisplayName(roomBoard)})` : ''} ({formatNum(price)}€)</span>
                                                  </div>
                                                  {gratuities > 0 && <div className="text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0">[-{gratuities}] Gratuidad</div>}
                                                </li>
@@ -2372,7 +2503,7 @@
                                     db.collection("groups").doc(g.uid).update({ clauses: tempClauses }).then(() => alert("Cláusulas presupuesto guardadas."));
                                   }
                                   setIsEditingClauses(!isEditingClauses);
-                                }} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClauses ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                }} className={`no-print px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClauses ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
                                   {isEditingClauses ? 'Guardar' : 'Editar'}
                                 </button>
                               </div>
@@ -2404,7 +2535,7 @@
                                   });
                                 })()}
                                 {isEditingClauses && (
-                                  <button onClick={() => setTempClauses([...tempClauses, { title: "Nueva Cláusula", body: "" }])} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2">
+                                  <button onClick={() => setTempClauses([...tempClauses, { title: "Nueva Cláusula", body: "" }])} className="no-print border-2 border-dashed border-slate-200 rounded-xl p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-400 transition-all flex items-center justify-center gap-2">
                                     <i className="fas fa-plus"></i> Añadir Cláusula
                                   </button>
                                 )}
@@ -2427,7 +2558,7 @@
                                     db.collection("groups").doc(g.uid).update({ clauses_conf: tempClausesConf }).then(() => alert("Cláusulas confirmación guardadas."));
                                   }
                                   setIsEditingClausesConf(!isEditingClausesConf);
-                                }} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClausesConf ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                }} className={`no-print px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClausesConf ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
                                   {isEditingClausesConf ? 'Guardar' : 'Editar'}
                                 </button>
                               </div>
@@ -2459,7 +2590,7 @@
                                   });
                                 })()}
                                 {isEditingClausesConf && (
-                                  <button onClick={() => setTempClausesConf([...tempClausesConf, { title: "Nueva Cláusula Conf.", body: "" }])} className="border-2 border-dashed border-emerald-100 rounded-xl p-4 text-[10px] font-black text-emerald-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center gap-2">
+                                  <button onClick={() => setTempClausesConf([...tempClausesConf, { title: "Nueva Cláusula Conf.", body: "" }])} className="no-print border-2 border-dashed border-emerald-100 rounded-xl p-4 text-[10px] font-black text-emerald-400 uppercase tracking-widest hover:border-emerald-400 hover:text-emerald-500 transition-all flex items-center justify-center gap-2">
                                     <i className="fas fa-plus"></i> Añadir Cláusula de Confirmación
                                   </button>
                                 )}
