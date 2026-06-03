@@ -14242,6 +14242,30 @@
 
                             <button
 
+                              onClick={() => {
+
+                                localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
+
+                                window.location.href = "Rooming-Servicios.html";
+
+                              }}
+
+                              className="px-6 h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-indigo-200/50"
+
+                            >
+
+                              <IconFileText size={18} stroke={2} />
+
+                              <span className="text-[11px] font-black uppercase tracking-widest">
+
+                                Rooming y Servicios
+
+                              </span>
+
+                            </button>
+
+                            <button
+
                               onClick={openClientDataModal}
 
                               className="px-4 h-11 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl flex items-center justify-center transition-all"

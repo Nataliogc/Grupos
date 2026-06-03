@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rooming List y Resumen de Servicios</title>
+    <!-- Tailwind CSS (CDN genérico) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Times New Roman', Times, serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .page-container {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            background: white;
+            padding: 15mm 15mm;
+            box-sizing: border-box;
+            position: relative;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        @media print {
+            body { background-color: transparent; padding: 0; }
+            .page-container { box-shadow: none; border: none; margin: 0; padding: 10mm 10mm; min-height: auto; }
+            .no-print { display: none !important; }
+            input, textarea, .editable { border: none !important; resize: none; overflow: hidden; background: transparent !important; }
+        }
+        .editable {
+            transition: all 0.2s;
+            border-bottom: 1px dotted transparent;
+            min-height: 1.5em;
+        }
+        .editable:hover {
+            background-color: #fef08a; /* yellow-200 */
+            cursor: text;
+        }
+        .editable:focus {
+            background-color: #fff;
+            outline: 2px solid #6366f1;
+            border-bottom: 1px dotted transparent;
+        }
+        .editable[contenteditable="true"]:empty:before {
+            content: "---";
+            color: #999;
+            pointer-events: none;
+        }
+        h1 {
+            font-size: 20px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .section-title {
+            font-size: 15px;
+            font-weight: bold;
+            border-bottom: 1.5px solid #000;
+            padding-bottom: 2px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { border-bottom: 1.5px solid #000; border-top: 1.5px solid #000; text-align: left; padding: 4px 6px; font-weight: bold; text-transform: uppercase; }
+        td { padding: 5px 6px; vertical-align: top; border-bottom: 1px solid #e2e8f0; }
+        .dept-box {
+            border: 1px solid #cbd5e1;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .dept-title {
+            font-weight: bold;
+            font-size: 13px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <!-- TOOLBAR -->
+    <div class="no-print" style="max-width: 210mm; margin: 0 auto 20px auto; display: flex; justify-content: space-between; align-items: center;">
+        <button onclick="goBackToReserva()" class="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg transition-colors text-sm shadow">
+            &larr; Volver a la Reserva
+        </button>
+        <div class="flex items-center gap-3">
+            <span id="save-status" class="text-xs text-emerald-600 font-bold opacity-0 transition-opacity">Autoguardado ✓</span>
+            <button onclick="clearReservaCache()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Reiniciar informe a parámetros originales">
+                Restaurar Datos
+            </button>
+            <button onclick="printReport()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer">
+                Imprimir / PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- REPORT TEMPLATE -->
+    <div class="page-container flex flex-col" id="document-area">
+        <!-- HEADER TITLE -->
+        <div class="border-b-2 border-slate-900 pb-2 mb-4">
+            <h1 class="text-center font-bold tracking-wider leading-snug">
+                ROOMING LIST Y RESUMEN DE SERVICIOS
+            </h1>
+            <div class="text-center text-sm font-bold mt-1">
+                Reserva n.º <span id="header-reserva">---</span> &bull; 
+                <span id="header-grupo" class="editable" contenteditable="true" oninput="triggerSave()">---</span> &bull; 
+                <span id="header-hotel">---</span> 
+                <span class="text-slate-400 font-normal">| Versión Operativa: <span id="header-date">---</span></span>
+            </div>
+        </div>
+
+        <!-- RESUMEN GENERAL -->
+        <div class="border border-slate-400 p-3 mb-4 rounded bg-slate-50/50">
+            <div class="grid grid-cols-2 gap-y-1.5 text-xs">
+                <div><strong>HOTEL:</strong> <span id="gen-hotel">---</span></div>
+                <div><strong>CONTACTO:</strong> <span id="gen-contacto" class="editable" contenteditable="true" oninput="triggerSave()">---</span></div>
+                <div><strong>ENTRADA:</strong> <span id="gen-entrada" class="editable" contenteditable="true" oninput="triggerSave()">---</span></div>
+                <div><strong>SALIDA:</strong> <span id="gen-salida" class="editable" contenteditable="true" oninput="triggerSave()">---</span></div>
+            </div>
+            <div class="border-t border-slate-300 mt-2 pt-2 grid grid-cols-1 gap-y-1 text-xs">
+                <div><strong>HABITACIONES:</strong> <span id="gen-habitaciones" class="editable" contenteditable="true" oninput="triggerSave()">---</span></div>
+                <div><strong>PAX ROOMING:</strong> <span id="gen-pax" class="editable" contenteditable="true" oninput="triggerSave()">---</span> personas</div>
+                <div><strong>RÉGIMEN:</strong> <span id="gen-regimen" class="editable" contenteditable="true" oninput="triggerSave()">---</span></div>
+                <div><strong>ESTADO CRÍTICO:</strong> <span id="gen-estado-critico" class="editable text-rose-700 font-bold" contenteditable="true" oninput="triggerSave()">---</span></div>
+            </div>
+        </div>
+
+        <!-- CONTROL DE PENDIENTES -->
+        <div class="section-title">CONTROL DE PENDIENTES</div>
+        <table id="table-pendientes">
+            <thead>
+                <tr>
+                    <th style="width: 25%">Pendiente</th>
+                    <th style="width: 45%">Detalle</th>
+                    <th style="width: 15%">Fecha límite / momento</th>
+                    <th style="width: 15%">Responsable</th>
+                    <th class="no-print" style="width: 4%"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+        <div class="no-print mt-2 text-right">
+            <button onclick="addRowPendiente('', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Pendiente</button>
+        </div>
+
+        <!-- RESUMEN DE SERVICIOS Y OPERATIVA -->
+        <div class="section-title">RESUMEN DE SERVICIOS CONTRATADOS Y OPERATIVA</div>
+        <table id="table-servicios">
+            <thead>
+                <tr>
+                    <th style="width: 12%">Fecha</th>
+                    <th style="width: 18%">Servicio</th>
+                    <th style="width: 8%">Régimen</th>
+                    <th style="width: 15%">Pax / Hab.</th>
+                    <th style="width: 10%">Hora</th>
+                    <th style="width: 37%">Notas operativas</th>
+                    <th class="no-print" style="width: 4%"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+        <div class="no-print mt-2 text-right">
+            <button onclick="addRowServicio('', '', '', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Servicio</button>
+        </div>
+
+        <!-- ROOMING LIST POR HABITACION -->
+        <div class="section-title">ROOMING LIST POR HABITACIÓN</div>
+        <div class="text-[10px] italic text-slate-500 mb-2">Listado preparado para recepción. Los DNI figuran solo cuando aparecen en el listado recibido; deberán verificarse en el check-in.</div>
+        <table id="table-rooming">
+            <thead>
+                <tr>
+                    <th style="width: 8%">Hab.</th>
+                    <th style="width: 15%">Tipo</th>
+                    <th style="width: 8%">Pax</th>
+                    <th style="width: 35%">Ocupantes</th>
+                    <th style="width: 16%">DNI aportado</th>
+                    <th style="width: 18%">Observaciones</th>
+                    <th class="no-print" style="width: 4%"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+        <div class="no-print mt-2 text-right">
+            <button onclick="addRowRooming('', '', '', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Habitación</button>
+        </div>
+
+        <!-- RESUMEN RAPIDO POR DEPARTAMENTO -->
+        <div class="section-title">RESUMEN RÁPIDO POR DEPARTAMENTO</div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2">
+            <!-- RECEPCIÓN -->
+            <div class="dept-box">
+                <div class="dept-title text-indigo-700">Recepción</div>
+                <div id="dept-recepcion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="triggerSave()">
+                    <!-- Auto-filled summary -->
+                </div>
+            </div>
+            <!-- COCINA / RESTAURANTE -->
+            <div class="dept-box">
+                <div class="dept-title text-emerald-700">Restaurante / Cocina</div>
+                <div id="dept-restaurante" class="editable font-medium leading-relaxed" contenteditable="true" oninput="triggerSave()">
+                    <!-- Auto-filled summary -->
+                </div>
+            </div>
+            <!-- ADMINISTRACIÓN -->
+            <div class="dept-box">
+                <div class="dept-title text-amber-700">Administración</div>
+                <div id="dept-administracion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="triggerSave()">
+                    <!-- Auto-filled summary -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CODE SCRIPT -->
+    <script>
+        let currentReservaId = "unknown";
+        let saveTimeout = null;
+
+        function goBackToReserva() {
+            localStorage.setItem('nexus_return_reserva', currentReservaId);
+            localStorage.setItem('nexus_open_ficha', currentReservaId);
+            window.location.href = 'Gestion-de-Grupos.html?reserva=' + encodeURIComponent(currentReservaId);
+        }
+
+        function triggerSave() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveStateToCache, 800);
+            
+            const status = document.getElementById('save-status');
+            status.style.opacity = '1';
+            setTimeout(() => status.style.opacity = '0', 2000);
+        }
+
+        function createEditableCell(text, isNumeric = false) {
+            const td = document.createElement('td');
+            td.className = 'editable' + (isNumeric ? ' text-right' : '');
+            td.contentEditable = "true";
+            td.innerText = text !== undefined && text !== null ? text : '';
+            td.oninput = triggerSave;
+            return td;
+        }
+
+        function addRowPendiente(pendiente, detalle, limite, responsable) {
+            const tbody = document.querySelector('#table-pendientes tbody');
+            const tr = document.createElement('tr');
+            tr.appendChild(createEditableCell(pendiente));
+            tr.appendChild(createEditableCell(detalle));
+            tr.appendChild(createEditableCell(limite));
+            tr.appendChild(createEditableCell(responsable));
+            
+            const btnTd = document.createElement('td');
+            btnTd.className = 'no-print text-right';
+            const btn = document.createElement('button');
+            btn.innerText = '✖';
+            btn.className = 'text-red-400 font-black hover:text-red-600 px-1 cursor-pointer';
+            btn.onclick = () => { tr.remove(); triggerSave(); };
+            btnTd.appendChild(btn);
+            tr.appendChild(btnTd);
+            
+            tbody.appendChild(tr);
+            triggerSave();
+        }
+
+        function addRowServicio(fecha, servicio, regimen, paxHab, hora, notas) {
+            const tbody = document.querySelector('#table-servicios tbody');
+            const tr = document.createElement('tr');
+            tr.appendChild(createEditableCell(fecha));
+            tr.appendChild(createEditableCell(servicio));
+            tr.appendChild(createEditableCell(regimen));
+            tr.appendChild(createEditableCell(paxHab));
+            tr.appendChild(createEditableCell(hora));
+            tr.appendChild(createEditableCell(notas));
+            
+            const btnTd = document.createElement('td');
+            btnTd.className = 'no-print text-right';
+            const btn = document.createElement('button');
+            btn.innerText = '✖';
+            btn.className = 'text-red-400 font-black hover:text-red-600 px-1 cursor-pointer';
+            btn.onclick = () => { tr.remove(); triggerSave(); };
+            btnTd.appendChild(btn);
+            tr.appendChild(btnTd);
+            
+            tbody.appendChild(tr);
+            triggerSave();
+        }
+
+        function addRowRooming(hab, tipo, pax, ocupantes, dni, observ) {
+            const tbody = document.querySelector('#table-rooming tbody');
+            const tr = document.createElement('tr');
+            tr.appendChild(createEditableCell(hab));
+            tr.appendChild(createEditableCell(tipo));
+            tr.appendChild(createEditableCell(pax));
+            tr.appendChild(createEditableCell(ocupantes));
+            tr.appendChild(createEditableCell(dni));
+            tr.appendChild(createEditableCell(observ));
+            
+            const btnTd = document.createElement('td');
+            btnTd.className = 'no-print text-right';
+            const btn = document.createElement('button');
+            btn.innerText = '✖';
+            btn.className = 'text-red-400 font-black hover:text-red-600 px-1 cursor-pointer';
+            btn.onclick = () => { tr.remove(); triggerSave(); };
+            btnTd.appendChild(btn);
+            tr.appendChild(btnTd);
+            
+            tbody.appendChild(tr);
+            triggerSave();
+        }
+
+        function saveStateToCache() {
+            if (currentReservaId === "unknown") return;
+
+            const pendientes = [];
+            document.querySelectorAll('#table-pendientes tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('td.editable');
+                if (cells.length === 4) {
+                    pendientes.push({
+                        pendiente: cells[0].innerText,
+                        detalle: cells[1].innerText,
+                        limite: cells[2].innerText,
+                        responsable: cells[3].innerText
+                    });
+                }
+            });
+
+            const servicios = [];
+            document.querySelectorAll('#table-servicios tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('td.editable');
+                if (cells.length === 6) {
+                    servicios.push({
+                        fecha: cells[0].innerText,
+                        servicio: cells[1].innerText,
+                        regimen: cells[2].innerText,
+                        paxHab: cells[3].innerText,
+                        hora: cells[4].innerText,
+                        notas: cells[5].innerText
+                    });
+                }
+            });
+
+            const rooming = [];
+            document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('td.editable');
+                if (cells.length === 6) {
+                    rooming.push({
+                        hab: cells[0].innerText,
+                        tipo: cells[1].innerText,
+                        pax: cells[2].innerText,
+                        ocupantes: cells[3].innerText,
+                        dni: cells[4].innerText,
+                        observ: cells[5].innerText
+                    });
+                }
+            });
+
+            const saveData = {
+                headerGrupo: document.getElementById('header-grupo').innerText,
+                genContacto: document.getElementById('gen-contacto').innerText,
+                genEntrada: document.getElementById('gen-entrada').innerText,
+                genSalida: document.getElementById('gen-salida').innerText,
+                genHabitaciones: document.getElementById('gen-habitaciones').innerText,
+                genPax: document.getElementById('gen-pax').innerText,
+                genRegimen: document.getElementById('gen-regimen').innerText,
+                genEstadoCritico: document.getElementById('gen-estado-critico').innerText,
+                deptRecepcion: document.getElementById('dept-recepcion').innerHTML,
+                deptRestaurante: document.getElementById('dept-restaurante').innerHTML,
+                deptAdministracion: document.getElementById('dept-administracion').innerHTML,
+                pendientes,
+                servicios,
+                rooming
+            };
+
+            localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
+        }
+
+        function clearReservaCache() {
+            if(confirm("¿Estás seguro de restaurar los datos de fábrica? Se perderán las modificaciones manuales que hayas hecho en las tablas y resúmenes.")) {
+                localStorage.removeItem('roomingServicios_' + currentReservaId);
+                window.location.reload();
+            }
+        }
+
+        function printReport() {
+            const originalTitle = document.title;
+            const ref = currentReservaId || '';
+            const grupo = document.getElementById('header-grupo').innerText || '';
+            document.title = `${ref} - Rooming y Servicios - ${grupo}`;
+            window.print();
+            setTimeout(() => { document.title = originalTitle; }, 500);
+        }
+
+        // Robust date formatter
+        function formatD(dtStr) {
+            if (!dtStr) return '---';
+            const f = new Date(dtStr);
+            if(isNaN(f)) return dtStr;
+            const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            return days[f.getDay()] + ' ' + f.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit', year: 'numeric'});
+        }
+
+        function getDayOfWeek(dtStr) {
+            if (!dtStr) return '';
+            const f = new Date(dtStr);
+            if(isNaN(f)) return '';
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            return days[f.getDay()];
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const rawGroupData = localStorage.getItem('selectedGroup');
+            if (!rawGroupData) {
+                document.getElementById('document-area').innerHTML = `
+                    <div class="p-12 text-center text-red-500 font-bold">
+                        Error: No se ha seleccionado ningún grupo desde la pantalla de Gestión.
+                    </div>
+                `;
+                return;
+            }
+
+            const group = JSON.parse(rawGroupData);
+            const rec = group.records ? (group.records[0] || {}) : group;
+            currentReservaId = rec['Reserva'] || group.id || group.reserva || 'unknown';
+            
+            // Set static/calculated headers
+            document.getElementById('header-reserva').innerText = currentReservaId;
+            const hHotel = rec['Hotel_Asignado'] || rec['Hotel'] || 'Sercotel Guadiana';
+            document.getElementById('header-hotel').innerText = hHotel;
+            document.getElementById('gen-hotel').innerText = hHotel;
+            
+            const today = new Date();
+            document.getElementById('header-date').innerText = today.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit', year: 'numeric'});
+
+            const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+            
+            if (savedStateStr) {
+                // LOAD FROM LOCAL STORAGE CACHE
+                const s = JSON.parse(savedStateStr);
+                document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
+                document.getElementById('gen-contacto').innerText = s.genContacto || '---';
+                document.getElementById('gen-entrada').innerText = s.genEntrada || '---';
+                document.getElementById('gen-salida').innerText = s.genSalida || '---';
+                document.getElementById('gen-habitaciones').innerText = s.genHabitaciones || '---';
+                document.getElementById('gen-pax').innerText = s.genPax || '0';
+                document.getElementById('gen-regimen').innerText = s.genRegimen || '---';
+                document.getElementById('gen-estado-critico').innerText = s.genEstadoCritico || '---';
+                document.getElementById('dept-recepcion').innerHTML = s.deptRecepcion || '';
+                document.getElementById('dept-restaurante').innerHTML = s.deptRestaurante || '';
+                document.getElementById('dept-administracion').innerHTML = s.deptAdministracion || '';
+
+                if (s.pendientes && s.pendientes.length > 0) {
+                    s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
+                }
+                if (s.servicios && s.servicios.length > 0) {
+                    s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas));
+                }
+                if (s.rooming && s.rooming.length > 0) {
+                    s.rooming.forEach(r => addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ));
+                }
+                return;
+            }
+
+            // AUTO-GENERATE FROM FIRESTORE RECORD
+            const gName = rec['Nombre del Grupo'] || group.name || '---';
+            const gContacto = rec['Persona_Contacto'] || rec['Com_Nombre_Contacto'] || '---';
+            
+            // Format dates
+            const checkInDate = rec['Entrada'] || group.arrival || '';
+            const checkOutDate = rec['Salida'] || group.departure || '';
+            
+            const checkInLabel = checkInDate ? `${getDayOfWeek(checkInDate)} ${formatD(checkInDate)}` : '---';
+            const checkOutLabel = checkOutDate ? `${getDayOfWeek(checkOutDate)} ${formatD(checkOutDate)}` : '---';
+
+            document.getElementById('header-grupo').innerText = gName;
+            document.getElementById('gen-contacto').innerText = gContacto;
+            document.getElementById('gen-entrada').innerText = checkInLabel;
+            document.getElementById('gen-salida').innerText = checkOutLabel;
+
+            const gRegimen = rec['Régimen'] || group.regimen || 'AD';
+            document.getElementById('gen-regimen').innerText = gRegimen;
+
+            const totalPax = rec['Pax.'] || group.totalPax || '0';
+            document.getElementById('gen-pax').innerText = totalPax;
+
+            // Parse rooming list
+            let roomingList = [];
+            try {
+                roomingList = JSON.parse(rec['RoomingList_JSON'] || '[]');
+            } catch(e) {
+                roomingList = [];
+            }
+
+            // Count rooms and types
+            let totalRooms = 0;
+            let roomCountsByType = {};
+            let occupantsCount = 0;
+            let missingDniRooms = [];
+            let chefMissingName = false;
+
+            roomingList.forEach(item => {
+                if (item.isService) return;
+                totalRooms += parseInt(item.qty) || 0;
+                const rType = (item.type || 'Habitación').toLowerCase();
+                let canonicalType = 'Doble';
+                if (rType.includes('ind') || rType.includes('dui') || rType.includes('uso individual')) {
+                    canonicalType = 'Individual';
+                } else if (rType.includes('tri')) {
+                    canonicalType = 'Triple';
+                } else if (rType.includes('cua')) {
+                    canonicalType = 'Cuádruple';
+                }
+                roomCountsByType[canonicalType] = (roomCountsByType[canonicalType] || 0) + (parseInt(item.qty) || 0);
+
+                // Analyze occupants
+                // A room item might have names
+                // Let's count actual names populated or check DNI
+                const namesStr = item.ocupantes || '';
+                const dniStr = item.dni || '';
+                
+                // Check missing DNIs
+                if (!dniStr || dniStr.toLowerCase().includes('pend') || dniStr.trim() === '') {
+                    missingDniRooms.push(item.id); // Save ID or item for count
+                }
+            });
+
+            // Rooms label text
+            let roomSummaryParts = [];
+            Object.entries(roomCountsByType).forEach(([type, count]) => {
+                roomSummaryParts.push(`${count} ${type.toLowerCase()}s`);
+            });
+            const roomsText = `${totalRooms} total: ` + (roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : '---');
+            document.getElementById('gen-habitaciones').innerText = roomsText;
+
+            // Set up Pending List
+            // 1. Payment Pending
+            const totalRevenue = parseFloat(rec['Importe(*)'] || group.totalRevenue || 0);
+            let paidAmount = 0;
+            try {
+                const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
+                paidAmount = plan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+            } catch(e) {
+                paidAmount = parseFloat(rec['Com_Pagado'] || 0);
+            }
+            const pendingAmount = totalRevenue - paidAmount;
+            
+            if (pendingAmount > 0.05) {
+                let deadline = '---';
+                try {
+                    const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
+                    const pendingRow = plan.find(p => p.status !== "Cobrado");
+                    if (pendingRow && pendingRow.date) deadline = formatD(pendingRow.date);
+                } catch(e) {}
+                if (deadline === '---' && rec['Com_Vencimiento_Rel']) {
+                    deadline = formatD(rec['Com_Vencimiento_Rel']);
+                }
+                addRowPendiente(
+                    'Último pago',
+                    `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total reserva: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} €`,
+                    deadline,
+                    'Administración / Comercial'
+                );
+                document.getElementById('gen-estado-critico').innerText = 'Pago final y desayunos pendientes';
+            } else {
+                document.getElementById('gen-estado-critico').innerText = 'Falta concretar detalles operativos';
+            }
+
+            // 2. Breakfast hours
+            const needsBreakfast = gRegimen.toUpperCase().includes('AD') || gRegimen.toUpperCase().includes('MP') || gRegimen.toUpperCase().includes('PC');
+            if (needsBreakfast) {
+                addRowPendiente(
+                    'Horas de desayuno',
+                    'Faltan horarios previstos para coordinar restaurante sala de desayunos.',
+                    'Antes de la llegada',
+                    'Cliente / Restaurante'
+                );
+            }
+
+            // 3. Diet alternatives
+            let dietNotes = [];
+            const rawNotas = rec['Com_Notas'] || group.notes || '';
+            const allNotesText = (rawNotas + ' ' + roomingList.map(r => r.observ || '').join(' ')).toLowerCase();
+            
+            // Scan for diet indicators
+            if (allNotesText.includes('pescado') || allNotesText.includes('bonito') || allNotesText.includes('alerg') || allNotesText.includes('vege') || allNotesText.includes('sin ')) {
+                addRowPendiente(
+                    'Dietas especiales',
+                    'Se detectan observaciones de dietas o alergias. Identificar ocupante y habitación.',
+                    'Antes del primer servicio',
+                    'Cliente / Cocina'
+                );
+            }
+
+            // 4. Missing DNIs
+            let missingDniCount = 0;
+            // Let's create dummy rooming table rows and count real missing DNIs
+            // Since we don't have detailed occupants array in simple RoomingList_JSON, let's look at how the rooming list is structured.
+            // Wait, does the group have an actual occupant list?
+            // In GestionGrupos.js:
+            // roomingList is generated, but initially it contains room blocks (e.g. 20 Double Rooms).
+            // A user can edit the rooming list and assign occupants!
+            // Let's see: if roomingList is empty or has blocks, let's output them.
+            
+            // Let's populate the Rooming List Table
+            let listToDisplay = [];
+            let autoIdx = 1;
+            
+            // If the rooming list is just room blocks, let's expand them to individual rooms!
+            // E.g., if there is a block of "20 Doble" from 08/06 to 11/06, we generate 20 individual rows!
+            // This is exactly what hotels do for check-in: they expand the block into 20 rows!
+            roomingList.forEach(item => {
+                if (item.isService) return;
+                const qty = parseInt(item.qty) || 1;
+                const paxCount = parseInt(item.pax) || (item.type.toUpperCase().includes('IND') ? 1 : 2);
+                
+                // Let's see if the block already has occupants (comma separated or newline separated)
+                let occupants = (item.ocupantes || '').split(/[\n,;]+/);
+                let dnis = (item.dni || '').split(/[\n,;]+/);
+                let observs = (item.observ || '').split(/[\n,;]+/);
+
+                for (let q = 0; q < qty; q++) {
+                    const roomNum = item.roomNo || autoIdx++;
+                    const occName = (occupants[q] || '').trim() || '';
+                    const dniVal = (dnis[q] || '').trim() || '';
+                    const obsVal = (observs[q] || '').trim() || '';
+                    
+                    let finalOcc = occName;
+                    let finalDni = dniVal;
+                    
+                    if (!occName) {
+                        if (item.type.toUpperCase().includes('CHOFER') || item.type.toUpperCase().includes('GUIA')) {
+                            finalOcc = 'Chofer / Guía';
+                            chefMissingName = true;
+                        } else {
+                            finalOcc = 'Ocupante Pendiente';
+                        }
+                    }
+                    if (!dniVal) {
+                        finalDni = 'Pendiente';
+                        missingDniCount++;
+                    }
+
+                    listToDisplay.push({
+                        hab: roomNum,
+                        tipo: item.type,
+                        pax: paxCount,
+                        ocupantes: finalOcc,
+                        dni: finalDni,
+                        observ: obsVal || (q === 0 ? item.observ || '' : '') // show observation at least on first
+                    });
+                }
+            });
+
+            // Output Rooming Table Rows
+            listToDisplay.forEach(r => {
+                addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+            });
+
+            // If we have missing DNIs, add row to pending
+            if (missingDniCount > 0) {
+                addRowPendiente(
+                    'Datos incompletos',
+                    `Faltan DNI de ${missingDniCount} ocupantes en la rooming list.`,
+                    'Al check-in',
+                    'Recepción'
+                );
+            }
+            if (chefMissingName) {
+                addRowPendiente(
+                    'Nombre de chofer/guía',
+                    'Falta confirmar nombre y DNI del chofer del grupo.',
+                    'Check-in',
+                    'Recepción / Comercial'
+                );
+            }
+
+            // Set up Services Table
+            // Let's parse services and schedule
+            // Let's extract per-day services from roomingList/dailyConfig
+            const serviceDays = new Map();
+            // Robust parsing logic similar to Orden Servicio.html
+            function getServicesForRegime(regime) {
+                const r = (regime || '').toUpperCase().trim();
+                if (r === 'PC') return ['Desayuno', 'Almuerzo', 'Cena'];
+                if (r === 'MP') return ['Desayuno', 'Cena'];
+                if (r === 'AD' || r === 'HD') return ['Desayuno'];
+                return [];
+            }
+
+            // Parse Date
+            function parseDate(dStr) {
+                if (!dStr) return null;
+                const s = dStr.toString();
+                if (/^\d{5}$/.test(s)) {
+                    const serial = parseInt(s, 10);
+                    if (serial > 25569) return new Date(Math.round((serial - 25569) * 86400 * 1000));
+                }
+                if (s.includes('-') && s.split('-')[0].length <= 2) {
+                    const [d, m, y] = s.split('-');
+                    return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T12:00:00`);
+                }
+                if (s.includes('/') && s.split('/')[0].length <= 2) {
+                    const [d, m, y] = s.split('/');
+                    return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T12:00:00`);
+                }
+                return new Date(s);
+            }
+
+            const dIn = parseDate(checkInDate);
+            const dOut = parseDate(checkOutDate);
+            
+            if (dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime()) && dOut > dIn) {
+                const nights = Math.ceil((dOut - dIn) / (86400000));
+                
+                // Add Check-In Service on Day 1
+                addRowServicio(
+                    formatD(checkInDate),
+                    'Llegada / check-in',
+                    'Entrada',
+                    `${totalPax} pax / ${totalRooms} hab.`,
+                    'Según llegada',
+                    'Coordinar entrega de llaves. El grupo puede comer primero si llega antes del almuerzo.'
+                );
+
+                // Add meals day by day
+                for (let i = 0; i < nights; i++) {
+                    const cur = new Date(dIn);
+                    cur.setDate(cur.getDate() + i);
+                    const curStr = cur.toISOString().split('T')[0];
+                    const dayLabel = formatD(cur);
+                    
+                    // Retrieve regime for this day
+                    const regime = gRegimen;
+                    const dayServices = getServicesForRegime(regime);
+                    
+                    dayServices.forEach(s => {
+                        let targetDate = new Date(cur);
+                        if (s === 'Desayuno') {
+                            targetDate.setDate(targetDate.getDate() + 1);
+                        }
+                        const targetLabel = formatD(targetDate);
+                        
+                        let serviceNote = '';
+                        let serviceHour = '___:___ h';
+                        if (s === 'Desayuno') {
+                            serviceNote = 'Solicitar horario al grupo para coordinar sala de desayunos.';
+                            serviceHour = 'PENDIENTE';
+                        } else if (s === 'Cena') {
+                            serviceNote = 'Cena buffet o menú de tres platos. Coordinar horarios.';
+                        } else if (s === 'Almuerzo') {
+                            serviceNote = 'Almuerzo de tres platos. Menú único.';
+                        }
+                        
+                        // Check if we already have this service on this day
+                        // To avoid duplicates
+                        addRowServicio(targetLabel, s, s === 'Desayuno' ? 'AD' : 'MP', `${totalPax} pax`, serviceHour, serviceNote);
+                    });
+                }
+                
+                // Add Check-Out Service on Last Day
+                addRowServicio(
+                    formatD(checkOutDate),
+                    'Salida / check-out',
+                    'Salida',
+                    `${totalPax} pax / ${totalRooms} hab.`,
+                    '___:___ h',
+                    'Revisar cargos extras pendientes en recepción antes del check-out.'
+                );
+            } else {
+                // Fallback row if no dates
+                addRowServicio('DÍA 1', 'Llegada / check-in', 'Entrada', `${totalPax} pax`, '---', 'Coordinar llegada.');
+            }
+
+            // AUTO-GENERATE DEPARTAMENT SUMMARIES
+            // 1. Recepción
+            const recSummary = `
+                &bull; Entrada del grupo: ${totalPax} personas / ${totalRooms} habitaciones.<br>
+                &bull; Distribución: ${roomsText}.<br>
+                &bull; Completar DNI pendientes: ${missingDniCount > 0 ? missingDniCount + ' personas' : 'Ninguno'}.<br>
+                &bull; Chofer / Guía: ${chefMissingName ? 'Nombre y DNI pendientes' : 'Datos aportados'}.
+            `;
+            document.getElementById('dept-recepcion').innerHTML = recSummary.trim();
+
+            // 2. Cocina / Restaurante
+            const restSummary = `
+                &bull; Régimen general: ${gRegimen}.<br>
+                &bull; Desayunos y cenas: horarios y menús pendientes de coordinar con el guía del grupo.<br>
+                &bull; Dietas / Alergias: Revisar observaciones si hay comensales con régimen especial (vegetarianos, alergias).
+            `;
+            document.getElementById('dept-restaurante').innerHTML = restSummary.trim();
+
+            // 3. Administración
+            const admSummary = `
+                &bull; Total presupuesto: ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
+                &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                &bull; Pendiente de cobro final: ${pendingAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                &bull; Términos: Pagos anticipados no reembolsables.
+            `;
+            document.getElementById('dept-administracion').innerHTML = admSummary.trim();
+
+            saveStateToCache();
+        });
+    </script>
+</body>
+</html>
