@@ -174,7 +174,12 @@
         </div>
 
         <!-- ROOMING LIST POR HABITACION -->
-        <div class="section-title">ROOMING LIST POR HABITACIÓN</div>
+        <div class="section-title flex justify-between items-end">
+            <span>ROOMING LIST POR HABITACIÓN</span>
+            <button onclick="openIaModal()" class="no-print text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3.5 rounded shadow flex items-center gap-1.5 transition-all">
+                <span>✦ Importar Rooming con IA</span>
+            </button>
+        </div>
         <div class="text-[10px] italic text-slate-500 mb-2">Listado preparado para recepción. Los DNI figuran solo cuando aparecen en el listado recibido; deberán verificarse en el check-in.</div>
         <table id="table-rooming">
             <thead>
@@ -198,7 +203,7 @@
 
         <!-- RESUMEN RAPIDO POR DEPARTAMENTO -->
         <div class="section-title">RESUMEN RÁPIDO POR DEPARTAMENTO</div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2 pb-10">
             <!-- RECEPCIÓN -->
             <div class="dept-box">
                 <div class="dept-title text-indigo-700">Recepción</div>
@@ -223,15 +228,120 @@
         </div>
     </div>
 
+    <!-- MODAL IMPORTAR IA -->
+    <div id="modal-ia" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] no-print">
+        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <!-- Header -->
+            <div class="bg-[#1e293b] text-white p-4 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="text-indigo-400 text-sm">✦</span>
+                    <h3 class="font-bold uppercase text-[10px] tracking-widest font-sans">Importador de Rooming List con IA</h3>
+                </div>
+                <button onclick="closeIaModal()" class="text-slate-400 hover:text-white text-lg font-bold transition-colors">&times;</button>
+            </div>
+            <!-- Body -->
+            <div class="p-6 space-y-4 flex-1 overflow-y-auto">
+                <p class="text-[11px] text-slate-500 leading-relaxed font-sans">
+                    Pega a continuación el listado de habitaciones enviado por tu cliente. Puede ser texto plano copiado de un email, de un documento de Word o de un Excel. Nuestra IA (Gemini) extraerá automáticamente los ocupantes, DNIs, tipo de habitación, número de habitación y observaciones especiales, vinculando los precios originales de la reserva.
+                </p>
+                <textarea id="ia-text-input" class="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-sans leading-relaxed resize-none" placeholder="Pega el listado aquí... Ej:
+Hab. 1 - Doble - Cano Llorca, Vicki (DNI: 25120766M) y Carrillo Gascón, María Dolores (DNI: 05107797A)
+Hab. 2 - Individual - Barambio, Amador (DNI: 4536739N)
+Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisca solicita plazas delanteras en autobús porque se marea..."></textarea>
+            </div>
+            <!-- Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
+                <button onclick="closeIaModal()" class="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-lg text-[10px] uppercase tracking-widest transition-all shadow-sm">Cancelar</button>
+                <button id="ia-submit-btn" onclick="processRoomingWithIa()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center gap-2">
+                    <span>Extraer con IA</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase & IA SDKs (Compat Mode) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/gemini.js"></script>
+    <script src="js/firebase-init.js"></script>
+
     <!-- CODE SCRIPT -->
     <script>
         let currentReservaId = "unknown";
         let saveTimeout = null;
 
+        // Robust date parser (forces local noon to avoid timezone shifting)
+        function parseDate(dStr) {
+            if (!dStr) return null;
+            const s = dStr.toString().trim();
+            // Caso 1: Excel Serial (ej: 46129)
+            const num = parseFloat(s);
+            if (!isNaN(num) && num > 40000 && num < 60000) {
+                try {
+                    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+                    if (!isNaN(date.getTime())) {
+                        return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+                    }
+                } catch (e) {}
+            }
+            // Caso 2: DD-MM-YYYY
+            if (s.includes('-') && s.split('-')[0].length <= 2) {
+                const parts = s.split('-');
+                if (parts.length === 3) {
+                    let [d, m, y] = parts;
+                    y = parseInt(y);
+                    if (y < 100) y += 2000;
+                    return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                }
+            }
+            // Caso 3: DD/MM/YYYY
+            if (s.includes('/') && s.split('/') && s.split('/')[0].length <= 2) {
+                const parts = s.split('/');
+                if (parts.length === 3) {
+                    let [d, m, y] = parts;
+                    y = parseInt(y);
+                    if (y < 100) y += 2000;
+                    return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                }
+            }
+            // Caso 4: YYYY-MM-DD
+            if (s.includes('-') && s.split('-')[0].length === 4) {
+                const parts = s.split(/[-T ]/);
+                if (parts.length >= 3) {
+                    const [y, m, d] = parts;
+                    return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                }
+            }
+            const fallback = new Date(s);
+            if (isNaN(fallback.getTime())) return null;
+            return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate(), 12, 0, 0);
+        }
+
+        // Timezone-safe local YYYY-MM-DD string generator
+        function getLocalDateString(d) {
+            if (!d || isNaN(d.getTime())) return '';
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+
         function goBackToReserva() {
             localStorage.setItem('nexus_return_reserva', currentReservaId);
             localStorage.setItem('nexus_open_ficha', currentReservaId);
             window.location.href = 'Gestion-de-Grupos.html?reserva=' + encodeURIComponent(currentReservaId);
+        }
+
+        function openIaModal() {
+            document.getElementById('ia-text-input').value = '';
+            document.getElementById('modal-ia').classList.remove('hidden');
+        }
+
+        function closeIaModal() {
+            document.getElementById('modal-ia').classList.add('hidden');
         }
 
         function triggerSave() {
@@ -401,21 +511,185 @@
             setTimeout(() => { document.title = originalTitle; }, 500);
         }
 
-        // Robust date formatter
+        // Robust date formatter using parseDate
         function formatD(dtStr) {
             if (!dtStr) return '---';
-            const f = new Date(dtStr);
-            if(isNaN(f)) return dtStr;
+            const f = parseDate(dtStr);
+            if (!f || isNaN(f.getTime())) return dtStr;
             const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
             return days[f.getDay()] + ' ' + f.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit', year: 'numeric'});
         }
 
         function getDayOfWeek(dtStr) {
             if (!dtStr) return '';
-            const f = new Date(dtStr);
-            if(isNaN(f)) return '';
+            const f = parseDate(dtStr);
+            if (!f || isNaN(f.getTime())) return '';
             const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             return days[f.getDay()];
+        }
+
+        // Extraction IA logic
+        async function processRoomingWithIa() {
+            const inputVal = document.getElementById('ia-text-input').value.trim();
+            if (!inputVal) {
+                alert('Por favor, pega el texto de la rooming list.');
+                return;
+            }
+
+            const btn = document.getElementById('ia-submit-btn');
+            const textarea = document.getElementById('ia-text-input');
+            
+            // Disable interactions
+            btn.disabled = true;
+            btn.classList.add('bg-slate-400', 'cursor-not-allowed');
+            btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            btn.innerHTML = '<span>Procesando con IA...</span>';
+            textarea.disabled = true;
+
+            const hHotel = document.getElementById('gen-hotel').innerText;
+            const gRegimen = document.getElementById('gen-regimen').innerText;
+            const finalInDate = window.checkInDateRaw || '';
+            const finalOutDate = window.checkOutDateRaw || '';
+
+            const prompt = `Analiza el siguiente texto que contiene un listado de habitaciones (Rooming List) y extrae la información en formato JSON estrictamente como un array de objetos.
+
+Cada objeto en el array representa una habitación y debe tener estos campos exactos:
+- "roomNo": número de habitación (ej: "1", "2"). Si no viene especificado en el texto, infiérelo correlativamente (1, 2, 3...).
+- "type": tipo de habitación (ej: "Doble", "Individual", "Triple").
+- "pax": número de ocupantes en esa habitación (ej: 1, 2, 3).
+- "ocupantes": nombres de los ocupantes. Si hay más de un ocupante en la habitación, concatena los nombres separados por salto de línea ("\\n") o punto y coma ";".
+- "dni": DNIs correspondientes a los ocupantes (separados por punto y coma ";" si hay varios). Si no está disponible, pon "Pendiente".
+- "observ": observaciones o peticiones especiales asociadas a la habitación o personas (ej: "cama de matrimonio", "se marea", "intolerante al gluten"). Si no hay observaciones, pon "".
+
+Usa estos datos por defecto para rellenar las propiedades de cada habitación si no se especifica otra cosa en el texto:
+- hotel: "${hHotel}"
+- dateIn: "${finalInDate}"
+- dateOut: "${finalOutDate}"
+- regime: "${gRegimen}"
+
+Responde UNICAMENTE con el bloque de código JSON, sin explicaciones ni texto de markdown adicional (debe empezar con [ y terminar con ]).
+
+TEXTO DEL LISTADO ENVIADO POR EL CLIENTE:
+${inputVal}`;
+
+            try {
+                if (!window.callGemini) {
+                    throw new Error('La API de Gemini no está disponible. Verifica que la API Key esté configurada en el panel del administrador.');
+                }
+                
+                const result = await window.callGemini(prompt);
+                const cleanJson = result.replace(/```json/g, "").replace(/```/g, "").trim();
+                const parsedList = JSON.parse(cleanJson);
+                
+                if (!Array.isArray(parsedList)) {
+                    throw new Error('La respuesta de la IA no es un formato de array válido.');
+                }
+
+                // Query original group record to get current RoomingList_JSON and save back to Firestore
+                const docRef = window.db.collection("groups").doc(currentReservaId);
+                const docSnap = await docRef.get();
+                if (!docSnap.exists) {
+                    throw new Error('No se encontró el grupo en la base de datos.');
+                }
+
+                const recData = docSnap.data();
+                let originalList = [];
+                try {
+                    originalList = JSON.parse(recData['RoomingList_JSON'] || '[]');
+                } catch(e) {}
+
+                // Build a map of type -> price, regime, iva from original room blocks to preserve prices
+                const blockDetails = {};
+                originalList.forEach(item => {
+                    if (!item.isService) {
+                        const key = (item.type || 'Doble').toUpperCase();
+                        blockDetails[key] = {
+                            price: parseFloat(item.price) || 0,
+                            regime: item.regime || '',
+                            iva: item.iva || 10
+                        };
+                    }
+                });
+
+                // Generate new list of detailed rooms
+                const newList = parsedList.map(item => {
+                    const typeKey = (item.type || 'Doble').toUpperCase();
+                    let match = null;
+                    if (blockDetails[typeKey]) {
+                        match = blockDetails[typeKey];
+                    } else {
+                        const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
+                        if (matchingKey) {
+                            match = blockDetails[matchingKey];
+                        }
+                    }
+                    
+                    const price = match ? match.price : 0;
+                    const iva = match ? match.iva : 10;
+                    const total = (1 * price).toFixed(2);
+                    
+                    // Nights count
+                    const d1 = parseDate(item.dateIn || finalInDate);
+                    const d2 = parseDate(item.dateOut || finalOutDate);
+                    const calculatedNights = Math.max(1, Math.ceil((d2 - d1) / 86400000)) || 1;
+
+                    return {
+                        id: item.id || Date.now() + Math.random(),
+                        hotel: item.hotel || hHotel,
+                        type: item.type || 'Habitación Doble',
+                        dateIn: item.dateIn || finalInDate,
+                        dateOut: item.dateOut || finalOutDate,
+                        qty: 1,
+                        pax: parseInt(item.pax) || 2,
+                        regime: item.regime || gRegimen,
+                        price: price,
+                        iva: iva,
+                        nights: parseInt(item.nights) || calculatedNights,
+                        isService: false,
+                        total: total,
+                        ocupantes: item.ocupantes || '',
+                        dni: item.dni || '',
+                        observ: item.observ || '',
+                        roomNo: item.roomNo || ''
+                    };
+                });
+
+                // Preserve services (meals/etc.) from original list
+                const servicesList = originalList.filter(item => item.isService === true);
+                const finalRoomingList = [...newList, ...servicesList];
+
+                // Recalculate totals
+                const newTotalRooms = newList.length;
+                const newTotalPax = newList.reduce((acc, r) => acc + (parseInt(r.pax) || 0), 0);
+                const newTotalSum = finalRoomingList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
+
+                // Save back to Firestore
+                await docRef.update({
+                    RoomingList_JSON: JSON.stringify(finalRoomingList),
+                    "Pax.": newTotalPax.toString(),
+                    "Cant.": newTotalRooms.toString(),
+                    "Habitaciones": `${newTotalRooms} habitaciones`,
+                    "Importe(*)": newTotalSum.toFixed(2),
+                    "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Borrar caché local para forzar recarga de los datos de Firestore actualizados
+                localStorage.removeItem('roomingServicios_' + currentReservaId);
+
+                alert('✅ Rooming List importada y estructurada con IA con éxito.');
+                closeIaModal();
+                window.location.reload();
+
+            } catch (err) {
+                alert('❌ Error al procesar con IA: ' + err.message);
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('bg-slate-400', 'cursor-not-allowed');
+                btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                btn.innerHTML = '<span>Extraer con IA</span>';
+                textarea.disabled = false;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -441,6 +715,12 @@
             
             const today = new Date();
             document.getElementById('header-date').innerText = today.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit', year: 'numeric'});
+
+            // Save raw checkin/checkout globally for IA prompts
+            const checkInDate = rec['Entrada'] || group.arrival || '';
+            const checkOutDate = rec['Salida'] || group.departure || '';
+            window.checkInDateRaw = checkInDate;
+            window.checkOutDateRaw = checkOutDate;
 
             const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
             
@@ -475,10 +755,6 @@
             const gName = rec['Nombre del Grupo'] || group.name || '---';
             const gContacto = rec['Persona_Contacto'] || rec['Com_Nombre_Contacto'] || '---';
             
-            // Format dates
-            const checkInDate = rec['Entrada'] || group.arrival || '';
-            const checkOutDate = rec['Salida'] || group.departure || '';
-            
             const checkInLabel = checkInDate ? `${getDayOfWeek(checkInDate)} ${formatD(checkInDate)}` : '---';
             const checkOutLabel = checkOutDate ? `${getDayOfWeek(checkOutDate)} ${formatD(checkOutDate)}` : '---';
 
@@ -501,16 +777,34 @@
                 roomingList = [];
             }
 
-            // Count rooms and types
+            // Count rooms and types using daily peak occupancy (to avoid duplicates from multi-day stays)
             let totalRooms = 0;
             let roomCountsByType = {};
-            let occupantsCount = 0;
-            let missingDniRooms = [];
+            let missingDniCount = 0;
             let chefMissingName = false;
 
+            // Determine if the list is already expanded with occupants
+            let isExpandedList = roomingList.some(item => !item.isService && (item.ocupantes || item.roomNo));
+
+            // Helper to get dates between two dates using parseDate and getLocalDateString
+            function getDatesArray(startStr, endStr, nights) {
+                const dates = [];
+                let start = parseDate(startStr);
+                if (!start || isNaN(start.getTime())) return [];
+                let n = parseInt(nights) || 1;
+                for (let i = 0; i < n; i++) {
+                    const d = new Date(start);
+                    d.setDate(start.getDate() + i);
+                    dates.push(getLocalDateString(d));
+                }
+                return dates;
+            }
+
+            // Calculate peak daily room counts
+            const dailyCounts = {};
             roomingList.forEach(item => {
                 if (item.isService) return;
-                totalRooms += parseInt(item.qty) || 0;
+                
                 const rType = (item.type || 'Habitación').toLowerCase();
                 let canonicalType = 'Doble';
                 if (rType.includes('ind') || rType.includes('dui') || rType.includes('uso individual')) {
@@ -520,19 +814,116 @@
                 } else if (rType.includes('cua')) {
                     canonicalType = 'Cuádruple';
                 }
-                roomCountsByType[canonicalType] = (roomCountsByType[canonicalType] || 0) + (parseInt(item.qty) || 0);
 
-                // Analyze occupants
-                // A room item might have names
-                // Let's count actual names populated or check DNI
-                const namesStr = item.ocupantes || '';
-                const dniStr = item.dni || '';
-                
-                // Check missing DNIs
-                if (!dniStr || dniStr.toLowerCase().includes('pend') || dniStr.trim() === '') {
-                    missingDniRooms.push(item.id); // Save ID or item for count
-                }
+                const qty = isExpandedList ? 1 : (parseInt(item.qty) || 1);
+                const itemDates = getDatesArray(item.dateIn, item.dateOut, item.nights);
+
+                itemDates.forEach(date => {
+                    if (!dailyCounts[date]) {
+                        dailyCounts[date] = { total: 0, byType: {} };
+                    }
+                    dailyCounts[date].total += qty;
+                    dailyCounts[date].byType[canonicalType] = (dailyCounts[date].byType[canonicalType] || 0) + qty;
+                });
             });
+
+            // Find peak values
+            Object.values(dailyCounts).forEach(dayData => {
+                if (dayData.total > totalRooms) {
+                    totalRooms = dayData.total;
+                }
+                Object.entries(dayData.byType).forEach(([type, count]) => {
+                    roomCountsByType[type] = Math.max(roomCountsByType[type] || 0, count);
+                });
+            });
+
+            // Fallback if no dates were parsed
+            if (Object.keys(dailyCounts).length === 0) {
+                roomingList.forEach(item => {
+                    if (item.isService) return;
+                    const rType = (item.type || 'Habitación').toLowerCase();
+                    let canonicalType = 'Doble';
+                    if (rType.includes('ind') || rType.includes('dui') || rType.includes('uso individual')) {
+                        canonicalType = 'Individual';
+                    }
+                    const qty = isExpandedList ? 1 : (parseInt(item.qty) || 1);
+                    totalRooms += qty;
+                    roomCountsByType[canonicalType] = (roomCountsByType[canonicalType] || 0) + qty;
+                });
+            }
+
+            let listToDisplay = [];
+            let autoIdx = 1;
+
+            if (isExpandedList) {
+                // List is already detailed/expanded
+                roomingList.forEach(item => {
+                    if (item.isService) return;
+                    
+                    const occName = (item.ocupantes || '').trim();
+                    const dniVal = (item.dni || '').trim();
+                    
+                    let finalOcc = occName;
+                    let finalDni = dniVal;
+                    
+                    if (!occName) {
+                        if (item.type.toUpperCase().includes('CHOFER') || item.type.toUpperCase().includes('GUIA')) {
+                            finalOcc = 'Chofer / Guía';
+                            chefMissingName = true;
+                        } else {
+                            finalOcc = 'Ocupante Pendiente';
+                        }
+                    }
+                    if (!dniVal || dniVal.toLowerCase().includes('pend')) {
+                        finalDni = 'Pendiente';
+                        missingDniCount++;
+                    }
+
+                    listToDisplay.push({
+                        hab: item.roomNo || autoIdx++,
+                        tipo: item.type,
+                        pax: item.pax || 2,
+                        ocupantes: finalOcc,
+                        dni: finalDni,
+                        observ: item.observ || ''
+                    });
+                });
+            } else {
+                // List is represented as room blocks. Show the peak count of physical rooms per type.
+                const peaksByType = {};
+                const paxByType = {};
+                
+                roomingList.forEach(item => {
+                    if (item.isService) return;
+                    const rType = item.type || 'Habitación Doble';
+                    const qty = parseInt(item.qty) || 1;
+                    const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') ? 1 : 2);
+                    
+                    peaksByType[rType] = Math.max(peaksByType[rType] || 0, qty);
+                    paxByType[rType] = paxVal;
+                });
+                
+                Object.entries(peaksByType).forEach(([rType, maxQty]) => {
+                    const paxVal = paxByType[rType] || 2;
+                    for (let q = 0; q < maxQty; q++) {
+                        let finalOcc = 'Ocupante Pendiente';
+                        if (rType.toUpperCase().includes('CHOFER') || rType.toUpperCase().includes('GUIA')) {
+                            finalOcc = 'Chofer / Guía';
+                            chefMissingName = true;
+                        }
+                        
+                        listToDisplay.push({
+                            hab: autoIdx++,
+                            tipo: rType,
+                            pax: paxVal,
+                            ocupantes: finalOcc,
+                            dni: 'Pendiente',
+                            observ: ''
+                        });
+                        missingDniCount++;
+                    }
+                });
+            }
 
             // Rooms label text
             let roomSummaryParts = [];
@@ -541,6 +932,11 @@
             });
             const roomsText = `${totalRooms} total: ` + (roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : '---');
             document.getElementById('gen-habitaciones').innerText = roomsText;
+
+            // Output Rooming Table Rows
+            listToDisplay.forEach(r => {
+                addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+            });
 
             // Set up Pending List
             // 1. Payment Pending
@@ -591,7 +987,6 @@
             const rawNotas = rec['Com_Notas'] || group.notes || '';
             const allNotesText = (rawNotas + ' ' + roomingList.map(r => r.observ || '').join(' ')).toLowerCase();
             
-            // Scan for diet indicators
             if (allNotesText.includes('pescado') || allNotesText.includes('bonito') || allNotesText.includes('alerg') || allNotesText.includes('vege') || allNotesText.includes('sin ')) {
                 addRowPendiente(
                     'Dietas especiales',
@@ -600,71 +995,6 @@
                     'Cliente / Cocina'
                 );
             }
-
-            // 4. Missing DNIs
-            let missingDniCount = 0;
-            // Let's create dummy rooming table rows and count real missing DNIs
-            // Since we don't have detailed occupants array in simple RoomingList_JSON, let's look at how the rooming list is structured.
-            // Wait, does the group have an actual occupant list?
-            // In GestionGrupos.js:
-            // roomingList is generated, but initially it contains room blocks (e.g. 20 Double Rooms).
-            // A user can edit the rooming list and assign occupants!
-            // Let's see: if roomingList is empty or has blocks, let's output them.
-            
-            // Let's populate the Rooming List Table
-            let listToDisplay = [];
-            let autoIdx = 1;
-            
-            // If the rooming list is just room blocks, let's expand them to individual rooms!
-            // E.g., if there is a block of "20 Doble" from 08/06 to 11/06, we generate 20 individual rows!
-            // This is exactly what hotels do for check-in: they expand the block into 20 rows!
-            roomingList.forEach(item => {
-                if (item.isService) return;
-                const qty = parseInt(item.qty) || 1;
-                const paxCount = parseInt(item.pax) || (item.type.toUpperCase().includes('IND') ? 1 : 2);
-                
-                // Let's see if the block already has occupants (comma separated or newline separated)
-                let occupants = (item.ocupantes || '').split(/[\n,;]+/);
-                let dnis = (item.dni || '').split(/[\n,;]+/);
-                let observs = (item.observ || '').split(/[\n,;]+/);
-
-                for (let q = 0; q < qty; q++) {
-                    const roomNum = item.roomNo || autoIdx++;
-                    const occName = (occupants[q] || '').trim() || '';
-                    const dniVal = (dnis[q] || '').trim() || '';
-                    const obsVal = (observs[q] || '').trim() || '';
-                    
-                    let finalOcc = occName;
-                    let finalDni = dniVal;
-                    
-                    if (!occName) {
-                        if (item.type.toUpperCase().includes('CHOFER') || item.type.toUpperCase().includes('GUIA')) {
-                            finalOcc = 'Chofer / Guía';
-                            chefMissingName = true;
-                        } else {
-                            finalOcc = 'Ocupante Pendiente';
-                        }
-                    }
-                    if (!dniVal) {
-                        finalDni = 'Pendiente';
-                        missingDniCount++;
-                    }
-
-                    listToDisplay.push({
-                        hab: roomNum,
-                        tipo: item.type,
-                        pax: paxCount,
-                        ocupantes: finalOcc,
-                        dni: finalDni,
-                        observ: obsVal || (q === 0 ? item.observ || '' : '') // show observation at least on first
-                    });
-                }
-            });
-
-            // Output Rooming Table Rows
-            listToDisplay.forEach(r => {
-                addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
-            });
 
             // If we have missing DNIs, add row to pending
             if (missingDniCount > 0) {
@@ -685,10 +1015,6 @@
             }
 
             // Set up Services Table
-            // Let's parse services and schedule
-            // Let's extract per-day services from roomingList/dailyConfig
-            const serviceDays = new Map();
-            // Robust parsing logic similar to Orden Servicio.html
             function getServicesForRegime(regime) {
                 const r = (regime || '').toUpperCase().trim();
                 if (r === 'PC') return ['Desayuno', 'Almuerzo', 'Cena'];
@@ -697,24 +1023,7 @@
                 return [];
             }
 
-            // Parse Date
-            function parseDate(dStr) {
-                if (!dStr) return null;
-                const s = dStr.toString();
-                if (/^\d{5}$/.test(s)) {
-                    const serial = parseInt(s, 10);
-                    if (serial > 25569) return new Date(Math.round((serial - 25569) * 86400 * 1000));
-                }
-                if (s.includes('-') && s.split('-')[0].length <= 2) {
-                    const [d, m, y] = s.split('-');
-                    return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T12:00:00`);
-                }
-                if (s.includes('/') && s.split('/')[0].length <= 2) {
-                    const [d, m, y] = s.split('/');
-                    return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T12:00:00`);
-                }
-                return new Date(s);
-            }
+            // Uses global parseDate helper
 
             const dIn = parseDate(checkInDate);
             const dOut = parseDate(checkOutDate);
@@ -722,7 +1031,6 @@
             if (dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime()) && dOut > dIn) {
                 const nights = Math.ceil((dOut - dIn) / (86400000));
                 
-                // Add Check-In Service on Day 1
                 addRowServicio(
                     formatD(checkInDate),
                     'Llegada / check-in',
@@ -732,14 +1040,12 @@
                     'Coordinar entrega de llaves. El grupo puede comer primero si llega antes del almuerzo.'
                 );
 
-                // Add meals day by day
                 for (let i = 0; i < nights; i++) {
                     const cur = new Date(dIn);
                     cur.setDate(cur.getDate() + i);
                     const curStr = cur.toISOString().split('T')[0];
                     const dayLabel = formatD(cur);
                     
-                    // Retrieve regime for this day
                     const regime = gRegimen;
                     const dayServices = getServicesForRegime(regime);
                     
@@ -761,13 +1067,10 @@
                             serviceNote = 'Almuerzo de tres platos. Menú único.';
                         }
                         
-                        // Check if we already have this service on this day
-                        // To avoid duplicates
                         addRowServicio(targetLabel, s, s === 'Desayuno' ? 'AD' : 'MP', `${totalPax} pax`, serviceHour, serviceNote);
                     });
                 }
                 
-                // Add Check-Out Service on Last Day
                 addRowServicio(
                     formatD(checkOutDate),
                     'Salida / check-out',
@@ -777,12 +1080,10 @@
                     'Revisar cargos extras pendientes en recepción antes del check-out.'
                 );
             } else {
-                // Fallback row if no dates
                 addRowServicio('DÍA 1', 'Llegada / check-in', 'Entrada', `${totalPax} pax`, '---', 'Coordinar llegada.');
             }
 
             // AUTO-GENERATE DEPARTAMENT SUMMARIES
-            // 1. Recepción
             const recSummary = `
                 &bull; Entrada del grupo: ${totalPax} personas / ${totalRooms} habitaciones.<br>
                 &bull; Distribución: ${roomsText}.<br>
@@ -791,7 +1092,6 @@
             `;
             document.getElementById('dept-recepcion').innerHTML = recSummary.trim();
 
-            // 2. Cocina / Restaurante
             const restSummary = `
                 &bull; Régimen general: ${gRegimen}.<br>
                 &bull; Desayunos y cenas: horarios y menús pendientes de coordinar con el guía del grupo.<br>
@@ -799,7 +1099,6 @@
             `;
             document.getElementById('dept-restaurante').innerHTML = restSummary.trim();
 
-            // 3. Administración
             const admSummary = `
                 &bull; Total presupuesto: ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
                 &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
