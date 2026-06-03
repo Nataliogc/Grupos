@@ -569,15 +569,28 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const finalInDate = window.checkInDateRaw || '';
             const finalOutDate = window.checkOutDateRaw || '';
 
-            const prompt = `Analiza el siguiente texto que contiene un listado de habitaciones (Rooming List) y extrae la información en formato JSON estrictamente como un array de objetos.
+            const prompt = `Analiza el siguiente texto que contiene un listado de habitaciones (Rooming List) enviado por un cliente. Extrae la información en formato JSON estrictamente como un array de objetos de habitación.
 
-Cada objeto en el array representa una habitación y debe tener estos campos exactos:
-- "roomNo": número de habitación (ej: "1", "2"). Si no viene especificado en el texto, infiérelo correlativamente (1, 2, 3...).
+INSTRUCCIONES DE EXTRACCIÓN INTELIGENTE:
+1. IGNORA DATOS IRRELEVANTES: Omite saludos, despedidas, firmas de correo, correos de hilos antiguos, explicaciones generales del viaje, precios o tarifas de habitaciones, y cualquier texto administrativo que no describa a los ocupantes de las habitaciones.
+2. FLEXIBILIDAD DE FORMATOS: El cliente puede enviar los datos en formato de tabla, lista numerada, párrafos narrativos, etc. Extrae la información sin importar el orden de las columnas o cómo esté estructurado el texto.
+3. DETECCIÓN DE TIPOS DE HABITACIÓN IMPLÍCITOS: Si no se especifica el tipo de habitación ("type") de forma explícita, dedúcelo del número de ocupantes:
+   - 1 ocupante -> "Individual"
+   - 2 ocupantes -> "Doble"
+   - 3 ocupantes -> "Triple"
+   - 4 ocupantes -> "Cuádruple"
+   (Si es un chofer o guía, llámalo "Individual" o "Doble" según corresponda).
+4. SEPARACIÓN DE NOMBRE Y DNI: Aísla los nombres de los ocupantes de sus DNIs. Si el DNI viene pegado al nombre (ej: "Juan Pérez (DNI: 12345678A)" o "Juan Pérez 12345678A"), limpia el nombre para que quede únicamente "Juan Pérez" y asigna "12345678A" en el campo "dni".
+5. MÚLTIPLES OCUPANTES EN UNA HABITACIÓN: Concatena los nombres en el campo "ocupantes" separados por salto de línea ("\n"). Concatena sus DNIs correspondientes en el campo "dni" en el mismo orden, separados por punto y coma (";"). Si a alguno le falta el DNI, pon "Pendiente" para ese ocupante.
+6. OBSERVACIONES: Captura peticiones específicas como "cama de matrimonio", "movilidad reducida", "alergia al gluten", "plazas delanteras en autobús", etc., y colócalas en el campo "observ".
+
+CAMPOS DEL JSON PARA CADA HABITACIÓN:
+- "roomNo": número o identificador de habitación. Si no viene en el texto, genéralo correlativamente ("1", "2", "3"...).
 - "type": tipo de habitación (ej: "Doble", "Individual", "Triple").
 - "pax": número de ocupantes en esa habitación (ej: 1, 2, 3).
-- "ocupantes": nombres de los ocupantes. Si hay más de un ocupante en la habitación, concatena los nombres separados por salto de línea ("\\n") o punto y coma ";".
-- "dni": DNIs correspondientes a los ocupantes (separados por punto y coma ";" si hay varios). Si no está disponible, pon "Pendiente".
-- "observ": observaciones o peticiones especiales asociadas a la habitación o personas (ej: "cama de matrimonio", "se marea", "intolerante al gluten"). Si no hay observaciones, pon "".
+- "ocupantes": nombres de los ocupantes (separados por salto de línea "\\n" si son varios).
+- "dni": DNIs de los ocupantes (separados por punto y coma ";" si son varios). Si no está disponible, pon "Pendiente".
+- "observ": observaciones especiales de la habitación o personas. Si no hay, pon "".
 
 Usa estos datos por defecto para rellenar las propiedades de cada habitación si no se especifica otra cosa en el texto:
 - hotel: "${hHotel}"
@@ -681,15 +694,15 @@ ${inputVal}`;
                 const newTotalPax = newList.reduce((acc, r) => acc + (parseInt(r.pax) || 0), 0);
                 const newTotalSum = finalRoomingList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
 
-                // Save back to Firestore
-                await docRef.update({
+                // Save back to Firestore (using set with merge: true to support literal keys with dots like "Pax.")
+                await docRef.set({
                     RoomingList_JSON: JSON.stringify(finalRoomingList),
                     "Pax.": newTotalPax.toString(),
                     "Cant.": newTotalRooms.toString(),
                     "Habitaciones": `${newTotalRooms} habitaciones`,
                     "Importe(*)": newTotalSum.toFixed(2),
                     "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
-                });
+                }, { merge: true });
 
                 // Borrar caché local para forzar recarga de los datos de Firestore actualizados
                 localStorage.removeItem('roomingServicios_' + currentReservaId);
