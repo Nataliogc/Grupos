@@ -1024,8 +1024,15 @@ ${inputVal}`;
             });
 
             // Set up Pending List
-            // 1. Payment Pending
+            // 1. Payment Pending (subtracting agency commission if applicable)
             const totalRevenue = parseFloat(rec['Importe(*)'] || group.totalRevenue || 0);
+            let totalCommission = 0;
+            try {
+                totalCommission = roomingList.reduce((acc, i) => acc + (parseFloat(i.comision && i.comision.total_comision) || 0), 0);
+            } catch(e) {}
+            
+            const netTotal = Math.max(0, totalRevenue - totalCommission);
+            
             let paidAmount = 0;
             try {
                 const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
@@ -1033,7 +1040,7 @@ ${inputVal}`;
             } catch(e) {
                 paidAmount = parseFloat(rec['Com_Pagado'] || 0);
             }
-            const pendingAmount = totalRevenue - paidAmount;
+            const pendingAmount = Math.max(0, netTotal - paidAmount);
             
             if (pendingAmount > 0.05) {
                 let deadline = '---';
@@ -1045,9 +1052,12 @@ ${inputVal}`;
                 if (deadline === '---' && rec['Com_Vencimiento_Rel']) {
                     deadline = formatD(rec['Com_Vencimiento_Rel']);
                 }
+                const detailsText = totalCommission > 0 
+                    ? `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total neto: ${netTotal.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € (bruto: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} €)`
+                    : `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total reserva: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} €`;
                 addRowPendiente(
                     'Último pago',
-                    `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total reserva: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} €`,
+                    detailsText,
                     deadline,
                     'Administración / Comercial'
                 );
@@ -1147,9 +1157,33 @@ ${inputVal}`;
                             serviceNote = 'Solicitar horario al grupo para coordinar sala de desayunos.';
                             serviceHour = 'PENDIENTE';
                         } else if (s === 'Cena') {
-                            serviceNote = 'Cena buffet o menú de tres platos. Coordinar horarios.';
+                            serviceNote = 'Cena: Menú del día (tres platos). Coordinar horarios.';
                         } else if (s === 'Almuerzo') {
-                            serviceNote = 'Almuerzo de tres platos. Menú único.';
+                            serviceNote = 'Almuerzo: Menú del día (tres platos).';
+                        }
+
+                        // Look up menu and hour from Orden de Servicio local storage
+                        try {
+                            const osDataStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+                            if (osDataStr) {
+                                const osData = JSON.parse(osDataStr);
+                                if (osData && osData.planRows) {
+                                    const match = osData.planRows.find(row => 
+                                        (row.dia || '').trim() === targetLabel.trim() && 
+                                        (row.serv || '').trim().toLowerCase() === s.trim().toLowerCase()
+                                    );
+                                    if (match) {
+                                        if (match.menu && match.menu.trim()) {
+                                            serviceNote = `${s}: ${match.menu.trim()}`;
+                                        }
+                                        if (match.hora && match.hora.trim() && match.hora.trim() !== '___:___ h') {
+                                            serviceHour = match.hora.trim();
+                                        }
+                                    }
+                                }
+                            }
+                        } catch(e) {
+                            console.error('Error matching Orden de Servicio planRows:', e);
                         }
                         
                         addRowServicio(targetLabel, s, s === 'Desayuno' ? 'AD' : 'MP', `${totalPax} pax`, serviceHour, serviceNote);
@@ -1177,20 +1211,45 @@ ${inputVal}`;
             `;
             document.getElementById('dept-recepcion').innerHTML = recSummary.trim();
 
+            let restMealsInfo = 'Servicios de restauración pendientes de coordinar según el régimen del grupo.';
+            const normRegime = (gRegimen || '').toUpperCase().trim();
+            if (normRegime === 'SA') {
+                restMealsInfo = 'Solo Alojamiento: No hay servicios de restauración contratados para este grupo.';
+            } else if (normRegime === 'AD' || normRegime === 'HD') {
+                restMealsInfo = 'Desayunos: Horario de servicio de desayunos pendiente de coordinar con el guía del grupo.';
+            } else if (normRegime === 'MP') {
+                restMealsInfo = 'Desayunos y Cenas: Horarios y menús de cenas pendientes de coordinar con el guía del grupo.';
+            } else if (normRegime === 'PC') {
+                restMealsInfo = 'Desayunos, Almuerzos y Cenas: Horarios y menús de comidas/cenas pendientes de coordinar con el guía.';
+            } else if (normRegime === 'TI') {
+                restMealsInfo = 'Todo Incluido (Desayunos, Almuerzos, Cenas y Bebidas): Horarios y servicios a coordinar con el guía.';
+            }
+
             const restSummary = `
                 &bull; Régimen general: ${gRegimen}.<br>
-                &bull; Desayunos y cenas: horarios y menús pendientes de coordinar con el guía del grupo.<br>
+                &bull; ${restMealsInfo}<br>
                 &bull; Dietas / Alergias: Revisar observaciones si hay comensales con régimen especial (vegetarianos, alergias).
             `;
             document.getElementById('dept-restaurante').innerHTML = restSummary.trim();
 
-            const admSummary = `
-                &bull; Total presupuesto: ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
+            let admSummaryText = ``;
+            if (totalCommission > 0) {
+                admSummaryText += `
+                    &bull; Total presupuesto (Bruto): ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
+                    &bull; Comisión Agencia: ${totalCommission.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Total Neto a cobrar: ${netTotal.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                `;
+            } else {
+                admSummaryText += `
+                    &bull; Total presupuesto: ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
+                `;
+            }
+            admSummaryText += `
                 &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
                 &bull; Pendiente de cobro final: ${pendingAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
                 &bull; Términos: Pagos anticipados no reembolsables.
             `;
-            document.getElementById('dept-administracion').innerHTML = admSummary.trim();
+            document.getElementById('dept-administracion').innerHTML = admSummaryText.trim();
 
             // File Drop Area drag & drop setup
             const dropArea = document.getElementById('drop-area');
