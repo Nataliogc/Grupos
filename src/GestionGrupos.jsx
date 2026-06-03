@@ -12574,9 +12574,7 @@
 
                                           <span className="text-[10px] font-bold text-slate-500 uppercase">
 
-                                                "Sercotel Guadiana")
-
-                                            )}
+                                            {item.hotel || "Sercotel Guadiana"}
 
                                           </span>
 
