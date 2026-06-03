@@ -242,8 +242,18 @@
             <!-- Body -->
             <div class="p-6 space-y-4 flex-1 overflow-y-auto">
                 <p class="text-[11px] text-slate-500 leading-relaxed font-sans">
-                    Pega a continuación el listado de habitaciones enviado por tu cliente. Puede ser texto plano copiado de un email, de un documento de Word o de un Excel. Nuestra IA (Gemini) extraerá automáticamente los ocupantes, DNIs, tipo de habitación, número de habitación y observaciones especiales, vinculando los precios originales de la reserva.
+                    Sube un documento (PDF, Word o Texto) o pega el listado de habitaciones enviado por tu cliente. Nuestra IA (Gemini) extraerá automáticamente los ocupantes, DNIs, tipo de habitación, número de habitación y observaciones especiales, vinculando los precios originales de la reserva.
                 </p>
+                
+                <!-- File upload area -->
+                <div class="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50 hover:bg-slate-50/50 transition-all rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer relative group shadow-sm" id="drop-area">
+                    <input type="file" id="file-uploader" class="absolute inset-0 opacity-0 cursor-pointer" accept=".txt,.csv,.doc,.docx,.pdf" onchange="handleFileSelect(event)">
+                    <span class="text-xl text-slate-400 group-hover:text-indigo-500 transition-colors">📁</span>
+                    <div class="text-[10px] font-black uppercase text-slate-500 tracking-wider text-center">Arrastra aquí tu documento o haz clic para subir</div>
+                    <div class="text-[9px] font-bold text-slate-400 uppercase text-center">Formatos aceptados: PDF, Word (.docx) o Texto (.txt)</div>
+                    <div id="file-upload-status" class="text-[10px] text-indigo-600 font-bold hidden text-center mt-1">Procesando archivo...</div>
+                </div>
+
                 <textarea id="ia-text-input" class="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-sans leading-relaxed resize-none" placeholder="Pega el listado aquí... Ej:
 Hab. 1 - Doble - Cano Llorca, Vicki (DNI: 25120766M) y Carrillo Gascón, María Dolores (DNI: 05107797A)
 Hab. 2 - Individual - Barambio, Amador (DNI: 4536739N)
@@ -266,6 +276,14 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
     <script src="js/utils.js"></script>
     <script src="js/gemini.js"></script>
     <script src="js/firebase-init.js"></script>
+    <!-- Mammoth.js for DOCX parsing and PDF.js for PDF parsing client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker URL
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
 
     <!-- CODE SCRIPT -->
     <script>
@@ -586,7 +604,7 @@ ${inputVal}`;
                 }
 
                 // Query original group record to get current RoomingList_JSON and save back to Firestore
-                const docRef = window.db.collection("groups").doc(currentReservaId);
+                const docRef = window.db.collection("groups").doc(String(currentReservaId));
                 const docSnap = await docRef.get();
                 if (!docSnap.exists) {
                     throw new Error('No se encontró el grupo en la base de datos.');
@@ -692,6 +710,60 @@ ${inputVal}`;
             }
         }
 
+        // Reader handler for PDF, DOCX or TXT files
+        async function handleFileSelect(e) {
+            const files = e.target.files || (e.dataTransfer && e.dataTransfer.files);
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            
+            const statusDiv = document.getElementById('file-upload-status');
+            const textarea = document.getElementById('ia-text-input');
+            
+            statusDiv.classList.remove('hidden');
+            statusDiv.innerText = `Cargando "${file.name}"...`;
+            
+            try {
+                let text = '';
+                const ext = file.name.split('.').pop().toLowerCase();
+                
+                if (ext === 'docx') {
+                    if (typeof mammoth === 'undefined') {
+                        throw new Error('La librería Mammoth.js no está lista.');
+                    }
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    text = result.value || '';
+                } else if (ext === 'pdf') {
+                    if (typeof pdfjsLib === 'undefined') {
+                        throw new Error('La librería PDF.js no está lista.');
+                    }
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let textParts = [];
+                    for (let j = 1; j <= pdf.numPages; j++) {
+                        const page = await pdf.getPage(j);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        textParts.push(pageText);
+                    }
+                    text = textParts.join('\n');
+                } else {
+                    // Text files, CSV, etc.
+                    text = await file.text();
+                }
+                
+                if (text && text.trim()) {
+                    textarea.value = text;
+                    statusDiv.innerHTML = `<span class="text-emerald-600">✅ ¡"${file.name}" cargado! Revisa el texto e inicia la extracción con el botón inferior.</span>`;
+                } else {
+                    statusDiv.innerHTML = `<span class="text-amber-500">⚠️ No se extrajo texto legible de "${file.name}".</span>`;
+                }
+            } catch (err) {
+                console.error(err);
+                statusDiv.innerHTML = `<span class="text-red-500">❌ Error al leer "${file.name}": ${err.message}</span>`;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const rawGroupData = localStorage.getItem('selectedGroup');
             if (!rawGroupData) {
@@ -705,7 +777,7 @@ ${inputVal}`;
 
             const group = JSON.parse(rawGroupData);
             const rec = group.records ? (group.records[0] || {}) : group;
-            currentReservaId = rec['Reserva'] || group.id || group.reserva || 'unknown';
+            currentReservaId = String(rec['Reserva'] || group.id || group.reserva || 'unknown').trim();
             
             // Set static/calculated headers
             document.getElementById('header-reserva').innerText = currentReservaId;
@@ -1106,6 +1178,34 @@ ${inputVal}`;
                 &bull; Términos: Pagos anticipados no reembolsables.
             `;
             document.getElementById('dept-administracion').innerHTML = admSummary.trim();
+
+            // File Drop Area drag & drop setup
+            const dropArea = document.getElementById('drop-area');
+            if (dropArea) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        dropArea.classList.remove('border-slate-200', 'bg-slate-50');
+                        dropArea.classList.add('border-indigo-400', 'bg-indigo-50/20');
+                    }, false);
+                });
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, (e) => {
+                        e.preventDefault();
+                        dropArea.classList.remove('border-indigo-400', 'bg-indigo-50/20');
+                        dropArea.classList.add('border-slate-200', 'bg-slate-50');
+                    }, false);
+                });
+                dropArea.addEventListener('drop', (e) => {
+                    const dt = e.dataTransfer;
+                    const files = dt.files;
+                    if (files.length > 0) {
+                        const input = document.getElementById('file-uploader');
+                        input.files = files;
+                        handleFileSelect({ target: { files: files } });
+                    }
+                }, false);
+            }
 
             saveStateToCache();
         });
