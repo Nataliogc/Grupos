@@ -704,6 +704,48 @@ ${inputVal}`;
                     "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
+                // Sincronizar localStorage.selectedGroup de inmediato
+                const rawGroupData = localStorage.getItem('selectedGroup');
+                if (rawGroupData) {
+                    try {
+                        let group = JSON.parse(rawGroupData);
+                        const updatePayload = {
+                            RoomingList_JSON: JSON.stringify(finalRoomingList),
+                            "Pax.": newTotalPax.toString(),
+                            "Cant.": newTotalRooms.toString(),
+                            "Habitaciones": `${newTotalRooms} habitaciones`,
+                            "Importe(*)": newTotalSum.toFixed(2)
+                        };
+                        
+                        let updated = false;
+                        if (Array.isArray(group)) {
+                            const match = group.find(g => String(g.Reserva || g.id || g.reserva || '').trim() === currentReservaId);
+                            if (match) {
+                                Object.assign(match, updatePayload);
+                                updated = true;
+                            }
+                        } else {
+                            if (group.records && Array.isArray(group.records)) {
+                                const match = group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId);
+                                if (match) {
+                                    Object.assign(match, updatePayload);
+                                    updated = true;
+                                } else if (group.records.length > 0) {
+                                    Object.assign(group.records[0], updatePayload);
+                                    updated = true;
+                                }
+                            }
+                            if (!updated || String(group.Reserva || group.id || group.reserva || '').trim() === currentReservaId) {
+                                Object.assign(group, updatePayload);
+                            }
+                        }
+                        
+                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    } catch (e) {
+                        console.error("Error updating selectedGroup in localStorage:", e);
+                    }
+                }
+
                 // Borrar caché local para forzar recarga de los datos de Firestore actualizados
                 localStorage.removeItem('roomingServicios_' + currentReservaId);
 
@@ -777,7 +819,7 @@ ${inputVal}`;
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const rawGroupData = localStorage.getItem('selectedGroup');
             if (!rawGroupData) {
                 document.getElementById('document-area').innerHTML = `
@@ -788,9 +830,74 @@ ${inputVal}`;
                 return;
             }
 
-            const group = JSON.parse(rawGroupData);
-            const rec = group.records ? (group.records[0] || {}) : group;
+            let group = JSON.parse(rawGroupData);
+            let rec = group.records ? (group.records[0] || {}) : group;
             currentReservaId = String(rec['Reserva'] || group.id || group.reserva || 'unknown').trim();
+
+            // Try to load the most up-to-date data from Firestore to prioritize its fields
+            if (currentReservaId !== "unknown" && window.db) {
+                try {
+                    const docSnap = await window.db.collection("groups").doc(currentReservaId).get();
+                    if (docSnap.exists) {
+                        const firestoreData = docSnap.data();
+                        
+                        // Find the target object within group structure for precise merging
+                        let targetObj = null;
+                        let updated = false;
+                        if (Array.isArray(group)) {
+                            targetObj = group.find(g => String(g.Reserva || g.id || g.reserva || '').trim() === currentReservaId);
+                            if (targetObj) updated = true;
+                        } else {
+                            if (group.records && Array.isArray(group.records)) {
+                                targetObj = group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId);
+                                if (targetObj) {
+                                    updated = true;
+                                } else if (group.records.length > 0) {
+                                    targetObj = group.records[0];
+                                    updated = true;
+                                }
+                            }
+                            if (!updated || String(group.Reserva || group.id || group.reserva || '').trim() === currentReservaId) {
+                                targetObj = group;
+                            }
+                        }
+
+                        // Merge logic favoring Firestore for specific updated fields, but not overriding with empty values if local is valid
+                        const fieldsToUpdate = [
+                            'RoomingList_JSON', 'Servicios_JSON', 'Pax.', 'Cant.', 'Habitaciones',
+                            'Importe(*)', 'Com_Notas', 'Observaciones', 'Entrada', 'Salida',
+                            'Régimen', 'Hotel_Asignado', 'Hotel'
+                        ];
+                        fieldsToUpdate.forEach(key => {
+                            const remoteValue = firestoreData[key];
+                            if (remoteValue !== undefined && remoteValue !== null) {
+                                const localValue = targetObj[key];
+                                // Check if local has a non-empty value and remote is empty
+                                if (localValue && localValue !== "" && localValue !== "[]" && (remoteValue === "" || remoteValue === "[]")) {
+                                    // Do not overwrite local valid value with empty/undefined/null remote value
+                                } else {
+                                    targetObj[key] = remoteValue;
+                                }
+                            }
+                        });
+                        
+                        // Merge remaining Firestore data to keep local storage in sync, also preventing overwriting local valid with empty values
+                        Object.keys(firestoreData).forEach(key => {
+                            if (firestoreData[key] !== undefined && firestoreData[key] !== null) {
+                                const localVal = targetObj[key];
+                                if (!(localVal && localVal !== "" && localVal !== "[]" && (firestoreData[key] === "" || firestoreData[key] === "[]"))) {
+                                    targetObj[key] = firestoreData[key];
+                                }
+                            }
+                        });
+                        
+                        rec = group.records ? (group.records[0] || {}) : group;
+                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    }
+                } catch (e) {
+                    console.error("Error fetching updated group from Firestore:", e);
+                }
+            }
             
             // Set static/calculated headers
             document.getElementById('header-reserva').innerText = currentReservaId;

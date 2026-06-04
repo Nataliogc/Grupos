@@ -3046,93 +3046,132 @@
 
 
         try {
-
           const mappedItems = [];
-
           const fallbackDate =
-
             group.arrival ||
-
             baseRecord["Entrada"] ||
-
             new Date().toISOString().split("T")[0];
 
-
-
           if (roomList.length > 0) {
+            const groupedMap = {};
+            const ungroupedItems = [];
+
+            // Normalization helpers
+            const normText = (txt) => (txt || '').trim().toLowerCase();
+            const normPrice = (pr) => Number(pr || 0).toFixed(2);
+            const normalizeIva = (value, fallback = 10) => {
+              if (value === null || value === undefined || value === "") {
+                return Number(fallback).toFixed(2);
+              }
+              const parsed = Number(value);
+              return Number.isFinite(parsed)
+                ? parsed.toFixed(2)
+                : Number(fallback).toFixed(2);
+            };
+            const getComisionKey = (com) => {
+              if (!com) return "no_com";
+              const percent = normPrice(com.porcentaje);
+              const modo = normText(com.modo);
+              const unitaria = normPrice(com.comision_unitaria);
+              const base = normPrice(com.base_unitaria);
+              return `com_${modo}_pct_${percent}_unit_${unitaria}_base_${base}`;
+            };
 
             roomList.forEach((r) => {
-
               const nights = parseInt(r.nights) || 1;
-
               const dInStr =
-
                 toInputDate(r.dateIn) || toInputDate(fallbackDate);
-
               const dIn = new Date(dInStr);
 
-
+              // Selective grouping logic: only group room block charges that do NOT have observations
+              const isRoomType = !r.isService;
+              const hasObserv = (
+                (r.observ && r.observ.trim() !== "") ||
+                (r.observaciones && r.observaciones.trim() !== "") ||
+                (r.Observaciones && r.Observaciones.trim() !== "") ||
+                (r.nota && r.nota.trim() !== "") ||
+                (r.notas && r.notas.trim() !== "")
+              );
+              const isGroupable = isRoomType && !hasObserv;
 
               for (let i = 0; i < nights; i++) {
-
                 const currentDay = new Date(dIn);
-
                 if (!isNaN(currentDay.getTime())) {
-
                   currentDay.setDate(currentDay.getDate() + i);
-
                 }
-
                 const finalIso = !isNaN(currentDay.getTime())
-
                   ? currentDay.toISOString().split("T")[0]
-
                   : toInputDate(fallbackDate);
 
-
-
-                mappedItems.push({
-
+                const itemData = {
+                  _dateIso: finalIso, // Temp for sorting
                   fecha: formatDate(finalIso),
-
                   hab: "1",
-
-                  cant: (parseInt(r.qty) || 1).toString(),
-
+                  cant: (parseInt(r.qty) || 1), // Number first to accumulate
                   concepto: `${r.type}${r.regime ? ` (${r.regime})` : ""}`,
-
                   precio: parseFloat(r.price) || 0,
-
-                  iva: parseInt(r.iva || 10),
-
+                  iva: Number(normalizeIva(r.iva, 10)),
                   regimen: r.regime || "",
-
                   dias: "1",
-
                   comision: r.comision,
+                };
 
-                });
+                if (isGroupable) {
+                  const dateKey = finalIso;
+                  const typeKey = normText(r.type);
+                  const regimeKey = normText(r.regime);
+                  const priceKey = normPrice(r.price);
+                  const ivaKey = normalizeIva(r.iva, 10);
+                  const comKey = getComisionKey(r.comision);
 
+                  const groupKey = `${dateKey}_${typeKey}_${regimeKey}_${priceKey}_${ivaKey}_${comKey}`;
+
+                  if (!groupedMap[groupKey]) {
+                    groupedMap[groupKey] = {
+                      ...itemData,
+                      cant: 0
+                    };
+                  }
+                  groupedMap[groupKey].cant += parseInt(r.qty) || 1;
+                } else {
+                  // Keep item exact quantity
+                  ungroupedItems.push(itemData);
+                }
               }
+            });
 
+            // Format grouped quantities back to strings
+            const groupedList = Object.values(groupedMap).map((item) => {
+              item.cant = item.cant.toString();
+              return item;
+            });
+            const formattedUngroupedList = ungroupedItems.map((item) => {
+              item.cant = item.cant.toString();
+              return item;
+            });
+
+            // Combine and sort chronologically, then alphabetically
+            const allItems = [...groupedList, ...formattedUngroupedList];
+            allItems.sort((a, b) => {
+              if (a._dateIso !== b._dateIso) {
+                return a._dateIso.localeCompare(b._dateIso);
+              }
+              return a.concepto.localeCompare(b.concepto);
+            });
+
+            // Remove temp sorting field and push to mappedItems
+            allItems.forEach((item) => {
+              delete item._dateIso;
+              mappedItems.push(item);
             });
 
             if (mappedItems.length > 0) {
-
+              const totalOriginal = parseFloat(roomList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0).toFixed(2));
               proformaData["ProformaItems"] = mappedItems;
-
               // En proforma forzamos el importe a la suma de líneas
-
-              proformaData["Importe(*)"] = roomList
-
-                .reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0)
-
-                .toFixed(2);
-
+              proformaData["Importe(*)"] = totalOriginal.toFixed(2);
             }
-
           }
-
         } catch (e) {
 
           console.error("Error mapping room list", e);
