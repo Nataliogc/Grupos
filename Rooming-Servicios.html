@@ -180,16 +180,15 @@
                 <span>✦ Importar Rooming con IA</span>
             </button>
         </div>
-        <div class="text-[10px] italic text-slate-500 mb-2">Listado preparado para recepción. Los DNI figuran solo cuando aparecen en el listado recibido; deberán verificarse en el check-in.</div>
+        <div class="text-[10px] italic text-slate-500 mb-2">Listado preparado para recepción.</div>
         <table id="table-rooming">
             <thead>
                 <tr>
                     <th style="width: 8%">Hab.</th>
                     <th style="width: 15%">Tipo</th>
                     <th style="width: 8%">Pax</th>
-                    <th style="width: 35%">Ocupantes</th>
-                    <th style="width: 16%">DNI aportado</th>
-                    <th style="width: 18%">Observaciones</th>
+                    <th style="width: 45%">Ocupantes</th>
+                    <th style="width: 20%">Observaciones</th>
                     <th class="no-print" style="width: 4%"></th>
                 </tr>
             </thead>
@@ -242,7 +241,7 @@
             <!-- Body -->
             <div class="p-6 space-y-4 flex-1 overflow-y-auto">
                 <p class="text-[11px] text-slate-500 leading-relaxed font-sans">
-                    Sube un documento (PDF, Word o Texto) o pega el listado de habitaciones enviado por tu cliente. Nuestra IA (Gemini) extraerá automáticamente los ocupantes, DNIs, tipo de habitación, número de habitación y observaciones especiales, vinculando los precios originales de la reserva.
+                    Sube un documento (PDF, Word o Texto) o pega el listado de habitaciones enviado por tu cliente. Nuestra IA (Gemini) extraerá automáticamente los ocupantes, tipo de habitación, número de habitación y observaciones especiales, vinculando los precios originales de la reserva.
                 </p>
                 
                 <!-- File upload area -->
@@ -431,7 +430,6 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             tr.appendChild(createEditableCell(tipo));
             tr.appendChild(createEditableCell(pax));
             tr.appendChild(createEditableCell(ocupantes));
-            tr.appendChild(createEditableCell(dni));
             tr.appendChild(createEditableCell(observ));
             
             const btnTd = document.createElement('td');
@@ -481,14 +479,14 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const rooming = [];
             document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
                 const cells = tr.querySelectorAll('td.editable');
-                if (cells.length === 6) {
+                if (cells.length === 5) {
                     rooming.push({
                         hab: cells[0].innerText,
                         tipo: cells[1].innerText,
                         pax: cells[2].innerText,
                         ocupantes: cells[3].innerText,
-                        dni: cells[4].innerText,
-                        observ: cells[5].innerText
+                        dni: '',
+                        observ: cells[4].innerText
                     });
                 }
             });
@@ -972,7 +970,6 @@ ${inputVal}`;
             // Count rooms and types using daily peak occupancy (to avoid duplicates from multi-day stays)
             let totalRooms = 0;
             let roomCountsByType = {};
-            let missingDniCount = 0;
             let chefMissingName = false;
 
             // Determine if the list is already expanded with occupants
@@ -1053,10 +1050,8 @@ ${inputVal}`;
                     if (item.isService) return;
                     
                     const occName = (item.ocupantes || '').trim();
-                    const dniVal = (item.dni || '').trim();
                     
                     let finalOcc = occName;
-                    let finalDni = dniVal;
                     
                     if (!occName) {
                         if (item.type.toUpperCase().includes('CHOFER') || item.type.toUpperCase().includes('GUIA')) {
@@ -1066,17 +1061,13 @@ ${inputVal}`;
                             finalOcc = 'Ocupante Pendiente';
                         }
                     }
-                    if (!dniVal || dniVal.toLowerCase().includes('pend')) {
-                        finalDni = 'Pendiente';
-                        missingDniCount++;
-                    }
 
                     listToDisplay.push({
                         hab: item.roomNo || autoIdx++,
                         tipo: item.type,
                         pax: item.pax || 2,
                         ocupantes: finalOcc,
-                        dni: finalDni,
+                        dni: item.dni || '',
                         observ: item.observ || ''
                     });
                 });
@@ -1109,10 +1100,9 @@ ${inputVal}`;
                             tipo: rType,
                             pax: paxVal,
                             ocupantes: finalOcc,
-                            dni: 'Pendiente',
+                            dni: '',
                             observ: ''
                         });
-                        missingDniCount++;
                     }
                 });
             }
@@ -1198,19 +1188,10 @@ ${inputVal}`;
                 );
             }
 
-            // If we have missing DNIs, add row to pending
-            if (missingDniCount > 0) {
-                addRowPendiente(
-                    'Datos incompletos',
-                    `Faltan DNI de ${missingDniCount} ocupantes en la rooming list.`,
-                    'Al check-in',
-                    'Recepción'
-                );
-            }
             if (chefMissingName) {
                 addRowPendiente(
                     'Nombre de chofer/guía',
-                    'Falta confirmar nombre y DNI del chofer del grupo.',
+                    'Falta confirmar nombre del chofer del grupo.',
                     'Check-in',
                     'Recepción / Comercial'
                 );
@@ -1313,8 +1294,7 @@ ${inputVal}`;
             const recSummary = `
                 &bull; Entrada del grupo: ${totalPax} personas / ${totalRooms} habitaciones.<br>
                 &bull; Distribución: ${roomsText}.<br>
-                &bull; Completar DNI pendientes: ${missingDniCount > 0 ? missingDniCount + ' personas' : 'Ninguno'}.<br>
-                &bull; Chofer / Guía: ${chefMissingName ? 'Nombre y DNI pendientes' : 'Datos aportados'}.
+                &bull; Chofer / Guía: ${chefMissingName ? 'Nombre pendiente' : 'Nombre aportado'}.
             `;
             document.getElementById('dept-recepcion').innerHTML = recSummary.trim();
 
