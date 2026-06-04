@@ -29,6 +29,9 @@
             .page-container { box-shadow: none; border: none; margin: 0; padding: 10mm 10mm; min-height: auto; }
             .no-print { display: none !important; }
             input, textarea, .editable { border: none !important; resize: none; overflow: hidden; background: transparent !important; }
+            .dept-box { page-break-inside: avoid; break-inside: avoid; }
+            tr { page-break-inside: avoid; break-inside: avoid; }
+            .section-title { page-break-after: avoid; break-after: avoid; }
         }
         .editable {
             transition: all 0.2s;
@@ -1593,14 +1596,46 @@ ${inputVal}`;
                     deadline,
                     'Administración / Comercial'
                 );
-                document.getElementById('gen-estado-critico').innerText = 'Pago final y desayunos pendientes';
-            } else {
-                document.getElementById('gen-estado-critico').innerText = 'Falta concretar detalles operativos';
             }
 
             // 2. Breakfast hours
-            const needsBreakfast = gRegimen.toUpperCase().includes('AD') || gRegimen.toUpperCase().includes('MP') || gRegimen.toUpperCase().includes('PC');
-            if (needsBreakfast) {
+            const needsBreakfast = gRegimen.toUpperCase().includes('AD') || gRegimen.toUpperCase().includes('HD') || gRegimen.toUpperCase().includes('MP') || gRegimen.toUpperCase().includes('PC');
+            
+            const dIn = parseDate(checkInDate);
+            const dOut = parseDate(checkOutDate);
+            let osPlanRows = [];
+            try {
+                const osDataStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+                if (osDataStr) {
+                    const osData = JSON.parse(osDataStr);
+                    osPlanRows = osData.planRows || [];
+                }
+            } catch(e) {
+                console.error('Error loading Service Order planRows:', e);
+            }
+
+            let missingBreakfastHours = false;
+            if (needsBreakfast && dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime())) {
+                const nights = Math.ceil((dOut - dIn) / (86400000));
+                for (let i = 1; i <= nights; i++) {
+                    const breakfastDate = new Date(dIn);
+                    breakfastDate.setDate(breakfastDate.getDate() + i);
+                    const label = formatD(breakfastDate);
+                    const targetDM = extractDayMonth(label);
+
+                    const match = osPlanRows.find(row => {
+                        const rowDM = extractDayMonth(row.dia);
+                        return rowDM && targetDM && rowDM.day === targetDM.day && rowDM.month === targetDM.month && (row.serv || '').trim().toLowerCase() === 'desayuno';
+                    });
+
+                    if (!match || !match.hora || match.hora.trim() === '___:___ h' || match.hora.trim().toUpperCase() === 'PENDIENTE') {
+                        missingBreakfastHours = true;
+                        break;
+                    }
+                }
+            }
+
+            if (needsBreakfast && missingBreakfastHours) {
                 addRowPendiente(
                     'Horas de desayuno',
                     'Faltan horarios previstos para coordinar restaurante sala de desayunos.',
@@ -1630,19 +1665,35 @@ ${inputVal}`;
                     'Check-in',
                     'Recepción / Comercial'
                 );
+            // Calculate critical status dynamically based on pending tasks
+            const pendingTasks = [];
+            document.querySelectorAll('#table-pendientes tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('td.editable');
+                if (cells.length === 4) {
+                    pendingTasks.push(cells[0].innerText.trim().toLowerCase());
+                }
+            });
+
+            const statusEl = document.getElementById('gen-estado-critico');
+            if (statusEl) {
+                if (pendingTasks.length === 0) {
+                    statusEl.innerText = 'Operativa confirmada y todo pagado';
+                    statusEl.className = 'editable text-emerald-700 font-bold';
+                } else {
+                    const uniqueTasks = Array.from(new Set(pendingTasks));
+                    const prettyTasks = uniqueTasks.map(t => {
+                        if (t.includes('pago') || t.includes('devolución')) return 'pago';
+                        if (t.includes('hora')) return 'horarios';
+                        if (t.includes('dieta')) return 'dietas';
+                        if (t.includes('chofer') || t.includes('guía')) return 'chofer/guía';
+                        return t;
+                    });
+                    statusEl.innerText = 'Pendiente: ' + prettyTasks.join(', ');
+                    statusEl.className = 'editable text-rose-700 font-bold';
+                }
             }
 
             // Set up Services Table
-            function getServicesForRegime(regime) {
-                const r = (regime || '').toUpperCase().trim();
-                if (r === 'PC') return ['Desayuno', 'Almuerzo', 'Cena'];
-                if (r === 'MP') return ['Desayuno', 'Cena'];
-                if (r === 'AD' || r === 'HD') return ['Desayuno'];
-                return [];
-            }
-
-            // Uses global parseDate helper
-
             const dIn = parseDate(checkInDate);
             const dOut = parseDate(checkOutDate);
             
@@ -1658,82 +1709,91 @@ ${inputVal}`;
                     'Coordinar entrega de llaves. El grupo puede comer primero si llega antes del almuerzo.'
                 );
 
-                for (let i = 0; i < nights; i++) {
+                const totalDays = nights + 1; // From check-in day to check-out day inclusive
+                for (let i = 0; i < totalDays; i++) {
                     const cur = new Date(dIn);
                     cur.setDate(cur.getDate() + i);
-                    const curStr = cur.toISOString().split('T')[0];
-                    const dayLabel = formatD(cur);
-                    
-                    const regime = gRegimen;
-                    const dayServices = getServicesForRegime(regime);
-                    
+                    const targetLabel = formatD(cur);
+                    const targetDM = extractDayMonth(targetLabel);
+
+                    // Find services in Service Order for this day
+                    const osServicesForDay = osPlanRows.filter(row => {
+                        const rowDM = extractDayMonth(row.dia);
+                        return rowDM && targetDM && rowDM.day === targetDM.day && rowDM.month === targetDM.month;
+                    });
+
+                    let dayServices = [];
+                    if (osPlanRows.length > 0) {
+                        // Use Service Order as the primary source of truth
+                        dayServices = osServicesForDay.map(row => ({
+                            name: row.serv,
+                            hour: row.hora || '___:___ h',
+                            note: row.menu || ''
+                        }));
+                    } else {
+                        // Fallback to regime-based generation if no Service Order plan exists
+                        const regime = gRegimen.toUpperCase();
+                        const needsBreakfast = regime.includes('AD') || regime.includes('HD') || regime.includes('MP') || regime.includes('PC');
+                        const needsLunch = regime.includes('PC');
+                        const needsDinner = regime.includes('MP') || regime.includes('PC');
+
+                        const tempServices = [];
+                        if (i > 0 && needsBreakfast) {
+                            tempServices.push('Desayuno');
+                        }
+                        if (i < nights && needsLunch) {
+                            tempServices.push('Almuerzo');
+                        }
+                        if (i < nights && needsDinner) {
+                            tempServices.push('Cena');
+                        }
+
+                        dayServices = tempServices.map(name => ({
+                            name: name,
+                            hour: name === 'Desayuno' ? 'PENDIENTE' : '___:___ h',
+                            note: ''
+                        }));
+                    }
+
+                    // Sort services chronologically on the day
+                    const serviceChronology = { 'Desayuno': 1, 'Almuerzo': 2, 'Cena': 3 };
+                    dayServices.sort((a, b) => (serviceChronology[a.name] || 99) - (serviceChronology[b.name] || 99));
+
+                    // Output rows for this day
                     dayServices.forEach(s => {
-                        let targetDate = new Date(cur);
-                        if (s === 'Desayuno') {
-                            targetDate.setDate(targetDate.getDate() + 1);
-                        }
-                        const targetLabel = formatD(targetDate);
-                        
-                        let serviceNote = '';
-                        let serviceHour = '___:___ h';
-                        if (s === 'Desayuno') {
-                            serviceHour = 'PENDIENTE';
-                        }
-
-                        // Look up menu and hour from Orden de Servicio local storage
-                        try {
-                            const osDataStr = localStorage.getItem('ordenServicio_' + currentReservaId);
-                            if (osDataStr) {
-                                const osData = JSON.parse(osDataStr);
-                                if (osData && osData.planRows) {
-                                    const match = osData.planRows.find(row => {
-                                        const dmRow = extractDayMonth(row.dia);
-                                        const dmTarget = extractDayMonth(targetLabel);
-                                        const dateMatch = dmRow && dmTarget && dmRow.day === dmTarget.day && dmRow.month === dmTarget.month;
-                                        const serviceMatch = (row.serv || '').trim().toLowerCase() === s.trim().toLowerCase();
-                                        return dateMatch && serviceMatch;
-                                    });
-                                    if (match) {
-                                        if (match.menu && match.menu.trim()) {
-                                            serviceNote = match.menu.trim();
-                                        }
-                                        if (match.hora && match.hora.trim() && match.hora.trim() !== '___:___ h') {
-                                            serviceHour = match.hora.trim();
-                                        }
-                                    }
-                                }
-                            }
-                        } catch(e) {
-                            console.error('Error matching Orden de Servicio planRows:', e);
-                        }
-
-                        // Determine the final operative note dynamically based on service type, hour, and custom notes
+                        let serviceNote = s.note.trim();
+                        let serviceHour = s.hour.trim();
                         const hasHour = serviceHour && serviceHour !== '___:___ h' && serviceHour.toUpperCase() !== 'PENDIENTE';
-                        
+
                         if (!serviceNote) {
-                            if (s === 'Desayuno') {
+                            if (s.name === 'Desayuno') {
                                 serviceNote = hasHour 
-                                    ? 'Desayuno buffet en restaurante.' 
+                                    ? 'Desayuno buffet en su sala.' 
                                     : 'Solicitar horario al grupo para coordinar sala de desayunos.';
-                            } else if (s === 'Cena') {
+                            } else if (s.name === 'Cena') {
                                 serviceNote = hasHour
                                     ? 'Cena: Menú del día (tres platos).'
                                     : 'Cena: Menú del día (tres platos). Coordinar horarios.';
-                            } else if (s === 'Almuerzo') {
+                            } else if (s.name === 'Almuerzo') {
                                 serviceNote = hasHour
                                     ? 'Almuerzo: Menú del día (tres platos).'
                                     : 'Almuerzo: Menú del día (tres platos). Coordinar horarios.';
                             } else {
-                                serviceNote = `${s} del grupo.`;
+                                serviceNote = `${s.name} del grupo.`;
                             }
                         } else {
                             // If they have a custom menu, make sure it has the service name prefix for clarity
-                            if (!serviceNote.toLowerCase().includes(s.toLowerCase())) {
-                                serviceNote = `${s}: ${serviceNote}`;
+                            if (!serviceNote.toLowerCase().includes(s.name.toLowerCase())) {
+                                serviceNote = `${s.name}: ${serviceNote}`;
                             }
                         }
+
+                        // Determine standard service code for Régimen column
+                        let serviceReg = 'MP';
+                        if (s.name === 'Desayuno') serviceReg = 'AD';
+                        else if (s.name === 'Almuerzo' && gRegimen.toUpperCase().includes('PC')) serviceReg = 'PC';
                         
-                        addRowServicio(targetLabel, s, s === 'Desayuno' ? 'AD' : 'MP', `${totalPax} pax`, serviceHour, serviceNote);
+                        addRowServicio(targetLabel, s.name, serviceReg, `${totalPax} pax`, serviceHour, serviceNote);
                     });
                 }
                 
