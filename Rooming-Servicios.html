@@ -1697,8 +1697,6 @@ ${inputVal}`;
             }
 
             // Set up Services Table
-            const dIn = parseDate(checkInDate);
-            const dOut = parseDate(checkOutDate);
             
             if (dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime()) && dOut > dIn) {
                 const nights = Math.ceil((dOut - dIn) / (86400000));
