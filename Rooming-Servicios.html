@@ -29,7 +29,8 @@
             .page-container { box-shadow: none; border: none; margin: 0; padding: 10mm 10mm; min-height: auto; }
             .no-print { display: none !important; }
             input, textarea, .editable { border: none !important; resize: none; overflow: hidden; background: transparent !important; }
-            .dept-box { page-break-inside: avoid; break-inside: avoid; }
+            .dept-grid { display: block !important; }
+            .dept-box { page-break-inside: avoid !important; break-inside: avoid !important; display: block !important; margin-bottom: 15px; }
             tr { page-break-inside: avoid; break-inside: avoid; }
             .section-title { page-break-after: avoid; break-after: avoid; }
         }
@@ -205,7 +206,7 @@
 
         <!-- RESUMEN RAPIDO POR DEPARTAMENTO -->
         <div class="section-title">RESUMEN RÁPIDO POR DEPARTAMENTO</div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2 pb-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2 pb-10 dept-grid">
             <!-- RECEPCIÓN -->
             <div class="dept-box">
                 <div class="dept-title text-indigo-700">Recepción</div>
