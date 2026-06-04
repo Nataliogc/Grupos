@@ -6134,6 +6134,8 @@
 
           isService: !!item.isService,
 
+          nights: item.nights || 1,
+
         });
 
         setEditingId(item.ids || item.id);

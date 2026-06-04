@@ -333,6 +333,17 @@
             };
             document.title = `${currentReservaId} - Ord Servicio - ${saveData.grupo}`;
             localStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
+            // Force Rooming & Servicios to reload from this updated Orden de Servicio next time, but preserve the rooming list
+            const cachedRoomingStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+            if (cachedRoomingStr) {
+                try {
+                    const s = JSON.parse(cachedRoomingStr);
+                    s.restoreServices = true;
+                    localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
+                } catch (e) {
+                    localStorage.removeItem('roomingServicios_' + currentReservaId);
+                }
+            }
         }
         function clearReservaCache() {
             if(confirm("¿Estás seguro de que deseas limpiar los datos y restaurar la información original de la reserva? Se perderán las modificaciones manuales que hayas hecho en el menú/horas.")) {

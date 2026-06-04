@@ -445,8 +445,176 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             triggerSave();
         }
 
+        function updateDepartmentSummaries() {
+            // RECEPCIÓN
+            let currentTotalPax = 0;
+            let currentTotalRooms = 0;
+            const roomTypes = {};
+            const staffMembers = [];
+            
+            document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('td.editable');
+                if (cells.length === 5) {
+                    currentTotalRooms++;
+                    const habNo = cells[0].innerText.trim();
+                    const tipo = cells[1].innerText.trim();
+                    const paxVal = parseInt(cells[2].innerText.trim()) || 0;
+                    const ocupante = cells[3].innerText.trim();
+                    const observ = cells[4].innerText.trim();
+                    
+                    currentTotalPax += paxVal;
+                    
+                    if (tipo) {
+                        roomTypes[tipo] = (roomTypes[tipo] || 0) + 1;
+                    }
+                    
+                    const upperTipo = tipo.toUpperCase();
+                    const upperOcupante = ocupante.toUpperCase();
+                    const upperObserv = observ.toUpperCase();
+                    const isStaff = upperTipo.includes('CHOFER') || upperTipo.includes('CHÓFER') || upperTipo.includes('DRIVER') || upperTipo.includes('GUIA') || upperTipo.includes('GUÍA') || upperTipo.includes('CONDUCTOR') ||
+                                    upperOcupante.includes('CHOFER') || upperOcupante.includes('CHÓFER') || upperOcupante.includes('DRIVER') || upperOcupante.includes('GUIA') || upperOcupante.includes('GUÍA') ||
+                                    upperObserv.includes('CHOFER') || upperObserv.includes('CHÓFER') || upperObserv.includes('DRIVER') || upperObserv.includes('GUIA') || upperObserv.includes('GUÍA');
+                    if (isStaff) {
+                        const isNameProvided = ocupante && 
+                            !ocupante.toLowerCase().includes('ocupante pendiente') && 
+                            !ocupante.toLowerCase().includes('chofer') && 
+                            !ocupante.toLowerCase().includes('chófer') && 
+                            !ocupante.toLowerCase().includes('guía') && 
+                            !ocupante.toLowerCase().includes('guia');
+                        staffMembers.push({
+                            role: (upperTipo.includes('GUIA') || upperTipo.includes('GUÍA') || upperOcupante.includes('GUIA') || upperOcupante.includes('GUÍA')) ? 'Guía' : 'Chofer',
+                            name: isNameProvided ? ocupante : 'Pendiente de asignar',
+                            room: habNo || 'TBD'
+                        });
+                    }
+                }
+            });
+
+            let roomSummaryParts = [];
+            Object.entries(roomTypes).forEach(([type, count]) => {
+                roomSummaryParts.push(`${count} ${type.toLowerCase()}s`);
+            });
+            const roomsText = roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : '---';
+
+            const recSummary = `
+                &bull; Entrada del grupo: ${currentTotalPax} personas / ${currentTotalRooms} habitaciones.<br>
+                &bull; Distribución: ${currentTotalRooms} total: ${roomsText}.<br>
+                &bull; Chofer / Guía: ${staffMembers.length > 0 ? staffMembers.map(m => `${m.role}: ${m.name} (Hab ${m.room})`).join(', ') : 'Ninguno especificado en la rooming list'}.
+            `;
+            const receptionEl = document.getElementById('dept-recepcion');
+            if (receptionEl) receptionEl.innerHTML = recSummary.trim();
+
+            // RESTAURANTE / COCINA
+            let breakfastTime = '';
+            let lunchTime = '';
+            let dinnerTime = '';
+            document.querySelectorAll('#table-servicios tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('td.editable');
+                if (cells.length === 6) {
+                    const serviceName = cells[1].innerText.trim().toLowerCase();
+                    const hour = cells[4].innerText.trim();
+                    const hasHour = hour && hour !== '___:___ h' && hour.toUpperCase() !== 'PENDIENTE';
+                    if (hasHour) {
+                        if (serviceName.includes('desayuno')) {
+                            breakfastTime = hour;
+                        } else if (serviceName.includes('almuerzo')) {
+                            lunchTime = hour;
+                        } else if (serviceName.includes('cena')) {
+                            dinnerTime = hour;
+                        }
+                    }
+                }
+            });
+
+            const gRegimenEl = document.getElementById('gen-regimen');
+            const gRegimen = gRegimenEl ? gRegimenEl.innerText : '---';
+            let restMealsInfo = '';
+            const normRegime = gRegimen.toUpperCase().trim();
+            if (normRegime === 'SA') {
+                restMealsInfo = 'Solo Alojamiento: Sin servicios de restauración contratados.';
+            } else {
+                const mealDetails = [];
+                if (normRegime.includes('AD') || normRegime.includes('HD') || normRegime.includes('MP') || normRegime.includes('PC') || normRegime.includes('TI')) {
+                    mealDetails.push(`Desayuno: ${breakfastTime ? breakfastTime : 'Pendiente de coordinar horario'}`);
+                }
+                if (normRegime.includes('MP') || normRegime.includes('PC') || normRegime.includes('TI')) {
+                    if (normRegime.includes('PC')) {
+                        mealDetails.push(`Almuerzo: ${lunchTime ? lunchTime : 'Pendiente de coordinar menú/hora'}`);
+                    }
+                    mealDetails.push(`Cena: ${dinnerTime ? dinnerTime : 'Pendiente de coordinar menú/hora'}`);
+                }
+                restMealsInfo = mealDetails.join(' | ');
+            }
+
+            const dietNotes = [];
+            document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
+                const cells = tr.querySelectorAll('td.editable');
+                if (cells.length === 5) {
+                    const habNo = cells[0].innerText.trim();
+                    const ocupante = cells[3].innerText.trim();
+                    const observ = cells[4].innerText.trim();
+                    if (observ && observ !== '-' && observ.toLowerCase() !== 'ninguna' && observ.toLowerCase() !== 'ninguno') {
+                        const nameStr = ocupante && !ocupante.toLowerCase().includes('ocupante pendiente') ? ` (${ocupante})` : '';
+                        dietNotes.push(`Hab ${habNo}${nameStr}: ${observ}`);
+                    }
+                }
+            });
+
+            const dietsSummaryText = dietNotes.length > 0
+                ? dietNotes.map(d => `&bull; ${d}`).join('<br>')
+                : `&bull; Dietas / Alergias: No se registran alergias o dietas especiales en la Rooming List.`;
+
+            const restSummary = `
+                &bull; Régimen general: ${gRegimen}.<br>
+                &bull; Servicios: ${restMealsInfo}<br>
+                ${dietsSummaryText}
+            `;
+            const restauranteEl = document.getElementById('dept-restaurante');
+            if (restauranteEl) restauranteEl.innerHTML = restSummary.trim();
+
+            // ADMINISTRACIÓN
+            const totalRevenue = window.admTotalRevenue || 0;
+            const totalCommission = window.admTotalCommission || 0;
+            const netTotal = window.admNetTotal || 0;
+            const paidAmount = window.admPaidAmount || 0;
+            const pendingAmount = window.admPendingAmount || 0;
+            const isOverpaid = window.admIsOverpaid || false;
+            const refundAmount = window.admRefundAmount || 0;
+
+            let admSummaryText = ``;
+            if (totalCommission > 0) {
+                admSummaryText += `
+                    &bull; Total presupuesto (Bruto): ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
+                    &bull; Comisión Agencia: ${totalCommission.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Total Neto a cobrar: ${netTotal.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                `;
+            } else {
+                admSummaryText += `
+                    &bull; Total presupuesto: ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
+                `;
+            }
+            if (isOverpaid) {
+                admSummaryText += `
+                    &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Devolución pendiente: ${refundAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Términos: Se acepta la devolución del importe sobrante cobrado de más.
+                `;
+            } else {
+                admSummaryText += `
+                    &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Pendiente de cobro final: ${pendingAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Términos: Pagos anticipados no reembolsables.
+                `;
+            }
+            const adminEl = document.getElementById('dept-administracion');
+            if (adminEl) adminEl.innerHTML = admSummaryText.trim();
+        }
+
         function saveStateToCache() {
             if (currentReservaId === "unknown") return;
+
+            // Dynamically update UI summaries first
+            updateDepartmentSummaries();
 
             const pendientes = [];
             document.querySelectorAll('#table-pendientes tbody tr').forEach(tr => {
@@ -512,8 +680,35 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         function clearReservaCache() {
-            if(confirm("¿Estás seguro de restaurar los datos de fábrica? Se perderán las modificaciones manuales que hayas hecho en las tablas y resúmenes.")) {
-                localStorage.removeItem('roomingServicios_' + currentReservaId);
+            if(confirm("¿Estás seguro de restaurar los servicios y operativas? Se mantendrán intactos los nombres y habitaciones de la Rooming List.")) {
+                // Parse current rooming from the DOM to guarantee they are kept
+                const rooming = [];
+                document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
+                    const cells = tr.querySelectorAll('td.editable');
+                    if (cells.length === 5) {
+                        rooming.push({
+                            hab: cells[0].innerText,
+                            tipo: cells[1].innerText,
+                            pax: cells[2].innerText,
+                            ocupantes: cells[3].innerText,
+                            dni: '',
+                            observ: cells[4].innerText
+                        });
+                    }
+                });
+
+                const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+                let s = {};
+                if (savedStateStr) {
+                    try {
+                        s = JSON.parse(savedStateStr);
+                    } catch(e) {
+                        s = {};
+                    }
+                }
+                s.rooming = rooming;
+                s.restoreServices = true;
+                localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
                 window.location.reload();
             }
         }
@@ -534,6 +729,19 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             if (!f || isNaN(f.getTime())) return dtStr;
             const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
             return days[f.getDay()] + ' ' + f.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit', year: 'numeric'});
+        }
+
+        // Extract day and month numbers from a date string (e.g. "Lun 8/6", "Lun 08/06/2026")
+        function extractDayMonth(str) {
+            if (!str) return null;
+            const matches = String(str).match(/\d+/g);
+            if (matches && matches.length >= 2) {
+                return {
+                    day: parseInt(matches[0], 10),
+                    month: parseInt(matches[1], 10)
+                };
+            }
+            return null;
         }
 
         function getDayOfWeek(dtStr) {
@@ -655,12 +863,14 @@ ${inputVal}`;
                     
                     const price = match ? match.price : 0;
                     const iva = match ? match.iva : 10;
-                    const total = (1 * price).toFixed(2);
                     
                     // Nights count
                     const d1 = parseDate(item.dateIn || finalInDate);
                     const d2 = parseDate(item.dateOut || finalOutDate);
                     const calculatedNights = Math.max(1, Math.ceil((d2 - d1) / 86400000)) || 1;
+                    const itemNights = parseInt(item.nights) || calculatedNights;
+                    
+                    const total = (1 * price * itemNights).toFixed(2);
 
                     return {
                         id: item.id || Date.now() + Math.random(),
@@ -913,32 +1123,39 @@ ${inputVal}`;
             window.checkOutDateRaw = checkOutDate;
 
             const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+            let loadRoomingFromCache = false;
+            let cachedRooming = [];
             
             if (savedStateStr) {
-                // LOAD FROM LOCAL STORAGE CACHE
                 const s = JSON.parse(savedStateStr);
-                document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
-                document.getElementById('gen-contacto').innerText = s.genContacto || '---';
-                document.getElementById('gen-entrada').innerText = s.genEntrada || '---';
-                document.getElementById('gen-salida').innerText = s.genSalida || '---';
-                document.getElementById('gen-habitaciones').innerText = s.genHabitaciones || '---';
-                document.getElementById('gen-pax').innerText = s.genPax || '0';
-                document.getElementById('gen-regimen').innerText = s.genRegimen || '---';
-                document.getElementById('gen-estado-critico').innerText = s.genEstadoCritico || '---';
-                document.getElementById('dept-recepcion').innerHTML = s.deptRecepcion || '';
-                document.getElementById('dept-restaurante').innerHTML = s.deptRestaurante || '';
-                document.getElementById('dept-administracion').innerHTML = s.deptAdministracion || '';
+                if (!s.restoreServices) {
+                    // LOAD FROM LOCAL STORAGE CACHE
+                    document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
+                    document.getElementById('gen-contacto').innerText = s.genContacto || '---';
+                    document.getElementById('gen-entrada').innerText = s.genEntrada || '---';
+                    document.getElementById('gen-salida').innerText = s.genSalida || '---';
+                    document.getElementById('gen-habitaciones').innerText = s.genHabitaciones || '---';
+                    document.getElementById('gen-pax').innerText = s.genPax || '0';
+                    document.getElementById('gen-regimen').innerText = s.genRegimen || '---';
+                    document.getElementById('gen-estado-critico').innerText = s.genEstadoCritico || '---';
+                    document.getElementById('dept-recepcion').innerHTML = s.deptRecepcion || '';
+                    document.getElementById('dept-restaurante').innerHTML = s.deptRestaurante || '';
+                    document.getElementById('dept-administracion').innerHTML = s.deptAdministracion || '';
 
-                if (s.pendientes && s.pendientes.length > 0) {
-                    s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
+                    if (s.pendientes && s.pendientes.length > 0) {
+                        s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
+                    }
+                    if (s.servicios && s.servicios.length > 0) {
+                        s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas));
+                    }
+                    if (s.rooming && s.rooming.length > 0) {
+                        s.rooming.forEach(r => addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ));
+                    }
+                    return;
+                } else {
+                    loadRoomingFromCache = true;
+                    cachedRooming = s.rooming || [];
                 }
-                if (s.servicios && s.servicios.length > 0) {
-                    s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas));
-                }
-                if (s.rooming && s.rooming.length > 0) {
-                    s.rooming.forEach(r => addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ));
-                }
-                return;
             }
 
             // AUTO-GENERATE FROM FIRESTORE RECORD
@@ -1116,9 +1333,15 @@ ${inputVal}`;
             document.getElementById('gen-habitaciones').innerText = roomsText;
 
             // Output Rooming Table Rows
-            listToDisplay.forEach(r => {
-                addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
-            });
+            if (loadRoomingFromCache) {
+                cachedRooming.forEach(r => {
+                    addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+                });
+            } else {
+                listToDisplay.forEach(r => {
+                    addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+                });
+            }
 
             // Set up Pending List
             // 1. Payment Pending (subtracting agency commission if applicable)
@@ -1267,10 +1490,13 @@ ${inputVal}`;
                             if (osDataStr) {
                                 const osData = JSON.parse(osDataStr);
                                 if (osData && osData.planRows) {
-                                    const match = osData.planRows.find(row => 
-                                        (row.dia || '').trim() === targetLabel.trim() && 
-                                        (row.serv || '').trim().toLowerCase() === s.trim().toLowerCase()
-                                    );
+                                    const match = osData.planRows.find(row => {
+                                        const dmRow = extractDayMonth(row.dia);
+                                        const dmTarget = extractDayMonth(targetLabel);
+                                        const dateMatch = dmRow && dmTarget && dmRow.day === dmTarget.day && dmRow.month === dmTarget.month;
+                                        const serviceMatch = (row.serv || '').trim().toLowerCase() === s.trim().toLowerCase();
+                                        return dateMatch && serviceMatch;
+                                    });
                                     if (match) {
                                         if (match.menu && match.menu.trim()) {
                                             serviceNote = `${s}: ${match.menu.trim()}`;
@@ -1301,61 +1527,17 @@ ${inputVal}`;
                 addRowServicio('DÍA 1', 'Llegada / check-in', 'Entrada', `${totalPax} pax`, '---', 'Coordinar llegada.');
             }
 
-            // AUTO-GENERATE DEPARTAMENT SUMMARIES
-            const recSummary = `
-                &bull; Entrada del grupo: ${totalPax} personas / ${totalRooms} habitaciones.<br>
-                &bull; Distribución: ${roomsText}.<br>
-                &bull; Chofer / Guía: ${chefMissingName ? 'Nombre pendiente' : 'Nombre aportado'}.
-            `;
-            document.getElementById('dept-recepcion').innerHTML = recSummary.trim();
+            // Initialize window variables for Administration calculations
+            window.admTotalRevenue = totalRevenue;
+            window.admTotalCommission = totalCommission;
+            window.admNetTotal = netTotal;
+            window.admPaidAmount = paidAmount;
+            window.admPendingAmount = pendingAmount;
+            window.admIsOverpaid = isOverpaid;
+            window.admRefundAmount = refundAmount;
 
-            let restMealsInfo = 'Servicios de restauración pendientes de coordinar según el régimen del grupo.';
-            const normRegime = (gRegimen || '').toUpperCase().trim();
-            if (normRegime === 'SA') {
-                restMealsInfo = 'Solo Alojamiento: No hay servicios de restauración contratados para este grupo.';
-            } else if (normRegime === 'AD' || normRegime === 'HD') {
-                restMealsInfo = 'Desayunos: Horario de servicio de desayunos pendiente de coordinar con el guía del grupo.';
-            } else if (normRegime === 'MP') {
-                restMealsInfo = 'Desayunos y Cenas: Horarios y menús de cenas pendientes de coordinar con el guía del grupo.';
-            } else if (normRegime === 'PC') {
-                restMealsInfo = 'Desayunos, Almuerzos y Cenas: Horarios y menús de comidas/cenas pendientes de coordinar con el guía.';
-            } else if (normRegime === 'TI') {
-                restMealsInfo = 'Todo Incluido (Desayunos, Almuerzos, Cenas y Bebidas): Horarios y servicios a coordinar con el guía.';
-            }
-
-            const restSummary = `
-                &bull; Régimen general: ${gRegimen}.<br>
-                &bull; ${restMealsInfo}<br>
-                &bull; Dietas / Alergias: Revisar observaciones si hay comensales con régimen especial (vegetarianos, alergias).
-            `;
-            document.getElementById('dept-restaurante').innerHTML = restSummary.trim();
-
-            let admSummaryText = ``;
-            if (totalCommission > 0) {
-                admSummaryText += `
-                    &bull; Total presupuesto (Bruto): ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
-                    &bull; Comisión Agencia: ${totalCommission.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                    &bull; Total Neto a cobrar: ${netTotal.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                `;
-            } else {
-                admSummaryText += `
-                    &bull; Total presupuesto: ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
-                `;
-            }
-            if (isOverpaid) {
-                admSummaryText += `
-                    &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                    &bull; Devolución pendiente: ${refundAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                    &bull; Términos: Se acepta la devolución del importe sobrante cobrado de más.
-                `;
-            } else {
-                admSummaryText += `
-                    &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                    &bull; Pendiente de cobro final: ${pendingAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                    &bull; Términos: Pagos anticipados no reembolsables.
-                `;
-            }
-            document.getElementById('dept-administracion').innerHTML = admSummaryText.trim();
+            // Trigger the dynamic updates of the department summary boxes
+            updateDepartmentSummaries();
 
             // File Drop Area drag & drop setup
             const dropArea = document.getElementById('drop-area');
