@@ -72,6 +72,25 @@
 
     const formatNum = NexusUtils.formatNum;
 
+    // Intercepta la tecla "." (punto) del teclado/numpad y la convierte en "," (coma)
+    // para que los inputs type="number" en locale español acepten decimales desde el numpad.
+    const handleDotAsComma = (e) => {
+      if (e.key === '.' || e.code === 'NumpadDecimal') {
+        e.preventDefault();
+        const input = e.target;
+        // Simular la inserción de una coma usando InputEvent
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const currentValue = input.value;
+        const newValue = currentValue.substring(0, start) + ',' + currentValue.substring(end);
+        nativeInputValueSetter.call(input, newValue);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        // Restaurar posición del cursor
+        input.setSelectionRange(start + 1, start + 1);
+      }
+    };
+
     const normalizeHotelNameLocal = (value, fallbackHotel) => {
       const raw = String(value || "").trim().toLowerCase();
 
@@ -11862,6 +11881,8 @@
 
                                     type="number"
 
+                                    onKeyDown={handleDotAsComma}
+
                                     className="bg-transparent border-none text-[12px] font-black text-emerald-700 outline-none w-full tabular-nums"
 
                                     value={
@@ -12329,6 +12350,8 @@
                                     <input
 
                                       type="number"
+
+                                      onKeyDown={handleDotAsComma}
 
                                       className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-6 text-right text-xs font-black text-slate-800 outline-none focus:border-emerald-500 transition-all"
 
@@ -13512,6 +13535,7 @@
                                                     <div className="flex items-center justify-center bg-slate-50 rounded h-5 border border-slate-100 w-full px-1">
                                                       <input
                                                         type="number"
+                                                        onKeyDown={handleDotAsComma}
                                                         key={idx + "-" + dep.percent}
                                                         className="bg-transparent border-none text-[10px] font-black text-slate-600 w-full text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         defaultValue={dep.percent}
@@ -13533,6 +13557,7 @@
                                                       <input
                                                         type="number"
                                                         step="0.01"
+                                                        onKeyDown={handleDotAsComma}
                                                         key={idx + "-" + dep.amount}
                                                         className={`bg-transparent border-none text-[10px] font-black text-right outline-none w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"}`}
                                                         defaultValue={dep.amount}
@@ -14604,6 +14629,8 @@
 
                             type="number"
 
+                            onKeyDown={handleDotAsComma}
+
                             className="w-full h-10 bg-white border border-slate-200 rounded-xl px-3 text-sm font-black text-blue-600 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
 
                             value={commissionModal.tempCom.porcentaje}
@@ -14763,6 +14790,8 @@
                                   <input
 
                                     type="number"
+
+                                    onKeyDown={handleDotAsComma}
 
                                     className="w-full h-7 bg-transparent border-none rounded text-xs font-black px-1 outline-none text-right pr-4"
 
@@ -14981,30 +15010,21 @@
                               </div>
 
                             );
-
                           }
-
                           return null;
-
                         })()}
-
                       </div>
-
                     ) : (
-
                       <div>
-
                         <label className="block text-[8px] font-black text-slate-400 uppercase mb-0.5 ml-1">
-
                           Base Comisión Unitaria (€)
-
                         </label>
-
                         <div className="relative">
-
                           <input
 
                             type="number"
+
+                            onKeyDown={handleDotAsComma}
 
                             className="w-full h-8 bg-emerald-50 border border-emerald-100 rounded-lg px-2 text-[11px] font-black text-emerald-700 outline-none"
 
