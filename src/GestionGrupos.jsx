@@ -5766,6 +5766,34 @@
 
       // ... (skipping updateGroupMetadata implementation here as I can't easily match large block without context, I will do separate edits if needed) ...
 
+      // --- Room Manager Helpers ---
+      const normalizeRoomIds = (value) => {
+        if (value === null || value === undefined) return [];
+        return (Array.isArray(value) ? value.flat(Infinity) : [value])
+          .filter((id) => id !== null && id !== undefined && String(id).trim() !== "")
+          .map((id) => String(id));
+      };
+
+      const createRoomId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      const cleanRoomingListIds = (list) => {
+        if (!Array.isArray(list)) return [];
+        return list.map((item) => {
+          let finalId = item.id;
+          if (Array.isArray(finalId)) {
+            const flatIds = finalId.flat(Infinity).filter((id) => id !== null && id !== undefined && String(id).trim() !== "");
+            finalId = flatIds[0];
+          }
+          if (finalId === null || finalId === undefined || String(finalId).trim() === "") {
+            finalId = createRoomId();
+          }
+          return {
+            ...item,
+            id: String(finalId),
+          };
+        });
+      };
+
       // --- Room Manager Logic ---
 
       const addRoomBlock = () => {
@@ -5836,7 +5864,7 @@
 
             itemsToAdd.push({
 
-              id: Date.now() + Math.random(),
+              id: createRoomId(),
 
               hotel: normalizeHotelNameLocal(
 
@@ -5902,7 +5930,7 @@
 
           itemsToAdd.push({
 
-            id: editingId || Date.now(),
+            id: (editingId && !Array.isArray(editingId)) ? String(editingId) : createRoomId(),
 
             hotel: normalizeHotelNameLocal(roomManagerForm.hotel, effectiveMainHotel),
 
@@ -5940,9 +5968,9 @@
 
             ).toFixed(2),
 
-            comision: editingId
+            comision: (editingId && !Array.isArray(editingId))
 
-              ? currentList.find((i) => i.id === editingId)?.comision ||
+              ? currentList.find((i) => String(i.id) === String(editingId))?.comision ||
 
               calculateDefaultCommission(
 
@@ -5980,13 +6008,25 @@
 
         if (editingId) {
 
-          const idSet = new Set(Array.isArray(editingId) ? editingId : [editingId]);
+          const idSet = new Set(normalizeRoomIds(editingId));
 
-          const firstIdx = currentList.findIndex((item) => idSet.has(item.id));
+          const firstIdx = currentList.findIndex((item) => {
+
+            const itemIds = normalizeRoomIds(item.id);
+
+            return itemIds.some((itemId) => idSet.has(itemId));
+
+          });
 
           if (firstIdx !== -1) {
 
-            const filteredList = currentList.filter((item) => !idSet.has(item.id));
+            const filteredList = currentList.filter((item) => {
+
+              const itemIds = normalizeRoomIds(item.id);
+
+              return !itemIds.some((itemId) => idSet.has(itemId));
+
+            });
 
             newList = [...filteredList];
 
@@ -6005,6 +6045,10 @@
           newList = [...currentList, ...itemsToAdd];
 
         }
+
+        // Clean final list defensively
+
+        newList = cleanRoomingListIds(newList);
 
         const newTotalSum = newList.reduce(
 
@@ -6476,9 +6520,14 @@
 
         }
 
-        const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
+        const idSet = new Set(normalizeRoomIds(ids));
 
-        const newList = currentList.filter((item) => !idSet.has(item.id));
+        const rawList = currentList.filter((item) => {
+          const itemIds = normalizeRoomIds(item.id);
+          return !itemIds.some((itemId) => idSet.has(itemId));
+        });
+
+        const newList = cleanRoomingListIds(rawList);
 
         const newTotalSum = newList.reduce(
 
@@ -12642,7 +12691,11 @@
                                                 ] || "[]",
                                               );
                                               item.ids.forEach(id => {
-                                                const match = newRL.find(x => x.id === id);
+                                                const targetIds = new Set(normalizeRoomIds(id));
+                                                const match = newRL.find((x) => {
+                                                  const itemIds = normalizeRoomIds(x.id);
+                                                  return itemIds.some((itemId) => targetIds.has(itemId));
+                                                });
                                                 if (match) {
                                                   match.type = newType;
                                                   match.pax = getPaxByRoomType(newType);
@@ -12656,7 +12709,7 @@
                                                 0,
                                               );
                                               updateGroupMetadata(
-                                                selectedGroupFicha.name,
+                                                selectedGroupFicha.id,
                                                 {
                                                   RoomingList_JSON:
                                                     JSON.stringify(newRL),
