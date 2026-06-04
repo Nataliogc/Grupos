@@ -197,7 +197,7 @@
             </tbody>
         </table>
         <div class="no-print mt-2 text-right">
-            <button onclick="addRowRooming('', '', '', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Habitación</button>
+            <button onclick="addRowRooming('', '', '', '', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Habitación</button>
         </div>
 
         <!-- RESUMEN RAPIDO POR DEPARTAMENTO -->
@@ -423,9 +423,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             triggerSave();
         }
 
-        function addRowRooming(hab, tipo, pax, ocupantes, dni, observ) {
+        function addRowRooming(id, hab, tipo, pax, ocupantes, dni, observ) {
             const tbody = document.querySelector('#table-rooming tbody');
             const tr = document.createElement('tr');
+            tr.dataset.id = id || ('new_' + Date.now() + '_' + Math.random());
             tr.appendChild(createEditableCell(hab));
             tr.appendChild(createEditableCell(tipo));
             tr.appendChild(createEditableCell(pax));
@@ -546,28 +547,48 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 restMealsInfo = mealDetails.join(' | ');
             }
 
-            const dietNotes = [];
-            document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
-                const cells = tr.querySelectorAll('td.editable');
-                if (cells.length === 5) {
-                    const habNo = cells[0].innerText.trim();
-                    const ocupante = cells[3].innerText.trim();
-                    const observ = cells[4].innerText.trim();
-                    if (observ && observ !== '-' && observ.toLowerCase() !== 'ninguna' && observ.toLowerCase() !== 'ninguno') {
-                        const nameStr = ocupante && !ocupante.toLowerCase().includes('ocupante pendiente') ? ` (${ocupante})` : '';
-                        dietNotes.push(`Hab ${habNo}${nameStr}: ${observ}`);
-                    }
+            // Load Special Menus and Operational Notes from Service Order cache if available
+            const osKey = 'ordenServicio_' + currentReservaId;
+            const osDataStr = localStorage.getItem(osKey);
+            let specialMenus = [];
+            let operationalNotes = '';
+            if (osDataStr) {
+                try {
+                    const osData = JSON.parse(osDataStr);
+                    specialMenus = osData.incidenciaRows || [];
+                    operationalNotes = osData.notasHTML || '';
+                } catch (e) {
+                    console.error("Error parsing Service Order cache in Rooming summary:", e);
                 }
-            });
+            }
 
-            const dietsSummaryText = dietNotes.length > 0
-                ? dietNotes.map(d => `&bull; ${d}`).join('<br>')
-                : `&bull; Dietas / Alergias: No se registran alergias o dietas especiales en la Rooming List.`;
+            // Build Cocina (Menús Especiales / Alergias) text
+            let cocinaText = '';
+            if (specialMenus.length > 0) {
+                cocinaText = specialMenus.map(m => {
+                    const tipoPart = m.tipo && m.tipo !== '---' ? `[${m.tipo}] ` : '';
+                    const paxPart = m.numPax ? `${m.numPax} pax - ` : '';
+                    const servPart = m.serv && m.serv !== '---' ? ` (Afecta: ${m.serv})` : '';
+                    return `&bull; Cocina: ${tipoPart}${paxPart}${m.detalle}${servPart}`;
+                }).join('<br>');
+            } else {
+                cocinaText = `&bull; Cocina: No se registran menús especiales o alergias.`;
+            }
+
+            // Build Restauración (Notas Operativas) text
+            let restauracionText = '';
+            const cleanOpNotes = operationalNotes ? operationalNotes.replace(/<[^>]*>/g, '').trim() : '';
+            if (cleanOpNotes && cleanOpNotes !== 'Detalles operativos aquí...' && cleanOpNotes !== '') {
+                restauracionText = `&bull; Restauración: <div class="pl-4 mt-0.5 inline-block text-slate-600 leading-relaxed font-normal">${operationalNotes.trim()}</div>`;
+            } else {
+                restauracionText = `&bull; Restauración: Sin notas operativas especiales.`;
+            }
 
             const restSummary = `
                 &bull; Régimen general: ${gRegimen}.<br>
                 &bull; Servicios: ${restMealsInfo}<br>
-                ${dietsSummaryText}
+                ${cocinaText}<br>
+                ${restauracionText}
             `;
             const restauranteEl = document.getElementById('dept-restaurante');
             if (restauranteEl) restauranteEl.innerHTML = restSummary.trim();
@@ -649,6 +670,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 const cells = tr.querySelectorAll('td.editable');
                 if (cells.length === 5) {
                     rooming.push({
+                        id: tr.dataset.id || '',
                         hab: cells[0].innerText,
                         tipo: cells[1].innerText,
                         pax: cells[2].innerText,
@@ -677,6 +699,170 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             };
 
             localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
+            
+            // Asynchronously sync manual room edits to Firestore
+            if (typeof syncRoomingToFirestore === 'function') {
+                syncRoomingToFirestore(rooming);
+            }
+        }
+
+        let isSyncing = false;
+        async function syncRoomingToFirestore(rooming) {
+            if (!window.db || !currentReservaId) return;
+            if (isSyncing) return;
+            isSyncing = true;
+            try {
+                const docRef = window.db.collection("groups").doc(String(currentReservaId));
+                const docSnap = await docRef.get();
+                if (!docSnap.exists) return;
+
+                const recData = docSnap.data();
+                let originalList = [];
+                try {
+                    originalList = JSON.parse(recData['RoomingList_JSON'] || '[]');
+                } catch(e) {}
+
+                const originalRoomItems = originalList.filter(item => !item.isService);
+                const originalServiceItems = originalList.filter(item => item.isService === true);
+
+                // Build a map of type -> price, regime, iva from original room blocks as fallback
+                const blockDetails = {};
+                originalRoomItems.forEach(item => {
+                    const key = (item.type || 'Doble').toUpperCase();
+                    blockDetails[key] = {
+                        price: parseFloat(item.price) || 0,
+                        regime: item.regime || '',
+                        iva: item.iva || 10
+                    };
+                });
+
+                const newRoomItems = rooming.map(row => {
+                    // Try to find a match in original list to preserve details
+                    let match = originalRoomItems.find(item => String(item.id) === String(row.id));
+                    if (!match && row.id) {
+                        match = originalRoomItems.find(item => String(row.id).startsWith(String(item.id) + '_'));
+                    }
+                    if (!match) {
+                        match = originalRoomItems.find(item => String(item.type).toLowerCase() === String(row.tipo).toLowerCase());
+                    }
+
+                    const typeKey = (row.tipo || 'Doble').toUpperCase();
+                    let matchFallback = blockDetails[typeKey] || null;
+                    if (!matchFallback) {
+                        const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
+                        if (matchingKey) {
+                            matchFallback = blockDetails[matchingKey];
+                        }
+                    }
+
+                    const price = match ? parseFloat(match.price) : (matchFallback ? matchFallback.price : 0);
+                    const iva = match ? parseInt(match.iva) : (matchFallback ? matchFallback.iva : 10);
+                    const nights = match ? parseInt(match.nights) : 1;
+                    const total = (1 * price * nights).toFixed(2);
+
+                    let newComision = null;
+                    if (match && match.comision) {
+                        newComision = { ...match.comision };
+                        if (newComision.comision_unitaria !== undefined) {
+                            const unitComm = parseFloat(newComision.comision_unitaria) || 0;
+                            newComision.total_comision = Math.round((unitComm * 1 * nights + 1e-9) * 100) / 100;
+                        } else if (newComision.total_comision !== undefined) {
+                            const originalQty = parseInt(match.qty) || 1;
+                            const totalComm = parseFloat(newComision.total_comision) || 0;
+                            newComision.total_comision = Math.round(((totalComm / originalQty) + 1e-9) * 100) / 100;
+                        }
+                    }
+
+                    return {
+                        id: row.id,
+                        hotel: match ? match.hotel : (recData['Hotel_Asignado'] || recData['Hotel'] || 'Sercotel Guadiana'),
+                        type: row.tipo || 'Habitación Doble',
+                        dateIn: match ? match.dateIn : (recData['Entrada'] || ''),
+                        dateOut: match ? match.dateOut : (recData['Salida'] || ''),
+                        qty: 1,
+                        pax: parseInt(row.pax) || (match ? match.pax : 2),
+                        regime: match ? match.regime : (recData['Régimen'] || 'AD'),
+                        price: price,
+                        iva: iva,
+                        nights: nights,
+                        isService: false,
+                        total: total,
+                        ocupantes: row.ocupantes || '',
+                        dni: row.dni || (match ? match.dni : ''),
+                        observ: row.observ || '',
+                        roomNo: row.hab || '',
+                        comision: newComision
+                    };
+                });
+
+                const finalRoomingList = [...newRoomItems, ...originalServiceItems];
+
+                // Recalculate metadata totals
+                const newTotalRooms = newRoomItems.length;
+                const newTotalPax = newRoomItems.reduce((acc, r) => acc + (parseInt(r.pax) || 0), 0);
+                const newTotalSum = finalRoomingList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
+
+                // Save back to Firestore
+                const updatedObj = {
+                    RoomingList_JSON: JSON.stringify(finalRoomingList),
+                    "Pax.": newTotalPax.toString(),
+                    "Cant.": newTotalRooms.toString(),
+                    "Habitaciones": `${newTotalRooms} habitaciones`,
+                    "Importe(*)": newTotalSum.toFixed(2)
+                };
+                if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+                    updatedObj.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                } else {
+                    updatedObj.updatedAt = new Date();
+                }
+                await docRef.set(updatedObj, { merge: true });
+
+                // Synchronize localStorage.selectedGroup
+                const rawGroupData = localStorage.getItem('selectedGroup');
+                if (rawGroupData) {
+                    try {
+                        let group = JSON.parse(rawGroupData);
+                        const updatePayload = {
+                            RoomingList_JSON: JSON.stringify(finalRoomingList),
+                            "Pax.": newTotalPax.toString(),
+                            "Cant.": newTotalRooms.toString(),
+                            "Habitaciones": `${newTotalRooms} habitaciones`,
+                            "Importe(*)": newTotalSum.toFixed(2)
+                        };
+                        
+                        let updated = false;
+                        if (Array.isArray(group)) {
+                            const m = group.find(g => String(g.Reserva || g.id || g.reserva || '').trim() === currentReservaId);
+                            if (m) {
+                                Object.assign(m, updatePayload);
+                                updated = true;
+                            }
+                        } else {
+                            if (group.records && Array.isArray(group.records)) {
+                                const m = group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId);
+                                if (m) {
+                                    Object.assign(m, updatePayload);
+                                    updated = true;
+                                } else if (group.records.length > 0) {
+                                    Object.assign(group.records[0], updatePayload);
+                                    updated = true;
+                                }
+                            }
+                            if (!updated || String(group.Reserva || group.id || group.reserva || '').trim() === currentReservaId) {
+                                Object.assign(group, updatePayload);
+                            }
+                        }
+                        
+                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    } catch (e) {
+                        console.error("Error updating selectedGroup in localStorage:", e);
+                    }
+                }
+            } catch (err) {
+                console.error("Error syncing rooming list to Firestore:", err);
+            } finally {
+                isSyncing = false;
+            }
         }
 
         function clearReservaCache() {
@@ -687,6 +873,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     const cells = tr.querySelectorAll('td.editable');
                     if (cells.length === 5) {
                         rooming.push({
+                            id: tr.dataset.id || '',
                             hab: cells[0].innerText,
                             tipo: cells[1].innerText,
                             pax: cells[2].innerText,
@@ -1149,7 +1336,7 @@ ${inputVal}`;
                         s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas));
                     }
                     if (s.rooming && s.rooming.length > 0) {
-                        s.rooming.forEach(r => addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ));
+                        s.rooming.forEach(r => addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ));
                     }
                     return;
                 } else {
@@ -1173,10 +1360,7 @@ ${inputVal}`;
             const gRegimen = rec['Régimen'] || group.regimen || 'AD';
             document.getElementById('gen-regimen').innerText = gRegimen;
 
-            const totalPax = rec['Pax.'] || group.totalPax || '0';
-            document.getElementById('gen-pax').innerText = totalPax;
-
-            // Parse rooming list
+            // Parse rooming list first
             let roomingList = [];
             try {
                 roomingList = JSON.parse(rec['RoomingList_JSON'] || '[]');
@@ -1188,6 +1372,7 @@ ${inputVal}`;
             let totalRooms = 0;
             let roomCountsByType = {};
             let chefMissingName = false;
+            let maxDailyPax = 0;
 
             // Determine if the list is already expanded with occupants
             let isExpandedList = roomingList.some(item => !item.isService && (item.ocupantes || item.roomNo));
@@ -1206,7 +1391,7 @@ ${inputVal}`;
                 return dates;
             }
 
-            // Calculate peak daily room counts
+            // Calculate peak daily room and pax counts
             const dailyCounts = {};
             roomingList.forEach(item => {
                 if (item.isService) return;
@@ -1222,14 +1407,16 @@ ${inputVal}`;
                 }
 
                 const qty = isExpandedList ? 1 : (parseInt(item.qty) || 1);
+                const paxVal = parseInt(item.pax) || (canonicalType === 'Individual' ? 1 : (canonicalType === 'Triple' ? 3 : (canonicalType === 'Cuádruple' ? 4 : 2)));
                 const itemDates = getDatesArray(item.dateIn, item.dateOut, item.nights);
 
                 itemDates.forEach(date => {
                     if (!dailyCounts[date]) {
-                        dailyCounts[date] = { total: 0, byType: {} };
+                        dailyCounts[date] = { total: 0, byType: {}, totalPax: 0 };
                     }
                     dailyCounts[date].total += qty;
                     dailyCounts[date].byType[canonicalType] = (dailyCounts[date].byType[canonicalType] || 0) + qty;
+                    dailyCounts[date].totalPax += (qty * paxVal);
                 });
             });
 
@@ -1237,6 +1424,9 @@ ${inputVal}`;
             Object.values(dailyCounts).forEach(dayData => {
                 if (dayData.total > totalRooms) {
                     totalRooms = dayData.total;
+                }
+                if (dayData.totalPax > maxDailyPax) {
+                    maxDailyPax = dayData.totalPax;
                 }
                 Object.entries(dayData.byType).forEach(([type, count]) => {
                     roomCountsByType[type] = Math.max(roomCountsByType[type] || 0, count);
@@ -1253,10 +1443,16 @@ ${inputVal}`;
                         canonicalType = 'Individual';
                     }
                     const qty = isExpandedList ? 1 : (parseInt(item.qty) || 1);
+                    const paxVal = parseInt(item.pax) || (canonicalType === 'Individual' ? 1 : 2);
                     totalRooms += qty;
+                    maxDailyPax += (qty * paxVal);
                     roomCountsByType[canonicalType] = (roomCountsByType[canonicalType] || 0) + qty;
                 });
             }
+
+            // Set final totalPax using daily peak
+            const totalPax = maxDailyPax || parseInt(rec['Pax.'] || group.totalPax || 0);
+            document.getElementById('gen-pax').innerText = totalPax;
 
             let listToDisplay = [];
             let autoIdx = 1;
@@ -1280,6 +1476,7 @@ ${inputVal}`;
                     }
 
                     listToDisplay.push({
+                        id: item.id || ('new_' + Date.now() + '_' + Math.random()),
                         hab: item.roomNo || autoIdx++,
                         tipo: item.type,
                         pax: item.pax || 2,
@@ -1291,7 +1488,6 @@ ${inputVal}`;
             } else {
                 // List is represented as room blocks. Show the peak count of physical rooms per type.
                 const peaksByType = {};
-                const paxByType = {};
                 
                 roomingList.forEach(item => {
                     if (item.isService) return;
@@ -1299,13 +1495,17 @@ ${inputVal}`;
                     const qty = parseInt(item.qty) || 1;
                     const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') ? 1 : 2);
                     
-                    peaksByType[rType] = Math.max(peaksByType[rType] || 0, qty);
-                    paxByType[rType] = paxVal;
+                    if (!peaksByType[rType] || qty > peaksByType[rType].maxQty) {
+                        peaksByType[rType] = {
+                            maxQty: qty,
+                            paxVal: paxVal,
+                            id: item.id || ('block_' + Date.now() + '_' + Math.random())
+                        };
+                    }
                 });
                 
-                Object.entries(peaksByType).forEach(([rType, maxQty]) => {
-                    const paxVal = paxByType[rType] || 2;
-                    for (let q = 0; q < maxQty; q++) {
+                Object.entries(peaksByType).forEach(([rType, data]) => {
+                    for (let q = 0; q < data.maxQty; q++) {
                         let finalOcc = 'Ocupante Pendiente';
                         if (rType.toUpperCase().includes('CHOFER') || rType.toUpperCase().includes('GUIA')) {
                             finalOcc = 'Chofer / Guía';
@@ -1313,9 +1513,10 @@ ${inputVal}`;
                         }
                         
                         listToDisplay.push({
+                            id: data.id + '_' + q,
                             hab: autoIdx++,
                             tipo: rType,
-                            pax: paxVal,
+                            pax: data.paxVal,
                             ocupantes: finalOcc,
                             dni: '',
                             observ: ''
@@ -1335,11 +1536,11 @@ ${inputVal}`;
             // Output Rooming Table Rows
             if (loadRoomingFromCache) {
                 cachedRooming.forEach(r => {
-                    addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+                    addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
                 });
             } else {
                 listToDisplay.forEach(r => {
-                    addRowRooming(r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+                    addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
                 });
             }
 
@@ -1476,12 +1677,7 @@ ${inputVal}`;
                         let serviceNote = '';
                         let serviceHour = '___:___ h';
                         if (s === 'Desayuno') {
-                            serviceNote = 'Solicitar horario al grupo para coordinar sala de desayunos.';
                             serviceHour = 'PENDIENTE';
-                        } else if (s === 'Cena') {
-                            serviceNote = 'Cena: Menú del día (tres platos). Coordinar horarios.';
-                        } else if (s === 'Almuerzo') {
-                            serviceNote = 'Almuerzo: Menú del día (tres platos).';
                         }
 
                         // Look up menu and hour from Orden de Servicio local storage
@@ -1499,7 +1695,7 @@ ${inputVal}`;
                                     });
                                     if (match) {
                                         if (match.menu && match.menu.trim()) {
-                                            serviceNote = `${s}: ${match.menu.trim()}`;
+                                            serviceNote = match.menu.trim();
                                         }
                                         if (match.hora && match.hora.trim() && match.hora.trim() !== '___:___ h') {
                                             serviceHour = match.hora.trim();
@@ -1509,6 +1705,32 @@ ${inputVal}`;
                             }
                         } catch(e) {
                             console.error('Error matching Orden de Servicio planRows:', e);
+                        }
+
+                        // Determine the final operative note dynamically based on service type, hour, and custom notes
+                        const hasHour = serviceHour && serviceHour !== '___:___ h' && serviceHour.toUpperCase() !== 'PENDIENTE';
+                        
+                        if (!serviceNote) {
+                            if (s === 'Desayuno') {
+                                serviceNote = hasHour 
+                                    ? 'Desayuno buffet en restaurante.' 
+                                    : 'Solicitar horario al grupo para coordinar sala de desayunos.';
+                            } else if (s === 'Cena') {
+                                serviceNote = hasHour
+                                    ? 'Cena: Menú del día (tres platos).'
+                                    : 'Cena: Menú del día (tres platos). Coordinar horarios.';
+                            } else if (s === 'Almuerzo') {
+                                serviceNote = hasHour
+                                    ? 'Almuerzo: Menú del día (tres platos).'
+                                    : 'Almuerzo: Menú del día (tres platos). Coordinar horarios.';
+                            } else {
+                                serviceNote = `${s} del grupo.`;
+                            }
+                        } else {
+                            // If they have a custom menu, make sure it has the service name prefix for clarity
+                            if (!serviceNote.toLowerCase().includes(s.toLowerCase())) {
+                                serviceNote = `${s}: ${serviceNote}`;
+                            }
                         }
                         
                         addRowServicio(targetLabel, s, s === 'Desayuno' ? 'AD' : 'MP', `${totalPax} pax`, serviceHour, serviceNote);

@@ -1965,6 +1965,7 @@
                 const totalPending = totalNetoPagar - totalPaid;
                 const rawRef = String(groupData.Reserva || groupData.id || "").toLowerCase();
                 const isIndependent = !!groupData.isIndependentProforma || rawRef.includes('prof-');
+                const isFullyPaid = totalPaid >= totalNetoPagar - 0.01;
 
                 const isOverpaid = totalPaid > totalNetoPagar + 0.01;
                 const overpaidAmount = totalPaid - totalNetoPagar;
@@ -2033,7 +2034,7 @@
                             </div>
                         </div>
                         <div class="space-y-4">
-                            ${!(groupData["Enlace_TPV"] || h.paymentGateway) ? `
+                            ${(!(groupData["Enlace_TPV"] || h.paymentGateway) && !isFullyPaid) ? `
                             <div class="bg-gradient-to-br from-slate-50 to-white pt-2 pb-4 px-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
                                  <div class="flex items-center gap-2 mb-3 relative z-10"><h5 class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] pt-0.5">Transferencia Bancaria</h5></div>
                                  <div class="relative z-10 flex border-t border-slate-100 pt-3">
