@@ -5980,13 +5980,17 @@
 
         if (editingId) {
 
-          const idx = currentList.findIndex((item) => item.id === editingId);
+          const idSet = new Set(Array.isArray(editingId) ? editingId : [editingId]);
 
-          if (idx !== -1) {
+          const firstIdx = currentList.findIndex((item) => idSet.has(item.id));
 
-            newList = [...currentList];
+          if (firstIdx !== -1) {
 
-            newList.splice(idx, 1, ...itemsToAdd);
+            const filteredList = currentList.filter((item) => !idSet.has(item.id));
+
+            newList = [...filteredList];
+
+            newList.splice(firstIdx, 0, ...itemsToAdd);
 
           } else {
 
@@ -6088,7 +6092,7 @@
 
         });
 
-        setEditingId(item.id);
+        setEditingId(item.ids || item.id);
 
       };
 
@@ -6110,11 +6114,27 @@
 
         }
 
-        const newList = [...currentList];
+        const grouped = [];
+        currentList.forEach((item) => {
+          const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
+          const existing = grouped.find(g => g.key === key);
+          if (existing) {
+            existing.items.push(item);
+          } else {
+            grouped.push({
+              key,
+              items: [item]
+            });
+          }
+        });
 
-        const [moved] = newList.splice(sourceIndex, 1);
+        const [moved] = grouped.splice(sourceIndex, 1);
+        grouped.splice(targetIndex, 0, moved);
 
-        newList.splice(targetIndex, 0, moved);
+        const newList = [];
+        grouped.forEach((g) => {
+          newList.push(...g.items);
+        });
 
         const newTotalSum = newList.reduce(
 
@@ -6438,7 +6458,7 @@
 
       };
 
-      const removeRoomBlock = (id) => {
+      const removeRoomBlock = (ids) => {
 
         if (!selectedGroupFicha) return;
 
@@ -6456,7 +6476,9 @@
 
         }
 
-        const newList = currentList.filter((item) => item.id !== id);
+        const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
+
+        const newList = currentList.filter((item) => !idSet.has(item.id));
 
         const newTotalSum = newList.reduce(
 
@@ -12545,413 +12567,239 @@
 
                                 <tbody className="divide-y divide-slate-100">
 
-                                  {JSON.parse(
-
-                                    selectedGroupFicha.records[0]?.[
-
-                                    "RoomingList_JSON"
-
-                                    ] || "[]",
-
-                                  ).map((item, index) => (
-
-                                    <tr
-
-                                      key={item.id}
-
-                                      draggable
-
-                                      onDragStart={(e) =>
-
-                                        e.dataTransfer.setData("idx", index)
-
+                                  {(() => {
+                                    const rawRL = JSON.parse(
+                                      selectedGroupFicha.records[0]?.[
+                                      "RoomingList_JSON"
+                                      ] || "[]",
+                                    );
+                                    const grouped = [];
+                                    rawRL.forEach((item, index) => {
+                                      const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
+                                      const existing = grouped.find(g => g.key === key);
+                                      if (existing) {
+                                        existing.qty = (existing.qty || 0) + (parseInt(item.qty) || 1);
+                                        existing.total = (parseFloat(existing.total) || 0) + (parseFloat(item.total) || 0);
+                                        existing.ids.push(item.id);
+                                        existing.originalIndices.push(index);
+                                      } else {
+                                        grouped.push({
+                                          ...item,
+                                          key,
+                                          qty: parseInt(item.qty) || 1,
+                                          total: parseFloat(item.total) || 0,
+                                          ids: [item.id],
+                                          originalIndices: [index]
+                                        });
                                       }
+                                    });
 
-                                      onDragOver={(e) => e.preventDefault()}
-
-                                      onDrop={(e) =>
-
-                                        handleRoomManagerDrop(
-
-                                          parseInt(
-
-                                            e.dataTransfer.getData("idx"),
-
-                                          ),
-
-                                          index,
-
-                                        )
-
-                                      }
-
-                                      className="hover:bg-blue-50/50 transition-colors group cursor-default"
-
-                                    >
-
-                                      <td className="py-2 px-3">
-
-                                        <div className="text-slate-300 group-hover:text-slate-400 cursor-grab active:cursor-grabbing">
-
-                                          <IconGripVertical size={14} />
-
-                                        </div>
-
-                                      </td>
-
-                                      <td className="py-2 px-3">
-
-                                        <div className="flex items-center gap-1">
-
-                                          <IconBuildingSkyscraper
-
-                                            size={10}
-
-                                            className="text-slate-400"
-
+                                    return grouped.map((item, index) => (
+                                      <tr
+                                        key={item.id}
+                                        draggable
+                                        onDragStart={(e) =>
+                                          e.dataTransfer.setData("idx", index)
+                                        }
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={(e) =>
+                                          handleRoomManagerDrop(
+                                            parseInt(
+                                              e.dataTransfer.getData("idx"),
+                                            ),
+                                            index,
+                                          )
+                                        }
+                                        className="hover:bg-blue-50/50 transition-colors group cursor-default"
+                                      >
+                                        <td className="py-2 px-3">
+                                          <div className="text-slate-300 group-hover:text-slate-400 cursor-grab active:cursor-grabbing">
+                                            <IconGripVertical size={14} />
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-3">
+                                          <div className="flex items-center gap-1">
+                                            <IconBuildingSkyscraper
+                                              size={10}
+                                              className="text-slate-400"
+                                            />
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase">
+                                              {item.hotel || "Sercotel Guadiana"}
+                                            </span>
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-3">
+                                          <input
+                                            type="text"
+                                            className="bg-transparent border-none font-bold text-slate-700 outline-none w-full uppercase text-[11px]"
+                                            value={item.type}
+                                            onChange={(e) => {
+                                              const newType =
+                                                e.target.value.toUpperCase();
+                                              const newRL = JSON.parse(
+                                                selectedGroupFicha.records[0]?.[
+                                                "RoomingList_JSON"
+                                                ] || "[]",
+                                              );
+                                              item.ids.forEach(id => {
+                                                const match = newRL.find(x => x.id === id);
+                                                if (match) {
+                                                  match.type = newType;
+                                                  match.pax = getPaxByRoomType(newType);
+                                                }
+                                              });
+                                              const newTotalPax = newRL.reduce(
+                                                (acc, i) =>
+                                                  acc +
+                                                  parseInt(i.pax || 0) *
+                                                  parseInt(i.qty || 0),
+                                                0,
+                                              );
+                                              updateGroupMetadata(
+                                                selectedGroupFicha.name,
+                                                {
+                                                  RoomingList_JSON:
+                                                    JSON.stringify(newRL),
+                                                  "Pax.":
+                                                    newTotalPax.toString(),
+                                                },
+                                              );
+                                            }}
                                           />
-
-                                          <span className="text-[10px] font-bold text-slate-500 uppercase">
-
-                                            {item.hotel || "Sercotel Guadiana"}
-
+                                        </td>
+                                        <td className="py-2 px-3">
+                                          <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-fit">
+                                            <span>
+                                              {formatDate(item.dateIn)}
+                                            </span>
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-3 text-center">
+                                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
+                                            {item.nights}
                                           </span>
-
-                                        </div>
-
-                                      </td>
-
-                                      <td className="py-2 px-3">
-
-                                        <input
-
-                                          type="text"
-
-                                          className="bg-transparent border-none font-bold text-slate-700 outline-none w-full uppercase text-[11px]"
-
-                                          value={item.type}
-
-                                          onChange={(e) => {
-
-                                            const newType =
-
-                                              e.target.value.toUpperCase();
-
-                                            const newRL = JSON.parse(
-
-                                              selectedGroupFicha.records[0]?.[
-
-                                              "RoomingList_JSON"
-
-                                              ] || "[]",
-
-                                            );
-
-                                            newRL[index].type = newType;
-
-                                            newRL[index].pax =
-
-                                              getPaxByRoomType(newType);
-
-                                            const newTotalPax = newRL.reduce(
-
-                                              (acc, i) =>
-
-                                                acc +
-
-                                                parseInt(i.pax || 0) *
-
-                                                parseInt(i.qty || 0),
-
-                                              0,
-
-                                            );
-
-                                            updateGroupMetadata(
-
-                                              selectedGroupFicha.name,
-
-                                              {
-
-                                                RoomingList_JSON:
-
-                                                  JSON.stringify(newRL),
-
-                                                "Pax.":
-
-                                                  newTotalPax.toString(),
-
-                                              },
-
-                                            );
-
-                                          }}
-
-                                        />
-
-                                      </td>
-
-                                      <td className="py-2 px-3">
-
-                                        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-fit">
-
-                                          <span>
-
-                                            {formatDate(item.dateIn)}
-
+                                        </td>
+                                        <td className="py-2 px-3 text-center font-bold text-slate-800">
+                                          {item.qty}
+                                        </td>
+                                        <td className="py-2 px-3 text-center font-bold text-slate-400">
+                                          {item.pax ||
+                                            getPaxByRoomType(item.type)}
+                                        </td>
+                                        <td className="py-2 px-3 text-center">
+                                          <span className="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-1.5 py-0.5 rounded">
+                                            {item.regime}
                                           </span>
-
-                                        </div>
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-center">
-
-                                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
-
-                                          {item.nights}
-
-                                        </span>
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-center font-bold text-slate-800">
-
-                                        {item.qty}
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-center font-bold text-slate-400">
-
-                                        {item.pax ||
-
-                                          getPaxByRoomType(item.type)}
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-center">
-
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-1.5 py-0.5 rounded">
-
-                                          {item.regime}
-
-                                        </span>
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-right font-medium text-slate-600">
-
-                                        {parseFloat(item.price).toFixed(2)} €
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-center">
-
-                                        <span
-
-                                          className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.iva == 21 ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}
-
-                                        >
-
-                                          {item.iva || 10}%
-
-                                        </span>
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-right bg-blue-50/10 border-l border-blue-50">
-
-                                        <div className="flex items-center justify-end gap-1">
-
-                                          <span className="text-[10px] font-bold text-slate-500">
-
-                                            {(item.comision?.base_unitaria
-
-                                              ? item.comision.base_unitaria *
-
-                                              item.qty *
-
-                                              item.nights
-
-                                              : item.comision
-
-                                                ?.base_calculada || 0
-
-                                            ).toLocaleString("es-ES", {
-
-                                              minimumFractionDigits: 2,
-
-                                            })}{" "}
-
-                                            €
-
-                                          </span>
-
-                                          <button
-
-                                            onClick={() =>
-
-                                              setCommissionModal({
-
-                                                isOpen: true,
-
-                                                itemIdx: index,
-
-                                                tempCom: item.comision
-
-                                                  ?.desglose
-
-                                                  ? JSON.parse(
-
-                                                    JSON.stringify(
-
-                                                      item.comision,
-
-                                                    ),
-
-                                                  )
-
-                                                  : calculateDefaultCommission(
-
-                                                    item.price,
-
-                                                    item.regime,
-
-                                                    item.qty,
-
-                                                    item.nights,
-
-                                                    item.type,
-
-                                                  ),
-
-                                              })
-
-                                            }
-
-                                            className="p-1 hover:bg-blue-100 text-blue-400 hover:text-blue-600 rounded transition-colors"
-
-                                            title="Configurar desglose de comisión"
-
+                                        </td>
+                                        <td className="py-2 px-3 text-right font-medium text-slate-600">
+                                          {parseFloat(item.price).toFixed(2)} €
+                                        </td>
+                                        <td className="py-2 px-3 text-center">
+                                          <span
+                                            className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.iva == 21 ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}
                                           >
-
-                                            <IconSettings size={12} />
-
-                                          </button>
-
-                                        </div>
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-center bg-blue-50/10">
-
-                                        <span className="text-[10px] font-bold text-slate-600">
-
-                                          {item.comision?.porcentaje !== undefined ? item.comision.porcentaje : 0}%
-
-                                        </span>
-
-                                      </td>
-
-                                      <td className="py-2 px-3 text-right bg-blue-50/10 border-r border-blue-50">
-
-                                        <span className="text-[10px] font-black text-blue-700">
-
-                                          {item.comision?.total_comision !==
-
-                                            undefined
-
-                                            ? item.comision.total_comision.toLocaleString(
-
-                                              "es-ES",
-
-                                              { minimumFractionDigits: 2 },
-
-                                            )
-
-                                            : (
-
-                                              ((item.comision
-
-                                                ?.base_calculada || 0) *
-
-                                                (item.comision
-
-                                                  ?.porcentaje !== undefined ? item.comision.porcentaje : 0)) /
-
-                                              100
-
-                                            ).toLocaleString("es-ES", {
-
-                                              minimumFractionDigits: 2,
-
-                                            })}{" "}
-
+                                            {item.iva || 10}%
+                                          </span>
+                                        </td>
+                                        <td className="py-2 px-3 text-right bg-blue-50/10 border-l border-blue-50">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <span className="text-[10px] font-bold text-slate-500">
+                                              {(item.comision?.base_unitaria
+                                                ? item.comision.base_unitaria *
+                                                item.qty *
+                                                item.nights
+                                                : item.comision
+                                                  ?.base_calculada || 0
+                                              ).toLocaleString("es-ES", {
+                                                minimumFractionDigits: 2,
+                                              })}{" "}
+                                              €
+                                            </span>
+                                            <button
+                                              onClick={() =>
+                                                setCommissionModal({
+                                                  isOpen: true,
+                                                  itemIdx: item.originalIndices[0],
+                                                  itemIds: item.ids,
+                                                  tempCom: item.comision
+                                                    ?.desglose
+                                                    ? JSON.parse(
+                                                      JSON.stringify(
+                                                        item.comision,
+                                                      ),
+                                                    )
+                                                    : calculateDefaultCommission(
+                                                      item.price,
+                                                      item.regime,
+                                                      item.qty,
+                                                      item.nights,
+                                                      item.type,
+                                                    ),
+                                                })
+                                              }
+                                              className="p-1 hover:bg-blue-100 text-blue-400 hover:text-blue-600 rounded transition-colors"
+                                              title="Configurar desglose de comisión"
+                                            >
+                                              <IconSettings size={12} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-3 text-center bg-blue-50/10">
+                                          <span className="text-[10px] font-bold text-slate-600">
+                                            {item.comision?.porcentaje !== undefined ? item.comision.porcentaje : 0}%
+                                          </span>
+                                        </td>
+                                        <td className="py-2 px-3 text-right bg-blue-50/10 border-r border-blue-50">
+                                          <span className="text-[10px] font-black text-blue-700">
+                                            {item.comision?.total_comision !==
+                                              undefined
+                                              ? item.comision.total_comision.toLocaleString(
+                                                "es-ES",
+                                                { minimumFractionDigits: 2 },
+                                              )
+                                              : (
+                                                ((item.comision
+                                                  ?.base_calculada || 0) *
+                                                  (item.comision
+                                                    ?.porcentaje !== undefined ? item.comision.porcentaje : 0)) /
+                                                100
+                                              ).toLocaleString("es-ES", {
+                                                minimumFractionDigits: 2,
+                                              })}{" "}
+                                            €
+                                          </span>
+                                        </td>
+                                        <td className="py-1 px-2 text-right font-black text-emerald-600 bg-emerald-50/30">
+                                          {parseFloat(
+                                            item.total,
+                                          ).toLocaleString("es-ES", {
+                                            minimumFractionDigits: 2,
+                                          })}{" "}
                                           €
-
-                                        </span>
-
-                                      </td>
-
-                                      <td className="py-1 px-2 text-right font-black text-emerald-600 bg-emerald-50/30">
-
-                                        {parseFloat(
-
-                                          item.total,
-
-                                        ).toLocaleString("es-ES", {
-
-                                          minimumFractionDigits: 2,
-
-                                        })}{" "}
-
-                                        €
-
-                                      </td>
-
-                                      <td className="py-1 px-2 text-center flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-
-                                        <button
-
-                                          onClick={() =>
-
-                                            handleEditRoomBlock(item)
-
-                                          }
-
-                                          className="p-1 hover:bg-amber-100 text-slate-300 hover:text-amber-500 rounded transition-colors"
-
-                                          title="Editar"
-
-                                        >
-
-                                          <IconEdit size={14} />
-
-                                        </button>
-
-                                        <button
-
-                                          onClick={() =>
-
-                                            removeRoomBlock(item.id)
-
-                                          }
-
-                                          className="p-1 hover:bg-rose-100 text-slate-300 hover:text-rose-500 rounded transition-colors"
-
-                                          title="Eliminar"
-
-                                        >
-
-                                          <IconTrash size={14} />
-
-                                        </button>
-
-                                      </td>
-
-                                    </tr>
-
-                                  ))}
+                                        </td>
+                                        <td className="py-1 px-2 text-center flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button
+                                            onClick={() =>
+                                              handleEditRoomBlock(item)
+                                            }
+                                            className="p-1 hover:bg-amber-100 text-slate-300 hover:text-amber-500 rounded transition-colors"
+                                            title="Editar"
+                                          >
+                                            <IconEdit size={14} />
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              removeRoomBlock(item.ids || item.id)
+                                            }
+                                            className="p-1 hover:bg-rose-100 text-slate-300 hover:text-rose-500 rounded transition-colors"
+                                            title="Eliminar"
+                                          >
+                                            <IconTrash size={14} />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ));
+                                  })()}
 
                                   {JSON.parse(
 
@@ -15444,8 +15292,6 @@
                         com.comision_unitaria = Math.round((((com.base_unitaria * com.porcentaje) / 100) + 1e-9) * 100) / 100;
                         com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + 1e-9) * 100) / 100;
 
-
-
                         const newRL = JSON.parse(
 
                           selectedGroupFicha.records[0]?.[
@@ -15456,7 +15302,14 @@
 
                         );
 
-                        newRL[commissionModal.itemIdx].comision = com;
+                        const idSet = new Set(commissionModal.itemIds || [item.id]);
+                        newRL.forEach((rlItem) => {
+                          if (idSet.has(rlItem.id)) {
+                            const itemCom = { ...com };
+                            itemCom.total_comision = Math.round((com.comision_unitaria * rlItem.qty * rlItem.nights + 1e-9) * 100) / 100;
+                            rlItem.comision = itemCom;
+                          }
+                        });
 
                         updateGroupMetadata(
 
@@ -15473,6 +15326,8 @@
                           isOpen: false,
 
                           itemIdx: null,
+
+                          itemIds: null,
 
                           tempCom: null,
 

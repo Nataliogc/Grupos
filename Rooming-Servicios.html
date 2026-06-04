@@ -1138,6 +1138,17 @@ ${inputVal}`;
                 paidAmount = parseFloat(rec['Com_Pagado'] || 0);
             }
             const pendingAmount = Math.max(0, netTotal - paidAmount);
+            const isOverpaid = paidAmount > netTotal + 0.01;
+            const refundAmount = isOverpaid ? paidAmount - netTotal : 0;
+            
+            if (isOverpaid) {
+                addRowPendiente(
+                    'Devolución pendiente',
+                    `Cobro de más detectado: ${refundAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}. Aceptada devolución del sobrante.`,
+                    'Inmediato',
+                    'Administración'
+                );
+            }
             
             if (pendingAmount > 0.05) {
                 let deadline = '---';
@@ -1331,11 +1342,19 @@ ${inputVal}`;
                     &bull; Total presupuesto: ${totalRevenue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})} IVA incluido.<br>
                 `;
             }
-            admSummaryText += `
-                &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                &bull; Pendiente de cobro final: ${pendingAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
-                &bull; Términos: Pagos anticipados no reembolsables.
-            `;
+            if (isOverpaid) {
+                admSummaryText += `
+                    &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Devolución pendiente: ${refundAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Términos: Se acepta la devolución del importe sobrante cobrado de más.
+                `;
+            } else {
+                admSummaryText += `
+                    &bull; Anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Pendiente de cobro final: ${pendingAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}.<br>
+                    &bull; Términos: Pagos anticipados no reembolsables.
+                `;
+            }
             document.getElementById('dept-administracion').innerHTML = admSummaryText.trim();
 
             // File Drop Area drag & drop setup
