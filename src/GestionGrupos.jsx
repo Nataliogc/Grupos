@@ -77,17 +77,8 @@
     const handleDotAsComma = (e) => {
       if (e.key === '.' || e.code === 'NumpadDecimal') {
         e.preventDefault();
-        const input = e.target;
-        // Simular la inserción de una coma usando InputEvent
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        const start = input.selectionStart;
-        const end = input.selectionEnd;
-        const currentValue = input.value;
-        const newValue = currentValue.substring(0, start) + ',' + currentValue.substring(end);
-        nativeInputValueSetter.call(input, newValue);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        // Restaurar posición del cursor
-        input.setSelectionRange(start + 1, start + 1);
+        e.target.focus();
+        document.execCommand('insertText', false, ',');
       }
     };
 
