@@ -60,7 +60,61 @@
       clauses: [],
       clauses_conf: [],
       isRatesOnly: false,
-      ratesOnlyGrid: {}
+      ratesOnlyGrid: {},
+      segments: [],           // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
+      isMultiSegment: false    // NUEVO: modo multi-segmento activo
+    };
+
+    // ── Calcula cupos diarios a partir de los segmentos ─────────────────
+    // Regla: segment.in <= date < segment.out (salida NO cuenta como noche)
+    const buildDailyCountsFromSegments = (segments) => {
+      if (!segments || segments.length === 0) return {};
+      const allIn  = segments.map(s => s.in).filter(Boolean).sort();
+      const allOut = segments.map(s => s.out).filter(Boolean).sort();
+      if (!allIn.length || !allOut.length) return {};
+      const globalIn  = allIn[0];
+      const globalOut = allOut[allOut.length - 1];
+      const nights = generateDates(globalIn, globalOut); // ya excluye globalOut
+      const dailyCounts = {}; // { date: { [roomType]: count } }
+      nights.forEach(date => {
+        const countsByType = {};
+        segments.forEach(seg => {
+          if (seg.in && seg.out && seg.in <= date && date < seg.out) {
+            const rt = (seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase();
+            countsByType[rt] = (countsByType[rt] || 0) + Number(seg.rooms || seg.pax || 1);
+          }
+        });
+        dailyCounts[date] = countsByType;
+      });
+      return dailyCounts;
+    };
+
+    // ── Métricas resumen de segmentos ──────────────────────────────────
+    const getSegmentStats = (segments) => {
+      if (!segments || segments.length === 0) return { totalPax: 0, roomNights: 0, maxSimultaneous: 0, globalIn: '', globalOut: '', nights: 0 };
+      const allIn  = segments.map(s => s.in).filter(Boolean).sort();
+      const allOut = segments.map(s => s.out).filter(Boolean).sort();
+      const globalIn  = allIn[0] || '';
+      const globalOut = allOut[allOut.length - 1] || '';
+      const globalNights = generateDates(globalIn, globalOut);
+      const totalPax = segments.reduce((s, seg) => s + Number(seg.pax || 0), 0);
+      // Habitaciones-noche: sum(rooms * noches de cada segmento)
+      const roomNights = segments.reduce((s, seg) => {
+        const n = generateDates(seg.in, seg.out).length;
+        return s + Number(seg.rooms || seg.pax || 1) * n;
+      }, 0);
+      // Máxima ocupación simultánea por noche
+      let maxSimultaneous = 0;
+      globalNights.forEach(date => {
+        let dayRooms = 0;
+        segments.forEach(seg => {
+          if (seg.in && seg.out && seg.in <= date && date < seg.out) {
+            dayRooms += Number(seg.rooms || seg.pax || 1);
+          }
+        });
+        if (dayRooms > maxSimultaneous) maxSimultaneous = dayRooms;
+      });
+      return { totalPax, roomNights, maxSimultaneous, globalIn, globalOut, nights: globalNights.length };
     };
 
     const ROOM_MIGRATION_MAP = {
@@ -338,6 +392,9 @@
       }
       newData.DateRanges_JSON = Array.isArray(groupData.DateRanges_JSON) ? groupData.DateRanges_JSON : [];
       newData.tracking = Array.isArray(groupData.tracking) ? groupData.tracking : [];
+      // NUEVO: preservar segmentos y modo multi-segmento
+      newData.segments = Array.isArray(groupData.segments) ? groupData.segments : [];
+      newData.isMultiSegment = !!groupData.isMultiSegment;
 
       newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
       newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
@@ -352,7 +409,11 @@
       if (groupData.isRatesOnly) return 0;
 
       let dates = [];
-      if (groupData.DateRanges_JSON && Array.isArray(groupData.DateRanges_JSON) && groupData.DateRanges_JSON.length > 0) {
+      // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
+      if (groupData.isMultiSegment && Array.isArray(groupData.segments) && groupData.segments.length > 0) {
+        const stats = getSegmentStats(groupData.segments);
+        dates = generateDates(stats.globalIn, stats.globalOut);
+      } else if (groupData.DateRanges_JSON && Array.isArray(groupData.DateRanges_JSON) && groupData.DateRanges_JSON.length > 0) {
         dates = generateSeriesDates(groupData.DateRanges_JSON);
       } else {
         dates = generateDates(groupData.Entrada, groupData.Salida);
@@ -453,6 +514,11 @@
       }, []);
 
       const getCurrentStayDates = (data = formData) => {
+        // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
+        if (data.isMultiSegment && Array.isArray(data.segments) && data.segments.length > 0) {
+          const stats = getSegmentStats(data.segments);
+          return generateDates(stats.globalIn, stats.globalOut);
+        }
         if (data.DateRanges_JSON && Array.isArray(data.DateRanges_JSON) && data.DateRanges_JSON.length > 0) {
           return generateSeriesDates(data.DateRanges_JSON);
         }
