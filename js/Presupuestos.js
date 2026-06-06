@@ -2094,7 +2094,7 @@ function App() {
     }, "No hay presupuestos para mostrar")))));
   };
   var renderCreate = function renderCreate() {
-    var _formData$segments2;
+    var _formData$segments3;
     var stayDates = getCurrentStayDates(formData);
     var currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || [];
     return /*#__PURE__*/React.createElement("div", {
@@ -2291,16 +2291,36 @@ function App() {
     }))) : /*#__PURE__*/React.createElement("div", {
       className: "space-y-4 pt-2"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex justify-between items-center"
+      className: "flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-2"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap items-center gap-4"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Segmentos de Estancia"), /*#__PURE__*/React.createElement("button", {
+      className: "text-[9px] font-black text-slate-800 uppercase tracking-widest ml-1"
+    }, "Segmentos de Estancia"), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-[8px] font-black text-slate-400 uppercase tracking-widest"
+    }, "PAX Declarados (Cliente):"), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: "0",
+      value: formData.declaredPax || '',
+      onChange: function onChange(e) {
+        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          declaredPax: e.target.value === '' ? '' : Number(e.target.value)
+        }));
+      },
+      placeholder: "Ej: 9",
+      className: "w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 text-center",
+      title: "N\xFAmero total de personas declaradas por el cliente en el email"
+    }))), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
-        var _formData$segments;
+        var _formData$segments, _formData$segments2;
         var nextLetter = String.fromCharCode(65 + (((_formData$segments = formData.segments) === null || _formData$segments === void 0 ? void 0 : _formData$segments.length) || 0));
+        var nextIdx = (((_formData$segments2 = formData.segments) === null || _formData$segments2 === void 0 ? void 0 : _formData$segments2.length) || 0) + 1;
         var newSeg = {
           id: nextLetter,
+          travelerGroupId: "G".concat(nextIdx),
           pax: 1,
           rooms: 1,
           roomType: 'DOBLE DE USO INDIVIDUAL',
@@ -2312,7 +2332,7 @@ function App() {
           segments: [].concat(_toConsumableArray(formData.segments || []), [newSeg])
         }));
       },
-      className: "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1"
+      className: "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 self-end sm:self-auto"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
     }), " A\xF1adir Segmento")), /*#__PURE__*/React.createElement("div", {
@@ -2324,6 +2344,8 @@ function App() {
     }, /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center"
     }, "ID"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24"
+    }, "Grupo"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20"
     }, "Pax"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20"
@@ -2337,13 +2359,30 @@ function App() {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Notas / Ocupantes"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center"
-    }))), /*#__PURE__*/React.createElement("tbody", null, (_formData$segments2 = formData.segments) === null || _formData$segments2 === void 0 ? void 0 : _formData$segments2.map(function (seg, idx) {
+    }))), /*#__PURE__*/React.createElement("tbody", null, (_formData$segments3 = formData.segments) === null || _formData$segments3 === void 0 ? void 0 : _formData$segments3.map(function (seg, idx) {
       return /*#__PURE__*/React.createElement("tr", {
         key: idx,
         className: "border-b border-slate-50 hover:bg-slate-50/50 transition-all"
       }, /*#__PURE__*/React.createElement("td", {
         className: "p-2 text-center text-xs font-black text-slate-600"
       }, seg.id), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "text",
+        value: seg.travelerGroupId || '',
+        placeholder: "Ej: G1",
+        onChange: function onChange(e) {
+          var val = e.target.value;
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            travelerGroupId: val
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-center text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+      })), /*#__PURE__*/React.createElement("td", {
         className: "p-2"
       }, /*#__PURE__*/React.createElement("input", {
         type: "number",
@@ -2496,6 +2535,7 @@ function App() {
         if (newIsMulti && (!formData.segments || formData.segments.length === 0)) {
           updated.segments = [{
             id: 'A',
+            travelerGroupId: 'G1',
             pax: 1,
             rooms: 1,
             roomType: 'DOBLE DE USO INDIVIDUAL',
@@ -3773,8 +3813,8 @@ function App() {
       }, ext.description || ext.concept, " (", ext.units || ext.pax || 0, " x ", formatNum(ext.unitPrice || ext.price || 0), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums"
       }, formatNum(px), " \u20AC"));
-    })), /*#__PURE__*/React.createElement("tfoot", {
-      className: "bg-slate-900 text-white font-black"
+    })), /*#__PURE__*/React.createElement("tbody", {
+      className: "bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid"
     }, parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
       className: "border-b border-slate-700/50 text-slate-300"
     }, /*#__PURE__*/React.createElement("td", {

@@ -1901,14 +1901,30 @@ ${emailContent}`;
                   </div>
                 ) : (
                   <div className="space-y-4 pt-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Segmentos de Estancia</label>
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-2">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <label className="text-[9px] font-black text-slate-800 uppercase tracking-widest ml-1">Segmentos de Estancia</label>
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">PAX Declarados (Cliente):</span>
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={formData.declaredPax || ''} 
+                            onChange={e => setFormData({ ...formData, declaredPax: e.target.value === '' ? '' : Number(e.target.value) })}
+                            placeholder="Ej: 9"
+                            className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 text-center"
+                            title="Número total de personas declaradas por el cliente en el email"
+                          />
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           const nextLetter = String.fromCharCode(65 + (formData.segments?.length || 0));
+                          const nextIdx = (formData.segments?.length || 0) + 1;
                           const newSeg = {
                             id: nextLetter,
+                            travelerGroupId: `G${nextIdx}`,
                             pax: 1,
                             rooms: 1,
                             roomType: 'DOBLE DE USO INDIVIDUAL',
@@ -1921,7 +1937,7 @@ ${emailContent}`;
                             segments: [...(formData.segments || []), newSeg]
                           });
                         }}
-                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1"
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 self-end sm:self-auto"
                       >
                         <i className="fas fa-plus"></i> Añadir Segmento
                       </button>
@@ -1932,6 +1948,7 @@ ${emailContent}`;
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-100">
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center">ID</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24">Grupo</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20">Pax</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20">Hab.</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-48">Tipo Habitación</th>
@@ -1945,6 +1962,20 @@ ${emailContent}`;
                           {formData.segments?.map((seg, idx) => (
                             <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all">
                               <td className="p-2 text-center text-xs font-black text-slate-600">{seg.id}</td>
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={seg.travelerGroupId || ''}
+                                  placeholder="Ej: G1"
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], travelerGroupId: val };
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-center text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                />
+                              </td>
                               <td className="p-2">
                                 <input
                                   type="number"
@@ -2077,7 +2108,7 @@ ${emailContent}`;
                         const newIsMulti = !formData.isMultiSegment;
                         let updated = { ...formData, isMultiSegment: newIsMulti };
                         if (newIsMulti && (!formData.segments || formData.segments.length === 0)) {
-                          updated.segments = [{ id: 'A', pax: 1, rooms: 1, roomType: 'DOBLE DE USO INDIVIDUAL', in: formData.Entrada || '', out: formData.Salida || '', notes: '' }];
+                          updated.segments = [{ id: 'A', travelerGroupId: 'G1', pax: 1, rooms: 1, roomType: 'DOBLE DE USO INDIVIDUAL', in: formData.Entrada || '', out: formData.Salida || '', notes: '' }];
                         }
                         setFormData(updated);
                       }}
@@ -3264,7 +3295,7 @@ ${emailContent}`;
                                   );
                                 })}
                               </tbody>
-                              <tfoot className="bg-slate-900 text-white font-black">
+                              <tbody className="bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid">
                                  {parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? (
                                    <>
                                      <tr className="border-b border-slate-700/50 text-slate-300">
@@ -3294,7 +3325,7 @@ ${emailContent}`;
                                      <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                    </tr>
                                  )}
-                              </tfoot>
+                              </tbody>
                             </table>
                           </div>
                         )) : (
