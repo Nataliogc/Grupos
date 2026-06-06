@@ -62,59 +62,230 @@
       isRatesOnly: false,
       ratesOnlyGrid: {},
       segments: [],           // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
-      isMultiSegment: false    // NUEVO: modo multi-segmento activo
+      isMultiSegment: false,   // NUEVO: modo multi-segmento activo
+      declaredPax: ''         // NUEVO: Pax declarados por el cliente
     };
 
     // ── Calcula cupos diarios a partir de los segmentos ─────────────────
     // Regla: segment.in <= date < segment.out (salida NO cuenta como noche)
     const buildDailyCountsFromSegments = (segments) => {
-      if (!segments || segments.length === 0) return {};
-      const allIn  = segments.map(s => s.in).filter(Boolean).sort();
-      const allOut = segments.map(s => s.out).filter(Boolean).sort();
-      if (!allIn.length || !allOut.length) return {};
-      const globalIn  = allIn[0];
+      if (!Array.isArray(segments) || segments.length === 0) return {};
+
+      const validSegments = segments.filter(seg => seg.in && seg.out && seg.in < seg.out);
+      if (validSegments.length === 0) return {};
+
+      const allIn = validSegments.map(seg => seg.in).sort();
+      const allOut = validSegments.map(seg => seg.out).sort();
+      const globalIn = allIn[0];
       const globalOut = allOut[allOut.length - 1];
-      const nights = generateDates(globalIn, globalOut); // ya excluye globalOut
-      const dailyCounts = {}; // { date: { [roomType]: count } }
+
+      const nights = generateDates(globalIn, globalOut);
+      const dailyCounts = {};
+
       nights.forEach(date => {
         const countsByType = {};
-        segments.forEach(seg => {
-          if (seg.in && seg.out && seg.in <= date && date < seg.out) {
-            const rt = (seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase();
-            countsByType[rt] = (countsByType[rt] || 0) + Number(seg.rooms || seg.pax || 1);
-          }
+
+        validSegments.forEach(seg => {
+          const isActive = seg.in <= date && date < seg.out;
+          if (!isActive) return;
+
+          const allocations = Array.isArray(seg.roomAllocations) && seg.roomAllocations.length > 0
+            ? seg.roomAllocations
+            : [
+                {
+                  roomType: seg.roomType || "DOBLE DE USO INDIVIDUAL",
+                  rooms: Number(seg.rooms || seg.pax || 0)
+                }
+              ];
+
+          allocations.forEach(allocation => {
+            const roomType = (allocation.roomType || "DOBLE DE USO INDIVIDUAL").toUpperCase();
+            const rooms = Number(allocation.rooms || 0);
+            if (rooms > 0) {
+              countsByType[roomType] = (countsByType[roomType] || 0) + rooms;
+            }
+          });
         });
+
         dailyCounts[date] = countsByType;
       });
+
       return dailyCounts;
     };
 
-    // ── Métricas resumen de segmentos ──────────────────────────────────
-    const getSegmentStats = (segments) => {
-      if (!segments || segments.length === 0) return { totalPax: 0, roomNights: 0, maxSimultaneous: 0, globalIn: '', globalOut: '', nights: 0 };
-      const allIn  = segments.map(s => s.in).filter(Boolean).sort();
-      const allOut = segments.map(s => s.out).filter(Boolean).sort();
-      const globalIn  = allIn[0] || '';
-      const globalOut = allOut[allOut.length - 1] || '';
+    // ── Métricas detalladas del modo multi-segmento ─────────────────────
+    const buildMultiSegmentMetrics = (segments, declaredPax) => {
+      const decPax = Number(declaredPax || 0);
+      if (!Array.isArray(segments) || segments.length === 0) {
+        return {
+          declaredPax: decPax,
+          segmentPaxTotal: 0,
+          roomNights: 0,
+          maxSimultaneousRooms: 0,
+          maxSimultaneousPax: 0,
+          globalIn: '',
+          globalOut: '',
+          segmentCount: 0,
+          travelerGroupCount: 0
+        };
+      }
+
+      const validSegments = segments.filter(seg => seg.in && seg.out && seg.in < seg.out);
+      if (validSegments.length === 0) {
+        return {
+          declaredPax: decPax,
+          segmentPaxTotal: 0,
+          roomNights: 0,
+          maxSimultaneousRooms: 0,
+          maxSimultaneousPax: 0,
+          globalIn: '',
+          globalOut: '',
+          segmentCount: 0,
+          travelerGroupCount: 0
+        };
+      }
+
+      const allIn = validSegments.map(seg => seg.in).sort();
+      const allOut = validSegments.map(seg => seg.out).sort();
+      const globalIn = allIn[0];
+      const globalOut = allOut[allOut.length - 1];
+
+      const segmentPaxTotal = validSegments.reduce((sum, seg) => sum + Number(seg.pax || 0), 0);
+
+      let roomNights = 0;
+      validSegments.forEach(seg => {
+        const nights = generateDates(seg.in, seg.out).length;
+        const allocations = Array.isArray(seg.roomAllocations) && seg.roomAllocations.length > 0
+          ? seg.roomAllocations
+          : [
+              {
+                roomType: seg.roomType || "DOBLE DE USO INDIVIDUAL",
+                rooms: Number(seg.rooms || seg.pax || 0)
+              }
+            ];
+        const totalRooms = allocations.reduce((sum, alloc) => sum + Number(alloc.rooms || 0), 0);
+        roomNights += totalRooms * nights;
+      });
+
       const globalNights = generateDates(globalIn, globalOut);
-      const totalPax = segments.reduce((s, seg) => s + Number(seg.pax || 0), 0);
-      // Habitaciones-noche: sum(rooms * noches de cada segmento)
-      const roomNights = segments.reduce((s, seg) => {
-        const n = generateDates(seg.in, seg.out).length;
-        return s + Number(seg.rooms || seg.pax || 1) * n;
-      }, 0);
-      // Máxima ocupación simultánea por noche
-      let maxSimultaneous = 0;
+      let maxSimultaneousRooms = 0;
+      let maxSimultaneousPax = 0;
+
       globalNights.forEach(date => {
         let dayRooms = 0;
-        segments.forEach(seg => {
+        let dayPax = 0;
+        validSegments.forEach(seg => {
           if (seg.in && seg.out && seg.in <= date && date < seg.out) {
-            dayRooms += Number(seg.rooms || seg.pax || 1);
+            dayPax += Number(seg.pax || 0);
+            const allocations = Array.isArray(seg.roomAllocations) && seg.roomAllocations.length > 0
+              ? seg.roomAllocations
+              : [
+                  {
+                    roomType: seg.roomType || "DOBLE DE USO INDIVIDUAL",
+                    rooms: Number(seg.rooms || seg.pax || 0)
+                  }
+                ];
+            dayRooms += allocations.reduce((sum, alloc) => sum + Number(alloc.rooms || 0), 0);
           }
         });
-        if (dayRooms > maxSimultaneous) maxSimultaneous = dayRooms;
+        if (dayRooms > maxSimultaneousRooms) maxSimultaneousRooms = dayRooms;
+        if (dayPax > maxSimultaneousPax) maxSimultaneousPax = dayPax;
       });
-      return { totalPax, roomNights, maxSimultaneous, globalIn, globalOut, nights: globalNights.length };
+
+      const uniqueGroups = new Set();
+      let emptyIdCount = 0;
+      validSegments.forEach(seg => {
+        const tgId = String(seg.travelerGroupId || '').trim();
+        if (tgId) {
+          uniqueGroups.add(tgId);
+        } else {
+          emptyIdCount++;
+        }
+      });
+      const travelerGroupCount = uniqueGroups.size + emptyIdCount;
+
+      return {
+        declaredPax: decPax,
+        segmentPaxTotal,
+        roomNights,
+        maxSimultaneousRooms,
+        maxSimultaneousPax,
+        globalIn,
+        globalOut,
+        segmentCount: validSegments.length,
+        travelerGroupCount
+      };
+    };
+
+    // ── Agrupador de periodos de ocupación ──────────────────────────────
+    const getOccupancyPeriods = (segments) => {
+      const segmentCountsByDate = buildDailyCountsFromSegments(segments);
+      const dates = Object.keys(segmentCountsByDate).sort();
+      if (dates.length === 0) return [];
+
+      const periods = [];
+      let currentPeriod = null;
+
+      dates.forEach(date => {
+        const counts = segmentCountsByDate[date] || {};
+        const roomCountStr = Object.entries(counts)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([rt, cnt]) => `${cnt} ${rt}`)
+          .join(', ') || '0 habitaciones';
+
+        const totalRooms = Object.values(counts).reduce((s, c) => s + c, 0);
+        const displayText = `${totalRooms} hab. (${roomCountStr})`;
+
+        if (!currentPeriod) {
+          currentPeriod = {
+            start: date,
+            end: date,
+            displayText,
+            totalRooms
+          };
+        } else if (currentPeriod.displayText === displayText) {
+          currentPeriod.end = date;
+        } else {
+          periods.push(currentPeriod);
+          currentPeriod = {
+            start: date,
+            end: date,
+            displayText,
+            totalRooms
+          };
+        }
+      });
+
+      if (currentPeriod) {
+        periods.push(currentPeriod);
+      }
+
+      return periods.map(p => {
+        const d1 = p.start;
+        const d2 = p.end;
+        const checkoutDateObj = new Date(d2);
+        checkoutDateObj.setDate(checkoutDateObj.getDate() + 1);
+        const checkoutStr = checkoutDateObj.toISOString().split('T')[0];
+
+        return {
+          range: `${formatDate(d1)} al ${formatDate(checkoutStr)}`,
+          text: p.text || p.displayText,
+          totalRooms: p.totalRooms
+        };
+      });
+    };
+
+    // ── Métricas resumen de segmentos (retrocompatibilidad) ──────────────
+    const getSegmentStats = (segments, declaredPax = '') => {
+      const metrics = buildMultiSegmentMetrics(segments, declaredPax);
+      return {
+        totalPax: metrics.segmentPaxTotal,
+        roomNights: metrics.roomNights,
+        maxSimultaneous: metrics.maxSimultaneousRooms,
+        globalIn: metrics.globalIn,
+        globalOut: metrics.globalOut,
+        nights: metrics.globalIn && metrics.globalOut ? generateDates(metrics.globalIn, metrics.globalOut).length : 0
+      };
     };
 
     const ROOM_MIGRATION_MAP = {
@@ -405,6 +576,16 @@
         const segmentCountsByDate = buildDailyCountsFromSegments(newData.segments);
         const stayDates = generateDates(stats.globalIn, stats.globalOut);
         
+        const maxByType = {};
+        Object.values(segmentCountsByDate).forEach(countsByType => {
+          Object.entries(countsByType).forEach(([rt, cnt]) => {
+            if (cnt > (maxByType[rt] || 0)) {
+              maxByType[rt] = cnt;
+            }
+          });
+        });
+        newData.roomCounts = maxByType;
+
         newData.dailyConfig = newData.dailyConfig ? { ...newData.dailyConfig } : {};
         stayDates.forEach(date => {
           if (!newData.dailyConfig[date]) {
@@ -424,21 +605,15 @@
               discounts: newData.dailyConfig[date].discounts ? { ...newData.dailyConfig[date].discounts } : {}
             };
           }
+          // Initialize all known room types to 0 for this date to avoid falling back to peak in calculations
+          Object.keys(maxByType).forEach(rt => {
+            newData.dailyConfig[date].counts[rt] = 0;
+          });
           const countsForDate = segmentCountsByDate[date] || {};
           Object.entries(countsForDate).forEach(([rt, cnt]) => {
             newData.dailyConfig[date].counts[rt] = cnt;
           });
         });
-
-        const maxByType = {};
-        Object.values(segmentCountsByDate).forEach(countsByType => {
-          Object.entries(countsByType).forEach(([rt, cnt]) => {
-            if (cnt > (maxByType[rt] || 0)) {
-              maxByType[rt] = cnt;
-            }
-          });
-        });
-        newData.roomCounts = maxByType;
       }
 
       newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
@@ -466,8 +641,12 @@
       let total = 0;
       dates.forEach(date => {
         const config = groupData.dailyConfig?.[date] || {};
-        Object.entries(groupData.roomCounts || {}).forEach(([type, globalCount]) => {
-          let count = globalCount;
+        const allTypes = new Set([
+          ...Object.keys(groupData.roomCounts || {}),
+          ...Object.keys(config.counts || {})
+        ]);
+        allTypes.forEach(type => {
+          let count = groupData.roomCounts?.[type] || 0;
           if (config.counts) {
             const countKey = Object.keys(config.counts).find(k => k.toLowerCase() === type.toLowerCase());
             if (countKey && config.counts[countKey] !== '' && config.counts[countKey] !== undefined) {
@@ -575,7 +754,7 @@
 
       const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
 
-      // Auto-sync daily configuration prices with ratesOnlyGrid when dates/hotel/grid change
+      // Auto-sync daily configuration prices with ratesOnlyGrid and counts with segments in real-time
       useEffect(() => {
         if (!formData.isRatesOnly) {
           const stayDates = getCurrentStayDates(formData);
@@ -583,12 +762,46 @@
           const newDailyConfig = { ...(formData.dailyConfig || {}) };
           let changed = false;
 
+          // Compute segment counts if in multi-segment mode
+          let segmentCountsByDate = {};
+          let maxByType = {};
+          if (formData.isMultiSegment && Array.isArray(formData.segments) && formData.segments.length > 0) {
+            segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
+            Object.values(segmentCountsByDate).forEach(countsByType => {
+              Object.entries(countsByType).forEach(([rt, cnt]) => {
+                if (cnt > (maxByType[rt] || 0)) {
+                  maxByType[rt] = cnt;
+                }
+              });
+            });
+          }
+
           stayDates.forEach(date => {
             if (!newDailyConfig[date]) {
               newDailyConfig[date] = { board: formData["Régimen"] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
               changed = true;
             }
             const dayConf = newDailyConfig[date];
+
+            // If in multi-segment mode, sync counts
+            if (formData.isMultiSegment) {
+              const newCounts = {};
+              // Initialize all known room types to 0
+              Object.keys(maxByType).forEach(rt => {
+                newCounts[rt] = 0;
+              });
+              // Set the actual counts for this date
+              const countsForDate = segmentCountsByDate[date] || {};
+              Object.entries(countsForDate).forEach(([rt, cnt]) => {
+                newCounts[rt] = cnt;
+              });
+
+              if (JSON.stringify(dayConf.counts) !== JSON.stringify(newCounts)) {
+                dayConf.counts = newCounts;
+                changed = true;
+              }
+            }
+
             const currentBoard = dayConf.board || formData["Régimen"] || 'AD (Alojamiento y Desayuno)';
             const boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
 
@@ -616,7 +829,15 @@
             setFormData(prev => ({ ...prev, dailyConfig: newDailyConfig }));
           }
         }
-      }, [formData.Entrada, formData.Salida, formData.Hotel_Asignado, formData.ratesOnlyGrid, formData.isRatesOnly]);
+      }, [
+        formData.Entrada,
+        formData.Salida,
+        formData.Hotel_Asignado,
+        formData.ratesOnlyGrid,
+        formData.isRatesOnly,
+        formData.isMultiSegment,
+        formData.segments
+      ]);
 
       // Cargar datos y manejar parámetros de URL
       useEffect(() => {
@@ -857,6 +1078,70 @@
           return;
         }
 
+        if (normalizedFormData.isMultiSegment) {
+          if (!Array.isArray(normalizedFormData.segments) || normalizedFormData.segments.length === 0) {
+            alert("⚠️ Error: En modo multi-estancia debe haber al menos un segmento.");
+            return;
+          }
+
+          for (let i = 0; i < normalizedFormData.segments.length; i++) {
+            const seg = normalizedFormData.segments[i];
+            if (!seg.in || !seg.out) {
+              alert(`⚠️ Error en Segmento ${seg.id || i + 1}: Debe especificar las fechas de entrada y salida.`);
+              return;
+            }
+            if (seg.in >= seg.out) {
+              alert(`⚠️ Error en Segmento ${seg.id || i + 1}: La fecha de salida (${seg.out}) debe ser posterior a la de entrada (${seg.in}).`);
+              return;
+            }
+            if (Number(seg.pax || 0) <= 0) {
+              alert(`⚠️ Error en Segmento ${seg.id || i + 1}: El número de PAX debe ser mayor que 0.`);
+              return;
+            }
+            const allocations = seg.roomAllocations || [];
+            if (allocations.length === 0) {
+              alert(`⚠️ Error en Segmento ${seg.id || i + 1}: Debe tener al menos una asignación de habitación.`);
+              return;
+            }
+            const totalRooms = allocations.reduce((sum, a) => sum + Number(a.rooms || 0), 0);
+            if (totalRooms <= 0) {
+              alert(`⚠️ Error en Segmento ${seg.id || i + 1}: El número total de habitaciones debe ser mayor que 0.`);
+              return;
+            }
+            for (let j = 0; j < allocations.length; j++) {
+              const a = allocations[j];
+              if (!a.roomType) {
+                alert(`⚠️ Error en Segmento ${seg.id || i + 1}: Tipo de habitación no especificado.`);
+                return;
+              }
+              if (Number(a.rooms || 0) <= 0) {
+                alert(`⚠️ Error en Segmento ${seg.id || i + 1}: La asignación para ${a.roomType} debe ser mayor que 0.`);
+                return;
+              }
+            }
+          }
+
+          // Warnings / Confirmations (non-blocking)
+          const metrics = buildMultiSegmentMetrics(normalizedFormData.segments, normalizedFormData.declaredPax);
+          if (metrics.declaredPax > 0 && metrics.segmentPaxTotal > metrics.declaredPax) {
+            const confirmSave = window.confirm(`⚠️ Advertencia: El número total de PAX en los segmentos (${metrics.segmentPaxTotal}) supera los PAX declarados por el cliente (${metrics.declaredPax}). ¿Desea continuar?`);
+            if (!confirmSave) return;
+          }
+
+          // Check for empty nights (nights with 0 rooms occupied)
+          const segmentCountsByDate = buildDailyCountsFromSegments(normalizedFormData.segments);
+          const globalDates = generateDates(metrics.globalIn, metrics.globalOut);
+          const emptyDates = globalDates.filter(d => {
+            const countsForDate = segmentCountsByDate[d] || {};
+            const roomsSum = Object.values(countsForDate).reduce((s, c) => s + Number(c), 0);
+            return roomsSum === 0;
+          });
+          if (emptyDates.length > 0) {
+            const confirmSave = window.confirm(`⚠️ Advertencia: Hay fechas dentro del rango global con 0 habitaciones ocupadas (por ejemplo: ${emptyDates.slice(0, 3).map(formatDate).join(', ')}${emptyDates.length > 3 ? '...' : ''}). ¿Desea continuar?`);
+            if (!confirmSave) return;
+          }
+        }
+
         const reservaId = normalizedFormData.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
         const isNew = !normalizedFormData.uid;
 
@@ -984,8 +1269,9 @@
 
         setIsParsingEmail(true);
         try {
+          const currentYear = new Date().getFullYear();
           const prompt = `Analiza el siguiente email de solicitud de habitaciones de hotel.
-Extrae TODOS los grupos de personas con sus fechas exactas (Check-in y Check-out).
+Extrae el número total de personas declaradas por el cliente en el email ("declaredPax") y TODOS los segmentos de estancia de los subgrupos (cada segmento con su id, travelerGroupId, pax, fechas in y out, y asignación de habitaciones "roomAllocations").
 Responde EXCLUSIVAMENTE con JSON válido (sin formato markdown \`\`\`json ni texto explicativo) con esta estructura exacta:
 {
   "groupName": "Nombre empresa o grupo",
@@ -993,13 +1279,24 @@ Responde EXCLUSIVAMENTE con JSON válido (sin formato markdown \`\`\`json ni tex
   "contactEmail": "email@ejemplo.com",
   "hotel": "nombre del hotel si se menciona",
   "observations": "preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales",
+  "declaredPax": 9,
   "segments": [
-    { "id": "A", "pax": 3, "rooms": 3, "roomType": "DOBLE DE USO INDIVIDUAL", "in": "YYYY-MM-DD", "out": "YYYY-MM-DD", "notes": "" }
+    {
+      "id": "A",
+      "travelerGroupId": "G1",
+      "pax": 3,
+      "in": "YYYY-MM-DD",
+      "out": "YYYY-MM-DD",
+      "roomAllocations": [
+        { "roomType": "DOBLE DE USO INDIVIDUAL", "rooms": 3 }
+      ],
+      "notes": ""
+    }
   ]
 }
 Reglas para los segmentos:
-1. Por defecto, asigna 1 habitación por persona ("rooms" = "pax") y tipo "DOBLE DE USO INDIVIDUAL" a menos que se indique lo contrario.
-2. Si no se especifica el año para las fechas, usa 2026.
+1. Por defecto, asigna 1 habitación por persona ("rooms" = "pax") y tipo "DOBLE DE USO INDIVIDUAL" en el array "roomAllocations", a menos que se indique lo contrario.
+2. Si no se especifica el año para las fechas, usa ${currentYear}.
 3. El formato de las fechas "in" y "out" debe ser estrictamente YYYY-MM-DD.
 
 Email a analizar:
@@ -1014,15 +1311,29 @@ ${emailContent}`;
           const parsed = JSON.parse(cleanJson);
 
           const segments = Array.isArray(parsed.segments) ? parsed.segments : [];
-          const normalizedSegments = segments.map((seg, idx) => ({
-            id: seg.id || String.fromCharCode(65 + idx),
-            pax: Number(seg.pax) || 1,
-            rooms: Number(seg.rooms) || Number(seg.pax) || 1,
-            roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL',
-            in: seg.in || '',
-            out: seg.out || '',
-            notes: seg.notes || ''
-          }));
+          const normalizedSegments = segments.map((seg, idx) => {
+            const pax = Number(seg.pax) || 1;
+            const allocations = Array.isArray(seg.roomAllocations) && seg.roomAllocations.length > 0
+              ? seg.roomAllocations.map(a => ({
+                  roomType: (a.roomType || seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase(),
+                  rooms: Number(a.rooms) || pax
+                }))
+              : [
+                  {
+                    roomType: (seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase(),
+                    rooms: Number(seg.rooms) || pax
+                  }
+                ];
+            return {
+              id: seg.id || String.fromCharCode(65 + idx),
+              travelerGroupId: seg.travelerGroupId || `G${idx + 1}`,
+              pax,
+              in: seg.in || '',
+              out: seg.out || '',
+              roomAllocations: allocations,
+              notes: seg.notes || ''
+            };
+          });
 
           const stats = getSegmentStats(normalizedSegments);
 
@@ -1034,6 +1345,7 @@ ${emailContent}`;
             Com_Email_Contacto: parsed.contactEmail || '',
             Com_Notas: parsed.observations || '',
             isMultiSegment: true,
+            declaredPax: parsed.declaredPax || '',
             segments: normalizedSegments,
             Entrada: stats.globalIn,
             Salida: stats.globalOut,
@@ -1858,7 +2170,14 @@ ${emailContent}`;
                       <div className="space-y-3">
                         {stayDates.map(date => {
                           const selectedTypes = formData.isMultiSegment
-                            ? Array.from(new Set((formData.segments || []).map(s => (s.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase())))
+                            ? Array.from(new Set(
+                                (formData.segments || []).flatMap(s => {
+                                  const allocations = Array.isArray(s.roomAllocations) && s.roomAllocations.length > 0
+                                    ? s.roomAllocations
+                                    : [{ roomType: s.roomType || "DOBLE DE USO INDIVIDUAL" }];
+                                  return allocations.map(a => (a.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase());
+                                })
+                              ))
                             : currentRooms.filter(type => (formData.roomCounts || {})[type] > 0);
                           return (
                             <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center">
@@ -2861,43 +3180,6 @@ ${emailContent}`;
                                    const config = g.dailyConfig?.[date] || {};
                                    const boardTitle = config.board || g.Regimen || '';
 
-                                   const roomRow = (
-                                     <tr key={`${date}-base`} className="group hover:bg-slate-50/50">
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-600">{boardTitle}</td>
-                                       <td className="p-4 print:py-1.5 print:px-2">
-                                         <ul className="text-[11px] print:text-[9px]">
-                                           {activeRooms.map(([type, count]) => {
-                                             const typeKey = type.toUpperCase();
-                                             let price = 0;
-                                             let gratuities = 0;
-                                             let lineSubtotal = 0;
-                                             let roomBoard = '';
-
-                                             if (config.prices && config.prices[typeKey] !== undefined) {
-                                                price = Number(config.prices[typeKey] || 0);
-                                                roomBoard = config[typeKey]?.board || '';
-                                                gratuities = parseInt(config[typeKey]?.gratuities || 0);
-                                                lineSubtotal = Math.max(0, count - gratuities) * price;
-                                             }
-                                             if (price === 0 && lineSubtotal === 0 && gratuities === 0) return null;
-
-                                             subtotalDate += lineSubtotal;
-                                             return (
-                                               <li key={type} className="text-slate-500 mb-1 print:mb-0">
-                                                 <div className="flex justify-between">
-                                                   <span>{count}x {getRoomDisplayName(type)} {roomBoard && roomBoard !== boardTitle ? `(${getBoardDisplayName(roomBoard)})` : ''} ({formatNum(price)}€)</span>
-                                                 </div>
-                                                 {gratuities > 0 && <div className="text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0">[-{gratuities}] Gratuidad</div>}
-                                               </li>
-                                             );
-                                           })}
-                                         </ul>
-                                       </td>
-                                       <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} €</td>
-                                     </tr>
-                                   );
-
                                    const dailyExtrasRows = (g.extraCharges || []).filter(ext => ext.date === date).map((ext, extIdx) => {
                                       const u = ext.units || 0;
                                       const pax = ext.pax || 0;
@@ -2912,6 +3194,55 @@ ${emailContent}`;
                                          </tr>
                                       );
                                    });
+
+                                   const roomListItems = activeRooms.map(([type, count]) => {
+                                     const typeKey = type.toUpperCase();
+                                     const currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== ''
+                                       ? Number(config.counts[typeKey])
+                                       : count;
+
+                                     if (currentCount <= 0) return null;
+
+                                     let price = 0;
+                                     let gratuities = 0;
+                                     let lineSubtotal = 0;
+                                     let roomBoard = '';
+
+                                     if (config.prices && config.prices[typeKey] !== undefined) {
+                                        price = Number(config.prices[typeKey] || 0);
+                                        roomBoard = config[typeKey]?.board || '';
+                                        gratuities = parseInt(config[typeKey]?.gratuities || 0);
+                                        lineSubtotal = Math.max(0, currentCount - gratuities) * price;
+                                     }
+                                     if (price === 0 && lineSubtotal === 0 && gratuities === 0) return null;
+
+                                     subtotalDate += lineSubtotal;
+                                     return (
+                                       <li key={type} className="text-slate-500 mb-1 print:mb-0">
+                                         <div className="flex justify-between">
+                                           <span>{currentCount}x {getRoomDisplayName(type)} {roomBoard && roomBoard !== boardTitle ? `(${getBoardDisplayName(roomBoard)})` : ''} ({formatNum(price)}€)</span>
+                                         </div>
+                                         {gratuities > 0 && <div className="text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0">[-{gratuities}] Gratuidad</div>}
+                                       </li>
+                                     );
+                                   }).filter(Boolean);
+
+                                   if (roomListItems.length === 0) {
+                                     return dailyExtrasRows;
+                                   }
+
+                                   const roomRow = (
+                                     <tr key={`${date}-base`} className="group hover:bg-slate-50/50">
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-600">{boardTitle}</td>
+                                       <td className="p-4 print:py-1.5 print:px-2">
+                                         <ul className="text-[11px] print:text-[9px]">
+                                           {roomListItems}
+                                         </ul>
+                                       </td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} €</td>
+                                     </tr>
+                                   );
 
                                    return [roomRow, ...dailyExtrasRows];
                                 })}
