@@ -722,7 +722,13 @@ var calculateTotal = function calculateTotal(rawGroupData) {
 
   // Si no hay configuración diaria pero hay un importe fijado (desde IA)
   if (total === 0 && groupData["Importe(*)"]) {
-    var imp = parseFloat(String(groupData["Importe(*)"]).replace(',', '.'));
+    var cleanStr = String(groupData["Importe(*)"]).trim();
+    if (cleanStr.includes('.') && cleanStr.includes(',')) {
+      cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+    } else if (cleanStr.includes(',')) {
+      cleanStr = cleanStr.replace(',', '.');
+    }
+    var imp = parseFloat(cleanStr);
     return isNaN(imp) ? 0 : imp;
   }
   return total > 0 ? total : 0;
@@ -3107,8 +3113,7 @@ function App() {
   var renderDetail = function renderDetail() {
     if (!selectedGroup) return null;
     var g = normalizeGroupData(selectedGroup);
-    var mergedForTotal = _objectSpread(_objectSpread({}, g), formData);
-    var calculatedTotal = calculateTotal(mergedForTotal);
+    var calculatedTotal = calculateTotal(g);
     var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
     var isCumbria = hotelName.toLowerCase().includes("cumbria");
     var currentRooms = ROOM_TYPES[g.Hotel_Asignado] || [];

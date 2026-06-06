@@ -696,7 +696,13 @@
 
       // Si no hay configuración diaria pero hay un importe fijado (desde IA)
       if (total === 0 && groupData["Importe(*)"]) {
-        const imp = parseFloat(String(groupData["Importe(*)"]).replace(',', '.'));
+        let cleanStr = String(groupData["Importe(*)"]).trim();
+        if (cleanStr.includes('.') && cleanStr.includes(',')) {
+          cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+        } else if (cleanStr.includes(',')) {
+          cleanStr = cleanStr.replace(',', '.');
+        }
+        const imp = parseFloat(cleanStr);
         return isNaN(imp) ? 0 : imp;
       }
       return total > 0 ? total : 0;
@@ -2652,8 +2658,7 @@ ${emailContent}`;
         if (!selectedGroup) return null;
         const g = normalizeGroupData(selectedGroup);
 
-        const mergedForTotal = { ...g, ...formData };
-        const calculatedTotal = calculateTotal(mergedForTotal);
+        const calculatedTotal = calculateTotal(g);
         const hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
         const isCumbria = hotelName.toLowerCase().includes("cumbria");
         const currentRooms = ROOM_TYPES[g.Hotel_Asignado] || [];
