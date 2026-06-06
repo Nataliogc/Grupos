@@ -396,6 +396,51 @@
       newData.segments = Array.isArray(groupData.segments) ? groupData.segments : [];
       newData.isMultiSegment = !!groupData.isMultiSegment;
 
+      if (newData.isMultiSegment && newData.segments.length > 0) {
+        const stats = getSegmentStats(newData.segments);
+        newData.Entrada = stats.globalIn;
+        newData.Salida = stats.globalOut;
+        newData["Pax."] = stats.totalPax;
+
+        const segmentCountsByDate = buildDailyCountsFromSegments(newData.segments);
+        const stayDates = generateDates(stats.globalIn, stats.globalOut);
+        
+        newData.dailyConfig = newData.dailyConfig ? { ...newData.dailyConfig } : {};
+        stayDates.forEach(date => {
+          if (!newData.dailyConfig[date]) {
+            newData.dailyConfig[date] = {
+              board: newData["Régimen"] || "AD (Alojamiento y Desayuno)",
+              prices: {},
+              counts: {},
+              gratuities: {},
+              discounts: {}
+            };
+          } else {
+            newData.dailyConfig[date] = {
+              ...newData.dailyConfig[date],
+              prices: newData.dailyConfig[date].prices ? { ...newData.dailyConfig[date].prices } : {},
+              counts: {},
+              gratuities: newData.dailyConfig[date].gratuities ? { ...newData.dailyConfig[date].gratuities } : {},
+              discounts: newData.dailyConfig[date].discounts ? { ...newData.dailyConfig[date].discounts } : {}
+            };
+          }
+          const countsForDate = segmentCountsByDate[date] || {};
+          Object.entries(countsForDate).forEach(([rt, cnt]) => {
+            newData.dailyConfig[date].counts[rt] = cnt;
+          });
+        });
+
+        const maxByType = {};
+        Object.values(segmentCountsByDate).forEach(countsByType => {
+          Object.entries(countsByType).forEach(([rt, cnt]) => {
+            if (cnt > (maxByType[rt] || 0)) {
+              maxByType[rt] = cnt;
+            }
+          });
+        });
+        newData.roomCounts = maxByType;
+      }
+
       newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
       newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
       newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\u00c3\u00a9fono"] || groupData["Teléfono"] || "";
@@ -495,6 +540,9 @@
       const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
       const [startDate, setStartDate] = useState('');
       const [endDate, setEndDate] = useState('');
+      const [showEmailParseModal, setShowEmailParseModal] = useState(false);
+      const [emailContent, setEmailContent] = useState('');
+      const [isParsingEmail, setIsParsingEmail] = useState(false);
 
       // Debounce search term
       useEffect(() => {
@@ -770,7 +818,12 @@
         
         for (let i = 1; i < stayDates.length; i++) {
           const targetDate = stayDates[i];
-          newDailyConfig[targetDate] = JSON.parse(JSON.stringify(firstDayConfig));
+          const targetConfig = newDailyConfig[targetDate] || {};
+          const copied = JSON.parse(JSON.stringify(firstDayConfig));
+          if (formData.isMultiSegment) {
+            copied.counts = targetConfig.counts || {};
+          }
+          newDailyConfig[targetDate] = copied;
         }
         
         setFormData(prev => ({ ...prev, dailyConfig: newDailyConfig }));
@@ -781,16 +834,18 @@
         const now = new Date();
         const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+        const normalizedFormData = normalizeGroupData(formData);
+
         // Validation: Mandatory Hotel
-        const hotelAsignado = formData.Hotel_Asignado || formData.Hotel || "";
+        const hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
         if (!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "") {
           alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
           return;
         }
 
         // Validation: Dates
-        const entrada = String(formData.Entrada || "").trim();
-        const salida = String(formData.Salida || "").trim();
+        const entrada = String(normalizedFormData.Entrada || "").trim();
+        const salida = String(normalizedFormData.Salida || "").trim();
 
         if (!entrada || !salida) {
           alert("⚠️ Error: Debe especificar las fechas de entrada y salida.");
@@ -802,10 +857,10 @@
           return;
         }
 
-        const reservaId = formData.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
-        const isNew = !formData.uid;
+        const reservaId = normalizedFormData.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
+        const isNew = !normalizedFormData.uid;
 
-        let releaseDate = formData.Com_Vencimiento_Rel || "";
+        let releaseDate = normalizedFormData.Com_Vencimiento_Rel || "";
         if (!releaseDate && entrada) {
           const d = new Date(entrada);
           if (!isNaN(d.getTime())) {
@@ -814,14 +869,14 @@
           }
         }
 
-        const generatedRoomingList = buildRoomingList(formData, formData.RoomingList_JSON || "");
+        const generatedRoomingList = buildRoomingList(normalizedFormData, normalizedFormData.RoomingList_JSON || "");
         const groupData = {
-          ...formData,
+          ...normalizedFormData,
           Reserva: reservaId,
           "Com_Vencimiento_Rel": releaseDate,
-          "Segment.": formData["Segment."] || "GRUPOS",
+          "Segment.": normalizedFormData["Segment."] || "GRUPOS",
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          "Importe(*)": formatNum(calculateTotal(formData)),
+          "Importe(*)": formatNum(calculateTotal(normalizedFormData)),
           "RoomingList_JSON": JSON.stringify(generatedRoomingList)
         };
 
@@ -921,6 +976,80 @@
         }
       };
 
+      const handleParseEmailIA = async () => {
+        if (!emailContent.trim()) {
+          alert("Por favor, pega el contenido del email.");
+          return;
+        }
+
+        setIsParsingEmail(true);
+        try {
+          const prompt = `Analiza el siguiente email de solicitud de habitaciones de hotel.
+Extrae TODOS los grupos de personas con sus fechas exactas (Check-in y Check-out).
+Responde EXCLUSIVAMENTE con JSON válido (sin formato markdown \`\`\`json ni texto explicativo) con esta estructura exacta:
+{
+  "groupName": "Nombre empresa o grupo",
+  "contactName": "Nombre contacto",
+  "contactEmail": "email@ejemplo.com",
+  "hotel": "nombre del hotel si se menciona",
+  "observations": "preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales",
+  "segments": [
+    { "id": "A", "pax": 3, "rooms": 3, "roomType": "DOBLE DE USO INDIVIDUAL", "in": "YYYY-MM-DD", "out": "YYYY-MM-DD", "notes": "" }
+  ]
+}
+Reglas para los segmentos:
+1. Por defecto, asigna 1 habitación por persona ("rooms" = "pax") y tipo "DOBLE DE USO INDIVIDUAL" a menos que se indique lo contrario.
+2. Si no se especifica el año para las fechas, usa 2026.
+3. El formato de las fechas "in" y "out" debe ser estrictamente YYYY-MM-DD.
+
+Email a analizar:
+${emailContent}`;
+
+          if (!window.callGemini) {
+            throw new Error('La API de Gemini no está disponible.');
+          }
+
+          const response = await window.callGemini(prompt);
+          const cleanJson = response.replace(/```json/g, "").replace(/```/g, "").trim();
+          const parsed = JSON.parse(cleanJson);
+
+          const segments = Array.isArray(parsed.segments) ? parsed.segments : [];
+          const normalizedSegments = segments.map((seg, idx) => ({
+            id: seg.id || String.fromCharCode(65 + idx),
+            pax: Number(seg.pax) || 1,
+            rooms: Number(seg.rooms) || Number(seg.pax) || 1,
+            roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL',
+            in: seg.in || '',
+            out: seg.out || '',
+            notes: seg.notes || ''
+          }));
+
+          const stats = getSegmentStats(normalizedSegments);
+
+          setFormData({
+            ...DEFAULT_FORM_DATA,
+            Hotel_Asignado: parsed.hotel && parsed.hotel.toLowerCase().includes('cumbria') ? 'Cumbria Spa&Hotel' : 'Sercotel Guadiana',
+            "Nombre del Grupo": parsed.groupName || '',
+            Com_Nombre_Contacto: parsed.contactName || '',
+            Com_Email_Contacto: parsed.contactEmail || '',
+            Com_Notas: parsed.observations || '',
+            isMultiSegment: true,
+            segments: normalizedSegments,
+            Entrada: stats.globalIn,
+            Salida: stats.globalOut,
+            "Pax.": stats.totalPax
+          });
+
+          setShowEmailParseModal(false);
+          setCurrentView('create');
+        } catch (error) {
+          console.error("Error al parsear con IA:", error);
+          alert("No se pudo analizar el email. Asegúrate de que el contenido es correcto. Error: " + error.message);
+        } finally {
+          setIsParsingEmail(false);
+        }
+      };
+
       const renderClauseText = (text) => {
         if (!text) return null;
         const parts = text.split('[EN]');
@@ -1017,6 +1146,10 @@
                 <button onClick={() => { setFormData(DEFAULT_FORM_DATA); setCurrentView('create'); }}
                   className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
                   <i className="fas fa-pencil-alt"></i> Crear Manual
+                </button>
+                <button onClick={() => { setEmailContent(''); setShowEmailParseModal(true); }}
+                  className="flex-1 sm:flex-none bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-5 py-2.5 rounded-xl transition-all text-sm font-bold flex items-center justify-center gap-2">
+                  <i className="fas fa-envelope-open-text"></i> Parsear Email IA
                 </button>
                 <button onClick={() => window.location.href = 'AltaEmail.html'}
                   className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-all text-sm font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
@@ -1415,36 +1548,225 @@
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Entrada</label>
-                    <input 
-                      type="date" 
-                      value={toInputDate(formData.Entrada)} 
-                      onChange={e => setFormData({ ...formData, Entrada: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
-                    />
+                {!formData.isMultiSegment ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Entrada</label>
+                      <input 
+                        type="date" 
+                        value={toInputDate(formData.Entrada)} 
+                        onChange={e => setFormData({ ...formData, Entrada: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Salida</label>
+                      <input 
+                        type="date" 
+                        value={toInputDate(formData.Salida)} 
+                        onChange={e => setFormData({ ...formData, Salida: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pax Estimados</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={formData["Pax."] || ''} 
+                        onChange={e => setFormData({ ...formData, "Pax.": e.target.value === '' ? '' : Number(e.target.value) })}
+                        disabled={!formData.isRatesOnly}
+                        placeholder={!formData.isRatesOnly ? "Auto-calculado" : "Ej: 33"}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 disabled:opacity-60"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Salida</label>
-                    <input 
-                      type="date" 
-                      value={toInputDate(formData.Salida)} 
-                      onChange={e => setFormData({ ...formData, Salida: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
-                    />
+                ) : (
+                  <div className="space-y-4 pt-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Segmentos de Estancia</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextLetter = String.fromCharCode(65 + (formData.segments?.length || 0));
+                          const newSeg = {
+                            id: nextLetter,
+                            pax: 1,
+                            rooms: 1,
+                            roomType: 'DOBLE DE USO INDIVIDUAL',
+                            in: '',
+                            out: '',
+                            notes: ''
+                          };
+                          setFormData({
+                            ...formData,
+                            segments: [...(formData.segments || []), newSeg]
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1"
+                      >
+                        <i className="fas fa-plus"></i> Añadir Segmento
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center">ID</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20">Pax</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20">Hab.</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-48">Tipo Habitación</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36">Entrada</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36">Salida</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Notas / Ocupantes</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formData.segments?.map((seg, idx) => (
+                            <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all">
+                              <td className="p-2 text-center text-xs font-black text-slate-600">{seg.id}</td>
+                              <td className="p-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={seg.pax}
+                                  onChange={e => {
+                                    const val = Number(e.target.value);
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], pax: val, rooms: val }; // Por defecto 1 hab/pax
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                />
+                              </td>
+                              <td className="p-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={seg.rooms}
+                                  onChange={e => {
+                                    const val = Number(e.target.value);
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], rooms: val };
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                />
+                              </td>
+                              <td className="p-2">
+                                <select
+                                  value={seg.roomType || 'DOBLE DE USO INDIVIDUAL'}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], roomType: val };
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
+                                >
+                                  {currentRooms.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="p-2">
+                                <input
+                                  type="date"
+                                  value={toInputDate(seg.in)}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], in: val };
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                />
+                              </td>
+                              <td className="p-2">
+                                <input
+                                  type="date"
+                                  value={toInputDate(seg.out)}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], out: val };
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                />
+                              </td>
+                              <td className="p-2">
+                                <input
+                                  type="text"
+                                  value={seg.notes || ''}
+                                  placeholder="Ej: Ocupante / Peticiones"
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], notes: val };
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                                />
+                              </td>
+                              <td className="p-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (formData.segments || []).filter((_, i) => i !== idx).map((s, i) => ({
+                                      ...s,
+                                      id: String.fromCharCode(65 + i)
+                                    }));
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center transition-all mx-auto"
+                                >
+                                  <i className="fas fa-trash-alt text-xs"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {formData.segments && formData.segments.length > 0 && (
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap gap-6 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        {(() => {
+                          const stats = getSegmentStats(formData.segments);
+                          return (
+                            <>
+                              <div>Total Pax: <span className="text-indigo-600">{stats.totalPax} pax</span></div>
+                              <div>Habitaciones-Noche: <span className="text-indigo-600">{stats.roomNights} hab-noc</span></div>
+                              <div>Máxima Ocupación: <span className="text-indigo-600">{stats.maxSimultaneous} hab. simultáneas</span></div>
+                              <div>Rango: <span className="text-indigo-600">{stats.globalIn ? formatDate(stats.globalIn) : '---'} al {stats.globalOut ? formatDate(stats.globalOut) : '---'} ({stats.nights} noches)</span></div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pax Estimados</label>
-                    <input 
-                      type="number" 
-                      min="0"
-                      value={formData["Pax."] || ''} 
-                      onChange={e => setFormData({ ...formData, "Pax.": e.target.value === '' ? '' : Number(e.target.value) })}
-                      disabled={!formData.isRatesOnly}
-                      placeholder={!formData.isRatesOnly ? "Auto-calculado" : "Ej: 33"}
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 disabled:opacity-60"
-                    />
+                )}
+
+                <div className="flex justify-between items-center pt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">¿Varios segmentos / Fechas de estancia?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newIsMulti = !formData.isMultiSegment;
+                        let updated = { ...formData, isMultiSegment: newIsMulti };
+                        if (newIsMulti && (!formData.segments || formData.segments.length === 0)) {
+                          updated.segments = [{ id: 'A', pax: 1, rooms: 1, roomType: 'DOBLE DE USO INDIVIDUAL', in: formData.Entrada || '', out: formData.Salida || '', notes: '' }];
+                        }
+                        setFormData(updated);
+                      }}
+                      className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.isMultiSegment ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'}`}
+                    >
+                      {formData.isMultiSegment ? 'SÍ (Multi-Segmento)' : 'NO (Fecha Única)'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1535,7 +1857,9 @@
 
                       <div className="space-y-3">
                         {stayDates.map(date => {
-                          const selectedTypes = currentRooms.filter(type => (formData.roomCounts || {})[type] > 0);
+                          const selectedTypes = formData.isMultiSegment
+                            ? Array.from(new Set((formData.segments || []).map(s => (s.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase())))
+                            : currentRooms.filter(type => (formData.roomCounts || {})[type] > 0);
                           return (
                             <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center">
                               <div className="shrink-0 w-24 flex flex-col gap-1">
@@ -1545,7 +1869,12 @@
                               <div className="flex-1 flex flex-wrap gap-2 items-center">
                                 {selectedTypes.map(type => {
                                   const dailyCounts = formData.dailyConfig?.[date]?.counts || {};
-                                  const countVal = dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '';
+                                  const countVal = formData.isMultiSegment
+                                    ? (() => {
+                                        const segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
+                                        return segmentCountsByDate[date]?.[type.toUpperCase()] || 0;
+                                      })()
+                                    : (dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '');
                                   return (
                                     <div key={type} className="flex flex-col gap-0.5 min-w-[120px]">
                                       <label className="text-[7px] font-black text-slate-500 uppercase truncate px-1" title={type}>{type}</label>
@@ -1553,10 +1882,11 @@
                                         <input
                                           type="number"
                                           value={countVal}
+                                          disabled={formData.isMultiSegment}
                                           onChange={e => handleDailyConfigChange(date, 'counts', e.target.value, type)}
-                                          className="w-10 px-1 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none"
+                                          className="w-10 px-1 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none disabled:bg-slate-100 disabled:text-slate-500"
                                           placeholder="Cant."
-                                          title="Cantidad de habitaciones"
+                                          title={formData.isMultiSegment ? "Calculado automáticamente desde segmentos" : "Cantidad de habitaciones"}
                                         />
                                         <span className="text-[10px] text-slate-400 font-bold mx-0.5">x</span>
                                         <div className="relative group flex w-[68px]">
@@ -2328,24 +2658,60 @@
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6">
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Cliente / Grupo</span>
-                        <p className="text-xs print:text-[10px] font-bold text-slate-800 uppercase">{g["Nombre del Grupo"]}</p>
+                    {g.isMultiSegment && g.segments && g.segments.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8 print:mb-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100" style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                        {(() => {
+                          const stats = getSegmentStats(g.segments);
+                          return (
+                            <>
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Total Pax</span>
+                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{stats.totalPax} pax</p>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Hab-Noche</span>
+                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{stats.roomNights} hab-noc</p>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Máx Simultáneo</span>
+                                <p className="text-sm print:text-[11px] font-extrabold text-indigo-600">{stats.maxSimultaneous} hab.</p>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Entrada Global</span>
+                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{formatDate(stats.globalIn)}</p>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Salida Global</span>
+                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{formatDate(stats.globalOut)}</p>
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block">Segmentos</span>
+                                <p className="text-sm print:text-[11px] font-extrabold text-slate-800">{g.segments.length} estancias</p>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Estancia</span>
-                        <p className="text-xs print:text-[10px] font-bold text-slate-800">{formatDate(g.Entrada)} - {formatDate(g.Salida)}</p>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6">
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Cliente / Grupo</span>
+                          <p className="text-xs print:text-[10px] font-bold text-slate-800 uppercase">{g["Nombre del Grupo"]}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Estancia</span>
+                          <p className="text-xs print:text-[10px] font-bold text-slate-800">{formatDate(g.Entrada)} - {formatDate(g.Salida)}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Pax Estimados</span>
+                          <p className="text-xs print:text-[10px] font-bold text-slate-800">{totalPax} personas</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Reserva ID</span>
+                          <p className="text-xs print:text-[10px] font-bold text-slate-800">#{g.Reserva}</p>
+                        </div>
                       </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Pax Estimados</span>
-                        <p className="text-xs print:text-[10px] font-bold text-slate-800">{totalPax} personas</p>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Reserva ID</span>
-                        <p className="text-xs print:text-[10px] font-bold text-slate-800">#{g.Reserva}</p>
-                      </div>
-                    </div>
+                    )}
 
                     {(g.Com_Nombre_Contacto || g.Persona_Contacto || g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]) && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4">
@@ -2373,6 +2739,63 @@
                             <p className="text-xs print:text-[10px] font-bold text-slate-800 uppercase">{g["Empresa/Agencia"]}</p>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {g.isMultiSegment && g.segments && g.segments.length > 0 && (
+                      <div className="space-y-4 mb-8">
+                        <h3 className={`text-xs font-black uppercase tracking-widest border-l-4 ${isCumbria ? 'border-blue-900 text-blue-900' : 'border-orange-600 text-orange-800'} pl-3`}>
+                          Distribución por Estancias
+                        </h3>
+                        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
+                          <table className="w-full text-left border-collapse text-xs print:text-[10px]">
+                            <thead>
+                              <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
+                                <th className="p-3 print:py-1.5 print:px-2 w-12 text-center">ID</th>
+                                <th className="p-3 print:py-1.5 print:px-2">Pax</th>
+                                <th className="p-3 print:py-1.5 print:px-2">Entrada</th>
+                                <th className="p-3 print:py-1.5 print:px-2">Salida</th>
+                                <th className="p-3 print:py-1.5 print:px-2 text-center">Noches</th>
+                                <th className="p-3 print:py-1.5 print:px-2">Habitaciones</th>
+                                <th className="p-3 print:py-1.5 print:px-2">Tipo</th>
+                                {g.segments.some(s => s.notes) && <th className="p-3 print:py-1.5 print:px-2">Notas</th>}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {g.segments.map((seg) => {
+                                const nightsCount = seg.in && seg.out ? generateDates(seg.in, seg.out).length : 0;
+                                return (
+                                  <tr key={seg.id} className="hover:bg-slate-50/50">
+                                    <td className="p-3 print:py-1.5 print:px-2 text-center font-black text-slate-500">{seg.id}</td>
+                                    <td className="p-3 print:py-1.5 print:px-2 font-bold text-slate-700">{seg.pax} pax</td>
+                                    <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{formatDate(seg.in)}</td>
+                                    <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{formatDate(seg.out)}</td>
+                                    <td className="p-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700">{nightsCount}</td>
+                                    <td className="p-3 print:py-1.5 print:px-2 font-bold text-slate-700">{seg.rooms || seg.pax || 1} hab.</td>
+                                    <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{getRoomDisplayName(seg.roomType)}</td>
+                                    {g.segments.some(s => s.notes) && <td className="p-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]">{seg.notes || ''}</td>}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                          <div className={`px-4 py-2 border-t border-slate-100 flex flex-wrap gap-4 text-[9px] print:text-[8px] font-black uppercase tracking-widest ${isCumbria ? 'bg-blue-50/20 text-blue-900/80' : 'bg-orange-50/20 text-orange-800/80'}`}>
+                            {(() => {
+                              const stats = getSegmentStats(g.segments);
+                              return (
+                                <>
+                                  <span>Total Pax: {stats.totalPax} pax</span>
+                                  <span>•</span>
+                                  <span>Habitaciones-Noche: {stats.roomNights} hab-noc</span>
+                                  <span>•</span>
+                                  <span>Máxima Ocupación Simultánea: {stats.maxSimultaneous} hab.</span>
+                                  <span>•</span>
+                                  <span>Rango global: {stats.nights} noches</span>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -2747,6 +3170,75 @@
               </>
             )}
           </main>
+
+          {showEmailParseModal && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 animate-scale-in">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                      <i className="fas fa-envelope-open-text text-sm"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Parsear Email con IA</h3>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5">La IA extraerá automáticamente los segmentos y datos de contacto</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowEmailParseModal(false)}
+                    className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all"
+                  >
+                    <i className="fas fa-times text-xs"></i>
+                  </button>
+                </div>
+                
+                <div className="p-6 space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-1">Pega el contenido del Email</label>
+                    <textarea
+                      value={emailContent}
+                      onChange={e => setEmailContent(e.target.value)}
+                      disabled={isParsingEmail}
+                      placeholder="Querido Hotel, me gustaría reservar habitaciones para 9 personas de nuestra compañía...
+
+3 personas: Entrada 14 junio, Salida 19 junio.
+Y del 21 de junio al..."
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all min-h-[250px] resize-none"
+                    />
+                  </div>
+                </div>
+                
+                <div className="p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailParseModal(false)}
+                    disabled={isParsingEmail}
+                    className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all uppercase tracking-widest"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleParseEmailIA}
+                    disabled={isParsingEmail || !emailContent.trim()}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all text-xs font-black shadow-lg shadow-indigo-200 flex items-center gap-2 uppercase tracking-widest disabled:opacity-60"
+                  >
+                    {isParsingEmail ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-sparkles"></i>
+                        Extraer Datos
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }

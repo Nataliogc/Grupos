@@ -77,7 +77,86 @@ var DEFAULT_FORM_DATA = {
   clauses: [],
   clauses_conf: [],
   isRatesOnly: false,
-  ratesOnlyGrid: {}
+  ratesOnlyGrid: {},
+  segments: [],
+  // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
+  isMultiSegment: false // NUEVO: modo multi-segmento activo
+};
+
+// ── Calcula cupos diarios a partir de los segmentos ─────────────────
+// Regla: segment.in <= date < segment.out (salida NO cuenta como noche)
+var buildDailyCountsFromSegments = function buildDailyCountsFromSegments(segments) {
+  if (!segments || segments.length === 0) return {};
+  var allIn = segments.map(function (s) {
+    return s.in;
+  }).filter(Boolean).sort();
+  var allOut = segments.map(function (s) {
+    return s.out;
+  }).filter(Boolean).sort();
+  if (!allIn.length || !allOut.length) return {};
+  var globalIn = allIn[0];
+  var globalOut = allOut[allOut.length - 1];
+  var nights = generateDates(globalIn, globalOut); // ya excluye globalOut
+  var dailyCounts = {}; // { date: { [roomType]: count } }
+  nights.forEach(function (date) {
+    var countsByType = {};
+    segments.forEach(function (seg) {
+      if (seg.in && seg.out && seg.in <= date && date < seg.out) {
+        var rt = (seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase();
+        countsByType[rt] = (countsByType[rt] || 0) + Number(seg.rooms || seg.pax || 1);
+      }
+    });
+    dailyCounts[date] = countsByType;
+  });
+  return dailyCounts;
+};
+
+// ── Métricas resumen de segmentos ──────────────────────────────────
+var getSegmentStats = function getSegmentStats(segments) {
+  if (!segments || segments.length === 0) return {
+    totalPax: 0,
+    roomNights: 0,
+    maxSimultaneous: 0,
+    globalIn: '',
+    globalOut: '',
+    nights: 0
+  };
+  var allIn = segments.map(function (s) {
+    return s.in;
+  }).filter(Boolean).sort();
+  var allOut = segments.map(function (s) {
+    return s.out;
+  }).filter(Boolean).sort();
+  var globalIn = allIn[0] || '';
+  var globalOut = allOut[allOut.length - 1] || '';
+  var globalNights = generateDates(globalIn, globalOut);
+  var totalPax = segments.reduce(function (s, seg) {
+    return s + Number(seg.pax || 0);
+  }, 0);
+  // Habitaciones-noche: sum(rooms * noches de cada segmento)
+  var roomNights = segments.reduce(function (s, seg) {
+    var n = generateDates(seg.in, seg.out).length;
+    return s + Number(seg.rooms || seg.pax || 1) * n;
+  }, 0);
+  // Máxima ocupación simultánea por noche
+  var maxSimultaneous = 0;
+  globalNights.forEach(function (date) {
+    var dayRooms = 0;
+    segments.forEach(function (seg) {
+      if (seg.in && seg.out && seg.in <= date && date < seg.out) {
+        dayRooms += Number(seg.rooms || seg.pax || 1);
+      }
+    });
+    if (dayRooms > maxSimultaneous) maxSimultaneous = dayRooms;
+  });
+  return {
+    totalPax: totalPax,
+    roomNights: roomNights,
+    maxSimultaneous: maxSimultaneous,
+    globalIn: globalIn,
+    globalOut: globalOut,
+    nights: globalNights.length
+  };
 };
 var ROOM_MIGRATION_MAP = {
   "doble individual": "DOBLE DE USO INDIVIDUAL",
@@ -370,6 +449,55 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   }
   newData.DateRanges_JSON = Array.isArray(groupData.DateRanges_JSON) ? groupData.DateRanges_JSON : [];
   newData.tracking = Array.isArray(groupData.tracking) ? groupData.tracking : [];
+  // NUEVO: preservar segmentos y modo multi-segmento
+  newData.segments = Array.isArray(groupData.segments) ? groupData.segments : [];
+  newData.isMultiSegment = !!groupData.isMultiSegment;
+  if (newData.isMultiSegment && newData.segments.length > 0) {
+    var stats = getSegmentStats(newData.segments);
+    newData.Entrada = stats.globalIn;
+    newData.Salida = stats.globalOut;
+    newData["Pax."] = stats.totalPax;
+    var segmentCountsByDate = buildDailyCountsFromSegments(newData.segments);
+    var stayDates = generateDates(stats.globalIn, stats.globalOut);
+    newData.dailyConfig = newData.dailyConfig ? _objectSpread({}, newData.dailyConfig) : {};
+    stayDates.forEach(function (date) {
+      if (!newData.dailyConfig[date]) {
+        newData.dailyConfig[date] = {
+          board: newData["Régimen"] || "AD (Alojamiento y Desayuno)",
+          prices: {},
+          counts: {},
+          gratuities: {},
+          discounts: {}
+        };
+      } else {
+        newData.dailyConfig[date] = _objectSpread(_objectSpread({}, newData.dailyConfig[date]), {}, {
+          prices: newData.dailyConfig[date].prices ? _objectSpread({}, newData.dailyConfig[date].prices) : {},
+          counts: {},
+          gratuities: newData.dailyConfig[date].gratuities ? _objectSpread({}, newData.dailyConfig[date].gratuities) : {},
+          discounts: newData.dailyConfig[date].discounts ? _objectSpread({}, newData.dailyConfig[date].discounts) : {}
+        });
+      }
+      var countsForDate = segmentCountsByDate[date] || {};
+      Object.entries(countsForDate).forEach(function (_ref15) {
+        var _ref16 = _slicedToArray(_ref15, 2),
+          rt = _ref16[0],
+          cnt = _ref16[1];
+        newData.dailyConfig[date].counts[rt] = cnt;
+      });
+    });
+    var maxByType = {};
+    Object.values(segmentCountsByDate).forEach(function (countsByType) {
+      Object.entries(countsByType).forEach(function (_ref17) {
+        var _ref18 = _slicedToArray(_ref17, 2),
+          rt = _ref18[0],
+          cnt = _ref18[1];
+        if (cnt > (maxByType[rt] || 0)) {
+          maxByType[rt] = cnt;
+        }
+      });
+    });
+    newData.roomCounts = maxByType;
+  }
   newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
   newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
   newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["Teléfono"] || "";
@@ -380,7 +508,11 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   if (!groupData) return 0;
   if (groupData.isRatesOnly) return 0;
   var dates = [];
-  if (groupData.DateRanges_JSON && Array.isArray(groupData.DateRanges_JSON) && groupData.DateRanges_JSON.length > 0) {
+  // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
+  if (groupData.isMultiSegment && Array.isArray(groupData.segments) && groupData.segments.length > 0) {
+    var stats = getSegmentStats(groupData.segments);
+    dates = generateDates(stats.globalIn, stats.globalOut);
+  } else if (groupData.DateRanges_JSON && Array.isArray(groupData.DateRanges_JSON) && groupData.DateRanges_JSON.length > 0) {
     dates = generateSeriesDates(groupData.DateRanges_JSON);
   } else {
     dates = generateDates(groupData.Entrada, groupData.Salida);
@@ -389,10 +521,10 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   dates.forEach(function (date) {
     var _groupData$dailyConfi;
     var config = ((_groupData$dailyConfi = groupData.dailyConfig) === null || _groupData$dailyConfi === void 0 ? void 0 : _groupData$dailyConfi[date]) || {};
-    Object.entries(groupData.roomCounts || {}).forEach(function (_ref15) {
-      var _ref16 = _slicedToArray(_ref15, 2),
-        type = _ref16[0],
-        globalCount = _ref16[1];
+    Object.entries(groupData.roomCounts || {}).forEach(function (_ref19) {
+      var _ref20 = _slicedToArray(_ref19, 2),
+        type = _ref20[0],
+        globalCount = _ref20[1];
       var count = globalCount;
       if (config.counts) {
         var countKey = Object.keys(config.counts).find(function (k) {
@@ -520,6 +652,18 @@ function App() {
     _useState30 = _slicedToArray(_useState29, 2),
     endDate = _useState30[0],
     setEndDate = _useState30[1];
+  var _useState31 = useState(false),
+    _useState32 = _slicedToArray(_useState31, 2),
+    showEmailParseModal = _useState32[0],
+    setShowEmailParseModal = _useState32[1];
+  var _useState33 = useState(''),
+    _useState34 = _slicedToArray(_useState33, 2),
+    emailContent = _useState34[0],
+    setEmailContent = _useState34[1];
+  var _useState35 = useState(false),
+    _useState36 = _slicedToArray(_useState35, 2),
+    isParsingEmail = _useState36[0],
+    setIsParsingEmail = _useState36[1];
 
   // Debounce search term
   useEffect(function () {
@@ -542,15 +686,20 @@ function App() {
   }, []);
   var getCurrentStayDates = function getCurrentStayDates() {
     var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : formData;
+    // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
+    if (data.isMultiSegment && Array.isArray(data.segments) && data.segments.length > 0) {
+      var stats = getSegmentStats(data.segments);
+      return generateDates(stats.globalIn, stats.globalOut);
+    }
     if (data.DateRanges_JSON && Array.isArray(data.DateRanges_JSON) && data.DateRanges_JSON.length > 0) {
       return generateSeriesDates(data.DateRanges_JSON);
     }
     return generateDates(data.Entrada, data.Salida);
   };
-  var _useState31 = useState(DEFAULT_FORM_DATA),
-    _useState32 = _slicedToArray(_useState31, 2),
-    formData = _useState32[0],
-    setFormData = _useState32[1];
+  var _useState37 = useState(DEFAULT_FORM_DATA),
+    _useState38 = _slicedToArray(_useState37, 2),
+    formData = _useState38[0],
+    setFormData = _useState38[1];
 
   // Auto-sync daily configuration prices with ratesOnlyGrid when dates/hotel/grid change
   useEffect(function () {
@@ -709,10 +858,10 @@ function App() {
   var handleRoomCountChange = function handleRoomCountChange(type, value) {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
     // Auto-calcular PAX total
-    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref17) {
-      var _ref18 = _slicedToArray(_ref17, 2),
-        roomType = _ref18[0],
-        count = _ref18[1];
+    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref21) {
+      var _ref22 = _slicedToArray(_ref21, 2),
+        roomType = _ref22[0],
+        count = _ref22[1];
       return sum + (count || 0) * (PAX_PER_ROOM[roomType] || 2);
     }, 0);
     setFormData(_objectSpread(_objectSpread({}, formData), {}, {
@@ -803,7 +952,12 @@ function App() {
     var newDailyConfig = _objectSpread({}, formData.dailyConfig || {});
     for (var i = 1; i < stayDates.length; i++) {
       var targetDate = stayDates[i];
-      newDailyConfig[targetDate] = JSON.parse(JSON.stringify(firstDayConfig));
+      var targetConfig = newDailyConfig[targetDate] || {};
+      var copied = JSON.parse(JSON.stringify(firstDayConfig));
+      if (formData.isMultiSegment) {
+        copied.counts = targetConfig.counts || {};
+      }
+      newDailyConfig[targetDate] = copied;
     }
     setFormData(function (prev) {
       return _objectSpread(_objectSpread({}, prev), {}, {
@@ -812,15 +966,16 @@ function App() {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
-      var now, formattedDate, hotelAsignado, entrada, salida, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t;
+    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
+      var now, formattedDate, normalizedFormData, hotelAsignado, entrada, salida, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
             e.preventDefault();
             now = new Date();
-            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0')); // Validation: Mandatory Hotel
-            hotelAsignado = formData.Hotel_Asignado || formData.Hotel || "";
+            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
+            normalizedFormData = normalizeGroupData(formData); // Validation: Mandatory Hotel
+            hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
             if (!(!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "")) {
               _context.n = 1;
               break;
@@ -829,8 +984,8 @@ function App() {
             return _context.a(2);
           case 1:
             // Validation: Dates
-            entrada = String(formData.Entrada || "").trim();
-            salida = String(formData.Salida || "").trim();
+            entrada = String(normalizedFormData.Entrada || "").trim();
+            salida = String(normalizedFormData.Salida || "").trim();
             if (!(!entrada || !salida)) {
               _context.n = 2;
               break;
@@ -845,9 +1000,9 @@ function App() {
             alert("⚠️ Error: La fecha de salida debe ser estrictamente posterior a la de entrada (mínimo 1 noche).");
             return _context.a(2);
           case 3:
-            reservaId = formData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
-            isNew = !formData.uid;
-            releaseDate = formData.Com_Vencimiento_Rel || "";
+            reservaId = normalizedFormData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
+            isNew = !normalizedFormData.uid;
+            releaseDate = normalizedFormData.Com_Vencimiento_Rel || "";
             if (!releaseDate && entrada) {
               d = new Date(entrada);
               if (!isNaN(d.getTime())) {
@@ -855,13 +1010,13 @@ function App() {
                 releaseDate = d.toISOString().split("T")[0];
               }
             }
-            generatedRoomingList = buildRoomingList(formData, formData.RoomingList_JSON || "");
-            groupData = _objectSpread(_objectSpread({}, formData), {}, {
+            generatedRoomingList = buildRoomingList(normalizedFormData, normalizedFormData.RoomingList_JSON || "");
+            groupData = _objectSpread(_objectSpread({}, normalizedFormData), {}, {
               Reserva: reservaId,
               "Com_Vencimiento_Rel": releaseDate,
-              "Segment.": formData["Segment."] || "GRUPOS",
+              "Segment.": normalizedFormData["Segment."] || "GRUPOS",
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              "Importe(*)": formatNum(calculateTotal(formData)),
+              "Importe(*)": formatNum(calculateTotal(normalizedFormData)),
               "RoomingList_JSON": JSON.stringify(generatedRoomingList)
             });
             _context.p = 4;
@@ -896,10 +1051,10 @@ function App() {
               "Empresa/Agencia": "Empresa",
               "Pax.": "Pax"
             };
-            Object.entries(fieldsToTrack).forEach(function (_ref20) {
-              var _ref21 = _slicedToArray(_ref20, 2),
-                field = _ref21[0],
-                label = _ref21[1];
+            Object.entries(fieldsToTrack).forEach(function (_ref24) {
+              var _ref25 = _slicedToArray(_ref24, 2),
+                field = _ref25[0],
+                label = _ref25[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
                 changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
               }
@@ -957,7 +1112,7 @@ function App() {
       }, _callee, null, [[4, 9]]);
     }));
     return function handleSave(_x) {
-      return _ref19.apply(this, arguments);
+      return _ref23.apply(this, arguments);
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
@@ -972,7 +1127,7 @@ function App() {
     setCurrentView('detail');
   };
   var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx) {
+    var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx) {
       var type,
         clauses,
         textToTranslate,
@@ -1016,7 +1171,82 @@ function App() {
       }, _callee2, null, [[1, 3]]);
     }));
     return function handleTranslateClause(_x2) {
-      return _ref22.apply(this, arguments);
+      return _ref26.apply(this, arguments);
+    };
+  }();
+  var handleParseEmailIA = /*#__PURE__*/function () {
+    var _ref27 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+      var _prompt2, response, cleanJson, parsed, segments, normalizedSegments, stats, _t3;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.p = _context3.n) {
+          case 0:
+            if (emailContent.trim()) {
+              _context3.n = 1;
+              break;
+            }
+            alert("Por favor, pega el contenido del email.");
+            return _context3.a(2);
+          case 1:
+            setIsParsingEmail(true);
+            _context3.p = 2;
+            _prompt2 = "Analiza el siguiente email de solicitud de habitaciones de hotel.\nExtrae TODOS los grupos de personas con sus fechas exactas (Check-in y Check-out).\nResponde EXCLUSIVAMENTE con JSON v\xE1lido (sin formato markdown ```json ni texto explicativo) con esta estructura exacta:\n{\n  \"groupName\": \"Nombre empresa o grupo\",\n  \"contactName\": \"Nombre contacto\",\n  \"contactEmail\": \"email@ejemplo.com\",\n  \"hotel\": \"nombre del hotel si se menciona\",\n  \"observations\": \"preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales\",\n  \"segments\": [\n    { \"id\": \"A\", \"pax\": 3, \"rooms\": 3, \"roomType\": \"DOBLE DE USO INDIVIDUAL\", \"in\": \"YYYY-MM-DD\", \"out\": \"YYYY-MM-DD\", \"notes\": \"\" }\n  ]\n}\nReglas para los segmentos:\n1. Por defecto, asigna 1 habitaci\xF3n por persona (\"rooms\" = \"pax\") y tipo \"DOBLE DE USO INDIVIDUAL\" a menos que se indique lo contrario.\n2. Si no se especifica el a\xF1o para las fechas, usa 2026.\n3. El formato de las fechas \"in\" y \"out\" debe ser estrictamente YYYY-MM-DD.\n\nEmail a analizar:\n".concat(emailContent);
+            if (window.callGemini) {
+              _context3.n = 3;
+              break;
+            }
+            throw new Error('La API de Gemini no está disponible.');
+          case 3:
+            _context3.n = 4;
+            return window.callGemini(_prompt2);
+          case 4:
+            response = _context3.v;
+            cleanJson = response.replace(/```json/g, "").replace(/```/g, "").trim();
+            parsed = JSON.parse(cleanJson);
+            segments = Array.isArray(parsed.segments) ? parsed.segments : [];
+            normalizedSegments = segments.map(function (seg, idx) {
+              return {
+                id: seg.id || String.fromCharCode(65 + idx),
+                pax: Number(seg.pax) || 1,
+                rooms: Number(seg.rooms) || Number(seg.pax) || 1,
+                roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL',
+                in: seg.in || '',
+                out: seg.out || '',
+                notes: seg.notes || ''
+              };
+            });
+            stats = getSegmentStats(normalizedSegments);
+            setFormData(_objectSpread(_objectSpread({}, DEFAULT_FORM_DATA), {}, {
+              Hotel_Asignado: parsed.hotel && parsed.hotel.toLowerCase().includes('cumbria') ? 'Cumbria Spa&Hotel' : 'Sercotel Guadiana',
+              "Nombre del Grupo": parsed.groupName || '',
+              Com_Nombre_Contacto: parsed.contactName || '',
+              Com_Email_Contacto: parsed.contactEmail || '',
+              Com_Notas: parsed.observations || '',
+              isMultiSegment: true,
+              segments: normalizedSegments,
+              Entrada: stats.globalIn,
+              Salida: stats.globalOut,
+              "Pax.": stats.totalPax
+            }));
+            setShowEmailParseModal(false);
+            setCurrentView('create');
+            _context3.n = 6;
+            break;
+          case 5:
+            _context3.p = 5;
+            _t3 = _context3.v;
+            console.error("Error al parsear con IA:", _t3);
+            alert("No se pudo analizar el email. Asegúrate de que el contenido es correcto. Error: " + _t3.message);
+          case 6:
+            _context3.p = 6;
+            setIsParsingEmail(false);
+            return _context3.f(6);
+          case 7:
+            return _context3.a(2);
+        }
+      }, _callee3, null, [[2, 5, 6, 7]]);
+    }));
+    return function handleParseEmailIA() {
+      return _ref27.apply(this, arguments);
     };
   }();
   var renderClauseText = function renderClauseText(text) {
@@ -1030,43 +1260,43 @@ function App() {
     return text;
   };
   var handleDelete = /*#__PURE__*/function () {
-    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(uid) {
-      var _t3;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
-          case 0:
-            if (confirm("¿Eliminar este presupuesto?")) {
-              _context3.n = 1;
-              break;
-            }
-            return _context3.a(2);
-          case 1:
-            _context3.p = 1;
-            _context3.n = 2;
-            return db.collection("groups").doc(uid).delete();
-          case 2:
-            _context3.n = 4;
-            break;
-          case 3:
-            _context3.p = 3;
-            _t3 = _context3.v;
-            console.error(_t3);
-          case 4:
-            return _context3.a(2);
-        }
-      }, _callee3, null, [[1, 3]]);
-    }));
-    return function handleDelete(_x3) {
-      return _ref23.apply(this, arguments);
-    };
-  }();
-  var updateStatus = /*#__PURE__*/function () {
-    var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(uid, newStatus) {
-      var now, formattedDate, budget, newTracking, _t4;
+    var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(uid) {
+      var _t4;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
           case 0:
-            _context4.p = 0;
+            if (confirm("¿Eliminar este presupuesto?")) {
+              _context4.n = 1;
+              break;
+            }
+            return _context4.a(2);
+          case 1:
+            _context4.p = 1;
+            _context4.n = 2;
+            return db.collection("groups").doc(uid).delete();
+          case 2:
+            _context4.n = 4;
+            break;
+          case 3:
+            _context4.p = 3;
+            _t4 = _context4.v;
+            console.error(_t4);
+          case 4:
+            return _context4.a(2);
+        }
+      }, _callee4, null, [[1, 3]]);
+    }));
+    return function handleDelete(_x3) {
+      return _ref28.apply(this, arguments);
+    };
+  }();
+  var updateStatus = /*#__PURE__*/function () {
+    var _ref29 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid, newStatus) {
+      var now, formattedDate, budget, newTracking, _t5;
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.p = _context5.n) {
+          case 0:
+            _context5.p = 0;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             budget = groups.find(function (g) {
@@ -1077,76 +1307,35 @@ function App() {
               date: formattedDate,
               text: "Estado -> ".concat(newStatus)
             }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
-            _context4.n = 1;
+            _context5.n = 1;
             return db.collection("groups").doc(uid).update({
               Com_Estado_Interno: newStatus,
               tracking: newTracking
             });
           case 1:
-            _context4.n = 3;
+            _context5.n = 3;
             break;
           case 2:
-            _context4.p = 2;
-            _t4 = _context4.v;
-            console.error(_t4);
+            _context5.p = 2;
+            _t5 = _context5.v;
+            console.error(_t5);
           case 3:
-            return _context4.a(2);
+            return _context5.a(2);
         }
-      }, _callee4, null, [[0, 2]]);
+      }, _callee5, null, [[0, 2]]);
     }));
     return function updateStatus(_x4, _x5) {
-      return _ref24.apply(this, arguments);
+      return _ref29.apply(this, arguments);
     };
   }();
   var addTrackingNote = /*#__PURE__*/function () {
-    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(e) {
-      var now, formattedDate, newTracking, _t5;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
-          case 0:
-            e.preventDefault();
-            if (!(!newNote.trim() || !selectedGroup)) {
-              _context5.n = 1;
-              break;
-            }
-            return _context5.a(2);
-          case 1:
-            _context5.p = 1;
-            now = new Date();
-            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            newTracking = [{
-              id: Date.now(),
-              date: formattedDate,
-              text: newNote
-            }].concat(_toConsumableArray(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : []));
-            _context5.n = 2;
-            return db.collection("groups").doc(selectedGroup.uid).update({
-              tracking: newTracking
-            });
-          case 2:
-            setNewNote('');
-            _context5.n = 4;
-            break;
-          case 3:
-            _context5.p = 3;
-            _t5 = _context5.v;
-            console.error(_t5);
-          case 4:
-            return _context5.a(2);
-        }
-      }, _callee5, null, [[1, 3]]);
-    }));
-    return function addTrackingNote(_x6) {
-      return _ref25.apply(this, arguments);
-    };
-  }();
-  var addQuickNote = /*#__PURE__*/function () {
-    var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, note) {
-      var now, formattedDate, budget, newTracking, _t6;
+    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(e) {
+      var now, formattedDate, newTracking, _t6;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
           case 0:
-            if (note.trim()) {
+            e.preventDefault();
+            if (!(!newNote.trim() || !selectedGroup)) {
               _context6.n = 1;
               break;
             }
@@ -1155,19 +1344,17 @@ function App() {
             _context6.p = 1;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            budget = groups.find(function (g) {
-              return g.uid === uid;
-            });
             newTracking = [{
               id: Date.now(),
               date: formattedDate,
-              text: note
-            }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
+              text: newNote
+            }].concat(_toConsumableArray(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : []));
             _context6.n = 2;
-            return db.collection("groups").doc(uid).update({
+            return db.collection("groups").doc(selectedGroup.uid).update({
               tracking: newTracking
             });
           case 2:
+            setNewNote('');
             _context6.n = 4;
             break;
           case 3:
@@ -1179,8 +1366,51 @@ function App() {
         }
       }, _callee6, null, [[1, 3]]);
     }));
+    return function addTrackingNote(_x6) {
+      return _ref30.apply(this, arguments);
+    };
+  }();
+  var addQuickNote = /*#__PURE__*/function () {
+    var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(uid, note) {
+      var now, formattedDate, budget, newTracking, _t7;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
+          case 0:
+            if (note.trim()) {
+              _context7.n = 1;
+              break;
+            }
+            return _context7.a(2);
+          case 1:
+            _context7.p = 1;
+            now = new Date();
+            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
+            budget = groups.find(function (g) {
+              return g.uid === uid;
+            });
+            newTracking = [{
+              id: Date.now(),
+              date: formattedDate,
+              text: note
+            }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
+            _context7.n = 2;
+            return db.collection("groups").doc(uid).update({
+              tracking: newTracking
+            });
+          case 2:
+            _context7.n = 4;
+            break;
+          case 3:
+            _context7.p = 3;
+            _t7 = _context7.v;
+            console.error(_t7);
+          case 4:
+            return _context7.a(2);
+        }
+      }, _callee7, null, [[1, 3]]);
+    }));
     return function addQuickNote(_x7, _x8) {
-      return _ref26.apply(this, arguments);
+      return _ref31.apply(this, arguments);
     };
   }();
 
@@ -1230,6 +1460,14 @@ function App() {
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-pencil-alt"
     }), " Crear Manual"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        setEmailContent('');
+        setShowEmailParseModal(true);
+      },
+      className: "flex-1 sm:flex-none bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-5 py-2.5 rounded-xl transition-all text-sm font-bold flex items-center justify-center gap-2"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-envelope-open-text"
+    }), " Parsear Email IA"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return window.location.href = 'AltaEmail.html';
       },
@@ -1327,10 +1565,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref27) {
-        var _ref28 = _slicedToArray(_ref27, 2),
-          t = _ref28[0],
-          c = _ref28[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref32) {
+        var _ref33 = _slicedToArray(_ref32, 2),
+          t = _ref33[0],
+          c = _ref33[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -1437,10 +1675,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref29) {
-          var _ref30 = _slicedToArray(_ref29, 2),
-            _ = _ref30[0],
-            b = _ref30[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref34) {
+          var _ref35 = _slicedToArray(_ref34, 2),
+            _ = _ref35[0],
+            b = _ref35[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -1540,6 +1778,7 @@ function App() {
     }, "No hay presupuestos para mostrar")))));
   };
   var renderCreate = function renderCreate() {
+    var _formData$segments2;
     var stayDates = getCurrentStayDates(formData);
     var currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || [];
     return /*#__PURE__*/React.createElement("div", {
@@ -1689,7 +1928,7 @@ function App() {
       },
       placeholder: "N\xFAmero de tel\xE9fono...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
-    }))), /*#__PURE__*/React.createElement("div", {
+    }))), !formData.isMultiSegment ? /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-3 gap-6 pt-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
@@ -1733,7 +1972,226 @@ function App() {
       disabled: !formData.isRatesOnly,
       placeholder: !formData.isRatesOnly ? "Auto-calculado" : "Ej: 33",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 disabled:opacity-60"
-    })))), /*#__PURE__*/React.createElement("div", {
+    }))) : /*#__PURE__*/React.createElement("div", {
+      className: "space-y-4 pt-2"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between items-center"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
+    }, "Segmentos de Estancia"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        var _formData$segments;
+        var nextLetter = String.fromCharCode(65 + (((_formData$segments = formData.segments) === null || _formData$segments === void 0 ? void 0 : _formData$segments.length) || 0));
+        var newSeg = {
+          id: nextLetter,
+          pax: 1,
+          rooms: 1,
+          roomType: 'DOBLE DE USO INDIVIDUAL',
+          in: '',
+          out: '',
+          notes: ''
+        };
+        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          segments: [].concat(_toConsumableArray(formData.segments || []), [newSeg])
+        }));
+      },
+      className: "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-plus"
+    }), " A\xF1adir Segmento")), /*#__PURE__*/React.createElement("div", {
+      className: "overflow-x-auto border border-slate-100 rounded-xl"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "w-full text-left border-collapse"
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+      className: "bg-slate-50 border-b border-slate-100"
+    }, /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center"
+    }, "ID"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20"
+    }, "Pax"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20"
+    }, "Hab."), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-48"
+    }, "Tipo Habitaci\xF3n"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36"
+    }, "Entrada"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36"
+    }, "Salida"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+    }, "Notas / Ocupantes"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center"
+    }))), /*#__PURE__*/React.createElement("tbody", null, (_formData$segments2 = formData.segments) === null || _formData$segments2 === void 0 ? void 0 : _formData$segments2.map(function (seg, idx) {
+      return /*#__PURE__*/React.createElement("tr", {
+        key: idx,
+        className: "border-b border-slate-50 hover:bg-slate-50/50 transition-all"
+      }, /*#__PURE__*/React.createElement("td", {
+        className: "p-2 text-center text-xs font-black text-slate-600"
+      }, seg.id), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "number",
+        min: "1",
+        value: seg.pax,
+        onChange: function onChange(e) {
+          var val = Number(e.target.value);
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            pax: val,
+            rooms: val
+          }); // Por defecto 1 hab/pax
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+      })), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "number",
+        min: "1",
+        value: seg.rooms,
+        onChange: function onChange(e) {
+          var val = Number(e.target.value);
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            rooms: val
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+      })), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("select", {
+        value: seg.roomType || 'DOBLE DE USO INDIVIDUAL',
+        onChange: function onChange(e) {
+          var val = e.target.value;
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            roomType: val
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
+      }, currentRooms.map(function (t) {
+        return /*#__PURE__*/React.createElement("option", {
+          key: t,
+          value: t
+        }, t);
+      }))), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "date",
+        value: toInputDate(seg.in),
+        onChange: function onChange(e) {
+          var val = e.target.value;
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            in: val
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+      })), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "date",
+        value: toInputDate(seg.out),
+        onChange: function onChange(e) {
+          var val = e.target.value;
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            out: val
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+      })), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "text",
+        value: seg.notes || '',
+        placeholder: "Ej: Ocupante / Peticiones",
+        onChange: function onChange(e) {
+          var val = e.target.value;
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            notes: val
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+      })), /*#__PURE__*/React.createElement("td", {
+        className: "p-2 text-center"
+      }, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          var updated = (formData.segments || []).filter(function (_, i) {
+            return i !== idx;
+          }).map(function (s, i) {
+            return _objectSpread(_objectSpread({}, s), {}, {
+              id: String.fromCharCode(65 + i)
+            });
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center transition-all mx-auto"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-trash-alt text-xs"
+      }))));
+    })))), formData.segments && formData.segments.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap gap-6 text-[10px] font-black uppercase tracking-widest text-slate-500"
+    }, function () {
+      var stats = getSegmentStats(formData.segments);
+      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, "Total Pax: ", /*#__PURE__*/React.createElement("span", {
+        className: "text-indigo-600"
+      }, stats.totalPax, " pax")), /*#__PURE__*/React.createElement("div", null, "Habitaciones-Noche: ", /*#__PURE__*/React.createElement("span", {
+        className: "text-indigo-600"
+      }, stats.roomNights, " hab-noc")), /*#__PURE__*/React.createElement("div", null, "M\xE1xima Ocupaci\xF3n: ", /*#__PURE__*/React.createElement("span", {
+        className: "text-indigo-600"
+      }, stats.maxSimultaneous, " hab. simult\xE1neas")), /*#__PURE__*/React.createElement("div", null, "Rango: ", /*#__PURE__*/React.createElement("span", {
+        className: "text-indigo-600"
+      }, stats.globalIn ? formatDate(stats.globalIn) : '---', " al ", stats.globalOut ? formatDate(stats.globalOut) : '---', " (", stats.nights, " noches)")));
+    }())), /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between items-center pt-2"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest"
+    }, "\xBFVarios segmentos / Fechas de estancia?"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        var newIsMulti = !formData.isMultiSegment;
+        var updated = _objectSpread(_objectSpread({}, formData), {}, {
+          isMultiSegment: newIsMulti
+        });
+        if (newIsMulti && (!formData.segments || formData.segments.length === 0)) {
+          updated.segments = [{
+            id: 'A',
+            pax: 1,
+            rooms: 1,
+            roomType: 'DOBLE DE USO INDIVIDUAL',
+            in: formData.Entrada || '',
+            out: formData.Salida || '',
+            notes: ''
+          }];
+        }
+        setFormData(updated);
+      },
+      className: "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ".concat(formData.isMultiSegment ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500')
+    }, formData.isMultiSegment ? 'SÍ (Multi-Segmento)' : 'NO (Fecha Única)')))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 flex items-center justify-between gap-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
@@ -1819,7 +2277,9 @@ function App() {
       className: "space-y-3"
     }, stayDates.map(function (date) {
       var _formData$dailyConfig5;
-      var selectedTypes = currentRooms.filter(function (type) {
+      var selectedTypes = formData.isMultiSegment ? Array.from(new Set((formData.segments || []).map(function (s) {
+        return (s.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase();
+      }))) : currentRooms.filter(function (type) {
         return (formData.roomCounts || {})[type] > 0;
       });
       return /*#__PURE__*/React.createElement("div", {
@@ -1834,7 +2294,10 @@ function App() {
       }, selectedTypes.map(function (type) {
         var _formData$dailyConfig2, _formData$dailyConfig3, _formData$dailyConfig4;
         var dailyCounts = ((_formData$dailyConfig2 = formData.dailyConfig) === null || _formData$dailyConfig2 === void 0 || (_formData$dailyConfig2 = _formData$dailyConfig2[date]) === null || _formData$dailyConfig2 === void 0 ? void 0 : _formData$dailyConfig2.counts) || {};
-        var countVal = dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '';
+        var countVal = formData.isMultiSegment ? function (_segmentCountsByDate$) {
+          var segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
+          return ((_segmentCountsByDate$ = segmentCountsByDate[date]) === null || _segmentCountsByDate$ === void 0 ? void 0 : _segmentCountsByDate$[type.toUpperCase()]) || 0;
+        }() : dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '';
         return /*#__PURE__*/React.createElement("div", {
           key: type,
           className: "flex flex-col gap-0.5 min-w-[120px]"
@@ -1846,12 +2309,13 @@ function App() {
         }, /*#__PURE__*/React.createElement("input", {
           type: "number",
           value: countVal,
+          disabled: formData.isMultiSegment,
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'counts', e.target.value, type);
           },
-          className: "w-10 px-1 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none",
+          className: "w-10 px-1 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-black text-center outline-none focus:ring-1 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all [&::-webkit-inner-spin-button]:appearance-none disabled:bg-slate-100 disabled:text-slate-500",
           placeholder: "Cant.",
-          title: "Cantidad de habitaciones"
+          title: formData.isMultiSegment ? "Calculado automáticamente desde segmentos" : "Cantidad de habitaciones"
         }), /*#__PURE__*/React.createElement("span", {
           className: "text-[10px] text-slate-400 font-bold mx-0.5"
         }, "x"), /*#__PURE__*/React.createElement("div", {
@@ -2411,10 +2875,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref31) {
-      var _ref32 = _slicedToArray(_ref31, 2),
-        type = _ref32[0],
-        count = _ref32[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref36) {
+      var _ref37 = _slicedToArray(_ref36, 2),
+        type = _ref37[0],
+        count = _ref37[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -2430,10 +2894,10 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref33) {
-      var _ref34 = _slicedToArray(_ref33, 2),
-        type = _ref34[0],
-        c = _ref34[1];
+    activeRooms.forEach(function (_ref38) {
+      var _ref39 = _slicedToArray(_ref38, 2),
+        type = _ref39[0],
+        c = _ref39[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
@@ -2669,7 +3133,52 @@ function App() {
       className: "text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ".concat(isCumbria ? 'text-blue-900' : 'text-orange-800')
     }, docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1"
-    }, "Ref: ", g.Reserva))), /*#__PURE__*/React.createElement("div", {
+    }, "Ref: ", g.Reserva))), g.isMultiSegment && g.segments && g.segments.length > 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-2 md:grid-cols-6 gap-4 mb-8 print:mb-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100",
+      style: {
+        WebkitPrintColorAdjust: 'exact',
+        printColorAdjust: 'exact'
+      }
+    }, function () {
+      var stats = getSegmentStats(g.segments);
+      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "Total Pax"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
+      }, stats.totalPax, " pax")), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "Hab-Noche"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
+      }, stats.roomNights, " hab-noc")), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "M\xE1x Simult\xE1neo"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm print:text-[11px] font-extrabold text-indigo-600"
+      }, stats.maxSimultaneous, " hab.")), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "Entrada Global"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
+      }, formatDate(stats.globalIn))), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "Salida Global"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
+      }, formatDate(stats.globalOut))), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-0.5"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest block"
+      }, "Segmentos"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm print:text-[11px] font-extrabold text-slate-800"
+      }, g.segments.length, " estancias")));
+    }()) : /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6"
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
@@ -2721,7 +3230,66 @@ function App() {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
     }, "Empresa / Agencia"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800 uppercase"
-    }, g["Empresa/Agencia"]))), /*#__PURE__*/React.createElement("div", {
+    }, g["Empresa/Agencia"]))), g.isMultiSegment && g.segments && g.segments.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "space-y-4 mb-8"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "text-xs font-black uppercase tracking-widest border-l-4 ".concat(isCumbria ? 'border-blue-900 text-blue-900' : 'border-orange-600 text-orange-800', " pl-3")
+    }, "Distribuci\xF3n por Estancias"), /*#__PURE__*/React.createElement("div", {
+      className: "overflow-hidden rounded-2xl border border-slate-100 bg-white"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "w-full text-left border-collapse text-xs print:text-[10px]"
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+      className: "bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100"
+    }, /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2 w-12 text-center"
+    }, "ID"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2"
+    }, "Pax"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2"
+    }, "Entrada"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2"
+    }, "Salida"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2 text-center"
+    }, "Noches"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2"
+    }, "Habitaciones"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2"
+    }, "Tipo"), g.segments.some(function (s) {
+      return s.notes;
+    }) && /*#__PURE__*/React.createElement("th", {
+      className: "p-3 print:py-1.5 print:px-2"
+    }, "Notas"))), /*#__PURE__*/React.createElement("tbody", {
+      className: "divide-y divide-slate-50"
+    }, g.segments.map(function (seg) {
+      var nightsCount = seg.in && seg.out ? generateDates(seg.in, seg.out).length : 0;
+      return /*#__PURE__*/React.createElement("tr", {
+        key: seg.id,
+        className: "hover:bg-slate-50/50"
+      }, /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 text-center font-black text-slate-500"
+      }, seg.id), /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 font-bold text-slate-700"
+      }, seg.pax, " pax"), /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 text-slate-600"
+      }, formatDate(seg.in)), /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 text-slate-600"
+      }, formatDate(seg.out)), /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700"
+      }, nightsCount), /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 font-bold text-slate-700"
+      }, seg.rooms || seg.pax || 1, " hab."), /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 text-slate-600"
+      }, getRoomDisplayName(seg.roomType)), g.segments.some(function (s) {
+        return s.notes;
+      }) && /*#__PURE__*/React.createElement("td", {
+        className: "p-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]"
+      }, seg.notes || ''));
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "px-4 py-2 border-t border-slate-100 flex flex-wrap gap-4 text-[9px] print:text-[8px] font-black uppercase tracking-widest ".concat(isCumbria ? 'bg-blue-50/20 text-blue-900/80' : 'bg-orange-50/20 text-orange-800/80')
+    }, function () {
+      var stats = getSegmentStats(g.segments);
+      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, "Total Pax: ", stats.totalPax, " pax"), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "Habitaciones-Noche: ", stats.roomNights, " hab-noc"), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "M\xE1xima Ocupaci\xF3n Simult\xE1nea: ", stats.maxSimultaneous, " hab."), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "Rango global: ", stats.nights, " noches"));
+    }()))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
@@ -2813,10 +3381,10 @@ function App() {
         className: "p-4 print:py-1.5 print:px-2"
       }, /*#__PURE__*/React.createElement("ul", {
         className: "text-[11px] print:text-[9px]"
-      }, activeRooms.map(function (_ref35) {
-        var _ref36 = _slicedToArray(_ref35, 2),
-          type = _ref36[0],
-          count = _ref36[1];
+      }, activeRooms.map(function (_ref40) {
+        var _ref41 = _slicedToArray(_ref40, 2),
+          type = _ref41[0],
+          count = _ref41[1];
         var typeKey = type.toUpperCase();
         var price = 0;
         var gratuities = 0;
@@ -3242,7 +3810,62 @@ function App() {
     className: "w-10 h-10 border-4 border-slate-100 border-t-indigo-500 rounded-full animate-spin"
   }), /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-400 uppercase tracking-widest"
-  }, "Conectando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, currentView === 'dashboard' && renderDashboard(), currentView === 'create' && renderCreate(), currentView === 'detail' && renderDetail())));
+  }, "Conectando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, currentView === 'dashboard' && renderDashboard(), currentView === 'create' && renderCreate(), currentView === 'detail' && renderDetail())), showEmailParseModal && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 animate-scale-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-envelope-open-text text-sm"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-black text-slate-800 uppercase tracking-widest"
+  }, "Parsear Email con IA"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
+  }, "La IA extraer\xE1 autom\xE1ticamente los segmentos y datos de contacto"))), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setShowEmailParseModal(false);
+    },
+    className: "w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-times text-xs"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-1"
+  }, "Pega el contenido del Email"), /*#__PURE__*/React.createElement("textarea", {
+    value: emailContent,
+    onChange: function onChange(e) {
+      return setEmailContent(e.target.value);
+    },
+    disabled: isParsingEmail,
+    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa...\r 3 personas: Entrada 14 junio, Salida 19 junio.\r\nY del 21 de junio al...",
+    className: "w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all min-h-[250px] resize-none"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setShowEmailParseModal(false);
+    },
+    disabled: isParsingEmail,
+    className: "px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all uppercase tracking-widest"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleParseEmailIA,
+    disabled: isParsingEmail || !emailContent.trim(),
+    className: "px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all text-xs font-black shadow-lg shadow-indigo-200 flex items-center gap-2 uppercase tracking-widest disabled:opacity-60"
+  }, isParsingEmail ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin"
+  }), "Procesando...") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-sparkles"
+  }), "Extraer Datos"))))));
 }
 var root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(/*#__PURE__*/React.createElement(App, null));
