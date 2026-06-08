@@ -2415,7 +2415,7 @@ ${emailContent}`;
               ) : (
                 /* Bloque 2: Tarifas por Régimen y Habitación (Modo Grid) */
                 <div 
-                  className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6 focus:outline-none focus:ring-2 focus:ring-emerald-500/10"
+                  className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all"
                   tabIndex="0"
                   onPaste={(e) => {
                     const text = e.clipboardData.getData('text/plain');
@@ -2425,20 +2425,25 @@ ${emailContent}`;
                     }
                   }}
                 >
-                  <div className="flex items-center justify-between border-b border-slate-50 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                        <i className="fas fa-tags text-[10px]"></i>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-50 pb-4 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                          <i className="fas fa-tags text-[10px]"></i>
+                        </div>
+                        <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tarifas por Régimen y Habitación</h3>
                       </div>
-                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tarifas por Régimen y Habitación</h3>
+                      <p className="text-[9px] text-slate-400 font-medium ml-9">
+                        Puedes copiar una tabla desde Excel o Word y pegarla aquí para rellenar las tarifas automáticamente.
+                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handlePasteTarifas()}
-                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm"
+                      className="px-4 py-2 bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-600 border border-indigo-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-indigo-500/20 outline-none"
                       title="Copiar una tabla de Excel o Word y pulsar aquí para pegar"
                     >
-                      <i className="fas fa-paste"></i> Pegar desde Excel/Word
+                      <i className="fas fa-paste text-indigo-500"></i> Pegar tabla
                     </button>
                   </div>
                   <div className="overflow-x-auto">
@@ -3706,26 +3711,45 @@ ${emailContent}`;
                   {Object.keys(pastePreview.parsedData).length > 0 ? (
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tarifas Reconocidas</h4>
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                           <tr className="bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
-                             <th className="p-2">Régimen</th>
-                             <th className="p-2">Habitación</th>
-                             <th className="p-2 text-right">Precio (€)</th>
-                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                           {Object.entries(pastePreview.parsedData).flatMap(([board, rooms]) => 
-                              Object.entries(rooms).map(([room, price]) => (
-                                <tr key={`${board}-${room}`}>
-                                  <td className="p-2 font-bold text-slate-700">{board}</td>
-                                  <td className="p-2 text-slate-600">{room}</td>
-                                  <td className="p-2 text-right font-black text-emerald-600">{price.toFixed(2)}</td>
-                                </tr>
-                              ))
-                           )}
-                        </tbody>
-                      </table>
+                      <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                             <tr className="bg-slate-50 text-slate-500 font-black text-[9px] uppercase tracking-widest border-b border-slate-100">
+                               <th className="p-3">Régimen</th>
+                               {currentRooms.map(room => (
+                                 <th key={room} className="p-3 text-center">{room}</th>
+                               ))}
+                             </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                             {BOARD_TYPES.map(board => {
+                               const boardKey = board.split(' ')[0]; // SA, AD, MP, PC
+                               const hasAnyData = currentRooms.some(room => pastePreview.parsedData[boardKey]?.[room] !== undefined);
+                               if (!hasAnyData) return null;
+
+                               return (
+                                 <tr key={board}>
+                                   <td className="p-3 font-bold text-slate-700">{board}</td>
+                                   {currentRooms.map(room => {
+                                     const price = pastePreview.parsedData[boardKey]?.[room];
+                                     return (
+                                       <td key={room} className="p-3 text-center">
+                                         {price !== undefined ? (
+                                           <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                                             {price.toFixed(2)} €
+                                           </span>
+                                         ) : (
+                                           <span className="text-slate-300">-</span>
+                                         )}
+                                       </td>
+                                     );
+                                   })}
+                                 </tr>
+                               );
+                             })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-6">
