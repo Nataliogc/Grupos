@@ -2205,6 +2205,7 @@ function App() {
           type: "date",
           className: "absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10",
           value: g.followUpDate || "",
+          onClick: function(e) { if (e.target.showPicker) e.target.showPicker(); },
           onChange: function(e) {
              var newDate = e.target.value;
              db.collection("groups").doc(g.uid).update({ followUpDate: newDate }).catch(function(err) {
@@ -3833,6 +3834,7 @@ function App() {
           type: "date",
           className: "absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10",
           value: g.followUpDate || "",
+          onClick: function(e) { try { e.target.showPicker(); } catch(err) {} },
           onChange: function(e) {
              var newDate = e.target.value;
              db.collection("groups").doc(g.uid).update({ followUpDate: newDate }).catch(function(err) {
