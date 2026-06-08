@@ -1418,7 +1418,7 @@ Responde EXCLUSIVAMENTE con JSON válido (sin formato markdown \`\`\`json ni tex
       "in": "YYYY-MM-DD",
       "out": "YYYY-MM-DD",
       "roomAllocations": [
-        { "roomType": "DOBLE DE USO INDIVIDUAL", "rooms": 3 }
+        { "pax": 3, "roomType": "DOBLE DE USO INDIVIDUAL", "rooms": 3 }
       ],
       "notes": ""
     }
@@ -1445,11 +1445,13 @@ ${emailContent}`;
             const pax = Number(seg.pax) || 1;
             const allocations = Array.isArray(seg.roomAllocations) && seg.roomAllocations.length > 0
               ? seg.roomAllocations.map(a => ({
+                  pax: Number(a.pax) || Math.floor(Number(a.rooms)) || 1,
                   roomType: (a.roomType || seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase(),
                   rooms: Number(a.rooms) || pax
                 }))
               : [
                   {
+                    pax,
                     roomType: (seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase(),
                     rooms: Number(seg.rooms) || pax
                   }
@@ -1457,7 +1459,8 @@ ${emailContent}`;
             return {
               id: seg.id || String.fromCharCode(65 + idx),
               travelerGroupId: seg.travelerGroupId || `G${idx + 1}`,
-              pax,
+              pax: allocations.reduce((sum, a) => sum + Number(a.pax), 0),
+              rooms: allocations.reduce((sum, a) => sum + Number(a.rooms), 0),
               in: seg.in || '',
               out: seg.out || '',
               roomAllocations: allocations,
@@ -2073,9 +2076,7 @@ ${emailContent}`;
                           <tr className="bg-slate-50 border-b border-slate-100">
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center">ID</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24">Grupo</th>
-                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20">Pax</th>
-                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20">Hab.</th>
-                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-48">Tipo Habitación</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Distribución de habitaciones</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36">Entrada</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36">Salida</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Notas / Ocupantes</th>
@@ -2100,49 +2101,100 @@ ${emailContent}`;
                                   className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-center text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
                                 />
                               </td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={seg.pax}
-                                  onChange={e => {
-                                    const val = Number(e.target.value);
-                                    const updated = [...(formData.segments || [])];
-                                    updated[idx] = { ...updated[idx], pax: val, rooms: val }; // Por defecto 1 hab/pax
-                                    setFormData({ ...formData, segments: updated });
-                                  }}
-                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={seg.rooms}
-                                  onChange={e => {
-                                    const val = Number(e.target.value);
-                                    const updated = [...(formData.segments || [])];
-                                    updated[idx] = { ...updated[idx], rooms: val };
-                                    setFormData({ ...formData, segments: updated });
-                                  }}
-                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <select
-                                  value={seg.roomType || 'DOBLE DE USO INDIVIDUAL'}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    const updated = [...(formData.segments || [])];
-                                    updated[idx] = { ...updated[idx], roomType: val };
-                                    setFormData({ ...formData, segments: updated });
-                                  }}
-                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
-                                >
-                                  {currentRooms.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                  ))}
-                                </select>
+                              <td className="p-2 align-top pt-3">
+                                <div className="space-y-2">
+                                  {(() => {
+                                    const allocs = (seg.roomAllocations && seg.roomAllocations.length > 0)
+                                      ? seg.roomAllocations
+                                      : [{ pax: seg.pax || 1, rooms: seg.rooms || 1, roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL' }];
+                                    
+                                    const updateAllocs = (newAllocs) => {
+                                      const updated = [...(formData.segments || [])];
+                                      const totalPax = newAllocs.reduce((sum, a) => sum + Number(a.pax || 0), 0);
+                                      const totalRooms = newAllocs.reduce((sum, a) => sum + Number(a.rooms || 0), 0);
+                                      updated[idx] = { 
+                                        ...updated[idx], 
+                                        roomAllocations: newAllocs, 
+                                        pax: totalPax, 
+                                        rooms: totalRooms, 
+                                        roomType: newAllocs[0]?.roomType || 'DOBLE DE USO INDIVIDUAL' 
+                                      };
+                                      setFormData({ ...formData, segments: updated });
+                                    };
+
+                                    return (
+                                      <>
+                                        {allocs.map((alloc, aIdx) => (
+                                          <div key={aIdx} className="flex gap-2 items-center bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              value={alloc.pax}
+                                              onChange={e => {
+                                                const val = Math.max(1, Number(e.target.value));
+                                                const newAllocs = [...allocs];
+                                                newAllocs[aIdx] = { ...newAllocs[aIdx], pax: val };
+                                                updateAllocs(newAllocs);
+                                              }}
+                                              className="w-14 bg-slate-50 border border-slate-100 rounded-md p-1.5 text-xs font-bold text-center text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase">pax</span>
+                                            <span className="text-slate-300">·</span>
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              value={alloc.rooms}
+                                              onChange={e => {
+                                                const val = Math.max(1, Number(e.target.value));
+                                                const newAllocs = [...allocs];
+                                                newAllocs[aIdx] = { ...newAllocs[aIdx], rooms: val };
+                                                updateAllocs(newAllocs);
+                                              }}
+                                              className="w-14 bg-slate-50 border border-slate-100 rounded-md p-1.5 text-xs font-bold text-center text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase">hab</span>
+                                            <span className="text-slate-300">·</span>
+                                            <select
+                                              value={alloc.roomType || 'DOBLE DE USO INDIVIDUAL'}
+                                              onChange={e => {
+                                                const val = e.target.value;
+                                                const newAllocs = [...allocs];
+                                                newAllocs[aIdx] = { ...newAllocs[aIdx], roomType: val };
+                                                updateAllocs(newAllocs);
+                                              }}
+                                              className="flex-1 bg-slate-50 border border-slate-100 rounded-md p-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer min-w-[140px]"
+                                            >
+                                              {currentRooms.map(t => (
+                                                <option key={t} value={t}>{t}</option>
+                                              ))}
+                                            </select>
+                                            {allocs.length > 1 && (
+                                              <button
+                                                onClick={() => {
+                                                  const newAllocs = allocs.filter((_, i) => i !== aIdx);
+                                                  updateAllocs(newAllocs);
+                                                }}
+                                                className="text-slate-300 hover:text-rose-500 px-1 transition-colors"
+                                                title="Eliminar esta asignación"
+                                              >
+                                                <i className="fas fa-times"></i>
+                                              </button>
+                                            )}
+                                          </div>
+                                        ))}
+                                        <button
+                                          onClick={() => {
+                                            const newAllocs = [...allocs, { pax: 1, rooms: 1, roomType: 'DOBLE DE USO INDIVIDUAL' }];
+                                            updateAllocs(newAllocs);
+                                          }}
+                                          className="text-[9px] font-black uppercase text-indigo-500 hover:text-indigo-700 mt-2 ml-1 flex items-center gap-1.5 transition-colors"
+                                        >
+                                          <i className="fas fa-plus"></i> Añadir tipo de habitación
+                                        </button>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
                               </td>
                               <td className="p-2">
                                 <input
@@ -3289,9 +3341,8 @@ ${emailContent}`;
                                 <th className="p-3 print:py-1.5 print:px-2">Pax</th>
                                 <th className="p-3 print:py-1.5 print:px-2">Entrada</th>
                                 <th className="p-3 print:py-1.5 print:px-2">Salida</th>
-                                <th className="p-3 print:py-1.5 print:px-2 text-center">Noches</th>
-                                <th className="p-3 print:py-1.5 print:px-2">Habitaciones</th>
-                                <th className="p-3 print:py-1.5 print:px-2">Tipo</th>
+                                <th className="p-3 print:py-1.5 print:px-2">Noches</th>
+                                <th className="p-3 print:py-1.5 print:px-2">Distribución</th>
                                 {g.segments.some(s => s.notes) && <th className="p-3 print:py-1.5 print:px-2">Notas</th>}
                               </tr>
                             </thead>
@@ -3305,8 +3356,18 @@ ${emailContent}`;
                                     <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{formatDate(seg.in)}</td>
                                     <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{formatDate(seg.out)}</td>
                                     <td className="p-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700">{nightsCount}</td>
-                                    <td className="p-3 print:py-1.5 print:px-2 font-bold text-slate-700">{seg.rooms || seg.pax || 1} hab.</td>
-                                    <td className="p-3 print:py-1.5 print:px-2 text-slate-600">{getRoomDisplayName(seg.roomType)}</td>
+                                    <td className="p-3 print:py-1.5 print:px-2 font-bold text-slate-700">
+                                      {(() => {
+                                        const allocs = seg.roomAllocations && seg.roomAllocations.length > 0
+                                          ? seg.roomAllocations
+                                          : [{ pax: seg.pax || 1, rooms: seg.rooms || seg.pax || 1, roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL' }];
+                                        return allocs.map((a, i) => (
+                                          <div key={i} className="mb-0.5 last:mb-0 font-medium">
+                                            {a.rooms} {Number(a.rooms) === 1 ? 'habitación' : 'habitaciones'} {getRoomDisplayName(a.roomType).toLowerCase()} <span className="text-[9px] text-slate-400 font-normal">({a.pax} pax)</span>
+                                          </div>
+                                        ));
+                                      })()}
+                                    </td>
                                     {g.segments.some(s => s.notes) && <td className="p-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]">{seg.notes || ''}</td>}
                                   </tr>
                                 );

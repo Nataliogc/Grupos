@@ -1706,7 +1706,7 @@ function App() {
             setIsParsingEmail(true);
             _context4.p = 2;
             currentYear = new Date().getFullYear();
-            _prompt2 = "Analiza el siguiente email de solicitud de habitaciones de hotel.\nExtrae el n\xFAmero total de personas declaradas por el cliente en el email (\"declaredPax\") y TODOS los segmentos de estancia de los subgrupos (cada segmento con su id, travelerGroupId, pax, fechas in y out, y asignaci\xF3n de habitaciones \"roomAllocations\").\nResponde EXCLUSIVAMENTE con JSON v\xE1lido (sin formato markdown ```json ni texto explicativo) con esta estructura exacta:\n{\n  \"groupName\": \"Nombre empresa o grupo\",\n  \"contactName\": \"Nombre contacto\",\n  \"contactEmail\": \"email@ejemplo.com\",\n  \"hotel\": \"nombre del hotel si se menciona\",\n  \"observations\": \"preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales\",\n  \"declaredPax\": 9,\n  \"segments\": [\n    {\n      \"id\": \"A\",\n      \"travelerGroupId\": \"G1\",\n      \"pax\": 3,\n      \"in\": \"YYYY-MM-DD\",\n      \"out\": \"YYYY-MM-DD\",\n      \"roomAllocations\": [\n        { \"roomType\": \"DOBLE DE USO INDIVIDUAL\", \"rooms\": 3 }\n      ],\n      \"notes\": \"\"\n    }\n  ]\n}\nReglas para los segmentos:\n1. Por defecto, asigna 1 habitaci\xF3n por persona (\"rooms\" = \"pax\") y tipo \"DOBLE DE USO INDIVIDUAL\" en el array \"roomAllocations\", a menos que se indique lo contrario.\n2. Si no se especifica el a\xF1o para las fechas, usa ".concat(currentYear, ".\n3. El formato de las fechas \"in\" y \"out\" debe ser estrictamente YYYY-MM-DD.\n\nEmail a analizar:\n").concat(emailContent);
+            _prompt2 = "Analiza el siguiente email de solicitud de habitaciones de hotel.\nExtrae el n\xFAmero total de personas declaradas por el cliente en el email (\"declaredPax\") y TODOS los segmentos de estancia de los subgrupos (cada segmento con su id, travelerGroupId, pax, fechas in y out, y asignaci\xF3n de habitaciones \"roomAllocations\").\nResponde EXCLUSIVAMENTE con JSON v\xE1lido (sin formato markdown ```json ni texto explicativo) con esta estructura exacta:\n{\n  \"groupName\": \"Nombre empresa o grupo\",\n  \"contactName\": \"Nombre contacto\",\n  \"contactEmail\": \"email@ejemplo.com\",\n  \"hotel\": \"nombre del hotel si se menciona\",\n  \"observations\": \"preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales\",\n  \"declaredPax\": 9,\n  \"segments\": [\n    {\n      \"id\": \"A\",\n      \"travelerGroupId\": \"G1\",\n      \"pax\": 3,\n      \"in\": \"YYYY-MM-DD\",\n      \"out\": \"YYYY-MM-DD\",\n      \"roomAllocations\": [\n        { \"pax\": 3, \"roomType\": \"DOBLE DE USO INDIVIDUAL\", \"rooms\": 3 }\n      ],\n      \"notes\": \"\"\n    }\n  ]\n}\nReglas para los segmentos:\n1. Por defecto, asigna 1 habitaci\xF3n por persona (\"rooms\" = \"pax\") y tipo \"DOBLE DE USO INDIVIDUAL\" en el array \"roomAllocations\", a menos que se indique lo contrario.\n2. Si no se especifica el a\xF1o para las fechas, usa ".concat(currentYear, ".\n3. El formato de las fechas \"in\" y \"out\" debe ser estrictamente YYYY-MM-DD.\n\nEmail a analizar:\n").concat(emailContent);
             if (window.callGemini) {
               _context4.n = 3;
               break;
@@ -1724,17 +1724,24 @@ function App() {
               var pax = Number(seg.pax) || 1;
               var allocations = Array.isArray(seg.roomAllocations) && seg.roomAllocations.length > 0 ? seg.roomAllocations.map(function (a) {
                 return {
+                  pax: Number(a.pax) || Math.floor(Number(a.rooms)) || 1,
                   roomType: (a.roomType || seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase(),
                   rooms: Number(a.rooms) || pax
                 };
               }) : [{
+                pax: pax,
                 roomType: (seg.roomType || 'DOBLE DE USO INDIVIDUAL').toUpperCase(),
                 rooms: Number(seg.rooms) || pax
               }];
               return {
                 id: seg.id || String.fromCharCode(65 + idx),
                 travelerGroupId: seg.travelerGroupId || "G".concat(idx + 1),
-                pax: pax,
+                pax: allocations.reduce(function (sum, a) {
+                  return sum + Number(a.pax);
+                }, 0),
+                rooms: allocations.reduce(function (sum, a) {
+                  return sum + Number(a.rooms);
+                }, 0),
                 in: seg.in || '',
                 out: seg.out || '',
                 roomAllocations: allocations,
@@ -2558,12 +2565,8 @@ function App() {
     }, "ID"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24"
     }, "Grupo"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20"
-    }, "Pax"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-20"
-    }, "Hab."), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-48"
-    }, "Tipo Habitaci\xF3n"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+    }, "Distribuci\xF3n de habitaciones"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36"
@@ -2595,61 +2598,114 @@ function App() {
         },
         className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-center text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
       })), /*#__PURE__*/React.createElement("td", {
-        className: "p-2"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "number",
-        min: "1",
-        value: seg.pax,
-        onChange: function onChange(e) {
-          var val = Number(e.target.value);
+        className: "p-2 align-top pt-3"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "space-y-2"
+      }, function () {
+        var allocs = seg.roomAllocations && seg.roomAllocations.length > 0 ? seg.roomAllocations : [{
+          pax: seg.pax || 1,
+          rooms: seg.rooms || 1,
+          roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL'
+        }];
+        var updateAllocs = function updateAllocs(newAllocs) {
+          var _newAllocs$;
           var updated = _toConsumableArray(formData.segments || []);
+          var totalPax = newAllocs.reduce(function (sum, a) {
+            return sum + Number(a.pax || 0);
+          }, 0);
+          var totalRooms = newAllocs.reduce(function (sum, a) {
+            return sum + Number(a.rooms || 0);
+          }, 0);
           updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
-            pax: val,
-            rooms: val
-          }); // Por defecto 1 hab/pax
-          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            segments: updated
-          }));
-        },
-        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
-      })), /*#__PURE__*/React.createElement("td", {
-        className: "p-2"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "number",
-        min: "1",
-        value: seg.rooms,
-        onChange: function onChange(e) {
-          var val = Number(e.target.value);
-          var updated = _toConsumableArray(formData.segments || []);
-          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
-            rooms: val
+            roomAllocations: newAllocs,
+            pax: totalPax,
+            rooms: totalRooms,
+            roomType: ((_newAllocs$ = newAllocs[0]) === null || _newAllocs$ === void 0 ? void 0 : _newAllocs$.roomType) || 'DOBLE DE USO INDIVIDUAL'
           });
           setFormData(_objectSpread(_objectSpread({}, formData), {}, {
             segments: updated
           }));
-        },
-        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
-      })), /*#__PURE__*/React.createElement("td", {
-        className: "p-2"
-      }, /*#__PURE__*/React.createElement("select", {
-        value: seg.roomType || 'DOBLE DE USO INDIVIDUAL',
-        onChange: function onChange(e) {
-          var val = e.target.value;
-          var updated = _toConsumableArray(formData.segments || []);
-          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
-            roomType: val
-          });
-          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            segments: updated
-          }));
-        },
-        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
-      }, currentRooms.map(function (t) {
-        return /*#__PURE__*/React.createElement("option", {
-          key: t,
-          value: t
-        }, t);
-      }))), /*#__PURE__*/React.createElement("td", {
+        };
+        return /*#__PURE__*/React.createElement(React.Fragment, null, allocs.map(function (alloc, aIdx) {
+          return /*#__PURE__*/React.createElement("div", {
+            key: aIdx,
+            className: "flex gap-2 items-center bg-white p-2 rounded-lg border border-slate-100 shadow-sm"
+          }, /*#__PURE__*/React.createElement("input", {
+            type: "number",
+            min: "1",
+            value: alloc.pax,
+            onChange: function onChange(e) {
+              var val = Math.max(1, Number(e.target.value));
+              var newAllocs = _toConsumableArray(allocs);
+              newAllocs[aIdx] = _objectSpread(_objectSpread({}, newAllocs[aIdx]), {}, {
+                pax: val
+              });
+              updateAllocs(newAllocs);
+            },
+            className: "w-14 bg-slate-50 border border-slate-100 rounded-md p-1.5 text-xs font-bold text-center text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          }), /*#__PURE__*/React.createElement("span", {
+            className: "text-[9px] text-slate-400 font-bold uppercase"
+          }, "pax"), /*#__PURE__*/React.createElement("span", {
+            className: "text-slate-300"
+          }, "\xB7"), /*#__PURE__*/React.createElement("input", {
+            type: "number",
+            min: "1",
+            value: alloc.rooms,
+            onChange: function onChange(e) {
+              var val = Math.max(1, Number(e.target.value));
+              var newAllocs = _toConsumableArray(allocs);
+              newAllocs[aIdx] = _objectSpread(_objectSpread({}, newAllocs[aIdx]), {}, {
+                rooms: val
+              });
+              updateAllocs(newAllocs);
+            },
+            className: "w-14 bg-slate-50 border border-slate-100 rounded-md p-1.5 text-xs font-bold text-center text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          }), /*#__PURE__*/React.createElement("span", {
+            className: "text-[9px] text-slate-400 font-bold uppercase"
+          }, "hab"), /*#__PURE__*/React.createElement("span", {
+            className: "text-slate-300"
+          }, "\xB7"), /*#__PURE__*/React.createElement("select", {
+            value: alloc.roomType || 'DOBLE DE USO INDIVIDUAL',
+            onChange: function onChange(e) {
+              var val = e.target.value;
+              var newAllocs = _toConsumableArray(allocs);
+              newAllocs[aIdx] = _objectSpread(_objectSpread({}, newAllocs[aIdx]), {}, {
+                roomType: val
+              });
+              updateAllocs(newAllocs);
+            },
+            className: "flex-1 bg-slate-50 border border-slate-100 rounded-md p-1.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer min-w-[140px]"
+          }, currentRooms.map(function (t) {
+            return /*#__PURE__*/React.createElement("option", {
+              key: t,
+              value: t
+            }, t);
+          })), allocs.length > 1 && /*#__PURE__*/React.createElement("button", {
+            onClick: function onClick() {
+              var newAllocs = allocs.filter(function (_, i) {
+                return i !== aIdx;
+              });
+              updateAllocs(newAllocs);
+            },
+            className: "text-slate-300 hover:text-rose-500 px-1 transition-colors",
+            title: "Eliminar esta asignaci\xF3n"
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fas fa-times"
+          })));
+        }), /*#__PURE__*/React.createElement("button", {
+          onClick: function onClick() {
+            var newAllocs = [].concat(_toConsumableArray(allocs), [{
+              pax: 1,
+              rooms: 1,
+              roomType: 'DOBLE DE USO INDIVIDUAL'
+            }]);
+            updateAllocs(newAllocs);
+          },
+          className: "text-[9px] font-black uppercase text-indigo-500 hover:text-indigo-700 mt-2 ml-1 flex items-center gap-1.5 transition-colors"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fas fa-plus"
+        }), " A\xF1adir tipo de habitaci\xF3n"));
+      }())), /*#__PURE__*/React.createElement("td", {
         className: "p-2"
       }, /*#__PURE__*/React.createElement("input", {
         type: "date",
@@ -3885,12 +3941,10 @@ function App() {
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 print:py-1.5 print:px-2"
     }, "Salida"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2 text-center"
+      className: "p-3 print:py-1.5 print:px-2"
     }, "Noches"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 print:py-1.5 print:px-2"
-    }, "Habitaciones"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 print:py-1.5 print:px-2"
-    }, "Tipo"), g.segments.some(function (s) {
+    }, "Distribuci\xF3n"), g.segments.some(function (s) {
       return s.notes;
     }) && /*#__PURE__*/React.createElement("th", {
       className: "p-3 print:py-1.5 print:px-2"
@@ -3913,9 +3967,21 @@ function App() {
         className: "p-3 print:py-1.5 print:px-2 text-center font-bold text-slate-700"
       }, nightsCount), /*#__PURE__*/React.createElement("td", {
         className: "p-3 print:py-1.5 print:px-2 font-bold text-slate-700"
-      }, seg.rooms || seg.pax || 1, " hab."), /*#__PURE__*/React.createElement("td", {
-        className: "p-3 print:py-1.5 print:px-2 text-slate-600"
-      }, getRoomDisplayName(seg.roomType)), g.segments.some(function (s) {
+      }, function () {
+        var allocs = seg.roomAllocations && seg.roomAllocations.length > 0 ? seg.roomAllocations : [{
+          pax: seg.pax || 1,
+          rooms: seg.rooms || seg.pax || 1,
+          roomType: seg.roomType || 'DOBLE DE USO INDIVIDUAL'
+        }];
+        return allocs.map(function (a, i) {
+          return /*#__PURE__*/React.createElement("div", {
+            key: i,
+            className: "mb-0.5 last:mb-0 font-medium"
+          }, a.rooms, " ", Number(a.rooms) === 1 ? 'habitación' : 'habitaciones', " ", getRoomDisplayName(a.roomType).toLowerCase(), " ", /*#__PURE__*/React.createElement("span", {
+            className: "text-[9px] text-slate-400 font-normal"
+          }, "(", a.pax, " pax)"));
+        });
+      }()), g.segments.some(function (s) {
         return s.notes;
       }) && /*#__PURE__*/React.createElement("td", {
         className: "p-3 print:py-1.5 print:px-2 text-slate-500 italic text-[11px] print:text-[9px]"
