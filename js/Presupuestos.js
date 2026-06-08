@@ -1978,7 +1978,26 @@ function App() {
       onChange: function onChange(e) {
         return setSearchTerm(e.target.value);
       }
-    })), /*#__PURE__*/React.createElement("div", {
+    })), 
+    /*#__PURE__*/React.createElement("div", {
+      className: "flex bg-slate-200/80 p-1 rounded-xl ml-auto border border-slate-200 mr-2"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return setViewMode('list');
+      },
+      className: "px-4 py-2 rounded-lg text-xs font-bold transition-all ".concat(viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700')
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-list mr-2"
+    }), "Lista"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return setViewMode('calendar');
+      },
+      className: "px-4 py-2 rounded-lg text-xs font-bold transition-all ".concat(viewMode === 'calendar' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700')
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-calendar-alt mr-2"
+    }), "Calendario")),
+    
+    /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-calendar-alt text-slate-400 text-xs"
@@ -2014,7 +2033,9 @@ function App() {
       title: "Limpiar filtros"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-times-circle"
-    })))), viewMode === 'list' && /*#__PURE__*/React.createElement("div", {
+    })))), 
+    viewMode === 'calendar' && React.createElement(BudgetCalendar, { groups: processedGroups, onEventClick: function(g) { handleOpenDetail(g); } }),
+    viewMode === 'list' && /*#__PURE__*/React.createElement("div", {
         className: "overflow-x-auto"
       }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse min-w-[1100px]"
@@ -2038,9 +2059,7 @@ function App() {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right"
     }, "Acciones"))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-50"
-    }, viewMode === 'calendar' ? React.createElement(BudgetCalendar, { groups: processedGroups, onEventClick: function(g) {
-      handleOpenDetail(g);
-    } }) : processedGroups.map(function (g) {
+    }, processedGroups.map(function (g) {
       var totalAmount = g._totalAmount;
       var totalPaidFromPlan = 0;
       try {
