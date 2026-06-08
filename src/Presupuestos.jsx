@@ -3686,7 +3686,9 @@ ${emailContent}`;
           </main>
 
           {/* Modal Previsualización Paste Tarifas */}
-          {pastePreview.isOpen && (
+          {pastePreview.isOpen && (() => {
+            const previewRooms = ROOM_TYPES[formData.Hotel || formData.Hotel_Asignado] || ROOM_TYPES["Sercotel Guadiana"];
+            return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
               <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-slide-up">
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -3716,7 +3718,7 @@ ${emailContent}`;
                           <thead>
                              <tr className="bg-slate-50 text-slate-500 font-black text-[9px] uppercase tracking-widest border-b border-slate-100">
                                <th className="p-3">Régimen</th>
-                               {currentRooms.map(room => (
+                               {previewRooms.map(room => (
                                  <th key={room} className="p-3 text-center">{room}</th>
                                ))}
                              </tr>
@@ -3724,13 +3726,13 @@ ${emailContent}`;
                           <tbody className="divide-y divide-slate-100">
                              {BOARD_TYPES.map(board => {
                                const boardKey = board.split(' ')[0]; // SA, AD, MP, PC
-                               const hasAnyData = currentRooms.some(room => pastePreview.parsedData[boardKey]?.[room] !== undefined);
+                               const hasAnyData = previewRooms.some(room => pastePreview.parsedData[boardKey]?.[room] !== undefined);
                                if (!hasAnyData) return null;
 
                                return (
                                  <tr key={board}>
                                    <td className="p-3 font-bold text-slate-700">{board}</td>
-                                   {currentRooms.map(room => {
+                                   {previewRooms.map(room => {
                                      const price = pastePreview.parsedData[boardKey]?.[room];
                                      return (
                                        <td key={room} className="p-3 text-center">
@@ -3800,7 +3802,8 @@ ${emailContent}`;
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {showEmailParseModal && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

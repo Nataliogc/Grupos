@@ -4407,119 +4407,122 @@ function App() {
     className: "w-10 h-10 border-4 border-slate-100 border-t-indigo-500 rounded-full animate-spin"
   }), /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-400 uppercase tracking-widest"
-  }, "Conectando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, currentView === 'dashboard' && renderDashboard(), currentView === 'create' && renderCreate(), currentView === 'detail' && renderDetail())), pastePreview.isOpen && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-slide-up"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-sm"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-clipboard-check text-lg"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "text-sm font-black text-slate-800 uppercase tracking-widest"
-  }, "Previsualizaci\xF3n de Tarifas"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
-  }, "Revisa los datos detectados antes de aplicar"))), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setPastePreview(_objectSpread(_objectSpread({}, pastePreview), {}, {
-        isOpen: false
-      }));
-    },
-    className: "w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-times text-xs"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "p-6 space-y-4 max-h-[60vh] overflow-y-auto"
-  }, Object.keys(pastePreview.parsedData).length > 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "space-y-4"
-  }, /*#__PURE__*/React.createElement("h4", {
-    className: "text-[10px] font-black text-slate-500 uppercase tracking-widest"
-  }, "Tarifas Reconocidas"), /*#__PURE__*/React.createElement("div", {
-    className: "overflow-x-auto border border-slate-100 rounded-xl"
-  }, /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-left border-collapse text-xs"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-    className: "bg-slate-50 text-slate-500 font-black text-[9px] uppercase tracking-widest border-b border-slate-100"
-  }, /*#__PURE__*/React.createElement("th", {
-    className: "p-3"
-  }, "R\xE9gimen"), currentRooms.map(function (room) {
-    return /*#__PURE__*/React.createElement("th", {
-      key: room,
-      className: "p-3 text-center"
-    }, room);
-  }))), /*#__PURE__*/React.createElement("tbody", {
-    className: "divide-y divide-slate-100"
-  }, BOARD_TYPES.map(function (board) {
-    var boardKey = board.split(' ')[0]; // SA, AD, MP, PC
-    var hasAnyData = currentRooms.some(function (room) {
-      var _pastePreview$parsedD;
-      return ((_pastePreview$parsedD = pastePreview.parsedData[boardKey]) === null || _pastePreview$parsedD === void 0 ? void 0 : _pastePreview$parsedD[room]) !== undefined;
-    });
-    if (!hasAnyData) return null;
-    return /*#__PURE__*/React.createElement("tr", {
-      key: board
-    }, /*#__PURE__*/React.createElement("td", {
-      className: "p-3 font-bold text-slate-700"
-    }, board), currentRooms.map(function (room) {
-      var _pastePreview$parsedD2;
-      var price = (_pastePreview$parsedD2 = pastePreview.parsedData[boardKey]) === null || _pastePreview$parsedD2 === void 0 ? void 0 : _pastePreview$parsedD2[room];
-      return /*#__PURE__*/React.createElement("td", {
+  }, "Conectando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, currentView === 'dashboard' && renderDashboard(), currentView === 'create' && renderCreate(), currentView === 'detail' && renderDetail())), pastePreview.isOpen && function () {
+    var previewRooms = ROOM_TYPES[formData.Hotel || formData.Hotel_Asignado] || ROOM_TYPES["Sercotel Guadiana"];
+    return /*#__PURE__*/React.createElement("div", {
+      className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-slide-up"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-sm"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-clipboard-check text-lg"
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+      className: "text-sm font-black text-slate-800 uppercase tracking-widest"
+    }, "Previsualizaci\xF3n de Tarifas"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
+    }, "Revisa los datos detectados antes de aplicar"))), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return setPastePreview(_objectSpread(_objectSpread({}, pastePreview), {}, {
+          isOpen: false
+        }));
+      },
+      className: "w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-times text-xs"
+    }))), /*#__PURE__*/React.createElement("div", {
+      className: "p-6 space-y-4 max-h-[60vh] overflow-y-auto"
+    }, Object.keys(pastePreview.parsedData).length > 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "space-y-4"
+    }, /*#__PURE__*/React.createElement("h4", {
+      className: "text-[10px] font-black text-slate-500 uppercase tracking-widest"
+    }, "Tarifas Reconocidas"), /*#__PURE__*/React.createElement("div", {
+      className: "overflow-x-auto border border-slate-100 rounded-xl"
+    }, /*#__PURE__*/React.createElement("table", {
+      className: "w-full text-left border-collapse text-xs"
+    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+      className: "bg-slate-50 text-slate-500 font-black text-[9px] uppercase tracking-widest border-b border-slate-100"
+    }, /*#__PURE__*/React.createElement("th", {
+      className: "p-3"
+    }, "R\xE9gimen"), previewRooms.map(function (room) {
+      return /*#__PURE__*/React.createElement("th", {
         key: room,
         className: "p-3 text-center"
-      }, price !== undefined ? /*#__PURE__*/React.createElement("span", {
-        className: "font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"
-      }, price.toFixed(2), " \u20AC") : /*#__PURE__*/React.createElement("span", {
-        className: "text-slate-300"
-      }, "-"));
-    }));
-  }))))) : /*#__PURE__*/React.createElement("div", {
-    className: "text-center py-6"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-exclamation-triangle text-3xl text-amber-300 mb-2"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs font-bold text-slate-600"
-  }, "No se han reconocido datos de tarifas."), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-slate-400 mt-1"
-  }, "Aseg\xFArate de que la tabla tiene las cabeceras correctas.")), (pastePreview.unrecognizedBoards.length > 0 || pastePreview.unrecognizedRooms.length > 0) && /*#__PURE__*/React.createElement("div", {
-    className: "mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100"
-  }, /*#__PURE__*/React.createElement("h4", {
-    className: "text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-1.5"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-info-circle"
-  }), " Elementos no reconocidos"), pastePreview.unrecognizedBoards.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "mb-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-bold text-amber-600 uppercase tracking-wider"
-  }, "Reg\xEDmenes: "), /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px] text-amber-800"
-  }, pastePreview.unrecognizedBoards.join(", "))), pastePreview.unrecognizedRooms.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-bold text-amber-600 uppercase tracking-wider"
-  }, "Habitaciones: "), /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px] text-amber-800"
-  }, pastePreview.unrecognizedRooms.join(", "))), /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-amber-600/70 mt-2 font-medium leading-tight"
-  }, "Estos elementos no se importar\xE1n. Solo se actualizar\xE1n las celdas reconocidas en la tabla principal."))), /*#__PURE__*/React.createElement("div", {
-    className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick() {
-      return setPastePreview(_objectSpread(_objectSpread({}, pastePreview), {}, {
-        isOpen: false
+      }, room);
+    }))), /*#__PURE__*/React.createElement("tbody", {
+      className: "divide-y divide-slate-100"
+    }, BOARD_TYPES.map(function (board) {
+      var boardKey = board.split(' ')[0]; // SA, AD, MP, PC
+      var hasAnyData = previewRooms.some(function (room) {
+        var _pastePreview$parsedD;
+        return ((_pastePreview$parsedD = pastePreview.parsedData[boardKey]) === null || _pastePreview$parsedD === void 0 ? void 0 : _pastePreview$parsedD[room]) !== undefined;
+      });
+      if (!hasAnyData) return null;
+      return /*#__PURE__*/React.createElement("tr", {
+        key: board
+      }, /*#__PURE__*/React.createElement("td", {
+        className: "p-3 font-bold text-slate-700"
+      }, board), previewRooms.map(function (room) {
+        var _pastePreview$parsedD2;
+        var price = (_pastePreview$parsedD2 = pastePreview.parsedData[boardKey]) === null || _pastePreview$parsedD2 === void 0 ? void 0 : _pastePreview$parsedD2[room];
+        return /*#__PURE__*/React.createElement("td", {
+          key: room,
+          className: "p-3 text-center"
+        }, price !== undefined ? /*#__PURE__*/React.createElement("span", {
+          className: "font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"
+        }, price.toFixed(2), " \u20AC") : /*#__PURE__*/React.createElement("span", {
+          className: "text-slate-300"
+        }, "-"));
       }));
-    },
-    className: "px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all uppercase tracking-widest"
-  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: applyPastedTarifas,
-    disabled: Object.keys(pastePreview.parsedData).length === 0,
-    className: "px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-xs font-black shadow-lg shadow-emerald-200 flex items-center gap-2 uppercase tracking-widest disabled:opacity-60"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-check"
-  }), " Aplicar Datos")))), showEmailParseModal && /*#__PURE__*/React.createElement("div", {
+    }))))) : /*#__PURE__*/React.createElement("div", {
+      className: "text-center py-6"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-exclamation-triangle text-3xl text-amber-300 mb-2"
+    }), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs font-bold text-slate-600"
+    }, "No se han reconocido datos de tarifas."), /*#__PURE__*/React.createElement("p", {
+      className: "text-[10px] text-slate-400 mt-1"
+    }, "Aseg\xFArate de que la tabla tiene las cabeceras correctas.")), (pastePreview.unrecognizedBoards.length > 0 || pastePreview.unrecognizedRooms.length > 0) && /*#__PURE__*/React.createElement("div", {
+      className: "mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100"
+    }, /*#__PURE__*/React.createElement("h4", {
+      className: "text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-info-circle"
+    }), " Elementos no reconocidos"), pastePreview.unrecognizedBoards.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "mb-2"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] font-bold text-amber-600 uppercase tracking-wider"
+    }, "Reg\xEDmenes: "), /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] text-amber-800"
+    }, pastePreview.unrecognizedBoards.join(", "))), pastePreview.unrecognizedRooms.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] font-bold text-amber-600 uppercase tracking-wider"
+    }, "Habitaciones: "), /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] text-amber-800"
+    }, pastePreview.unrecognizedRooms.join(", "))), /*#__PURE__*/React.createElement("p", {
+      className: "text-[9px] text-amber-600/70 mt-2 font-medium leading-tight"
+    }, "Estos elementos no se importar\xE1n. Solo se actualizar\xE1n las celdas reconocidas en la tabla principal."))), /*#__PURE__*/React.createElement("div", {
+      className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return setPastePreview(_objectSpread(_objectSpread({}, pastePreview), {}, {
+          isOpen: false
+        }));
+      },
+      className: "px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all uppercase tracking-widest"
+    }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: applyPastedTarifas,
+      disabled: Object.keys(pastePreview.parsedData).length === 0,
+      className: "px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-xs font-black shadow-lg shadow-emerald-200 flex items-center gap-2 uppercase tracking-widest disabled:opacity-60"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-check"
+    }), " Aplicar Datos"))));
+  }(), showEmailParseModal && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 animate-scale-in"
