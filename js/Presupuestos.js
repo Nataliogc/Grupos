@@ -1253,12 +1253,16 @@ function App() {
   };
   var handleRoomCountChange = function handleRoomCountChange(type, value) {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
-    // Auto-calcular PAX total
+    // Auto-calcular PAX total (solo para los tipos válidos del hotel actual)
+    var currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || ROOM_TYPES['Sercotel Guadiana'];
     var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref26) {
       var _ref27 = _slicedToArray(_ref26, 2),
         roomType = _ref27[0],
         count = _ref27[1];
-      return sum + (count || 0) * (PAX_PER_ROOM[roomType] || 2);
+      if (currentRooms.includes(roomType)) {
+        return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
+      }
+      return sum;
     }, 0);
     setFormData(_objectSpread(_objectSpread({}, formData), {}, {
       roomCounts: newRoomCounts,
@@ -1333,9 +1337,16 @@ function App() {
       }
     });
     setFormData(function (prev) {
+      var totalPax = Object.entries(prev.roomCounts || {}).reduce(function (sum, _ref28) {
+        var _ref29 = _slicedToArray(_ref28, 2),
+          roomType = _ref29[0],
+          count = _ref29[1];
+        return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
+      }, 0);
       return _objectSpread(_objectSpread({}, prev), {}, {
         isRatesOnly: false,
-        dailyConfig: newDailyConfig
+        dailyConfig: newDailyConfig,
+        "Pax.": totalPax > 0 ? totalPax : prev["Pax."]
       });
     });
   };
@@ -1362,7 +1373,7 @@ function App() {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
+    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
       var now, formattedDate, normalizedFormData, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, segmentCountsByDate, globalDates, emptyDates, _confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
@@ -1567,10 +1578,10 @@ function App() {
               "Empresa/Agencia": "Empresa",
               "Pax.": "Pax"
             };
-            Object.entries(fieldsToTrack).forEach(function (_ref29) {
-              var _ref30 = _slicedToArray(_ref29, 2),
-                field = _ref30[0],
-                label = _ref30[1];
+            Object.entries(fieldsToTrack).forEach(function (_ref31) {
+              var _ref32 = _slicedToArray(_ref31, 2),
+                field = _ref32[0],
+                label = _ref32[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
                 changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
               }
@@ -1628,7 +1639,7 @@ function App() {
       }, _callee2, null, [[18, 23]]);
     }));
     return function handleSave(_x2) {
-      return _ref28.apply(this, arguments);
+      return _ref30.apply(this, arguments);
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
@@ -1643,7 +1654,7 @@ function App() {
     setCurrentView('detail');
   };
   var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
+    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
       var type,
         clauses,
         textToTranslate,
@@ -1687,11 +1698,11 @@ function App() {
       }, _callee3, null, [[1, 3]]);
     }));
     return function handleTranslateClause(_x3) {
-      return _ref31.apply(this, arguments);
+      return _ref33.apply(this, arguments);
     };
   }();
   var handleParseEmailIA = /*#__PURE__*/function () {
-    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
       var currentYear, _prompt2, response, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
@@ -1781,7 +1792,7 @@ function App() {
       }, _callee4, null, [[2, 5, 6, 7]]);
     }));
     return function handleParseEmailIA() {
-      return _ref32.apply(this, arguments);
+      return _ref34.apply(this, arguments);
     };
   }();
   var renderClauseText = function renderClauseText(text) {
@@ -1795,7 +1806,7 @@ function App() {
     return text;
   };
   var handleDelete = /*#__PURE__*/function () {
-    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
+    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
       var _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
@@ -1822,11 +1833,11 @@ function App() {
       }, _callee5, null, [[1, 3]]);
     }));
     return function handleDelete(_x4) {
-      return _ref33.apply(this, arguments);
+      return _ref35.apply(this, arguments);
     };
   }();
   var updateStatus = /*#__PURE__*/function () {
-    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
+    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
       var now, formattedDate, budget, newTracking, _t6;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
@@ -1860,11 +1871,11 @@ function App() {
       }, _callee6, null, [[0, 2]]);
     }));
     return function updateStatus(_x5, _x6) {
-      return _ref34.apply(this, arguments);
+      return _ref36.apply(this, arguments);
     };
   }();
   var addTrackingNote = /*#__PURE__*/function () {
-    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(e) {
+    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(e) {
       var now, formattedDate, newTracking, _t7;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
@@ -1902,11 +1913,11 @@ function App() {
       }, _callee7, null, [[1, 3]]);
     }));
     return function addTrackingNote(_x7) {
-      return _ref35.apply(this, arguments);
+      return _ref37.apply(this, arguments);
     };
   }();
   var addQuickNote = /*#__PURE__*/function () {
-    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(uid, note) {
+    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(uid, note) {
       var now, formattedDate, budget, newTracking, _t8;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.p = _context8.n) {
@@ -1945,7 +1956,7 @@ function App() {
       }, _callee8, null, [[1, 3]]);
     }));
     return function addQuickNote(_x8, _x9) {
-      return _ref36.apply(this, arguments);
+      return _ref38.apply(this, arguments);
     };
   }();
 
@@ -2100,10 +2111,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref37) {
-        var _ref38 = _slicedToArray(_ref37, 2),
-          t = _ref38[0],
-          c = _ref38[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref39) {
+        var _ref40 = _slicedToArray(_ref39, 2),
+          t = _ref40[0],
+          c = _ref40[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -2210,10 +2221,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref39) {
-          var _ref40 = _slicedToArray(_ref39, 2),
-            _ = _ref40[0],
-            b = _ref40[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref41) {
+          var _ref42 = _slicedToArray(_ref41, 2),
+            _ = _ref42[0],
+            b = _ref42[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -2800,17 +2811,32 @@ function App() {
         var updated = _objectSpread(_objectSpread({}, formData), {}, {
           isMultiSegment: newIsMulti
         });
-        if (newIsMulti && (!formData.segments || formData.segments.length === 0)) {
-          updated.segments = [{
-            id: 'A',
-            travelerGroupId: 'G1',
-            pax: 1,
-            rooms: 1,
-            roomType: 'DOBLE DE USO INDIVIDUAL',
-            in: formData.Entrada || '',
-            out: formData.Salida || '',
-            notes: ''
-          }];
+        if (newIsMulti) {
+          if (!formData.segments || formData.segments.length === 0) {
+            updated.segments = [{
+              id: 'A',
+              travelerGroupId: 'G1',
+              pax: 1,
+              rooms: 1,
+              roomType: 'DOBLE DE USO INDIVIDUAL',
+              in: formData.Entrada || '',
+              out: formData.Salida || '',
+              notes: ''
+            }];
+          }
+          // In multi-segment mode, getSegmentStats handles Pax.
+          var stats = getSegmentStats(updated.segments);
+          updated["Pax."] = stats.totalPax;
+        } else {
+          if (!formData.isRatesOnly) {
+            var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref43) {
+              var _ref44 = _slicedToArray(_ref43, 2),
+                roomType = _ref44[0],
+                count = _ref44[1];
+              return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
+            }, 0);
+            if (totalPax > 0) updated["Pax."] = totalPax;
+          }
         }
         setFormData(updated);
       },
@@ -3567,10 +3593,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref41) {
-      var _ref42 = _slicedToArray(_ref41, 2),
-        type = _ref42[0],
-        count = _ref42[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref45) {
+      var _ref46 = _slicedToArray(_ref45, 2),
+        type = _ref46[0],
+        count = _ref46[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -3586,10 +3612,10 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref43) {
-      var _ref44 = _slicedToArray(_ref43, 2),
-        type = _ref44[0],
-        c = _ref44[1];
+    activeRooms.forEach(function (_ref47) {
+      var _ref48 = _slicedToArray(_ref47, 2),
+        type = _ref48[0],
+        c = _ref48[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
@@ -4009,16 +4035,23 @@ function App() {
       }
     }, /*#__PURE__*/React.createElement("th", {
       className: "p-4 print:py-2 print:px-3 font-extrabold"
-    }, "R\xE9gimen"), currentRooms.map(function (room) {
+    }, "R\xE9gimen"), currentRooms.filter(function (r) {
+      return !(g.hiddenGridCols || []).includes(r);
+    }).map(function (room) {
       return /*#__PURE__*/React.createElement("th", {
         key: room,
         className: "p-4 print:py-2 print:px-3 text-center font-extrabold"
       }, getRoomDisplayName(room));
     }))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
-    }, BOARD_TYPES.map(function (board, idx) {
+    }, BOARD_TYPES.filter(function (b) {
+      return !(g.hiddenGridRows || []).includes(b.split(' ')[0]);
+    }).map(function (board, idx) {
       var boardKey = board.split(' ')[0];
-      var hasPrices = currentRooms.some(function (room) {
+      var visibleRooms = currentRooms.filter(function (r) {
+        return !(g.hiddenGridCols || []).includes(r);
+      });
+      var hasPrices = visibleRooms.some(function (room) {
         var _g$ratesOnlyGrid;
         return (_g$ratesOnlyGrid = g.ratesOnlyGrid) === null || _g$ratesOnlyGrid === void 0 || (_g$ratesOnlyGrid = _g$ratesOnlyGrid[boardKey]) === null || _g$ratesOnlyGrid === void 0 ? void 0 : _g$ratesOnlyGrid[room];
       });
@@ -4028,7 +4061,7 @@ function App() {
         className: "".concat(idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30', " hover:bg-slate-50/50 transition-colors")
       }, /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight"
-      }, getBoardDisplayName(board)), currentRooms.map(function (room) {
+      }, getBoardDisplayName(board)), visibleRooms.map(function (room) {
         var _g$ratesOnlyGrid2;
         var price = (_g$ratesOnlyGrid2 = g.ratesOnlyGrid) === null || _g$ratesOnlyGrid2 === void 0 || (_g$ratesOnlyGrid2 = _g$ratesOnlyGrid2[boardKey]) === null || _g$ratesOnlyGrid2 === void 0 ? void 0 : _g$ratesOnlyGrid2[room];
         return /*#__PURE__*/React.createElement("td", {
@@ -4092,10 +4125,10 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
-      var roomListItems = activeRooms.map(function (_ref45) {
-        var _ref46 = _slicedToArray(_ref45, 2),
-          type = _ref46[0],
-          count = _ref46[1];
+      var roomListItems = activeRooms.map(function (_ref49) {
+        var _ref50 = _slicedToArray(_ref49, 2),
+          type = _ref50[0],
+          count = _ref50[1];
         var typeKey = type.toUpperCase();
         var currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== '' ? Number(config.counts[typeKey]) : count;
         if (currentCount <= 0) return null;

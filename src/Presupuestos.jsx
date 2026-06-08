@@ -1083,9 +1083,13 @@
 
       const handleRoomCountChange = (type, value) => {
         const newRoomCounts = { ...(formData.roomCounts || {}), [type]: Number(value) };
-        // Auto-calcular PAX total
+        // Auto-calcular PAX total (solo para los tipos válidos del hotel actual)
+        const currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || ROOM_TYPES['Sercotel Guadiana'];
         const totalPax = Object.entries(newRoomCounts).reduce((sum, [roomType, count]) => {
-          return sum + (count || 0) * (PAX_PER_ROOM[roomType] || 2);
+          if (currentRooms.includes(roomType)) {
+            return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
+          }
+          return sum;
         }, 0);
         setFormData({
           ...formData,
@@ -1151,11 +1155,17 @@
           }
         });
 
-        setFormData(prev => ({
-          ...prev,
-          isRatesOnly: false,
-          dailyConfig: newDailyConfig
-        }));
+        setFormData(prev => {
+          const totalPax = Object.entries(prev.roomCounts || {}).reduce((sum, [roomType, count]) => {
+            return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
+          }, 0);
+          return {
+            ...prev,
+            isRatesOnly: false,
+            dailyConfig: newDailyConfig,
+            "Pax.": totalPax > 0 ? totalPax : prev["Pax."]
+          };
+        });
       };
 
       const handleCopyFirstDay = () => {
@@ -2283,8 +2293,20 @@ ${emailContent}`;
                       onClick={() => {
                         const newIsMulti = !formData.isMultiSegment;
                         let updated = { ...formData, isMultiSegment: newIsMulti };
-                        if (newIsMulti && (!formData.segments || formData.segments.length === 0)) {
-                          updated.segments = [{ id: 'A', travelerGroupId: 'G1', pax: 1, rooms: 1, roomType: 'DOBLE DE USO INDIVIDUAL', in: formData.Entrada || '', out: formData.Salida || '', notes: '' }];
+                        if (newIsMulti) {
+                          if (!formData.segments || formData.segments.length === 0) {
+                            updated.segments = [{ id: 'A', travelerGroupId: 'G1', pax: 1, rooms: 1, roomType: 'DOBLE DE USO INDIVIDUAL', in: formData.Entrada || '', out: formData.Salida || '', notes: '' }];
+                          }
+                          // In multi-segment mode, getSegmentStats handles Pax.
+                          const stats = getSegmentStats(updated.segments);
+                          updated["Pax."] = stats.totalPax;
+                        } else {
+                          if (!formData.isRatesOnly) {
+                            const totalPax = Object.entries(updated.roomCounts || {}).reduce((sum, [roomType, count]) => {
+                              return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
+                            }, 0);
+                            if (totalPax > 0) updated["Pax."] = totalPax;
+                          }
                         }
                         setFormData(updated);
                       }}
@@ -3403,20 +3425,21 @@ ${emailContent}`;
                               <thead>
                                 <tr className={`${isCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50'} font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ${isCumbria ? 'border-blue-950' : 'border-orange-950'}`} style={{backgroundColor: isCumbria ? '#0f172a' : '#451a03', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
                                   <th className="p-4 print:py-2 print:px-3 font-extrabold">Régimen</th>
-                                  {currentRooms.map(room => (
+                                  {currentRooms.filter(r => !(g.hiddenGridCols || []).includes(r)).map(room => (
                                     <th key={room} className="p-4 print:py-2 print:px-3 text-center font-extrabold">{getRoomDisplayName(room)}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
-                                {BOARD_TYPES.map((board, idx) => {
+                                {BOARD_TYPES.filter(b => !(g.hiddenGridRows || []).includes(b.split(' ')[0])).map((board, idx) => {
                                   const boardKey = board.split(' ')[0];
-                                  const hasPrices = currentRooms.some(room => g.ratesOnlyGrid?.[boardKey]?.[room]);
+                                  const visibleRooms = currentRooms.filter(r => !(g.hiddenGridCols || []).includes(r));
+                                  const hasPrices = visibleRooms.some(room => g.ratesOnlyGrid?.[boardKey]?.[room]);
                                   if (!hasPrices) return null;
                                   return (
                                     <tr key={board} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-slate-50/50 transition-colors`}>
                                       <td className="p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight">{getBoardDisplayName(board)}</td>
-                                      {currentRooms.map(room => {
+                                      {visibleRooms.map(room => {
                                         const price = g.ratesOnlyGrid?.[boardKey]?.[room];
                                         return (
                                           <td key={room} className="p-4 print:py-2.5 print:px-3 text-center align-middle">
