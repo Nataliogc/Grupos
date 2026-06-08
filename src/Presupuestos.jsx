@@ -61,6 +61,8 @@
       clauses_conf: [],
       isRatesOnly: false,
       ratesOnlyGrid: {},
+      hiddenGridRows: [],
+      hiddenGridCols: [],
       segments: [],           // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
       isMultiSegment: false,   // NUEVO: modo multi-segmento activo
       declaredPax: ''         // NUEVO: Pax declarados por el cliente
@@ -779,7 +781,7 @@
         const normBoard = {
           'sa': 'SA', 'solo alojamiento': 'SA', 'solo aloj.': 'SA',
           'ad': 'AD', 'alojamiento y desayuno': 'AD', 'hd': 'AD', 'bb': 'AD', 'b&b': 'AD',
-          'mp': 'MP', 'media pensión': 'MP', 'media pension': 'MP', 'hb': 'MP', 'half board': 'MP',
+          'mp': 'MP', 'media pensión': 'MP', 'media pension': 'MP', 'median pensión': 'MP', 'median pension': 'MP', 'hb': 'MP', 'half board': 'MP',
           'pc': 'PC', 'pensión completa': 'PC', 'pension completa': 'PC', 'fb': 'PC', 'full board': 'PC'
         };
 
@@ -2437,32 +2439,62 @@ ${emailContent}`;
                         Puedes copiar una tabla desde Excel o Word y pegarla aquí para rellenar las tarifas automáticamente.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handlePasteTarifas()}
-                      className="px-4 py-2 bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-600 border border-indigo-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                      title="Copiar una tabla de Excel o Word y pulsar aquí para pegar"
-                    >
-                      <i className="fas fa-paste text-indigo-500"></i> Pegar tabla
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {(formData.hiddenGridRows?.length > 0 || formData.hiddenGridCols?.length > 0) && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, hiddenGridRows: [], hiddenGridCols: [] })}
+                          className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm outline-none"
+                          title="Restaurar filas y columnas ocultas"
+                        >
+                          <i className="fas fa-undo"></i>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handlePasteTarifas()}
+                        className="px-4 py-2 bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-600 border border-indigo-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                        title="Copiar una tabla de Excel o Word y pulsar aquí para pegar"
+                      >
+                        <i className="fas fa-paste text-indigo-500"></i> Pegar tabla
+                      </button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
-                          <th className="p-4">Régimen</th>
-                          {currentRooms.map(room => (
-                            <th key={room} className="p-4 text-center">{room}</th>
+                          <th className="p-4 pl-8">Régimen</th>
+                          {currentRooms.filter(r => !(formData.hiddenGridCols || []).includes(r)).map(room => (
+                            <th key={room} className="p-4 text-center group relative">
+                              {room}
+                              <button 
+                                onClick={() => setFormData({ ...formData, hiddenGridCols: [...(formData.hiddenGridCols || []), room] })}
+                                className="absolute top-1/2 -translate-y-1/2 right-2 w-5 h-5 bg-rose-50 text-rose-500 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-rose-100"
+                                title="Ocultar columna"
+                              >
+                                <i className="fas fa-times text-[10px]"></i>
+                              </button>
+                            </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {BOARD_TYPES.map(board => {
+                        {BOARD_TYPES.filter(b => !(formData.hiddenGridRows || []).includes(b.split(' ')[0])).map(board => {
                           const boardKey = board.split(' ')[0]; // E.g., "AD", "MP", "PC", "SA"
                           return (
-                            <tr key={board}>
-                              <td className="p-4 font-bold text-slate-700">{board}</td>
-                              {currentRooms.map(room => {
+                            <tr key={board} className="group">
+                              <td className="p-4 pl-8 font-bold text-slate-700 relative">
+                                <button 
+                                  onClick={() => setFormData({ ...formData, hiddenGridRows: [...(formData.hiddenGridRows || []), boardKey] })}
+                                  className="absolute top-1/2 -translate-y-1/2 left-2 w-5 h-5 bg-rose-50 text-rose-500 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-rose-100"
+                                  title="Ocultar fila"
+                                >
+                                  <i className="fas fa-times text-[10px]"></i>
+                                </button>
+                                {board}
+                              </td>
+                              {currentRooms.filter(r => !(formData.hiddenGridCols || []).includes(r)).map(room => {
                                 const priceVal = formData.ratesOnlyGrid?.[boardKey]?.[room] || '';
                                 return (
                                   <td key={room} className="p-4">

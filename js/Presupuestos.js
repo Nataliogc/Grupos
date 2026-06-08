@@ -78,6 +78,8 @@ var DEFAULT_FORM_DATA = {
   clauses_conf: [],
   isRatesOnly: false,
   ratesOnlyGrid: {},
+  hiddenGridRows: [],
+  hiddenGridCols: [],
   segments: [],
   // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
   isMultiSegment: false,
@@ -908,6 +910,8 @@ function App() {
               'mp': 'MP',
               'media pensión': 'MP',
               'media pension': 'MP',
+              'median pensión': 'MP',
+              'median pension': 'MP',
               'hb': 'MP',
               'half board': 'MP',
               'pc': 'PC',
@@ -2302,7 +2306,7 @@ function App() {
     }, "No hay presupuestos para mostrar")))));
   };
   var renderCreate = function renderCreate() {
-    var _formData$segments3;
+    var _formData$segments3, _formData$hiddenGridR, _formData$hiddenGridC;
     var stayDates = getCurrentStayDates(formData);
     var currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || [];
     return /*#__PURE__*/React.createElement("div", {
@@ -2958,7 +2962,21 @@ function App() {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
     }, "2. Tarifas por R\xE9gimen y Habitaci\xF3n")), /*#__PURE__*/React.createElement("p", {
       className: "text-[9px] text-slate-400 font-medium ml-9"
-    }, "Puedes copiar una tabla desde Excel o Word y pegarla aqu\xED para rellenar las tarifas autom\xE1ticamente.")), /*#__PURE__*/React.createElement("button", {
+    }, "Puedes copiar una tabla desde Excel o Word y pegarla aqu\xED para rellenar las tarifas autom\xE1ticamente.")), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2"
+    }, (((_formData$hiddenGridR = formData.hiddenGridRows) === null || _formData$hiddenGridR === void 0 ? void 0 : _formData$hiddenGridR.length) > 0 || ((_formData$hiddenGridC = formData.hiddenGridCols) === null || _formData$hiddenGridC === void 0 ? void 0 : _formData$hiddenGridC.length) > 0) && /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          hiddenGridRows: [],
+          hiddenGridCols: []
+        }));
+      },
+      className: "px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm outline-none",
+      title: "Restaurar filas y columnas ocultas"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-undo"
+    })), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
         return handlePasteTarifas();
@@ -2967,28 +2985,55 @@ function App() {
       title: "Copiar una tabla de Excel o Word y pulsar aqu\xED para pegar"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-paste text-indigo-500"
-    }), " Pegar tabla")), /*#__PURE__*/React.createElement("div", {
+    }), " Pegar tabla"))), /*#__PURE__*/React.createElement("div", {
       className: "overflow-x-auto"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-xs text-left border-collapse"
     }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
       className: "bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100"
     }, /*#__PURE__*/React.createElement("th", {
-      className: "p-4"
-    }, "R\xE9gimen"), currentRooms.map(function (room) {
+      className: "p-4 pl-8"
+    }, "R\xE9gimen"), currentRooms.filter(function (r) {
+      return !(formData.hiddenGridCols || []).includes(r);
+    }).map(function (room) {
       return /*#__PURE__*/React.createElement("th", {
         key: room,
-        className: "p-4 text-center"
-      }, room);
+        className: "p-4 text-center group relative"
+      }, room, /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick() {
+          return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            hiddenGridCols: [].concat(_toConsumableArray(formData.hiddenGridCols || []), [room])
+          }));
+        },
+        className: "absolute top-1/2 -translate-y-1/2 right-2 w-5 h-5 bg-rose-50 text-rose-500 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-rose-100",
+        title: "Ocultar columna"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-times text-[10px]"
+      })));
     }))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
-    }, BOARD_TYPES.map(function (board) {
+    }, BOARD_TYPES.filter(function (b) {
+      return !(formData.hiddenGridRows || []).includes(b.split(' ')[0]);
+    }).map(function (board) {
       var boardKey = board.split(' ')[0]; // E.g., "AD", "MP", "PC", "SA"
       return /*#__PURE__*/React.createElement("tr", {
-        key: board
+        key: board,
+        className: "group"
       }, /*#__PURE__*/React.createElement("td", {
-        className: "p-4 font-bold text-slate-700"
-      }, board), currentRooms.map(function (room) {
+        className: "p-4 pl-8 font-bold text-slate-700 relative"
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick() {
+          return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            hiddenGridRows: [].concat(_toConsumableArray(formData.hiddenGridRows || []), [boardKey])
+          }));
+        },
+        className: "absolute top-1/2 -translate-y-1/2 left-2 w-5 h-5 bg-rose-50 text-rose-500 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-rose-100",
+        title: "Ocultar fila"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-times text-[10px]"
+      })), board), currentRooms.filter(function (r) {
+        return !(formData.hiddenGridCols || []).includes(r);
+      }).map(function (room) {
         var _formData$ratesOnlyGr;
         var priceVal = ((_formData$ratesOnlyGr = formData.ratesOnlyGrid) === null || _formData$ratesOnlyGr === void 0 || (_formData$ratesOnlyGr = _formData$ratesOnlyGr[boardKey]) === null || _formData$ratesOnlyGr === void 0 ? void 0 : _formData$ratesOnlyGr[room]) || '';
         return /*#__PURE__*/React.createElement("td", {
