@@ -759,6 +759,128 @@
       };
 
       const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
+      const [pastePreview, setPastePreview] = useState({ isOpen: false, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] });
+
+      const handlePasteTarifas = async (textStr) => {
+        let text = textStr;
+        if (!text || typeof text !== 'string') {
+          try {
+            text = await navigator.clipboard.readText();
+          } catch (err) {
+            alert("No se pudo leer el portapapeles. Usa Ctrl+V sobre la tabla de tarifas.");
+            return;
+          }
+        }
+        if (!text) return;
+
+        const rowsData = text.split('\n').map(r => r.split('\t').map(c => c.trim()));
+        if (rowsData.length < 2) return; 
+
+        const normBoard = {
+          'sa': 'SA', 'solo alojamiento': 'SA', 'solo aloj.': 'SA',
+          'ad': 'AD', 'alojamiento y desayuno': 'AD', 'hd': 'AD', 'bb': 'AD', 'b&b': 'AD',
+          'mp': 'MP', 'media pensión': 'MP', 'media pension': 'MP', 'hb': 'MP', 'half board': 'MP',
+          'pc': 'PC', 'pensión completa': 'PC', 'pension completa': 'PC', 'fb': 'PC', 'full board': 'PC'
+        };
+
+        const normRoom = {
+          'dui': 'DOBLE DE USO INDIVIDUAL', 'uso individual': 'DOBLE DE USO INDIVIDUAL', 'individual': 'DOBLE DE USO INDIVIDUAL', 'single': 'DOBLE DE USO INDIVIDUAL', 'doble de uso individual': 'DOBLE DE USO INDIVIDUAL',
+          'doble': 'DOBLE', 'double': 'DOBLE',
+          'doble + supletoria': 'DOBLE + SUPLETORIA', 'triple': 'DOBLE + SUPLETORIA', '3ª pax': 'DOBLE + SUPLETORIA', 'doble con supletoria': 'DOBLE + SUPLETORIA',
+          'cuádruple': 'CUÁDRUPLE', 'cuadruple': 'CUÁDRUPLE', 'quadruple': 'CUÁDRUPLE', '4 pax': 'CUÁDRUPLE'
+        };
+
+        const parsePrice = (str) => {
+          if (!str) return null;
+          let s = str.replace(/[€\s]/g, '');
+          if (s.match(/\d+\.\d{3},\d+/)) {
+            s = s.replace(/\./g, '').replace(',', '.');
+          } else if (s.includes(',') && s.includes('.')) {
+             s = s.replace(/,/g, '');
+          } else if (s.includes(',')) {
+             s = s.replace(',', '.');
+          }
+          const num = parseFloat(s);
+          return isNaN(num) ? null : num;
+        };
+
+        let parsedGrid = {};
+        let unrecBoards = new Set();
+        let unrecRooms = new Set();
+
+        let colHeaders = rowsData[0].map(h => h.toLowerCase());
+        let rowHeaders = rowsData.map(r => r[0] ? r[0].toLowerCase() : '');
+
+        let colRoomCount = colHeaders.filter(h => normRoom[h]).length;
+        let rowRoomCount = rowHeaders.filter(h => normRoom[h]).length;
+        
+        let colBoardCount = colHeaders.filter(h => normBoard[h]).length;
+        let rowBoardCount = rowHeaders.filter(h => normBoard[h]).length;
+
+        let detectedRowsAs = 'unknown'; 
+        let detectedColsAs = 'unknown'; 
+
+        if (rowBoardCount > colBoardCount) detectedRowsAs = 'boards';
+        else if (colBoardCount > rowBoardCount) detectedColsAs = 'boards';
+
+        if (colRoomCount > rowRoomCount) detectedColsAs = 'rooms';
+        else if (rowRoomCount > colRoomCount) detectedRowsAs = 'rooms';
+
+        if (detectedRowsAs === 'boards' && detectedColsAs === 'unknown') detectedColsAs = 'rooms';
+        if (detectedRowsAs === 'rooms' && detectedColsAs === 'unknown') detectedColsAs = 'boards';
+        if (detectedColsAs === 'rooms' && detectedRowsAs === 'unknown') detectedRowsAs = 'boards';
+        if (detectedColsAs === 'boards' && detectedRowsAs === 'unknown') detectedRowsAs = 'rooms';
+
+        if (detectedRowsAs === 'unknown') {
+           detectedRowsAs = 'boards';
+           detectedColsAs = 'rooms';
+        }
+
+        for (let i = 1; i < rowsData.length; i++) {
+           for (let j = 1; j < rowsData[i].length; j++) {
+              if (!rowsData[i][j]) continue;
+              let rowHeader = rowHeaders[i];
+              let colHeader = colHeaders[j];
+              
+              let boardKeyRaw = detectedRowsAs === 'boards' ? rowHeader : colHeader;
+              let roomKeyRaw = detectedColsAs === 'rooms' ? colHeader : rowHeader;
+
+              let boardNorm = normBoard[boardKeyRaw];
+              let roomNorm = normRoom[roomKeyRaw];
+
+              let price = parsePrice(rowsData[i][j]);
+
+              if (price !== null) {
+                  if (!boardNorm && boardKeyRaw) unrecBoards.add(boardKeyRaw);
+                  if (!roomNorm && roomKeyRaw) unrecRooms.add(roomKeyRaw);
+                  
+                  if (boardNorm && roomNorm) {
+                     if (!parsedGrid[boardNorm]) parsedGrid[boardNorm] = {};
+                     parsedGrid[boardNorm][roomNorm] = price;
+                  }
+              }
+           }
+        }
+
+        setPastePreview({
+           isOpen: true,
+           parsedData: parsedGrid,
+           unrecognizedBoards: Array.from(unrecBoards),
+           unrecognizedRooms: Array.from(unrecRooms)
+        });
+      };
+
+      const applyPastedTarifas = () => {
+        const currentGrid = { ...(formData.ratesOnlyGrid || {}) };
+        Object.keys(pastePreview.parsedData).forEach(board => {
+           if (!currentGrid[board]) currentGrid[board] = {};
+           Object.keys(pastePreview.parsedData[board]).forEach(room => {
+               currentGrid[board][room] = pastePreview.parsedData[board][room];
+           });
+        });
+        setFormData({ ...formData, ratesOnlyGrid: currentGrid });
+        setPastePreview({ isOpen: false, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] });
+      };
 
       // Auto-sync daily configuration prices with ratesOnlyGrid and counts with segments in real-time
       useEffect(() => {
@@ -2292,12 +2414,32 @@ ${emailContent}`;
                 </>
               ) : (
                 /* Bloque 2: Tarifas por Régimen y Habitación (Modo Grid) */
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
-                  <div className="flex items-center gap-3 border-b border-slate-50 pb-4">
-                    <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                      <i className="fas fa-tags text-[10px]"></i>
+                <div 
+                  className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6 focus:outline-none focus:ring-2 focus:ring-emerald-500/10"
+                  tabIndex="0"
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData('text/plain');
+                    if (text) {
+                      e.preventDefault();
+                      handlePasteTarifas(text);
+                    }
+                  }}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-50 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                        <i className="fas fa-tags text-[10px]"></i>
+                      </div>
+                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tarifas por Régimen y Habitación</h3>
                     </div>
-                    <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tarifas por Régimen y Habitación</h3>
+                    <button
+                      type="button"
+                      onClick={() => handlePasteTarifas()}
+                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm"
+                      title="Copiar una tabla de Excel o Word y pulsar aquí para pegar"
+                    >
+                      <i className="fas fa-paste"></i> Pegar desde Excel/Word
+                    </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
@@ -3538,14 +3680,109 @@ ${emailContent}`;
             )}
           </main>
 
+          {/* Modal Previsualización Paste Tarifas */}
+          {pastePreview.isOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+              <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-slide-up">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-sm">
+                      <i className="fas fa-clipboard-check text-lg"></i>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Previsualización de Tarifas</h3>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5">Revisa los datos detectados antes de aplicar</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setPastePreview({ ...pastePreview, isOpen: false })}
+                    className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all"
+                  >
+                    <i className="fas fa-times text-xs"></i>
+                  </button>
+                </div>
+                
+                <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                  {Object.keys(pastePreview.parsedData).length > 0 ? (
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tarifas Reconocidas</h4>
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                           <tr className="bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
+                             <th className="p-2">Régimen</th>
+                             <th className="p-2">Habitación</th>
+                             <th className="p-2 text-right">Precio (€)</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                           {Object.entries(pastePreview.parsedData).flatMap(([board, rooms]) => 
+                              Object.entries(rooms).map(([room, price]) => (
+                                <tr key={`${board}-${room}`}>
+                                  <td className="p-2 font-bold text-slate-700">{board}</td>
+                                  <td className="p-2 text-slate-600">{room}</td>
+                                  <td className="p-2 text-right font-black text-emerald-600">{price.toFixed(2)}</td>
+                                </tr>
+                              ))
+                           )}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                       <i className="fas fa-exclamation-triangle text-3xl text-amber-300 mb-2"></i>
+                       <p className="text-xs font-bold text-slate-600">No se han reconocido datos de tarifas.</p>
+                       <p className="text-[10px] text-slate-400 mt-1">Asegúrate de que la tabla tiene las cabeceras correctas.</p>
+                    </div>
+                  )}
+
+                  {(pastePreview.unrecognizedBoards.length > 0 || pastePreview.unrecognizedRooms.length > 0) && (
+                    <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100">
+                      <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <i className="fas fa-info-circle"></i> Elementos no reconocidos
+                      </h4>
+                      {pastePreview.unrecognizedBoards.length > 0 && (
+                        <div className="mb-2">
+                           <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Regímenes: </span>
+                           <span className="text-[10px] text-amber-800">{pastePreview.unrecognizedBoards.join(", ")}</span>
+                        </div>
+                      )}
+                      {pastePreview.unrecognizedRooms.length > 0 && (
+                        <div>
+                           <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Habitaciones: </span>
+                           <span className="text-[10px] text-amber-800">{pastePreview.unrecognizedRooms.join(", ")}</span>
+                        </div>
+                      )}
+                      <p className="text-[9px] text-amber-600/70 mt-2 font-medium leading-tight">Estos elementos no se importarán. Solo se actualizarán las celdas reconocidas en la tabla principal.</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPastePreview({ ...pastePreview, isOpen: false })}
+                    className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all uppercase tracking-widest"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyPastedTarifas}
+                    disabled={Object.keys(pastePreview.parsedData).length === 0}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-xs font-black shadow-lg shadow-emerald-200 flex items-center gap-2 uppercase tracking-widest disabled:opacity-60"
+                  >
+                    <i className="fas fa-check"></i> Aplicar Datos
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {showEmailParseModal && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 animate-scale-in">
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                      <i className="fas fa-envelope-open-text text-sm"></i>
-                    </div>
                     <div>
                       <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Parsear Email con IA</h3>
                       <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5">La IA extraerá automáticamente los segmentos y datos de contacto</p>
