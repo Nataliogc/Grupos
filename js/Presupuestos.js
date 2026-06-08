@@ -69,7 +69,6 @@ var DEFAULT_FORM_DATA = {
   Com_Telefono_Contacto: '',
   Entrada: '',
   Salida: '',
-  followUpDate: '',
   DateRanges_JSON: [],
   roomCounts: {},
   dailyConfig: {},
@@ -640,7 +639,6 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
       });
     });
   }
-  newData.followUpDate = groupData.followUpDate || "";
   newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
   newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
   newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["Teléfono"] || "";
@@ -735,198 +733,6 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   }
   return total > 0 ? total : 0;
 };
-
-const BudgetCalendar = ({ groups, onEventClick }) => {
-  const { useState } = React;
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDayEvents, setSelectedDayEvents] = useState(null); // { dateStr: "DD/MM/YYYY", events: [] }
-  const [calendarMode, setCalendarMode] = useState('seguimiento'); // 'seguimiento' | 'entrada'
-
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-
-  // Lunes como primer día de la semana
-  const startingDay = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
-
-  const daysInMonth = lastDayOfMonth.getDate();
-  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-
-  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  const goToToday = () => setCurrentDate(new Date());
-
-  const eventsByDay = {};
-  const noDateEvents = [];
-
-  groups.forEach(g => {
-    let targetDateStr = '';
-    
-    if (calendarMode === 'seguimiento') {
-       targetDateStr = g.followUpDate;
-    } else {
-       targetDateStr = g.Entrada;
-       if (g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 0) {
-          const stats = getSegmentStats(g.segments);
-          targetDateStr = stats.globalIn;
-       }
-    }
-    
-    if (!targetDateStr) {
-       noDateEvents.push(g);
-    } else {
-       // Parseo seguro zona horaria local
-       const parts = targetDateStr.split('-');
-       if (parts.length === 3) {
-           const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-           if (!isNaN(dateObj.getTime()) && dateObj.getFullYear() === currentDate.getFullYear() && dateObj.getMonth() === currentDate.getMonth()) {
-               const day = dateObj.getDate();
-               if (!eventsByDay[day]) eventsByDay[day] = [];
-               eventsByDay[day].push(g);
-           } else if (isNaN(dateObj.getTime())) {
-               noDateEvents.push(g);
-           }
-       } else {
-           noDateEvents.push(g);
-       }
-    }
-  });
-
-  const EventCard = ({ g, detailed = false }) => {
-    const name = g["Nombre del Grupo"] || g.Cliente || "Sin Nombre";
-    const pax = g["Pax."] || g.Pax || "-";
-    const amount = g._totalAmount ? formatNum(g._totalAmount) + '€' : '-';
-    // Se asume que getStatusColor está disponible en el scope (importado de NexusUtils)
-    const colorClass = typeof getStatusColor === 'function' ? getStatusColor(g.Com_Estado_Interno || g.Estado) : 'bg-slate-100 text-slate-800 border-slate-200';
-    
-    let tooltip = `${name}\nPax: ${pax}\nImporte: ${amount}`;
-    if (g.Entrada) tooltip += `\nEntrada: ${formatDate(g.Entrada)}`;
-    if (g.Salida) tooltip += `\nSalida: ${formatDate(g.Salida)}`;
-    if (g.followUpDate) tooltip += `\nSeguimiento: ${formatDate(g.followUpDate)}`;
-    
-    return React.createElement('div', { 
-      key: g.uid || Math.random(), 
-      onClick: (e) => { e.stopPropagation(); onEventClick(g); },
-      className: `text-[10px] sm:text-xs leading-tight p-1 sm:p-1.5 rounded border cursor-pointer hover:shadow-sm transition-all truncate group relative ${colorClass} ${detailed ? 'mb-2' : ''}`,
-      title: tooltip
-    }, 
-      React.createElement('div', { className: "font-semibold truncate" }, name),
-      detailed && g.followUpDate && calendarMode === 'entrada' && React.createElement('div', { className: "text-[9px] opacity-80 mt-0.5 text-amber-700 font-bold" }, `Seguimiento: ${formatDate(g.followUpDate)}`),
-      detailed && g.Entrada && calendarMode === 'seguimiento' && React.createElement('div', { className: "text-[9px] opacity-80 mt-0.5" }, `Entrada: ${formatDate(g.Entrada)}`),
-      React.createElement('div', { className: `flex justify-between items-center opacity-80 text-[9px] ${detailed ? 'mt-1 pt-1 border-t border-black/10' : 'mt-0.5'}` },
-        React.createElement('span', null, `👤 ${pax}`),
-        React.createElement('span', null, amount)
-      )
-    );
-  };
-
-  const renderDays = () => {
-    const days = [];
-    for (let i = 0; i < startingDay; i++) {
-      days.push(React.createElement('div', { key: `empty-${i}`, className: "h-24 sm:h-32 bg-slate-50/50 border-r border-b border-slate-100" }));
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      const dayEvents = eventsByDay[i] || [];
-      const hasMore = dayEvents.length > 3;
-      const visibleEvents = dayEvents.slice(0, 3);
-      
-      const isToday = new Date().getDate() === i && new Date().getMonth() === currentDate.getMonth() && new Date().getFullYear() === currentDate.getFullYear();
-
-      days.push(React.createElement('div', { 
-          key: i, 
-          className: `h-24 sm:h-32 border-r border-b border-slate-200 overflow-hidden relative flex flex-col p-1 transition-colors ${isToday ? 'bg-indigo-50/30' : 'bg-white hover:bg-slate-50'}`
-        }, 
-        React.createElement('div', { className: `text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500'}` }, i),
-        React.createElement('div', { className: "flex-1 overflow-hidden flex flex-col gap-1 pr-1" }, 
-           visibleEvents.map(g => React.createElement(EventCard, { key: g.uid, g: g })),
-           hasMore && React.createElement('div', { 
-               className: "text-[10px] text-center font-bold text-indigo-600 bg-indigo-50 rounded cursor-pointer hover:bg-indigo-100 py-0.5 transition-colors mt-auto",
-               onClick: (e) => {
-                 e.stopPropagation();
-                 setSelectedDayEvents({ 
-                   dateStr: `${i} de ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`, 
-                   events: dayEvents 
-                 });
-               }
-           }, `+ ${dayEvents.length - 3} más`)
-        )
-      ));
-    }
-    return days;
-  };
-
-  return React.createElement('div', { className: "flex flex-col gap-4 animate-fade-in w-full" },
-    React.createElement('div', { className: "bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" }, 
-      React.createElement('div', { className: "p-4 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-50/80" },
-         React.createElement('h3', { className: "text-lg font-black text-slate-800 capitalize flex items-center gap-2" }, 
-           React.createElement('i', { className: "fas fa-calendar-alt text-indigo-600" }),
-           `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-         ),
-         React.createElement('div', { className: "flex flex-col sm:flex-row gap-4 w-full lg:w-auto" },
-           React.createElement('div', { className: "flex bg-slate-200/80 p-1 rounded-xl border border-slate-200" },
-             React.createElement('button', { 
-               onClick: () => setCalendarMode('seguimiento'),
-               className: `flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${calendarMode === 'seguimiento' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`
-             }, "Por seguimiento"),
-             React.createElement('button', { 
-               onClick: () => setCalendarMode('entrada'),
-               className: `flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${calendarMode === 'entrada' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`
-             }, "Por entrada")
-           ),
-           React.createElement('div', { className: "flex gap-2 justify-center" },
-             React.createElement('button', { onClick: prevMonth, className: "p-2 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors" }, React.createElement('i', { className: "fas fa-chevron-left" })),
-             React.createElement('button', { onClick: goToToday, className: "px-4 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 shadow-sm text-sm transition-all" }, "Hoy"),
-             React.createElement('button', { onClick: nextMonth, className: "p-2 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors" }, React.createElement('i', { className: "fas fa-chevron-right" }))
-           )
-         )
-      ),
-      React.createElement('div', { className: "grid grid-cols-7 border-b border-slate-200 bg-slate-100" },
-        ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => 
-          React.createElement('div', { key: d, className: "p-2 text-center text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider border-r border-slate-200 last:border-r-0" }, d)
-        )
-      ),
-      React.createElement('div', { className: "grid grid-cols-7" },
-        renderDays()
-      )
-    ),
-    
-    noDateEvents.length > 0 && React.createElement('div', { className: "bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm" },
-      React.createElement('h4', { className: "text-amber-800 font-bold text-sm mb-3 flex items-center gap-2" }, 
-        React.createElement('i', { className: "fas fa-exclamation-triangle" }), 
-        calendarMode === 'seguimiento' 
-          ? `Presupuestos sin fecha de seguimiento (${noDateEvents.length})`
-          : `Presupuestos sin fecha de entrada válida (${noDateEvents.length})`
-      ),
-      React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2" },
-        noDateEvents.map(g => React.createElement(EventCard, { key: g.uid, g: g }))
-      )
-    ),
-
-    selectedDayEvents && React.createElement('div', { 
-        className: "fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm",
-        onClick: () => setSelectedDayEvents(null)
-      },
-      React.createElement('div', { 
-          className: "bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col",
-          onClick: e => e.stopPropagation()
-        },
-        React.createElement('div', { className: "p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl" },
-          React.createElement('div', null,
-            React.createElement('h4', { className: "font-black text-slate-800 text-lg" }, selectedDayEvents.dateStr),
-            React.createElement('p', { className: "text-xs text-slate-500 font-bold mt-1" }, `${selectedDayEvents.events.length} presupuestos`)
-          ),
-          React.createElement('button', { 
-            onClick: () => setSelectedDayEvents(null),
-            className: "w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-500 transition-colors" 
-          }, React.createElement('i', { className: "fas fa-times" }))
-        ),
-        React.createElement('div', { className: "p-4 overflow-y-auto flex-1 custom-scrollbar" },
-          selectedDayEvents.events.map(g => React.createElement(EventCard, { key: g.uid, g: g, detailed: true }))
-        )
-      )
-    )
-  );
-};
-
 function App() {
   var _useState = useState([]),
     _useState2 = _slicedToArray(_useState, 2),
@@ -1005,19 +811,6 @@ function App() {
     isParsingEmail = _useState36[0],
     setIsParsingEmail = _useState36[1];
 
-  var _useStateView = useState(function() { 
-    var val = localStorage.getItem('presupuestosViewMode'); 
-    return (val === 'calendar' || val === 'list') ? val : 'list'; 
-  }),
-    _useStateView2 = _slicedToArray(_useStateView, 2),
-    viewMode = _useStateView2[0],
-    setViewModeState = _useStateView2[1];
-
-  var setViewMode = function(mode) {
-    localStorage.setItem('presupuestosViewMode', mode);
-    setViewModeState(mode);
-  };
-
   // Debounce search term
   useEffect(function () {
     var handler = setTimeout(function () {
@@ -1053,6 +846,214 @@ function App() {
     _useState38 = _slicedToArray(_useState37, 2),
     formData = _useState38[0],
     setFormData = _useState38[1];
+  var _useState39 = useState({
+      isOpen: false,
+      parsedData: {},
+      unrecognizedBoards: [],
+      unrecognizedRooms: []
+    }),
+    _useState40 = _slicedToArray(_useState39, 2),
+    pastePreview = _useState40[0],
+    setPastePreview = _useState40[1];
+  var handlePasteTarifas = /*#__PURE__*/function () {
+    var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(textStr) {
+      var text, rowsData, normBoard, normRoom, parsePrice, parsedGrid, unrecBoards, unrecRooms, colHeaders, rowHeaders, colRoomCount, rowRoomCount, colBoardCount, rowBoardCount, detectedRowsAs, detectedColsAs, i, j, rowHeader, colHeader, boardKeyRaw, roomKeyRaw, boardNorm, roomNorm, price, _t;
+      return _regenerator().w(function (_context) {
+        while (1) switch (_context.p = _context.n) {
+          case 0:
+            text = textStr;
+            if (!(!text || typeof text !== 'string')) {
+              _context.n = 4;
+              break;
+            }
+            _context.p = 1;
+            _context.n = 2;
+            return navigator.clipboard.readText();
+          case 2:
+            text = _context.v;
+            _context.n = 4;
+            break;
+          case 3:
+            _context.p = 3;
+            _t = _context.v;
+            alert("No se pudo leer el portapapeles. Usa Ctrl+V sobre la tabla de tarifas.");
+            return _context.a(2);
+          case 4:
+            if (text) {
+              _context.n = 5;
+              break;
+            }
+            return _context.a(2);
+          case 5:
+            rowsData = text.split('\n').map(function (r) {
+              return r.split('\t').map(function (c) {
+                return c.trim();
+              });
+            });
+            if (!(rowsData.length < 2)) {
+              _context.n = 6;
+              break;
+            }
+            return _context.a(2);
+          case 6:
+            normBoard = {
+              'sa': 'SA',
+              'solo alojamiento': 'SA',
+              'solo aloj.': 'SA',
+              'ad': 'AD',
+              'alojamiento y desayuno': 'AD',
+              'hd': 'AD',
+              'bb': 'AD',
+              'b&b': 'AD',
+              'mp': 'MP',
+              'media pensión': 'MP',
+              'media pension': 'MP',
+              'hb': 'MP',
+              'half board': 'MP',
+              'pc': 'PC',
+              'pensión completa': 'PC',
+              'pension completa': 'PC',
+              'fb': 'PC',
+              'full board': 'PC'
+            };
+            normRoom = {
+              'dui': 'DOBLE DE USO INDIVIDUAL',
+              'uso individual': 'DOBLE DE USO INDIVIDUAL',
+              'individual': 'DOBLE DE USO INDIVIDUAL',
+              'single': 'DOBLE DE USO INDIVIDUAL',
+              'doble de uso individual': 'DOBLE DE USO INDIVIDUAL',
+              'doble': 'DOBLE',
+              'double': 'DOBLE',
+              'doble + supletoria': 'DOBLE + SUPLETORIA',
+              'triple': 'DOBLE + SUPLETORIA',
+              '3ª pax': 'DOBLE + SUPLETORIA',
+              'doble con supletoria': 'DOBLE + SUPLETORIA',
+              'cuádruple': 'CUÁDRUPLE',
+              'cuadruple': 'CUÁDRUPLE',
+              'quadruple': 'CUÁDRUPLE',
+              '4 pax': 'CUÁDRUPLE'
+            };
+            parsePrice = function parsePrice(str) {
+              if (!str) return null;
+              var s = str.replace(/[€\s]/g, '');
+              if (s.match(/\d+\.\d{3},\d+/)) {
+                s = s.replace(/\./g, '').replace(',', '.');
+              } else if (s.includes(',') && s.includes('.')) {
+                s = s.replace(/,/g, '');
+              } else if (s.includes(',')) {
+                s = s.replace(',', '.');
+              }
+              var num = parseFloat(s);
+              return isNaN(num) ? null : num;
+            };
+            parsedGrid = {};
+            unrecBoards = new Set();
+            unrecRooms = new Set();
+            colHeaders = rowsData[0].map(function (h) {
+              return h.toLowerCase();
+            });
+            rowHeaders = rowsData.map(function (r) {
+              return r[0] ? r[0].toLowerCase() : '';
+            });
+            colRoomCount = colHeaders.filter(function (h) {
+              return normRoom[h];
+            }).length;
+            rowRoomCount = rowHeaders.filter(function (h) {
+              return normRoom[h];
+            }).length;
+            colBoardCount = colHeaders.filter(function (h) {
+              return normBoard[h];
+            }).length;
+            rowBoardCount = rowHeaders.filter(function (h) {
+              return normBoard[h];
+            }).length;
+            detectedRowsAs = 'unknown';
+            detectedColsAs = 'unknown';
+            if (rowBoardCount > colBoardCount) detectedRowsAs = 'boards';else if (colBoardCount > rowBoardCount) detectedColsAs = 'boards';
+            if (colRoomCount > rowRoomCount) detectedColsAs = 'rooms';else if (rowRoomCount > colRoomCount) detectedRowsAs = 'rooms';
+            if (detectedRowsAs === 'boards' && detectedColsAs === 'unknown') detectedColsAs = 'rooms';
+            if (detectedRowsAs === 'rooms' && detectedColsAs === 'unknown') detectedColsAs = 'boards';
+            if (detectedColsAs === 'rooms' && detectedRowsAs === 'unknown') detectedRowsAs = 'boards';
+            if (detectedColsAs === 'boards' && detectedRowsAs === 'unknown') detectedRowsAs = 'rooms';
+            if (detectedRowsAs === 'unknown') {
+              detectedRowsAs = 'boards';
+              detectedColsAs = 'rooms';
+            }
+            i = 1;
+          case 7:
+            if (!(i < rowsData.length)) {
+              _context.n = 12;
+              break;
+            }
+            j = 1;
+          case 8:
+            if (!(j < rowsData[i].length)) {
+              _context.n = 11;
+              break;
+            }
+            if (rowsData[i][j]) {
+              _context.n = 9;
+              break;
+            }
+            return _context.a(3, 10);
+          case 9:
+            rowHeader = rowHeaders[i];
+            colHeader = colHeaders[j];
+            boardKeyRaw = detectedRowsAs === 'boards' ? rowHeader : colHeader;
+            roomKeyRaw = detectedColsAs === 'rooms' ? colHeader : rowHeader;
+            boardNorm = normBoard[boardKeyRaw];
+            roomNorm = normRoom[roomKeyRaw];
+            price = parsePrice(rowsData[i][j]);
+            if (price !== null) {
+              if (!boardNorm && boardKeyRaw) unrecBoards.add(boardKeyRaw);
+              if (!roomNorm && roomKeyRaw) unrecRooms.add(roomKeyRaw);
+              if (boardNorm && roomNorm) {
+                if (!parsedGrid[boardNorm]) parsedGrid[boardNorm] = {};
+                parsedGrid[boardNorm][roomNorm] = price;
+              }
+            }
+          case 10:
+            j++;
+            _context.n = 8;
+            break;
+          case 11:
+            i++;
+            _context.n = 7;
+            break;
+          case 12:
+            setPastePreview({
+              isOpen: true,
+              parsedData: parsedGrid,
+              unrecognizedBoards: Array.from(unrecBoards),
+              unrecognizedRooms: Array.from(unrecRooms)
+            });
+          case 13:
+            return _context.a(2);
+        }
+      }, _callee, null, [[1, 3]]);
+    }));
+    return function handlePasteTarifas(_x) {
+      return _ref21.apply(this, arguments);
+    };
+  }();
+  var applyPastedTarifas = function applyPastedTarifas() {
+    var currentGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
+    Object.keys(pastePreview.parsedData).forEach(function (board) {
+      if (!currentGrid[board]) currentGrid[board] = {};
+      Object.keys(pastePreview.parsedData[board]).forEach(function (room) {
+        currentGrid[board][room] = pastePreview.parsedData[board][room];
+      });
+    });
+    setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+      ratesOnlyGrid: currentGrid
+    }));
+    setPastePreview({
+      isOpen: false,
+      parsedData: {},
+      unrecognizedBoards: [],
+      unrecognizedRooms: []
+    });
+  };
 
   // Auto-sync daily configuration prices with ratesOnlyGrid and counts with segments in real-time
   useEffect(function () {
@@ -1068,10 +1069,10 @@ function App() {
       if (formData.isMultiSegment && Array.isArray(formData.segments) && formData.segments.length > 0) {
         segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
         Object.values(segmentCountsByDate).forEach(function (countsByType) {
-          Object.entries(countsByType).forEach(function (_ref21) {
-            var _ref22 = _slicedToArray(_ref21, 2),
-              rt = _ref22[0],
-              cnt = _ref22[1];
+          Object.entries(countsByType).forEach(function (_ref22) {
+            var _ref23 = _slicedToArray(_ref22, 2),
+              rt = _ref23[0],
+              cnt = _ref23[1];
             if (cnt > (maxByType[rt] || 0)) {
               maxByType[rt] = cnt;
             }
@@ -1099,10 +1100,10 @@ function App() {
           });
           // Set the actual counts for this date
           var countsForDate = segmentCountsByDate[date] || {};
-          Object.entries(countsForDate).forEach(function (_ref23) {
-            var _ref24 = _slicedToArray(_ref23, 2),
-              rt = _ref24[0],
-              cnt = _ref24[1];
+          Object.entries(countsForDate).forEach(function (_ref24) {
+            var _ref25 = _slicedToArray(_ref24, 2),
+              rt = _ref25[0],
+              cnt = _ref25[1];
             newCounts[rt] = cnt;
           });
           if (JSON.stringify(dayConf.counts) !== JSON.stringify(newCounts)) {
@@ -1249,10 +1250,10 @@ function App() {
   var handleRoomCountChange = function handleRoomCountChange(type, value) {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
     // Auto-calcular PAX total
-    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref25) {
-      var _ref26 = _slicedToArray(_ref25, 2),
-        roomType = _ref26[0],
-        count = _ref26[1];
+    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref26) {
+      var _ref27 = _slicedToArray(_ref26, 2),
+        roomType = _ref27[0],
+        count = _ref27[1];
       return sum + (count || 0) * (PAX_PER_ROOM[roomType] || 2);
     }, 0);
     setFormData(_objectSpread(_objectSpread({}, formData), {}, {
@@ -1357,10 +1358,10 @@ function App() {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref27 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
-      var now, formattedDate, normalizedFormData, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, segmentCountsByDate, globalDates, emptyDates, _confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t;
-      return _regenerator().w(function (_context) {
-        while (1) switch (_context.p = _context.n) {
+    var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
+      var now, formattedDate, normalizedFormData, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, segmentCountsByDate, globalDates, emptyDates, _confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t2;
+      return _regenerator().w(function (_context2) {
+        while (1) switch (_context2.p = _context2.n) {
           case 0:
             e.preventDefault();
             now = new Date();
@@ -1368,127 +1369,127 @@ function App() {
             normalizedFormData = normalizeGroupData(formData); // Validation: Mandatory Hotel
             hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
             if (!(!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "")) {
-              _context.n = 1;
+              _context2.n = 1;
               break;
             }
             alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
-            return _context.a(2);
+            return _context2.a(2);
           case 1:
             // Validation: Dates
             entrada = String(normalizedFormData.Entrada || "").trim();
             salida = String(normalizedFormData.Salida || "").trim();
             if (!(!entrada || !salida)) {
-              _context.n = 2;
+              _context2.n = 2;
               break;
             }
             alert("⚠️ Error: Debe especificar las fechas de entrada y salida.");
-            return _context.a(2);
+            return _context2.a(2);
           case 2:
             if (!(new Date(entrada) >= new Date(salida))) {
-              _context.n = 3;
+              _context2.n = 3;
               break;
             }
             alert("⚠️ Error: La fecha de salida debe ser estrictamente posterior a la de entrada (mínimo 1 noche).");
-            return _context.a(2);
+            return _context2.a(2);
           case 3:
             if (!normalizedFormData.isMultiSegment) {
-              _context.n = 17;
+              _context2.n = 17;
               break;
             }
             if (!(!Array.isArray(normalizedFormData.segments) || normalizedFormData.segments.length === 0)) {
-              _context.n = 4;
+              _context2.n = 4;
               break;
             }
             alert("⚠️ Error: En modo multi-estancia debe haber al menos un segmento.");
-            return _context.a(2);
+            return _context2.a(2);
           case 4:
             i = 0;
           case 5:
             if (!(i < normalizedFormData.segments.length)) {
-              _context.n = 15;
+              _context2.n = 15;
               break;
             }
             seg = normalizedFormData.segments[i];
             if (!(!seg.in || !seg.out)) {
-              _context.n = 6;
+              _context2.n = 6;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe especificar las fechas de entrada y salida."));
-            return _context.a(2);
+            return _context2.a(2);
           case 6:
             if (!(seg.in >= seg.out)) {
-              _context.n = 7;
+              _context2.n = 7;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La fecha de salida (").concat(seg.out, ") debe ser posterior a la de entrada (").concat(seg.in, ")."));
-            return _context.a(2);
+            return _context2.a(2);
           case 7:
             if (!(Number(seg.pax || 0) <= 0)) {
-              _context.n = 8;
+              _context2.n = 8;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero de PAX debe ser mayor que 0."));
-            return _context.a(2);
+            return _context2.a(2);
           case 8:
             allocations = seg.roomAllocations || [];
             if (!(allocations.length === 0)) {
-              _context.n = 9;
+              _context2.n = 9;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe tener al menos una asignaci\xF3n de habitaci\xF3n."));
-            return _context.a(2);
+            return _context2.a(2);
           case 9:
             totalRooms = allocations.reduce(function (sum, a) {
               return sum + Number(a.rooms || 0);
             }, 0);
             if (!(totalRooms <= 0)) {
-              _context.n = 10;
+              _context2.n = 10;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero total de habitaciones debe ser mayor que 0."));
-            return _context.a(2);
+            return _context2.a(2);
           case 10:
             j = 0;
           case 11:
             if (!(j < allocations.length)) {
-              _context.n = 14;
+              _context2.n = 14;
               break;
             }
             a = allocations[j];
             if (a.roomType) {
-              _context.n = 12;
+              _context2.n = 12;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Tipo de habitaci\xF3n no especificado."));
-            return _context.a(2);
+            return _context2.a(2);
           case 12:
             if (!(Number(a.rooms || 0) <= 0)) {
-              _context.n = 13;
+              _context2.n = 13;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La asignaci\xF3n para ").concat(a.roomType, " debe ser mayor que 0."));
-            return _context.a(2);
+            return _context2.a(2);
           case 13:
             j++;
-            _context.n = 11;
+            _context2.n = 11;
             break;
           case 14:
             i++;
-            _context.n = 5;
+            _context2.n = 5;
             break;
           case 15:
             // Warnings / Confirmations (non-blocking)
             metrics = buildMultiSegmentMetrics(normalizedFormData.segments, normalizedFormData.declaredPax);
             if (!(metrics.declaredPax > 0 && metrics.segmentPaxTotal > metrics.declaredPax)) {
-              _context.n = 16;
+              _context2.n = 16;
               break;
             }
             confirmSave = window.confirm("\u26A0\uFE0F Advertencia: El n\xFAmero total de PAX en los segmentos (".concat(metrics.segmentPaxTotal, ") supera los PAX declarados por el cliente (").concat(metrics.declaredPax, "). \xBFDesea continuar?"));
             if (confirmSave) {
-              _context.n = 16;
+              _context2.n = 16;
               break;
             }
-            return _context.a(2);
+            return _context2.a(2);
           case 16:
             // Check for empty nights (nights with 0 rooms occupied)
             segmentCountsByDate = buildDailyCountsFromSegments(normalizedFormData.segments);
@@ -1501,15 +1502,15 @@ function App() {
               return roomsSum === 0;
             });
             if (!(emptyDates.length > 0)) {
-              _context.n = 17;
+              _context2.n = 17;
               break;
             }
             _confirmSave = window.confirm("\u26A0\uFE0F Advertencia: Hay fechas dentro del rango global con 0 habitaciones ocupadas (por ejemplo: ".concat(emptyDates.slice(0, 3).map(formatDate).join(', ')).concat(emptyDates.length > 3 ? '...' : '', "). \xBFDesea continuar?"));
             if (_confirmSave) {
-              _context.n = 17;
+              _context2.n = 17;
               break;
             }
-            return _context.a(2);
+            return _context2.a(2);
           case 17:
             reservaId = normalizedFormData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
             isNew = !normalizedFormData.uid;
@@ -1530,9 +1531,9 @@ function App() {
               "Importe(*)": formatNum(calculateTotal(normalizedFormData)),
               "RoomingList_JSON": JSON.stringify(generatedRoomingList)
             });
-            _context.p = 18;
+            _context2.p = 18;
             if (!isNew) {
-              _context.n = 20;
+              _context2.n = 20;
               break;
             }
             groupData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -1542,10 +1543,10 @@ function App() {
               date: formattedDate,
               text: "Presupuesto registrado (Alta Manual)."
             }];
-            _context.n = 19;
+            _context2.n = 19;
             return db.collection("groups").doc(reservaId).set(groupData);
           case 19:
-            _context.n = 22;
+            _context2.n = 22;
             break;
           case 20:
             uidToUpdate = groupData.uid;
@@ -1562,10 +1563,10 @@ function App() {
               "Empresa/Agencia": "Empresa",
               "Pax.": "Pax"
             };
-            Object.entries(fieldsToTrack).forEach(function (_ref28) {
-              var _ref29 = _slicedToArray(_ref28, 2),
-                field = _ref29[0],
-                label = _ref29[1];
+            Object.entries(fieldsToTrack).forEach(function (_ref29) {
+              var _ref30 = _slicedToArray(_ref29, 2),
+                field = _ref30[0],
+                label = _ref30[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
                 changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
               }
@@ -1594,36 +1595,36 @@ function App() {
             // Usar update en lugar de set({merge: true}) para que mapas
             // enteros (roomCounts, dailyConfig) se REEMPLACEN, no se deep-mergen.
             if (!(Object.keys(validUpdateData).length > 0)) {
-              _context.n = 21;
+              _context2.n = 21;
               break;
             }
-            _context.n = 21;
+            _context2.n = 21;
             return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
           case 21:
             if (!(Object.keys(fallbackData).length > 0)) {
-              _context.n = 22;
+              _context2.n = 22;
               break;
             }
-            _context.n = 22;
+            _context2.n = 22;
             return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
               merge: true
             });
           case 22:
             setCurrentView('dashboard');
-            _context.n = 24;
+            _context2.n = 24;
             break;
           case 23:
-            _context.p = 23;
-            _t = _context.v;
-            console.error("Error saving budget:", _t);
+            _context2.p = 23;
+            _t2 = _context2.v;
+            console.error("Error saving budget:", _t2);
             alert("Error al guardar.");
           case 24:
-            return _context.a(2);
+            return _context2.a(2);
         }
-      }, _callee, null, [[18, 23]]);
+      }, _callee2, null, [[18, 23]]);
     }));
-    return function handleSave(_x) {
-      return _ref27.apply(this, arguments);
+    return function handleSave(_x2) {
+      return _ref28.apply(this, arguments);
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
@@ -1638,80 +1639,80 @@ function App() {
     setCurrentView('detail');
   };
   var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx) {
+    var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
       var type,
         clauses,
         textToTranslate,
         _prompt,
         translated,
-        _args2 = arguments,
-        _t2;
-      return _regenerator().w(function (_context2) {
-        while (1) switch (_context2.p = _context2.n) {
+        _args3 = arguments,
+        _t3;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.p = _context3.n) {
           case 0:
-            type = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : 'budget';
+            type = _args3.length > 1 && _args3[1] !== undefined ? _args3[1] : 'budget';
             clauses = type === 'budget' ? _toConsumableArray(tempClauses) : _toConsumableArray(tempClausesConf);
             textToTranslate = clauses[idx].body.split('[EN]')[0].trim();
             if (textToTranslate) {
-              _context2.n = 1;
+              _context3.n = 1;
               break;
             }
-            return _context2.a(2);
+            return _context3.a(2);
           case 1:
-            _context2.p = 1;
+            _context3.p = 1;
             _prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xE9s. Mant\xE9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
-            _context2.n = 2;
+            _context3.n = 2;
             return window.callGemini(_prompt);
           case 2:
-            translated = _context2.v;
+            translated = _context3.v;
             if (translated && !translated.includes('ERROR')) {
               clauses[idx].body = "".concat(textToTranslate, " [EN] ").concat(translated.trim());
               if (type === 'budget') setTempClauses(clauses);else setTempClausesConf(clauses);
             } else {
               alert("Error en la traducción: " + translated);
             }
-            _context2.n = 4;
+            _context3.n = 4;
             break;
           case 3:
-            _context2.p = 3;
-            _t2 = _context2.v;
+            _context3.p = 3;
+            _t3 = _context3.v;
             alert("Error al conectar con la IA.");
           case 4:
-            return _context2.a(2);
+            return _context3.a(2);
         }
-      }, _callee2, null, [[1, 3]]);
+      }, _callee3, null, [[1, 3]]);
     }));
-    return function handleTranslateClause(_x2) {
-      return _ref30.apply(this, arguments);
+    return function handleTranslateClause(_x3) {
+      return _ref31.apply(this, arguments);
     };
   }();
   var handleParseEmailIA = /*#__PURE__*/function () {
-    var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-      var currentYear, _prompt2, response, cleanJson, parsed, segments, normalizedSegments, stats, _t3;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+      var currentYear, _prompt2, response, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
             if (emailContent.trim()) {
-              _context3.n = 1;
+              _context4.n = 1;
               break;
             }
             alert("Por favor, pega el contenido del email.");
-            return _context3.a(2);
+            return _context4.a(2);
           case 1:
             setIsParsingEmail(true);
-            _context3.p = 2;
+            _context4.p = 2;
             currentYear = new Date().getFullYear();
             _prompt2 = "Analiza el siguiente email de solicitud de habitaciones de hotel.\nExtrae el n\xFAmero total de personas declaradas por el cliente en el email (\"declaredPax\") y TODOS los segmentos de estancia de los subgrupos (cada segmento con su id, travelerGroupId, pax, fechas in y out, y asignaci\xF3n de habitaciones \"roomAllocations\").\nResponde EXCLUSIVAMENTE con JSON v\xE1lido (sin formato markdown ```json ni texto explicativo) con esta estructura exacta:\n{\n  \"groupName\": \"Nombre empresa o grupo\",\n  \"contactName\": \"Nombre contacto\",\n  \"contactEmail\": \"email@ejemplo.com\",\n  \"hotel\": \"nombre del hotel si se menciona\",\n  \"observations\": \"preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales\",\n  \"declaredPax\": 9,\n  \"segments\": [\n    {\n      \"id\": \"A\",\n      \"travelerGroupId\": \"G1\",\n      \"pax\": 3,\n      \"in\": \"YYYY-MM-DD\",\n      \"out\": \"YYYY-MM-DD\",\n      \"roomAllocations\": [\n        { \"roomType\": \"DOBLE DE USO INDIVIDUAL\", \"rooms\": 3 }\n      ],\n      \"notes\": \"\"\n    }\n  ]\n}\nReglas para los segmentos:\n1. Por defecto, asigna 1 habitaci\xF3n por persona (\"rooms\" = \"pax\") y tipo \"DOBLE DE USO INDIVIDUAL\" en el array \"roomAllocations\", a menos que se indique lo contrario.\n2. Si no se especifica el a\xF1o para las fechas, usa ".concat(currentYear, ".\n3. El formato de las fechas \"in\" y \"out\" debe ser estrictamente YYYY-MM-DD.\n\nEmail a analizar:\n").concat(emailContent);
             if (window.callGemini) {
-              _context3.n = 3;
+              _context4.n = 3;
               break;
             }
             throw new Error('La API de Gemini no está disponible.');
           case 3:
-            _context3.n = 4;
+            _context4.n = 4;
             return window.callGemini(_prompt2);
           case 4:
-            response = _context3.v;
+            response = _context4.v;
             cleanJson = response.replace(/```json/g, "").replace(/```/g, "").trim();
             parsed = JSON.parse(cleanJson);
             segments = Array.isArray(parsed.segments) ? parsed.segments : [];
@@ -1752,24 +1753,24 @@ function App() {
             }));
             setShowEmailParseModal(false);
             setCurrentView('create');
-            _context3.n = 6;
+            _context4.n = 6;
             break;
           case 5:
-            _context3.p = 5;
-            _t3 = _context3.v;
-            console.error("Error al parsear con IA:", _t3);
-            alert("No se pudo analizar el email. Asegúrate de que el contenido es correcto. Error: " + _t3.message);
+            _context4.p = 5;
+            _t4 = _context4.v;
+            console.error("Error al parsear con IA:", _t4);
+            alert("No se pudo analizar el email. Asegúrate de que el contenido es correcto. Error: " + _t4.message);
           case 6:
-            _context3.p = 6;
+            _context4.p = 6;
             setIsParsingEmail(false);
-            return _context3.f(6);
+            return _context4.f(6);
           case 7:
-            return _context3.a(2);
+            return _context4.a(2);
         }
-      }, _callee3, null, [[2, 5, 6, 7]]);
+      }, _callee4, null, [[2, 5, 6, 7]]);
     }));
     return function handleParseEmailIA() {
-      return _ref31.apply(this, arguments);
+      return _ref32.apply(this, arguments);
     };
   }();
   var renderClauseText = function renderClauseText(text) {
@@ -1783,43 +1784,43 @@ function App() {
     return text;
   };
   var handleDelete = /*#__PURE__*/function () {
-    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(uid) {
-      var _t4;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
-          case 0:
-            if (confirm("¿Eliminar este presupuesto?")) {
-              _context4.n = 1;
-              break;
-            }
-            return _context4.a(2);
-          case 1:
-            _context4.p = 1;
-            _context4.n = 2;
-            return db.collection("groups").doc(uid).delete();
-          case 2:
-            _context4.n = 4;
-            break;
-          case 3:
-            _context4.p = 3;
-            _t4 = _context4.v;
-            console.error(_t4);
-          case 4:
-            return _context4.a(2);
-        }
-      }, _callee4, null, [[1, 3]]);
-    }));
-    return function handleDelete(_x3) {
-      return _ref32.apply(this, arguments);
-    };
-  }();
-  var updateStatus = /*#__PURE__*/function () {
-    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid, newStatus) {
-      var now, formattedDate, budget, newTracking, _t5;
+    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
+      var _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
           case 0:
-            _context5.p = 0;
+            if (confirm("¿Eliminar este presupuesto?")) {
+              _context5.n = 1;
+              break;
+            }
+            return _context5.a(2);
+          case 1:
+            _context5.p = 1;
+            _context5.n = 2;
+            return db.collection("groups").doc(uid).delete();
+          case 2:
+            _context5.n = 4;
+            break;
+          case 3:
+            _context5.p = 3;
+            _t5 = _context5.v;
+            console.error(_t5);
+          case 4:
+            return _context5.a(2);
+        }
+      }, _callee5, null, [[1, 3]]);
+    }));
+    return function handleDelete(_x4) {
+      return _ref33.apply(this, arguments);
+    };
+  }();
+  var updateStatus = /*#__PURE__*/function () {
+    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
+      var now, formattedDate, budget, newTracking, _t6;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
+          case 0:
+            _context6.p = 0;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             budget = groups.find(function (g) {
@@ -1830,76 +1831,35 @@ function App() {
               date: formattedDate,
               text: "Estado -> ".concat(newStatus)
             }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
-            _context5.n = 1;
+            _context6.n = 1;
             return db.collection("groups").doc(uid).update({
               Com_Estado_Interno: newStatus,
               tracking: newTracking
             });
           case 1:
-            _context5.n = 3;
+            _context6.n = 3;
             break;
           case 2:
-            _context5.p = 2;
-            _t5 = _context5.v;
-            console.error(_t5);
-          case 3:
-            return _context5.a(2);
-        }
-      }, _callee5, null, [[0, 2]]);
-    }));
-    return function updateStatus(_x4, _x5) {
-      return _ref33.apply(this, arguments);
-    };
-  }();
-  var addTrackingNote = /*#__PURE__*/function () {
-    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(e) {
-      var now, formattedDate, newTracking, _t6;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
-          case 0:
-            e.preventDefault();
-            if (!(!newNote.trim() || !selectedGroup)) {
-              _context6.n = 1;
-              break;
-            }
-            return _context6.a(2);
-          case 1:
-            _context6.p = 1;
-            now = new Date();
-            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            newTracking = [{
-              id: Date.now(),
-              date: formattedDate,
-              text: newNote
-            }].concat(_toConsumableArray(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : []));
-            _context6.n = 2;
-            return db.collection("groups").doc(selectedGroup.uid).update({
-              tracking: newTracking
-            });
-          case 2:
-            setNewNote('');
-            _context6.n = 4;
-            break;
-          case 3:
-            _context6.p = 3;
+            _context6.p = 2;
             _t6 = _context6.v;
             console.error(_t6);
-          case 4:
+          case 3:
             return _context6.a(2);
         }
-      }, _callee6, null, [[1, 3]]);
+      }, _callee6, null, [[0, 2]]);
     }));
-    return function addTrackingNote(_x6) {
+    return function updateStatus(_x5, _x6) {
       return _ref34.apply(this, arguments);
     };
   }();
-  var addQuickNote = /*#__PURE__*/function () {
-    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(uid, note) {
-      var now, formattedDate, budget, newTracking, _t7;
+  var addTrackingNote = /*#__PURE__*/function () {
+    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(e) {
+      var now, formattedDate, newTracking, _t7;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
-            if (note.trim()) {
+            e.preventDefault();
+            if (!(!newNote.trim() || !selectedGroup)) {
               _context7.n = 1;
               break;
             }
@@ -1908,19 +1868,17 @@ function App() {
             _context7.p = 1;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            budget = groups.find(function (g) {
-              return g.uid === uid;
-            });
             newTracking = [{
               id: Date.now(),
               date: formattedDate,
-              text: note
-            }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
+              text: newNote
+            }].concat(_toConsumableArray(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : []));
             _context7.n = 2;
-            return db.collection("groups").doc(uid).update({
+            return db.collection("groups").doc(selectedGroup.uid).update({
               tracking: newTracking
             });
           case 2:
+            setNewNote('');
             _context7.n = 4;
             break;
           case 3:
@@ -1932,8 +1890,51 @@ function App() {
         }
       }, _callee7, null, [[1, 3]]);
     }));
-    return function addQuickNote(_x7, _x8) {
+    return function addTrackingNote(_x7) {
       return _ref35.apply(this, arguments);
+    };
+  }();
+  var addQuickNote = /*#__PURE__*/function () {
+    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(uid, note) {
+      var now, formattedDate, budget, newTracking, _t8;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
+          case 0:
+            if (note.trim()) {
+              _context8.n = 1;
+              break;
+            }
+            return _context8.a(2);
+          case 1:
+            _context8.p = 1;
+            now = new Date();
+            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
+            budget = groups.find(function (g) {
+              return g.uid === uid;
+            });
+            newTracking = [{
+              id: Date.now(),
+              date: formattedDate,
+              text: note
+            }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
+            _context8.n = 2;
+            return db.collection("groups").doc(uid).update({
+              tracking: newTracking
+            });
+          case 2:
+            _context8.n = 4;
+            break;
+          case 3:
+            _context8.p = 3;
+            _t8 = _context8.v;
+            console.error(_t8);
+          case 4:
+            return _context8.a(2);
+        }
+      }, _callee8, null, [[1, 3]]);
+    }));
+    return function addQuickNote(_x8, _x9) {
+      return _ref36.apply(this, arguments);
     };
   }();
 
@@ -1976,10 +1977,7 @@ function App() {
       className: "flex gap-2 w-full sm:w-auto"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        var d = new Date();
-        d.setDate(d.getDate() + 3);
-        var defaultFollowUp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        setFormData(Object.assign({}, DEFAULT_FORM_DATA, { followUpDate: defaultFollowUp }));
+        setFormData(DEFAULT_FORM_DATA);
         setCurrentView('create');
       },
       className: "flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
@@ -2014,26 +2012,7 @@ function App() {
       onChange: function onChange(e) {
         return setSearchTerm(e.target.value);
       }
-    })), 
-    /*#__PURE__*/React.createElement("div", {
-      className: "flex bg-slate-200/80 p-1 rounded-xl ml-auto border border-slate-200 mr-2"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        return setViewMode('list');
-      },
-      className: "px-4 py-2 rounded-lg text-xs font-bold transition-all ".concat(viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700')
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-list mr-2"
-    }), "Lista"), /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        return setViewMode('calendar');
-      },
-      className: "px-4 py-2 rounded-lg text-xs font-bold transition-all ".concat(viewMode === 'calendar' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700')
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-calendar-alt mr-2"
-    }), "Calendario")),
-    
-    /*#__PURE__*/React.createElement("div", {
+    })), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-calendar-alt text-slate-400 text-xs"
@@ -2069,11 +2048,9 @@ function App() {
       title: "Limpiar filtros"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-times-circle"
-    })))), 
-    viewMode === 'calendar' && React.createElement(BudgetCalendar, { groups: processedGroups, onEventClick: function(g) { handleOpenDetail(g); } }),
-    viewMode === 'list' && /*#__PURE__*/React.createElement("div", {
-        className: "overflow-x-auto"
-      }, /*#__PURE__*/React.createElement("table", {
+    })))), /*#__PURE__*/React.createElement("div", {
+      className: "overflow-x-auto"
+    }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse min-w-[1100px]"
     }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
       className: "bg-slate-50/50 border-b border-slate-100"
@@ -2082,8 +2059,6 @@ function App() {
     }, "Grupo / Hotel"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
-    }, "Seguimiento"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
     }, "L\xEDmite 7d"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
@@ -2114,10 +2089,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref36) {
-        var _ref37 = _slicedToArray(_ref36, 2),
-          t = _ref37[0],
-          c = _ref37[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref37) {
+        var _ref38 = _slicedToArray(_ref37, 2),
+          t = _ref38[0],
+          c = _ref38[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -2175,46 +2150,7 @@ function App() {
         className: "text-xs font-black text-slate-700"
       }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
-      }, "Click p/ Gesti\xF3n"))), 
-      /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4"
-      }, function() {
-        var followUpDisplay = "Sin seguimiento";
-        var followUpClass = "text-slate-400 bg-slate-100";
-        if (g.followUpDate) {
-            var parts = g.followUpDate.split('-');
-            if (parts.length === 3) {
-              var fuDate = new Date(parts[0], parts[1] - 1, parts[2]);
-              var today = new Date();
-              today.setHours(0,0,0,0);
-              if (fuDate < today) {
-                  followUpDisplay = "Vencido";
-                  followUpClass = "text-rose-600 bg-rose-100 font-bold border border-rose-200";
-              } else if (fuDate.getTime() === today.getTime()) {
-                  followUpDisplay = "Hoy";
-                  followUpClass = "text-amber-600 bg-amber-100 font-bold border border-amber-200";
-              } else {
-                  followUpDisplay = formatDate(g.followUpDate);
-                  followUpClass = "text-indigo-600 bg-indigo-50 border border-indigo-100";
-              }
-            }
-        }
-        return /*#__PURE__*/React.createElement("div", {
-          className: "relative inline-flex items-center group bg-white border rounded-md overflow-hidden " + followUpClass.replace("bg-", "border-").replace("text-", "focus-within:border-")
-        }, /*#__PURE__*/React.createElement("input", {
-          type: "date",
-          className: "w-full h-full bg-transparent outline-none cursor-pointer px-2 py-1 text-[10px] font-bold " + followUpClass.split(" ").find(c => c.startsWith("text-")),
-          value: g.followUpDate || "",
-          onChange: function(e) {
-             var newDate = e.target.value;
-             db.collection("groups").doc(g.uid).update({ followUpDate: newDate }).catch(function(err) {
-                 console.error("Error actualizando fecha", err);
-             });
-          },
-          title: "Cambiar fecha de seguimiento"
-        }));
-      }()), 
-      /*#__PURE__*/React.createElement("td", {
+      }, "Click p/ Gesti\xF3n"))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4 text-center"
       }, function (_g$createdAt) {
         var created = (_g$createdAt = g.createdAt) !== null && _g$createdAt !== void 0 && _g$createdAt.seconds ? new Date(g.createdAt.seconds * 1000) : g.createdAt ? new Date(g.createdAt) : null;
@@ -2263,10 +2199,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref38) {
-          var _ref39 = _slicedToArray(_ref38, 2),
-            _ = _ref39[0],
-            b = _ref39[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref39) {
+          var _ref40 = _slicedToArray(_ref39, 2),
+            _ = _ref40[0],
+            b = _ref40[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -2357,7 +2293,7 @@ function App() {
       }, /*#__PURE__*/React.createElement("i", {
         className: "fas fa-trash-alt text-xs"
       })))));
-    }))), viewMode === 'list' && processedGroups.length === 0 && !loading && /*#__PURE__*/React.createElement("div", {
+    }))), processedGroups.length === 0 && !loading && /*#__PURE__*/React.createElement("div", {
       className: "py-20 text-center"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-database text-slate-200 text-4xl mb-4"
@@ -2999,16 +2935,39 @@ function App() {
     /*#__PURE__*/
     /* Bloque 2: Tarifas por Régimen y Habitación (Modo Grid) */
     React.createElement("div", {
-      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6"
+      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all",
+      tabIndex: "0",
+      onPaste: function onPaste(e) {
+        var text = e.clipboardData.getData('text/plain');
+        if (text) {
+          e.preventDefault();
+          handlePasteTarifas(text);
+        }
+      }
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 border-b border-slate-50 pb-4"
+      className: "flex flex-col md:flex-row md:items-center justify-between border-b border-slate-50 pb-4 gap-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-col gap-1"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-tags text-[10px]"
     })), /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "2. Tarifas por R\xE9gimen y Habitaci\xF3n")), /*#__PURE__*/React.createElement("div", {
+    }, "2. Tarifas por R\xE9gimen y Habitaci\xF3n")), /*#__PURE__*/React.createElement("p", {
+      className: "text-[9px] text-slate-400 font-medium ml-9"
+    }, "Puedes copiar una tabla desde Excel o Word y pegarla aqu\xED para rellenar las tarifas autom\xE1ticamente.")), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return handlePasteTarifas();
+      },
+      className: "px-4 py-2 bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-600 border border-indigo-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-indigo-500/20 outline-none",
+      title: "Copiar una tabla de Excel o Word y pulsar aqu\xED para pegar"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-paste text-indigo-500"
+    }), " Pegar tabla")), /*#__PURE__*/React.createElement("div", {
       className: "overflow-x-auto"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-xs text-left border-collapse"
@@ -3507,10 +3466,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref40) {
-      var _ref41 = _slicedToArray(_ref40, 2),
-        type = _ref41[0],
-        count = _ref41[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref41) {
+      var _ref42 = _slicedToArray(_ref41, 2),
+        type = _ref42[0],
+        count = _ref42[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -3526,10 +3485,10 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref42) {
-      var _ref43 = _slicedToArray(_ref42, 2),
-        type = _ref43[0],
-        c = _ref43[1];
+    activeRooms.forEach(function (_ref43) {
+      var _ref44 = _slicedToArray(_ref43, 2),
+        type = _ref44[0],
+        c = _ref44[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
@@ -3825,24 +3784,6 @@ function App() {
     }, "Estancia"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800"
     }, formatDate(g.Entrada), " - ", formatDate(g.Salida))), /*#__PURE__*/React.createElement("div", {
-        className: "flex items-start gap-4 p-4 bg-amber-50/30 rounded-2xl border border-amber-100/50 print:hidden"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fas fa-calendar-check text-amber-600"
-      })), /*#__PURE__*/React.createElement("div", { className: "flex-1" }, /*#__PURE__*/React.createElement("h4", {
-        className: "text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1"
-      }, "Pr\xF3ximo Seguimiento"), /*#__PURE__*/React.createElement("input", {
-        type: "date",
-        className: "w-full bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 rounded px-1 -ml-1 transition-all",
-        value: g.followUpDate || "",
-        onChange: function(e) {
-           var newDate = e.target.value;
-           db.collection("groups").doc(g.uid).update({ followUpDate: newDate }).catch(function(err) {
-               console.error("Error actualizando fecha", err);
-           });
-        }
-      }))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
@@ -4040,10 +3981,10 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
-      var roomListItems = activeRooms.map(function (_ref44) {
-        var _ref45 = _slicedToArray(_ref44, 2),
-          type = _ref45[0],
-          count = _ref45[1];
+      var roomListItems = activeRooms.map(function (_ref45) {
+        var _ref46 = _slicedToArray(_ref45, 2),
+          type = _ref46[0],
+          count = _ref46[1];
         var typeKey = type.toUpperCase();
         var currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== '' ? Number(config.counts[typeKey]) : count;
         if (currentCount <= 0) return null;
@@ -4466,7 +4407,119 @@ function App() {
     className: "w-10 h-10 border-4 border-slate-100 border-t-indigo-500 rounded-full animate-spin"
   }), /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-400 uppercase tracking-widest"
-  }, "Conectando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, currentView === 'dashboard' && renderDashboard(), currentView === 'create' && renderCreate(), currentView === 'detail' && renderDetail())), showEmailParseModal && /*#__PURE__*/React.createElement("div", {
+  }, "Conectando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, currentView === 'dashboard' && renderDashboard(), currentView === 'create' && renderCreate(), currentView === 'detail' && renderDetail())), pastePreview.isOpen && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-slide-up"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-sm"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-clipboard-check text-lg"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-black text-slate-800 uppercase tracking-widest"
+  }, "Previsualizaci\xF3n de Tarifas"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
+  }, "Revisa los datos detectados antes de aplicar"))), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setPastePreview(_objectSpread(_objectSpread({}, pastePreview), {}, {
+        isOpen: false
+      }));
+    },
+    className: "w-8 h-8 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-times text-xs"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 space-y-4 max-h-[60vh] overflow-y-auto"
+  }, Object.keys(pastePreview.parsedData).length > 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "text-[10px] font-black text-slate-500 uppercase tracking-widest"
+  }, "Tarifas Reconocidas"), /*#__PURE__*/React.createElement("div", {
+    className: "overflow-x-auto border border-slate-100 rounded-xl"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-left border-collapse text-xs"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    className: "bg-slate-50 text-slate-500 font-black text-[9px] uppercase tracking-widest border-b border-slate-100"
+  }, /*#__PURE__*/React.createElement("th", {
+    className: "p-3"
+  }, "R\xE9gimen"), currentRooms.map(function (room) {
+    return /*#__PURE__*/React.createElement("th", {
+      key: room,
+      className: "p-3 text-center"
+    }, room);
+  }))), /*#__PURE__*/React.createElement("tbody", {
+    className: "divide-y divide-slate-100"
+  }, BOARD_TYPES.map(function (board) {
+    var boardKey = board.split(' ')[0]; // SA, AD, MP, PC
+    var hasAnyData = currentRooms.some(function (room) {
+      var _pastePreview$parsedD;
+      return ((_pastePreview$parsedD = pastePreview.parsedData[boardKey]) === null || _pastePreview$parsedD === void 0 ? void 0 : _pastePreview$parsedD[room]) !== undefined;
+    });
+    if (!hasAnyData) return null;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: board
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "p-3 font-bold text-slate-700"
+    }, board), currentRooms.map(function (room) {
+      var _pastePreview$parsedD2;
+      var price = (_pastePreview$parsedD2 = pastePreview.parsedData[boardKey]) === null || _pastePreview$parsedD2 === void 0 ? void 0 : _pastePreview$parsedD2[room];
+      return /*#__PURE__*/React.createElement("td", {
+        key: room,
+        className: "p-3 text-center"
+      }, price !== undefined ? /*#__PURE__*/React.createElement("span", {
+        className: "font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100"
+      }, price.toFixed(2), " \u20AC") : /*#__PURE__*/React.createElement("span", {
+        className: "text-slate-300"
+      }, "-"));
+    }));
+  }))))) : /*#__PURE__*/React.createElement("div", {
+    className: "text-center py-6"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-exclamation-triangle text-3xl text-amber-300 mb-2"
+  }), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-bold text-slate-600"
+  }, "No se han reconocido datos de tarifas."), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 mt-1"
+  }, "Aseg\xFArate de que la tabla tiene las cabeceras correctas.")), (pastePreview.unrecognizedBoards.length > 0 || pastePreview.unrecognizedRooms.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-info-circle"
+  }), " Elementos no reconocidos"), pastePreview.unrecognizedBoards.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-bold text-amber-600 uppercase tracking-wider"
+  }, "Reg\xEDmenes: "), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-amber-800"
+  }, pastePreview.unrecognizedBoards.join(", "))), pastePreview.unrecognizedRooms.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-bold text-amber-600 uppercase tracking-wider"
+  }, "Habitaciones: "), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-amber-800"
+  }, pastePreview.unrecognizedRooms.join(", "))), /*#__PURE__*/React.createElement("p", {
+    className: "text-[9px] text-amber-600/70 mt-2 font-medium leading-tight"
+  }, "Estos elementos no se importar\xE1n. Solo se actualizar\xE1n las celdas reconocidas en la tabla principal."))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setPastePreview(_objectSpread(_objectSpread({}, pastePreview), {}, {
+        isOpen: false
+      }));
+    },
+    className: "px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all uppercase tracking-widest"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: applyPastedTarifas,
+    disabled: Object.keys(pastePreview.parsedData).length === 0,
+    className: "px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-xs font-black shadow-lg shadow-emerald-200 flex items-center gap-2 uppercase tracking-widest disabled:opacity-60"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-check"
+  }), " Aplicar Datos")))), showEmailParseModal && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 animate-scale-in"
@@ -4474,11 +4527,7 @@ function App() {
     className: "p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-envelope-open-text text-sm"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-sm font-black text-slate-800 uppercase tracking-widest"
   }, "Parsear Email con IA"), /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
