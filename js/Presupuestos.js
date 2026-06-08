@@ -69,6 +69,7 @@ var DEFAULT_FORM_DATA = {
   Com_Telefono_Contacto: '',
   Entrada: '',
   Salida: '',
+  followUpDate: '',
   DateRanges_JSON: [],
   roomCounts: {},
   dailyConfig: {},
@@ -639,6 +640,7 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
       });
     });
   }
+  newData.followUpDate = groupData.followUpDate || "";
   newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
   newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
   newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["Teléfono"] || "";
@@ -738,6 +740,7 @@ const BudgetCalendar = ({ groups, onEventClick }) => {
   const { useState } = React;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayEvents, setSelectedDayEvents] = useState(null); // { dateStr: "DD/MM/YYYY", events: [] }
+  const [calendarMode, setCalendarMode] = useState('seguimiento'); // 'seguimiento' | 'entrada'
 
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
@@ -756,22 +759,33 @@ const BudgetCalendar = ({ groups, onEventClick }) => {
   const noDateEvents = [];
 
   groups.forEach(g => {
-    let entryDateStr = g.Entrada;
-    if (g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 0) {
-       const stats = getSegmentStats(g.segments);
-       entryDateStr = stats.globalIn;
+    let targetDateStr = '';
+    
+    if (calendarMode === 'seguimiento') {
+       targetDateStr = g.followUpDate;
+    } else {
+       targetDateStr = g.Entrada;
+       if (g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 0) {
+          const stats = getSegmentStats(g.segments);
+          targetDateStr = stats.globalIn;
+       }
     }
     
-    if (!entryDateStr) {
+    if (!targetDateStr) {
        noDateEvents.push(g);
     } else {
        // Parseo seguro zona horaria local
-       const dateObj = new Date(entryDateStr + "T00:00:00");
-       if (!isNaN(dateObj.getTime()) && dateObj.getFullYear() === currentDate.getFullYear() && dateObj.getMonth() === currentDate.getMonth()) {
-           const day = dateObj.getDate();
-           if (!eventsByDay[day]) eventsByDay[day] = [];
-           eventsByDay[day].push(g);
-       } else if (isNaN(dateObj.getTime())) {
+       const parts = targetDateStr.split('-');
+       if (parts.length === 3) {
+           const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+           if (!isNaN(dateObj.getTime()) && dateObj.getFullYear() === currentDate.getFullYear() && dateObj.getMonth() === currentDate.getMonth()) {
+               const day = dateObj.getDate();
+               if (!eventsByDay[day]) eventsByDay[day] = [];
+               eventsByDay[day].push(g);
+           } else if (isNaN(dateObj.getTime())) {
+               noDateEvents.push(g);
+           }
+       } else {
            noDateEvents.push(g);
        }
     }
@@ -787,6 +801,7 @@ const BudgetCalendar = ({ groups, onEventClick }) => {
     let tooltip = `${name}\nPax: ${pax}\nImporte: ${amount}`;
     if (g.Entrada) tooltip += `\nEntrada: ${formatDate(g.Entrada)}`;
     if (g.Salida) tooltip += `\nSalida: ${formatDate(g.Salida)}`;
+    if (g.followUpDate) tooltip += `\nSeguimiento: ${formatDate(g.followUpDate)}`;
     
     return React.createElement('div', { 
       key: g.uid || Math.random(), 
@@ -795,7 +810,8 @@ const BudgetCalendar = ({ groups, onEventClick }) => {
       title: tooltip
     }, 
       React.createElement('div', { className: "font-semibold truncate" }, name),
-      detailed && g.Entrada && React.createElement('div', { className: "text-[9px] opacity-80 mt-0.5" }, `${formatDate(g.Entrada)} ${g.Salida ? '→ ' + formatDate(g.Salida) : ''}`),
+      detailed && g.followUpDate && calendarMode === 'entrada' && React.createElement('div', { className: "text-[9px] opacity-80 mt-0.5 text-amber-700 font-bold" }, `Seguimiento: ${formatDate(g.followUpDate)}`),
+      detailed && g.Entrada && calendarMode === 'seguimiento' && React.createElement('div', { className: "text-[9px] opacity-80 mt-0.5" }, `Entrada: ${formatDate(g.Entrada)}`),
       React.createElement('div', { className: `flex justify-between items-center opacity-80 text-[9px] ${detailed ? 'mt-1 pt-1 border-t border-black/10' : 'mt-0.5'}` },
         React.createElement('span', null, `👤 ${pax}`),
         React.createElement('span', null, amount)
@@ -838,17 +854,29 @@ const BudgetCalendar = ({ groups, onEventClick }) => {
     return days;
   };
 
-  return React.createElement('div', { className: "flex flex-col gap-4 animate-fade-in" },
+  return React.createElement('div', { className: "flex flex-col gap-4 animate-fade-in w-full" },
     React.createElement('div', { className: "bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" }, 
-      React.createElement('div', { className: "p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/80" },
+      React.createElement('div', { className: "p-4 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-50/80" },
          React.createElement('h3', { className: "text-lg font-black text-slate-800 capitalize flex items-center gap-2" }, 
            React.createElement('i', { className: "fas fa-calendar-alt text-indigo-600" }),
            `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
          ),
-         React.createElement('div', { className: "flex gap-2" },
-           React.createElement('button', { onClick: prevMonth, className: "p-2 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors" }, React.createElement('i', { className: "fas fa-chevron-left" })),
-           React.createElement('button', { onClick: goToToday, className: "px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 shadow-sm text-sm transition-all" }, "Hoy"),
-           React.createElement('button', { onClick: nextMonth, className: "p-2 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors" }, React.createElement('i', { className: "fas fa-chevron-right" }))
+         React.createElement('div', { className: "flex flex-col sm:flex-row gap-4 w-full lg:w-auto" },
+           React.createElement('div', { className: "flex bg-slate-200/80 p-1 rounded-xl border border-slate-200" },
+             React.createElement('button', { 
+               onClick: () => setCalendarMode('seguimiento'),
+               className: `flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${calendarMode === 'seguimiento' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`
+             }, "Por seguimiento"),
+             React.createElement('button', { 
+               onClick: () => setCalendarMode('entrada'),
+               className: `flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all ${calendarMode === 'entrada' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`
+             }, "Por entrada")
+           ),
+           React.createElement('div', { className: "flex gap-2 justify-center" },
+             React.createElement('button', { onClick: prevMonth, className: "p-2 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors" }, React.createElement('i', { className: "fas fa-chevron-left" })),
+             React.createElement('button', { onClick: goToToday, className: "px-4 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 shadow-sm text-sm transition-all" }, "Hoy"),
+             React.createElement('button', { onClick: nextMonth, className: "p-2 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors" }, React.createElement('i', { className: "fas fa-chevron-right" }))
+           )
          )
       ),
       React.createElement('div', { className: "grid grid-cols-7 border-b border-slate-200 bg-slate-100" },
@@ -864,7 +892,9 @@ const BudgetCalendar = ({ groups, onEventClick }) => {
     noDateEvents.length > 0 && React.createElement('div', { className: "bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm" },
       React.createElement('h4', { className: "text-amber-800 font-bold text-sm mb-3 flex items-center gap-2" }, 
         React.createElement('i', { className: "fas fa-exclamation-triangle" }), 
-        `Presupuestos sin fecha de entrada válida (${noDateEvents.length})`
+        calendarMode === 'seguimiento' 
+          ? `Presupuestos sin fecha de seguimiento (${noDateEvents.length})`
+          : `Presupuestos sin fecha de entrada válida (${noDateEvents.length})`
       ),
       React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2" },
         noDateEvents.map(g => React.createElement(EventCard, { key: g.uid, g: g }))
@@ -872,18 +902,21 @@ const BudgetCalendar = ({ groups, onEventClick }) => {
     ),
 
     selectedDayEvents && React.createElement('div', { 
-        className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm",
+        className: "fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm",
         onClick: () => setSelectedDayEvents(null)
       },
       React.createElement('div', { 
           className: "bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col",
           onClick: e => e.stopPropagation()
         },
-        React.createElement('div', { className: "p-4 border-b border-slate-100 flex justify-between items-center" },
-          React.createElement('h4', { className: "font-black text-slate-800 text-lg" }, selectedDayEvents.dateStr),
+        React.createElement('div', { className: "p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl" },
+          React.createElement('div', null,
+            React.createElement('h4', { className: "font-black text-slate-800 text-lg" }, selectedDayEvents.dateStr),
+            React.createElement('p', { className: "text-xs text-slate-500 font-bold mt-1" }, `${selectedDayEvents.events.length} presupuestos`)
+          ),
           React.createElement('button', { 
             onClick: () => setSelectedDayEvents(null),
-            className: "w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors" 
+            className: "w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-500 transition-colors" 
           }, React.createElement('i', { className: "fas fa-times" }))
         ),
         React.createElement('div', { className: "p-4 overflow-y-auto flex-1 custom-scrollbar" },
@@ -1943,7 +1976,10 @@ function App() {
       className: "flex gap-2 w-full sm:w-auto"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        setFormData(DEFAULT_FORM_DATA);
+        var d = new Date();
+        d.setDate(d.getDate() + 3);
+        var defaultFollowUp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        setFormData(Object.assign({}, DEFAULT_FORM_DATA, { followUpDate: defaultFollowUp }));
         setCurrentView('create');
       },
       className: "flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
@@ -2046,6 +2082,8 @@ function App() {
     }, "Grupo / Hotel"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
+      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+    }, "Seguimiento"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
     }, "L\xEDmite 7d"), /*#__PURE__*/React.createElement("th", {
       className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
@@ -2135,7 +2173,33 @@ function App() {
         className: "inline-flex flex-col cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded-lg transition-all"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-xs font-black text-slate-700"
-      }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("span", {
+      }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("td", {
+        className: "px-6 py-4"
+      }, function() {
+        var followUpDisplay = "Sin seguimiento";
+        var followUpClass = "text-slate-400 bg-slate-100";
+        if (g.followUpDate) {
+            var parts = g.followUpDate.split('-');
+            if (parts.length === 3) {
+              var fuDate = new Date(parts[0], parts[1] - 1, parts[2]);
+              var today = new Date();
+              today.setHours(0,0,0,0);
+              if (fuDate < today) {
+                  followUpDisplay = "Vencido";
+                  followUpClass = "text-rose-600 bg-rose-100 font-bold border border-rose-200";
+              } else if (fuDate.getTime() === today.getTime()) {
+                  followUpDisplay = "Hoy";
+                  followUpClass = "text-amber-600 bg-amber-100 font-bold border border-amber-200";
+              } else {
+                  followUpDisplay = formatDate(g.followUpDate);
+                  followUpClass = "text-indigo-600 bg-indigo-50 border border-indigo-100";
+              }
+            }
+        }
+        return /*#__PURE__*/React.createElement("span", {
+          className: "px-2.5 py-1 rounded-md text-[10px] inline-block " + followUpClass
+        }, followUpDisplay);
+      }()), /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
       }, "Click p/ Gesti\xF3n"))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4 text-center"
@@ -3748,6 +3812,16 @@ function App() {
     }, "Estancia"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800"
     }, formatDate(g.Entrada), " - ", formatDate(g.Salida))), /*#__PURE__*/React.createElement("div", {
+        className: "flex items-start gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-calendar-check text-amber-600"
+      })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+        className: "text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1"
+      }, "Pr\xF3ximo Seguimiento"), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm font-bold text-slate-700"
+      }, g.followUpDate ? formatDate(g.followUpDate) : "Sin seguimiento programado"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest"
