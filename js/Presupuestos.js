@@ -2173,7 +2173,10 @@ function App() {
         className: "inline-flex flex-col cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded-lg transition-all"
       }, /*#__PURE__*/React.createElement("span", {
         className: "text-xs font-black text-slate-700"
-      }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("td", {
+      }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("span", {
+        className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
+      }, "Click p/ Gesti\xF3n"))), 
+      /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4"
       }, function() {
         var followUpDisplay = "Sin seguimiento";
@@ -2199,9 +2202,8 @@ function App() {
         return /*#__PURE__*/React.createElement("span", {
           className: "px-2.5 py-1 rounded-md text-[10px] inline-block " + followUpClass
         }, followUpDisplay);
-      }()), /*#__PURE__*/React.createElement("span", {
-        className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
-      }, "Click p/ Gesti\xF3n"))), /*#__PURE__*/React.createElement("td", {
+      }()), 
+      /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4 text-center"
       }, function (_g$createdAt) {
         var created = (_g$createdAt = g.createdAt) !== null && _g$createdAt !== void 0 && _g$createdAt.seconds ? new Date(g.createdAt.seconds * 1000) : g.createdAt ? new Date(g.createdAt) : null;
