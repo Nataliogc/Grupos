@@ -207,26 +207,34 @@
         </div>
 
         <!-- RESUMEN RAPIDO POR DEPARTAMENTO -->
-        <div class="section-title">RESUMEN RÁPIDO POR DEPARTAMENTO</div>
+        <div class="section-title flex justify-between items-end">
+            <span>RESUMEN RÁPIDO POR DEPARTAMENTO</span>
+            <div class="no-print flex gap-2">
+                <button onclick="editDepartmentSummary()" class="text-[9px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-2 py-1 rounded uppercase tracking-wider">Editar resumen</button>
+                <button onclick="saveDepartmentSummaryManual()" class="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-black px-2 py-1 rounded uppercase tracking-wider">Guardar resumen</button>
+                <button onclick="cancelDepartmentSummaryEdit()" class="text-[9px] bg-slate-50 hover:bg-slate-100 text-slate-500 font-black px-2 py-1 rounded uppercase tracking-wider">Cancelar</button>
+                <button onclick="regenerateDepartmentSummary()" class="text-[9px] bg-amber-50 hover:bg-amber-100 text-amber-700 font-black px-2 py-1 rounded uppercase tracking-wider">Regenerar automático</button>
+            </div>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2 pb-10 dept-grid">
             <!-- RECEPCIÓN -->
             <div class="dept-box">
                 <div class="dept-title text-indigo-700">Recepción</div>
-                <div id="dept-recepcion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="triggerSave()">
+                <div id="dept-recepcion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="markDepartmentSummaryManual('reception'); triggerSave()">
                     <!-- Auto-filled summary -->
                 </div>
             </div>
             <!-- COCINA / RESTAURANTE -->
             <div class="dept-box">
                 <div class="dept-title text-emerald-700">Restaurante / Cocina</div>
-                <div id="dept-restaurante" class="editable font-medium leading-relaxed" contenteditable="true" oninput="triggerSave()">
+                <div id="dept-restaurante" class="editable font-medium leading-relaxed" contenteditable="true" oninput="markDepartmentSummaryManual('kitchen'); triggerSave()">
                     <!-- Auto-filled summary -->
                 </div>
             </div>
             <!-- ADMINISTRACIÓN -->
             <div class="dept-box">
                 <div class="dept-title text-amber-700">Administración</div>
-                <div id="dept-administracion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="triggerSave()">
+                <div id="dept-administracion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="markDepartmentSummaryManual('admin'); triggerSave()">
                     <!-- Auto-filled summary -->
                 </div>
             </div>
@@ -295,6 +303,154 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
+        let departmentSummaryState = {};
+
+        function normalizeDepartmentSummary(value) {
+            if (!value) return {};
+            if (typeof value === 'string') {
+                try {
+                    return JSON.parse(value) || {};
+                } catch (e) {
+                    return {};
+                }
+            }
+            return value || {};
+        }
+
+        function getDepartmentSummaryUser() {
+            try {
+                const user = firebase && firebase.auth && firebase.auth().currentUser;
+                return user ? (user.email || user.displayName || user.uid || '') : '';
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function getDepartmentSummaryContent(key) {
+            const ids = {
+                reception: 'dept-recepcion',
+                kitchen: 'dept-restaurante',
+                admin: 'dept-administracion'
+            };
+            const el = document.getElementById(ids[key]);
+            return el ? el.innerHTML.trim() : '';
+        }
+
+        function setDepartmentSummaryContent(key, html) {
+            const ids = {
+                reception: 'dept-recepcion',
+                kitchen: 'dept-restaurante',
+                admin: 'dept-administracion'
+            };
+            const el = document.getElementById(ids[key]);
+            if (el) el.innerHTML = html || '';
+        }
+
+        function applyDepartmentSummaryState() {
+            ['reception', 'kitchen', 'admin'].forEach(key => {
+                const entry = departmentSummaryState[key];
+                if (entry && entry.manualOverride && entry.content !== undefined) {
+                    setDepartmentSummaryContent(key, entry.content);
+                }
+            });
+        }
+
+        function markDepartmentSummaryManual(key) {
+            departmentSummaryState[key] = {
+                ...(departmentSummaryState[key] || {}),
+                content: getDepartmentSummaryContent(key),
+                manualOverride: true,
+                updatedAt: new Date().toISOString(),
+                updatedBy: getDepartmentSummaryUser()
+            };
+        }
+
+        function captureDepartmentSummary(manualOverride = true) {
+            const now = new Date().toISOString();
+            const updatedBy = getDepartmentSummaryUser();
+            departmentSummaryState = {
+                reception: {
+                    content: getDepartmentSummaryContent('reception'),
+                    manualOverride,
+                    updatedAt: now,
+                    updatedBy
+                },
+                kitchen: {
+                    content: getDepartmentSummaryContent('kitchen'),
+                    manualOverride,
+                    updatedAt: now,
+                    updatedBy
+                },
+                admin: {
+                    content: getDepartmentSummaryContent('admin'),
+                    manualOverride,
+                    updatedAt: now,
+                    updatedBy
+                }
+            };
+            return departmentSummaryState;
+        }
+
+        async function syncDepartmentSummaryToFirestore() {
+            if (!window.db || !currentReservaId || currentReservaId === "unknown") return;
+            try {
+                const payload = { departmentSummary: departmentSummaryState };
+                if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+                    payload.departmentSummaryUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                } else {
+                    payload.departmentSummaryUpdatedAt = new Date();
+                }
+                await window.db.collection("groups").doc(String(currentReservaId)).set(payload, { merge: true });
+
+                const rawGroupData = localStorage.getItem('selectedGroup');
+                if (rawGroupData) {
+                    const group = JSON.parse(rawGroupData);
+                    const applyTo = (obj) => {
+                        if (obj) obj.departmentSummary = departmentSummaryState;
+                    };
+                    if (Array.isArray(group)) {
+                        applyTo(group.find(g => String(g.Reserva || g.id || g.reserva || '').trim() === currentReservaId));
+                    } else {
+                        applyTo(group);
+                        if (group.records && Array.isArray(group.records)) {
+                            applyTo(group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId) || group.records[0]);
+                        }
+                    }
+                    localStorage.setItem('selectedGroup', JSON.stringify(group));
+                }
+            } catch (e) {
+                console.error("Error saving department summary:", e);
+                alert("No se pudo guardar el resumen por departamento: " + e.message);
+            }
+        }
+
+        function editDepartmentSummary() {
+            const first = document.getElementById('dept-recepcion');
+            if (first) first.focus();
+        }
+
+        async function saveDepartmentSummaryManual() {
+            captureDepartmentSummary(true);
+            await syncDepartmentSummaryToFirestore();
+            saveStateToCache();
+            alert("Resumen por departamento guardado.");
+        }
+
+        function cancelDepartmentSummaryEdit() {
+            if (Object.keys(departmentSummaryState || {}).length > 0) {
+                applyDepartmentSummaryState();
+            } else {
+                updateDepartmentSummaries(true);
+            }
+        }
+
+        async function regenerateDepartmentSummary() {
+            if (!confirm("Esto sustituirá la edición manual del resumen por departamento. ¿Continuar?")) return;
+            updateDepartmentSummaries(true);
+            captureDepartmentSummary(false);
+            await syncDepartmentSummaryToFirestore();
+            saveStateToCache();
+        }
 
         function buildValidLocalDate(y, m, d) {
             const year = parseInt(y, 10);
@@ -393,6 +549,17 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         function normalizeRoomingDate(value) {
             const date = parseDate(value);
             return date && !isNaN(date.getTime()) ? getLocalDateString(date) : '';
+        }
+
+        function parseMoney(value) {
+            if (value === null || value === undefined || value === '') return 0;
+            if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+            const cleaned = String(value)
+                .replace(/[^\d,.-]/g, '')
+                .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+                .replace(',', '.');
+            const parsed = parseFloat(cleaned);
+            return Number.isFinite(parsed) ? parsed : 0;
         }
 
         function calculateRoomingNights(dateIn, dateOut) {
@@ -525,7 +692,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             triggerSave();
         }
 
-        function updateDepartmentSummaries() {
+        function updateDepartmentSummaries(forceAuto = false) {
             // RECEPCIÓN
             let currentTotalPax = 0;
             let currentTotalRooms = 0;
@@ -582,7 +749,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 &bull; Chofer / Guía: ${staffMembers.length > 0 ? staffMembers.map(m => `${m.role}: ${m.name} (Hab ${m.room})`).join(', ') : 'Ninguno especificado en la rooming list'}.
             `;
             const receptionEl = document.getElementById('dept-recepcion');
-            if (receptionEl) receptionEl.innerHTML = recSummary.trim();
+            if (receptionEl) {
+                const saved = departmentSummaryState.reception;
+                receptionEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : recSummary.trim();
+            }
 
             // RESTAURANTE / COCINA
             let breakfastTime = '';
@@ -657,7 +827,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             // Build Restauración (Notas Operativas) text
             let restauracionText = '';
             const cleanOpNotes = operationalNotes ? operationalNotes.replace(/<[^>]*>/g, '').trim() : '';
-            if (cleanOpNotes && cleanOpNotes !== 'Detalles operativos aquí...' && cleanOpNotes !== '') {
+            const looksCommercial = /swimming pool|gym|credit card|invoice|factura|tarjeta|comercial|presupuesto|cotizaci[oó]n|quote|price|precio|open in this period/i.test(cleanOpNotes);
+            if (cleanOpNotes && cleanOpNotes !== 'Detalles operativos aquí...' && cleanOpNotes !== '' && !looksCommercial) {
                 restauracionText = `&bull; Restauración: <div class="pl-4 mt-0.5 inline-block text-slate-600 leading-relaxed font-normal">${operationalNotes.trim()}</div>`;
             } else {
                 restauracionText = `&bull; Restauración: Sin notas operativas especiales.`;
@@ -670,7 +841,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 ${restauracionText}
             `;
             const restauranteEl = document.getElementById('dept-restaurante');
-            if (restauranteEl) restauranteEl.innerHTML = restSummary.trim();
+            if (restauranteEl) {
+                const saved = departmentSummaryState.kitchen;
+                restauranteEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : restSummary.trim();
+            }
 
             // ADMINISTRACIÓN
             const totalRevenue = window.admTotalRevenue || 0;
@@ -707,14 +881,17 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 `;
             }
             const adminEl = document.getElementById('dept-administracion');
-            if (adminEl) adminEl.innerHTML = admSummaryText.trim();
+            if (adminEl) {
+                const saved = departmentSummaryState.admin;
+                adminEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : admSummaryText.trim();
+            }
         }
 
         function saveStateToCache() {
             if (currentReservaId === "unknown") return;
 
-            // Dynamically update UI summaries first
-            updateDepartmentSummaries();
+            // Dynamically update only non-manual summary boxes
+            updateDepartmentSummaries(false);
 
             const pendientes = [];
             document.querySelectorAll('#table-pendientes tbody tr').forEach(tr => {
@@ -774,12 +951,16 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 deptRecepcion: document.getElementById('dept-recepcion').innerHTML,
                 deptRestaurante: document.getElementById('dept-restaurante').innerHTML,
                 deptAdministracion: document.getElementById('dept-administracion').innerHTML,
+                departmentSummary: departmentSummaryState,
                 pendientes,
                 servicios,
                 rooming
             };
 
             localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
+            if (Object.values(departmentSummaryState || {}).some(entry => entry && entry.manualOverride)) {
+                syncDepartmentSummaryToFirestore();
+            }
             
             // Asynchronously sync manual room edits to Firestore
             if (typeof syncRoomingToFirestore === 'function') {
@@ -1412,6 +1593,7 @@ ${inputVal}`;
             const checkOutDate = rec['Salida'] || group.departure || '';
             window.checkInDateRaw = checkInDate;
             window.checkOutDateRaw = checkOutDate;
+            departmentSummaryState = normalizeDepartmentSummary(rec.departmentSummary || group.departmentSummary || {});
 
             const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
             let loadRoomingFromCache = false;
@@ -1419,6 +1601,15 @@ ${inputVal}`;
             
             if (savedStateStr) {
                 const s = JSON.parse(savedStateStr);
+                if (s.departmentSummary) {
+                    departmentSummaryState = normalizeDepartmentSummary(s.departmentSummary);
+                } else if (s.deptRecepcion || s.deptRestaurante || s.deptAdministracion) {
+                    departmentSummaryState = {
+                        reception: { content: s.deptRecepcion || '', manualOverride: true, updatedAt: new Date().toISOString(), updatedBy: '' },
+                        kitchen: { content: s.deptRestaurante || '', manualOverride: true, updatedAt: new Date().toISOString(), updatedBy: '' },
+                        admin: { content: s.deptAdministracion || '', manualOverride: true, updatedAt: new Date().toISOString(), updatedBy: '' }
+                    };
+                }
                 if (!s.restoreServices) {
                     // LOAD FROM LOCAL STORAGE CACHE
                     document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
@@ -1432,6 +1623,7 @@ ${inputVal}`;
                     document.getElementById('dept-recepcion').innerHTML = s.deptRecepcion || '';
                     document.getElementById('dept-restaurante').innerHTML = s.deptRestaurante || '';
                     document.getElementById('dept-administracion').innerHTML = s.deptAdministracion || '';
+                    applyDepartmentSummaryState();
 
                     if (s.pendientes && s.pendientes.length > 0) {
                         s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
@@ -1661,7 +1853,7 @@ ${inputVal}`;
 
             // Set up Pending List
             // 1. Payment Pending (subtracting agency commission if applicable)
-            const totalRevenue = parseFloat(rec['Importe(*)'] || group.totalRevenue || 0);
+            const totalRevenue = parseMoney(rec['Importe(*)'] || group.totalRevenue || 0);
             let totalCommission = 0;
             try {
                 totalCommission = roomingList.reduce((acc, i) => acc + (parseFloat(i.comision && i.comision.total_comision) || 0), 0);
@@ -1672,9 +1864,9 @@ ${inputVal}`;
             let paidAmount = 0;
             try {
                 const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
-                paidAmount = plan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+                paidAmount = plan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + parseMoney(p.amount), 0);
             } catch(e) {
-                paidAmount = parseFloat(rec['Com_Pagado'] || 0);
+                paidAmount = parseMoney(rec['Com_Pagado'] || 0);
             }
             const pendingAmount = Math.max(0, netTotal - paidAmount);
             const isOverpaid = paidAmount > netTotal + 0.01;
