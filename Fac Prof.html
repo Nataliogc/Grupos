@@ -1909,7 +1909,22 @@
             if (pSummary) pSummary.innerHTML = '';
             if (pBank) pBank.innerHTML = '';
 
-            items.forEach((item, index) => {
+            let processedItems = [...items];
+            let zeroPriceRooms = processedItems.filter(i => (parseFloat(i.precio) || 0) === 0 && (i.concepto || '').match(/DOBLE|INDIVIDUAL|HAB|DUI|SGL|TPL/i) && !String(i.concepto).includes("GRATUIDAD"));
+            let floatingTotals = processedItems.filter(i => (parseFloat(i.precio) || 0) > 0 && ['HD', 'AD', 'MP', 'PC', 'HB', 'FB', 'BB', 'RO', 'SA', 'TI'].includes((i.concepto || '').trim().toUpperCase()));
+            
+            if (zeroPriceRooms.length > 0 && floatingTotals.length === 1) {
+                let fTotal = floatingTotals[0];
+                let totalAmount = (parseFloat(fTotal.precio) || 0) * (parseFloat(fTotal.cant) || 1);
+                let totalRooms = zeroPriceRooms.reduce((acc, r) => acc + (parseFloat(r.cant) || 1), 0);
+                if (totalRooms > 0) {
+                    let pricePerRoom = totalAmount / totalRooms;
+                    zeroPriceRooms.forEach(r => r.precio = pricePerRoom.toFixed(2));
+                    processedItems = processedItems.filter(i => i !== fTotal);
+                }
+            }
+
+            processedItems.forEach((item, index) => {
                 const sub = (parseFloat(item.precio) || 0) * (parseFloat(item.hab) || 1) * (parseFloat(item.cant) || 1) * (parseFloat(item.dias) || 1);
                 let com = 0;
                 const percent = (item.comision && item.comision.porcentaje !== undefined && !isNaN(parseFloat(item.comision.porcentaje))) ? parseFloat(item.comision.porcentaje) : 0;
