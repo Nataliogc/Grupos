@@ -2804,6 +2804,53 @@ var App = function App() {
       var num = Number(String(value || 0).replace(",", "."));
       return Number.isFinite(num) ? num : 0;
     };
+    var getRoomingQuantity = function getRoomingQuantity(line) {
+      var candidates = [
+        line.qty,
+        line.quantity,
+        line.cantidad,
+        line.rooms,
+        line.units,
+        line.lineQuantity,
+      ];
+      for (var _i = 0, _candidates = candidates; _i < _candidates.length; _i++) {
+        var value = _candidates[_i];
+        var parsed = parseInt(String(value !== null && value !== void 0 ? value : "").replace(",", "."), 10);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+      }
+      return 1;
+    };
+    var getRoomingUnitPrice = function getRoomingUnitPrice(line) {
+      var candidates = [
+        line.price,
+        line.unitPrice,
+        line.precio,
+        line.Precio,
+        line.unit_price,
+      ];
+      for (var _i2 = 0, _candidates2 = candidates; _i2 < _candidates2.length; _i2++) {
+        var value = _candidates2[_i2];
+        var parsed = parseRoomingAmount(value);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+      }
+      return 0;
+    };
+    var getRoomingLineTotal = function getRoomingLineTotal(line) {
+      var candidates = [
+        line.total,
+        line.lineTotal,
+        line.importe,
+        line.Total,
+        line.amount,
+      ];
+      for (var _i3 = 0, _candidates3 = candidates; _i3 < _candidates3.length; _i3++) {
+        var value = _candidates3[_i3];
+        var parsed = parseRoomingAmount(value);
+        if (Number.isFinite(parsed) && parsed !== 0) return parsed;
+      }
+      var nights = parseInt(line.nights) || 1;
+      return getRoomingQuantity(line) * getRoomingUnitPrice(line) * nights;
+    };
     var isSummaryBudgetLine = function isSummaryBudgetLine(item, budgetTotal) {
       var concept = String(
         item.concept ||
@@ -2817,9 +2864,9 @@ var App = function App() {
       )
         .trim()
         .toLowerCase();
-      var qty = Number(item.qty || item.quantity || item.cantidad || item.rooms || 0);
-      var price = parseRoomingAmount(item.price || item.unitPrice || item.precio || item.Precio);
-      var total = parseRoomingAmount(item.total || item.lineTotal || item.importe || item.Total);
+      var qty = getRoomingQuantity(item);
+      var price = getRoomingUnitPrice(item);
+      var total = getRoomingLineTotal(item);
       var normalizedBudgetTotal = parseRoomingAmount(budgetTotal);
       var looksLikeGenericConcept =
         concept.includes("servicio general") ||
@@ -2960,7 +3007,7 @@ var App = function App() {
     roomList.forEach(function (r) {
       if (r.isService) return;
       var t = r.type || "Habitación";
-      typeCounts[t] = (typeCounts[t] || 0) + (parseInt(r.qty) || 1);
+      typeCounts[t] = (typeCounts[t] || 0) + getRoomingQuantity(r);
     });
     Object.entries(typeCounts).forEach(function (_ref6) {
       var _ref7 = _slicedToArray(_ref6, 2),
@@ -3029,15 +3076,17 @@ var App = function App() {
             var finalIso = !isNaN(currentDay.getTime())
               ? currentDay.toISOString().split("T")[0]
               : toInputDate(fallbackDate);
+            var roomQuantity = getRoomingQuantity(r);
+            var unitPrice = getRoomingUnitPrice(r);
             var itemData = {
               _dateIso: finalIso, // Temp for sorting
               fecha: formatDate(finalIso),
               hab: "1",
-              cant: parseInt(r.qty) || 1, // Number first to accumulate
+              cant: roomQuantity, // Number first to accumulate
               concepto: ""
                 .concat(r.type)
                 .concat(r.regime ? " (".concat(r.regime, ")") : ""),
-              precio: parseFloat(r.price) || 0,
+              precio: unitPrice,
               iva: Number(normalizeIva(r.iva, 10)),
               regimen: r.regime || "",
               dias: "1",
@@ -3047,7 +3096,7 @@ var App = function App() {
               var dateKey = finalIso;
               var typeKey = normText(r.type);
               var regimeKey = normText(r.regime);
-              var priceKey = normPrice(r.price);
+              var priceKey = normPrice(unitPrice);
               var ivaKey = normalizeIva(r.iva, 10);
               var comKey = getComisionKey(r.comision);
               var groupKey = ""
@@ -3064,7 +3113,7 @@ var App = function App() {
                   { cant: 0 },
                 );
               }
-              groupedMap[groupKey].cant += parseInt(r.qty) || 1;
+              groupedMap[groupKey].cant += roomQuantity;
             } else {
               // Keep item exact quantity
               ungroupedItems.push(itemData);
@@ -3097,10 +3146,31 @@ var App = function App() {
           var totalOriginal = parseFloat(
             roomList
               .reduce(function (acc, r) {
-                return acc + (parseFloat(r.total) || 0);
+                return acc + getRoomingLineTotal(r);
               }, 0)
               .toFixed(2),
           );
+          var totalProforma = parseFloat(
+            mappedItems
+              .reduce(function (acc, item) {
+                var qty = parseRoomingAmount(item.cant);
+                var price = parseRoomingAmount(item.precio);
+                var days = parseRoomingAmount(item.dias) || 1;
+                return acc + qty * price * days;
+              }, 0)
+              .toFixed(2),
+          );
+          if (Math.abs(totalOriginal - totalProforma) > 0.01) {
+            console.warn("[PROFORMA] Diferencia entre ficha y proforma", {
+              totalFicha: totalOriginal,
+              totalProforma: totalProforma,
+              difference: totalOriginal - totalProforma,
+              sourceLines: roomList,
+              proformaLines: mappedItems,
+            });
+            alert("La proforma no coincide con la ficha económica. Revisa la consola antes de generar el PDF.");
+            return;
+          }
           proformaData["ProformaItems"] = mappedItems; // En proforma forzamos el importe a la suma de líneas
           proformaData["Importe(*)"] = totalOriginal.toFixed(2);
         }

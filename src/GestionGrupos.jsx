@@ -2951,6 +2951,53 @@
           return Number.isFinite(num) ? num : 0;
         };
 
+        const getRoomingQuantity = (line) => {
+          const candidates = [
+            line.qty,
+            line.quantity,
+            line.cantidad,
+            line.rooms,
+            line.units,
+            line.lineQuantity,
+          ];
+          for (const value of candidates) {
+            const parsed = parseInt(String(value ?? "").replace(",", "."), 10);
+            if (Number.isFinite(parsed) && parsed > 0) return parsed;
+          }
+          return 1;
+        };
+
+        const getRoomingUnitPrice = (line) => {
+          const candidates = [
+            line.price,
+            line.unitPrice,
+            line.precio,
+            line.Precio,
+            line.unit_price,
+          ];
+          for (const value of candidates) {
+            const parsed = parseRoomingAmount(value);
+            if (Number.isFinite(parsed) && parsed > 0) return parsed;
+          }
+          return 0;
+        };
+
+        const getRoomingLineTotal = (line) => {
+          const candidates = [
+            line.total,
+            line.lineTotal,
+            line.importe,
+            line.Total,
+            line.amount,
+          ];
+          for (const value of candidates) {
+            const parsed = parseRoomingAmount(value);
+            if (Number.isFinite(parsed) && parsed !== 0) return parsed;
+          }
+          const nights = parseInt(line.nights) || 1;
+          return getRoomingQuantity(line) * getRoomingUnitPrice(line) * nights;
+        };
+
         const isSummaryBudgetLine = (item, budgetTotal) => {
           const concept = String(
             item.concept ||
@@ -2962,9 +3009,9 @@
             item.regime ||
             ""
           ).trim().toLowerCase();
-          const qty = Number(item.qty || item.quantity || item.cantidad || item.rooms || 0);
-          const price = parseRoomingAmount(item.price || item.unitPrice || item.precio || item.Precio);
-          const total = parseRoomingAmount(item.total || item.lineTotal || item.importe || item.Total);
+          const qty = getRoomingQuantity(item);
+          const price = getRoomingUnitPrice(item);
+          const total = getRoomingLineTotal(item);
           const normalizedBudgetTotal = parseRoomingAmount(budgetTotal);
           const looksLikeGenericConcept =
             concept.includes("servicio general") ||
@@ -3159,7 +3206,7 @@
 
           const t = r.type || "Habitación";
 
-          typeCounts[t] = (typeCounts[t] || 0) + (parseInt(r.qty) || 1);
+          typeCounts[t] = (typeCounts[t] || 0) + getRoomingQuantity(r);
 
         });
 
@@ -3231,13 +3278,16 @@
                   ? currentDay.toISOString().split("T")[0]
                   : toInputDate(fallbackDate);
 
+                const roomQuantity = getRoomingQuantity(r);
+                const unitPrice = getRoomingUnitPrice(r);
+
                 const itemData = {
                   _dateIso: finalIso, // Temp for sorting
                   fecha: formatDate(finalIso),
                   hab: "1",
-                  cant: (parseInt(r.qty) || 1), // Number first to accumulate
+                  cant: roomQuantity, // Number first to accumulate
                   concepto: `${r.type}${r.regime ? ` (${r.regime})` : ""}`,
-                  precio: parseFloat(r.price) || 0,
+                  precio: unitPrice,
                   iva: Number(normalizeIva(r.iva, 10)),
                   regimen: r.regime || "",
                   dias: "1",
@@ -3248,7 +3298,7 @@
                   const dateKey = finalIso;
                   const typeKey = normText(r.type);
                   const regimeKey = normText(r.regime);
-                  const priceKey = normPrice(r.price);
+                  const priceKey = normPrice(unitPrice);
                   const ivaKey = normalizeIva(r.iva, 10);
                   const comKey = getComisionKey(r.comision);
 
@@ -3260,7 +3310,7 @@
                       cant: 0
                     };
                   }
-                  groupedMap[groupKey].cant += parseInt(r.qty) || 1;
+                  groupedMap[groupKey].cant += roomQuantity;
                 } else {
                   // Keep item exact quantity
                   ungroupedItems.push(itemData);
@@ -3294,7 +3344,26 @@
             });
 
             if (mappedItems.length > 0) {
-              const totalOriginal = parseFloat(roomList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0).toFixed(2));
+              const totalOriginal = parseFloat(roomList.reduce((acc, r) => acc + getRoomingLineTotal(r), 0).toFixed(2));
+              const totalProforma = parseFloat(mappedItems.reduce((acc, item) => {
+                const qty = parseRoomingAmount(item.cant);
+                const price = parseRoomingAmount(item.precio);
+                const days = parseRoomingAmount(item.dias) || 1;
+                return acc + (qty * price * days);
+              }, 0).toFixed(2));
+
+              if (Math.abs(totalOriginal - totalProforma) > 0.01) {
+                console.warn("[PROFORMA] Diferencia entre ficha y proforma", {
+                  totalFicha: totalOriginal,
+                  totalProforma,
+                  difference: totalOriginal - totalProforma,
+                  sourceLines: roomList,
+                  proformaLines: mappedItems,
+                });
+                alert("La proforma no coincide con la ficha económica. Revisa la consola antes de generar el PDF.");
+                return;
+              }
+
               proformaData["ProformaItems"] = mappedItems;
               // En proforma forzamos el importe a la suma de líneas
               proformaData["Importe(*)"] = totalOriginal.toFixed(2);
