@@ -2772,21 +2772,83 @@ var App = function App() {
       if (baseRecord[f]) proformaData[f] = baseRecord[f];
     }); // Mapeo de ítems del Room Manager
     var roomList = [];
-    var processedIds = new Set();
+    var rawRoomingLines = [];
+    var processedLineKeys = new Set();
+    var normalizeForRoomingKey = function normalizeForRoomingKey(value) {
+      if (value === null || value === undefined) return "";
+      return String(value).trim().toLowerCase();
+    };
+    var normalizeMoneyForRoomingKey = function normalizeMoneyForRoomingKey(value) {
+      var num = Number(String(value !== null && value !== void 0 ? value : 0).replace(",", "."));
+      return Number.isFinite(num) ? num.toFixed(2) : "0.00";
+    };
+    var buildRoomingLineKey = function buildRoomingLineKey(item) {
+      return [
+        normalizeForRoomingKey(item.hotel || item.hotelName || item.Hotel),
+        normalizeForRoomingKey(item.type || item.roomType || item.concept || item.Concepto),
+        normalizeForRoomingKey(item.date || item.fecha || item.serviceDate || item.stayDate || item.dateIn),
+        normalizeForRoomingKey(item.dateOut || item.checkout || item.salida),
+        normalizeForRoomingKey(item.regime || item.reg || item.Regimen || item.REG),
+        normalizeForRoomingKey(item.qty || item.quantity || item.cantidad || item.rooms),
+        normalizeMoneyForRoomingKey(item.price || item.unitPrice || item.precio || item.Precio),
+        normalizeMoneyForRoomingKey(item.total || item.lineTotal || item.importe || item.Total),
+      ].join("|");
+    };
+    var sumRoomingLines = function sumRoomingLines(lines) {
+      return lines.reduce(function (acc, line) {
+        var total = Number(String(line.total || line.lineTotal || line.importe || 0).replace(",", "."));
+        return acc + (Number.isFinite(total) ? total : 0);
+      }, 0);
+    };
     records.forEach(function (r) {
       try {
         var list = JSON.parse(r["RoomingList_JSON"] || "[]");
         list.forEach(function (item) {
-          if (item.id && !processedIds.has(item.id)) {
-            roomList.push(item);
-            processedIds.add(item.id);
-          } else if (!item.id) {
+          rawRoomingLines.push(item);
+          var lineKey = buildRoomingLineKey(item);
+          if (!processedLineKeys.has(lineKey)) {
+            processedLineKeys.add(lineKey);
             roomList.push(item);
           }
         });
       } catch (e) {}
     }); // MEJORA: Si la roomList está vacía o no tiene servicios, buscar servicios "huérfanos" en los records
     // que puedan venir de una importación de Excel (donde no hay JSON pero sí líneas de servicio)
+    if (
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1"
+    ) {
+      var rawTotal = sumRoomingLines(rawRoomingLines);
+      var dedupedTotal = sumRoomingLines(roomList);
+      if (Math.abs(rawTotal - dedupedTotal) > 0.01) {
+        console.warn(
+          "[PROFORMA] Diferencia detectada entre RoomingList bruto y RoomingList procesado",
+          {
+            rawTotal: rawTotal,
+            dedupedTotal: dedupedTotal,
+            difference: rawTotal - dedupedTotal,
+            rawDates: rawRoomingLines.map(function (l) {
+              return {
+                id: l.id,
+                date: l.date || l.fecha || l.serviceDate || l.stayDate || l.dateIn,
+                qty: l.qty || l.quantity || l.cantidad || l.rooms,
+                price: l.price || l.unitPrice || l.precio,
+                total: l.total || l.lineTotal || l.importe,
+              };
+            }),
+            processedDates: roomList.map(function (l) {
+              return {
+                id: l.id,
+                date: l.date || l.fecha || l.serviceDate || l.stayDate || l.dateIn,
+                qty: l.qty || l.quantity || l.cantidad || l.rooms,
+                price: l.price || l.unitPrice || l.precio,
+                total: l.total || l.lineTotal || l.importe,
+              };
+            }),
+          },
+        );
+      }
+    }
     if (
       roomList.length === 0 ||
       !roomList.some(function (i) {

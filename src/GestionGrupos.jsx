@@ -2915,7 +2915,36 @@
 
         let roomList = [];
 
-        const processedIds = new Set();
+        const rawRoomingLines = [];
+
+        const processedLineKeys = new Set();
+
+        const normalizeForRoomingKey = (value) => {
+          if (value === null || value === undefined) return "";
+          return String(value).trim().toLowerCase();
+        };
+
+        const normalizeMoneyForRoomingKey = (value) => {
+          const num = Number(String(value ?? 0).replace(",", "."));
+          return Number.isFinite(num) ? num.toFixed(2) : "0.00";
+        };
+
+        const buildRoomingLineKey = (item) => [
+          normalizeForRoomingKey(item.hotel || item.hotelName || item.Hotel),
+          normalizeForRoomingKey(item.type || item.roomType || item.concept || item.Concepto),
+          normalizeForRoomingKey(item.date || item.fecha || item.serviceDate || item.stayDate || item.dateIn),
+          normalizeForRoomingKey(item.dateOut || item.checkout || item.salida),
+          normalizeForRoomingKey(item.regime || item.reg || item.Regimen || item.REG),
+          normalizeForRoomingKey(item.qty || item.quantity || item.cantidad || item.rooms),
+          normalizeMoneyForRoomingKey(item.price || item.unitPrice || item.precio || item.Precio),
+          normalizeMoneyForRoomingKey(item.total || item.lineTotal || item.importe || item.Total),
+        ].join("|");
+
+        const sumRoomingLines = (lines) =>
+          lines.reduce((acc, line) => {
+            const total = Number(String(line.total || line.lineTotal || line.importe || 0).replace(",", "."));
+            return acc + (Number.isFinite(total) ? total : 0);
+          }, 0);
 
         records.forEach((r) => {
 
@@ -2925,14 +2954,13 @@
 
             list.forEach((item) => {
 
-              if (item.id && !processedIds.has(item.id)) {
+              rawRoomingLines.push(item);
 
-                roomList.push(item);
+              const lineKey = buildRoomingLineKey(item);
 
-                processedIds.add(item.id);
+              if (!processedLineKeys.has(lineKey)) {
 
-              } else if (!item.id) {
-
+                processedLineKeys.add(lineKey);
                 roomList.push(item);
 
               }
@@ -2948,6 +2976,33 @@
         // MEJORA: Si la roomList está vacía o no tiene servicios, buscar servicios "huérfanos" en los records
 
         // que puedan venir de una importación de Excel (donde no hay JSON pero sí líneas de servicio)
+
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+          const rawTotal = sumRoomingLines(rawRoomingLines);
+          const dedupedTotal = sumRoomingLines(roomList);
+
+          if (Math.abs(rawTotal - dedupedTotal) > 0.01) {
+            console.warn("[PROFORMA] Diferencia detectada entre RoomingList bruto y RoomingList procesado", {
+              rawTotal,
+              dedupedTotal,
+              difference: rawTotal - dedupedTotal,
+              rawDates: rawRoomingLines.map(l => ({
+                id: l.id,
+                date: l.date || l.fecha || l.serviceDate || l.stayDate || l.dateIn,
+                qty: l.qty || l.quantity || l.cantidad || l.rooms,
+                price: l.price || l.unitPrice || l.precio,
+                total: l.total || l.lineTotal || l.importe,
+              })),
+              processedDates: roomList.map(l => ({
+                id: l.id,
+                date: l.date || l.fecha || l.serviceDate || l.stayDate || l.dateIn,
+                qty: l.qty || l.quantity || l.cantidad || l.rooms,
+                price: l.price || l.unitPrice || l.precio,
+                total: l.total || l.lineTotal || l.importe,
+              })),
+            });
+          }
+        }
 
         if (roomList.length === 0 || !roomList.some((i) => i.isService)) {
 
