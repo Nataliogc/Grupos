@@ -1079,6 +1079,54 @@
         let totalComision = 0;
         let base10 = 0, iva10 = 0, base21 = 0, iva21 = 0;
 
+        function getProformaItemsTotal(list = items) {
+            return parseFloat(list.reduce((acc, item) => {
+                const qty = toNum(item.cant || item.quantity || item.qty || 1) || 1;
+                const rooms = toNum(item.hab || 1) || 1;
+                const days = toNum(item.dias || item.days || 1) || 1;
+                const price = toNum(item.precio || item.price || item.unitPrice || 0);
+                return acc + (qty * rooms * days * price);
+            }, 0).toFixed(2));
+        }
+
+        function getProformaItemsRoomNights(list = items) {
+            return parseFloat(list.reduce((acc, item) => {
+                const qty = toNum(item.cant || item.quantity || item.qty || 1) || 1;
+                const rooms = toNum(item.hab || 1) || 1;
+                const days = toNum(item.dias || item.days || 1) || 1;
+                return acc + (qty * rooms * days);
+            }, 0).toFixed(2));
+        }
+
+        function validateProformaAgainstSource({ block = false } = {}) {
+            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const sourceTotal = toNum(groupData.ProformaSourceTotal || groupData["Importe(*)"] || 0);
+            const sourceRoomNights = toNum(groupData.ProformaSourceRoomNights || 0);
+            if (!sourceTotal) return true;
+            const totalProforma = getProformaItemsTotal();
+            const roomNightsProforma = getProformaItemsRoomNights();
+            const totalMismatch = Math.abs(sourceTotal - totalProforma) > 0.01;
+            const roomNightsMismatch = sourceRoomNights > 0 && Math.abs(sourceRoomNights - roomNightsProforma) > 0.01;
+
+            if (totalMismatch || roomNightsMismatch) {
+                console.warn("[PROFORMA] Total mismatch", {
+                    totalFicha: sourceTotal,
+                    totalProforma,
+                    difference: sourceTotal - totalProforma,
+                    roomNightsFicha: sourceRoomNights,
+                    roomNightsProforma,
+                    roomNightsDifference: sourceRoomNights - roomNightsProforma,
+                    sourceLines: groupData.ProformaItems || [],
+                    proformaLines: items
+                });
+                if (block) {
+                    return confirm("La proforma ya no coincide con la ficha económica. ¿Quieres continuar igualmente?");
+                }
+                return false;
+            }
+            return true;
+        }
+
         // Sincronización de datos comunes
         function syncFields() {
             // Sync all fields EXCEPT reserva-id (proforma uses fixed "PROFORMA" text)
@@ -1142,6 +1190,7 @@
             if (!id) return;
 
             try {
+                if (!validateProformaAgainstSource({ block: true })) return;
                 reconcilePaymentPlan(); // Ensure payments are fully reconciled before saving
                 const normId = String(id).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
                 const isIndep = isIndependentProforma();
@@ -1626,13 +1675,15 @@
                     });
 
                     if (imported.length > 0) items = imported;
-                } else if (toNum(group["Importe(*)"]) > 0) {
+                } else if ((group.isIndependentProforma || String(group.Reserva || group.id || "").toLowerCase().includes('prof-')) && toNum(group["Importe(*)"]) > 0) {
                     items = [{
                         fecha: group["Entrada"] || today,
                         hab: '', cant: group["Pax."] || '1',
                         concepto: `ESTANCIA GRUPO: ${group["Nombre del Grupo"]}`,
                         precio: toNum(group["Importe(*)"]), iva: 10, regimen: group["Régimen"] || 'AD'
                     }];
+                } else {
+                    console.warn("[PROFORMA] No se ha creado línea desde importe global: faltan ProformaItems o líneas económicas reales.");
                 }
 
                 paymentPlan = JSON.parse(group.PaymentPlan_JSON || "[]");
@@ -1670,7 +1721,13 @@
             items.push({ fecha: new Date().toISOString().split('T')[0], hab: '1', cant: '1', concepto: 'NUEVO CARGO', precio: 0, iva: 10, regimen: '-', dias: 1 });
             renderItems();
         }
-        function removeItem(index) { if (confirm("¿Eliminar este concepto?")) { items.splice(index, 1); renderItems(); } }
+        function removeItem(index) {
+            if (confirm("¿Eliminar este concepto?")) {
+                items.splice(index, 1);
+                renderItems();
+                validateProformaAgainstSource();
+            }
+        }
         function updateItem(index, field, value) {
             if (!items[index]) return;
             items[index][field] = field === 'iva' ? parseInt(value) : value;
@@ -2118,6 +2175,7 @@
                 }
             }
             updatePaymentLink();
+            validateProformaAgainstSource();
         }
 
         function updatePaymentLink() {
@@ -2262,6 +2320,7 @@
 
         function printDoc() {
             updatePaymentLink();
+            if (!validateProformaAgainstSource({ block: true })) return;
             const noPrints = Array.from(document.querySelectorAll('.no-print'));
             noPrints.forEach(el => { el._savedDisplay = el.style.display; el.style.setProperty('display', 'none', 'important'); });
             

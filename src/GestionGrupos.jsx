@@ -3126,8 +3126,11 @@
               pax > 0
 
             ) {
+              const serviceConcept = r["Régimen"] || "";
+              if (!serviceConcept.trim()) return;
+
               const candidateServiceLine = {
-                type: r["Régimen"] || "Servicio General",
+                type: serviceConcept,
                 qty: 1,
                 price: imp,
                 total: imp,
@@ -3159,7 +3162,7 @@
 
                   hotel: r["Hotel_Asignado"] || r["Hotel"] || "GENERAL",
 
-                  type: r["Régimen"] || "Servicio General",
+                  type: serviceConcept,
 
                   dateIn: r["Entrada"],
 
@@ -3351,12 +3354,24 @@
                 const days = parseRoomingAmount(item.dias) || 1;
                 return acc + (qty * price * days);
               }, 0).toFixed(2));
+              const roomNightsFicha = roomList.reduce((acc, r) => {
+                const nights = parseInt(r.nights) || 1;
+                return acc + (getRoomingQuantity(r) * nights);
+              }, 0);
+              const roomNightsProforma = mappedItems.reduce((acc, item) => {
+                const qty = parseRoomingAmount(item.cant);
+                const days = parseRoomingAmount(item.dias) || 1;
+                return acc + (qty * days);
+              }, 0);
 
-              if (Math.abs(totalOriginal - totalProforma) > 0.01) {
+              if (Math.abs(totalOriginal - totalProforma) > 0.01 || Math.abs(roomNightsFicha - roomNightsProforma) > 0.01) {
                 console.warn("[PROFORMA] Diferencia entre ficha y proforma", {
                   totalFicha: totalOriginal,
                   totalProforma,
                   difference: totalOriginal - totalProforma,
+                  roomNightsFicha,
+                  roomNightsProforma,
+                  roomNightsDifference: roomNightsFicha - roomNightsProforma,
                   sourceLines: roomList,
                   proformaLines: mappedItems,
                 });
@@ -3365,6 +3380,8 @@
               }
 
               proformaData["ProformaItems"] = mappedItems;
+              proformaData["ProformaSourceTotal"] = totalOriginal.toFixed(2);
+              proformaData["ProformaSourceRoomNights"] = roomNightsFicha;
               // En proforma forzamos el importe a la suma de líneas
               proformaData["Importe(*)"] = totalOriginal.toFixed(2);
             }

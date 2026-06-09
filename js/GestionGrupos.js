@@ -2957,8 +2957,10 @@ var App = function App() {
             (imp > 0 && (!r["Noches"] || r["Noches"] == "0"))) &&
           pax > 0
         ) {
+          var serviceConcept = r["Régimen"] || "";
+          if (!serviceConcept.trim()) return;
           var candidateServiceLine = {
-            type: r["Régimen"] || "Servicio General",
+            type: serviceConcept,
             qty: 1,
             price: imp,
             total: imp,
@@ -2980,7 +2982,7 @@ var App = function App() {
             roomList.push({
               id: "svc-".concat(idx, "-").concat(r["Reserva"]),
               hotel: r["Hotel_Asignado"] || r["Hotel"] || "GENERAL",
-              type: r["Régimen"] || "Servicio General",
+              type: serviceConcept,
               dateIn: r["Entrada"],
               dateOut: r["Salida"] || r["Entrada"],
               qty: 1,
@@ -3160,11 +3162,26 @@ var App = function App() {
               }, 0)
               .toFixed(2),
           );
-          if (Math.abs(totalOriginal - totalProforma) > 0.01) {
+          var roomNightsFicha = roomList.reduce(function (acc, r) {
+            var nights = parseInt(r.nights) || 1;
+            return acc + getRoomingQuantity(r) * nights;
+          }, 0);
+          var roomNightsProforma = mappedItems.reduce(function (acc, item) {
+            var qty = parseRoomingAmount(item.cant);
+            var days = parseRoomingAmount(item.dias) || 1;
+            return acc + qty * days;
+          }, 0);
+          if (
+            Math.abs(totalOriginal - totalProforma) > 0.01 ||
+            Math.abs(roomNightsFicha - roomNightsProforma) > 0.01
+          ) {
             console.warn("[PROFORMA] Diferencia entre ficha y proforma", {
               totalFicha: totalOriginal,
               totalProforma: totalProforma,
               difference: totalOriginal - totalProforma,
+              roomNightsFicha: roomNightsFicha,
+              roomNightsProforma: roomNightsProforma,
+              roomNightsDifference: roomNightsFicha - roomNightsProforma,
               sourceLines: roomList,
               proformaLines: mappedItems,
             });
@@ -3172,6 +3189,8 @@ var App = function App() {
             return;
           }
           proformaData["ProformaItems"] = mappedItems; // En proforma forzamos el importe a la suma de líneas
+          proformaData["ProformaSourceTotal"] = totalOriginal.toFixed(2);
+          proformaData["ProformaSourceRoomNights"] = roomNightsFicha;
           proformaData["Importe(*)"] = totalOriginal.toFixed(2);
         }
       }
