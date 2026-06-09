@@ -2146,35 +2146,34 @@
                             if (!text) return "";
                             let parsed = text;
                             
-                            // Load latest payment plan from localStorage
                             const groupObj = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
-                            let plan = [];
-                            try {
-                                plan = JSON.parse(groupObj.PaymentPlan_JSON || "[]");
-                            } catch(e){}
+                            const plan = paymentPlan || [];
 
                             const t = title.toLowerCase();
-                            const isDepositOrPayment = t.includes("depósito") || t.includes("deposito") || t.includes("pago") || t.includes("confirmaci");
+                            const isDepositOrPayment = t.includes("depósito") || t.includes("deposito") || t.includes("pago") || t.includes("confirmaci") || t.includes("release");
+
+                            // Cleanup duplicated or legacy tags by absorbing preceding percentages (e.g., "30% ({DEP_30})" -> "{DEP_30}")
+                            parsed = parsed.replace(/\b\d+\s*%\s*\(\{DEP_30\}\)/g, "{DEP_30}");
+                            parsed = parsed.replace(/\b\d+\s*%\s*\(\{DEP_50\}\)/g, "{DEP_50}");
+                            parsed = parsed.replace(/\b\d+\s*%\s*\(\{DEP_100\}\)/g, "{DEP_100}");
+                            
+                            // Also cleanup cases where template has "30% " but no {}, or where we do double replacement by accident.
+                            // We will only rely on {DEP_X} tags to insert the values.
+                            // Previously the code replaced literal "30%" with the amount. We remove that bad behavior.
 
                             if (plan && plan.length > 0 && isDepositOrPayment) {
                                 const firstPayment = plan[0];
-                                const secondPayment = plan[1];
+                                const finalPayment = plan[plan.length - 1];
+                                const secondPayment = plan.length > 1 ? plan[1] : finalPayment;
 
-                                // Replace 30% or {DEP_30} with actual deposit
-                                parsed = parsed.replace(/30\s*%/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + " EUR)");
                                 parsed = parsed.replace(/{DEP_30}/g, firstPayment.percent + "% (" + formatNum(firstPayment.amount) + " EUR)");
-
+                                
                                 if (secondPayment) {
-                                    // Replace 7 días or {RELEASE_7} with actual release days
-                                    parsed = parsed.replace(/7\s*días/gi, secondPayment.releaseDays + " días");
-                                    parsed = parsed.replace(/7\s*dias/gi, secondPayment.releaseDays + " días");
                                     parsed = parsed.replace(/{RELEASE_7}/g, secondPayment.releaseDays + " días");
-
-                                    // Replace 50% or 100% or {DEP_50} with final payment
-                                    parsed = parsed.replace(/50\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + " EUR)");
                                     parsed = parsed.replace(/{DEP_50}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + " EUR)");
-                                    parsed = parsed.replace(/100\s*%/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + " EUR)");
-                                    parsed = parsed.replace(/{DEP_100}/g, secondPayment.percent + "% (" + formatNum(secondPayment.amount) + " EUR)");
+                                }
+                                if (finalPayment) {
+                                    parsed = parsed.replace(/{DEP_100}/g, finalPayment.percent + "% (" + formatNum(finalPayment.amount) + " EUR)");
                                 }
                             }
 
