@@ -189,10 +189,12 @@
             <thead>
                 <tr>
                     <th style="width: 8%">Hab.</th>
-                    <th style="width: 15%">Tipo</th>
-                    <th style="width: 8%">Pax</th>
-                    <th style="width: 45%">Ocupantes</th>
-                    <th style="width: 20%">Observaciones</th>
+                    <th style="width: 13%">Tipo</th>
+                    <th style="width: 7%">Pax</th>
+                    <th style="width: 12%">Entrada</th>
+                    <th style="width: 12%">Salida</th>
+                    <th style="width: 31%">Ocupantes</th>
+                    <th style="width: 13%">Observaciones</th>
                     <th class="no-print" style="width: 4%"></th>
                 </tr>
             </thead>
@@ -292,11 +294,27 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
     <script>
         let currentReservaId = "unknown";
         let saveTimeout = null;
+        const MAX_ALLOWED_ROOMING_NIGHTS = 90;
+
+        function buildValidLocalDate(y, m, d) {
+            const year = parseInt(y, 10);
+            const month = parseInt(m, 10);
+            const day = parseInt(d, 10);
+            if (!year || !month || !day) return null;
+            const date = new Date(year, month - 1, day, 12, 0, 0);
+            if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+            return date;
+        }
 
         // Robust date parser (forces local noon to avoid timezone shifting)
         function parseDate(dStr) {
             if (!dStr) return null;
-            const s = dStr.toString().trim();
+            const raw = dStr.toString().trim();
+            const s = raw
+                .replace(/,/g, ' ')
+                .replace(/^(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s+/i, '')
+                .replace(/\s+/g, ' ')
+                .trim();
             // Caso 1: Excel Serial (ej: 46129)
             const num = parseFloat(s);
             if (!isNaN(num) && num > 40000 && num < 60000) {
@@ -314,7 +332,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     let [d, m, y] = parts;
                     y = parseInt(y);
                     if (y < 100) y += 2000;
-                    return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                    return buildValidLocalDate(y, m, d);
                 }
             }
             // Caso 3: DD/MM/YYYY
@@ -324,7 +342,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     let [d, m, y] = parts;
                     y = parseInt(y);
                     if (y < 100) y += 2000;
-                    return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                    return buildValidLocalDate(y, m, d);
                 }
             }
             // Caso 4: YYYY-MM-DD
@@ -332,8 +350,31 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 const parts = s.split(/[-T ]/);
                 if (parts.length >= 3) {
                     const [y, m, d] = parts;
-                    return new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                    return buildValidLocalDate(y, m, d);
                 }
+            }
+            // Caso 5: 14 June 2026 / 14 Junio 2026
+            const textDate = s.match(/^(\d{1,2})\s+([a-záéíóúñ]+)\s+(\d{2,4})$/i);
+            if (textDate) {
+                const monthMap = {
+                    jan: 1, january: 1, ene: 1, enero: 1,
+                    feb: 2, february: 2, febrero: 2,
+                    mar: 3, march: 3, marzo: 3,
+                    apr: 4, april: 4, abr: 4, abril: 4,
+                    may: 5, mayo: 5,
+                    jun: 6, june: 6, junio: 6,
+                    jul: 7, july: 7, julio: 7,
+                    aug: 8, august: 8, ago: 8, agosto: 8,
+                    sep: 9, sept: 9, september: 9, septiembre: 9,
+                    oct: 10, october: 10, octubre: 10,
+                    nov: 11, november: 11, noviembre: 11,
+                    dec: 12, december: 12, dic: 12, diciembre: 12
+                };
+                let [, d, monthName, y] = textDate;
+                y = parseInt(y, 10);
+                if (y < 100) y += 2000;
+                const m = monthMap[monthName.toLowerCase()];
+                if (m) return buildValidLocalDate(y, m, d);
             }
             const fallback = new Date(s);
             if (isNaN(fallback.getTime())) return null;
@@ -347,6 +388,38 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const m = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             return `${y}-${m}-${day}`;
+        }
+
+        function normalizeRoomingDate(value) {
+            const date = parseDate(value);
+            return date && !isNaN(date.getTime()) ? getLocalDateString(date) : '';
+        }
+
+        function calculateRoomingNights(dateIn, dateOut) {
+            const dIn = parseDate(dateIn);
+            const dOut = parseDate(dateOut);
+            if (!dIn || !dOut || isNaN(dIn.getTime()) || isNaN(dOut.getTime())) return 0;
+            return Math.round((dOut - dIn) / 86400000);
+        }
+
+        function assertValidRoomingStay(dateIn, dateOut, label) {
+            const nights = calculateRoomingNights(dateIn, dateOut);
+            if (nights <= 0) {
+                throw new Error(`${label}: la salida debe ser posterior a la entrada.`);
+            }
+            if (nights > MAX_ALLOWED_ROOMING_NIGHTS && !confirm(`${label}: estancia de ${nights} noches. ¿Confirmas que es correcto?`)) {
+                throw new Error(`${label}: estancia no confirmada.`);
+            }
+            return nights;
+        }
+
+        function isSummaryBudgetLine(item, budgetTotal) {
+            const qty = parseInt(item.qty) || 1;
+            const total = parseFloat(item.total);
+            const price = parseFloat(item.price);
+            return !item.isService && qty === 1 && budgetTotal > 0 &&
+                (Math.abs(total - budgetTotal) < 0.01 || Math.abs(price - budgetTotal) < 0.01) &&
+                !item.ocupantes && !item.roomNo;
         }
 
 
@@ -427,13 +500,15 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             triggerSave();
         }
 
-        function addRowRooming(id, hab, tipo, pax, ocupantes, dni, observ) {
+        function addRowRooming(id, hab, tipo, pax, ocupantes, dni, observ, checkIn = '', checkOut = '') {
             const tbody = document.querySelector('#table-rooming tbody');
             const tr = document.createElement('tr');
             tr.dataset.id = id || ('new_' + Date.now() + '_' + Math.random());
             tr.appendChild(createEditableCell(hab));
             tr.appendChild(createEditableCell(tipo));
             tr.appendChild(createEditableCell(pax));
+            tr.appendChild(createEditableCell(normalizeRoomingDate(checkIn) || checkIn));
+            tr.appendChild(createEditableCell(normalizeRoomingDate(checkOut) || checkOut));
             tr.appendChild(createEditableCell(ocupantes));
             tr.appendChild(createEditableCell(observ));
             
@@ -459,13 +534,13 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             
             document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
                 const cells = tr.querySelectorAll('td.editable');
-                if (cells.length === 5) {
+                if (cells.length >= 7) {
                     currentTotalRooms++;
                     const habNo = cells[0].innerText.trim();
                     const tipo = cells[1].innerText.trim();
                     const paxVal = parseInt(cells[2].innerText.trim()) || 0;
-                    const ocupante = cells[3].innerText.trim();
-                    const observ = cells[4].innerText.trim();
+                    const ocupante = cells[5].innerText.trim();
+                    const observ = cells[6].innerText.trim();
                     
                     currentTotalPax += paxVal;
                     
@@ -672,15 +747,17 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const rooming = [];
             document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
                 const cells = tr.querySelectorAll('td.editable');
-                if (cells.length === 5) {
+                if (cells.length >= 7) {
                     rooming.push({
                         id: tr.dataset.id || '',
                         hab: cells[0].innerText,
                         tipo: cells[1].innerText,
                         pax: cells[2].innerText,
-                        ocupantes: cells[3].innerText,
+                        checkIn: cells[3].innerText,
+                        checkOut: cells[4].innerText,
+                        ocupantes: cells[5].innerText,
                         dni: '',
-                        observ: cells[4].innerText
+                        observ: cells[6].innerText
                     });
                 }
             });
@@ -726,7 +803,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     originalList = JSON.parse(recData['RoomingList_JSON'] || '[]');
                 } catch(e) {}
 
-                const originalRoomItems = originalList.filter(item => !item.isService);
+                const budgetTotal = parseFloat(recData['Importe(*)'] || 0) || 0;
+                const originalRoomItems = originalList.filter(item => !item.isService && !isSummaryBudgetLine(item, budgetTotal));
                 const originalServiceItems = originalList.filter(item => item.isService === true);
 
                 // Build a map of type -> price, regime, iva from original room blocks as fallback
@@ -759,9 +837,15 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         }
                     }
 
-                    const price = match ? parseFloat(match.price) : (matchFallback ? matchFallback.price : 0);
+                    const price = match ? parseFloat(match.price) : (matchFallback ? matchFallback.price : NaN);
                     const iva = match ? parseInt(match.iva) : (matchFallback ? matchFallback.iva : 10);
-                    const nights = match ? parseInt(match.nights) : 1;
+                    if (!Number.isFinite(price) || price <= 0) {
+                        throw new Error(`No hay precio previo para "${row.tipo || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
+                    }
+
+                    const rowDateIn = normalizeRoomingDate(row.checkIn || row.dateIn || (match ? match.dateIn : '') || recData['Entrada'] || '');
+                    const rowDateOut = normalizeRoomingDate(row.checkOut || row.dateOut || (match ? match.dateOut : '') || recData['Salida'] || '');
+                    const nights = assertValidRoomingStay(rowDateIn, rowDateOut, row.hab ? `Habitación ${row.hab}` : (row.tipo || 'Habitación'));
                     const total = (1 * price * nights).toFixed(2);
 
                     let newComision = null;
@@ -781,8 +865,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         id: row.id,
                         hotel: match ? match.hotel : (recData['Hotel_Asignado'] || recData['Hotel'] || 'Sercotel Guadiana'),
                         type: row.tipo || 'Habitación Doble',
-                        dateIn: match ? match.dateIn : (recData['Entrada'] || ''),
-                        dateOut: match ? match.dateOut : (recData['Salida'] || ''),
+                        dateIn: rowDateIn,
+                        dateOut: rowDateOut,
                         qty: 1,
                         pax: parseInt(row.pax) || (match ? match.pax : 2),
                         regime: match ? match.regime : (recData['Régimen'] || 'AD'),
@@ -795,6 +879,9 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         dni: row.dni || (match ? match.dni : ''),
                         observ: row.observ || '',
                         roomNo: row.hab || '',
+                        source: 'auto_rooming',
+                        generatedFrom: 'rooming_editor',
+                        generatedAt: new Date().toISOString(),
                         comision: newComision
                     };
                 });
@@ -864,6 +951,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 }
             } catch (err) {
                 console.error("Error syncing rooming list to Firestore:", err);
+                alert('No se pudo actualizar la ficha económica desde el rooming: ' + err.message);
             } finally {
                 isSyncing = false;
             }
@@ -875,15 +963,17 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 const rooming = [];
                 document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
                     const cells = tr.querySelectorAll('td.editable');
-                    if (cells.length === 5) {
+                    if (cells.length >= 7) {
                         rooming.push({
                             id: tr.dataset.id || '',
                             hab: cells[0].innerText,
                             tipo: cells[1].innerText,
                             pax: cells[2].innerText,
-                            ocupantes: cells[3].innerText,
+                            checkIn: cells[3].innerText,
+                            checkOut: cells[4].innerText,
+                            ocupantes: cells[5].innerText,
                             dni: '',
-                            observ: cells[4].innerText
+                            observ: cells[6].innerText
                         });
                     }
                 });
@@ -995,6 +1085,11 @@ Usa estos datos por defecto para rellenar las propiedades de cada habitación si
 - dateOut: "${finalOutDate}"
 - regime: "${gRegimen}"
 
+Reglas obligatorias para fechas:
+- Si el texto contiene encabezados o bloques de fechas, aplica cada rango a todas las habitaciones siguientes hasta encontrar un nuevo encabezado.
+- Cada objeto debe incluir siempre "dateIn" y "dateOut" en formato YYYY-MM-DD.
+- No fusiones habitaciones por nombre de huésped: cada habitación/fila del listado debe ser un objeto independiente.
+
 Responde UNICAMENTE con el bloque de código JSON, sin explicaciones ni texto de markdown adicional (debe empezar con [ y terminar con ]).
 
 TEXTO DEL LISTADO ENVIADO POR EL CLIENTE:
@@ -1027,9 +1122,10 @@ ${inputVal}`;
                 } catch(e) {}
 
                 // Build a map of type -> price, regime, iva from original room blocks to preserve prices
+                const budgetTotal = parseFloat(recData['Importe(*)'] || 0) || 0;
                 const blockDetails = {};
                 originalList.forEach(item => {
-                    if (!item.isService) {
+                    if (!item.isService && !isSummaryBudgetLine(item, budgetTotal)) {
                         const key = (item.type || 'Doble').toUpperCase();
                         blockDetails[key] = {
                             price: parseFloat(item.price) || 0,
@@ -1052,14 +1148,15 @@ ${inputVal}`;
                         }
                     }
                     
-                    const price = match ? match.price : 0;
+                    const price = match ? match.price : NaN;
                     const iva = match ? match.iva : 10;
-                    
-                    // Nights count
-                    const d1 = parseDate(item.dateIn || finalInDate);
-                    const d2 = parseDate(item.dateOut || finalOutDate);
-                    const calculatedNights = Math.max(1, Math.ceil((d2 - d1) / 86400000)) || 1;
-                    const itemNights = parseInt(item.nights) || calculatedNights;
+                    if (!Number.isFinite(price) || price <= 0) {
+                        throw new Error(`No hay precio previo para "${item.type || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
+                    }
+
+                    const rowDateIn = normalizeRoomingDate(item.dateIn || finalInDate);
+                    const rowDateOut = normalizeRoomingDate(item.dateOut || finalOutDate);
+                    const itemNights = assertValidRoomingStay(rowDateIn, rowDateOut, item.roomNo ? `Habitación ${item.roomNo}` : (item.type || 'Habitación'));
                     
                     const total = (1 * price * itemNights).toFixed(2);
 
@@ -1067,20 +1164,23 @@ ${inputVal}`;
                         id: item.id || Date.now() + Math.random(),
                         hotel: item.hotel || hHotel,
                         type: item.type || 'Habitación Doble',
-                        dateIn: item.dateIn || finalInDate,
-                        dateOut: item.dateOut || finalOutDate,
+                        dateIn: rowDateIn,
+                        dateOut: rowDateOut,
                         qty: 1,
                         pax: parseInt(item.pax) || 2,
                         regime: item.regime || gRegimen,
                         price: price,
                         iva: iva,
-                        nights: parseInt(item.nights) || calculatedNights,
+                        nights: itemNights,
                         isService: false,
                         total: total,
                         ocupantes: item.ocupantes || '',
                         dni: item.dni || '',
                         observ: item.observ || '',
-                        roomNo: item.roomNo || ''
+                        roomNo: item.roomNo || '',
+                        source: 'auto_rooming',
+                        generatedFrom: 'rooming_ai',
+                        generatedAt: new Date().toISOString()
                     };
                 });
 
@@ -1340,7 +1440,7 @@ ${inputVal}`;
                         s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas));
                     }
                     if (s.rooming && s.rooming.length > 0) {
-                        s.rooming.forEach(r => addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ));
+                        s.rooming.forEach(r => addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ, r.checkIn || r.dateIn, r.checkOut || r.dateOut));
                     }
                     return;
                 } else {
@@ -1484,6 +1584,8 @@ ${inputVal}`;
                         hab: item.roomNo || autoIdx++,
                         tipo: item.type,
                         pax: item.pax || 2,
+                        checkIn: item.dateIn || checkInDate,
+                        checkOut: item.dateOut || checkOutDate,
                         ocupantes: finalOcc,
                         dni: item.dni || '',
                         observ: item.observ || ''
@@ -1498,17 +1600,24 @@ ${inputVal}`;
                     const rType = item.type || 'Habitación Doble';
                     const qty = parseInt(item.qty) || 1;
                     const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') ? 1 : 2);
+                    const blockDateIn = item.dateIn || checkInDate;
+                    const blockDateOut = item.dateOut || checkOutDate;
+                    const peakKey = `${rType}|${blockDateIn}|${blockDateOut}`;
                     
-                    if (!peaksByType[rType] || qty > peaksByType[rType].maxQty) {
-                        peaksByType[rType] = {
+                    if (!peaksByType[peakKey] || qty > peaksByType[peakKey].maxQty) {
+                        peaksByType[peakKey] = {
+                            type: rType,
                             maxQty: qty,
                             paxVal: paxVal,
+                            dateIn: blockDateIn,
+                            dateOut: blockDateOut,
                             id: item.id || ('block_' + Date.now() + '_' + Math.random())
                         };
                     }
                 });
                 
-                Object.entries(peaksByType).forEach(([rType, data]) => {
+                Object.entries(peaksByType).forEach(([key, data]) => {
+                    const rType = data.type;
                     for (let q = 0; q < data.maxQty; q++) {
                         let finalOcc = 'Ocupante Pendiente';
                         if (rType.toUpperCase().includes('CHOFER') || rType.toUpperCase().includes('GUIA')) {
@@ -1521,6 +1630,8 @@ ${inputVal}`;
                             hab: autoIdx++,
                             tipo: rType,
                             pax: data.paxVal,
+                            checkIn: data.dateIn,
+                            checkOut: data.dateOut,
                             ocupantes: finalOcc,
                             dni: '',
                             observ: ''
@@ -1540,11 +1651,11 @@ ${inputVal}`;
             // Output Rooming Table Rows
             if (loadRoomingFromCache) {
                 cachedRooming.forEach(r => {
-                    addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+                    addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ, r.checkIn || r.dateIn, r.checkOut || r.dateOut);
                 });
             } else {
                 listToDisplay.forEach(r => {
-                    addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ);
+                    addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ, r.checkIn || r.dateIn, r.checkOut || r.dateOut);
                 });
             }
 
