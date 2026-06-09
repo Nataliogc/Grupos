@@ -857,9 +857,10 @@
         };
       };
 
-      const reconcileReactPaymentPlan = (paymentPlan, netTotal, arrivalDate) => {
+      const reconcileReactPaymentPlan = (paymentPlan, netTotal, arrivalDate, options = {}) => {
         if (!paymentPlan || paymentPlan.length === 0) return paymentPlan || [];
         const planCopy = paymentPlan.map(p => ({ ...p }));
+        const lockedIndex = options && typeof options.lockedIndex === "number" ? options.lockedIndex : -1;
 
         // 1. Recalculate percent/amount for each row
         planCopy.forEach((p) => {
@@ -878,7 +879,10 @@
         let sumOfAmounts = planCopy.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
         let diff = netTotal - sumOfAmounts;
         if (Math.abs(diff) > 0.001) {
-          let targetRow = [...planCopy].reverse().find(p => p.status !== "Cobrado");
+          let targetRow = [...planCopy].reverse().find((p, idxFromEnd) => {
+            const idx = planCopy.length - 1 - idxFromEnd;
+            return p.status !== "Cobrado" && idx !== lockedIndex;
+          });
           if (targetRow) {
             const currentAmt = parseFloat(targetRow.amount) || 0;
             targetRow.amount = (currentAmt + diff).toFixed(2);
@@ -903,7 +907,7 @@
             }
             planCopy.push({
               id: Date.now() + Math.random(),
-              label: `Pago ${planCopy.length + 1}`,
+              label: planCopy.length === 1 ? "Pago Final" : `Pago ${planCopy.length + 1}`,
               percent: parseFloat(((diff / netTotal) * 100).toFixed(2)),
               amount: diff.toFixed(2),
               date: dateStr,
@@ -13276,7 +13280,9 @@
 
 
 
-                                        const reconciled = reconcileReactPaymentPlan(newPlan, hotelTotal, arrivalDate);
+                                        const reconciled = reconcileReactPaymentPlan(newPlan, hotelTotal, arrivalDate, {
+                                          lockedIndex: field === "percent" || field === "amount" ? idx : -1,
+                                        });
 
                                         updatePaymentPlan(
 

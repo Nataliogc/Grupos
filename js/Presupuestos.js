@@ -735,6 +735,97 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   }
   return total > 0 ? total : 0;
 };
+var parsePaymentPlan = function parsePaymentPlan(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    return JSON.parse(value || "[]");
+  } catch (e) {
+    return [];
+  }
+};
+var cents = function cents(value) {
+  return Math.round((parseFloat(value) || 0) * 100) / 100;
+};
+var getPaymentLimitDate = function getPaymentLimitDate(groupData) {
+  var days = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 7;
+  var entry = toInputDate(groupData.Entrada);
+  if (!entry) return "";
+  var date = new Date(entry);
+  if (isNaN(date.getTime())) return "";
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split("T")[0];
+};
+var buildPaymentPlan = function buildPaymentPlan(percent, total, groupData) {
+  var advancePercent = Math.max(0, Math.min(100, parseFloat(percent) || 0));
+  var advanceAmount = cents(total * (advancePercent / 100));
+  var remainingAmount = cents(total - advanceAmount);
+  return [{
+    id: Date.now(),
+    label: "Anticipo / depósito para confirmar la reserva",
+    percent: advancePercent,
+    amount: advanceAmount.toFixed(2),
+    date: new Date().toISOString().split("T")[0],
+    status: "Pendiente",
+    releaseDays: 0,
+    observations: "",
+    manual: false
+  }, {
+    id: Date.now() + 1,
+    label: "Resto pendiente",
+    percent: total > 0 ? cents(remainingAmount / total * 100) : 0,
+    amount: remainingAmount.toFixed(2),
+    date: getPaymentLimitDate(groupData, 7),
+    status: "Pendiente",
+    releaseDays: 7,
+    observations: "Antes de la llegada",
+    manual: false
+  }];
+};
+var normalizePaymentPlan = function normalizePaymentPlan(plan, total, groupData) {
+  var rows = parsePaymentPlan(plan).slice(0, 2);
+  if (rows.length === 0) return [];
+  var baseRows = rows.length === 1 ? [].concat(_toConsumableArray(rows), [{
+    label: "Resto pendiente",
+    percent: 0,
+    amount: 0,
+    date: getPaymentLimitDate(groupData, 7),
+    status: "Pendiente",
+    releaseDays: 7,
+    observations: ""
+  }]) : rows;
+  var _baseRows = _slicedToArray(baseRows, 2),
+    advanceSource = _baseRows[0],
+    remainingSource = _baseRows[1];
+  var advance = _objectSpread(_objectSpread({}, advanceSource), {}, {
+    label: advanceSource.label || "Anticipo / depósito para confirmar la reserva"
+  });
+  var remaining = _objectSpread(_objectSpread({}, remainingSource), {}, {
+    label: remainingSource.label || "Resto pendiente"
+  });
+  if (advance.manual && !remaining.manual) {
+    advance.amount = cents(advance.amount).toFixed(2);
+    advance.percent = total > 0 ? cents(parseFloat(advance.amount) / total * 100) : 0;
+    remaining.amount = cents(total - parseFloat(advance.amount)).toFixed(2);
+    remaining.percent = total > 0 ? cents(parseFloat(remaining.amount) / total * 100) : 0;
+  } else if (remaining.manual && !advance.manual) {
+    remaining.amount = cents(remaining.amount).toFixed(2);
+    remaining.percent = total > 0 ? cents(parseFloat(remaining.amount) / total * 100) : 0;
+    advance.amount = cents(total - parseFloat(remaining.amount)).toFixed(2);
+    advance.percent = total > 0 ? cents(parseFloat(advance.amount) / total * 100) : 0;
+  } else {
+    var advancePercent = Math.max(0, Math.min(100, parseFloat(advance.percent) || 0));
+    advance.percent = advancePercent;
+    advance.amount = cents(total * (advancePercent / 100)).toFixed(2);
+    remaining.amount = cents(total - parseFloat(advance.amount)).toFixed(2);
+    remaining.percent = total > 0 ? cents(parseFloat(remaining.amount) / total * 100) : 0;
+  }
+  var diff = cents(total - (parseFloat(advance.amount) || 0) - (parseFloat(remaining.amount) || 0));
+  if (Math.abs(diff) >= 0.01) {
+    remaining.amount = cents((parseFloat(remaining.amount) || 0) + diff).toFixed(2);
+    remaining.percent = total > 0 ? cents(parseFloat(remaining.amount) / total * 100) : 0;
+  }
+  return [advance, remaining];
+};
 function App() {
   var _useState = useState([]),
     _useState2 = _slicedToArray(_useState, 2),
@@ -1374,14 +1465,18 @@ function App() {
   };
   var handleSave = /*#__PURE__*/function () {
     var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
-      var now, formattedDate, normalizedFormData, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, segmentCountsByDate, globalDates, emptyDates, _confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t2;
+      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, segmentCountsByDate, globalDates, emptyDates, _confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
             e.preventDefault();
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            normalizedFormData = normalizeGroupData(formData); // Validation: Mandatory Hotel
+            normalizedFormData = normalizeGroupData(formData);
+            finalTotal = calculateTotal(normalizedFormData);
+            normalizedFormData.PaymentPlan_JSON = JSON.stringify(normalizePaymentPlan(normalizedFormData.PaymentPlan_JSON, finalTotal, normalizedFormData));
+
+            // Validation: Mandatory Hotel
             hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
             if (!(!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "")) {
               _context2.n = 1;
@@ -1543,7 +1638,7 @@ function App() {
               "Com_Vencimiento_Rel": releaseDate,
               "Segment.": normalizedFormData["Segment."] || "GRUPOS",
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              "Importe(*)": formatNum(calculateTotal(normalizedFormData)),
+              "Importe(*)": formatNum(finalTotal),
               "RoomingList_JSON": JSON.stringify(generatedRoomingList)
             });
             _context2.p = 18;
@@ -3194,6 +3289,135 @@ function App() {
       className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black"
     }, "\u20AC"))))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4"
+    }, function () {
+      var total = calculateTotal(formData);
+      var plan = normalizePaymentPlan(formData.PaymentPlan_JSON, total, formData);
+      var updatePlan = function updatePlan(nextPlan) {
+        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          PaymentPlan_JSON: JSON.stringify(normalizePaymentPlan(nextPlan, total, formData))
+        }));
+      };
+      var setQuickPercent = function setQuickPercent(percent) {
+        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          PaymentPlan_JSON: JSON.stringify(buildPaymentPlan(percent, total, formData))
+        }));
+      };
+      var updateRow = function updateRow(idx, field, value) {
+        var nextPlan = plan.length > 0 ? _toConsumableArray(plan) : buildPaymentPlan(30, total, formData);
+        nextPlan[idx] = _objectSpread(_objectSpread({}, nextPlan[idx]), {}, _defineProperty({}, field, value));
+        if (field === "amount") {
+          nextPlan[idx].manual = true;
+          nextPlan[idx].amount = cents(value).toFixed(2);
+          nextPlan[idx].percent = total > 0 ? cents(parseFloat(nextPlan[idx].amount) / total * 100) : 0;
+        }
+        if (field === "percent") {
+          nextPlan[idx].manual = false;
+          nextPlan[idx].percent = parseFloat(value) || 0;
+        }
+        updatePlan(nextPlan);
+      };
+      return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-col md:flex-row md:items-center justify-between gap-4"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-3"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-credit-card text-[10px]"
+      })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+        className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
+      }, "4.1 Condiciones de pago"))), /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-wrap gap-2"
+      }, [20, 30, 50, 100].map(function (percent) {
+        return /*#__PURE__*/React.createElement("button", {
+          key: percent,
+          type: "button",
+          onClick: function onClick() {
+            return setQuickPercent(percent);
+          },
+          className: "px-3 py-2 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-100 rounded-xl text-[9px] font-black transition-all"
+        }, percent, "%");
+      }))), plan.length === 0 ? /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          return setQuickPercent(30);
+        },
+        className: "w-full py-3 border border-dashed border-slate-200 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-300 hover:text-indigo-500 transition-all"
+      }, "Crear condiciones de pago") : /*#__PURE__*/React.createElement("div", {
+        className: "space-y-3"
+      }, plan.map(function (row, idx) {
+        return /*#__PURE__*/React.createElement("div", {
+          key: row.id || idx,
+          className: "grid grid-cols-1 md:grid-cols-[1.5fr_90px_120px_150px_1.2fr_80px] gap-2 items-end bg-slate-50 p-3 rounded-xl border border-slate-100"
+        }, /*#__PURE__*/React.createElement("div", {
+          className: "space-y-1"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "text-[8px] font-black text-slate-400 uppercase tracking-widest"
+        }, "Concepto"), /*#__PURE__*/React.createElement("input", {
+          type: "text",
+          value: row.label || "",
+          onChange: function onChange(e) {
+            return updateRow(idx, "label", e.target.value);
+          },
+          className: "w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400"
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "space-y-1"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "text-[8px] font-black text-slate-400 uppercase tracking-widest"
+        }, "%"), /*#__PURE__*/React.createElement("input", {
+          type: "number",
+          step: "0.01",
+          value: row.percent || 0,
+          onChange: function onChange(e) {
+            return updateRow(idx, "percent", e.target.value);
+          },
+          className: "w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-black text-slate-700 outline-none focus:border-indigo-400 text-right"
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "space-y-1"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "text-[8px] font-black text-slate-400 uppercase tracking-widest"
+        }, "Importe"), /*#__PURE__*/React.createElement("input", {
+          type: "number",
+          step: "0.01",
+          value: row.amount || 0,
+          onChange: function onChange(e) {
+            return updateRow(idx, "amount", e.target.value);
+          },
+          className: "w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-black text-slate-700 outline-none focus:border-indigo-400 text-right"
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "space-y-1"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "text-[8px] font-black text-slate-400 uppercase tracking-widest"
+        }, "Fecha l\xEDmite"), /*#__PURE__*/React.createElement("input", {
+          type: "date",
+          value: toInputDate(row.date),
+          onChange: function onChange(e) {
+            return updateRow(idx, "date", e.target.value);
+          },
+          className: "w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400"
+        })), /*#__PURE__*/React.createElement("div", {
+          className: "space-y-1"
+        }, /*#__PURE__*/React.createElement("label", {
+          className: "text-[8px] font-black text-slate-400 uppercase tracking-widest"
+        }, "Observaciones"), /*#__PURE__*/React.createElement("input", {
+          type: "text",
+          value: row.observations || "",
+          onChange: function onChange(e) {
+            return updateRow(idx, "observations", e.target.value);
+          },
+          className: "w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400"
+        })), /*#__PURE__*/React.createElement("label", {
+          className: "flex items-center justify-center gap-1.5 h-9 bg-white border border-slate-200 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-400"
+        }, /*#__PURE__*/React.createElement("input", {
+          type: "checkbox",
+          checked: !!row.manual,
+          onChange: function onChange(e) {
+            return updateRow(idx, "manual", e.target.checked);
+          }
+        }), "Manual"));
+      })));
+    }()), /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col md:flex-row md:items-center justify-between gap-4"
     }, /*#__PURE__*/React.createElement("div", {
@@ -3518,6 +3742,7 @@ function App() {
     var hotelKey = isCumbria ? 'cumbria' : 'guadiana';
     var modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
     var groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
+    var documentPaymentPlan = normalizePaymentPlan(g.PaymentPlan_JSON, calculatedTotal, g);
 
     // Lógica de Fallback Multinivel para Cláusulas
     var getEffectiveClauses = function getEffectiveClauses() {
@@ -4249,7 +4474,26 @@ function App() {
       className: "text-lg font-black text-indigo-700"
     }, formatNum(calculatedTotal), " \u20AC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-400 mt-2"
-    }, "Detalle de noches no configurado a\xFAn.")), /*#__PURE__*/React.createElement("div", {
+    }, "Detalle de noches no configurado a\xFAn.")), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "bg-slate-50 px-4 py-3 print:py-2 border-b border-slate-100"
+    }, /*#__PURE__*/React.createElement("h4", {
+      className: "text-[10px] print:text-[8px] font-black text-slate-500 uppercase tracking-widest"
+    }, "Condiciones de pago")), /*#__PURE__*/React.createElement("div", {
+      className: "divide-y divide-slate-100"
+    }, documentPaymentPlan.map(function (row, idx) {
+      return /*#__PURE__*/React.createElement("div", {
+        key: row.id || idx,
+        className: "grid grid-cols-[1fr_auto] gap-4 px-4 py-3 print:py-2 text-xs print:text-[9px]"
+      }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+        className: "font-bold text-slate-700"
+      }, formatNum(row.percent || 0), "% en concepto de ", row.label || "pago"), (row.date || row.observations) && /*#__PURE__*/React.createElement("p", {
+        className: "text-[10px] print:text-[8px] text-slate-400 font-bold mt-0.5"
+      }, row.date ? "Fecha l\xEDmite: ".concat(formatDate(row.date)) : "", row.date && row.observations ? " · " : "", row.observations || "")), /*#__PURE__*/React.createElement("div", {
+        className: "font-black text-slate-900 tabular-nums whitespace-nowrap"
+      }, formatNum(row.amount || 0), " \u20AC"));
+    }))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100"

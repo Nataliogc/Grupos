@@ -710,6 +710,93 @@
       return total > 0 ? total : 0;
     };
 
+    const parsePaymentPlan = (value) => {
+      if (Array.isArray(value)) return value;
+      try {
+        return JSON.parse(value || "[]");
+      } catch (e) {
+        return [];
+      }
+    };
+
+    const cents = (value) => Math.round((parseFloat(value) || 0) * 100) / 100;
+
+    const getPaymentLimitDate = (groupData, days = 7) => {
+      const entry = toInputDate(groupData.Entrada);
+      if (!entry) return "";
+      const date = new Date(entry);
+      if (isNaN(date.getTime())) return "";
+      date.setDate(date.getDate() - days);
+      return date.toISOString().split("T")[0];
+    };
+
+    const buildPaymentPlan = (percent, total, groupData) => {
+      const advancePercent = Math.max(0, Math.min(100, parseFloat(percent) || 0));
+      const advanceAmount = cents(total * (advancePercent / 100));
+      const remainingAmount = cents(total - advanceAmount);
+      return [
+        {
+          id: Date.now(),
+          label: "Anticipo / depósito para confirmar la reserva",
+          percent: advancePercent,
+          amount: advanceAmount.toFixed(2),
+          date: new Date().toISOString().split("T")[0],
+          status: "Pendiente",
+          releaseDays: 0,
+          observations: "",
+          manual: false
+        },
+        {
+          id: Date.now() + 1,
+          label: "Resto pendiente",
+          percent: total > 0 ? cents((remainingAmount / total) * 100) : 0,
+          amount: remainingAmount.toFixed(2),
+          date: getPaymentLimitDate(groupData, 7),
+          status: "Pendiente",
+          releaseDays: 7,
+          observations: "Antes de la llegada",
+          manual: false
+        }
+      ];
+    };
+
+    const normalizePaymentPlan = (plan, total, groupData) => {
+      const rows = parsePaymentPlan(plan).slice(0, 2);
+      if (rows.length === 0) return [];
+      const baseRows = rows.length === 1
+        ? [...rows, { label: "Resto pendiente", percent: 0, amount: 0, date: getPaymentLimitDate(groupData, 7), status: "Pendiente", releaseDays: 7, observations: "" }]
+        : rows;
+      const [advanceSource, remainingSource] = baseRows;
+      const advance = { ...advanceSource, label: advanceSource.label || "Anticipo / depósito para confirmar la reserva" };
+      const remaining = { ...remainingSource, label: remainingSource.label || "Resto pendiente" };
+
+      if (advance.manual && !remaining.manual) {
+        advance.amount = cents(advance.amount).toFixed(2);
+        advance.percent = total > 0 ? cents((parseFloat(advance.amount) / total) * 100) : 0;
+        remaining.amount = cents(total - parseFloat(advance.amount)).toFixed(2);
+        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
+      } else if (remaining.manual && !advance.manual) {
+        remaining.amount = cents(remaining.amount).toFixed(2);
+        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
+        advance.amount = cents(total - parseFloat(remaining.amount)).toFixed(2);
+        advance.percent = total > 0 ? cents((parseFloat(advance.amount) / total) * 100) : 0;
+      } else {
+        const advancePercent = Math.max(0, Math.min(100, parseFloat(advance.percent) || 0));
+        advance.percent = advancePercent;
+        advance.amount = cents(total * (advancePercent / 100)).toFixed(2);
+        remaining.amount = cents(total - parseFloat(advance.amount)).toFixed(2);
+        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
+      }
+
+      const diff = cents(total - (parseFloat(advance.amount) || 0) - (parseFloat(remaining.amount) || 0));
+      if (Math.abs(diff) >= 0.01) {
+        remaining.amount = cents((parseFloat(remaining.amount) || 0) + diff).toFixed(2);
+        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
+      }
+
+      return [advance, remaining];
+    };
+
     function App() {
       const [groups, setGroups] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -1196,6 +1283,10 @@
         const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
         const normalizedFormData = normalizeGroupData(formData);
+        const finalTotal = calculateTotal(normalizedFormData);
+        normalizedFormData.PaymentPlan_JSON = JSON.stringify(
+          normalizePaymentPlan(normalizedFormData.PaymentPlan_JSON, finalTotal, normalizedFormData)
+        );
 
         // Validation: Mandatory Hotel
         const hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
@@ -1301,7 +1392,7 @@
           "Com_Vencimiento_Rel": releaseDate,
           "Segment.": normalizedFormData["Segment."] || "GRUPOS",
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          "Importe(*)": formatNum(calculateTotal(normalizedFormData)),
+          "Importe(*)": formatNum(finalTotal),
           "RoomingList_JSON": JSON.stringify(generatedRoomingList)
         };
 
@@ -2644,6 +2735,93 @@ ${emailContent}`;
                 </div>
               </div>
 
+              {/* Bloque 4.1: Condiciones de pago */}
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4">
+                {(() => {
+                  const total = calculateTotal(formData);
+                  const plan = normalizePaymentPlan(formData.PaymentPlan_JSON, total, formData);
+                  const updatePlan = (nextPlan) => {
+                    setFormData({ ...formData, PaymentPlan_JSON: JSON.stringify(normalizePaymentPlan(nextPlan, total, formData)) });
+                  };
+                  const setQuickPercent = (percent) => {
+                    setFormData({ ...formData, PaymentPlan_JSON: JSON.stringify(buildPaymentPlan(percent, total, formData)) });
+                  };
+                  const updateRow = (idx, field, value) => {
+                    const nextPlan = plan.length > 0 ? [...plan] : buildPaymentPlan(30, total, formData);
+                    nextPlan[idx] = { ...nextPlan[idx], [field]: value };
+                    if (field === "amount") {
+                      nextPlan[idx].manual = true;
+                      nextPlan[idx].amount = cents(value).toFixed(2);
+                      nextPlan[idx].percent = total > 0 ? cents((parseFloat(nextPlan[idx].amount) / total) * 100) : 0;
+                    }
+                    if (field === "percent") {
+                      nextPlan[idx].manual = false;
+                      nextPlan[idx].percent = parseFloat(value) || 0;
+                    }
+                    updatePlan(nextPlan);
+                  };
+
+                  return (
+                    <>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                            <i className="fas fa-credit-card text-[10px]"></i>
+                          </div>
+                          <div>
+                            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4.1 Condiciones de pago</h3>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {[20, 30, 50, 100].map(percent => (
+                            <button key={percent} type="button" onClick={() => setQuickPercent(percent)} className="px-3 py-2 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-100 rounded-xl text-[9px] font-black transition-all">
+                              {percent}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {plan.length === 0 ? (
+                        <button type="button" onClick={() => setQuickPercent(30)} className="w-full py-3 border border-dashed border-slate-200 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-300 hover:text-indigo-500 transition-all">
+                          Crear condiciones de pago
+                        </button>
+                      ) : (
+                        <div className="space-y-3">
+                          {plan.map((row, idx) => (
+                            <div key={row.id || idx} className="grid grid-cols-1 md:grid-cols-[1.5fr_90px_120px_150px_1.2fr_80px] gap-2 items-end bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Concepto</label>
+                                <input type="text" value={row.label || ""} onChange={e => updateRow(idx, "label", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">%</label>
+                                <input type="number" step="0.01" value={row.percent || 0} onChange={e => updateRow(idx, "percent", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-black text-slate-700 outline-none focus:border-indigo-400 text-right" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Importe</label>
+                                <input type="number" step="0.01" value={row.amount || 0} onChange={e => updateRow(idx, "amount", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-black text-slate-700 outline-none focus:border-indigo-400 text-right" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Fecha límite</label>
+                                <input type="date" value={toInputDate(row.date)} onChange={e => updateRow(idx, "date", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400" />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Observaciones</label>
+                                <input type="text" value={row.observations || ""} onChange={e => updateRow(idx, "observations", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400" />
+                              </div>
+                              <label className="flex items-center justify-center gap-1.5 h-9 bg-white border border-slate-200 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-400">
+                                <input type="checkbox" checked={!!row.manual} onChange={e => updateRow(idx, "manual", e.target.checked)} />
+                                Manual
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
               {/* Bloque 4.5: Otros Cargos / Extras */}
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2949,6 +3127,7 @@ ${emailContent}`;
         const hotelKey = isCumbria ? 'cumbria' : 'guadiana';
         const modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
         const groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
+        const documentPaymentPlan = normalizePaymentPlan(g.PaymentPlan_JSON, calculatedTotal, g);
 
         // Lógica de Fallback Multinivel para Cláusulas
         const getEffectiveClauses = () => {
@@ -3595,6 +3774,31 @@ ${emailContent}`;
                         <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-200">
                           <p className="text-lg font-black text-indigo-700">{formatNum(calculatedTotal)} € (Total Estimado)</p>
                           <p className="text-xs text-slate-400 mt-2">Detalle de noches no configurado aún.</p>
+                        </div>
+                      )}
+
+                      {documentPaymentPlan.length > 0 && (
+                        <div className="rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible">
+                          <div className="bg-slate-50 px-4 py-3 print:py-2 border-b border-slate-100">
+                            <h4 className="text-[10px] print:text-[8px] font-black text-slate-500 uppercase tracking-widest">Condiciones de pago</h4>
+                          </div>
+                          <div className="divide-y divide-slate-100">
+                            {documentPaymentPlan.map((row, idx) => (
+                              <div key={row.id || idx} className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 print:py-2 text-xs print:text-[9px]">
+                                <div>
+                                  <p className="font-bold text-slate-700">
+                                    {formatNum(row.percent || 0)}% en concepto de {row.label || "pago"}
+                                  </p>
+                                  {(row.date || row.observations) && (
+                                    <p className="text-[10px] print:text-[8px] text-slate-400 font-bold mt-0.5">
+                                      {row.date ? `Fecha límite: ${formatDate(row.date)}` : ""}{row.date && row.observations ? " · " : ""}{row.observations || ""}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="font-black text-slate-900 tabular-nums whitespace-nowrap">{formatNum(row.amount || 0)} €</div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
 

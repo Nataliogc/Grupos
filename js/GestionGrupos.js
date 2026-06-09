@@ -1380,11 +1380,16 @@ var App = function App() {
     paymentPlan,
     netTotal,
     arrivalDate,
+    options,
   ) {
     if (!paymentPlan || paymentPlan.length === 0) return paymentPlan || [];
     var planCopy = paymentPlan.map(function (p) {
       return _objectSpread({}, p);
-    }); // 1. Recalculate percent/amount for each row
+    });
+    var lockedIndex =
+      options && typeof options.lockedIndex === "number"
+        ? options.lockedIndex
+        : -1; // 1. Recalculate percent/amount for each row
     planCopy.forEach(function (p) {
       if (p.status === "Cobrado") {
         var amount = parseFloat(p.amount) || 0;
@@ -1404,8 +1409,9 @@ var App = function App() {
     if (Math.abs(diff) > 0.001) {
       var targetRow = _toConsumableArray(planCopy)
         .reverse()
-        .find(function (p) {
-          return p.status !== "Cobrado";
+        .find(function (p, idxFromEnd) {
+          var idx = planCopy.length - 1 - idxFromEnd;
+          return p.status !== "Cobrado" && idx !== lockedIndex;
         });
       if (targetRow) {
         var currentAmt = parseFloat(targetRow.amount) || 0;
@@ -1439,7 +1445,10 @@ var App = function App() {
         }
         planCopy.push({
           id: Date.now() + Math.random(),
-          label: "Pago ".concat(planCopy.length + 1),
+          label:
+            planCopy.length === 1
+              ? "Pago Final"
+              : "Pago ".concat(planCopy.length + 1),
           percent: parseFloat(((diff / netTotal) * 100).toFixed(2)),
           amount: diff.toFixed(2),
           date: dateStr,
@@ -11849,6 +11858,12 @@ var App = function App() {
                                 newPlan,
                                 hotelTotal,
                                 arrivalDate,
+                                {
+                                  lockedIndex:
+                                    field === "percent" || field === "amount"
+                                      ? idx
+                                      : -1,
+                                },
                               );
                               updatePaymentPlan(
                                 selectedGroupFicha.id,
