@@ -2946,6 +2946,43 @@
             return acc + (Number.isFinite(total) ? total : 0);
           }, 0);
 
+        const parseRoomingAmount = (value) => {
+          const num = Number(String(value || 0).replace(",", "."));
+          return Number.isFinite(num) ? num : 0;
+        };
+
+        const isSummaryBudgetLine = (item, budgetTotal) => {
+          const concept = String(
+            item.concept ||
+            item.concepto ||
+            item.description ||
+            item.descripcion ||
+            item.name ||
+            item.type ||
+            item.regime ||
+            ""
+          ).trim().toLowerCase();
+          const qty = Number(item.qty || item.quantity || item.cantidad || item.rooms || 0);
+          const price = parseRoomingAmount(item.price || item.unitPrice || item.precio || item.Precio);
+          const total = parseRoomingAmount(item.total || item.lineTotal || item.importe || item.Total);
+          const normalizedBudgetTotal = parseRoomingAmount(budgetTotal);
+          const looksLikeGenericConcept =
+            concept.includes("servicio general") ||
+            concept.includes("general service") ||
+            concept === "servicio" ||
+            concept === "service" ||
+            concept.includes("total") ||
+            concept.includes("presupuesto");
+          const amountMatchesBudget =
+            normalizedBudgetTotal > 0 &&
+            (Math.abs(price - normalizedBudgetTotal) < 0.01 || Math.abs(total - normalizedBudgetTotal) < 0.01);
+
+          return looksLikeGenericConcept && qty === 1 && amountMatchesBudget;
+        };
+
+        const budgetTotalForLineFilter = group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"];
+        const removedSummaryLines = [];
+
         records.forEach((r) => {
 
           try {
@@ -2955,6 +2992,11 @@
             list.forEach((item) => {
 
               rawRoomingLines.push(item);
+
+              if (isSummaryBudgetLine(item, budgetTotalForLineFilter)) {
+                removedSummaryLines.push(item);
+                return;
+              }
 
               const lineKey = buildRoomingLineKey(item);
 
@@ -3037,6 +3079,18 @@
               pax > 0
 
             ) {
+              const candidateServiceLine = {
+                type: r["Régimen"] || "Servicio General",
+                qty: 1,
+                price: imp,
+                total: imp,
+                dateIn: r["Entrada"],
+              };
+
+              if (isSummaryBudgetLine(candidateServiceLine, budgetTotalForLineFilter)) {
+                removedSummaryLines.push(candidateServiceLine);
+                return;
+              }
 
               // Evitar duplicados si ya de casualidad estaba en el JSON (aunque este check es para cuando el JSON es pobre)
 
@@ -3084,6 +3138,11 @@
 
           });
 
+        }
+
+        if ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && removedSummaryLines.length > 0) {
+          console.log("[BUDGET_TO_GROUP] removedSummaryLines", removedSummaryLines);
+          console.log("[BUDGET_TO_GROUP] cleanChargeLines", roomList);
         }
 
 

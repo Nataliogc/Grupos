@@ -2800,11 +2800,52 @@ var App = function App() {
         return acc + (Number.isFinite(total) ? total : 0);
       }, 0);
     };
+    var parseRoomingAmount = function parseRoomingAmount(value) {
+      var num = Number(String(value || 0).replace(",", "."));
+      return Number.isFinite(num) ? num : 0;
+    };
+    var isSummaryBudgetLine = function isSummaryBudgetLine(item, budgetTotal) {
+      var concept = String(
+        item.concept ||
+          item.concepto ||
+          item.description ||
+          item.descripcion ||
+          item.name ||
+          item.type ||
+          item.regime ||
+          "",
+      )
+        .trim()
+        .toLowerCase();
+      var qty = Number(item.qty || item.quantity || item.cantidad || item.rooms || 0);
+      var price = parseRoomingAmount(item.price || item.unitPrice || item.precio || item.Precio);
+      var total = parseRoomingAmount(item.total || item.lineTotal || item.importe || item.Total);
+      var normalizedBudgetTotal = parseRoomingAmount(budgetTotal);
+      var looksLikeGenericConcept =
+        concept.includes("servicio general") ||
+        concept.includes("general service") ||
+        concept === "servicio" ||
+        concept === "service" ||
+        concept.includes("total") ||
+        concept.includes("presupuesto");
+      var amountMatchesBudget =
+        normalizedBudgetTotal > 0 &&
+        (Math.abs(price - normalizedBudgetTotal) < 0.01 ||
+          Math.abs(total - normalizedBudgetTotal) < 0.01);
+      return looksLikeGenericConcept && qty === 1 && amountMatchesBudget;
+    };
+    var budgetTotalForLineFilter =
+      group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"];
+    var removedSummaryLines = [];
     records.forEach(function (r) {
       try {
         var list = JSON.parse(r["RoomingList_JSON"] || "[]");
         list.forEach(function (item) {
           rawRoomingLines.push(item);
+          if (isSummaryBudgetLine(item, budgetTotalForLineFilter)) {
+            removedSummaryLines.push(item);
+            return;
+          }
           var lineKey = buildRoomingLineKey(item);
           if (!processedLineKeys.has(lineKey)) {
             processedLineKeys.add(lineKey);
@@ -2869,6 +2910,17 @@ var App = function App() {
             (imp > 0 && (!r["Noches"] || r["Noches"] == "0"))) &&
           pax > 0
         ) {
+          var candidateServiceLine = {
+            type: r["Régimen"] || "Servicio General",
+            qty: 1,
+            price: imp,
+            total: imp,
+            dateIn: r["Entrada"],
+          };
+          if (isSummaryBudgetLine(candidateServiceLine, budgetTotalForLineFilter)) {
+            removedSummaryLines.push(candidateServiceLine);
+            return;
+          }
           // Evitar duplicados si ya de casualidad estaba en el JSON (aunque este check es para cuando el JSON es pobre)
           var concepto = ""
             .concat(r["Régimen"] || "Servicio", " ")
@@ -2894,6 +2946,14 @@ var App = function App() {
           }
         }
       });
+    }
+    if (
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1") &&
+      removedSummaryLines.length > 0
+    ) {
+      console.log("[BUDGET_TO_GROUP] removedSummaryLines", removedSummaryLines);
+      console.log("[BUDGET_TO_GROUP] cleanChargeLines", roomList);
     } // Resumen de habitaciones para el box de Ocupante
     var summaryParts = [];
     var typeCounts = {};
