@@ -1704,7 +1704,7 @@
 
             }
 
-            if (filterDirHotel === "Cumbria") {
+            if (filterDirHotel === "Cumbria" || filterDirHotel === "Cumbria Spa&Hotel") {
 
               return raw.includes("cumb");
 
