@@ -213,27 +213,46 @@
                 <button onclick="editDepartmentSummary()" class="text-[9px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-2 py-1 rounded uppercase tracking-wider">Editar resumen</button>
                 <button onclick="saveDepartmentSummaryManual()" class="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-black px-2 py-1 rounded uppercase tracking-wider">Guardar resumen</button>
                 <button onclick="cancelDepartmentSummaryEdit()" class="text-[9px] bg-slate-50 hover:bg-slate-100 text-slate-500 font-black px-2 py-1 rounded uppercase tracking-wider">Cancelar</button>
+                <button onclick="showAllDepartmentBoxes()" class="text-[9px] bg-slate-50 hover:bg-slate-100 text-slate-500 font-black px-2 py-1 rounded uppercase tracking-wider">Mostrar todos</button>
                 <button onclick="regenerateDepartmentSummary()" class="text-[9px] bg-amber-50 hover:bg-amber-100 text-amber-700 font-black px-2 py-1 rounded uppercase tracking-wider">Regenerar automático</button>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-2 pb-10 dept-grid">
             <!-- RECEPCIÓN -->
-            <div class="dept-box">
-                <div class="dept-title text-indigo-700">Recepción</div>
+            <div class="dept-box" data-dept-box="reception">
+                <div class="dept-title text-indigo-700 flex justify-between items-center gap-2">
+                    <span>Recepción</span>
+                    <span class="no-print flex gap-1">
+                        <button onclick="toggleDepartmentWide('reception')" class="text-[8px] text-slate-400 hover:text-indigo-600 uppercase">Ancho</button>
+                        <button onclick="toggleDepartmentHidden('reception')" class="text-[8px] text-slate-400 hover:text-rose-600 uppercase">Ocultar</button>
+                    </span>
+                </div>
                 <div id="dept-recepcion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="markDepartmentSummaryManual('reception'); triggerSave()">
                     <!-- Auto-filled summary -->
                 </div>
             </div>
             <!-- COCINA / RESTAURANTE -->
-            <div class="dept-box">
-                <div class="dept-title text-emerald-700">Restaurante / Cocina</div>
+            <div class="dept-box" data-dept-box="kitchen">
+                <div class="dept-title text-emerald-700 flex justify-between items-center gap-2">
+                    <span>Restaurante / Cocina</span>
+                    <span class="no-print flex gap-1">
+                        <button onclick="toggleDepartmentWide('kitchen')" class="text-[8px] text-slate-400 hover:text-emerald-600 uppercase">Ancho</button>
+                        <button onclick="toggleDepartmentHidden('kitchen')" class="text-[8px] text-slate-400 hover:text-rose-600 uppercase">Ocultar</button>
+                    </span>
+                </div>
                 <div id="dept-restaurante" class="editable font-medium leading-relaxed" contenteditable="true" oninput="markDepartmentSummaryManual('kitchen'); triggerSave()">
                     <!-- Auto-filled summary -->
                 </div>
             </div>
             <!-- ADMINISTRACIÓN -->
-            <div class="dept-box">
-                <div class="dept-title text-amber-700">Administración</div>
+            <div class="dept-box" data-dept-box="admin">
+                <div class="dept-title text-amber-700 flex justify-between items-center gap-2">
+                    <span>Administración</span>
+                    <span class="no-print flex gap-1">
+                        <button onclick="toggleDepartmentWide('admin')" class="text-[8px] text-slate-400 hover:text-amber-600 uppercase">Ancho</button>
+                        <button onclick="toggleDepartmentHidden('admin')" class="text-[8px] text-slate-400 hover:text-rose-600 uppercase">Ocultar</button>
+                    </span>
+                </div>
                 <div id="dept-administracion" class="editable font-medium leading-relaxed" contenteditable="true" oninput="markDepartmentSummaryManual('admin'); triggerSave()">
                     <!-- Auto-filled summary -->
                 </div>
@@ -303,7 +322,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
+        const SERVICES_GENERATION_VERSION = 4;
         let departmentSummaryState = {};
+        let departmentSummaryLayout = {};
+        let lastRoomingSyncErrorMessage = '';
 
         function normalizeDepartmentSummary(value) {
             if (!value) return {};
@@ -353,6 +375,56 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     setDepartmentSummaryContent(key, entry.content);
                 }
             });
+            applyDepartmentSummaryLayout();
+        }
+
+        function applyDepartmentSummaryLayout() {
+            ['reception', 'kitchen', 'admin'].forEach(key => {
+                const box = document.querySelector(`[data-dept-box="${key}"]`);
+                if (!box) return;
+                const layout = departmentSummaryLayout[key] || {};
+                box.classList.toggle('hidden', !!layout.hidden);
+                box.classList.toggle('md:col-span-2', !!layout.wide && !layout.hidden);
+                box.classList.toggle('md:col-span-3', !!layout.full && !layout.hidden);
+            });
+        }
+
+        function updateDepartmentSummaryLayout(key, patch) {
+            departmentSummaryLayout[key] = {
+                ...(departmentSummaryLayout[key] || {}),
+                ...patch
+            };
+            applyDepartmentSummaryLayout();
+            captureDepartmentSummary(true);
+            saveStateToCache({ skipDepartmentSummarySync: true });
+            syncDepartmentSummaryToFirestore();
+        }
+
+        function toggleDepartmentHidden(key) {
+            const current = departmentSummaryLayout[key] || {};
+            updateDepartmentSummaryLayout(key, { hidden: !current.hidden });
+        }
+
+        function toggleDepartmentWide(key) {
+            const current = departmentSummaryLayout[key] || {};
+            updateDepartmentSummaryLayout(key, {
+                wide: !current.wide,
+                full: false,
+                hidden: false
+            });
+        }
+
+        function showAllDepartmentBoxes() {
+            ['reception', 'kitchen', 'admin'].forEach(key => {
+                departmentSummaryLayout[key] = {
+                    ...(departmentSummaryLayout[key] || {}),
+                    hidden: false
+                };
+            });
+            applyDepartmentSummaryLayout();
+            captureDepartmentSummary(true);
+            saveStateToCache({ skipDepartmentSummarySync: true });
+            syncDepartmentSummaryToFirestore();
         }
 
         function markDepartmentSummaryManual(key) {
@@ -403,7 +475,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         async function syncDepartmentSummaryToFirestore() {
             if (!window.db || !currentReservaId || currentReservaId === "unknown" || !hasDepartmentSummaryEntries()) return;
             try {
-                const payload = { departmentSummary: departmentSummaryState };
+                const payload = {
+                    departmentSummary: departmentSummaryState,
+                    departmentSummaryLayout: departmentSummaryLayout
+                };
                 if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
                     payload.departmentSummaryUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
                 } else {
@@ -415,7 +490,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 if (rawGroupData) {
                     const group = JSON.parse(rawGroupData);
                     const applyTo = (obj) => {
-                        if (obj) obj.departmentSummary = departmentSummaryState;
+                        if (obj) {
+                            obj.departmentSummary = departmentSummaryState;
+                            obj.departmentSummaryLayout = departmentSummaryLayout;
+                        }
                     };
                     if (Array.isArray(group)) {
                         applyTo(group.find(g => String(g.Reserva || g.id || g.reserva || '').trim() === currentReservaId));
@@ -571,6 +649,77 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             return Number.isFinite(parsed) ? parsed : 0;
         }
 
+        function getRoomLineType(item) {
+            return String(
+                item.type ||
+                item.roomType ||
+                item.product ||
+                item.producto ||
+                item.concept ||
+                item.concepto ||
+                item.Concepto ||
+                item["Producto"] ||
+                ''
+            ).trim();
+        }
+
+        function normalizeRoomTypeForMatch(value) {
+            return String(value || '')
+                .toUpperCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/HABITACION|ROOM|USO|STANDARD|ESTANDAR|\s+/g, '')
+                .trim();
+        }
+
+        function getRoomLinePrice(item) {
+            const candidates = [
+                item.price,
+                item.unitPrice,
+                item.unit_price,
+                item.precio,
+                item.Precio,
+                item.pUnit,
+                item.unit,
+                item["P. UNIT"],
+                item["P_UNIT"],
+                item["Precio Unitario"]
+            ];
+            for (const value of candidates) {
+                const parsed = parseMoney(value);
+                if (parsed > 0) return parsed;
+            }
+            const total = parseMoney(item.total || item.lineTotal || item.importe || item.Total || item.amount);
+            const nights = parseInt(item.nights || item.noches || item.Noches || 1, 10) || 1;
+            const qty = getRoomLineQuantity(item, 1);
+            const derived = total > 0 && nights > 0 && qty > 0 ? total / nights / qty : 0;
+            if (derived > 0) return derived;
+            return 0;
+        }
+
+        function getRoomLineIva(item, fallback = 10) {
+            const parsed = parseInt(item.iva || item.IVA || item.tax || item.vat || fallback, 10);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        }
+
+        function getRoomLineQuantity(item, fallback = 1) {
+            const candidates = [
+                item.qty,
+                item.quantity,
+                item.cantidad,
+                item.cant,
+                item.Cant,
+                item.CANT,
+                item.rooms,
+                item.units
+            ];
+            for (const value of candidates) {
+                const parsed = parseInt(String(value ?? '').replace(',', '.'), 10);
+                if (Number.isFinite(parsed) && parsed > 0) return parsed;
+            }
+            return fallback;
+        }
+
         function calculateRoomingNights(dateIn, dateOut) {
             const dIn = parseDate(dateIn);
             const dOut = parseDate(dateOut);
@@ -590,9 +739,9 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         function isSummaryBudgetLine(item, budgetTotal) {
-            const qty = parseInt(item.qty) || 1;
-            const total = parseFloat(item.total);
-            const price = parseFloat(item.price);
+            const qty = getRoomLineQuantity(item, 1);
+            const total = parseMoney(item.total || item.lineTotal || item.importe || item.Total);
+            const price = getRoomLinePrice(item);
             return !item.isService && qty === 1 && budgetTotal > 0 &&
                 (Math.abs(total - budgetTotal) < 0.01 || Math.abs(price - budgetTotal) < 0.01) &&
                 !item.ocupantes && !item.roomNo;
@@ -961,6 +1110,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 deptRestaurante: document.getElementById('dept-restaurante').innerHTML,
                 deptAdministracion: document.getElementById('dept-administracion').innerHTML,
                 departmentSummary: departmentSummaryState,
+                departmentSummaryLayout: departmentSummaryLayout,
+                servicesGenerationVersion: SERVICES_GENERATION_VERSION,
                 pendientes,
                 servicios,
                 rooming
@@ -993,18 +1144,20 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     originalList = JSON.parse(recData['RoomingList_JSON'] || '[]');
                 } catch(e) {}
 
-                const budgetTotal = parseFloat(recData['Importe(*)'] || 0) || 0;
+                const budgetTotal = parseMoney(recData['Importe(*)'] || 0);
                 const originalRoomItems = originalList.filter(item => !item.isService && !isSummaryBudgetLine(item, budgetTotal));
                 const originalServiceItems = originalList.filter(item => item.isService === true);
 
                 // Build a map of type -> price, regime, iva from original room blocks as fallback
                 const blockDetails = {};
                 originalRoomItems.forEach(item => {
-                    const key = (item.type || 'Doble').toUpperCase();
+                    const key = normalizeRoomTypeForMatch(getRoomLineType(item) || 'Doble');
+                    const price = getRoomLinePrice(item);
+                    if (!key || price <= 0) return;
                     blockDetails[key] = {
-                        price: parseFloat(item.price) || 0,
+                        price: price,
                         regime: item.regime || '',
-                        iva: item.iva || 10
+                        iva: getRoomLineIva(item, 10)
                     };
                 });
 
@@ -1015,10 +1168,11 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         match = originalRoomItems.find(item => String(row.id).startsWith(String(item.id) + '_'));
                     }
                     if (!match) {
-                        match = originalRoomItems.find(item => String(item.type).toLowerCase() === String(row.tipo).toLowerCase());
+                        const rowTypeForMatch = normalizeRoomTypeForMatch(row.tipo);
+                        match = originalRoomItems.find(item => normalizeRoomTypeForMatch(getRoomLineType(item)) === rowTypeForMatch);
                     }
 
-                    const typeKey = (row.tipo || 'Doble').toUpperCase();
+                    const typeKey = normalizeRoomTypeForMatch(row.tipo || 'Doble');
                     let matchFallback = blockDetails[typeKey] || null;
                     if (!matchFallback) {
                         const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
@@ -1027,8 +1181,9 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         }
                     }
 
-                    const price = match ? parseFloat(match.price) : (matchFallback ? matchFallback.price : NaN);
-                    const iva = match ? parseInt(match.iva) : (matchFallback ? matchFallback.iva : 10);
+                    const matchPrice = match ? getRoomLinePrice(match) : 0;
+                    const price = matchPrice > 0 ? matchPrice : (matchFallback ? matchFallback.price : NaN);
+                    const iva = match ? getRoomLineIva(match, matchFallback ? matchFallback.iva : 10) : (matchFallback ? matchFallback.iva : 10);
                     if (!Number.isFinite(price) || price <= 0) {
                         throw new Error(`No hay precio previo para "${row.tipo || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
                     }
@@ -1097,6 +1252,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     updatedObj.updatedAt = new Date();
                 }
                 await docRef.set(updatedObj, { merge: true });
+                lastRoomingSyncErrorMessage = '';
 
                 // Synchronize localStorage.selectedGroup
                 const rawGroupData = localStorage.getItem('selectedGroup');
@@ -1141,7 +1297,14 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 }
             } catch (err) {
                 console.error("Error syncing rooming list to Firestore:", err);
-                alert('No se pudo actualizar la ficha económica desde el rooming: ' + err.message);
+                if (String(err.message || '').includes('No hay precio previo')) {
+                    console.warn("[ROOMING] Sincronización económica omitida: falta precio previo. No se sobrescribe la ficha.", err);
+                    return;
+                }
+                if (err.message !== lastRoomingSyncErrorMessage) {
+                    lastRoomingSyncErrorMessage = err.message;
+                    alert('No se pudo actualizar la ficha económica desde el rooming: ' + err.message);
+                }
             } finally {
                 isSyncing = false;
             }
@@ -1312,22 +1475,24 @@ ${inputVal}`;
                 } catch(e) {}
 
                 // Build a map of type -> price, regime, iva from original room blocks to preserve prices
-                const budgetTotal = parseFloat(recData['Importe(*)'] || 0) || 0;
+                const budgetTotal = parseMoney(recData['Importe(*)'] || 0);
                 const blockDetails = {};
                 originalList.forEach(item => {
                     if (!item.isService && !isSummaryBudgetLine(item, budgetTotal)) {
-                        const key = (item.type || 'Doble').toUpperCase();
+                        const key = normalizeRoomTypeForMatch(getRoomLineType(item) || 'Doble');
+                        const price = getRoomLinePrice(item);
+                        if (!key || price <= 0) return;
                         blockDetails[key] = {
-                            price: parseFloat(item.price) || 0,
+                            price: price,
                             regime: item.regime || '',
-                            iva: item.iva || 10
+                            iva: getRoomLineIva(item, 10)
                         };
                     }
                 });
 
                 // Generate new list of detailed rooms
                 const newList = parsedList.map(item => {
-                    const typeKey = (item.type || 'Doble').toUpperCase();
+                    const typeKey = normalizeRoomTypeForMatch(item.type || 'Doble');
                     let match = null;
                     if (blockDetails[typeKey]) {
                         match = blockDetails[typeKey];
@@ -1509,17 +1674,48 @@ ${inputVal}`;
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const rawGroupData = localStorage.getItem('selectedGroup');
-            if (!rawGroupData) {
+            const params = new URLSearchParams(window.location.search || '');
+            const reservaFromUrl = String(params.get('reserva') || params.get('id') || '').trim();
+            const reservaFromStorage = String(localStorage.getItem('nexus_open_ficha') || localStorage.getItem('nexus_return_reserva') || '').trim();
+            let rawGroupData = localStorage.getItem('selectedGroup');
+            let group = null;
+
+            if (rawGroupData) {
+                try {
+                    group = JSON.parse(rawGroupData);
+                } catch (e) {
+                    group = null;
+                }
+            }
+
+            if (!group && window.db && (reservaFromUrl || reservaFromStorage)) {
+                const fallbackReserva = (reservaFromUrl || reservaFromStorage).replace(/\.0$/, "");
+                try {
+                    const docSnap = await window.db.collection("groups").doc(fallbackReserva).get();
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        group = {
+                            ...data,
+                            id: fallbackReserva,
+                            records: [{ ...data, Reserva: data.Reserva || fallbackReserva }]
+                        };
+                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    }
+                } catch (e) {
+                    console.error("Error recovering selected group for Rooming y Servicios:", e);
+                }
+            }
+
+            if (!group) {
                 document.getElementById('document-area').innerHTML = `
                     <div class="p-12 text-center text-red-500 font-bold">
-                        Error: No se ha seleccionado ningún grupo desde la pantalla de Gestión.
+                        Error: No se ha seleccionado ningún grupo desde la pantalla de Gestión.<br>
+                        <span class="text-slate-500 text-xs font-normal">Abre esta pantalla desde la ficha del grupo o usa Rooming-Servicios.html?reserva=XXXXX.</span>
                     </div>
                 `;
                 return;
             }
 
-            let group = JSON.parse(rawGroupData);
             let rec = group.records ? (group.records[0] || {}) : group;
             currentReservaId = String(rec['Reserva'] || group.id || group.reserva || 'unknown').trim();
 
@@ -1603,6 +1799,8 @@ ${inputVal}`;
             window.checkInDateRaw = checkInDate;
             window.checkOutDateRaw = checkOutDate;
             departmentSummaryState = normalizeDepartmentSummary(rec.departmentSummary || group.departmentSummary || {});
+            departmentSummaryLayout = normalizeDepartmentSummary(rec.departmentSummaryLayout || group.departmentSummaryLayout || {});
+            applyDepartmentSummaryLayout();
 
             const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
             let loadRoomingFromCache = false;
@@ -1619,7 +1817,10 @@ ${inputVal}`;
                         admin: { content: s.deptAdministracion || '', manualOverride: true, updatedAt: new Date().toISOString(), updatedBy: '' }
                     };
                 }
-                if (!s.restoreServices) {
+                if (s.departmentSummaryLayout) {
+                    departmentSummaryLayout = normalizeDepartmentSummary(s.departmentSummaryLayout);
+                }
+                if (!s.restoreServices && s.servicesGenerationVersion === SERVICES_GENERATION_VERSION) {
                     // LOAD FROM LOCAL STORAGE CACHE
                     document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
                     document.getElementById('gen-contacto').innerText = s.genContacto || '---';
@@ -1711,7 +1912,7 @@ ${inputVal}`;
                     canonicalType = 'Cuádruple';
                 }
 
-                const qty = isExpandedList ? 1 : (parseInt(item.qty) || 1);
+                const qty = isExpandedList ? 1 : getRoomLineQuantity(item, 1);
                 const paxVal = parseInt(item.pax) || (canonicalType === 'Individual' ? 1 : (canonicalType === 'Triple' ? 3 : (canonicalType === 'Cuádruple' ? 4 : 2)));
                 const itemDates = getDatesArray(item.dateIn, item.dateOut, item.nights);
 
@@ -1747,7 +1948,7 @@ ${inputVal}`;
                     if (rType.includes('ind') || rType.includes('dui') || rType.includes('uso individual')) {
                         canonicalType = 'Individual';
                     }
-                    const qty = isExpandedList ? 1 : (parseInt(item.qty) || 1);
+                    const qty = isExpandedList ? 1 : getRoomLineQuantity(item, 1);
                     const paxVal = parseInt(item.pax) || (canonicalType === 'Individual' ? 1 : 2);
                     totalRooms += qty;
                     maxDailyPax += (qty * paxVal);
@@ -1758,6 +1959,43 @@ ${inputVal}`;
             // Set final totalPax using daily peak
             const totalPax = maxDailyPax || parseInt(rec['Pax.'] || group.totalPax || 0);
             document.getElementById('gen-pax').innerText = totalPax;
+
+            const getServiceOccupancy = (serviceName, serviceDate) => {
+                const serviceDateObj = parseDate(serviceDate);
+                if (!serviceDateObj || isNaN(serviceDateObj.getTime())) {
+                    return { pax: totalPax, rooms: totalRooms };
+                }
+                const lookupDate = new Date(serviceDateObj);
+                if (String(serviceName || '').toLowerCase().includes('desayuno')) {
+                    lookupDate.setDate(lookupDate.getDate() - 1);
+                }
+                const key = getLocalDateString(lookupDate);
+                const dayData = dailyCounts[key];
+                if (!dayData) return { pax: totalPax, rooms: totalRooms };
+                return {
+                    pax: dayData.totalPax || totalPax,
+                    rooms: dayData.total || totalRooms
+                };
+            };
+
+            const refreshBreakfastServiceOccupancy = () => {
+                document.querySelectorAll('#table-servicios tbody tr').forEach(tr => {
+                    const cells = tr.querySelectorAll('td.editable');
+                    if (cells.length < 4) return;
+                    const serviceName = (cells[1].innerText || '').trim();
+                    if (!serviceName.toLowerCase().includes('desayuno')) return;
+                    const dateMatch = (cells[0].innerText || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+                    if (!dateMatch) return;
+                    let [, day, month, year] = dateMatch;
+                    year = parseInt(year, 10);
+                    if (year < 100) year += 2000;
+                    const serviceIso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const serviceOccupancy = getServiceOccupancy('Desayuno', serviceIso);
+                    if (serviceOccupancy.pax > 0) {
+                        cells[3].innerText = `${serviceOccupancy.pax} pax`;
+                    }
+                });
+            };
 
             let listToDisplay = [];
             let autoIdx = 1;
@@ -1799,7 +2037,7 @@ ${inputVal}`;
                 roomingList.forEach(item => {
                     if (item.isService) return;
                     const rType = item.type || 'Habitación Doble';
-                    const qty = parseInt(item.qty) || 1;
+                    const qty = getRoomLineQuantity(item, 1);
                     const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') ? 1 : 2);
                     const blockDateIn = item.dateIn || checkInDate;
                     const blockDateOut = item.dateOut || checkOutDate;
@@ -2012,12 +2250,13 @@ ${inputVal}`;
             
             if (dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime()) && dOut > dIn) {
                 const nights = Math.ceil((dOut - dIn) / (86400000));
+                const arrivalOccupancy = getServiceOccupancy('Llegada', checkInDate);
                 
                 addRowServicio(
                     formatD(checkInDate),
                     'Llegada / check-in',
                     'Entrada',
-                    `${totalPax} pax / ${totalRooms} hab.`,
+                    `${arrivalOccupancy.pax} pax / ${arrivalOccupancy.rooms} hab.`,
                     'Según llegada',
                     'Coordinar entrega de llaves. El grupo puede comer primero si llega antes del almuerzo.'
                 );
@@ -2026,6 +2265,7 @@ ${inputVal}`;
                 for (let i = 0; i < totalDays; i++) {
                     const cur = new Date(dIn);
                     cur.setDate(cur.getDate() + i);
+                    const targetIso = getLocalDateString(cur);
                     const targetLabel = formatD(cur);
                     const targetDM = extractDayMonth(targetLabel);
 
@@ -2105,22 +2345,26 @@ ${inputVal}`;
                         let serviceReg = 'MP';
                         if (s.name === 'Desayuno') serviceReg = 'AD';
                         else if (s.name === 'Almuerzo' && gRegimen.toUpperCase().includes('PC')) serviceReg = 'PC';
+                        const serviceOccupancy = getServiceOccupancy(s.name, targetIso);
                         
-                        addRowServicio(targetLabel, s.name, serviceReg, `${totalPax} pax`, serviceHour, serviceNote);
+                        addRowServicio(targetLabel, s.name, serviceReg, `${serviceOccupancy.pax} pax`, serviceHour, serviceNote);
                     });
                 }
+                const departureOccupancy = getServiceOccupancy('Salida', checkOutDate);
                 
                 addRowServicio(
                     formatD(checkOutDate),
                     'Salida / check-out',
                     'Salida',
-                    `${totalPax} pax / ${totalRooms} hab.`,
+                    `${departureOccupancy.pax} pax / ${departureOccupancy.rooms} hab.`,
                     '___:___ h',
                     'Revisar cargos extras pendientes en recepción antes del check-out.'
                 );
             } else {
                 addRowServicio('DÍA 1', 'Llegada / check-in', 'Entrada', `${totalPax} pax`, '---', 'Coordinar llegada.');
             }
+
+            refreshBreakfastServiceOccupancy();
 
             // Initialize window variables for Administration calculations
             window.admTotalRevenue = totalRevenue;

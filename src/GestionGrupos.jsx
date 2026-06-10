@@ -2909,6 +2909,11 @@
 
         });
 
+        // Evitar reutilizar una proforma antigua si el mapeo actual falla o descuadra.
+        delete proformaData["ProformaItems"];
+        delete proformaData["ProformaSourceTotal"];
+        delete proformaData["ProformaSourceRoomNights"];
+
 
 
         // Mapeo de ítems del Room Manager
@@ -2924,16 +2929,23 @@
           return String(value).trim().toLowerCase();
         };
 
-        const normalizeMoneyForRoomingKey = (value) => {
-          const num = Number(String(value ?? 0).replace(",", "."));
-          return Number.isFinite(num) ? num.toFixed(2) : "0.00";
+        const parseRoomingAmount = (value) => {
+          const normalized = String(value || 0)
+            .replace(/[^\d,.-]/g, "")
+            .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+            .replace(",", ".");
+          const num = Number(normalized);
+          return Number.isFinite(num) ? num : 0;
         };
+
+        const normalizeMoneyForRoomingKey = (value) => parseRoomingAmount(value).toFixed(2);
 
         const buildRoomingLineKey = (item) => [
           normalizeForRoomingKey(item.hotel || item.hotelName || item.Hotel),
-          normalizeForRoomingKey(item.type || item.roomType || item.concept || item.Concepto),
+          normalizeForRoomingKey(item.type || item.roomType || item.product || item.producto || item.concept || item.Concepto),
           normalizeForRoomingKey(item.date || item.fecha || item.serviceDate || item.stayDate || item.dateIn),
           normalizeForRoomingKey(item.dateOut || item.checkout || item.salida),
+          normalizeForRoomingKey(item.nights || item.noches || item.Noches),
           normalizeForRoomingKey(item.regime || item.reg || item.Regimen || item.REG),
           normalizeForRoomingKey(item.qty || item.quantity || item.cantidad || item.cant || item.Cant || item.CANT || item.rooms),
           normalizeMoneyForRoomingKey(item.price || item.unitPrice || item.precio || item.Precio),
@@ -2942,14 +2954,9 @@
 
         const sumRoomingLines = (lines) =>
           lines.reduce((acc, line) => {
-            const total = Number(String(line.total || line.lineTotal || line.importe || 0).replace(",", "."));
+            const total = parseRoomingAmount(line.total || line.lineTotal || line.importe || line.Total || 0);
             return acc + (Number.isFinite(total) ? total : 0);
           }, 0);
-
-        const parseRoomingAmount = (value) => {
-          const num = Number(String(value || 0).replace(",", "."));
-          return Number.isFinite(num) ? num : 0;
-        };
 
         const getRoomingQuantity = (line) => {
           const candidates = [
@@ -3367,11 +3374,15 @@
                 return acc + (qty * days);
               }, 0);
 
-              if (Math.abs(totalOriginal - totalProforma) > 0.01 || Math.abs(roomNightsFicha - roomNightsProforma) > 0.01) {
+              const expectedFichaTotal = parseRoomingAmount(group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"]);
+              const mismatchWithFicha = expectedFichaTotal > 0 && Math.abs(expectedFichaTotal - totalOriginal) > 0.01;
+
+              if (mismatchWithFicha || Math.abs(totalOriginal - totalProforma) > 0.01 || Math.abs(roomNightsFicha - roomNightsProforma) > 0.01) {
                 console.warn("[PROFORMA] Diferencia entre ficha y proforma", {
+                  expectedFichaTotal,
                   totalFicha: totalOriginal,
                   totalProforma,
-                  difference: totalOriginal - totalProforma,
+                  difference: expectedFichaTotal > 0 ? expectedFichaTotal - totalProforma : totalOriginal - totalProforma,
                   roomNightsFicha,
                   roomNightsProforma,
                   roomNightsDifference: roomNightsFicha - roomNightsProforma,
@@ -3393,6 +3404,11 @@
 
           console.error("Error mapping room list", e);
 
+        }
+
+        if (!proformaData["ProformaItems"] || proformaData["ProformaItems"].length === 0) {
+          alert("No se ha podido generar la proforma desde las líneas económicas reales de la ficha. No se usará una proforma anterior.");
+          return;
         }
 
 
@@ -14412,8 +14428,10 @@
                               onClick={() => {
 
                                 localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
+                                const roomingReserva = String(selectedGroupFicha.records?.[0]?.Reserva || selectedGroupFicha.id || "").trim();
+                                localStorage.setItem("nexus_open_ficha", roomingReserva);
 
-                                window.location.href = "Rooming-Servicios.html";
+                                window.location.href = `Rooming-Servicios.html?reserva=${encodeURIComponent(roomingReserva)}`;
 
                               }}
 

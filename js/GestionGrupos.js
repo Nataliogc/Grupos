@@ -2771,6 +2771,9 @@ var App = function App() {
     fiscalFields.forEach(function (f) {
       if (baseRecord[f]) proformaData[f] = baseRecord[f];
     }); // Mapeo de ítems del Room Manager
+    delete proformaData["ProformaItems"];
+    delete proformaData["ProformaSourceTotal"];
+    delete proformaData["ProformaSourceRoomNights"];
     var roomList = [];
     var rawRoomingLines = [];
     var processedLineKeys = new Set();
@@ -2778,16 +2781,24 @@ var App = function App() {
       if (value === null || value === undefined) return "";
       return String(value).trim().toLowerCase();
     };
+    var parseRoomingAmount = function parseRoomingAmount(value) {
+      var normalized = String(value || 0)
+        .replace(/[^\d,.-]/g, "")
+        .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+        .replace(",", ".");
+      var num = Number(normalized);
+      return Number.isFinite(num) ? num : 0;
+    };
     var normalizeMoneyForRoomingKey = function normalizeMoneyForRoomingKey(value) {
-      var num = Number(String(value !== null && value !== void 0 ? value : 0).replace(",", "."));
-      return Number.isFinite(num) ? num.toFixed(2) : "0.00";
+      return parseRoomingAmount(value).toFixed(2);
     };
     var buildRoomingLineKey = function buildRoomingLineKey(item) {
       return [
         normalizeForRoomingKey(item.hotel || item.hotelName || item.Hotel),
-        normalizeForRoomingKey(item.type || item.roomType || item.concept || item.Concepto),
+        normalizeForRoomingKey(item.type || item.roomType || item.product || item.producto || item.concept || item.Concepto),
         normalizeForRoomingKey(item.date || item.fecha || item.serviceDate || item.stayDate || item.dateIn),
         normalizeForRoomingKey(item.dateOut || item.checkout || item.salida),
+        normalizeForRoomingKey(item.nights || item.noches || item.Noches),
         normalizeForRoomingKey(item.regime || item.reg || item.Regimen || item.REG),
         normalizeForRoomingKey(
           item.qty ||
@@ -2804,13 +2815,9 @@ var App = function App() {
     };
     var sumRoomingLines = function sumRoomingLines(lines) {
       return lines.reduce(function (acc, line) {
-        var total = Number(String(line.total || line.lineTotal || line.importe || 0).replace(",", "."));
+        var total = parseRoomingAmount(line.total || line.lineTotal || line.importe || line.Total || 0);
         return acc + (Number.isFinite(total) ? total : 0);
       }, 0);
-    };
-    var parseRoomingAmount = function parseRoomingAmount(value) {
-      var num = Number(String(value || 0).replace(",", "."));
-      return Number.isFinite(num) ? num : 0;
     };
     var getRoomingQuantity = function getRoomingQuantity(line) {
       var candidates = [
@@ -3182,14 +3189,24 @@ var App = function App() {
             var days = parseRoomingAmount(item.dias) || 1;
             return acc + qty * days;
           }, 0);
+          var expectedFichaTotal = parseRoomingAmount(
+            group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"],
+          );
+          var mismatchWithFicha =
+            expectedFichaTotal > 0 && Math.abs(expectedFichaTotal - totalOriginal) > 0.01;
           if (
+            mismatchWithFicha ||
             Math.abs(totalOriginal - totalProforma) > 0.01 ||
             Math.abs(roomNightsFicha - roomNightsProforma) > 0.01
           ) {
             console.warn("[PROFORMA] Diferencia entre ficha y proforma", {
+              expectedFichaTotal: expectedFichaTotal,
               totalFicha: totalOriginal,
               totalProforma: totalProforma,
-              difference: totalOriginal - totalProforma,
+              difference:
+                expectedFichaTotal > 0
+                  ? expectedFichaTotal - totalProforma
+                  : totalOriginal - totalProforma,
               roomNightsFicha: roomNightsFicha,
               roomNightsProforma: roomNightsProforma,
               roomNightsDifference: roomNightsFicha - roomNightsProforma,
@@ -3207,6 +3224,12 @@ var App = function App() {
       }
     } catch (e) {
       console.error("Error mapping room list", e);
+    }
+    if (!proformaData["ProformaItems"] || proformaData["ProformaItems"].length === 0) {
+      alert(
+        "No se ha podido generar la proforma desde las líneas económicas reales de la ficha. No se usará una proforma anterior.",
+      );
+      return;
     }
     safeStorage.setItem("selectedGroup", JSON.stringify(proformaData));
     var itemsToPass = proformaData["ProformaItems"] || [];
@@ -13019,7 +13042,17 @@ var App = function App() {
                             "selectedGroup",
                             JSON.stringify(selectedGroupFicha),
                           );
-                          window.location.href = "Rooming-Servicios.html";
+                          var roomingReserva = String(
+                            ((selectedGroupFicha.records &&
+                              selectedGroupFicha.records[0] &&
+                              selectedGroupFicha.records[0].Reserva) ||
+                              selectedGroupFicha.id ||
+                              ""),
+                          ).trim();
+                          localStorage.setItem("nexus_open_ficha", roomingReserva);
+                          window.location.href = "Rooming-Servicios.html?reserva=".concat(
+                            encodeURIComponent(roomingReserva),
+                          );
                         },
                         className:
                           "px-6 h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-indigo-200/50",
