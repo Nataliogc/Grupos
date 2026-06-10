@@ -2935,7 +2935,7 @@
           normalizeForRoomingKey(item.date || item.fecha || item.serviceDate || item.stayDate || item.dateIn),
           normalizeForRoomingKey(item.dateOut || item.checkout || item.salida),
           normalizeForRoomingKey(item.regime || item.reg || item.Regimen || item.REG),
-          normalizeForRoomingKey(item.qty || item.quantity || item.cantidad || item.rooms),
+          normalizeForRoomingKey(item.qty || item.quantity || item.cantidad || item.cant || item.Cant || item.CANT || item.rooms),
           normalizeMoneyForRoomingKey(item.price || item.unitPrice || item.precio || item.Precio),
           normalizeMoneyForRoomingKey(item.total || item.lineTotal || item.importe || item.Total),
         ].join("|");
@@ -2956,6 +2956,9 @@
             line.qty,
             line.quantity,
             line.cantidad,
+            line.cant,
+            line.Cant,
+            line.CANT,
             line.rooms,
             line.units,
             line.lineQuantity,

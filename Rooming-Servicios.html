@@ -391,8 +391,17 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             return departmentSummaryState;
         }
 
+        function hasDepartmentSummaryEntries() {
+            return Object.values(departmentSummaryState || {}).some(entry =>
+                entry &&
+                typeof entry === 'object' &&
+                typeof entry.content === 'string' &&
+                entry.content.trim() !== ''
+            );
+        }
+
         async function syncDepartmentSummaryToFirestore() {
-            if (!window.db || !currentReservaId || currentReservaId === "unknown") return;
+            if (!window.db || !currentReservaId || currentReservaId === "unknown" || !hasDepartmentSummaryEntries()) return;
             try {
                 const payload = { departmentSummary: departmentSummaryState };
                 if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
@@ -432,7 +441,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         async function saveDepartmentSummaryManual() {
             captureDepartmentSummary(true);
             await syncDepartmentSummaryToFirestore();
-            saveStateToCache();
+            saveStateToCache({ skipDepartmentSummarySync: true });
             alert("Resumen por departamento guardado.");
         }
 
@@ -449,7 +458,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             updateDepartmentSummaries(true);
             captureDepartmentSummary(false);
             await syncDepartmentSummaryToFirestore();
-            saveStateToCache();
+            saveStateToCache({ skipDepartmentSummarySync: true });
         }
 
         function buildValidLocalDate(y, m, d) {
@@ -887,7 +896,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             }
         }
 
-        function saveStateToCache() {
+        function saveStateToCache(options = {}) {
             if (currentReservaId === "unknown") return;
 
             // Dynamically update only non-manual summary boxes
@@ -958,7 +967,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             };
 
             localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
-            if (Object.values(departmentSummaryState || {}).some(entry => entry && entry.manualOverride)) {
+            if (!options.skipDepartmentSummarySync && Object.values(departmentSummaryState || {}).some(entry => entry && entry.manualOverride)) {
                 syncDepartmentSummaryToFirestore();
             }
             
