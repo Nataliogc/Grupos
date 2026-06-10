@@ -2918,7 +2918,36 @@ var App = function App() {
           }
         });
       } catch (e) {}
-    }); // MEJORA: Si la roomList está vacía o no tiene servicios, buscar servicios "huérfanos" en los records
+    });
+    var expectedRoomingTotal = parseRoomingAmount(budgetTotalForLineFilter);
+    var rawChargeLines = rawRoomingLines.filter(function (item) {
+      return !isSummaryBudgetLine(item, budgetTotalForLineFilter);
+    });
+    var rawChargeTotal = parseFloat(
+      rawChargeLines.reduce(function (acc, item) {
+        return acc + getRoomingLineTotal(item);
+      }, 0).toFixed(2),
+    );
+    var processedChargeTotal = parseFloat(
+      roomList.reduce(function (acc, item) {
+        return acc + getRoomingLineTotal(item);
+      }, 0).toFixed(2),
+    );
+    if (
+      expectedRoomingTotal > 0 &&
+      Math.abs(processedChargeTotal - expectedRoomingTotal) > 0.01 &&
+      rawChargeLines.length > 0 &&
+      Math.abs(rawChargeTotal - expectedRoomingTotal) <= 0.01
+    ) {
+      console.warn("[PROFORMA] Se usan líneas brutas de ficha porque el procesado descuadra", {
+        expectedRoomingTotal: expectedRoomingTotal,
+        processedChargeTotal: processedChargeTotal,
+        rawChargeTotal: rawChargeTotal,
+        processedLines: roomList,
+        rawChargeLines: rawChargeLines,
+      });
+      roomList = rawChargeLines;
+    } // MEJORA: Si la roomList está vacía o no tiene servicios, buscar servicios "huérfanos" en los records
     // que puedan venir de una importación de Excel (donde no hay JSON pero sí líneas de servicio)
     if (
       window.location.hostname === "localhost" ||
