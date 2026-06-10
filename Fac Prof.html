@@ -28,6 +28,31 @@
             .mt-auto { margin-top: auto !important; }
             
             body.print-proforma .page-container { height: auto !important; min-height: 0 !important; }
+            body.print-proforma .proforma-table th { padding-top: 2px !important; padding-bottom: 2px !important; font-size: 8px !important; }
+            body.print-proforma .proforma-table td { padding-top: 1.5px !important; padding-bottom: 1.5px !important; font-size: 9px !important; }
+            body.print-proforma #tpl-proforma + .mt-auto { margin-top: 6px !important; }
+            body.print-proforma #proforma-summary {
+                margin-top: 4px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            body.print-proforma #proforma-summary > div {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            body.print-proforma .proforma-total-box {
+                margin-top: 0 !important;
+                padding: 6px 12px !important;
+            }
+            body.print-proforma #proforma-summary table td {
+                padding-top: 3px !important;
+                padding-bottom: 3px !important;
+            }
+            body.print-proforma #proforma-bank-container {
+                margin-top: 4px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
             body.print-proforma #tpl-proforma .mb-6 { margin-bottom: 8px !important; }
             body.print-proforma #tpl-proforma .mb-4 { margin-bottom: 6px !important; }
             body.print-proforma #tpl-proforma .mb-4 { margin-bottom: 2px !important; }
@@ -2158,7 +2183,7 @@
                 let ivaRows = '';
                 if (base10 > 0) ivaRows += `<tr><td class="text-left px-3 py-1.5 text-slate-500">Base Imponible (10%)</td><td class="text-right px-3 py-1.5 tabular-nums">${formatNum(base10)}  EUR</td></tr><tr><td class="text-left px-3 py-1.5 text-slate-500">IVA (10%)</td><td class="text-right px-3 py-1.5 tabular-nums font-bold">${formatNum(iva10)}  EUR</td></tr>`;
                 if (base21 > 0) ivaRows += `<tr><td class="text-left px-3 py-1.5 text-slate-500">Base Imponible (21%)</td><td class="text-right px-3 py-1.5 tabular-nums">${formatNum(base21)}  EUR</td></tr><tr><td class="text-left px-3 py-1.5 text-slate-500">IVA (21%)</td><td class="text-right px-3 py-1.5 tabular-nums font-bold">${formatNum(iva21)}  EUR</td></tr>`;
-                if (pSummary) pSummary.innerHTML = `<div class="flex flex-col items-end gap-3 w-full"><div class="proforma-total-box w-[240px] shadow-lg"><span class="text-[9px] font-bold uppercase tracking-widest mr-4">Total:</span><span class="text-lg tabular-nums font-black">${formatNum(netTotal)}  EUR</span></div>${ivaRows ? `<table class="text-[9px] w-[300px] border-collapse border border-gray-200 rounded-lg overflow-hidden"><thead><tr class="bg-gray-50"><td colspan="2" class="text-[8px] font-black text-slate-400 uppercase tracking-widest px-3 py-2">Desglose Fiscal</td></tr></thead><tbody class="font-mono text-[9px]">${ivaRows}</tbody></table>` : ''}</div>`;
+                if (pSummary) pSummary.innerHTML = `<div class="flex flex-row justify-end items-start gap-3 w-full"><div class="proforma-total-box w-[240px] shadow-lg flex-shrink-0"><span class="text-[9px] font-bold uppercase tracking-widest mr-4">Total:</span><span class="text-lg tabular-nums font-black">${formatNum(netTotal)}  EUR</span></div>${ivaRows ? `<table class="text-[9px] w-[270px] border-collapse border border-gray-200 rounded-lg overflow-hidden flex-shrink-0"><thead><tr class="bg-gray-50"><td colspan="2" class="text-[8px] font-black text-slate-400 uppercase tracking-widest px-3 py-1.5">Desglose Fiscal</td></tr></thead><tbody class="font-mono text-[9px]">${ivaRows}</tbody></table>` : ''}</div>`;
                 
                 const showBank = sessionStorage.getItem('proforma_bank_hidden') !== '1';
                 if (pBank && showBank) {
