@@ -341,7 +341,7 @@
       const targetRooms = ROOM_TYPES[targetHotel] || ROOM_TYPES["Sercotel Guadiana"];
       const normalized = ROOM_MIGRATION_MAP[String(roomType || "").toLowerCase()] || String(roomType || "").toUpperCase();
       if (targetRooms.includes(normalized)) return normalized;
-      if (normalized === "CUÃDRUPLE" && targetRooms.includes("DOBLE + SUPLETORIA")) return "DOBLE + SUPLETORIA";
+      if ((normalized === "CUÃDRUPLE" || normalized === "CUÁDRUPLE") && targetRooms.includes("DOBLE + SUPLETORIA")) return "DOBLE + SUPLETORIA";
       if (targetRooms.includes("DOBLE")) return "DOBLE";
       return targetRooms[0] || normalized;
     };
@@ -1905,18 +1905,18 @@ ${emailContent}`;
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1280px] xl:min-w-full table-fixed">
                 <colgroup>
-                  <col className="w-[27%]" />
+                  <col className="w-[25%]" />
                   <col className="w-[9%]" />
                   <col className="w-[7%]" />
                   <col className="w-[9%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[14%]" />
                   <col className="w-[13%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[16%]" />
                 </colgroup>
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="w-[27%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Grupo / Hotel</th>
+                    <th className="w-[25%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Grupo / Hotel</th>
                     <th className="w-[9%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Límite 7d</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Importe</th>
