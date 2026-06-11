@@ -1783,17 +1783,27 @@ ${emailContent}`;
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[1100px]">
+              <table className="w-full text-left border-collapse min-w-[1280px] xl:min-w-full table-fixed">
+                <colgroup>
+                  <col className="w-[27%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[13%]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[320px]">Grupo / Hotel</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Límite 7d</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Importe</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Pax / Hab</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Gestión</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Estado</th>
-                    <th className="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+                    <th className="w-[27%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Grupo / Hotel</th>
+                    <th className="w-[9%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
+                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Límite 7d</th>
+                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Importe</th>
+                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Pax / Hab</th>
+                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Gestión</th>
+                    <th className="px-4 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Estado</th>
+                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -1831,7 +1841,7 @@ ${emailContent}`;
                     return (
                       <tr key={g.uid} className="hover:bg-slate-50/50 transition-colors group">
                         {/* Grupo / Hotel */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 overflow-hidden p-1 shadow-sm group-hover:scale-105 transition-transform">
                               <img
@@ -1866,7 +1876,7 @@ ${emailContent}`;
                         </td>
 
                         {/* Entrada */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div 
                             onClick={() => window.location.href = `Gestion-de-Grupos.html?reserva=${g.Reserva}`}
                             className="inline-flex flex-col cursor-pointer hover:bg-indigo-50 px-2 py-1 rounded-lg transition-all"
@@ -1877,7 +1887,7 @@ ${emailContent}`;
                         </td>
 
                         {/* Countdown 7d */}
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-4 py-4 text-center">
                           {(() => {
                             const created = g.createdAt?.seconds ? new Date(g.createdAt.seconds * 1000) : (g.createdAt ? new Date(g.createdAt) : null);
                             if (!created) return <span className="text-[10px] font-bold text-slate-300">N/A</span>;
@@ -1896,7 +1906,7 @@ ${emailContent}`;
                         </td>
 
                         {/* Importe */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex flex-col">
                             {g.isRatesOnly ? (
                               <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md uppercase tracking-widest w-fit">Solo Tarifas</span>
@@ -1915,7 +1925,7 @@ ${emailContent}`;
                         </td>
 
                         {/* Pax / Hab */}
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-4 py-4 text-center">
                           <div className="flex flex-col items-center gap-1">
                             <div className="flex items-center gap-1 text-slate-700">
                               <i className="fas fa-users text-[10px]"></i>
@@ -1934,7 +1944,7 @@ ${emailContent}`;
                         </td>
 
                         {/* Gestión */}
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 text-slate-400">
                               <i className="fas fa-building text-[9px] w-3 text-center"></i>
@@ -1952,15 +1962,15 @@ ${emailContent}`;
                         </td>
 
                         {/* Estado */}
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-4 py-4 text-center">
                           <div className="relative inline-flex items-center">
-                            <i className={`fas ${statusStyle.icon} pointer-events-none absolute left-3 text-[10px] text-current z-10`}></i>
+                            <i className={`fas ${statusStyle.icon} pointer-events-none absolute left-3 text-[9px] text-current z-10`}></i>
                             <select
                               value={(g.Com_Estado_Interno || g.Estado || '').toUpperCase()}
                               onChange={(e) => { e.stopPropagation(); updateStatus(g.uid, e.target.value); }}
                               onClick={(e) => e.stopPropagation()}
                               title="Cambiar estado"
-                              className={`${statusStyle.select} pl-8 pr-8 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border outline-none cursor-pointer transition-all block mx-auto min-w-[150px] appearance-none text-center shadow-md focus:ring-4`}
+                              className={`${statusStyle.select} pl-7 pr-6 py-1.5 rounded-full text-[8px] font-black uppercase tracking-wide border outline-none cursor-pointer transition-all block mx-auto w-[142px] appearance-none text-center shadow-md focus:ring-4`}
                             >
                               <option value="PRESUPUESTO">Presupuesto</option>
                               <option value="ENVIADO">Enviado</option>
@@ -1970,30 +1980,30 @@ ${emailContent}`;
                               <option value="DESESTIMADO">Desestimado</option>
                               <option value="CADUCADO">Caducado</option>
                             </select>
-                            <i className="fas fa-chevron-down pointer-events-none absolute right-3 text-[9px] text-current"></i>
+                            <i className="fas fa-chevron-down pointer-events-none absolute right-2.5 text-[8px] text-current"></i>
                           </div>
                         </td>
 
                         {/* Acciones */}
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <td className="px-4 py-4 text-right">
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={(e) => { e.stopPropagation(); updateStatus(g.uid, 'CONFIRMADO'); }}
-                              className="w-8 h-8 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all"
+                              className="w-7 h-7 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all"
                               title="Confirmar Grupo">
                               <i className="fas fa-check text-xs"></i>
                             </button>
                             <button onClick={() => { handleOpenDetail(normalizeGroupData(g)); }}
-                              className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
+                              className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
                               title="Ver Ficha">
                               <i className="fas fa-external-link-alt text-xs"></i>
                             </button>
                             <button onClick={(e) => { e.stopPropagation(); setFormData(normalizeGroupData(g)); setCurrentView('create'); }}
-                              className="w-8 h-8 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
+                              className="w-7 h-7 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
                               title="Editar">
                               <i className="fas fa-edit text-xs"></i>
                             </button>
                             <button onClick={(e) => { e.stopPropagation(); handleDelete(g.uid); }}
-                              className="w-8 h-8 bg-rose-50 text-rose-500 rounded-lg border border-rose-100 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all"
+                              className="w-7 h-7 bg-rose-50 text-rose-500 rounded-lg border border-rose-100 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all"
                               title="Eliminar">
                               <i className="fas fa-trash-alt text-xs"></i>
                             </button>

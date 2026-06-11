@@ -2198,25 +2198,41 @@ function App() {
     })))), /*#__PURE__*/React.createElement("div", {
       className: "overflow-x-auto"
     }, /*#__PURE__*/React.createElement("table", {
-      className: "w-full text-left border-collapse min-w-[1100px]"
-    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+      className: "w-full text-left border-collapse min-w-[1280px] xl:min-w-full table-fixed"
+    }, /*#__PURE__*/React.createElement("colgroup", null, /*#__PURE__*/React.createElement("col", {
+      className: "w-[27%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[9%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[7%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[9%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[7%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[14%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[14%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[13%]"
+    })), /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
       className: "bg-slate-50/50 border-b border-slate-100"
     }, /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[320px]"
+      className: "w-[27%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Grupo / Hotel"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+      className: "w-[9%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
+      className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
     }, "L\xEDmite 7d"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+      className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Importe"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
+      className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center"
     }, "Pax / Hab"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]"
+      className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Gesti\xF3n"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center"
+      className: "px-4 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center"
     }, "Estado"), /*#__PURE__*/React.createElement("th", {
-      className: "px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right"
+      className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right"
     }, "Acciones"))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-50"
     }, processedGroups.map(function (g) {
@@ -2258,7 +2274,7 @@ function App() {
         key: g.uid,
         className: "hover:bg-slate-50/50 transition-colors group"
       }, /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4"
+        className: "px-4 py-4"
       }, /*#__PURE__*/React.createElement("div", {
         className: "flex items-center gap-4"
       }, /*#__PURE__*/React.createElement("div", {
@@ -2287,7 +2303,7 @@ function App() {
       }))), /*#__PURE__*/React.createElement("p", {
         className: "text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 opacity-60"
       }, hotelName, " \u2022 ID: ", g.Reserva)))), /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4"
+        className: "px-4 py-4"
       }, /*#__PURE__*/React.createElement("div", {
         onClick: function onClick() {
           return window.location.href = "Gestion-de-Grupos.html?reserva=".concat(g.Reserva);
@@ -2298,7 +2314,7 @@ function App() {
       }, formatDate(g.Entrada)), /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
       }, "Click p/ Gesti\xF3n"))), /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4 text-center"
+        className: "px-4 py-4 text-center"
       }, function (_g$createdAt) {
         var created = (_g$createdAt = g.createdAt) !== null && _g$createdAt !== void 0 && _g$createdAt.seconds ? new Date(g.createdAt.seconds * 1000) : g.createdAt ? new Date(g.createdAt) : null;
         if (!created) return /*#__PURE__*/React.createElement("span", {
@@ -2315,7 +2331,7 @@ function App() {
           className: "text-[7px] font-bold uppercase tracking-tighter"
         }, "Restantes"));
       }()), /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4"
+        className: "px-4 py-4"
       }, /*#__PURE__*/React.createElement("div", {
         className: "flex flex-col"
       }, g.isRatesOnly ? /*#__PURE__*/React.createElement("span", {
@@ -2329,7 +2345,7 @@ function App() {
       }, "P: ", formatNum(totalPaid)), /*#__PURE__*/React.createElement("span", {
         className: "text-[8px] font-black text-rose-600 uppercase"
       }, "D: ", formatNum(pendingAmount)))))), /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4 text-center"
+        className: "px-4 py-4 text-center"
       }, /*#__PURE__*/React.createElement("div", {
         className: "flex flex-col items-center gap-1"
       }, /*#__PURE__*/React.createElement("div", {
@@ -2357,7 +2373,7 @@ function App() {
           className: "text-[10px] font-bold"
         }, roomsCountText);
       }()))), /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4"
+        className: "px-4 py-4"
       }, /*#__PURE__*/React.createElement("div", {
         className: "space-y-1"
       }, /*#__PURE__*/React.createElement("div", {
@@ -2374,11 +2390,11 @@ function App() {
         className: "text-[9px] font-bold uppercase truncate max-w-[150px]",
         title: "Comercial Asignado"
       }, g["Com_Comercial"] && g["Com_Comercial"].trim() !== "" ? g["Com_Comercial"] : "SIN ASIGNAR")))), /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4 text-center"
+        className: "px-4 py-4 text-center"
       }, /*#__PURE__*/React.createElement("div", {
         className: "relative inline-flex items-center"
       }, /*#__PURE__*/React.createElement("i", {
-        className: "fas ".concat(statusStyle.icon, " pointer-events-none absolute left-3 text-[10px] text-current z-10")
+        className: "fas ".concat(statusStyle.icon, " pointer-events-none absolute left-3 text-[9px] text-current z-10")
       }), /*#__PURE__*/React.createElement("select", {
         value: (g.Com_Estado_Interno || g.Estado || '').toUpperCase(),
         onChange: function onChange(e) {
@@ -2389,7 +2405,7 @@ function App() {
           return e.stopPropagation();
         },
         title: "Cambiar estado",
-        className: "".concat(statusStyle.select, " pl-8 pr-8 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border outline-none cursor-pointer transition-all block mx-auto min-w-[150px] appearance-none text-center shadow-md focus:ring-4")
+        className: "".concat(statusStyle.select, " pl-7 pr-6 py-1.5 rounded-full text-[8px] font-black uppercase tracking-wide border outline-none cursor-pointer transition-all block mx-auto w-[142px] appearance-none text-center shadow-md focus:ring-4")
       }, /*#__PURE__*/React.createElement("option", {
         value: "PRESUPUESTO"
       }, "Presupuesto"), /*#__PURE__*/React.createElement("option", {
@@ -2405,17 +2421,17 @@ function App() {
       }, "Desestimado"), /*#__PURE__*/React.createElement("option", {
         value: "CADUCADO"
       }, "Caducado")), /*#__PURE__*/React.createElement("i", {
-        className: "fas fa-chevron-down pointer-events-none absolute right-3 text-[9px] text-current"
+        className: "fas fa-chevron-down pointer-events-none absolute right-2.5 text-[8px] text-current"
       }))), /*#__PURE__*/React.createElement("td", {
-        className: "px-6 py-4 text-right"
+        className: "px-4 py-4 text-right"
       }, /*#__PURE__*/React.createElement("div", {
-        className: "flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        className: "flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
       }, /*#__PURE__*/React.createElement("button", {
         onClick: function onClick(e) {
           e.stopPropagation();
           updateStatus(g.uid, 'CONFIRMADO');
         },
-        className: "w-8 h-8 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all",
+        className: "w-7 h-7 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all",
         title: "Confirmar Grupo"
       }, /*#__PURE__*/React.createElement("i", {
         className: "fas fa-check text-xs"
@@ -2423,7 +2439,7 @@ function App() {
         onClick: function onClick() {
           handleOpenDetail(normalizeGroupData(g));
         },
-        className: "w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all",
+        className: "w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all",
         title: "Ver Ficha"
       }, /*#__PURE__*/React.createElement("i", {
         className: "fas fa-external-link-alt text-xs"
@@ -2433,7 +2449,7 @@ function App() {
           setFormData(normalizeGroupData(g));
           setCurrentView('create');
         },
-        className: "w-8 h-8 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all",
+        className: "w-7 h-7 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all",
         title: "Editar"
       }, /*#__PURE__*/React.createElement("i", {
         className: "fas fa-edit text-xs"
@@ -2442,7 +2458,7 @@ function App() {
           e.stopPropagation();
           handleDelete(g.uid);
         },
-        className: "w-8 h-8 bg-rose-50 text-rose-500 rounded-lg border border-rose-100 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all",
+        className: "w-7 h-7 bg-rose-50 text-rose-500 rounded-lg border border-rose-100 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all",
         title: "Eliminar"
       }, /*#__PURE__*/React.createElement("i", {
         className: "fas fa-trash-alt text-xs"
