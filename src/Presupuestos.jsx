@@ -333,6 +333,71 @@
       "cuádruple": "CUÁDRUPLE"
     };
 
+    const getAlternateHotel = (hotelName = "") => (
+      hotelName.toLowerCase().includes("cumbria") ? "Sercotel Guadiana" : "Cumbria Spa&Hotel"
+    );
+
+    const mapRoomTypeForHotel = (roomType, targetHotel) => {
+      const targetRooms = ROOM_TYPES[targetHotel] || ROOM_TYPES["Sercotel Guadiana"];
+      const normalized = ROOM_MIGRATION_MAP[String(roomType || "").toLowerCase()] || String(roomType || "").toUpperCase();
+      if (targetRooms.includes(normalized)) return normalized;
+      if (normalized === "CUÃDRUPLE" && targetRooms.includes("DOBLE + SUPLETORIA")) return "DOBLE + SUPLETORIA";
+      if (targetRooms.includes("DOBLE")) return "DOBLE";
+      return targetRooms[0] || normalized;
+    };
+
+    const remapRoomObjectForHotel = (source = {}, targetHotel, mode = "sum") => {
+      return Object.entries(source || {}).reduce((acc, [roomType, value]) => {
+        const mappedType = mapRoomTypeForHotel(roomType, targetHotel);
+        if (mode === "sum") {
+          acc[mappedType] = (Number(acc[mappedType]) || 0) + (Number(value) || 0);
+        } else if (acc[mappedType] === undefined || acc[mappedType] === "") {
+          acc[mappedType] = value;
+        }
+        return acc;
+      }, {});
+    };
+
+    const remapBudgetRoomsForHotel = (budget, targetHotel) => {
+      const copy = {
+        ...budget,
+        Hotel_Asignado: targetHotel,
+        Hotel: targetHotel,
+        roomCounts: remapRoomObjectForHotel(budget.roomCounts || {}, targetHotel, "sum"),
+        ratesOnlyGrid: {}
+      };
+
+      Object.entries(budget.ratesOnlyGrid || {}).forEach(([board, prices]) => {
+        copy.ratesOnlyGrid[board] = remapRoomObjectForHotel(prices || {}, targetHotel, "first");
+      });
+
+      copy.dailyConfig = {};
+      Object.entries(budget.dailyConfig || {}).forEach(([date, dayConf]) => {
+        copy.dailyConfig[date] = {
+          ...dayConf,
+          prices: remapRoomObjectForHotel(dayConf.prices || {}, targetHotel, "first"),
+          counts: remapRoomObjectForHotel(dayConf.counts || {}, targetHotel, "sum"),
+          gratuities: remapRoomObjectForHotel(dayConf.gratuities || {}, targetHotel, "sum"),
+          discounts: remapRoomObjectForHotel(dayConf.discounts || {}, targetHotel, "first")
+        };
+      });
+
+      copy.segments = Array.isArray(budget.segments)
+        ? budget.segments.map(seg => ({
+            ...seg,
+            roomAllocations: Array.isArray(seg.roomAllocations)
+              ? seg.roomAllocations.map(alloc => ({
+                  ...alloc,
+                  roomType: mapRoomTypeForHotel(alloc.roomType || seg.roomType, targetHotel)
+                }))
+              : seg.roomAllocations,
+            roomType: mapRoomTypeForHotel(seg.roomType, targetHotel)
+          }))
+        : [];
+
+      return normalizeGroupData(copy);
+    };
+
     const BUDGET_DEFAULT_CLAUSES = [
       { title: "Cupo y Disponibilidad", body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito." },
       { title: "Confirmación y Depósito", body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada." },
@@ -1660,6 +1725,61 @@ ${emailContent}`;
         } catch (error) { console.error(error); }
       };
 
+      const duplicateBudgetToOtherHotel = async (budget) => {
+        const source = normalizeGroupData(budget);
+        if (!source) return;
+
+        const targetHotel = getAlternateHotel(source.Hotel_Asignado || source.Hotel);
+        const sourceHotel = source.Hotel_Asignado || source.Hotel || "hotel actual";
+        if (!window.confirm(`Duplicar este presupuesto para ${targetHotel}? Se creara una copia independiente para ajustar tarifas antes de enviarla.`)) return;
+
+        const now = new Date();
+        const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        let newReservaId = "";
+        do {
+          newReservaId = `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
+        } while (groups.some(g => String(g.uid) === newReservaId || String(g.Reserva) === newReservaId));
+
+        const serializableSource = JSON.parse(JSON.stringify(source));
+        const duplicatedBudget = remapBudgetRoomsForHotel(serializableSource, targetHotel);
+        const duplicatedTotal = calculateTotal(duplicatedBudget);
+        const roomingList = buildRoomingList(duplicatedBudget, duplicatedBudget.RoomingList_JSON || "");
+
+        delete duplicatedBudget.uid;
+        delete duplicatedBudget.createdAt;
+        delete duplicatedBudget.updatedAt;
+
+        const duplicateData = {
+          ...duplicatedBudget,
+          Reserva: newReservaId,
+          Hotel_Asignado: targetHotel,
+          Hotel: targetHotel,
+          Estado: "Presupuesto",
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          "Importe(*)": formatNum(duplicatedTotal),
+          "RoomingList_JSON": JSON.stringify(roomingList),
+          tracking: [
+            {
+              id: Date.now(),
+              date: formattedDate,
+              text: `Duplicado desde ${source.Reserva || source.uid || "presupuesto"} (${sourceHotel}) para ${targetHotel}.`
+            },
+            ...(Array.isArray(source.tracking) ? source.tracking : [])
+          ]
+        };
+
+        try {
+          await db.collection("groups").doc(newReservaId).set(duplicateData);
+          setFormData({ ...normalizeGroupData(duplicateData), uid: newReservaId });
+          setCurrentView('create');
+        } catch (error) {
+          console.error("Error duplicating budget:", error);
+          alert("Error al duplicar el presupuesto.");
+        }
+      };
+
       const addTrackingNote = async (e) => {
         e.preventDefault();
         if (!newNote.trim() || !selectedGroup) return;
@@ -1996,6 +2116,11 @@ ${emailContent}`;
                               className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
                               title="Ver Ficha">
                               <i className="fas fa-external-link-alt text-xs"></i>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); duplicateBudgetToOtherHotel(g); }}
+                              className="w-7 h-7 bg-sky-50 text-sky-600 rounded-lg border border-sky-100 flex items-center justify-center hover:bg-sky-600 hover:text-white transition-all"
+                              title={`Duplicar para ${getAlternateHotel(g.Hotel_Asignado || g.Hotel)}`}>
+                              <i className="fas fa-copy text-xs"></i>
                             </button>
                             <button onClick={(e) => { e.stopPropagation(); setFormData(normalizeGroupData(g)); setCurrentView('create'); }}
                               className="w-7 h-7 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
