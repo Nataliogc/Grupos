@@ -59,8 +59,38 @@ var generateDates = NexusUtils.generateDates;
 var generateSeriesDates = NexusUtils.generateSeriesDates;
 var formatDate = NexusUtils.formatDate;
 var formatNum = NexusUtils.formatNum;
-var getStatusColor = NexusUtils.getStatusColor;
 var toInputDate = NexusUtils.toInputDate;
+var getBudgetStatusStyle = function getBudgetStatusStyle(status) {
+  var s = (status || "").toUpperCase();
+  if (s.includes("CONFIRM")) {
+    return {
+      select: "bg-emerald-500 text-white border-emerald-600 shadow-emerald-100 hover:bg-emerald-600 focus:ring-emerald-200",
+      icon: "fa-check-circle"
+    };
+  }
+  if (s.includes("SEGUIMIENTO")) {
+    return {
+      select: "bg-orange-500 text-white border-orange-600 shadow-orange-100 hover:bg-orange-600 focus:ring-orange-200",
+      icon: "fa-phone-volume"
+    };
+  }
+  if (s.includes("ENVIADO")) {
+    return {
+      select: "bg-sky-500 text-white border-sky-600 shadow-sky-100 hover:bg-sky-600 focus:ring-sky-200",
+      icon: "fa-paper-plane"
+    };
+  }
+  if (s.includes("DESESTIMADO") || s.includes("CANCEL") || s.includes("CADUCADO")) {
+    return {
+      select: "bg-rose-500 text-white border-rose-600 shadow-rose-100 hover:bg-rose-600 focus:ring-rose-200",
+      icon: "fa-times-circle"
+    };
+  }
+  return {
+    select: "bg-amber-400 text-amber-950 border-amber-500 shadow-amber-100 hover:bg-amber-500 focus:ring-amber-200",
+    icon: "fa-clock"
+  };
+};
 var DEFAULT_FORM_DATA = {
   Hotel_Asignado: 'Sercotel Guadiana',
   "Nombre del Grupo": '',
@@ -2223,7 +2253,7 @@ function App() {
         }
       });
       var paxCount = g["Pax."] || 0;
-      var statusColor = getStatusColor(g.Com_Estado_Interno || g.Estado);
+      var statusStyle = getBudgetStatusStyle(g.Com_Estado_Interno || g.Estado);
       return /*#__PURE__*/React.createElement("tr", {
         key: g.uid,
         className: "hover:bg-slate-50/50 transition-colors group"
@@ -2345,7 +2375,11 @@ function App() {
         title: "Comercial Asignado"
       }, g["Com_Comercial"] && g["Com_Comercial"].trim() !== "" ? g["Com_Comercial"] : "SIN ASIGNAR")))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4 text-center"
-      }, /*#__PURE__*/React.createElement("select", {
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "relative inline-flex items-center"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas ".concat(statusStyle.icon, " pointer-events-none absolute left-3 text-[10px] text-current z-10")
+      }), /*#__PURE__*/React.createElement("select", {
         value: (g.Com_Estado_Interno || g.Estado || '').toUpperCase(),
         onChange: function onChange(e) {
           e.stopPropagation();
@@ -2354,7 +2388,8 @@ function App() {
         onClick: function onClick(e) {
           return e.stopPropagation();
         },
-        className: "".concat(statusColor, " px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border-none outline-none cursor-pointer hover:ring-2 hover:ring-slate-200 transition-all block mx-auto w-fit appearance-none text-center")
+        title: "Cambiar estado",
+        className: "".concat(statusStyle.select, " pl-8 pr-8 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border outline-none cursor-pointer transition-all block mx-auto min-w-[150px] appearance-none text-center shadow-md focus:ring-4")
       }, /*#__PURE__*/React.createElement("option", {
         value: "PRESUPUESTO"
       }, "Presupuesto"), /*#__PURE__*/React.createElement("option", {
@@ -2369,7 +2404,9 @@ function App() {
         value: "DESESTIMADO"
       }, "Desestimado"), /*#__PURE__*/React.createElement("option", {
         value: "CADUCADO"
-      }, "Caducado"))), /*#__PURE__*/React.createElement("td", {
+      }, "Caducado")), /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-chevron-down pointer-events-none absolute right-3 text-[9px] text-current"
+      }))), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-4 text-right"
       }, /*#__PURE__*/React.createElement("div", {
         className: "flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
