@@ -3034,7 +3034,10 @@
             normalizedBudgetTotal > 0 &&
             (Math.abs(price - normalizedBudgetTotal) < 0.01 || Math.abs(total - normalizedBudgetTotal) < 0.01);
 
-          return looksLikeGenericConcept && qty === 1 && amountMatchesBudget;
+          // Es un resumen si el concepto lo indica Y coincide el importe, 
+          // O si el importe coincide exactamente con todo el presupuesto y es 1 unidad.
+          // Esto evita que líneas como "SA" se añadan como servicio huérfano de 1890€.
+          return (looksLikeGenericConcept || amountMatchesBudget) && qty === 1 && amountMatchesBudget;
         };
 
         const budgetTotalForLineFilter = group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"];
