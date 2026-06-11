@@ -464,7 +464,7 @@
                 <select id="hotel-selector" onchange="updateHotel(this.value)"
                     class="bg-white/10 border border-white/20 text-white text-[10px] font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer">
                     <option value="guadiana" class="text-slate-900 bg-white">Sercotel Guadiana</option>
-                    <option value="cumbria" class="text-slate-900 bg-white">Sercotel Cumbria</option>
+                    <option value="cumbria" class="text-slate-900 bg-white">Cumbria Spa&Hotel</option>
                 </select>
             </div>
         </div>
@@ -666,202 +666,7 @@
             <div class="text-[8px] font-bold text-slate-500 tracking-wider text-right uppercase mb-4" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
                 * Todos los importes llevan incluido el impuesto correspondiente
             </div>
-        </div>
 
-        <div id="tpl-proforma" class="template-content hidden font-pro text-black">
-            <table class="w-full mb-6">
-                <tr>
-                    <td width="55%" class="align-middle">
-                        <!-- Tabla clásica de referencia centrada -->
-                        <table style="border-collapse:collapse; border:1px solid #000; width:280px; margin:0 auto; font-size:10px;" id="proforma-ref-table">
-                            <thead>
-                                <tr style="background:#f1f5f9;">
-                                    <th style="border:1px solid #000; padding:3px 8px; text-align:center; font-weight:900; width:40%;" id="proforma-header-label">Nº Factura</th>
-                                    <th style="border:1px solid #000; padding:3px 8px; text-align:center; font-weight:900; width:40%;">Fecha</th>
-                                    <th style="border:1px solid #000; padding:3px 8px; text-align:center; font-weight:900; width:20%;">Pág.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td style="border:1px solid #000; padding:4px 8px; text-align:center;"><span class="editable" id="reserva-id-2" contenteditable="true">Prof. ---</span></td>
-                                    <td style="border:1px solid #000; padding:4px 8px; text-align:center;"><span class="editable" id="fecha-proforma-2" contenteditable="true">--/--/----</span></td>
-                                    <td style="border:1px solid #000; padding:4px 8px; text-align:center;" contenteditable="true">1</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </td>
-
-                    <td width="45%" class="align-top pt-2">
-                        <div class="bg-slate-50 p-4 rounded-lg shadow-sm text-xs font-mono text-gray-600">
-                            <div class="font-bold text-black uppercase text-sm editable" id="solicitante-org-2"
-                                contenteditable="true" style="display:block;">&nbsp;</div>
-                            <div class="editable uppercase" id="client-address" contenteditable="true"
-                                style="display:block;">&nbsp;</div>
-                            <div class="editable uppercase" id="client-city" contenteditable="true"
-                                style="display:block;">&nbsp;</div>
-                            <div class="mt-3 font-bold text-black uppercase">
-                                N.I.F. / CIF: <span class="editable" id="client-nif"
-                                    contenteditable="true">&nbsp;</span>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Campo Programa -->
-            <div class="mb-4 bg-slate-100/50 p-2 border-l-4 border-slate-800 flex items-center gap-4">
-                <span class="text-[9px] font-black uppercase text-slate-500 tracking-widest shrink-0">Referencia del Evento</span>
-                <span class="editable font-black text-slate-800 text-sm flex-1" id="programa-2"
-                    contenteditable="true">---</span>
-            </div>
-
-            <!-- Caja Datos Ocupante -->
-            <div class="border border-black p-2 mb-6 text-[11px] leading-relaxed relative flex justify-between gap-4"
-                id="ocupante-box">
-                <button
-                    class="no-print absolute -top-3 -right-3 bg-emerald-500 text-white rounded-full w-5 h-5 text-[9px] font-bold shadow hover:bg-emerald-600 transition hidden"
-                    id="ocupante-restore"
-                    onclick="document.querySelectorAll('.ocupante-row').forEach(r=>r.classList.remove('hidden'));this.classList.add('hidden');"
-                    title="Restaurar campos ocultos">↺</button>
-
-                <div class="flex-1">
-                    <div class="mb-1 ocupante-row flex items-center gap-1">
-                        <span><strong>Ocupante :</strong> <span class="editable min-w-[200px]" contenteditable="true"
-                                id="f-pax-name">---</span></span>
-                        <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                            onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                            title="Ocultar">✖</button>
-                    </div>
-                    <div class="ocupante-row flex items-center gap-1">
-                        <span class="w-24"><strong>Cantidad :</strong></span>
-                        <span class="editable flex-1" contenteditable="true" id="f-room-summary">---</span>
-                        <button class="no-print text-red-300 hover:text-red-600 text-[10px]"
-                            onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                            title="Ocultar">✖</button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-x-4">
-                        <div class="ocupante-row flex items-center gap-1">
-                            <span class="w-24"><strong>Nro. Personas :</strong></span>
-                            <span class="editable" contenteditable="true" id="f-pax-count">62</span>
-                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                                title="Ocultar">✖</button>
-                        </div>
-                        <div class="ocupante-row flex items-center gap-1">
-                            <span class="w-24"><strong>Nº Bono :</strong></span>
-                            <span class="editable" contenteditable="true" id="f-voucher">---</span>
-                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                                title="Ocultar">✖</button>
-                        </div>
-                        <div class="ocupante-row flex items-center gap-1">
-                            <span class="w-24"><strong>Entrada :</strong></span>
-                            <span class="editable" contenteditable="true" id="f-date-in">22-04-2026</span>
-                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                                title="Ocultar">✖</button>
-                        </div>
-                        <div class="ocupante-row flex items-center gap-1">
-                            <span class="w-24"><strong>Salida :</strong></span>
-                            <span class="editable" contenteditable="true" id="f-date-out">24-04-2026</span>
-                            <button class="no-print text-red-300 hover:text-red-600 text-[10px] ml-auto"
-                                onclick="this.parentElement.classList.add('hidden');document.getElementById('ocupante-restore').classList.remove('hidden');"
-                                title="Ocultar">✖</button>
-                        </div>
-                    </div>
-                    <div
-                        class="mt-1 border-t border-dotted border-gray-300 pt-1 text-[9px] text-gray-500 no-print flex gap-2">
-                        <button onclick="addOcupanteField()" class="hover:text-black uppercase font-bold">+
-                            Campo</button>
-                    </div>
-                </div>
-
-                <!-- Espacio para Desglose (Eliminado de aquííííí para moverlo bajo el total) -->
-                <div id="iva-summary-proforma" class="hidden"></div>
-            </div>
-
-            <!-- Tabla de Conceptos -->
-            <table class="w-full text-[11px] proforma-table mb-2">
-                <thead>
-                    <tr class="border-y border-black font-black uppercase text-[9px]">
-                        <th width="12%" class="text-left py-1.5">FECHA</th>
-                        <th width="8%" class="text-center py-1.5">CANTIDAD</th>
-                        <th width="30%" class="text-left py-1.5">CONCEPTO</th>
-                        <th width="8%" class="text-center py-1.5">REG.</th>
-                        <th width="8%" class="text-center py-1.5">DÍAS</th>
-                        <th width="10%" class="text-right py-1.5">PRECIO/U</th>
-                        <th width="12%" class="text-right py-1.5">TOTAL</th>
-                        <th width="12%" class="text-right py-1.5">ACUMULADO</th>
-                        <th class="w-4 no-print border-none"></th>
-                    </tr>
-                        style="font-size:10px; font-weight:700; color:#475569;">--/--/----</span>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- MODELO 1: CONFIRMACIÓN (Estilo Moderno) -->
-        <div id="tpl-confirmacion" class="template-content font-sans">
-            <!-- Header removed and moved to universal container -->
-
-            <div class="grid grid-cols-2 gap-8 mb-6">
-                <div class="border-l-4 border-[#2d5a43] pl-4">
-                    <h4 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Solicitante</h4>
-                    <div class="text-xs space-y-1">
-                        <p><strong class="font-bold text-slate-500">Organismo:</strong> <span
-                                class="editable font-black text-slate-800" id="solicitante-org-1"
-                                contenteditable="true">---</span></p>
-                        <p><strong class="font-bold text-slate-500">Contacto:</strong> <span
-                                class="editable font-bold text-slate-700" id="solicitante-nombre-1"
-                                contenteditable="true">---</span></p>
-                        <p><strong class="font-bold text-slate-500">Email:</strong> <span
-                                class="editable text-slate-600" id="solicitante-email-1"
-                                contenteditable="true">---</span></p>
-                        <p><strong class="font-bold text-slate-500">Teléfono:</strong> <span class="editable"
-                                id="solicitante-tel-1" contenteditable="true">-</span></p>
-                    </div>
-
-                </div>
-                <div class="border-l-4 border-[#eab308] pl-4">
-                    <h4 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Reserva</h4>
-                    <div class="text-xs grid grid-cols-2 gap-x-1">
-                        <span class="text-gray-500">Personas:</span> <span class="editable font-bold"
-                            id="reserva-personas-1" contenteditable="true">---</span>
-                        <span class="text-gray-500">Entrada:</span> <span class="editable font-bold"
-                            id="reserva-entrada-1" contenteditable="true">---</span>
-                        <span class="text-gray-500">Salida:</span> <span class="editable font-bold"
-                            id="reserva-salida-1" contenteditable="true">---</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Referencia del Evento: bloque independiente con raya amarilla -->
-            <div class="border-l-4 border-[#eab308] pl-4 mb-6">
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Referencia del Evento:</p>
-                <span class="editable font-black text-slate-800 text-sm" id="programa-1" contenteditable="true">---</span>
-            </div>
-
-            <table class="w-full text-[10px] mb-6 border-collapse">
-                <thead>
-                    <tr class="bg-gray-50 text-[#2d5a43] border-b-2 border-[#2d5a43] uppercase text-[8px] font-bold">
-                        <th class="p-2 text-left w-20">Fecha</th>
-                        <th class="p-2 text-center w-8">Cantidad</th>
-                        <th class="p-2 text-left">Concepto</th>
-                        <th class="p-2 text-center w-8">Reg.</th>
-                        <th class="p-2 text-center w-8">Días</th>
-                        <th class="p-2 text-right w-16">Precio/U</th>
-                        <th class="p-2 text-right w-20">Total</th>
-                        <th class="p-2 text-right w-20">Acumulado</th>
-                        <th class="p-2 w-4 no-print"></th>
-                    </tr>
-                </thead>
-                <tbody class="invoice-items"></tbody>
-            </table>
-            <!-- NOTA IMPUESTOS -->
-            <div class="text-[8px] font-bold text-slate-500 tracking-wider text-right uppercase mb-4" style="-webkit-print-color-adjust: exact; print-color-adjust: exact;">
-                * Todos los importes llevan incluido el impuesto correspondiente
-            </div>
-            
             <!-- Notas y Comentarios Especiales (oculto por defecto) -->
             <button id="btn-document-notas-1" class="no-print mt-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition flex items-center gap-1"
                 onclick="document.getElementById('document-notas-block-1').style.display='block'; this.style.display='none';">
@@ -1428,6 +1233,453 @@
             try {
                 if (!validateProformaAgainstSource({ block: true })) return;
                 reconcilePaymentPlan(); // Ensure payments are fully reconciled before saving
+                const normId = String(id).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+                const isIndep = isIndependentProforma();
+                
+                // Capturar campos manuales para persistencia
+                const customFields = {};
+                const fieldIds = [
+                    'solicitante-org', 'solicitante-nombre', 'solicitante-tel', 'solicitante-email',
+                    'reserva-personas', 'reserva-entrada', 'reserva-salida', 'client-address', 'client-city', 'client-nif',
+                    'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary', 'programa', 'reserva-id', 'document-notas'
+                ];
+                
+                fieldIds.forEach(fid => {
+                    // Intentamos pillar el valor de cualquier variante del ID (-1, -2, -universal o exacto)
+                    const el = document.getElementById(fid + '-universal') || 
+                               document.getElementById(fid + '-2') || 
+                               document.getElementById(fid + '-1') || 
+                               document.getElementById(fid);
+                    
+                    if (el) {
+                        let val = el.innerText || el.value || "";
+                        // Limpiar prefijo "Prof. " si es el campo de proforma
+                        if (fid === 'reserva-id') val = val.replace(/^Prof\.\s*/i, "");
+                        customFields[fid] = val;
+                    }
+                });
+
+                if (!isIndep) {
+                    customFields["reserva-id"] = String(id).trim().replace(/\.0$/, "");
+                }
+
+                customFields.dynamicRows = Array.from(document.querySelectorAll('#ocupante-box [data-dynamic="true"]')).map(row => {
+                    const editableCells = row.querySelectorAll('.editable');
+                    return {
+                        key: (editableCells[0]?.innerText || '').trim(),
+                        value: (editableCells[1]?.innerText || '').trim()
+                    };
+                }).filter(row => row.key || row.value);
+
+                const editedReserva = isIndep 
+                    ? (customFields["reserva-id"] || id || "").toString().trim()
+                    : String(id).trim().replace(/\.0$/, "");
+                const normalizedReservaId = editedReserva.replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+                const payload = {
+                    "ProformaItems": items,
+                    "ProformaCustomFields": customFields,
+                    "PaymentPlan_JSON": JSON.stringify(paymentPlan), // Save the payment plan/advances
+                    "updatedAt": firebase.firestore.FieldValue.serverTimestamp(),
+                    "total": total || 0,
+                    "Importe(*)": total || 0, // Keep in sync with the rest of the application
+                    "solicitante_org": customFields["solicitante-org"] || "",
+                    "programa": customFields["programa"] || "",
+                    "Reserva": editedReserva,
+                    "hotel": currentHotel
+                };
+
+                if (isIndep) {
+                    payload.isIndependentProforma = true;
+                } else {
+                    payload.isIndependentProforma = false;
+                }
+
+                const targetDocId = isIndep ? normalizedReservaId : normId;
+                await db.collection("groups").doc(targetDocId).set(payload, { merge: true });
+                if (isIndep && normId !== targetDocId) {
+                    await db.collection("groups").doc(normId).delete();
+                }
+                
+                // Actualizar localmente
+                group.ProformaItems = items;
+                group.ProformaCustomFields = customFields;
+                group.Reserva = editedReserva;
+                group.id = targetDocId;
+                group.isIndependentProforma = isIndep;
+                localStorage.setItem('selectedGroup', JSON.stringify(group));
+                
+                if (!silent) {
+                    const btn = document.querySelector('button[onclick="saveProforma()"]');
+                    if (btn) {
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ¡¡¡Guardado!';
+                        btn.classList.add('bg-emerald-600');
+                        setTimeout(() => {
+                            btn.innerHTML = originalText;
+                            btn.classList.remove('bg-emerald-600');
+                        }, 2000);
+                    }
+                }
+            } catch (e) {
+                console.error("Error al guardar proforma:", e);
+                if (!silent) alert("Error al guardar en el servidor: " + e.message);
+            }
+        }
+
+        async function saveAndExit() {
+            await saveProforma(true);
+            const saved = localStorage.getItem('selectedGroup');
+            let reservaId = "";
+            let targetFile = "Gestion-de-Grupos.html";
+
+            if (saved) {
+                try {
+                    const group = JSON.parse(saved);
+                    reservaId = group.Reserva || group["Reserva"] || group.id || "";
+                } catch (e) { }
+            }
+
+            const hasRealReservation = reservaId && !reservaId.startsWith("prof-");
+
+            if (!hasRealReservation) {
+                window.location.href = "Proformas.html";
+                return;
+            }
+
+            // Guardar en localStorage para que GestionGrupos lo detecte y abra la ficha
+            localStorage.setItem('nexus_return_reserva', reservaId);
+            localStorage.setItem('nexus_open_ficha', reservaId);
+
+            const url = targetFile + '?reserva=' + encodeURIComponent(reservaId);
+            window.location.href = url;
+        }
+
+        // callGemini base cargado desde js/gemini.js
+        // Wrapper con contexto de hotel para Fac Prof
+        async function callGeminiHotel(prompt) {
+            const hotelName = HOTELS[currentHotel]?.name + " " + HOTELS[currentHotel]?.subname;
+            const fullPrompt = `Eres un asistente de recepción de un hotel de lujo (${hotelName}). Tu tono es profesional, cortés y servicial. Siempre respondes en español.\n\n` + prompt;
+            return window.callGemini(fullPrompt);
+        }
+
+        async function generateAIEmail() {
+            showAIModal("✨ Redactando Email Profesional");
+            
+            let grandTotal = 0;
+            const resumenServicios = items.map(item => {
+                const p = parseFloat(item.precio || 0);
+                const cant = parseFloat(item.cant || 1);
+                const hab = parseFloat(item.hab || 1);
+                const dias = parseFloat(item.dias || 1);
+                const sub = (p * cant * hab * dias).toFixed(2);
+                grandTotal += parseFloat(sub);
+                
+                let text = `- `;
+                text += `${item.cant ? item.cant + 'x ' : ''}`;
+                text += `${item.concepto || item.roomType || 'Servicio'} `;
+                if(item.regimen) text += `(${item.regimen}) `;
+                text += `-> ${sub} EUR`;
+                return text;
+            }).join("\\n            ");
+
+            const cliente = document.getElementById('solicitante-nombre-1')?.innerText || document.getElementById('solicitante-org-1')?.innerText || "Estimado Cliente";
+            const grupoName = document.getElementById('programa-1')?.innerText || "su grupo";
+            const entrada = document.getElementById('reserva-entrada-1')?.innerText || "--/--/----";
+            const hotelName = HOTELS[currentHotel]?.name + " " + HOTELS[currentHotel]?.subname;
+
+            let context = `documento de confirmación`;
+            if (currentTemplate === 'proforma') context = `factura proforma`;
+            if (currentTemplate === 'propuesta') context = `propuesta formal de servicios`;
+
+            const prompt = `Redacta el cuerpo y asunto de un correo electrónico para enviar la ${context} adjunta al cliente.
+            
+            DETALLES DE LA RESERVA:
+            - Cliente: ${cliente}
+            - Grupo / Referencia: ${grupoName}
+            - Hotel: ${hotelName}
+            - Fecha de entrada: ${entrada}
+            
+            SERVICIOS INCLUIDOS EN EL PRESUPUESTO:
+            ${resumenServicios}
+            
+            - Total Presupuesto: ${formatNum(grandTotal)}  EUR
+            
+            INSTRUCCIONES ESTRICTAS:
+            1. El tono debe ser muy profesional, formal y elegante (administrativo claro si es proforma/confirmación, o persuasivo y cortés si es propuesta).
+            2. Analiza el presupuesto y menciona en el correo de forma resumida los puntos clave acordados (número de habitaciones principales, régimen, total a pagar). No enlistes todo como un robot, hazlo natural.
+            3. Invita cortésmente al cliente a revisar el ${context} en formato PDF adjunto.
+            4. DEVUELVE ÚNICAMENTE el Asunto en la primera línea (ej: **Asunto:** ...) y el cuerpo del correo. NO INCLUYAS frases introductorias tuyas como "Claro, aquííííí tienes una propuesta...". Empieza directamente con el Asunto.`;
+
+            const result = await callGeminiHotel(prompt);
+            document.getElementById('ai-content').innerText = result;
+        }
+
+        async function desestimarGrupo() {
+            const saved = localStorage.getItem('selectedGroup');
+            if (!saved) return;
+            const group = JSON.parse(saved);
+            const reservaId = group.Reserva || group.id;
+
+            if (confirm(`¿Estás seguro de que deseas marcar la reserva ${reservaId} como DESESTIMADA?`)) {
+                try {
+                    const normId = String(reservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+                    await db.collection("groups").doc(normId).set({
+                        "Com_Estado_Interno": "DESESTIMADO",
+                        "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+
+                    // Actualizar local y salir
+                    group["Com_Estado_Interno"] = "DESESTIMADO";
+                    localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    saveAndExit();
+                } catch (e) {
+                    alert("Error al desestimar el grupo: " + e.message);
+                }
+            }
+        }
+
+        async function generateAIPlan() {
+            showAIModal("✨ Sugerencia de Plan para el Grupo");
+            const personas = document.getElementById('reserva-personas-1').innerText;
+            const prompt = `Sugiere un plan de ocio en Ciudad Real para ${personas} personas.`;
+            const result = await callGemini(prompt);
+            document.getElementById('ai-content').innerText = result;
+        }
+
+        function showAIModal(title) {
+            document.getElementById('ai-modal-title').innerText = title;
+            document.getElementById('ai-content').innerText = "Generando...";
+            document.getElementById('ai-modal').style.display = 'flex';
+        }
+        function closeAIModal() { document.getElementById('ai-modal').style.display = 'none'; }
+
+        const toNum = (val) => {
+            if (val === undefined || val === null || val === "") return 0;
+            if (typeof val === 'number') return val;
+            const s = String(val).replace(/[^\d,.-]/g, '');
+            if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+            if (s.includes(',')) return parseFloat(s.replace(',', '.'));
+            return parseFloat(s) || 0;
+        };
+
+        const toInputDate = (val) => {
+            if (!val || val === "---") return "";
+            const str = String(val).trim();
+
+            // Caso 1: Excel Serial (ej: 46129)
+            const num = parseFloat(str);
+            if (!isNaN(num) && num > 40000 && num < 60000) {
+                try {
+                    const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+                    if (!isNaN(date.getTime())) return date.toISOString().split('T')[0];
+                } catch (e) { }
+            }
+
+            // Caso 2: DD/MM/YYYY -> YYYY-MM-DD
+            if (str.includes('/')) {
+                const parts = str.split('/');
+                if (parts.length === 3) {
+                    const [d, m, yRaw] = parts;
+                    let y = parseInt(yRaw);
+                    if (y < 100) y += 2000;
+                    const year = String(y);
+                    return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                }
+            }
+
+            // Caso 3: DD.MM.YYYY -> YYYY-MM-DD
+            if (str.includes('.')) {
+                const parts = str.split('.');
+                if (parts.length === 3) {
+                    const [d, m, yRaw] = parts;
+                    let y = parseInt(yRaw);
+                    if (y < 100) y += 2000;
+                    const yrStr = String(y);
+                    if (yrStr.length === 4 || yrStr.length === 2) {
+                        return `${yrStr}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                    }
+                }
+            }
+
+            // Caso 4: YYYY-MM-DD o DD-MM-YYYY
+            if (str.includes('-')) {
+                const parts = str.split(/[-T ]/);
+                if (parts[0] && parts[0].length === 4) return parts.slice(0, 3).join('-'); // YYYY-MM-DD
+                if (parts[2] && (parts[2].length === 4 || parts[2].length === 2)) { // DD-MM-YYYY
+                    const [d, m, yRaw] = parts;
+                    let y = parseInt(yRaw);
+                    if (y < 100) y += 2000;
+                    const year = String(y);
+                    return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                }
+            }
+
+            const dObj = new Date(str);
+            if (!isNaN(dObj.getTime())) return dObj.toISOString().split('T')[0];
+            return str;
+        };
+
+        const formatDate = (val) => {
+            if (!val || val === "---") return "-";
+            const iso = toInputDate(val);
+            if (!iso || !iso.includes('-')) return val;
+            const [y, m, d] = iso.split('-');
+            return `${d}-${m}-${y}`;
+        };
+
+        const parseMoney = (val) => toNum(val);
+
+        function loadSelectedGroup() {
+            const saved = localStorage.getItem('selectedGroup');
+            const today = new Date().toLocaleDateString('es-ES');
+
+            // Reset inicial de placeholders
+            const idsToReset = [
+                'reserva-id', 'solicitante-org', 'solicitante-nombre', 'solicitante-tel', 'solicitante-email',
+                'reserva-personas', 'reserva-entrada', 'reserva-salida', 'client-address', 'client-city', 'client-nif',
+                'f-pax-name', 'f-pax-count', 'f-date-in', 'f-date-out', 'f-room-summary', 'programa', 'document-notas'
+            ];
+            idsToReset.forEach(id => {
+                const el1 = document.getElementById(id + '-1');
+                const el2 = document.getElementById(id + '-2');
+                const elExact = document.getElementById(id);
+                const elUniversal = document.getElementById(id + '-universal');
+                if (el1) el1.innerText = '';
+                if (el2) el2.innerText = '';
+                if (elExact) {
+                    if (elExact.tagName === 'INPUT') elExact.value = '';
+                    else elExact.innerText = '';
+                }
+                if (elUniversal) elUniversal.innerText = '';
+            });
+            document.querySelectorAll('[id^="fecha-proforma-"]').forEach(el => el.innerText = today);
+            const fechaUniv = document.getElementById('fecha-universal');
+            if (fechaUniv) fechaUniv.innerText = today;
+
+            if (!saved) return;
+
+            try {
+                const group = JSON.parse(saved);
+                const hotelRaw = (group["Hotel_Asignado"] || group["Hotel"] || "").toLowerCase();
+                let detectedHotel = hotelRaw.includes('cumb') ? 'cumbria' : 'guadiana';
+                updateHotel(detectedHotel);
+
+                const mapping = {
+                    'reserva-id': group["Reserva"] || '',
+                    'solicitante-org': group["Fiscal_RazonSocial"] || group["Empresa/Agencia"] || group["Nombre del Grupo"] || '',
+                    'solicitante-nombre': group["Persona_Contacto"] || group["Com_Nombre_Contacto"] || group["Nombre del Grupo"] || '',
+                    'solicitante-tel': group["Telefono"] || group["Com_Telefono_Contacto"] || '',
+                    'solicitante-email': group["Email"] || group["Com_Email_Contacto"] || group["Fiscal_Email"] || '',
+                    'reserva-personas': group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || '',
+                    'reserva-entrada': formatDate(group["Entrada"]),
+                    'reserva-salida': formatDate(group["Salida"]),
+                    'fecha-proforma': today,
+                    'client-address': group["Fiscal_Direccion"] || '',
+                    'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || '') + (group["Fiscal_Provincia"] ? ', ' + group["Fiscal_Provincia"] : ''),
+                    'client-nif': group["Fiscal_CIF"] || '',
+                    'f-pax-name': group["Nombre del Grupo"] || '',
+                    'f-pax-count': group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || '',
+                    'f-date-in': formatDate(group["Entrada"]),
+                    'f-date-out': formatDate(group["Salida"]),
+                    'f-room-summary': group["RoomSummary"] || '---',
+                    'programa': group["Nombre del Grupo"] || group["Com_Programa"] || group["name"] || '',
+                    'document-notas': ''
+                };
+
+                const customFields = group.ProformaCustomFields || {};
+                const placeholders = ["---", "Calle Dirección", "RAZÓN SOCIAL", "CP, Ciudad", "B00000000"];
+
+                Object.keys(mapping).forEach(k => {
+                    const hasFichaData = mapping[k] && mapping[k] !== '' && !placeholders.includes(mapping[k]);
+                    const hasCustomData = customFields[k] && String(customFields[k]).trim() !== '' && !placeholders.includes(customFields[k]);
+                    if (hasCustomData && !hasFichaData) mapping[k] = customFields[k];
+                    else if (!hasFichaData && !hasCustomData) mapping[k] = "";
+                });
+
+                Object.keys(mapping).forEach(id => {
+                    const el1 = document.getElementById(id + '-1');
+                    const el2 = document.getElementById(id + '-2');
+                    const elExact = document.getElementById(id);
+                    const elUniversal = document.getElementById(id + '-universal');
+                    const finalVal = mapping[id] || "";
+                    if (el1) el1.innerText = finalVal;
+                    if (el2) el2.innerText = finalVal;
+                    if (elExact) {
+                        if (elExact.tagName === 'INPUT') elExact.value = finalVal;
+                        else elExact.innerText = finalVal;
+                    }
+                    if (elUniversal) elUniversal.innerText = finalVal;
+
+                    if (id === 'reserva-id') {
+                        const rid2 = document.getElementById('reserva-id-2');
+                        if (rid2) rid2.innerText = 'Prof. ' + finalVal;
+                        const ridU = document.getElementById('reserva-id-universal');
+                        if (ridU) ridU.innerText = finalVal;
+                    }
+                });
+
+                if (!isIndependentProforma()) {
+                    const rid2 = document.getElementById('reserva-id-2');
+                    if (rid2) {
+                        rid2.contentEditable = "false";
+                        rid2.classList.remove('editable');
+                        rid2.title = "No se puede editar el número de reserva de un grupo enlazado.";
+                    }
+                    const ridU = document.getElementById('reserva-id-universal');
+                    if (ridU) {
+                        ridU.contentEditable = "false";
+                        ridU.classList.remove('editable');
+                        ridU.title = "No se puede editar el número de reserva de un grupo enlazado.";
+                    }
+                } else {
+                    const rid2 = document.getElementById('reserva-id-2');
+                    if (rid2) {
+                        rid2.contentEditable = "true";
+                        rid2.classList.add('editable');
+                        rid2.removeAttribute('title');
+                    }
+                    const ridU = document.getElementById('reserva-id-universal');
+                    if (ridU) {
+                        ridU.contentEditable = "true";
+                        ridU.classList.add('editable');
+                        ridU.removeAttribute('title');
+                    }
+                }
+
+                if (customFields.dynamicRows) {
+                    const container = document.querySelector('#ocupante-box .flex-1');
+                    if (container) {
+                        const footer = [...container.children].find(child => child.classList.contains('border-t') && child.classList.contains('no-print'));
+                        customFields.dynamicRows.forEach(row => {
+                            const newRow = document.createElement('div');
+                            newRow.className = 'ocupante-row flex items-center gap-1 mt-1';
+                            newRow.dataset.dynamic = 'true';
+                            newRow.innerHTML = `
+                                <span class="w-24"><strong><span class="editable" contenteditable="true">${row.key}</span> :</strong></span>
+                                <span class="editable flex-1" contenteditable="true" style="min-width: 100px;">${row.value}</span>
+                                <button class="no-print text-red-200 hover:text-red-500 text-[10px] ml-auto" onclick="this.parentElement.remove()">✖</button>
+                            `;
+                            if (footer) container.insertBefore(newRow, footer);
+                            else container.appendChild(newRow);
+                        });
+                    }
+                }
+
+                const notasVal = customFields['document-notas'];
+                if (notasVal && notasVal.trim() !== '') {
+                    const block1 = document.getElementById('document-notas-block-1');
+                    const btn1 = document.getElementById('btn-document-notas-1');
+                    if (block1) block1.style.display = 'block';
+                    if (btn1) btn1.style.display = 'none';
+
+                    const block2 = document.getElementById('document-notas-block-2');
+                    const btn2 = document.getElementById('btn-document-notas-2');
+                    if (block2) block2.style.display = 'block';
+                    if (btn2) btn2.style.display = 'none';
+                }
+
+                if (group.ProformaItems && group.ProformaItems.length > 0) {
+                    items = group.ProformaItems;
                 } else if (group.dailyConfig && Object.keys(group.dailyConfig).length > 0) {
                     // Importar desde el presupuesto detallado (dailyConfig)
                     const imported = [];
