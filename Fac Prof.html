@@ -61,6 +61,7 @@
             body.print-proforma .mt-3 { margin-top: 4px !important; }
             body.print-proforma #ocupante-box { padding: 4px 6px !important; }
             body.print-proforma .mt-auto { margin-top: 10px !important; } 
+            body.print-proforma #footer-totals { display: none !important; }
 
             /* Ajustes de compactación para Confirmación al imprimir */
             body:not(.print-proforma) .page-container {
@@ -987,8 +988,8 @@
 
 
         <!-- Pie de Página Premium (Página 1) -->
-        <div id="common-footer" class="border-t border-slate-50 font-pro">
-            <div class="mt-4 flex flex-col items-center gap-2">
+        <div id="common-footer" class="font-pro">
+            <div class="flex flex-col items-center gap-2">
                 <p class="hotel-legal-footer hidden"></p>
             </div>
         </div>
