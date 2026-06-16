@@ -1342,7 +1342,7 @@
 
 
         // 2. Filtro de Tiempo
-        if (filterTime !== "all" && filterStatus !== "pasado" && !startDate && !endDate) {
+        if (filterTime !== "all" && filterStatus !== "pasado" && !startDate && !endDate && !searchTerm) {
           filtered = filtered.filter((row) => {
             const arrival = row._normArrival;
             if (!arrival) return false;
