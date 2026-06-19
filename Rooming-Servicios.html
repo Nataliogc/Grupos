@@ -1883,8 +1883,10 @@ ${inputVal}`;
             let chefMissingName = false;
             let maxDailyPax = 0;
 
-            // Determine if the list is already expanded with occupants
-            let isExpandedList = roomingList.some(item => !item.isService && (item.ocupantes || item.roomNo));
+            // Determine if the list is already expanded with occupants (each room has its own row in the JSON list)
+            // If the JSON list still has items with qty > 1, then it represents room blocks and is NOT fully expanded yet.
+            let isExpandedList = roomingList.some(item => !item.isService && (item.ocupantes || item.roomNo)) &&
+                                 !roomingList.some(item => !item.isService && getRoomLineQuantity(item, 1) > 1);
 
             // Helper to get dates between two dates using parseDate and getLocalDateString
             function getDatesArray(startStr, endStr, nights) {
@@ -1952,7 +1954,7 @@ ${inputVal}`;
                         canonicalType = 'Individual';
                     }
                     const qty = isExpandedList ? 1 : getRoomLineQuantity(item, 1);
-                    const paxVal = parseInt(item.pax) || (canonicalType === 'Individual' ? 1 : 2);
+                    const paxVal = parseInt(item.pax) || (canonicalType === 'Individual' ? 1 : (canonicalType === 'Triple' ? 3 : (canonicalType === 'Cuádruple' ? 4 : 2)));
                     totalRooms += qty;
                     maxDailyPax += (qty * paxVal);
                     roomCountsByType[canonicalType] = (roomCountsByType[canonicalType] || 0) + qty;
@@ -2041,7 +2043,16 @@ ${inputVal}`;
                     if (item.isService) return;
                     const rType = item.type || 'Habitación Doble';
                     const qty = getRoomLineQuantity(item, 1);
-                    const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') ? 1 : 2);
+                    const rTypeUpper = rType.toUpperCase();
+                    let canonicalPax = 2;
+                    if (rTypeUpper.includes('IND') || rTypeUpper.includes('DUI') || rTypeUpper.includes('USO INDIVIDUAL')) {
+                        canonicalPax = 1;
+                    } else if (rTypeUpper.includes('TRI') || rTypeUpper.includes('SUPLETORIA')) {
+                        canonicalPax = 3;
+                    } else if (rTypeUpper.includes('CUA')) {
+                        canonicalPax = 4;
+                    }
+                    const paxVal = parseInt(item.pax) || canonicalPax;
                     const blockDateIn = item.dateIn || checkInDate;
                     const blockDateOut = item.dateOut || checkOutDate;
                     const peakKey = `${rType}|${blockDateIn}|${blockDateOut}`;
@@ -2346,8 +2357,16 @@ ${inputVal}`;
 
                         // Determine standard service code for Régimen column
                         let serviceReg = 'MP';
-                        if (s.name === 'Desayuno') serviceReg = 'AD';
-                        else if (s.name === 'Almuerzo' && gRegimen.toUpperCase().includes('PC')) serviceReg = 'PC';
+                        const sNameUpper = (s.name || '').toUpperCase();
+                        if (sNameUpper.includes('EXTRA')) {
+                            serviceReg = '';
+                        } else if (sNameUpper.includes('DESAYUNO')) {
+                            serviceReg = 'AD';
+                        } else if (sNameUpper.includes('ALMUERZO') && gRegimen.toUpperCase().includes('PC')) {
+                            serviceReg = 'PC';
+                        } else if (sNameUpper.includes('CENA') && gRegimen.toUpperCase().includes('PC')) {
+                            serviceReg = 'PC';
+                        }
                         const serviceOccupancy = getServiceOccupancy(s.name, targetIso);
                         
                         addRowServicio(targetLabel, s.name, serviceReg, `${serviceOccupancy.pax} pax`, serviceHour, serviceNote);

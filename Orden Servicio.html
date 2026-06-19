@@ -542,6 +542,21 @@
                             }
                         }
                     });
+                    
+                    // Calculate peak daily pax to ensure header is correct
+                    let maxDailyPax = 0;
+                    dayMap.forEach(entry => {
+                        let dayPax = 0;
+                        entry.regimePax.forEach(pax => {
+                            dayPax += pax;
+                        });
+                        if (dayPax > maxDailyPax) {
+                            maxDailyPax = dayPax;
+                        }
+                    });
+                    if (maxDailyPax > 0) {
+                        document.getElementById('pax-val').innerText = maxDailyPax.toString();
+                    }
                 }
                 // Determine the dominant/global regime for header display
                 const allRegimes = new Set();
