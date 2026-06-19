@@ -322,7 +322,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 4;
+        const SERVICES_GENERATION_VERSION = 5;
         let departmentSummaryState = {};
         let departmentSummaryLayout = {};
         let lastRoomingSyncErrorMessage = '';
@@ -2056,7 +2056,7 @@ ${inputVal}`;
                 const blocksByType = {};
                 roomingList.forEach(item => {
                     if (item.isService) return;
-                    const rType = item.type || 'Habitación Doble';
+                    const rType = (item.type || 'Habitación Doble').trim();
                     if (!blocksByType[rType]) blocksByType[rType] = [];
                     
                     const qty = getRoomLineQuantity(item, 1);
