@@ -8969,7 +8969,7 @@
                                        if (isClose && menuMissing) {
                                            const missingMenus = [needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
                                            alerts.push(
-                                               <div key="menu" className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Falta definir menú: ${missingMenus}`}>
+                                               <div key="menu" className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black text-indigo-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Falta definir menú: ${missingMenus}`}>
                                                    <IconAlertTriangle size={10} stroke={3} />
                                                    <span>FALTA MENÚ</span>
                                                </div>
@@ -8981,7 +8981,7 @@
                                        const paymentCritical = isClose || paymentOverdue;
                                        if (paymentCritical && pending > 0.05) {
                                            alerts.push(
-                                               <div key="pago" className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso de Cobro! Pendiente de cobro final: ${pending.toFixed(2)} €`}>
+                                               <div key="pago" className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[8px] font-black text-amber-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso de Cobro! Pendiente de cobro final: ${pending.toFixed(2)} €`}>
                                                    <IconAlertTriangle size={10} stroke={3} />
                                                    <span>FALTA PAGO</span>
                                                </div>
