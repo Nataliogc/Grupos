@@ -8931,20 +8931,19 @@
                                       
 
                                       let daysToArrival = 999;
-
-                                      if (record["Entrada"]) {
-
-                                          const arrDateStr = String(record["Entrada"]);
-
-                                          const arrDate = new Date(arrDateStr.includes('T') ? arrDateStr : arrDateStr + 'T12:00:00');
-
-                                          if (!isNaN(arrDate)) {
-
-                                              daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
-
-                                          }
-
-                                      }
+                                       if (record["Entrada"]) {
+                                           const arrDateStr = String(record["Entrada"]).trim();
+                                           let arrDate = null;
+                                           if (arrDateStr.includes('/')) {
+                                               const [d, m, y] = arrDateStr.split('/');
+                                               arrDate = new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                                           } else {
+                                               arrDate = new Date(arrDateStr.includes('T') ? arrDateStr : arrDateStr + 'T12:00:00');
+                                           }
+                                           if (arrDate && !isNaN(arrDate.getTime())) {
+                                               daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+                                           }
+                                       }
 
                                       
 
@@ -14082,22 +14081,19 @@
 
 
                                 let daysToArrival = 999;
-
-                                if (record["Entrada"]) {
-
-                                  // Asumiendo formato YYYY-MM-DD
-
-                                  const arrDateStr = String(record["Entrada"]);
-
-                                  const arrDate = new Date(arrDateStr.includes('T') ? arrDateStr : arrDateStr + 'T12:00:00');
-
-                                  if (!isNaN(arrDate)) {
-
-                                    daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
-
-                                  }
-
-                                }
+                                 if (record["Entrada"]) {
+                                   const arrDateStr = String(record["Entrada"]).trim();
+                                   let arrDate = null;
+                                   if (arrDateStr.includes('/')) {
+                                     const [d, m, y] = arrDateStr.split('/');
+                                     arrDate = new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
+                                   } else {
+                                     arrDate = new Date(arrDateStr.includes('T') ? arrDateStr : arrDateStr + 'T12:00:00');
+                                   }
+                                   if (arrDate && !isNaN(arrDate.getTime())) {
+                                     daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+                                   }
+                                 }
 
 
 

@@ -638,6 +638,15 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             return date && !isNaN(date.getTime()) ? getLocalDateString(date) : '';
         }
 
+        function formatSpanishDateString(value) {
+            const date = parseDate(value);
+            if (!date || isNaN(date.getTime())) return value || '';
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${day}/${m}/${y}`;
+        }
+
         function parseMoney(value) {
             if (value === null || value === undefined || value === '') return 0;
             if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -835,8 +844,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             tr.appendChild(createEditableCell(hab));
             tr.appendChild(createEditableCell(tipo));
             tr.appendChild(createEditableCell(pax));
-            tr.appendChild(createEditableCell(normalizeRoomingDate(checkIn) || checkIn));
-            tr.appendChild(createEditableCell(normalizeRoomingDate(checkOut) || checkOut));
+            tr.appendChild(createEditableCell(formatSpanishDateString(checkIn)));
+            tr.appendChild(createEditableCell(formatSpanishDateString(checkOut)));
             tr.appendChild(createEditableCell(ocupantes));
             tr.appendChild(createEditableCell(observ));
             
@@ -1314,7 +1323,13 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         function clearReservaCache() {
-            if(confirm("¿Estás seguro de restaurar los servicios y operativas? Se mantendrán intactos los nombres y habitaciones de la Rooming List.")) {
+            const resetRooming = confirm("¿Deseas restaurar también las habitaciones de la Rooming List original? (Se perderán los nombres introducidos de los ocupantes)");
+            if (confirm("¿Estás seguro de restaurar los servicios y operativas?")) {
+                if (resetRooming) {
+                    localStorage.removeItem('roomingServicios_' + currentReservaId);
+                    window.location.reload();
+                    return;
+                }
                 // Parse current rooming from the DOM to guarantee they are kept
                 const rooming = [];
                 document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
@@ -2037,11 +2052,13 @@ ${inputVal}`;
                 });
             } else {
                 // List is represented as room blocks. Show the peak count of physical rooms per type.
-                const peaksByType = {};
-                
+                // First, group items by room type and merge consecutive/overlapping intervals
+                const blocksByType = {};
                 roomingList.forEach(item => {
                     if (item.isService) return;
                     const rType = item.type || 'Habitación Doble';
+                    if (!blocksByType[rType]) blocksByType[rType] = [];
+                    
                     const qty = getRoomLineQuantity(item, 1);
                     const rTypeUpper = rType.toUpperCase();
                     let canonicalPax = 2;
@@ -2053,8 +2070,69 @@ ${inputVal}`;
                         canonicalPax = 4;
                     }
                     const paxVal = parseInt(item.pax) || canonicalPax;
-                    const blockDateIn = item.dateIn || checkInDate;
-                    const blockDateOut = item.dateOut || checkOutDate;
+                    
+                    let dIn = parseDate(item.dateIn) || parseDate(checkInDate);
+                    let nights = parseInt(item.nights || item.noches || 1, 10) || 1;
+                    let dOut = parseDate(item.dateOut);
+                    if (!dOut || isNaN(dOut.getTime()) || dOut <= dIn) {
+                        dOut = new Date(dIn);
+                        dOut.setDate(dOut.getDate() + nights);
+                    }
+                    
+                    blocksByType[rType].push({
+                        qty: qty,
+                        paxVal: paxVal,
+                        dateIn: dIn,
+                        dateOut: dOut
+                    });
+                });
+                
+                // Merge intervals for each type
+                const mergedBlocks = [];
+                Object.entries(blocksByType).forEach(([rType, blocks]) => {
+                    // Sort by check-in date
+                    blocks.sort((a, b) => a.dateIn - b.dateIn);
+                    
+                    const merged = [];
+                    blocks.forEach(b => {
+                        if (merged.length === 0) {
+                            merged.push(b);
+                        } else {
+                            const last = merged[merged.length - 1];
+                            if (last.dateOut >= b.dateIn) {
+                                // Overlapping or consecutive: merge them
+                                last.dateOut = new Date(Math.max(last.dateOut, b.dateOut));
+                                last.qty = Math.max(last.qty, b.qty);
+                                last.paxVal = Math.max(last.paxVal, b.paxVal);
+                            } else {
+                                merged.push(b);
+                            }
+                        }
+                    });
+                    
+                    merged.forEach(b => {
+                        let finalOut = b.dateOut;
+                        // Cap at checkOutDate if valid
+                        const gOut = parseDate(checkOutDate);
+                        if (gOut && finalOut > gOut) finalOut = gOut;
+                        
+                        mergedBlocks.push({
+                            type: rType,
+                            qty: b.qty,
+                            paxVal: b.paxVal,
+                            dateIn: getLocalDateString(b.dateIn),
+                            dateOut: getLocalDateString(finalOut)
+                        });
+                    });
+                });
+
+                const peaksByType = {};
+                mergedBlocks.forEach(item => {
+                    const rType = item.type;
+                    const qty = item.qty;
+                    const paxVal = item.paxVal;
+                    const blockDateIn = item.dateIn;
+                    const blockDateOut = item.dateOut;
                     const peakKey = `${rType}|${blockDateIn}|${blockDateOut}`;
                     
                     if (!peaksByType[peakKey] || qty > peaksByType[peakKey].maxQty) {
@@ -2064,7 +2142,7 @@ ${inputVal}`;
                             paxVal: paxVal,
                             dateIn: blockDateIn,
                             dateOut: blockDateOut,
-                            id: item.id || ('block_' + Date.now() + '_' + Math.random())
+                            id: ('block_' + Date.now() + '_' + Math.random())
                         };
                     }
                 });
