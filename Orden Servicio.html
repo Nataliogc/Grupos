@@ -508,7 +508,12 @@
                         }
                         const typeUpper = (item.type || '').toUpperCase();
                         const regime = (item.regime || '').toUpperCase();
-                        const qty = parseInt(item.qty) || 0;
+                        let qty = 0;
+                        const qtyCandidates = [item.qty, item.quantity, item.cantidad, item.cant, item.Cant, item.CANT, item["Cant."], item["CANT."], item["Cantidad"], item.rooms, item.units];
+                        for (const val of qtyCandidates) {
+                            const parsed = parseInt(String(val ?? '').replace(',', '.'), 10);
+                            if (Number.isFinite(parsed) && parsed > 0) { qty = parsed; break; }
+                        }
                         const paxPerRoom = parseInt(item.pax) || (typeUpper.includes('IND') ? 1 : 2);
                         const realPersons = qty * paxPerRoom;
                         const isMealsOrService = ['DESAYUNO', 'ALMUERZO', 'CENA', 'COCTEL', 'COFFEE', 'BUFFET', 'MENÚ', 'MENU', 'BREAK'].some(w => typeUpper.includes(w));
