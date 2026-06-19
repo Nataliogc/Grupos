@@ -8913,24 +8913,15 @@
                                   </div>
 
                                   {(() => {
+                                       const record = group.records[0] || {};
+                                       const hasRooming = record["Logistica_Rooming"] === true;
+                                       const hasMP = record["Logistica_MenuMP"] === true;
+                                       const hasPC = record["Logistica_MenuPC"] === true;
+                                       const regimen = (record["Régimen"] || "").toUpperCase();
+                                       const needsMP = regimen.includes("MP");
+                                       const needsPC = regimen.includes("PC");
 
-                                      const record = group.records[0] || {};
-
-                                      const hasRooming = record["Logistica_Rooming"] === true;
-
-                                      const hasMP = record["Logistica_MenuMP"] === true;
-
-                                      const hasPC = record["Logistica_MenuPC"] === true;
-
-                                      const regimen = (record["Régimen"] || "").toUpperCase();
-
-                                      const needsMP = regimen.includes("MP");
-
-                                      const needsPC = regimen.includes("PC");
-
-                                      
-
-                                      let daysToArrival = 999;
+                                       let daysToArrival = 999;
                                        if (record["Entrada"]) {
                                            const arrDateStr = String(record["Entrada"]).trim();
                                            let arrDate = null;
@@ -8945,45 +8936,62 @@
                                            }
                                        }
 
-                                      
-
-                                      const isClose = daysToArrival <= 15 && daysToArrival >= 0;
-
-                                      const missingCritical = !hasRooming || (needsMP && !hasMP) || (needsPC && !hasPC);
-
-                                      const status = (record["Estado"] || "").toUpperCase();
-
-                                      const isInactive = ["ANULADA", "CANCELADA", "GASTOS DE ANULACION", "BAJA"].includes(status);
-
-                                      const internalSt = (record["Com_Estado_Interno"] || "").toUpperCase();
-
-                                      const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => internalSt.includes(s));
-
-                                      const recordStatusProps = getStatusProps(record["Com_Estado_Interno"] || record["Segment."], record["Entrada"], record["Estado"]);
-
+                                       const isClose = daysToArrival <= 15 && daysToArrival >= 0;
+                                       const status = (record["Estado"] || "").toUpperCase();
+                                       const isInactive = ["ANULADA", "CANCELADA", "GASTOS DE ANULACION", "BAJA"].includes(status);
+                                       const internalSt = (record["Com_Estado_Interno"] || "").toUpperCase();
+                                       const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => internalSt.includes(s));
+                                       const recordStatusProps = getStatusProps(record["Com_Estado_Interno"] || record["Segment."], record["Entrada"], record["Estado"]);
                                        const isConfirmed = recordStatusProps.label === "CONFIRMADO";
 
-                                       if (isConfirmed && isClose && missingCritical && !isInactive && !isInternalInactive) {
+                                       if (!isConfirmed || isInactive || isInternalInactive) return null;
 
-                                          const missingList = [!hasRooming && "RRLL", needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
+                                       const todayStr = new Date().toISOString().split("T")[0];
+                                       const deadlineInfo = getDeadlineInfo(group, todayStr);
+                                       const netRev = (group.totalRevenue || 0) - (group.totalCommission || 0);
+                                       const paid = group.totalPaid || 0;
+                                       const pending = netRev - paid;
 
-                                          return (
+                                       const alerts = [];
 
-                                              <div className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Faltan datos: ${missingList}`}>
+                                       // 1. Alert Rooming
+                                       if (isClose && !hasRooming) {
+                                           alerts.push(
+                                               <div key="rooming" className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title="¡Aviso Operativo! Falta la Rooming List.">
+                                                   <IconAlertTriangle size={10} stroke={3} />
+                                                   <span>FALTA ROOMING</span>
+                                               </div>
+                                           );
+                                       }
 
-                                                  <IconAlertTriangle size={10} stroke={3} />
+                                       // 2. Alert Menú
+                                       const menuMissing = (needsMP && !hasMP) || (needsPC && !hasPC);
+                                       if (isClose && menuMissing) {
+                                           const missingMenus = [needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
+                                           alerts.push(
+                                               <div key="menu" className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Falta definir menú: ${missingMenus}`}>
+                                                   <IconAlertTriangle size={10} stroke={3} />
+                                                   <span>FALTA MENÚ</span>
+                                               </div>
+                                           );
+                                       }
 
-                                                  <span>ALERTA LOG.</span>
+                                       // 3. Alert Pago
+                                       const paymentOverdue = deadlineInfo.isDeadline && deadlineInfo.diffDays < 0;
+                                       const paymentCritical = isClose || paymentOverdue;
+                                       if (paymentCritical && pending > 0.05) {
+                                           alerts.push(
+                                               <div key="pago" className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso de Cobro! Pendiente de cobro final: ${pending.toFixed(2)} €`}>
+                                                   <IconAlertTriangle size={10} stroke={3} />
+                                                   <span>FALTA PAGO</span>
+                                               </div>
+                                           );
+                                       }
 
-                                              </div>
+                                       if (alerts.length === 0) return null;
 
-                                          );
-
-                                      }
-
-                                      return null;
-
-                                  })()}
+                                       return <>{alerts}</>;
+                                   })()}
 
                                   {group.records[0]?.["Com_Notas"] && (
 
