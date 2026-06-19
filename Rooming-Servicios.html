@@ -322,7 +322,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 5;
+        const SERVICES_GENERATION_VERSION = 6;
         let departmentSummaryState = {};
         let departmentSummaryLayout = {};
         let lastRoomingSyncErrorMessage = '';
@@ -645,6 +645,133 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             return `${day}/${m}/${y}`;
+        }
+
+        function groupAndMergeRoomingList(rawList, checkInDate, checkOutDate) {
+            const services = rawList.filter(item => item.isService === true);
+            const rawRooms = rawList.filter(item => !item.isService);
+
+            // 1. Flatten / expand blocks with qty > 1
+            const flatRooms = [];
+            rawRooms.forEach(item => {
+                const rType = String(item.type || item.tipo || 'Habitación Doble').trim();
+                const qty = parseInt(item.qty) || 1;
+                const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') || rType.toUpperCase().includes('DUI') || rType.toUpperCase().includes('USO INDIVIDUAL') ? 1 : 2);
+                
+                const itemDateIn = normalizeRoomingDate(item.dateIn || item.checkIn || checkInDate);
+                const itemDateOut = normalizeRoomingDate(item.dateOut || item.checkOut || checkOutDate);
+                const nights = calculateRoomingNights(itemDateIn, itemDateOut) || 1;
+
+                const hasDetails = (item.ocupantes || '').trim() || (item.roomNo || '').trim();
+
+                if (hasDetails && qty === 1) {
+                    flatRooms.push({
+                        id: item.id || ('new_' + Date.now() + '_' + Math.random()),
+                        roomNo: String(item.roomNo || item.hab || '').trim(),
+                        type: rType,
+                        pax: paxVal,
+                        checkIn: itemDateIn,
+                        checkOut: itemDateOut,
+                        dateIn: itemDateIn,
+                        dateOut: itemDateOut,
+                        ocupantes: (item.ocupantes || 'Ocupante Pendiente').trim(),
+                        dni: item.dni || '',
+                        observ: (item.observ || item.observaciones || '').trim(),
+                        price: parseFloat(item.price) || 0,
+                        iva: parseInt(item.iva) || 10,
+                        nights: nights,
+                        total: parseFloat(item.total) || 0,
+                        comision: item.comision || null
+                    });
+                } else {
+                    // Expand qty > 1 into N individual rooms
+                    for (let q = 0; q < qty; q++) {
+                        flatRooms.push({
+                            id: (item.id || ('block_' + Date.now() + '_' + Math.random())) + '_' + q,
+                            roomNo: String(item.roomNo || q + 1),
+                            type: rType,
+                            pax: paxVal,
+                            checkIn: itemDateIn,
+                            checkOut: itemDateOut,
+                            dateIn: itemDateIn,
+                            dateOut: itemDateOut,
+                            ocupantes: (item.ocupantes || 'Ocupante Pendiente').trim(),
+                            dni: item.dni || '',
+                            observ: (item.observ || item.observaciones || '').trim(),
+                            price: parseFloat(item.price) || 0,
+                            iva: parseInt(item.iva) || 10,
+                            nights: nights,
+                            total: parseFloat(item.total) || 0,
+                            comision: item.comision || null
+                        });
+                    }
+                }
+            });
+
+            // 2. Group by roomNo and type
+            const groups = {};
+            flatRooms.forEach(room => {
+                const roomNo = room.roomNo.trim();
+                const rType = room.type.trim();
+                const key = `${roomNo}|${rType.toLowerCase()}`;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(room);
+            });
+
+            const mergedRooms = [];
+
+            // 3. Merge consecutive stays in each group
+            Object.values(groups).forEach(rooms => {
+                // Sort by check-in date
+                rooms.sort((a, b) => {
+                    const dateA = parseDate(a.checkIn);
+                    const dateB = parseDate(b.checkIn);
+                    return (dateA || 0) - (dateB || 0);
+                });
+
+                const merged = [];
+                rooms.forEach(current => {
+                    if (merged.length === 0) {
+                        merged.push({ ...current });
+                    } else {
+                        const last = merged[merged.length - 1];
+                        const lastIn = parseDate(last.checkIn);
+                        const lastOut = parseDate(last.dateOut || last.checkOut);
+                        const curIn = parseDate(current.checkIn);
+                        const curOut = parseDate(current.dateOut || current.checkOut);
+
+                        const samePax = parseInt(last.pax) === parseInt(current.pax);
+                        const sameOcupantes = String(last.ocupantes || '').trim() === String(current.ocupantes || '').trim();
+                        const sameObserv = String(last.observ || '').trim() === String(current.observ || '').trim();
+
+                        const isConsecutiveOrOverlapping = lastOut && curIn && lastOut >= curIn;
+
+                        if (isConsecutiveOrOverlapping && samePax && sameOcupantes && sameObserv) {
+                            // Merge consecutive stays
+                            const maxOut = new Date(Math.max(lastOut, curOut));
+                            const maxOutStr = getLocalDateString(maxOut);
+                            last.checkOut = maxOutStr;
+                            last.dateOut = maxOutStr;
+                            last.nights = calculateRoomingNights(last.checkIn, last.checkOut);
+                            last.total = (parseFloat(last.price || 0) * last.nights).toFixed(2);
+                        } else {
+                            merged.push({ ...current });
+                        }
+                    }
+                });
+
+                mergedRooms.push(...merged);
+            });
+
+            // Sort final rooms by roomNo (numeric if possible)
+            mergedRooms.sort((a, b) => {
+                const numA = parseInt(a.roomNo, 10);
+                const numB = parseInt(b.roomNo, 10);
+                if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                return a.roomNo.localeCompare(b.roomNo);
+            });
+
+            return [...mergedRooms, ...services];
         }
 
         function parseMoney(value) {
@@ -1891,6 +2018,9 @@ ${inputVal}`;
             } catch(e) {
                 roomingList = [];
             }
+            
+            // Run central grouping and merging function to ensure per-stay rooms
+            roomingList = groupAndMergeRoomingList(roomingList, checkInDate, checkOutDate);
 
             // Count rooms and types using daily peak occupancy (to avoid duplicates from multi-day stays)
             let totalRooms = 0;
