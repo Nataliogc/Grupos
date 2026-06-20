@@ -15,6 +15,15 @@
 (function (global) {
     "use strict";
 
+    function isEffectiveEconomicItem(item) {
+        return Boolean(
+            item &&
+            item.isEconomicItem !== false &&
+            item.isEconomicRepresentation !== false &&
+            item.excludeFromEconomicTotals !== true &&
+            item.isManualRoomingItem !== true
+        );
+    }
     
     function getGroupEconomicItems(group) {
         if (!group) return [];
@@ -33,8 +42,7 @@
         });
         
         return allItems.filter(item => {
-            if (item.excludeFromEconomicTotals === true) return false;
-            if (item.isEconomicRepresentation === false) return false;
+            if (!isEffectiveEconomicItem(item)) return false;
             // No excluir servicios sin coste por defecto si hay notas, pero aquí seguimos la regla general
             if (item.precio === 0 && item.total === 0 && item.isAccommodation === true) return false;
             return true;
@@ -1177,12 +1185,7 @@
     }
 
     function getEconomicRoomingItems(value, context = "") {
-        return parseRoomingListSafe(value, context).filter(
-            item =>
-                item &&
-                item.excludeFromEconomicTotals !== true &&
-                item.isManualRoomingItem !== true
-        );
+        return parseRoomingListSafe(value, context).filter(isEffectiveEconomicItem);
     }
 
     function getAccommodationItems(value, context = "") {
