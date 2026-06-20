@@ -98,8 +98,8 @@
         </button>
         <div class="flex items-center gap-3">
             <span id="save-status" class="text-xs text-emerald-600 font-bold opacity-0 transition-opacity">Autoguardado ✓</span>
-            <button onclick="clearReservaCache()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Reiniciar informe a parámetros de fábrica">
-                Restaurar Datos
+            <button onclick="discardUnsavedViewChanges()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Descartar únicamente cambios locales todavía no guardados">
+                DESCARTAR CAMBIOS
             </button>
             <button onclick="printOrdenServicio()" class="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer">
                 Imprimir / PDF
@@ -189,6 +189,7 @@
     <!-- Script principal de lógica de guardado y carga -->
     <script>
         let currentReservaId = "unknown";
+        let isDiscardingUnsavedViewChanges = false;
         let currentGroupName = "";
         function goBackToReserva() {
             // Guardamos la referencia para que Gestion de Grupos sepa qué ficha abrir
@@ -292,7 +293,7 @@
 
         // --- Save / Load Core ---
         function saveStateToCache() {
-            if (currentReservaId === "unknown") return;
+            if (currentReservaId === "unknown" || isDiscardingUnsavedViewChanges) return;
             // Collect tables data
             const planRows = [];
             document.querySelectorAll('#table-plan tbody tr').forEach(tr => {
@@ -345,11 +346,18 @@
                 }
             }
         }
-        function clearReservaCache() {
-            if(confirm("¿Estás seguro de que deseas limpiar los datos y restaurar la información original de la reserva? Se perderán las modificaciones manuales que hayas hecho en el menú/horas.")) {
-                localStorage.removeItem('ordenServicio_' + currentReservaId);
-                window.location.reload();
+        function discardUnsavedViewChanges() {
+            const message = 'Se descartarán únicamente los cambios no guardados de esta pantalla.\n\n' +
+                'Los datos ya guardados de la ficha no se modificarán.\n\n¿Desea continuar?';
+            if (!confirm(message)) return;
+
+            // Cancel only the pending visual autosave. No localStorage or Firestore writes.
+            isDiscardingUnsavedViewChanges = true;
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+                saveTimeout = null;
             }
+            window.location.reload();
         }
         function printOrdenServicio() {
             const originalTitle = document.title;

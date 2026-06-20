@@ -4,6 +4,7 @@
  */
 
 const { groupAndMergeRoomingList, calculateMaxDailyOccupancy, calculateMaxDailyRooms, calculatePersonNights, calculateRoomNights, calculateDailyMovements, isStoredPaxConsistent, parseRoomingListSafe, getEconomicRoomingItems, getAccommodationItems, getServiceItems, isAccommodationItem } = require('./js/rooming-core.js');
+const fs = require('fs');
 
 let passed = 0;
 let failed = 0;
@@ -299,7 +300,44 @@ console.log(`\n=== INTEGRACIÓN: ${passed} PASADAS, ${failed} FALLADAS ===\n`);
 
     const manual = calculateDailyMovements([{ type: 'Hab. Doble', qty: 1, pax: 2, dateIn: '2026-09-01', dateOut: '2026-09-04', isManualRoomingItem: true, excludeFromEconomicTotals: true }]);
     assert(manual['2026-09-02'].breakfast.pax === 2 && manual['2026-09-03'].overnight.pax === 2, 'Movimientos: habitacion manual cuenta durante tres noches');
+
+    const occupantChange = calculateDailyMovements([
+        { type: 'Hab. Doble', qty: 1, pax: 2, roomNo: '101', ocupantes: 'Familia A', dateIn: '2026-10-01', dateOut: '2026-10-02' },
+        { type: 'Hab. Doble', qty: 1, pax: 2, roomNo: '101', ocupantes: 'Familia B', dateIn: '2026-10-02', dateOut: '2026-10-03' }
+    ]);
+    assert(occupantChange['2026-10-02'].breakfast.pax === 2 && occupantChange['2026-10-02'].overnight.rooms === 1, 'Movimientos: cambio de ocupantes mantiene una habitacion ocupada');
 }
 
-console.log(`CLASIFICACION Y MOVIMIENTOS COMPLETADOS: ${passed} PASADAS, ${failed} FALLADAS`);
+// Restaurar vista: descarta solo el borrador local y no muta datos persistentes.
+{
+    const persisted = {
+        nombre: 'Grupo completo', pax: 21, total: 2985.19, cobrado: 1000, pendiente: 1985.19,
+        lineas: [{ qty: 9, pax: 2, total: 1600 }, { qty: 1, pax: 3, total: 1385.19 }],
+        pagos: [{ amount: 1000, status: 'Cobrado' }],
+        RoomingList_JSON: JSON.stringify([{ roomNo: '101', assignments: { q0_n0: { occupants: ['Ana'] } } }]),
+        servicios: [{ servicio: 'Desayuno', hora: '08:30', notas: 'Sin gluten' }],
+        notas: 'Nota persistente'
+    };
+    const before = JSON.stringify(persisted);
+    const editableDraft = structuredClone(persisted);
+    editableDraft.nombre = 'Cambio local no guardado';
+    const restoredDraft = structuredClone(persisted);
+    assert(JSON.stringify(persisted) === before, 'Descartar sin cambios: datos persistentes identicos');
+    assert(restoredDraft.nombre === 'Grupo completo', 'Descartar cambio local: vuelve al valor guardado');
+    assert(restoredDraft.lineas.length === persisted.lineas.length && restoredDraft.total === persisted.total && JSON.stringify(restoredDraft.pagos) === JSON.stringify(persisted.pagos), 'Descartar: lineas, importes y pagos intactos');
+    assert(restoredDraft.RoomingList_JSON === persisted.RoomingList_JSON, 'Descartar: Rooming y assignments intactos');
+    assert(JSON.stringify(restoredDraft.servicios) === JSON.stringify(persisted.servicios) && restoredDraft.notas === persisted.notas, 'Descartar: servicios y notas intactos');
+
+    for (const file of ['Rooming-Servicios.html', 'Orden Servicio.html']) {
+        const source = fs.readFileSync(file, 'utf8');
+        const start = source.indexOf('function discardUnsavedViewChanges()');
+        const end = source.indexOf('\n        function ', start + 10);
+        const handler = source.slice(start, end > start ? end : source.length);
+        assert(start >= 0 && /clearTimeout\(saveTimeout\)/.test(handler) && /window\.location\.reload\(\)/.test(handler), `${file}: handler descarta solo el autoguardado pendiente`);
+        assert(!/(localStorage\.(?:clear|removeItem|setItem)|setDoc|updateDoc|deleteDoc|writeBatch|\.set\(|\.update\(|\.delete\()/i.test(handler), `${file}: handler sin escrituras destructivas ni Firestore`);
+        assert(source.includes('DESCARTAR CAMBIOS') && !source.includes('onclick="clearReservaCache()"'), `${file}: boton renombrado y handler antiguo desconectado`);
+    }
+}
+
+console.log(`CLASIFICACION, MOVIMIENTOS Y RESTAURACION COMPLETADOS: ${passed} PASADAS, ${failed} FALLADAS`);
 process.exit(failed > 0 ? 1 : 0);

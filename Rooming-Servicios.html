@@ -107,8 +107,8 @@
         </button>
         <div class="flex items-center gap-3">
             <span id="save-status" class="text-xs text-emerald-600 font-bold opacity-0 transition-opacity">Autoguardado ✓</span>
-            <button onclick="clearReservaCache()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Reiniciar informe a parámetros originales">
-                Restaurar Datos
+            <button onclick="discardUnsavedViewChanges()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Descartar únicamente cambios locales todavía no guardados">
+                DESCARTAR CAMBIOS
             </button>
             <button onclick="printReport()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer">
                 Imprimir / PDF
@@ -343,6 +343,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
         let currentReservaId = "unknown";
         let saveTimeout = null;
+        let isDiscardingUnsavedViewChanges = false;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
         const SERVICES_GENERATION_VERSION = 10;
 
@@ -1454,7 +1455,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         function saveStateToCache(options = {}) {
-            if (currentReservaId === "unknown") return;
+            if (currentReservaId === "unknown" || isDiscardingUnsavedViewChanges) return;
 
             // Dynamically update only non-manual summary boxes
             updateDepartmentSummaries(false);
@@ -1549,6 +1550,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
         let isSyncing = false;
         async function syncRoomingToFirestore(rooming) {
+            if (isDiscardingUnsavedViewChanges) return;
             if (!window.db || !currentReservaId) return;
             if (isSyncing) return;
             isSyncing = true;
@@ -1781,52 +1783,18 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             }
         }
 
-        function clearReservaCache() {
-            const resetRooming = confirm("¿Deseas restaurar también las habitaciones de la Rooming List original? (Se perderán los nombres introducidos de los ocupantes)");
-            if (confirm("¿Estás seguro de restaurar los servicios y operativas?")) {
-                if (resetRooming) {
-                    localStorage.removeItem('roomingServicios_' + currentReservaId);
-                    window.location.reload();
-                    return;
-                }
-                // Parse current rooming from the DOM to guarantee they are kept
-                const rooming = [];
-                document.querySelectorAll('#table-rooming tbody tr').forEach(tr => {
-                    const cells = tr.querySelectorAll('td.editable');
-                    if (cells.length >= 7) {
-                        let parsedOriginalIds = null;
-                        try {
-                            parsedOriginalIds = tr.dataset.originalIds ? JSON.parse(tr.dataset.originalIds) : null;
-                        } catch(e) {}
-                        rooming.push({
-                            id: tr.dataset.id || '',
-                            originalIds: Array.isArray(parsedOriginalIds) && parsedOriginalIds.length > 0 ? parsedOriginalIds : null,
-                            hab: cells[0].innerText,
-                            tipo: cells[1].innerText,
-                            pax: cells[2].innerText,
-                            checkIn: cells[3].innerText,
-                            checkOut: cells[4].innerText,
-                            ocupantes: cells[5].innerText,
-                            dni: '',
-                            observ: cells[6].innerText
-                        });
-                    }
-                });
+        function discardUnsavedViewChanges() {
+            const message = 'Se descartarán únicamente los cambios no guardados de esta pantalla.\n\n' +
+                'Los datos ya guardados de la ficha no se modificarán.\n\n¿Desea continuar?';
+            if (!confirm(message)) return;
 
-                const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
-                let s = {};
-                if (savedStateStr) {
-                    try {
-                        s = JSON.parse(savedStateStr);
-                    } catch(e) {
-                        s = {};
-                    }
-                }
-                s.rooming = rooming;
-                s.restoreServices = true;
-                localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
-                window.location.reload();
+            // Cancel only the pending visual autosave. No localStorage or Firestore writes.
+            isDiscardingUnsavedViewChanges = true;
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+                saveTimeout = null;
             }
+            window.location.reload();
         }
 
         function printReport() {
