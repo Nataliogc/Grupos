@@ -29,9 +29,11 @@
         if (!group) return [];
         let records = group.records || [];
         let allItems = [];
+        let processedJSONs = new Set();
         
         records.forEach(r => {
-            if (r.RoomingList_JSON) {
+            if (r.RoomingList_JSON && !processedJSONs.has(r.RoomingList_JSON)) {
+                processedJSONs.add(r.RoomingList_JSON);
                 try {
                     const parsed = JSON.parse(r.RoomingList_JSON);
                     if (Array.isArray(parsed)) {
@@ -40,6 +42,16 @@
                 } catch (e) {}
             }
         });
+        
+        // Deduplicate by ID to be absolutely safe
+        const uniqueItemsMap = new Map();
+        allItems.forEach(item => {
+            const id = item.id || item.sourceBudgetItemId || JSON.stringify(item);
+            if (!uniqueItemsMap.has(id)) {
+                uniqueItemsMap.set(id, item);
+            }
+        });
+        allItems = Array.from(uniqueItemsMap.values());
         
         return allItems.filter(item => {
             if (!isEffectiveEconomicItem(item)) return false;

@@ -3154,37 +3154,39 @@
         const budgetTotalForLineFilter = group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"];
         const removedSummaryLines = [];
 
-        records.forEach((r) => {
-
-          try {
-
-            const list = getEconomicRoomingItems(r["RoomingList_JSON"], "proforma-lines");
-
-            list.forEach((item) => {
-
-              rawRoomingLines.push(item);
-
-              if (isSummaryBudgetLine(item, budgetTotalForLineFilter)) {
-                removedSummaryLines.push(item);
-                return;
-              }
-
-              const lineKey = buildRoomingLineKey(item);
-
-              if (!processedLineKeys.has(lineKey)) {
-
-                processedLineKeys.add(lineKey);
-                roomList.push(item);
-
-              }
-
+        // USAR LA FUENTE CENTRALIZADA DE VERDAD
+        if (typeof window.roomingCore !== 'undefined' && window.roomingCore.getGroupEconomicItems) {
+            roomList = window.roomingCore.getGroupEconomicItems(group);
+            // Re-evaluar isSummaryBudgetLine
+            roomList = roomList.filter(item => {
+                if (isSummaryBudgetLine(item, budgetTotalForLineFilter)) {
+                    removedSummaryLines.push(item);
+                    return false;
+                }
+                return true;
             });
-
-          } catch (e) { }
-
-        });
-
-
+            // Assign to rawRoomingLines for compatibility
+            rawRoomingLines.push(...roomList);
+        } else {
+            // Fallback (no deberia usarse si roomingCore existe)
+            records.forEach((r) => {
+              try {
+                const list = getEconomicRoomingItems(r["RoomingList_JSON"], "proforma-lines");
+                list.forEach((item) => {
+                  rawRoomingLines.push(item);
+                  if (isSummaryBudgetLine(item, budgetTotalForLineFilter)) {
+                    removedSummaryLines.push(item);
+                    return;
+                  }
+                  const lineKey = buildRoomingLineKey(item);
+                  if (!processedLineKeys.has(lineKey)) {
+                    processedLineKeys.add(lineKey);
+                    roomList.push(item);
+                  }
+                });
+              } catch (e) { }
+            });
+        }
 
         const expectedRoomingTotal = parseRoomingAmount(budgetTotalForLineFilter);
         const rawChargeLines = rawRoomingLines.filter((item) => !isSummaryBudgetLine(item, budgetTotalForLineFilter));
@@ -3208,68 +3210,21 @@
         }
 
         // MEJORA: Si la roomList está vacía o no tiene servicios, buscar servicios "huérfanos" en los records
-
-        // que puedan venir de una importación de Excel (donde no hay JSON pero sí líneas de servicio)
-
-        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-          const rawTotal = sumRoomingLines(rawRoomingLines);
-          const dedupedTotal = sumRoomingLines(roomList);
-
-          if (Math.abs(rawTotal - dedupedTotal) > 0.01) {
-            console.warn("[PROFORMA] Diferencia detectada entre RoomingList bruto y RoomingList procesado", {
-              rawTotal,
-              dedupedTotal,
-              difference: rawTotal - dedupedTotal,
-              rawDates: rawRoomingLines.map(l => ({
-                id: l.id,
-                date: l.date || l.fecha || l.serviceDate || l.stayDate || l.dateIn,
-                qty: l.qty || l.quantity || l.cantidad || l.rooms,
-                price: l.price || l.unitPrice || l.precio,
-                total: l.total || l.lineTotal || l.importe,
-              })),
-              processedDates: roomList.map(l => ({
-                id: l.id,
-                date: l.date || l.fecha || l.serviceDate || l.stayDate || l.dateIn,
-                qty: l.qty || l.quantity || l.cantidad || l.rooms,
-                price: l.price || l.unitPrice || l.precio,
-                total: l.total || l.lineTotal || l.importe,
-              })),
-            });
-          }
-        }
-
         if (roomList.length === 0 || !roomList.some((i) => i.isService)) {
-
           records.forEach((r, idx) => {
-
             const regime = (r["Régimen"] || "").toUpperCase();
-
             const isServiceRegime =
-
               regime.includes("RESTAURAC") ||
-
               regime.includes("ALMUERZO") ||
-
               regime.includes("CENA") ||
-
               regime.includes("COCTEL");
-
             const pax = parseInt(r["Pax."] || 0);
-
             const imp = parseNum(r["Importe(*)"]);
 
-
-
-            // Si tiene importe pero no tiene noches/pernoct, o es un régimen de restauración, lo consideramos servicio
-
             if (
-
               (isServiceRegime ||
-
                 (imp > 0 && (!r["Noches"] || r["Noches"] == "0"))) &&
-
               pax > 0
-
             ) {
               const serviceConcept = r["Régimen"] || "";
               if (!serviceConcept.trim()) return;
@@ -3286,59 +3241,31 @@
                 removedSummaryLines.push(candidateServiceLine);
                 return;
               }
-
-              // Evitar duplicados si ya de casualidad estaba en el JSON (aunque este check es para cuando el JSON es pobre)
-
               const concepto = `${r["Régimen"] || "Servicio"} ${r["Entrada"] || ""}`;
-
               if (
-
                 !roomList.some(
-
                   (i) => i.type === r["Régimen"] && i.dateIn === r["Entrada"],
-
                 )
-
               ) {
-
                 roomList.push({
-
                   id: `svc-${idx}-${r["Reserva"]}`,
-
                   hotel: r["Hotel_Asignado"] || r["Hotel"] || "GENERAL",
-
                   type: serviceConcept,
-
                   dateIn: r["Entrada"],
-
                   dateOut: r["Salida"] || r["Entrada"],
-
                   qty: 1,
-
                   pax: pax,
-
                   price: imp,
-
                   total: imp,
-
                   isService: true,
-
                   itemCategory: "service",
-
                   isAccommodation: false,
-
                   serviceCategory: /almuerzo|cena|desayuno|coffee/i.test(serviceConcept) ? "food-beverage" : undefined,
-
                   iva: 10,
-
                 });
-
               }
-
             }
-
           });
-
         }
 
         if ((window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && removedSummaryLines.length > 0) {
@@ -3542,6 +3469,9 @@
                   alert(`No se puede generar la proforma.\n\nPresupuesto confirmado: ${confirmedBudgetTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nFicha económica: ${groupEconomicTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nProforma preparada: ${proformaItemsTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nDiferencia pendiente: ${diff.toLocaleString("es-ES", {minimumFractionDigits: 2})} €${missingStr}\n\nPor favor, usa la acción SINCRONIZAR CARGOS en la ficha económica.`);
                   
                   setShowFichaModal(true);
+                  setTimeout(() => {
+                    syncChargesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }, 100);
                   return;
               }
 
