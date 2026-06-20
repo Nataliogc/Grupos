@@ -106,6 +106,9 @@
             &larr; Volver a la Reserva
         </button>
         <div class="flex items-center gap-3">
+            <button onclick="handleExplicitRoomingSave()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer" title="Guardar explícitamente los cambios en base de datos">
+                GUARDAR CAMBIOS
+            </button>
             <span id="save-status" class="text-xs text-emerald-600 font-bold opacity-0 transition-opacity">Autoguardado ✓</span>
             <button onclick="discardUnsavedViewChanges()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Descartar únicamente cambios locales todavía no guardados">
                 DESCARTAR CAMBIOS
@@ -344,6 +347,9 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         let isDiscardingChanges = false;
+        let isInitializingView = true;
+        let hasUserEditedView = false;
+        let isExplicitSaveInProgress = false;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
         const SERVICES_GENERATION_VERSION = 10;
 
@@ -1158,12 +1164,42 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         function triggerSave() {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(saveStateToCache, 800);
-            
+            hasUserEditedView = true;
+            if (isInitializingView || isDiscardingChanges) return;
             const status = document.getElementById('save-status');
-            status.style.opacity = '1';
-            setTimeout(() => status.style.opacity = '0', 2000);
+            if (status) {
+                status.innerText = 'Guardando local...';
+                status.classList.remove('opacity-0');
+            }
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                saveStateToCache();
+                if (status) {
+                    status.innerText = 'Autoguardado local ✓';
+                    setTimeout(() => status.classList.add('opacity-0'), 2000);
+                }
+            }, 1000);
+        }
+
+        async function handleExplicitRoomingSave() {
+            const btn = event.currentTarget || document.querySelector('button[onclick="handleExplicitRoomingSave()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "GUARDANDO...";
+            btn.disabled = true;
+
+            isExplicitSaveInProgress = true;
+            try {
+                // saveStateToCache triggers the process that eventually calls syncRoomingToFirestore
+                saveStateToCache({ explicitSave: true });
+                hasUserEditedView = false;
+                alert("Cambios guardados correctamente en la base de datos.");
+            } catch(e) {
+                alert("Error al guardar: " + e.message);
+            } finally {
+                isExplicitSaveInProgress = false;
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
         function createEditableCell(text, isNumeric = false) {
@@ -1544,13 +1580,16 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             
             // Asynchronously sync manual room edits to Firestore
             if (typeof syncRoomingToFirestore === 'function') {
-                syncRoomingToFirestore(rooming);
+                syncRoomingToFirestore(rooming, options.explicitSave === true);
             }
         }
 
         let isSyncing = false;
-        async function syncRoomingToFirestore(rooming) {
-            if (isDiscardingChanges) return;
+        async function syncRoomingToFirestore(rooming, isExplicit = false) {
+            if (isInitializingView || !hasUserEditedView || isDiscardingChanges) return;
+            // Only allow Firestore write if it's explicitly triggered
+            if (!isExplicitSaveInProgress && !isExplicit) return;
+
             if (!window.db || !currentReservaId) return;
             if (isSyncing) return;
             isSyncing = true;
@@ -2887,7 +2926,9 @@ ${inputVal}`;
             }
 
             runRoomingTests();
-            saveStateToCache();
+            
+            // Initialization finished
+            isInitializingView = false;
         });
     </script>
 </body>

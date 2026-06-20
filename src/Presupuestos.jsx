@@ -1492,6 +1492,34 @@
           "RoomingList_JSON": JSON.stringify(generatedRoomingList)
         };
 
+        const uidToUpdateForExtras = isNew ? null : normalizedFormData.uid;
+        const oldDocForExtras = isNew ? null : groups.find(g => g.uid === uidToUpdateForExtras);
+
+        if (groupData.extraCharges && Array.isArray(groupData.extraCharges)) {
+          groupData.extraCharges = groupData.extraCharges.map(ext => {
+             const newExt = { ...ext };
+             if (!newExt.id) {
+               newExt.id = "ext_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+             }
+             if (!newExt.budgetId) newExt.budgetId = reservaId;
+             if (!newExt.version) newExt.version = 1;
+             
+             // Detect changes if updating
+             if (oldDocForExtras && oldDocForExtras.extraCharges) {
+                const oldExt = oldDocForExtras.extraCharges.find(e => e.id === newExt.id);
+                if (oldExt) {
+                   const hasChanged = oldExt.price !== newExt.price || oldExt.qty !== newExt.qty || oldExt.type !== newExt.type || oldExt.date !== newExt.date || oldExt.iva !== newExt.iva;
+                   if (hasChanged) {
+                      newExt.version = (oldExt.version || 1) + 1;
+                   } else {
+                      newExt.version = oldExt.version || 1;
+                   }
+                }
+             }
+             return newExt;
+          });
+        }
+
         try {
           if (isNew) {
             groupData.createdAt = firebase.firestore.FieldValue.serverTimestamp();

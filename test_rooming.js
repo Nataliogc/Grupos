@@ -639,6 +639,26 @@ function runIntegrationTests() {
         check(dosNoches.every(r => r.originalIds.includes('oid_a') && r.originalIds.includes('oid_b')), 'INT-OrigIds: IDs correctos (oid_a, oid_b)');
     }
 
+    // â”€â”€â”€ GRUPO PRIM y exclusiÃ³n de servicios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    {
+        const inp = [
+            blk('Hab. Doble Uso Individual', 21, 1, '2026-06-24', '2026-06-25', 'g1'),
+            blk('Hab. Doble Uso Individual', 3, 1, '2026-06-25', '2026-06-26', 'g2')
+        ];
+        check(calculateMaxDailyOccupancy(inp) === 21, 'INT-GrupoPrim: maxDailyOccupancy 21');
+        check(calculateMaxDailyRooms(inp) === 21, 'INT-GrupoPrim: maxDailyRooms 21');
+        check(calculateRoomNights(inp) === 24, 'INT-GrupoPrim: roomNights 24');
+        check(isAccommodationItem({ producto: "HAB. DOBLE USO INDIVIDUAL" }) === true, 'INT-GrupoPrim: DUI reconocida');
+        check(isAccommodationItem({ producto: "ALMUERZO EXTRA" }) === false, 'INT-GrupoPrim: Servicios excluidos');
+
+        const res = groupAndMergeRoomingList(inp, '2026-06-24', '2026-06-26');
+        check(res.filter(r => !r.isService).length === 21, 'INT-GrupoPrim: consolidatedStays.length 21');
+        const out25 = res.filter(r => r.checkOut === '2026-06-25' || r.dateOut === '2026-06-25');
+        const out26 = res.filter(r => r.checkOut === '2026-06-26' || r.dateOut === '2026-06-26');
+        check(out25.length === 18, 'INT-GrupoPrim: 18 estancias con salida 25/06');
+        check(out26.length === 3, 'INT-GrupoPrim: 3 estancias con salida 26/06');
+    }
+
     // â”€â”€â”€ Fechas exactas, sin addDays(dateOut,1) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {
         const inp = [

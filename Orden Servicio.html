@@ -97,6 +97,9 @@
             &larr; Volver a la Reserva
         </button>
         <div class="flex items-center gap-3">
+            <button onclick="handleExplicitRoomingSave()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer" title="Guardar explícitamente los cambios localmente">
+                GUARDAR CAMBIOS
+            </button>
             <span id="save-status" class="text-xs text-emerald-600 font-bold opacity-0 transition-opacity">Autoguardado ✓</span>
             <button onclick="discardUnsavedViewChanges()" class="px-3 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg transition-colors text-xs shadow border border-rose-200 cursor-pointer" title="Descartar únicamente cambios locales todavía no guardados">
                 DESCARTAR CAMBIOS
@@ -190,6 +193,9 @@
     <script>
         let currentReservaId = "unknown";
         let isDiscardingChanges = false;
+        let isInitializingView = true;
+        let hasUserEditedView = false;
+        let isExplicitSaveInProgress = false;
         let currentGroupName = "";
         function goBackToReserva() {
             // Guardamos la referencia para que Gestion de Grupos sepa qué ficha abrir
@@ -214,12 +220,42 @@
         let saveTimeout = null;
         // Auto Save Trigger
         function triggerSave() {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(saveStateToCache, 800);
-            // Visual feedback
+            hasUserEditedView = true;
+            if (isInitializingView || isDiscardingChanges) return;
             const status = document.getElementById('save-status');
-            status.style.opacity = '1';
-            setTimeout(() => status.style.opacity = '0', 2000);
+            if (status) {
+                status.innerText = 'Guardando local...';
+                status.classList.remove('opacity-0');
+                status.style.opacity = '1';
+            }
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                saveStateToCache();
+                if (status) {
+                    status.innerText = 'Autoguardado local ✓';
+                    setTimeout(() => status.style.opacity = '0', 2000);
+                }
+            }, 1000);
+        }
+
+        async function handleExplicitRoomingSave() {
+            const btn = event.currentTarget || document.querySelector('button[onclick="handleExplicitRoomingSave()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "GUARDANDO...";
+            btn.disabled = true;
+
+            isExplicitSaveInProgress = true;
+            try {
+                saveStateToCache();
+                hasUserEditedView = false;
+                alert("Cambios guardados localmente para impresión.");
+            } catch(e) {
+                alert("Error al guardar: " + e.message);
+            } finally {
+                isExplicitSaveInProgress = false;
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
         function createEditableCell(text) {
             const td = document.createElement('td');
@@ -467,6 +503,51 @@
             document.getElementById('agencia-val').innerText = gAgency;
             document.getElementById('pax-val').innerText = gPax;
             document.getElementById('comercial-val').innerText = gCom;
+
+            // ---- INYECCION DE CARGOS EXTRA COMO OPERATIVOS ----
+            if (typeof window.roomingCore !== 'undefined' && window.roomingCore.getGroupEconomicItems && window.roomingCore.reconcileOperationalServices) {
+                const ecoItems = window.roomingCore.getGroupEconomicItems(group);
+                const existingOps = group.operationalServices || [];
+                
+                const ops = window.roomingCore.reconcileOperationalServices({ economicItems: ecoItems, existingOperationalServices: existingOps });
+                
+                if (ops.length > 0) {
+                    const targetParent = document.querySelector(".w-full.max-w-4xl.mx-auto");
+                    if (targetParent && !document.getElementById("ops-container")) {
+                        const opsContainer = document.createElement("div");
+                        opsContainer.id = "ops-container";
+                        opsContainer.className = "mt-6 mb-6";
+                        opsContainer.innerHTML = '<h3 class="text-xl font-bold text-slate-800 border-b-2 border-slate-200 pb-2 mb-4"><i class="fas fa-concierge-bell text-indigo-500 mr-2"></i>Servicios Operativos (Derivados Económicos)</h3>';
+                        
+                        const grid = document.createElement('div');
+                        grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
+                        
+                        ops.forEach(op => {
+                            const isMod = op._isModified ? '<span class="ml-2 text-[10px] font-bold text-amber-500 bg-amber-100 px-2 py-0.5 rounded uppercase">CAMBIO PENDIENTE DE CONCILIAR</span>' : '';
+                            const isPend = op.department.includes('PENDIENTE') ? ' border-rose-300 bg-rose-50' : ' border-slate-200 bg-white';
+                            grid.innerHTML += `<div class="p-4 rounded-xl border shadow-sm${isPend}">
+                                <p class="text-[10px] font-black uppercase text-indigo-500 tracking-wider mb-1">${op.department}</p>
+                                <h4 class="font-bold text-slate-800 text-sm mb-2">${op.product} ${isMod}</h4>
+                                <div class="flex gap-4 text-xs text-slate-600 mb-2">
+                                    <span><i class="fas fa-calendar mr-1 opacity-50"></i> ${op.date || 'Sin fecha'}</span>
+                                    <span><i class="fas fa-hashtag mr-1 opacity-50"></i> ${op.units} u.</span>
+                                    ${op.pax ? `<span><i class="fas fa-users mr-1 opacity-50"></i> ${op.pax} pax</span>` : ''}
+                                </div>
+                            </div>`;
+                        });
+                        
+                        opsContainer.appendChild(grid);
+                        
+                        // insert after header info box (second child usually)
+                        if (targetParent.children.length > 1) {
+                            targetParent.insertBefore(opsContainer, targetParent.children[1]);
+                        } else {
+                            targetParent.appendChild(opsContainer);
+                        }
+                    }
+                }
+            }
+            // --------------------------------------------------
                 // Parse RoomingList_JSON for real per-day regime data
                 let roomingList = [];
                 try {
@@ -730,6 +811,8 @@
                          addRowPlan(formatD(today), s, String(document.getElementById('pax-val').innerText || '---'), '', suggestedHours[s] || '');
                     });
                 }
+        // Initialization finished
+        isInitializingView = false;
         });
     </script>
 </body>

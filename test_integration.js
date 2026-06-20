@@ -346,3 +346,119 @@ console.log(`\n=== INTEGRACIÓN: ${passed} PASADAS, ${failed} FALLADAS ===\n`);
 
 console.log(`CLASIFICACION, MOVIMIENTOS Y RESTAURACION COMPLETADOS: ${passed} PASADAS, ${failed} FALLADAS`);
 process.exit(failed > 0 ? 1 : 0);
+
+
+// ============================================================================
+// PRUEBAS DEL PUNTO 3 y 4: CONCILIACIÓN ECONÓMICA Y OPERATIVA (EXTRAS)
+// ============================================================================
+
+const { getGroupEconomicItems, reconcileEconomicItems, reconcileOperationalServices, classifyOperationalDepartment } = require('./js/rooming-core.js');
+
+function makeExtra(id, type, total, price = 12, qty = 1, exclude = false, pax = null) {
+    return { 
+        id, type, total, price, qty, pax, 
+        excludeFromEconomicTotals: exclude, 
+        dateIn: '2026-10-02'
+    };
+}
+
+// ── Punto 3: Proforma completa y validaciones ────────────────────────────────
+{
+    const group = {
+        totalRevenue: 4554,
+        extraCharges: [
+            { id: "e1", budgetId: "b1", type: "Circuito Spa", qty: 30, price: 12, total: 360, iva: 10, date: "2026-10-02" },
+            { id: "e2", budgetId: "b1", type: "Salón", qty: 1, price: 90, total: 90, iva: 21, date: "2026-10-03" }
+        ],
+        records: [
+            {
+                RoomingList_JSON: JSON.stringify([
+                    { id: "r1", type: "Habitación Doble", regime: "MP", qty: 15, price: 118.3, total: 1774.5, isAccommodation: true, dateIn: "2026-10-02" },
+                    { id: "r2", type: "Habitación Doble", regime: "PC", qty: 15, price: 155.3, total: 2329.5, isAccommodation: true, dateIn: "2026-10-03" },
+                    // Extras ya sincronizados
+                    { id: "e1", sourceBudgetId: "b1", type: "Circuito Spa", qty: 30, price: 12, total: 360, isAccommodation: false, dateIn: "2026-10-02" },
+                    { id: "e2", sourceBudgetId: "b1", type: "Salón", qty: 1, price: 90, total: 90, isAccommodation: false, dateIn: "2026-10-03" }
+                ])
+            }
+        ]
+    };
+
+    const ecoItems = getGroupEconomicItems(group);
+    assert(ecoItems.length === 4, 'Proforma completa: 2 alojamientos + Spa + Salón = 4 líneas');
+    
+    const totalEco = ecoItems.reduce((acc, i) => acc + i.total, 0);
+    assert(Math.abs(totalEco - 4554) < 0.01, 'Proforma completa: total coincide 4554.00 €');
+
+    // Falta de extras
+    const groupMissing = {
+        totalRevenue: 4554,
+        extraCharges: group.extraCharges,
+        records: [{ RoomingList_JSON: JSON.stringify([ 
+            { id: "r1", type: "Habitación Doble", total: 1774.5, isAccommodation: true },
+            { id: "r2", type: "Habitación Doble", total: 2329.5, isAccommodation: true }
+        ]) }]
+    };
+    const ecoItemsMissing = getGroupEconomicItems(groupMissing);
+    const totalEcoMissing = ecoItemsMissing.reduce((acc, i) => acc + i.total, 0);
+    assert(Math.abs(totalEcoMissing - 4104) < 0.01, 'Falta de extras: total es 4104.00 €, muestra diferencia de 450 €');
+
+    // Servicio solo operativo
+    const groupOperativo = {
+        records: [{ RoomingList_JSON: JSON.stringify([ 
+            { id: "r1", type: "Habitación Doble", total: 100, isAccommodation: true },
+            { id: "o1", type: "Petición extra", total: 0, isEconomicRepresentation: false }
+        ]) }]
+    };
+    const ecoOp = getGroupEconomicItems(groupOperativo);
+    assert(ecoOp.length === 1, 'Servicio solo operativo: no debe entrar en Proforma');
+
+    // Dos extras con el mismo nombre
+    const groupSameName = {
+        extraCharges: [
+            { id: "e1", type: "Salón", total: 90 },
+            { id: "e2", type: "Salón", total: 90 }
+        ],
+        records: [{ RoomingList_JSON: JSON.stringify([ 
+            { id: "e1", type: "Salón", total: 90, sourceBudgetItemId: "e1" } 
+        ]) }]
+    };
+    const recSameName = reconcileEconomicItems({ extraCharges: groupSameName.extraCharges, existingEconomicItems: getGroupEconomicItems(groupSameName) });
+    assert(recSameName.addedItems.length === 1 && recSameName.addedItems[0].id === "e2", 'Dos extras con el mismo nombre: se mantienen si tienen IDs distintos');
+}
+
+// ── Punto 4: Orden de Servicio y Departamentos ───────────────────────────────
+{
+    const itemSpa = { id: "e1", budgetId: "b1", type: "Circuito Spa", pax: 30, total: 360, isAccommodation: false, dateIn: "2026-10-02" };
+    const itemSalon = { id: "e2", budgetId: "b1", type: "Salón", qty: 1, total: 90, isAccommodation: false, dateIn: "2026-10-03" };
+    const itemUnknown = { id: "e3", type: "Ovni", total: 100, isAccommodation: false };
+    
+    const classSpa = classifyOperationalDepartment(itemSpa);
+    assert(classSpa.department === 'SPA', 'Spa: clasificación departamental SPA');
+    
+    const classSalon = classifyOperationalDepartment(itemSalon);
+    assert(classSalon.department === 'EVENTOS / SALAS', 'Salón: clasificación EVENTOS/SALAS');
+
+    const ecoItems = [itemSpa, itemSalon, itemUnknown];
+    
+    // Primera apertura
+    const ops = reconcileOperationalServices({ economicItems: ecoItems, existingOperationalServices: [] });
+    assert(ops.length === 3, 'Orden Servicio: genera representaciones operativas correctamente');
+    const opSpa = ops.find(o => o.department === 'SPA');
+    assert(opSpa.pax === 30, 'Spa: se crea representación en SPA con 30 pax');
+    assert(opSpa.isEconomicRepresentation === false, 'No impacto económico: las representaciones no modifican el total');
+    
+    const opUnk = ops.find(o => o.department.includes('PENDIENTE'));
+    assert(opUnk, 'Servicio desconocido: se muestra en DEPARTAMENTO PENDIENTE');
+
+    // Segunda apertura
+    const ops2 = reconcileOperationalServices({ economicItems: ecoItems, existingOperationalServices: ops });
+    assert(ops2.length === 3 && ops2.every(o => o._isUnchanged), 'Segunda apertura: no aparecen duplicados');
+
+    // Servicio modificado
+    const opsModificado = reconcileOperationalServices({ 
+        economicItems: [ { ...itemSpa, qty: 50, pax: 50 } ], 
+        existingOperationalServices: ops 
+    });
+    const modifiedOp = opsModificado.find(o => o._isModified);
+    assert(modifiedOp && modifiedOp.units === 50, 'Servicio modificado: se detecta y actualiza de forma controlada');
+}

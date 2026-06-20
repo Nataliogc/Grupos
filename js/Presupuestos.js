@@ -1561,7 +1561,7 @@ function App() {
   };
   var handleSave = /*#__PURE__*/function () {
     var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
-      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, segmentCountsByDate, globalDates, emptyDates, _confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t2;
+      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, segmentCountsByDate, globalDates, emptyDates, _confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
@@ -1737,6 +1737,36 @@ function App() {
               "Importe(*)": formatNum(finalTotal),
               "RoomingList_JSON": JSON.stringify(generatedRoomingList)
             });
+            uidToUpdateForExtras = isNew ? null : normalizedFormData.uid;
+            oldDocForExtras = isNew ? null : groups.find(function (g) {
+              return g.uid === uidToUpdateForExtras;
+            });
+            if (groupData.extraCharges && Array.isArray(groupData.extraCharges)) {
+              groupData.extraCharges = groupData.extraCharges.map(function (ext) {
+                var newExt = _objectSpread({}, ext);
+                if (!newExt.id) {
+                  newExt.id = "ext_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+                }
+                if (!newExt.budgetId) newExt.budgetId = reservaId;
+                if (!newExt.version) newExt.version = 1;
+
+                // Detect changes if updating
+                if (oldDocForExtras && oldDocForExtras.extraCharges) {
+                  var oldExt = oldDocForExtras.extraCharges.find(function (e) {
+                    return e.id === newExt.id;
+                  });
+                  if (oldExt) {
+                    var hasChanged = oldExt.price !== newExt.price || oldExt.qty !== newExt.qty || oldExt.type !== newExt.type || oldExt.date !== newExt.date || oldExt.iva !== newExt.iva;
+                    if (hasChanged) {
+                      newExt.version = (oldExt.version || 1) + 1;
+                    } else {
+                      newExt.version = oldExt.version || 1;
+                    }
+                  }
+                }
+                return newExt;
+              });
+            }
             _context2.p = 18;
             if (!isNew) {
               _context2.n = 20;

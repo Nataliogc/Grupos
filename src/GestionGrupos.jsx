@@ -3515,23 +3515,34 @@
                 return acc + (qty * days);
               }, 0);
 
-              const expectedFichaTotal = parseRoomingAmount(group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"]);
-              const mismatchWithFicha = expectedFichaTotal > 0 && Math.abs(expectedFichaTotal - totalOriginal) > 0.01;
+              const confirmedBudgetTotal = parseRoomingAmount(group.totalRevenue || baseRecord["Importe(*)"] || proformaData["Importe(*)"]);
+              const groupEconomicItems = typeof window.roomingCore !== 'undefined' && window.roomingCore.getGroupEconomicItems ? window.roomingCore.getGroupEconomicItems(group) : roomList;
+              const groupEconomicTotal = parseFloat(groupEconomicItems.reduce((acc, item) => acc + (parseFloat(item.total || item.lineTotal || item.importe) || 0), 0).toFixed(2));
+              const proformaItemsTotal = totalProforma; // mapped items sum
 
-              if (mismatchWithFicha || Math.abs(totalOriginal - totalProforma) > 0.01 || Math.abs(roomNightsFicha - roomNightsProforma) > 0.01) {
-                console.warn("[PROFORMA] Diferencia entre ficha y proforma", {
-                  expectedFichaTotal,
-                  totalFicha: totalOriginal,
-                  totalProforma,
-                  difference: expectedFichaTotal > 0 ? expectedFichaTotal - totalProforma : totalOriginal - totalProforma,
-                  roomNightsFicha,
-                  roomNightsProforma,
-                  roomNightsDifference: roomNightsFicha - roomNightsProforma,
-                  sourceLines: roomList,
-                  proformaLines: mappedItems,
-                });
-                alert("La proforma no coincide con la ficha económica. Revisa la consola antes de generar el PDF.");
-                return;
+              const MONEY_TOLERANCE = 0.01;
+              const budgetMatchesGroup = Math.abs(confirmedBudgetTotal - groupEconomicTotal) <= MONEY_TOLERANCE;
+              const groupMatchesProforma = Math.abs(groupEconomicTotal - proformaItemsTotal) <= MONEY_TOLERANCE;
+
+              if (!budgetMatchesGroup || !groupMatchesProforma) {
+                  const diff = confirmedBudgetTotal - groupEconomicTotal;
+                  let missingStr = "";
+                  
+                  if (typeof window.roomingCore !== 'undefined' && window.roomingCore.reconcileEconomicItems) {
+                      const rec = window.roomingCore.reconcileEconomicItems({
+                          extraCharges: group.extraCharges || [],
+                          existingEconomicItems: groupEconomicItems,
+                          hotelName: detectedHotel
+                      });
+                      if (rec && rec.addedItems && rec.addedItems.length > 0) {
+                          missingStr = "\\n\\nCargos sin sincronizar:\\n" + rec.addedItems.map(item => "• " + (item.type || item.concepto) + ": " + parseFloat(item.total).toLocaleString("es-ES", {minimumFractionDigits: 2}) + " €").join("\\n");
+                      }
+                  }
+
+                  alert(`No se puede generar la proforma.\n\nPresupuesto confirmado: ${confirmedBudgetTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nFicha económica: ${groupEconomicTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nProforma preparada: ${proformaItemsTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nDiferencia pendiente: ${diff.toLocaleString("es-ES", {minimumFractionDigits: 2})} €${missingStr}\n\nPor favor, usa la acción SINCRONIZAR CARGOS en la ficha económica.`);
+                  
+                  setShowFichaModal(true);
+                  return;
               }
 
               proformaData["ProformaItems"] = mappedItems;

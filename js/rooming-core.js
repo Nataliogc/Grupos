@@ -15,6 +15,106 @@
 (function (global) {
     "use strict";
 
+    
+    function getGroupEconomicItems(group) {
+        if (!group) return [];
+        let records = group.records || [];
+        let allItems = [];
+        
+        records.forEach(r => {
+            if (r.RoomingList_JSON) {
+                try {
+                    const parsed = JSON.parse(r.RoomingList_JSON);
+                    if (Array.isArray(parsed)) {
+                        allItems = allItems.concat(parsed);
+                    }
+                } catch (e) {}
+            }
+        });
+        
+        return allItems.filter(item => {
+            if (item.excludeFromEconomicTotals === true) return false;
+            if (item.isEconomicRepresentation === false) return false;
+            // No excluir servicios sin coste por defecto si hay notas, pero aquí seguimos la regla general
+            if (item.precio === 0 && item.total === 0 && item.isAccommodation === true) return false;
+            return true;
+        });
+    }
+
+    function classifyOperationalDepartment(item) {
+        const str = String(item.type || item.concepto || item.Concepto || item.name || '').trim().toLowerCase();
+        
+        if (str.includes('spa')) return { department: 'SPA', subType: 'BIENESTAR' };
+        if (str.includes('salón') || str.includes('salon') || str.includes('sala')) return { department: 'EVENTOS / SALAS', subType: 'MICE' };
+        if (str.includes('almuerzo') || str.includes('cena') || str.includes('desayuno') || str.includes('restaurante') || str.includes('mp') || str.includes('pc') || str.includes('ad')) return { department: 'RESTAURANTE / COCINA', subType: 'F&B' };
+        if (str.includes('coffee') || str.includes('pausa')) return { department: 'RESTAURANTE / EVENTOS', subType: 'F&B / MICE' };
+        if (str.includes('audiovisual') || str.includes('proyector') || str.includes('pantalla') || str.includes('micro')) return { department: 'EVENTOS / MANTENIMIENTO', subType: 'AV' };
+        if (str.includes('parking') || str.includes('garaje') || str.includes('aparcamiento') || str.includes('estacionamiento')) return { department: 'RECEPCIÓN', subType: 'PARKING' };
+        if (str.includes('transfer') || str.includes('traslado')) return { department: 'RECEPCIÓN / TRANSPORTE', subType: 'TRANSFER' };
+        
+        return { department: 'DEPARTAMENTO PENDIENTE DE ASIGNAR', subType: 'UNKNOWN' };
+    }
+
+    function reconcileOperationalServices({ economicItems, existingOperationalServices }) {
+        const newOps = [];
+        const existingMap = new Map();
+        
+        (existingOperationalServices || []).forEach(op => {
+            if (op.operationalServiceId) {
+                existingMap.set(op.operationalServiceId, op);
+            }
+        });
+
+        (economicItems || []).forEach(item => {
+            if (item.isAccommodation || item.isAccommodation === "true" || item.type === "Habitación" || item.isEconomicRepresentation === false) return;
+            // skip internal tracking elements
+            if (item.type === "Rooming List" || item.type === "Menú MP" || item.type === "Menú PC") return;
+
+            const classInfo = classifyOperationalDepartment(item);
+            const baseId = item.id || item.sourceBudgetItemId || (item.type + "_" + item.dateIn);
+            const budgetId = item.sourceBudgetId || item.budgetId || "unknown";
+            const opId = `op|${budgetId}|${baseId}|${classInfo.department}`;
+            
+            const qty = item.qty || item.quantity || item.cantidad || item.cant || 1;
+            const pax = item.pax || null;
+            
+            const opRep = {
+                operationalServiceId: opId,
+                sourceEconomicItemId: baseId,
+                sourceBudgetId: budgetId,
+                sourceBudgetItemId: baseId,
+                department: classInfo.department,
+                serviceType: classInfo.subType,
+                date: item.dateIn || item.date || item.fecha || '',
+                time: item.time || '',
+                pax: pax,
+                units: qty,
+                hotel: item.hotel || item.Hotel || 'Sercotel Guadiana',
+                notes: item.observ || item.observaciones || item.notas || '',
+                isAutomaticOperationalService: true,
+                isEconomicRepresentation: false,
+                product: item.type || item.concepto || item.name || '',
+            };
+            
+            if (existingMap.has(opId)) {
+                const ex = existingMap.get(opId);
+                const hasDiff = ex.units !== opRep.units || ex.date !== opRep.date || ex.product !== opRep.product;
+                if (hasDiff) {
+                    opRep._isModified = true;
+                    opRep._oldValue = ex;
+                } else {
+                    opRep._isUnchanged = true;
+                }
+                newOps.push(opRep);
+            } else {
+                opRep._isNew = true;
+                newOps.push(opRep);
+            }
+        });
+        
+        return newOps;
+    }
+
     const ROOMING_CORE_VERSION = "assignments-v1";
     const MAX_ALLOWED_ROOMING_NIGHTS = 90;
 
