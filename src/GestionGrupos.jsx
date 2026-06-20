@@ -1663,7 +1663,7 @@
 
                   try {
 
-                    const roomList = JSON.parse(roomListStr);
+                    const roomList = parseRoomingListSafe(roomListStr, "release-check");
 
                     roomList.forEach((item) => {
 
@@ -2912,7 +2912,7 @@
 
             try {
 
-              const rl = JSON.parse(r["RoomingList_JSON"] || "[]");
+              const rl = parseRoomingListSafe(r["RoomingList_JSON"], "get-hotel-fallback");
 
               for (const item of rl) {
 
@@ -4117,7 +4117,7 @@
 
                 try {
 
-                  const roomList = JSON.parse(roomListStr);
+                  const roomList = parseRoomingListSafe(roomListStr, "release-check");
 
                   roomList.forEach((item) => {
 
@@ -5350,7 +5350,7 @@
 
           try {
 
-            currentList = JSON.parse(firstRecord["RoomingList_JSON"] || "[]");
+            currentList = parseRoomingListSafe(firstRecord["RoomingList_JSON"], "clean-hotel-names");
 
           } catch (e) {
 
@@ -5623,7 +5623,7 @@
         try {
           const rec = group.records && group.records[0];
           if (rec) {
-            const list = JSON.parse(rec["RoomingList_JSON"] || "[]");
+            const list = parseRoomingListSafe(rec["RoomingList_JSON"], "lastRoomingListRef");
             if (Array.isArray(list) && list.length > 0)
               lastRoomingListRef.current = { groupName: group.name, list };
           }
@@ -5785,7 +5785,7 @@
             if (normNewHotel !== normCurrentHotel) {
               // Main hotel changed! Update all RoomingList items to canonical name
               try {
-                const rl = JSON.parse(firstRow.RoomingList_JSON || "[]");
+                const rl = parseRoomingListSafe(firstRow.RoomingList_JSON, "metadata-sync");
                 if (Array.isArray(rl)) {
                   const updatedRl = rl.map(item => ({
                     ...item,
@@ -5820,7 +5820,7 @@
             const totalRevenue = parseNum(firstRow["Importe(*)"]);
             let totalCommission = 0;
             try {
-              const rl = JSON.parse(firstRow.RoomingList_JSON || "[]");
+              const rl = parseRoomingListSafe(firstRow.RoomingList_JSON, "metadata-sync");
               totalCommission = rl.reduce((acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0), 0);
             } catch(e) {}
             
@@ -5947,7 +5947,7 @@
           let newTotalPax = 0;
           if (updatedRecords[0] && updatedRecords[0].RoomingList_JSON) {
             try {
-              const rl = JSON.parse(updatedRecords[0].RoomingList_JSON);
+              const rl = parseRoomingListSafe(updatedRecords[0].RoomingList_JSON, "recalculate-totals");
               newTotalPax = calculateMaxDailyOccupancy(rl);
             } catch (e) {}
           }
@@ -5975,7 +5975,7 @@
 
             try {
 
-              const rl = JSON.parse(updatedRecords[0].RoomingList_JSON);
+              const rl = parseRoomingListSafe(updatedRecords[0].RoomingList_JSON, "recalculate-totals");
 
               newTotalRooms = calculateMaxDailyRooms(rl);
 
@@ -6169,7 +6169,7 @@
 
         try {
 
-          currentList = JSON.parse(currentRecord["RoomingList_JSON"] || "[]");
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "rooming-inventory");
 
         } catch (e) {
 
@@ -6495,7 +6495,7 @@
 
         try {
 
-          currentList = JSON.parse(currentRecord["RoomingList_JSON"] || "[]");
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "rooming-inventory");
 
         } catch (e) {
 
@@ -6841,7 +6841,7 @@
 
         try {
 
-          currentList = JSON.parse(currentRecord["RoomingList_JSON"] || "[]");
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "rooming-inventory");
 
         } catch (e) {
 
@@ -12939,11 +12939,7 @@
                                 <tbody className="divide-y divide-slate-100">
 
                                   {(() => {
-                                    const rawRL = JSON.parse(
-                                      selectedGroupFicha.records[0]?.[
-                                      "RoomingList_JSON"
-                                      ] || "[]",
-                                    );
+                                    const rawRL = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
                                     const grouped = [];
                                     rawRL.forEach((item, index) => {
                                       const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
@@ -13007,11 +13003,7 @@
                                             onChange={(e) => {
                                               const newType =
                                                 e.target.value.toUpperCase();
-                                              const newRL = JSON.parse(
-                                                selectedGroupFicha.records[0]?.[
-                                                "RoomingList_JSON"
-                                                ] || "[]",
-                                              );
+                                              const newRL = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
                                               item.ids.forEach(id => {
                                                 const targetIds = new Set(normalizeRoomIds(id));
                                                 const match = newRL.find((x) => {
@@ -13173,15 +13165,7 @@
                                     ));
                                   })()}
 
-                                  {JSON.parse(
-
-                                    selectedGroupFicha.records[0]?.[
-
-                                    "RoomingList_JSON"
-
-                                    ] || "[]",
-
-                                  ).length === 0 && (
+                                  {parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha").length === 0 && (
 
                                       <tr>
 
@@ -14790,15 +14774,7 @@
 
                             {parseFloat(
 
-                              JSON.parse(
-
-                                selectedGroupFicha.records[0]?.[
-
-                                "RoomingList_JSON"
-
-                                ] || "[]",
-
-                              )[commissionModal.itemIdx].price,
+                              parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].price,
 
                             ).toFixed(2)}{" "}
 
@@ -14830,15 +14806,7 @@
 
                             {getPaxByRoomType(
 
-                              JSON.parse(
-
-                                selectedGroupFicha.records[0]?.[
-
-                                "RoomingList_JSON"
-
-                                ] || "[]",
-
-                              )[commissionModal.itemIdx].type,
+                              parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].type,
 
                             )}{" "}
 
@@ -14868,15 +14836,7 @@
 
                           <span className="text-xs font-black text-slate-500">
 
-                            {JSON.parse(
-
-                              selectedGroupFicha.records[0]?.[
-
-                              "RoomingList_JSON"
-
-                              ] || "[]",
-
-                            )[commissionModal.itemIdx].regime || "HD"}
+                            {parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].regime || "HD"}
 
                           </span>
 
@@ -15090,15 +15050,7 @@
 
                                       if (key !== "Alojamiento") {
 
-                                        const item = JSON.parse(
-
-                                          selectedGroupFicha.records[0]?.[
-
-                                          "RoomingList_JSON"
-
-                                          ] || "[]",
-
-                                        )[commissionModal.itemIdx];
+                                        const item = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx];
 
                                         const paxPerRoom = getPaxByRoomType(
 
@@ -15252,15 +15204,7 @@
 
                           const unitPrice = parseFloat(
 
-                            JSON.parse(
-
-                              selectedGroupFicha.records[0]?.[
-
-                              "RoomingList_JSON"
-
-                              ] || "[]",
-
-                            )[commissionModal.itemIdx].price,
+                            parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].price,
 
                           );
 
@@ -15509,15 +15453,7 @@
 
                             {(() => {
 
-                              const item = JSON.parse(
-
-                                selectedGroupFicha.records[0]?.[
-
-                                "RoomingList_JSON"
-
-                                ] || "[]",
-
-                              )[commissionModal.itemIdx];
+                              const item = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx];
 
                               const base =
 
@@ -15611,15 +15547,7 @@
 
                         const com = { ...commissionModal.tempCom };
 
-                        const item = JSON.parse(
-
-                          selectedGroupFicha.records[0]?.[
-
-                          "RoomingList_JSON"
-
-                          ] || "[]",
-
-                        )[commissionModal.itemIdx];
+                        const item = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx];
 
 
 
@@ -15642,15 +15570,7 @@
                         com.comision_unitaria = Math.round((((com.base_unitaria * com.porcentaje) / 100) + 1e-9) * 100) / 100;
                         com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + 1e-9) * 100) / 100;
 
-                        const newRL = JSON.parse(
-
-                          selectedGroupFicha.records[0]?.[
-
-                          "RoomingList_JSON"
-
-                          ] || "[]",
-
-                        );
+                        const newRL = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
 
                         const idSet = new Set(commissionModal.itemIds || [item.id]);
                         newRL.forEach((rlItem) => {
