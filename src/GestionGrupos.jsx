@@ -2001,11 +2001,11 @@
           if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]" && !groups[key].processedJSONs.has("rl_" + row.RoomingList_JSON)) {
               try {
                 const rl = JSON.parse(row.RoomingList_JSON);
-                const commVal = rl.reduce((acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0), 0);
+                const commVal = rl.reduce((acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.comision?.total_comision) || 0)), 0);
                 groups[key].totalCommission += commVal;
                 groups[key].processedJSONs.add("rl_" + row.RoomingList_JSON);
                 
-                const rlTotal = rl.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+                const rlTotal = rl.reduce((acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.total) || 0)), 0);
                 if (rlTotal > 0) {
                    groups[key].totalRevenue = rlTotal + suplementos - descuentos;
                    groups[key].hasRoomingListOverride = true;
@@ -3119,6 +3119,7 @@
             const list = JSON.parse(r["RoomingList_JSON"] || "[]");
 
             list.forEach((item) => {
+              if (item.excludeFromEconomicTotals === true) return;
 
               rawRoomingLines.push(item);
 
@@ -6581,7 +6582,7 @@
 
         const totalCommission = hotelRoomingItems.reduce(
 
-          (acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0),
+          (acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.comision?.total_comision) || 0)),
 
           0,
 
@@ -10888,7 +10889,7 @@
 
                     const grandTotal = roomList.reduce(
 
-                      (acc, i) => acc + (parseFloat(i.total) || 0),
+                      (acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.total) || 0)),
 
                       0,
 
@@ -10896,7 +10897,7 @@
 
                     const totalComision = roomList.reduce(
 
-                      (acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0),
+                      (acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.comision?.total_comision) || 0)),
 
                       0,
 
@@ -13272,42 +13273,26 @@
                                   "RoomingList_JSON"
 
                                   ] || "[]",
-
-                                );
-
-
-
-                                return (
-
                                   <div className="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[400px] custom-scrollbar">
-
                                     {uniqueHotels.map((hotelName) => {
-
                                       const hotelRoomingItems =
-
                                         roomingList.filter(
-
                                           (i) =>
-
                                             i.hotel === hotelName ||
-
                                             (hotelName === "General" &&
-
                                               !i.hotel),
-
                                         );
-
                                       const hotelTotal =
 
-                                        hotelRoomingItems.reduce(
+                                         hotelRoomingItems.reduce(
 
-                                          (acc, i) =>
+                                           (acc, i) =>
 
-                                            acc + (parseFloat(i.total) || 0) - (parseFloat(i.comision?.total_comision) || 0),
+                                             acc + (i.excludeFromEconomicTotals === true ? 0 : ((parseFloat(i.total) || 0) - (parseFloat(i.comision?.total_comision) || 0))),
 
-                                          0,
+                                           0,
 
-                                        ) ||
+                                         ) ||
 
                                         parseFloat(
 

@@ -168,7 +168,7 @@
 
     function getCanonicalRoomType(room) {
         const rawType = room?.type ?? room?.tipo ?? room?.product ?? room?.producto;
-        if (rawType == null || normalizeText(rawType) === "") {
+        if (rawType == null || normalizeText(rawType) === "" || normalizeText(rawType).toLowerCase() === "tipo-desconocido") {
             return "tipo-desconocido";
         }
         return normalizeRoomType(rawType);
@@ -196,9 +196,11 @@
     function expandNightlyBlocks(rawRooms, checkInDate, checkOutDate) {
         const flatRooms = [];
         rawRooms.forEach((item, index) => {
-            const rType = String(item.type || item.tipo || '').trim();
+            const rawType = item.type || item.tipo || item.product || item.producto;
+            const displayType = rawType && rawType.trim() !== "" ? rawType : "tipo-desconocido";
+            const rTypeCanonical = getCanonicalRoomType(item);
             const qty = parseInt(item.qty) || 1;
-            const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') || rType.toUpperCase().includes('DUI') || rType.toUpperCase().includes('USO INDIVIDUAL') ? 1 : 2);
+            const paxVal = parseInt(item.pax) || (rTypeCanonical.toUpperCase().includes('IND') || rTypeCanonical.toUpperCase().includes('DUI') || rTypeCanonical.toUpperCase().includes('USO INDIVIDUAL') ? 1 : 2);
             
             const itemDateIn = normalizeRoomingDate(item.dateIn || item.checkIn || checkInDate);
             const itemDateOut = normalizeRoomingDate(item.dateOut || item.checkOut || checkOutDate);
@@ -247,26 +249,57 @@
                         }
                     }
 
+                    // Look up assignments format "q0_n0"
+                    const assignmentKey = `q${q}_n${nIdx}`;
+                    const legacyKey = `${q}_${nIdx}`;
+                    const assign = item.assignments?.[assignmentKey] || item.assignments?.[legacyKey] || {};
+
+                    const assignId = assign.assignmentId || '';
+                    const stayId = assign.stayId || '';
+                    const slotId = assign.slotId || assign.tempRoomId || '';
+                    const tempRoomId = assign.tempRoomId || assign.slotId || '';
+
+                    // Legacy root properties fallback (only if qty === 1, or if assignments is empty)
+                    const fallbackRoomNo = qty === 1 ? String(item.roomNo || item.hab || '') : '';
+                    const fallbackOcupantes = qty === 1 ? String(item.ocupantes || item.occupants || '') : '';
+                    const fallbackDni = qty === 1 ? String(item.dni || '') : '';
+                    const fallbackObserv = qty === 1 ? String(item.observ || item.observaciones || item.observations || '') : '';
+
+                    let roomNo = assign.roomNo !== undefined ? assign.roomNo : fallbackRoomNo;
+                    let ocupantes = assign.ocupantes !== undefined ? assign.ocupantes : (assign.occupants !== undefined ? assign.occupants : fallbackOcupantes);
+                    let dni = assign.dni !== undefined ? assign.dni : fallbackDni;
+                    let observ = assign.observ !== undefined ? assign.observ : (assign.observations !== undefined ? assign.observations : fallbackObserv);
+
+                    if (Array.isArray(ocupantes)) ocupantes = ocupantes.join('\n');
+                    if (Array.isArray(dni)) dni = dni.join(';');
+
                     flatRooms.push({
                         id: subId,
                         originalId: nightOriginalId,
-                        roomNo: String(item.roomNo || item.hab || '').trim(),
-                        type: rType,
+                        sourceBlockId: baseId,
+                        assignmentKey: assignmentKey,
+                        assignmentId: assignId,
+                        stayId: stayId,
+                        slotId: slotId,
+                        tempRoomId: tempRoomId,
+                        roomNo: String(roomNo).trim(),
+                        type: displayType,
                         pax: paxVal,
                         checkIn: night.dateIn,
                         checkOut: night.dateOut,
                         dateIn: night.dateIn,
                         dateOut: night.dateOut,
-                        ocupantes: (item.ocupantes || '').trim(),
-                        dni: item.dni || '',
-                        observ: (item.observ || item.observaciones || '').trim(),
+                        ocupantes: String(ocupantes).trim(),
+                        dni: dni,
+                        observ: String(observ).trim(),
                         price: unitPrice,
                         iva: parseInt(item.iva) || 10,
                         nights: 1,
                         total: unitPrice,
                         comision: unitComision,
-                        tempRoomId: item.tempRoomId || '',
                         pendienteValoracion: !!item.pendienteValoracion,
+                        isManualRoomingItem: !!item.isManualRoomingItem,
+                        excludeFromEconomicTotals: !!item.excludeFromEconomicTotals,
                         regime: item.regime || item.regimen || '',
                         board: item.board || '',
                         occupancyMode: item.occupancyMode || '',
@@ -289,81 +322,120 @@
 
         Object.entries(signatureGroups).forEach(([sig, rooms]) => {
             const dates = Array.from(new Set(rooms.map(r => r.checkIn))).sort();
-            const uniquePhysicalRooms = Array.from(new Set(rooms.map(r => normalizeRoomNumber(r.roomNo)).filter(Boolean))).sort(naturalCompare);
-            const physicalRoomSlots = {};
-            uniquePhysicalRooms.forEach((rNo, idx) => { physicalRoomSlots[rNo] = idx; });
+            
+            // Find all unique physical room numbers in this group
+            const uniquePhysicalRooms = Array.from(
+                new Set(rooms.map(r => normalizeRoomNumber(r.roomNo)).filter(Boolean))
+            ).sort(naturalCompare);
 
             const slots = [];
+            const physicalRoomSlots = {};
+            uniquePhysicalRooms.forEach((rNo, idx) => {
+                physicalRoomSlots[rNo] = idx;
+                slots.push([]);
+            });
+
             dates.forEach(date => {
                 const roomsOnDate = rooms.filter(r => r.checkIn === date);
                 const unmatchedRooms = [...roomsOnDate];
                 const assignedSlotsThisDate = new Set();
 
-                // Priority 1: physical room number match
+                // Priority 1: Match by physical room number (multiple rooms on the same date allowed in the same slot)
                 for (let i = unmatchedRooms.length - 1; i >= 0; i--) {
                     const r = unmatchedRooms[i];
                     const normRoomNo = normalizeRoomNumber(r.roomNo);
-                    if (normRoomNo && physicalRoomSlots[normRoomNo] !== undefined) {
+                    if (normRoomNo) {
                         const targetSlotIdx = physicalRoomSlots[normRoomNo];
-                        while (slots.length <= targetSlotIdx) slots.push([]);
-                        slots[targetSlotIdx].push(r);
-                        assignedSlotsThisDate.add(targetSlotIdx);
-                        unmatchedRooms.splice(i, 1);
-                    }
-                }
-
-                // Priority 2: tempRoomId match
-                for (let i = unmatchedRooms.length - 1; i >= 0; i--) {
-                    const r = unmatchedRooms[i];
-                    if (r.tempRoomId) {
-                        let foundSlot = -1;
-                        for (let sIdx = 0; sIdx < slots.length; sIdx++) {
-                            if (assignedSlotsThisDate.has(sIdx)) continue;
-                            if (r.tempRoomId === `${sig}|slot-${sIdx}`) { foundSlot = sIdx; break; }
-                        }
-                        if (foundSlot !== -1) {
-                            slots[foundSlot].push(r);
-                            assignedSlotsThisDate.add(foundSlot);
+                        if (targetSlotIdx !== undefined) {
+                            slots[targetSlotIdx].push(r);
+                            assignedSlotsThisDate.add(targetSlotIdx);
                             unmatchedRooms.splice(i, 1);
                         }
                     }
                 }
 
-                // Priority 3: occupants match
+                // Priority 2: Match by stayId (no duplicates on same date allowed)
+                for (let i = unmatchedRooms.length - 1; i >= 0; i--) {
+                    const r = unmatchedRooms[i];
+                    if (r.stayId) {
+                        let foundSlotIdx = -1;
+                        for (let sIdx = 0; sIdx < slots.length; sIdx++) {
+                            if (assignedSlotsThisDate.has(sIdx)) continue;
+                            if (slots[sIdx].some(sr => sr.stayId === r.stayId)) {
+                                foundSlotIdx = sIdx;
+                                break;
+                            }
+                        }
+                        if (foundSlotIdx !== -1) {
+                            slots[foundSlotIdx].push(r);
+                            assignedSlotsThisDate.add(foundSlotIdx);
+                            unmatchedRooms.splice(i, 1);
+                        }
+                    }
+                }
+
+                // Priority 3: Match by tempRoomId or slotId (no duplicates on same date allowed)
+                for (let i = unmatchedRooms.length - 1; i >= 0; i--) {
+                    const r = unmatchedRooms[i];
+                    const targetId = r.tempRoomId || r.slotId;
+                    if (targetId) {
+                        let foundSlotIdx = -1;
+                        for (let sIdx = 0; sIdx < slots.length; sIdx++) {
+                            if (assignedSlotsThisDate.has(sIdx)) continue;
+                            if (slots[sIdx].some(sr => (sr.tempRoomId || sr.slotId) === targetId)) {
+                                foundSlotIdx = sIdx;
+                                break;
+                            }
+                        }
+                        if (foundSlotIdx !== -1) {
+                            slots[foundSlotIdx].push(r);
+                            assignedSlotsThisDate.add(foundSlotIdx);
+                            unmatchedRooms.splice(i, 1);
+                        }
+                    }
+                }
+
+                // Priority 4: Match by occupants (no duplicates on same date allowed)
                 for (let i = unmatchedRooms.length - 1; i >= 0; i--) {
                     const r = unmatchedRooms[i];
                     const normOcc = normalizeOccupants(r.ocupantes);
-                    if (normOcc && normOcc !== "OCUPANTE PENDIENTE") {
-                        let foundSlot = -1;
+                    if (normOcc && normOcc !== "OCUPANTE PENDIENTE" && normOcc !== "CHOFER / GUÍA") {
+                        let foundSlotIdx = -1;
                         for (let sIdx = 0; sIdx < slots.length; sIdx++) {
                             if (assignedSlotsThisDate.has(sIdx)) continue;
-                            if (slots[sIdx].some(sr => normalizeOccupants(sr.ocupantes) === normOcc)) { foundSlot = sIdx; break; }
+                            if (slots[sIdx].some(sr => normalizeOccupants(sr.ocupantes) === normOcc)) {
+                                foundSlotIdx = sIdx;
+                                break;
+                            }
                         }
-                        if (foundSlot !== -1) {
-                            slots[foundSlot].push(r);
-                            assignedSlotsThisDate.add(foundSlot);
+                        if (foundSlotIdx !== -1) {
+                            slots[foundSlotIdx].push(r);
+                            assignedSlotsThisDate.add(foundSlotIdx);
                             unmatchedRooms.splice(i, 1);
                         }
                     }
                 }
 
-                // Priority 4: chronological slot index (skipped for tipo-desconocido to prevent auto-merging)
+                // Priority 5: Chronological slot index / position as last resort
                 for (let i = unmatchedRooms.length - 1; i >= 0; i--) {
                     const r = unmatchedRooms[i];
                     const isUnknown = getCanonicalRoomType(r) === "tipo-desconocido";
-                    let foundSlot = -1;
+                    let foundSlotIdx = -1;
                     
                     if (!isUnknown) {
                         for (let sIdx = 0; sIdx < slots.length; sIdx++) {
-                            if (!assignedSlotsThisDate.has(sIdx)) { foundSlot = sIdx; break; }
+                            if (assignedSlotsThisDate.has(sIdx)) continue;
+                            foundSlotIdx = sIdx;
+                            break;
                         }
                     }
                     
-                    if (foundSlot !== -1) {
-                        slots[foundSlot].push(r);
-                        assignedSlotsThisDate.add(foundSlot);
+                    if (foundSlotIdx !== -1) {
+                        slots[foundSlotIdx].push(r);
+                        assignedSlotsThisDate.add(foundSlotIdx);
                         unmatchedRooms.splice(i, 1);
                     } else {
+                        // Create a new slot
                         slots.push([r]);
                         assignedSlotsThisDate.add(slots.length - 1);
                         unmatchedRooms.splice(i, 1);
@@ -371,9 +443,13 @@
                 }
             });
 
+            // Assign tempRoomId and slotId
             slots.forEach((slotRooms, sIdx) => {
                 const tempId = `${sig}|slot-${sIdx}`;
-                slotRooms.forEach(r => { r.tempRoomId = tempId; });
+                slotRooms.forEach(r => {
+                    r.tempRoomId = tempId;
+                    r.slotId = tempId;
+                });
             });
         });
 
@@ -392,9 +468,11 @@
                     merged.push({
                         ...current,
                         originalIds: [current.originalId],
+                        assignmentRefs: [{ blockId: current.sourceBlockId, assignmentKey: current.assignmentKey }],
                         consolidatedId: 'rooming_consolidated_' + Math.random().toString(36).substring(2, 9),
                         displayNights: current.nights,
-                        displayTotal: parseFloat(current.total || 0)
+                        displayTotal: parseFloat(current.total || 0),
+                        _constituentRooms: [current]
                     });
                 } else {
                     const last = merged[merged.length - 1];
@@ -411,27 +489,69 @@
                         last.displayNights = calculateRoomingNights(last.dateIn, last.dateOut);
                         last.displayTotal = (parseFloat(last.displayTotal || 0) + parseFloat(current.total || 0));
                         last.originalIds.push(current.originalId);
+                        last.assignmentRefs.push({ blockId: current.sourceBlockId, assignmentKey: current.assignmentKey });
                         last.pendienteValoracion = last.pendienteValoracion || current.pendienteValoracion;
                         if (!last.roomNo && current.roomNo) last.roomNo = current.roomNo;
+                        last._constituentRooms.push(current);
                     } else if (isOverlap) {
                         const isExactDuplicate = last.checkIn === current.checkIn && last.checkOut === current.checkOut && last.type === current.type && last.pax === current.pax && sameOcc && sameObs && normalizeRoomNumber(last.roomNo) === normalizeRoomNumber(current.roomNo);
-                        if (isExactDuplicate) last.originalIds.push(current.originalId);
-                        else {
+                        if (isExactDuplicate) {
+                            last.originalIds.push(current.originalId);
+                            last.assignmentRefs.push({ blockId: current.sourceBlockId, assignmentKey: current.assignmentKey });
+                            last._constituentRooms.push(current);
+                        } else {
                             window.roomingIncidences.push({
                                 room: last.roomNo || last.tempRoomId,
                                 dateIn: current.dateIn,
                                 dateOut: last.dateOut,
                                 occupants: `Ocupante 1: ${last.ocupantes || 'Pendiente'} | Ocupante 2: ${current.ocupantes || 'Pendiente'}`,
                                 type: last.type,
-                                originalIds: [...last.originalIds, current.originalId]
+                                assignmentRefs: [{ blockId: last.sourceBlockId, assignmentKey: last.assignmentKey }, { blockId: current.sourceBlockId, assignmentKey: current.assignmentKey }]
                             });
-                            merged.push({ ...current, originalIds: [current.originalId], consolidatedId: 'rooming_consolidated_' + Math.random().toString(36).substring(2, 9), displayNights: current.nights, displayTotal: parseFloat(current.total || 0) });
+                            merged.push({
+                                ...current,
+                                originalIds: [current.originalId],
+                                assignmentRefs: [{ blockId: current.sourceBlockId, assignmentKey: current.assignmentKey }],
+                                consolidatedId: 'rooming_consolidated_' + Math.random().toString(36).substring(2, 9),
+                                displayNights: current.nights,
+                                displayTotal: parseFloat(current.total || 0),
+                                _constituentRooms: [current]
+                            });
                         }
                     } else {
-                        merged.push({ ...current, originalIds: [current.originalId], consolidatedId: 'rooming_consolidated_' + Math.random().toString(36).substring(2, 9), displayNights: current.nights, displayTotal: parseFloat(current.total || 0) });
+                        merged.push({
+                            ...current,
+                            originalIds: [current.originalId],
+                            assignmentRefs: [{ blockId: current.sourceBlockId, assignmentKey: current.assignmentKey }],
+                            consolidatedId: 'rooming_consolidated_' + Math.random().toString(36).substring(2, 9),
+                            displayNights: current.nights,
+                            displayTotal: parseFloat(current.total || 0),
+                            _constituentRooms: [current]
+                        });
                     }
                 }
             });
+
+            // Assign stayIds and propagate back to constituent nightly assignments
+            merged.forEach(stay => {
+                let existingStayId = '';
+                for (const r of stay._constituentRooms) {
+                    if (r.stayId) {
+                        existingStayId = r.stayId;
+                        break;
+                    }
+                }
+                const sig = getRoomSignature(stay);
+                const finalStayId = existingStayId || `stay_${sig.replace(/[^a-zA-Z0-9|]/g, '').toLowerCase().replace(/\|/g, '_')}_${Math.random().toString(36).substring(2, 9)}`;
+                
+                stay.stayId = finalStayId;
+                stay._constituentRooms.forEach(r => {
+                    r.stayId = finalStayId;
+                });
+                
+                delete stay._constituentRooms;
+            });
+
             merged.forEach(item => { item.displayTotal = parseFloat(item.displayTotal.toFixed(2)); });
             mergedRooms.push(...merged);
         });
@@ -524,7 +644,7 @@
     function isStoredPaxConsistent(storedPax, maxDailyOccupancy, personNights) {
         if (!Number.isFinite(storedPax) || storedPax <= 0) return false;
         if (storedPax === personNights && personNights > maxDailyOccupancy) return false;
-        return storedPax >= maxDailyOccupancy;
+        return storedPax === maxDailyOccupancy;
     }
 
     const RoomingCore = {

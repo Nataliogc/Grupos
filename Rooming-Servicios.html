@@ -585,7 +585,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     item.innerHTML = `<span>${window.paxInconsistencyAlert.msg}</span>`;
                     const btn = document.createElement('button');
                     btn.className = 'bg-rose-600 hover:bg-rose-700 text-white font-bold py-0.5 px-2 rounded text-[10px] shadow-sm ml-2 no-print cursor-pointer';
-                    btn.innerText = `Corregir Pax Contratado a ${window.paxInconsistencyAlert.opPax}`;
+                    btn.innerText = `REVISAR PAX`;
                     btn.onclick = () => fixContractedPax(window.paxInconsistencyAlert.opPax);
                     item.appendChild(btn);
                     list.appendChild(item);
@@ -606,10 +606,41 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         async function fixContractedPax(newPax) {
-            if (!confirm(`¿Deseas actualizar el pax contratado de la reserva a ${newPax}?`)) return;
+            const storedPax = window.paxInconsistencyAlert ? window.paxInconsistencyAlert.storedPax : '---';
+            const maxOccupancy = window.paxInconsistencyAlert ? window.paxInconsistencyAlert.opPax : newPax;
+            const pNights = window.paxInconsistencyAlert ? window.paxInconsistencyAlert.personNights : '---';
+
+            const confirmMessage = `Pax almacenado: ${storedPax}\nOcupación máxima simultánea: ${maxOccupancy}\nPersonas-noche: ${pNights}\n\n` +
+                                   `El valor almacenado parece corresponder a personas-noche o es inconsistente.\n` +
+                                   `¿Desea corregir el pax contratado del grupo a ${maxOccupancy}?\n\n` +
+                                   `Esto modificará el campo "Pax." del grupo en la base de datos de Firestore.`;
+
+            if (!confirm(confirmMessage)) return;
             try {
                 const docRef = window.db.collection("groups").doc(String(currentReservaId));
-                await docRef.set({ "Pax.": newPax.toString() }, { merge: true });
+                console.log(`Pax correction: Reserva=${currentReservaId}, OldPax=${storedPax}, NewPax=${maxOccupancy}, Date=${new Date().toISOString()}, Source=Corregir Pax Controlado`);
+                await docRef.set({ "Pax.": maxOccupancy.toString() }, { merge: true });
+
+                const rawGroupData = localStorage.getItem('selectedGroup');
+                if (rawGroupData) {
+                    try {
+                        let group = JSON.parse(rawGroupData);
+                        if (Array.isArray(group)) {
+                            const m = group.find(g => String(g.Reserva || g.id || g.reserva || '').trim() === currentReservaId);
+                            if (m) m["Pax."] = maxOccupancy.toString();
+                        } else {
+                            if (group.records && Array.isArray(group.records)) {
+                                const m = group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId);
+                                if (m) m["Pax."] = maxOccupancy.toString();
+                            }
+                            if (String(group.Reserva || group.id || group.reserva || '').trim() === currentReservaId) {
+                                group["Pax."] = maxOccupancy.toString();
+                            }
+                        }
+                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    } catch (e) {}
+                }
+
                 alert("Pax contratado corregido con éxito.");
                 window.location.reload();
             } catch(e) {
@@ -1460,141 +1491,163 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     originalList = JSON.parse(recData['RoomingList_JSON'] || '[]');
                 } catch(e) {}
 
-                const budgetTotal = parseMoney(recData['Importe(*)'] || 0);
-                const originalRoomItems = originalList.filter(item => !item.isService && !isSummaryBudgetLine(item, budgetTotal));
-                const originalServiceItems = originalList.filter(item => item.isService === true);
+                // Make a deep copy of originalList
+                let finalRoomingList = JSON.parse(JSON.stringify(originalList));
 
-                // Build a map of type -> price, regime, iva from original room blocks as fallback
-                const blockDetails = {};
-                originalRoomItems.forEach(item => {
-                    const key = normalizeRoomTypeForMatch(getRoomLineType(item) || 'Doble');
-                    const price = getRoomLinePrice(item);
-                    if (!key || price <= 0) return;
-                    blockDetails[key] = {
-                        price: price,
-                        regime: item.regime || '',
-                        iva: getRoomLineIva(item, 10),
-                        comision: item.comision || null
-                    };
-                });
+                // Keep only economic blocks and existing manual items that are still in rooming
+                const activeManualIds = new Set(
+                    rooming
+                        .filter(r => !r.originalIds || r.originalIds.length === 0 || (r.id && String(r.id).startsWith('manual_')) || r.isManualRoomingItem)
+                        .map(r => r.id)
+                );
 
-                const finalRoomItems = [];
-
-                rooming.forEach(row => {
-                    // Use the explicit originalIds array when available; fall back to the row id as a single-element array.
-                    const rowIds = Array.isArray(row.originalIds) && row.originalIds.length > 0
-                        ? row.originalIds
-                        : (row.id || '').split(',').map(s => s.trim()).filter(s => s.length > 0);
-
-                    // Determine the dates of the stay
-                    const rowDateIn = normalizeRoomingDate(row.checkIn || recData['Entrada'] || '');
-                    const rowDateOut = normalizeRoomingDate(row.checkOut || recData['Salida'] || '');
-                    const totalNights = assertValidRoomingStay(rowDateIn, rowDateOut, row.hab ? `Habitación ${row.hab}` : (row.tipo || 'Habitación'));
-
-                    // Generate the list of nights (each of 1 night duration)
-                    const nightsList = [];
-                    let currentDate = parseDate(rowDateIn);
-                    for (let n = 0; n < totalNights; n++) {
-                        const nextDate = new Date(currentDate);
-                        nextDate.setDate(currentDate.getDate() + 1);
-                        nightsList.push({
-                            dateIn: getLocalDateString(currentDate),
-                            dateOut: getLocalDateString(nextDate)
-                        });
-                        currentDate = nextDate;
+                // Clean up assignments or initialize them on all economic blocks
+                finalRoomingList.forEach(block => {
+                    if (!block.isService && !block.isManualRoomingItem && !block.pendienteValoracion) {
+                        block.assignments = block.assignments || {};
                     }
-
-                    // Find matching original items for these nights
-                    const matchedItemsForStay = [];
-                    rowIds.forEach(id => {
-                        const origItem = originalRoomItems.find(item => String(item.id) === id);
-                        if (origItem) matchedItemsForStay.push(origItem);
-                    });
-
-                    // Sort matched items chronologically
-                    matchedItemsForStay.sort((a, b) => (parseDate(a.dateIn) || 0) - (parseDate(b.dateIn) || 0));
-
-                    // Now map each night in nightsList to an item
-                    nightsList.forEach((night, nIdx) => {
-                        let originalMatch = matchedItemsForStay[nIdx] || null;
-
-                        // Fallbacks for price, regime, iva
-                        const typeKey = normalizeRoomTypeForMatch(row.tipo || 'Doble');
-                        let matchFallback = blockDetails[typeKey] || null;
-                        if (!matchFallback) {
-                            const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
-                            if (matchingKey) {
-                                matchFallback = blockDetails[matchingKey];
-                            }
-                        }
-
-                        const price = originalMatch ? getRoomLinePrice(originalMatch) : (matchFallback ? matchFallback.price : NaN);
-                        const iva = originalMatch ? getRoomLineIva(originalMatch, matchFallback ? matchFallback.iva : 10) : (matchFallback ? matchFallback.iva : 10);
-                        const regime = originalMatch ? originalMatch.regime : (row.regime || (matchFallback ? matchFallback.regime : (recData['Régimen'] || 'AD')));
-
-                        if (!Number.isFinite(price) || price <= 0) {
-                            throw new Error(`No hay precio previo para "${row.tipo || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
-                        }
-
-                        const total = (1 * price * 1).toFixed(2); // 1 night unit total
-
-                        let comision = null;
-                        if (originalMatch && originalMatch.comision) {
-                            comision = { ...originalMatch.comision };
-                            if (comision.comision_unitaria !== undefined) {
-                                const unitComm = parseFloat(comision.comision_unitaria) || 0;
-                                comision.total_comision = Math.round((unitComm * 1 * 1 + 1e-9) * 100) / 100;
-                            } else if (comision.total_comision !== undefined) {
-                                const originalQty = parseInt(originalMatch.qty) || 1;
-                                const totalComm = parseFloat(comision.total_comision) || 0;
-                                comision.total_comision = Math.round(((totalComm / originalQty) + 1e-9) * 100) / 100;
-                            }
-                        } else if (matchFallback && matchFallback.comision) {
-                            comision = { ...matchFallback.comision };
-                        }
-
-                        const newId = originalMatch ? originalMatch.id : (row.id + '_' + nIdx + '_' + Math.random());
-
-                        finalRoomItems.push({
-                            id: newId,
-                            hotel: originalMatch ? originalMatch.hotel : (recData['Hotel_Asignado'] || recData['Hotel'] || 'Sercotel Guadiana'),
-                            type: row.tipo || 'Habitación Doble',
-                            dateIn: night.dateIn,
-                            dateOut: night.dateOut,
-                            qty: 1,
-                            pax: parseInt(row.pax) || (originalMatch ? originalMatch.pax : 2),
-                            regime: regime,
-                            price: price,
-                            iva: iva,
-                            nights: 1,
-                            isService: false,
-                            total: total,
-                            ocupantes: row.ocupantes || '',
-                            dni: row.dni || (originalMatch ? originalMatch.dni : ''),
-                            observ: row.observ || '',
-                            roomNo: row.hab || '',
-                            source: 'auto_rooming',
-                            generatedFrom: 'rooming_editor',
-                            generatedAt: new Date().toISOString(),
-                            comision: comision
-                        });
-                    });
                 });
 
-                const finalRoomingList = [...finalRoomItems, ...originalServiceItems];
+                // Helper function for legacy compatibility
+                function syncLegacyRootAssignment(block) {
+                    if (parseInt(block.qty) === 1 && parseInt(block.nights) === 1) {
+                        const assign = block.assignments?.['q0_n0'] || block.assignments?.['0_0'] || {};
+                        block.roomNo = assign.roomNo || '';
+                        block.ocupantes = Array.isArray(assign.occupants) ? assign.occupants.join('\n') : (assign.occupants || '');
+                        block.dni = Array.isArray(assign.dni) ? assign.dni.join(';') : (assign.dni || '');
+                        block.observ = assign.observations || '';
+                    }
+                }
 
-                // Recalculate metadata totals using the correct peak occupancy/physical stay numbers
-                const newTotalRooms = rooming.length;
-                const newTotalPax = rooming.reduce((acc, r) => acc + (parseInt(r.pax) || 0), 0);
-                const newTotalSum = finalRoomingList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
+                // Traverse the consolidated rooming list
+                rooming.forEach(stay => {
+                    if (stay.isService) return;
+
+                    // Parse originalIds of the stay
+                    const rowIds = Array.isArray(stay.originalIds) && stay.originalIds.length > 0
+                        ? stay.originalIds
+                        : (stay.id || '').split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+                    // Check if it has assignmentRefs from the core layout.
+                    // Stays loaded from groupAndMergeRoomingList have assignmentRefs!
+                    const hasRefs = Array.isArray(stay.assignmentRefs) && stay.assignmentRefs.length > 0;
+                    
+                    if (hasRefs) {
+                        stay.assignmentRefs.forEach(ref => {
+                            const block = finalRoomingList.find(b => b.id === ref.blockId);
+                            if (block) {
+                                block.assignments = block.assignments || {};
+                                block.assignments[ref.assignmentKey] = {
+                                    assignmentId: stay.assignmentId || `assign_${Math.random().toString(36).substring(2, 9)}`,
+                                    stayId: stay.stayId || '',
+                                    slotId: stay.slotId || '',
+                                    tempRoomId: stay.tempRoomId || '',
+                                    roomNo: stay.hab || stay.roomNo || '',
+                                    occupants: (stay.ocupantes || '').split('\n').map(x => x.trim()).filter(Boolean),
+                                    dni: (stay.dni || '').split(';').map(x => x.trim()).filter(Boolean),
+                                    observations: stay.observ || stay.observations || ''
+                                };
+                                syncLegacyRootAssignment(block);
+                            }
+                        });
+                    } else {
+                        // This might be a manual room or legacy stay. We find matching block by ID
+                        const matchBlock = finalRoomingList.find(b => b.id === stay.id);
+                        if (matchBlock && !matchBlock.isManualRoomingItem && !matchBlock.pendienteValoracion) {
+                            // If it matches an economic block, write to its q0_n0 assignment
+                            matchBlock.assignments = matchBlock.assignments || {};
+                            matchBlock.assignments['q0_n0'] = {
+                                assignmentId: stay.assignmentId || `assign_${Math.random().toString(36).substring(2, 9)}`,
+                                stayId: stay.stayId || '',
+                                slotId: stay.slotId || '',
+                                tempRoomId: stay.tempRoomId || '',
+                                roomNo: stay.hab || stay.roomNo || '',
+                                occupants: (stay.ocupantes || '').split('\n').map(x => x.trim()).filter(Boolean),
+                                dni: (stay.dni || '').split(';').map(x => x.trim()).filter(Boolean),
+                                observations: stay.observ || stay.observations || ''
+                            };
+                            syncLegacyRootAssignment(matchBlock);
+                        } else {
+                            // This is a manual room
+                            const manualId = stay.id || `manual_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                            let existingManual = finalRoomingList.find(b => b.id === manualId);
+                            
+                            const manualItem = {
+                                id: manualId,
+                                isManualRoomingItem: true,
+                                pendienteValoracion: true,
+                                excludeFromEconomicTotals: true,
+                                type: stay.tipo || stay.type || 'tipo-desconocido',
+                                pax: parseInt(stay.pax) || 1,
+                                dateIn: normalizeRoomingDate(stay.checkIn || stay.dateIn),
+                                dateOut: normalizeRoomingDate(stay.checkOut || stay.dateOut),
+                                qty: 1,
+                                price: 0,
+                                total: 0,
+                                nights: calculateRoomingNights(stay.checkIn || stay.dateIn, stay.checkOut || stay.dateOut),
+                                roomNo: stay.hab || stay.roomNo || '',
+                                ocupantes: stay.ocupantes || '',
+                                dni: stay.dni || '',
+                                observ: stay.observ || stay.observations || '',
+                                hotel: stay.hotel || recData['Hotel_Asignado'] || recData['Hotel'] || 'tipo-desconocido',
+                                isService: false
+                            };
+
+                            if (existingManual) {
+                                Object.assign(existingManual, manualItem);
+                            } else {
+                                finalRoomingList.push(manualItem);
+                            }
+                        }
+                    }
+                });
+
+                // Filter out manual rooms that are no longer in rooming
+                finalRoomingList = finalRoomingList.filter(item => {
+                    if (item.isService) return true;
+                    if (item.isManualRoomingItem || item.pendienteValoracion) {
+                        return activeManualIds.has(item.id);
+                    }
+                    return true;
+                });
+
+                // Validation of integrity before saving
+                for (let i = 0; i < originalList.length; i++) {
+                    const orig = originalList[i];
+                    if (orig.isService || orig.isManualRoomingItem || orig.pendienteValoracion) continue;
+                    const res = finalRoomingList.find(b => b.id === orig.id);
+                    if (!res) {
+                        throw new Error(`Integridad rota: El bloque económico original con ID ${orig.id} ha desaparecido.`);
+                    }
+                    
+                    const economicKeys = ['qty', 'pax', 'dateIn', 'dateOut', 'nights', 'price', 'total', 'iva', 'regime', 'regimen', 'hotel', 'producto', 'type', 'tipo'];
+                    const diffs = [];
+                    economicKeys.forEach(k => {
+                        const valOrig = orig[k] !== undefined ? String(orig[k]) : '';
+                        const valRes = res[k] !== undefined ? String(res[k]) : '';
+                        if (valOrig !== valRes) {
+                            diffs.push(`${k}: original="${valOrig}", resultado="${valRes}"`);
+                        }
+                    });
+                    if (diffs.length > 0) {
+                        console.error("Diferencias económicas detectadas al guardar:", diffs);
+                        throw new Error("Se ha bloqueado el guardado porque se detectaron cambios no autorizados en los campos económicos del bloque.");
+                    }
+                }
+
+                // Preserve original economic totals and metadata
+                const paxTotal = recData['Pax.'] || '';
+                const cantTotal = recData['Cant.'] || '';
+                const habitacionesTotal = recData['Habitaciones'] || '';
+                const importeTotal = recData['Importe(*)'] || '0.00';
 
                 // Save back to Firestore
                 const updatedObj = {
                     RoomingList_JSON: JSON.stringify(finalRoomingList),
-                    "Pax.": newTotalPax.toString(),
-                    "Cant.": newTotalRooms.toString(),
-                    "Habitaciones": `${newTotalRooms} habitaciones`,
-                    "Importe(*)": newTotalSum.toFixed(2)
+                    "Pax.": paxTotal,
+                    "Cant.": cantTotal,
+                    "Habitaciones": habitacionesTotal,
+                    "Importe(*)": importeTotal
                 };
                 if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
                     updatedObj.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -1611,10 +1664,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         let group = JSON.parse(rawGroupData);
                         const updatePayload = {
                             RoomingList_JSON: JSON.stringify(finalRoomingList),
-                            "Pax.": newTotalPax.toString(),
-                            "Cant.": newTotalRooms.toString(),
-                            "Habitaciones": `${newTotalRooms} habitaciones`,
-                            "Importe(*)": newTotalSum.toFixed(2)
+                            "Pax.": paxTotal,
+                            "Cant.": cantTotal,
+                            "Habitaciones": habitacionesTotal,
+                            "Importe(*)": importeTotal
                         };
                         
                         let updated = false;
@@ -1647,10 +1700,6 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 }
             } catch (err) {
                 console.error("Error syncing rooming list to Firestore:", err);
-                if (String(err.message || '').includes('No hay precio previo')) {
-                    console.warn("[ROOMING] Sincronización económica omitida: falta precio previo. No se sobrescribe la ficha.", err);
-                    return;
-                }
                 if (err.message !== lastRoomingSyncErrorMessage) {
                     lastRoomingSyncErrorMessage = err.message;
                     alert('No se pudo actualizar la ficha económica desde el rooming: ' + err.message);
@@ -2422,6 +2471,26 @@ ${inputVal}`;
                         r.checkIn || r.dateIn, r.checkOut || r.dateOut, r.originalIds || null);
                 });
             }
+
+            // Pax consistency validation
+            const storedContracted = parseInt(rec['Pax.'] || group.totalPax || 0);
+            const maxDaily = calculateMaxDailyOccupancy(roomingList);
+            const personNights = calculatePersonNights(roomingList);
+            const isConsistent = isStoredPaxConsistent(storedContracted, maxDaily, personNights);
+
+            if (!isConsistent && storedContracted > 0) {
+                window.paxInconsistencyAlert = {
+                    msg: `<strong>Inconsistencia de Pax:</strong> El pax contratado (${storedContracted}) no coincide con la ocupación simultánea máxima (${maxDaily}). Pico diario máximo: ${maxDaily} pax. Personas-noche: ${personNights}.`,
+                    opPax: maxDaily,
+                    storedPax: storedContracted,
+                    personNights: personNights
+                };
+            } else {
+                window.paxInconsistencyAlert = null;
+            }
+
+            // Render alert banner and incidences
+            renderRoomingIncidences(roomingList);
 
             // Set up Pending List
             // 1. Payment Pending (subtracting agency commission if applicable)
