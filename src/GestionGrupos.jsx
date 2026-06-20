@@ -72,6 +72,81 @@
 
     const formatNum = NexusUtils.formatNum;
 
+    // Helpers para ocupación máxima y habitaciones simultáneas
+    const parseLocalDate = (dStr) => {
+      if (!dStr) return null;
+      const s = dStr.toString().trim();
+      if (s.includes('-')) {
+        const parts = s.split(/[-T ]/);
+        if (parts.length >= 3) {
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          const d = parseInt(parts[2]);
+          if (y > 1000) return new Date(y, m - 1, d, 12, 0, 0);
+        }
+      }
+      if (s.includes('/')) {
+        const parts = s.split('/');
+        if (parts.length === 3) {
+          let [d, m, y] = parts.map(x => parseInt(x));
+          if (y < 100) y += 2000;
+          return new Date(y, m - 1, d, 12, 0, 0);
+        }
+      }
+      const f = new Date(s);
+      if (!isNaN(f.getTime())) return new Date(f.getFullYear(), f.getMonth(), f.getDate(), 12, 0, 0);
+      return null;
+    };
+
+    // ─── Métricas de ocupación y habitaciones ────────────────────────────────
+    // Fuente de verdad: js/rooming-core.js (window.RoomingCore).
+    // Las implementaciones locales han sido eliminadas para evitar divergencias.
+    // Si rooming-core.js no está cargado aún, se usa un fallback seguro que
+    // delega tan pronto como el módulo esté disponible.
+    const calculateMaxDailyOccupancy = (list) => {
+      if (window.RoomingCore && window.RoomingCore.calculateMaxDailyOccupancy) {
+        return window.RoomingCore.calculateMaxDailyOccupancy(list);
+      }
+      // Fallback de emergencia (sólo si rooming-core.js no se cargó)
+      const dailyPax = {};
+      (list || []).forEach(i => {
+        if (i.isService) return;
+        const s = i.dateIn || i.checkIn; const e = i.dateOut || i.checkOut;
+        if (!s || !e) return;
+        const dIn = new Date(s); const dOut = new Date(e);
+        const nights = Math.round((dOut - dIn) / 86400000) || 1;
+        for (let d = 0; d < nights; d++) {
+          const cur = new Date(dIn); cur.setDate(dIn.getDate() + d);
+          const iso = cur.toISOString().split('T')[0];
+          dailyPax[iso] = (dailyPax[iso] || 0) + (parseInt(i.pax || 0) * (parseInt(i.qty) || 1));
+        }
+      });
+      const vals = Object.values(dailyPax); return vals.length > 0 ? Math.max(...vals) : 0;
+    };
+
+    const calculateMaxDailyRooms = (list) => {
+      if (window.RoomingCore && window.RoomingCore.calculateMaxDailyRooms) {
+        return window.RoomingCore.calculateMaxDailyRooms(list);
+      }
+      // Fallback de emergencia
+      const dailyRooms = {};
+      (list || []).forEach(i => {
+        if (i.isService) return;
+        const s = i.dateIn || i.checkIn; const e = i.dateOut || i.checkOut;
+        if (!s || !e) return;
+        const dIn = new Date(s); const dOut = new Date(e);
+        const nights = Math.round((dOut - dIn) / 86400000) || 1;
+        for (let d = 0; d < nights; d++) {
+          const cur = new Date(dIn); cur.setDate(dIn.getDate() + d);
+          const iso = cur.toISOString().split('T')[0];
+          dailyRooms[iso] = (dailyRooms[iso] || 0) + (parseInt(i.qty) || 1);
+        }
+      });
+      const vals = Object.values(dailyRooms); return vals.length > 0 ? Math.max(...vals) : 0;
+    };
+
+
+
     // Intercepta la tecla "." (punto) del teclado/numpad y la convierte en "," (coma)
     // para que los inputs type="number" en locale español acepten decimales desde el numpad.
     const handleDotAsComma = (e) => {
@@ -1902,15 +1977,9 @@
 
               const rl = JSON.parse(row.RoomingList_JSON);
 
-              rooms = rl.reduce(
-
-                (sum, item) =>
-
-                  sum + (item.isService ? 0 : parseInt(item.qty) || 0),
-
-                0,
-
-              );
+              // calculateMaxDailyRooms devuelve el pico diario de habitaciones
+              // simultáneas, evitando sumar todos los bloques nocturnos.
+              rooms = calculateMaxDailyRooms(rl);
 
             } catch (e) { }
 
@@ -5846,14 +5915,23 @@
           });
 
           // Recalcular totales para la ficha (Pax e Importe)
-
-          const newTotalPax = updatedRecords.reduce(
-
-            (sum, r) => sum + parseInt(r["Pax."] || 0),
-
-            0,
-
-          );
+          // Usa calculateMaxDailyOccupancy (pico diario) en lugar de sumar
+          // directamente el campo "Pax." del registro, que puede contener
+          // personas-noche si fue escrito erróneamente.
+          let newTotalPax = 0;
+          if (updatedRecords[0] && updatedRecords[0].RoomingList_JSON) {
+            try {
+              const rl = JSON.parse(updatedRecords[0].RoomingList_JSON);
+              newTotalPax = calculateMaxDailyOccupancy(rl);
+            } catch (e) {}
+          }
+          // Fallback: si no hay RoomingList_JSON, usa el campo almacenado
+          if (!newTotalPax) {
+            newTotalPax = updatedRecords.reduce(
+              (sum, r) => sum + parseInt(r["Pax."] || 0),
+              0,
+            );
+          }
 
           const newTotalRevenue = updatedRecords.reduce(
 
@@ -5873,13 +5951,7 @@
 
               const rl = JSON.parse(updatedRecords[0].RoomingList_JSON);
 
-              newTotalRooms = rl.reduce(
-
-                (acc, i) => acc + (i.isService ? 0 : parseInt(i.qty) || 0),
-
-                0,
-
-              );
+              newTotalRooms = calculateMaxDailyRooms(rl);
 
             } catch (e) { }
 
@@ -6315,21 +6387,9 @@
 
         );
 
-        const newTotalPax = newList.reduce(
+        const newTotalPax = calculateMaxDailyOccupancy(newList);
 
-          (acc, i) => acc + parseInt(i.pax || 0) * parseInt(i.qty || 0),
-
-          0,
-
-        );
-
-        const newTotalRooms = newList.reduce(
-
-          (acc, i) => acc + (i.isService ? 0 : parseInt(i.qty || 0)),
-
-          0,
-
-        );
+        const newTotalRooms = calculateMaxDailyRooms(newList);
 
         updateGroupMetadata(selectedGroupFicha.id, {
 
@@ -6447,21 +6507,9 @@
 
         );
 
-        const newTotalPax = newList.reduce(
+        const newTotalPax = calculateMaxDailyOccupancy(newList);
 
-          (acc, i) => acc + parseInt(i.pax || 0) * parseInt(i.qty || 0),
-
-          0,
-
-        );
-
-        const newTotalRooms = newList.reduce(
-
-          (acc, i) => acc + parseInt(i.qty || 0),
-
-          0,
-
-        );
+        const newTotalRooms = calculateMaxDailyRooms(newList);
 
         updateGroupMetadata(selectedGroupFicha.id, {
 
@@ -6796,21 +6844,9 @@
 
         );
 
-        const newTotalPax = newList.reduce(
+        const newTotalPax = calculateMaxDailyOccupancy(newList);
 
-          (acc, i) => acc + parseInt(i.pax || 0) * parseInt(i.qty || 0),
-
-          0,
-
-        );
-
-        const newTotalRooms = newList.reduce(
-
-          (acc, i) => acc + parseInt(i.qty || 0),
-
-          0,
-
-        );
+        const newTotalRooms = calculateMaxDailyRooms(newList);
 
         updateGroupMetadata(selectedGroupFicha.id, {
 
@@ -12971,13 +13007,10 @@
                                                   match.pax = getPaxByRoomType(newType);
                                                 }
                                               });
-                                              const newTotalPax = newRL.reduce(
-                                                (acc, i) =>
-                                                  acc +
-                                                  parseInt(i.pax || 0) *
-                                                  parseInt(i.qty || 0),
-                                                0,
-                                              );
+                                              // Usa calculateMaxDailyOccupancy (pico diario) en lugar de
+                                              // reduce(pax * qty) que produce personas-noche cuando hay
+                                              // bloques de varias noches.
+                                              const newTotalPax = calculateMaxDailyOccupancy(newRL);
                                               updateGroupMetadata(
                                                 selectedGroupFicha.id,
                                                 {
