@@ -25,40 +25,55 @@
         );
     }
     
-    function getGroupEconomicItems(group) {
-        if (!group) return [];
-        let records = group.records || [];
-        let allItems = [];
-        let processedJSONs = new Set();
-        
-        records.forEach(r => {
-            if (r.RoomingList_JSON && !processedJSONs.has(r.RoomingList_JSON)) {
-                processedJSONs.add(r.RoomingList_JSON);
-                try {
-                    const parsed = JSON.parse(r.RoomingList_JSON);
-                    if (Array.isArray(parsed)) {
-                        allItems = allItems.concat(parsed);
-                    }
-                } catch (e) {}
-            }
-        });
-        
-        // Deduplicate by ID to be absolutely safe
+    function parseAccommodationEconomicItems(jsonStr) {
+        if (!jsonStr) return [];
+        try {
+            const parsed = JSON.parse(jsonStr);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) { return []; }
+    }
+
+    function parseEconomicExtraCharges(extraCharges) {
+        if (!Array.isArray(extraCharges)) return [];
+        return extraCharges.map(ec => ({
+            id: ec.id || (Math.random().toString(36).substr(2, 9)),
+            type: ec.concept || ec.type || "Extra",
+            dateIn: ec.date || "Varias",
+            qty: ec.units || ec.qty || 1,
+            price: ec.unitPrice !== undefined ? ec.unitPrice : ec.price,
+            total: ec.price !== undefined ? ec.price : 0,
+            isService: true,
+            isEconomicItem: true,
+            isEconomicRepresentation: true,
+            isAccommodation: false
+        }));
+    }
+
+    function deduplicateEconomicItems(items) {
         const uniqueItemsMap = new Map();
-        allItems.forEach(item => {
+        items.forEach(item => {
+            if (!isEffectiveEconomicItem(item)) return;
             const id = item.id || item.sourceBudgetItemId || JSON.stringify(item);
             if (!uniqueItemsMap.has(id)) {
                 uniqueItemsMap.set(id, item);
             }
         });
-        allItems = Array.from(uniqueItemsMap.values());
-        
-        return allItems.filter(item => {
-            if (!isEffectiveEconomicItem(item)) return false;
-            // No excluir servicios sin coste por defecto si hay notas, pero aquí seguimos la regla general
-            if (item.precio === 0 && item.total === 0 && item.isAccommodation === true) return false;
-            return true;
-        });
+        return Array.from(uniqueItemsMap.values());
+    }
+
+    function getGroupEconomicItems(group) {
+        if (!group) return [];
+        let jsonStr = group.RoomingList_JSON;
+        if (!jsonStr && group.records && group.records.length > 0) {
+            const validRecord = group.records.find(r => r.RoomingList_JSON && r.RoomingList_JSON !== "[]");
+            if (validRecord) jsonStr = validRecord.RoomingList_JSON;
+        }
+        const accommodationItems = parseAccommodationEconomicItems(jsonStr);
+        const extraChargeItems = parseEconomicExtraCharges(group.extraCharges);
+        return deduplicateEconomicItems([
+            ...accommodationItems,
+            ...extraChargeItems
+        ]);
     }
 
     function classifyOperationalDepartment(item) {
