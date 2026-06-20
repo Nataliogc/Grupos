@@ -15,6 +15,7 @@
 (function (global) {
     "use strict";
 
+    const ROOMING_CORE_VERSION = "assignments-v1";
     const MAX_ALLOWED_ROOMING_NIGHTS = 90;
 
     // Timezone-safe local YYYY-MM-DD string generator
@@ -500,7 +501,8 @@
                             last.assignmentRefs.push({ blockId: current.sourceBlockId, assignmentKey: current.assignmentKey });
                             last._constituentRooms.push(current);
                         } else {
-                            window.roomingIncidences.push({
+                            const incidencesHost = (typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? (global.window || global) : {}));
+                            incidencesHost.roomingIncidences.push({
                                 room: last.roomNo || last.tempRoomId,
                                 dateIn: current.dateIn,
                                 dateOut: last.dateOut,
@@ -573,7 +575,8 @@
     function groupAndMergeRoomingList(rawList, checkInDate, checkOutDate) {
         const services = rawList.filter(item => item.isService === true);
         const rawRooms = rawList.filter(item => !item.isService);
-        window.roomingIncidences = [];
+        const incidencesHost = (typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? (global.window || global) : {}));
+        incidencesHost.roomingIncidences = [];
         const originalNightlyBlocks = rawRooms;
         const expandedNightlyRooms = expandNightlyBlocks(originalNightlyBlocks, checkInDate, checkOutDate);
         const consolidatedStays = buildConsolidatedRoomStays(expandedNightlyRooms);
@@ -648,6 +651,7 @@
     }
 
     const RoomingCore = {
+        ROOMING_CORE_VERSION,
         parseDate,
         buildValidLocalDate,
         getLocalDateString,
@@ -679,6 +683,7 @@
             global[key] = RoomingCore[key];
         });
         global.RoomingCore = RoomingCore;
+        console.log("[ROOMING] Core cargado:", RoomingCore.ROOMING_CORE_VERSION);
     }
 
 })(typeof window !== 'undefined' ? window : global);

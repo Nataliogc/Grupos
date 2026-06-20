@@ -7,7 +7,7 @@
     <!-- Tailwind CSS (CDN genérico) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Rooming List Core functions -->
-    <script src="js/rooming-core.js"></script>
+    <script src="js/rooming-core.js?v=assignments-v1"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
         body {
@@ -344,7 +344,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 7;
+        const SERVICES_GENERATION_VERSION = 8;
         let departmentSummaryState = {};
         let departmentSummaryLayout = {};
         let lastRoomingSyncErrorMessage = '';
@@ -2256,8 +2256,13 @@ ${inputVal}`;
                     }
                     return;
                 } else {
-                    loadRoomingFromCache = true;
-                    cachedRooming = s.rooming || [];
+                    if (s.servicesGenerationVersion !== SERVICES_GENERATION_VERSION) {
+                        localStorage.removeItem('roomingServicios_' + currentReservaId);
+                        console.log(`[ROOMING] Cache incompatible removida para reserva: ${currentReservaId}`);
+                    } else {
+                        loadRoomingFromCache = true;
+                        cachedRooming = s.rooming || [];
+                    }
                 }
             }
 
