@@ -345,7 +345,7 @@ console.log(`\n=== INTEGRACIÓN: ${passed} PASADAS, ${failed} FALLADAS ===\n`);
 }
 
 console.log(`CLASIFICACION, MOVIMIENTOS Y RESTAURACION COMPLETADOS: ${passed} PASADAS, ${failed} FALLADAS`);
-process.exit(failed > 0 ? 1 : 0);
+console.log("Iniciando pruebas de conciliación económica y extras...");
 
 
 // ============================================================================
@@ -477,24 +477,27 @@ function testFichaModalData() {
         ]
     };
     
-    // Simulate FichaModal rawRL
-    const rawRL = getGroupEconomicItems(group);
-    
-    if (rawRL.length === 4) {
-        console.log("[PASS] FichaModal: renderiza cuatro lineas economicas.");
+    // Antes de sincronizar, la tabla visible (visibleFichaItems) tiene 2 líneas
+    const visibleFichaItems = parseRoomingListSafe(group.RoomingList_JSON, "test-ficha");
+    if (visibleFichaItems.length === 2) {
+        console.log("[PASS] FichaModal: antes de sincronizar renderiza dos líneas de alojamiento.");
+        passed++;
     } else {
-        console.error("[FAIL] FichaModal: renderiza " + rawRL.length + " lineas.");
+        console.error("[FAIL] FichaModal: renderiza " + visibleFichaItems.length + " líneas.");
+        failed++;
     }
 
-    // Simulate Boton visibility logic
+    // Calcular pendientes
     const extraCharges = group.extraCharges || [];
-    const rlIds = new Set(rawRL.map(item => item.id || item.sourceBudgetItemId));
-    const pending = extraCharges.filter(ec => !rlIds.has(ec.id));
+    const visibleIdsOrConcepts = new Set(visibleFichaItems.map(item => item.id || item.sourceBudgetItemId));
+    const pending = extraCharges.filter(ec => !visibleIdsOrConcepts.has(ec.id));
     
-    if (pending.length === 0) {
-        console.log("[PASS] Boton: boton oculto despues de sincronizar cuatro.");
+    if (pending.length === 2) {
+        console.log("[PASS] Botón: botón visible porque hay 2 cargos pendientes.");
+        passed++;
     } else {
-        console.error("[FAIL] Boton: pendiente length " + pending.length);
+        console.error("[FAIL] Botón: pendiente length " + pending.length);
+        failed++;
     }
 }
 
@@ -510,7 +513,23 @@ function testProformaData() {
             { id: 4, concept: "Salón", unitPrice: 90, units: 1, price: 90 }
         ]
     };
-    const roomList = getGroupEconomicItems(group);
+    
+    // Sincronizar: simular pulsación del botón incorporando Spa y Salón a RoomingList_JSON
+    const currentRL = parseRoomingListSafe(group.RoomingList_JSON, "test-proforma");
+    const newRL = [...currentRL, ...group.extraCharges.map(ec => ({
+        id: ec.id,
+        type: ec.concept || ec.type || "Extra",
+        dateIn: ec.date || "Varias",
+        qty: ec.units || ec.qty || 1,
+        price: ec.unitPrice !== undefined ? ec.unitPrice : ec.price,
+        total: ec.price !== undefined ? ec.price : 0,
+        isService: true,
+        isEconomicItem: true,
+        isEconomicRepresentation: true,
+        isAccommodation: false
+    }))];
+    
+    const roomList = parseRoomingListSafe(JSON.stringify(newRL), "test-proforma-post");
     const mappedItems = [];
     roomList.forEach(r => {
         mappedItems.push({
@@ -537,3 +556,6 @@ function testProformaData() {
 
 testFichaModalData();
 testProformaData();
+
+console.log(`TODAS LAS PRUEBAS COMPLETADAS: ${passed} PASADAS, ${failed} FALLADAS`);
+process.exit(failed > 0 ? 1 : 0);

@@ -68,12 +68,8 @@
             const validRecord = group.records.find(r => r.RoomingList_JSON && r.RoomingList_JSON !== "[]");
             if (validRecord) jsonStr = validRecord.RoomingList_JSON;
         }
-        const accommodationItems = parseAccommodationEconomicItems(jsonStr);
-        const extraChargeItems = parseEconomicExtraCharges(group.extraCharges);
-        return deduplicateEconomicItems([
-            ...accommodationItems,
-            ...extraChargeItems
-        ]);
+        const items = parseAccommodationEconomicItems(jsonStr);
+        return deduplicateEconomicItems(items);
     }
 
     function classifyOperationalDepartment(item) {
@@ -1223,6 +1219,33 @@
         return parseRoomingListSafe(value, context).filter(item => item && !isAccommodationItem(item));
     }
 
+    function reconcileEconomicItems({ extraCharges, existingEconomicItems, hotelName }) {
+        const addedItems = [];
+        const existingIds = new Set();
+        (existingEconomicItems || []).forEach(item => {
+            if (item.id) existingIds.add(item.id);
+            if (item.sourceBudgetItemId) existingIds.add(item.sourceBudgetItemId);
+        });
+        (extraCharges || []).forEach(ec => {
+            if (!existingIds.has(ec.id)) {
+                addedItems.push({
+                    id: ec.id,
+                    type: ec.concept || ec.type || "Extra",
+                    dateIn: ec.date || "Varias",
+                    qty: ec.units || ec.qty || 1,
+                    price: ec.unitPrice !== undefined ? ec.unitPrice : ec.price,
+                    total: ec.price !== undefined ? ec.price : 0,
+                    isService: true,
+                    isEconomicItem: true,
+                    isEconomicRepresentation: true,
+                    isAccommodation: false,
+                    hotel: hotelName || ""
+                });
+            }
+        });
+        return { addedItems };
+    }
+
     const RoomingCore = {
         ROOMING_CORE_VERSION,
         parseDate,
@@ -1256,7 +1279,11 @@
         getServiceItems,
         calculateDailyOccupancy,
         isValidStayIdForContinuity,
-        isValidSlotId
+        isValidSlotId,
+        getGroupEconomicItems,
+        reconcileEconomicItems,
+        classifyOperationalDepartment,
+        reconcileOperationalServices
     };
 
     if (typeof module !== 'undefined' && module.exports) {

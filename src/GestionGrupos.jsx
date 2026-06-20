@@ -1,6 +1,16 @@
 
 
     // Aseguramos que las librerías estén disponibles
+    if (typeof window !== 'undefined') {
+      if (window.RoomingCore) {
+        window.roomingCore = window.RoomingCore;
+      } else {
+        Object.defineProperty(window, 'roomingCore', {
+          get() { return window.RoomingCore; },
+          configurable: true
+        });
+      }
+    }
 
     const { useState, useEffect, useMemo, useRef } = React;
 
@@ -3470,9 +3480,10 @@
                   alert(`No se puede generar la proforma.\n\nPresupuesto confirmado: ${confirmedBudgetTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nFicha económica: ${groupEconomicTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nProforma preparada: ${proformaItemsTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nDiferencia pendiente: ${diff.toLocaleString("es-ES", {minimumFractionDigits: 2})} €${missingStr}\n\nPor favor, usa la acción SINCRONIZAR CARGOS en la ficha económica.`);
                   
                   setShowFichaModal(true);
+                  setHighlightSyncCharges(true);
                   setTimeout(() => {
                     syncChargesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  }, 100);
+                  }, 150);
                   return;
               }
 
