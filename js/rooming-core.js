@@ -650,6 +650,73 @@
         return storedPax === maxDailyOccupancy;
     }
 
+    function parseRoomingListSafe(value, context = "") {
+        if (Array.isArray(value)) {
+            return value;
+        }
+
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+
+            if (!trimmed) {
+                return [];
+            }
+
+            try {
+                const parsed = JSON.parse(trimmed);
+
+                if (Array.isArray(parsed)) {
+                    return parsed;
+                }
+
+                console.warn(
+                    "[ROOMING CORE] RoomingList_JSON no contiene un array",
+                    {
+                        context,
+                        parsed
+                    }
+                );
+
+                return [];
+            } catch (error) {
+                console.error(
+                    "[ROOMING CORE] RoomingList_JSON inválido",
+                    {
+                        context,
+                        value,
+                        error
+                    }
+                );
+
+                return [];
+            }
+        }
+
+        if (value == null) {
+            return [];
+        }
+
+        console.warn(
+            "[ROOMING CORE] Formato de RoomingList_JSON no reconocido",
+            {
+                context,
+                value,
+                type: typeof value
+            }
+        );
+
+        return [];
+    }
+
+    function getEconomicRoomingItems(value, context = "") {
+        return parseRoomingListSafe(value, context).filter(
+            item =>
+                item &&
+                item.excludeFromEconomicTotals !== true &&
+                item.isManualRoomingItem !== true
+        );
+    }
+
     const RoomingCore = {
         ROOMING_CORE_VERSION,
         parseDate,
@@ -672,7 +739,9 @@
         calculateMaxDailyRooms,
         calculatePersonNights,
         parsePositiveNumber,
-        isStoredPaxConsistent
+        isStoredPaxConsistent,
+        parseRoomingListSafe,
+        getEconomicRoomingItems
     };
 
     if (typeof module !== 'undefined' && module.exports) {

@@ -98,6 +98,32 @@
       return null;
     };
 
+    const parseRoomingListSafe = (value, context = "") => {
+      if (window.RoomingCore && window.RoomingCore.parseRoomingListSafe) {
+        return window.RoomingCore.parseRoomingListSafe(value, context);
+      }
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") {
+        try {
+          const parsed = JSON.parse(value.trim());
+          if (Array.isArray(parsed)) return parsed;
+        } catch (e) {}
+      }
+      return [];
+    };
+
+    const getEconomicRoomingItems = (value, context = "") => {
+      if (window.RoomingCore && window.RoomingCore.getEconomicRoomingItems) {
+        return window.RoomingCore.getEconomicRoomingItems(value, context);
+      }
+      return parseRoomingListSafe(value, context).filter(
+        item =>
+          item &&
+          item.excludeFromEconomicTotals !== true &&
+          item.isManualRoomingItem !== true
+      );
+    };
+
     // ─── Métricas de ocupación y habitaciones ────────────────────────────────
     // Fuente de verdad: js/rooming-core.js (window.RoomingCore).
     // Las implementaciones locales han sido eliminadas para evitar divergencias.
@@ -1975,7 +2001,7 @@
 
             try {
 
-              const rl = JSON.parse(row.RoomingList_JSON);
+              const rl = parseRoomingListSafe(row.RoomingList_JSON, "calculateMaxDailyRooms");
 
               // calculateMaxDailyRooms devuelve el pico diario de habitaciones
               // simultáneas, evitando sumar todos los bloques nocturnos.
@@ -2000,12 +2026,12 @@
           
           if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]" && !groups[key].processedJSONs.has("rl_" + row.RoomingList_JSON)) {
               try {
-                const rl = JSON.parse(row.RoomingList_JSON);
-                const commVal = rl.reduce((acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.comision?.total_comision) || 0)), 0);
+                const rlClean = getEconomicRoomingItems(row.RoomingList_JSON, "groups-comm-total");
+                const commVal = rlClean.reduce((acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0), 0);
                 groups[key].totalCommission += commVal;
                 groups[key].processedJSONs.add("rl_" + row.RoomingList_JSON);
                 
-                const rlTotal = rl.reduce((acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.total) || 0)), 0);
+                const rlTotal = rlClean.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
                 if (rlTotal > 0) {
                    groups[key].totalRevenue = rlTotal + suplementos - descuentos;
                    groups[key].hasRoomingListOverride = true;
@@ -3116,10 +3142,9 @@
 
           try {
 
-            const list = JSON.parse(r["RoomingList_JSON"] || "[]");
+            const list = getEconomicRoomingItems(r["RoomingList_JSON"], "proforma-lines");
 
             list.forEach((item) => {
-              if (item.excludeFromEconomicTotals === true) return;
 
               rawRoomingLines.push(item);
 
@@ -6550,11 +6575,7 @@
 
         const firstRec = records[0];
 
-        const roomingList = JSON.parse(
-
-          firstRec?.["RoomingList_JSON"] || "[]",
-
-        );
+        const roomingList = getEconomicRoomingItems(firstRec?.["RoomingList_JSON"], "proforma-hotel-comm");
 
         const hotelRoomingItems = hotelFilter
 
@@ -6582,7 +6603,7 @@
 
         const totalCommission = hotelRoomingItems.reduce(
 
-          (acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.comision?.total_comision) || 0)),
+          (acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0),
 
           0,
 
@@ -10847,13 +10868,7 @@
 
                     }
 
-                    const roomList = JSON.parse(
-
-                      selectedGroupFicha.records[0]?.["RoomingList_JSON"] ||
-
-                      "[]",
-
-                    );
+                    const roomList = getEconomicRoomingItems(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "ficha-totals");
 
                     let totalB10 = 0,
 
@@ -10889,7 +10904,7 @@
 
                     const grandTotal = roomList.reduce(
 
-                      (acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.total) || 0)),
+                      (acc, i) => acc + (parseFloat(i.total) || 0),
 
                       0,
 
@@ -10897,7 +10912,7 @@
 
                     const totalComision = roomList.reduce(
 
-                      (acc, i) => acc + (i.excludeFromEconomicTotals === true ? 0 : (parseFloat(i.comision?.total_comision) || 0)),
+                      (acc, i) => acc + (parseFloat(i.comision?.total_comision) || 0),
 
                       0,
 
@@ -13266,14 +13281,10 @@
 
 
 
-                                const roomingList = JSON.parse(
+                                const roomingList = getEconomicRoomingItems(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "hotel-totals");
 
-                                  selectedGroupFicha.records[0]?.[
-
-                                  "RoomingList_JSON"
-
-                                  ] || "[]",
-                                  <div className="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[400px] custom-scrollbar">
+                                 return (
+                                   <div className="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[400px] custom-scrollbar">
                                     {uniqueHotels.map((hotelName) => {
                                       const hotelRoomingItems =
                                         roomingList.filter(
@@ -13288,7 +13299,7 @@
 
                                            (acc, i) =>
 
-                                             acc + (i.excludeFromEconomicTotals === true ? 0 : ((parseFloat(i.total) || 0) - (parseFloat(i.comision?.total_comision) || 0))),
+                                             acc + (parseFloat(i.total) || 0) - (parseFloat(i.comision?.total_comision) || 0),
 
                                            0,
 
