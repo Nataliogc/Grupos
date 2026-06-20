@@ -344,7 +344,64 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 8;
+        const SERVICES_GENERATION_VERSION = 10;
+
+        function mergeServices(existing, auto) {
+            const merged = [];
+            
+            // Keep every non-automatic row (manual and economic extras) untouched.
+            const manualExisting = existing.filter(s => s.origin !== 'auto');
+            merged.push(...manualExisting);
+
+            // 2. For each auto service:
+            auto.forEach(a => {
+                const match = existing.find(e => e.origin === 'auto' && (
+                    (e.serviceId && e.serviceId === a.serviceId) ||
+                    (!e.serviceId && e.serviceDate === a.serviceDate && e.serviceType === a.serviceType)
+                ));
+                if (match) {
+                    const wasPaxEdited = match.paxHab !== `${match.originalPax} pax` && match.paxHab !== `${match.originalPax} pax / ${match.originalRooms || ''} hab.`;
+                    
+                    let finalPaxHab = a.paxHab;
+                    if (wasPaxEdited) {
+                        finalPaxHab = match.paxHab;
+                    }
+
+                    const finalHora = match.hora !== 'PENDIENTE' && match.hora !== '___:___ h' ? match.hora : a.hora;
+                    const finalNotas = match.notas && match.notas !== '' ? match.notas : a.notas;
+
+                    merged.push({
+                        fecha: a.fecha,
+                        servicio: a.servicio,
+                        regimen: a.regimen,
+                        paxHab: finalPaxHab,
+                        hora: finalHora,
+                        notas: finalNotas,
+                        origin: 'auto',
+                        serviceType: a.serviceType,
+                        serviceDate: a.serviceDate,
+                        serviceId: a.serviceId,
+                        originalPax: a.originalPax,
+                        originalRooms: a.originalRooms
+                    });
+                } else {
+                    merged.push(a);
+                }
+            });
+
+            const serviceChronology = { 'Llegada': 0, 'Desayuno': 1, 'Almuerzo': 2, 'Cena': 3, 'Salida': 4, 'Manual': 5 };
+            merged.sort((a, b) => {
+                const dateA = a.serviceDate || '';
+                const dateB = b.serviceDate || '';
+                if (dateA !== dateB) return dateA.localeCompare(dateB);
+                const typeA = serviceChronology[a.serviceType] || 99;
+                const typeB = serviceChronology[b.serviceType] || 99;
+                return typeA - typeB;
+            });
+
+            return merged;
+        }
+
         let departmentSummaryState = {};
         let departmentSummaryLayout = {};
         let lastRoomingSyncErrorMessage = '';
@@ -1138,9 +1195,18 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             triggerSave();
         }
 
-        function addRowServicio(fecha, servicio, regimen, paxHab, hora, notas) {
+        function addRowServicio(fecha, servicio, regimen, paxHab, hora, notas, metadata = {}) {
             const tbody = document.querySelector('#table-servicios tbody');
             const tr = document.createElement('tr');
+            
+            // Set dataset metadata
+            tr.dataset.origin = metadata.origin || 'manual';
+            tr.dataset.serviceType = metadata.serviceType || 'Manual';
+            tr.dataset.serviceDate = metadata.serviceDate || '';
+            tr.dataset.serviceId = metadata.serviceId || '';
+            tr.dataset.originalPax = metadata.originalPax || '';
+            tr.dataset.originalRooms = metadata.originalRooms || '';
+
             tr.appendChild(createEditableCell(fecha));
             tr.appendChild(createEditableCell(servicio));
             tr.appendChild(createEditableCell(regimen));
@@ -1416,7 +1482,13 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         regimen: cells[2].innerText,
                         paxHab: cells[3].innerText,
                         hora: cells[4].innerText,
-                        notas: cells[5].innerText
+                        notas: cells[5].innerText,
+                        origin: tr.dataset.origin || 'manual',
+                        serviceType: tr.dataset.serviceType || 'Manual',
+                        serviceDate: tr.dataset.serviceDate || '',
+                        serviceId: tr.dataset.serviceId || '',
+                        originalPax: tr.dataset.originalPax || '',
+                        originalRooms: tr.dataset.originalRooms || ''
                     });
                 }
             });
@@ -2215,6 +2287,9 @@ ${inputVal}`;
             const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
             let loadRoomingFromCache = false;
             let cachedRooming = [];
+            let cachedServicios = [];
+            let cachedPendientes = [];
+            let forceRegenerateServices = false;
             
             if (savedStateStr) {
                 const s = JSON.parse(savedStateStr);
@@ -2230,6 +2305,11 @@ ${inputVal}`;
                 if (s.departmentSummaryLayout) {
                     departmentSummaryLayout = normalizeDepartmentSummary(s.departmentSummaryLayout);
                 }
+
+                cachedRooming = s.rooming || [];
+                cachedServicios = s.servicios || [];
+                cachedPendientes = s.pendientes || [];
+
                 if (!s.restoreServices && s.servicesGenerationVersion === SERVICES_GENERATION_VERSION) {
                     // LOAD FROM LOCAL STORAGE CACHE
                     document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
@@ -2249,7 +2329,7 @@ ${inputVal}`;
                         s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
                     }
                     if (s.servicios && s.servicios.length > 0) {
-                        s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas));
+                        s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notes || sv.notas, sv));
                     }
                     if (s.rooming && s.rooming.length > 0) {
                         s.rooming.forEach(r => addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ, r.checkIn || r.dateIn, r.checkOut || r.dateOut));
@@ -2257,11 +2337,11 @@ ${inputVal}`;
                     return;
                 } else {
                     if (s.servicesGenerationVersion !== SERVICES_GENERATION_VERSION) {
-                        localStorage.removeItem('roomingServicios_' + currentReservaId);
-                        console.log(`[ROOMING] Cache incompatible removida para reserva: ${currentReservaId}`);
+                        forceRegenerateServices = true;
+                        loadRoomingFromCache = true;
+                        console.log(`[ROOMING] Cache version mismatch (${s.servicesGenerationVersion} vs ${SERVICES_GENERATION_VERSION}). Will regenerate services while preserving manual edits.`);
                     } else {
                         loadRoomingFromCache = true;
-                        cachedRooming = s.rooming || [];
                     }
                 }
             }
@@ -2289,6 +2369,9 @@ ${inputVal}`;
                 roomingList = [];
             }
             
+            // Keep a copy of original nightly blocks before merging/consolidation
+            const originalNightlyBlocks = JSON.parse(JSON.stringify(roomingList.filter(RoomingCore.isAccommodationItem)));
+
             // Run central grouping and merging function to ensure per-stay rooms
             roomingList = groupAndMergeRoomingList(roomingList, checkInDate, checkOutDate);
 
@@ -2300,51 +2383,12 @@ ${inputVal}`;
 
             // Determine if the list is already expanded with occupants (each room has its own row in the JSON list)
             // If the JSON list still has items with qty > 1, then it represents room blocks and is NOT fully expanded yet.
-            let isExpandedList = roomingList.some(item => !item.isService && (item.ocupantes || item.roomNo)) &&
-                                 !roomingList.some(item => !item.isService && getRoomLineQuantity(item, 1) > 1);
+            let isExpandedList = roomingList.some(item => RoomingCore.isAccommodationItem(item) && (item.ocupantes || item.roomNo)) &&
+                                 !roomingList.some(item => RoomingCore.isAccommodationItem(item) && getRoomLineQuantity(item, 1) > 1);
 
-            // Helper to get dates between two dates using parseDate and getLocalDateString
-            function getDatesArray(startStr, endStr, nights) {
-                const dates = [];
-                let start = parseDate(startStr);
-                if (!start || isNaN(start.getTime())) return [];
-                let n = parseInt(nights) || 1;
-                for (let i = 0; i < n; i++) {
-                    const d = new Date(start);
-                    d.setDate(start.getDate() + i);
-                    dates.push(getLocalDateString(d));
-                }
-                return dates;
-            }
-
-            // Calculate peak daily room and pax counts
-            const dailyCounts = {};
-            roomingList.forEach(item => {
-                if (item.isService) return;
-                
-                const rType = (item.type || 'Habitación').toLowerCase();
-                let canonicalType = 'Doble';
-                if (rType.includes('ind') || rType.includes('dui') || rType.includes('uso individual')) {
-                    canonicalType = 'Individual';
-                } else if (rType.includes('tri')) {
-                    canonicalType = 'Triple';
-                } else if (rType.includes('cua')) {
-                    canonicalType = 'Cuádruple';
-                }
-
-                const qty = isExpandedList ? 1 : getRoomLineQuantity(item, 1);
-                const paxVal = parseInt(item.pax) || (canonicalType === 'Individual' ? 1 : (canonicalType === 'Triple' ? 3 : (canonicalType === 'Cuádruple' ? 4 : 2)));
-                const itemDates = getDatesArray(item.dateIn, item.dateOut, item.nights);
-
-                itemDates.forEach(date => {
-                    if (!dailyCounts[date]) {
-                        dailyCounts[date] = { total: 0, byType: {}, totalPax: 0 };
-                    }
-                    dailyCounts[date].total += qty;
-                    dailyCounts[date].byType[canonicalType] = (dailyCounts[date].byType[canonicalType] || 0) + qty;
-                    dailyCounts[date].totalPax += (qty * paxVal);
-                });
-            });
+            // Calculate peak daily room and pax counts using central core function
+            const dailyCounts = RoomingCore.calculateDailyOccupancy(originalNightlyBlocks);
+            const dailyMovements = RoomingCore.calculateDailyMovements(originalNightlyBlocks);
 
             // Find peak values
             Object.values(dailyCounts).forEach(dayData => {
@@ -2362,7 +2406,7 @@ ${inputVal}`;
             // Fallback if no dates were parsed
             if (Object.keys(dailyCounts).length === 0) {
                 roomingList.forEach(item => {
-                    if (item.isService) return;
+                    if (!RoomingCore.isAccommodationItem(item)) return;
                     const rType = (item.type || 'Habitación').toLowerCase();
                     let canonicalType = 'Doble';
                     if (rType.includes('ind') || rType.includes('dui') || rType.includes('uso individual')) {
@@ -2381,21 +2425,14 @@ ${inputVal}`;
             document.getElementById('gen-pax').innerText = totalPax;
 
             const getServiceOccupancy = (serviceName, serviceDate) => {
-                const serviceDateObj = parseDate(serviceDate);
-                if (!serviceDateObj || isNaN(serviceDateObj.getTime())) {
-                    return { pax: totalPax, rooms: totalRooms };
-                }
-                const lookupDate = new Date(serviceDateObj);
-                if (String(serviceName || '').toLowerCase().includes('desayuno')) {
-                    lookupDate.setDate(lookupDate.getDate() - 1);
-                }
-                const key = getLocalDateString(lookupDate);
-                const dayData = dailyCounts[key];
-                if (!dayData) return { pax: totalPax, rooms: totalRooms };
-                return {
-                    pax: dayData.totalPax || totalPax,
-                    rooms: dayData.total || totalRooms
-                };
+                const key = normalizeRoomingDate(serviceDate);
+                const movement = dailyMovements[key];
+                if (!movement) return { pax: 0, rooms: 0 };
+                const normalizedName = String(serviceName || '').toLowerCase();
+                if (normalizedName.includes('desayuno')) return { ...movement.breakfast };
+                if (normalizedName.includes('llegada')) return { ...movement.arrivals };
+                if (normalizedName.includes('salida')) return { ...movement.departures };
+                return { ...movement.overnight };
             };
 
             const refreshBreakfastServiceOccupancy = () => {
@@ -2424,7 +2461,7 @@ ${inputVal}`;
             // rendering paths — both expanded (individual-room) lists and block-level lists.
             // It returns one consolidated stay per physical room-slot, correctly merged across nights.
             roomingList.forEach(item => {
-                if (item.isService) return;
+                if (!RoomingCore.isAccommodationItem(item)) return;
 
                 const occName = (item.ocupantes || '').trim();
                 let finalOcc = occName;
@@ -2648,17 +2685,30 @@ ${inputVal}`;
             // Set up Services Table
             
             if (dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime()) && dOut > dIn) {
+                const autoServices = [];
                 const nights = Math.ceil((dOut - dIn) / (86400000));
-                const arrivalOccupancy = getServiceOccupancy('Llegada', checkInDate);
                 
-                addRowServicio(
-                    formatD(checkInDate),
-                    'Llegada / check-in',
-                    'Entrada',
-                    `${arrivalOccupancy.pax} pax / ${arrivalOccupancy.rooms} hab.`,
-                    'Según llegada',
-                    'Coordinar entrega de llaves. El grupo puede comer primero si llega antes del almuerzo.'
-                );
+                const movementDates = Object.keys(dailyMovements).sort();
+                const arrivalDates = movementDates.filter(date => dailyMovements[date].arrivals.pax > 0);
+                const departureDates = movementDates.filter(date => dailyMovements[date].departures.pax > 0);
+
+                arrivalDates.forEach((date, index) => {
+                    const occupancy = dailyMovements[date].arrivals;
+                    autoServices.push({
+                        fecha: formatD(date),
+                        servicio: index === 0 ? 'Llegada / check-in' : 'Llegada parcial / check-in',
+                        regimen: 'Entrada',
+                        paxHab: `${occupancy.pax} pax / ${occupancy.rooms} hab.`,
+                        hora: 'Según llegada',
+                        notas: 'Coordinar entrega de llaves. El grupo puede comer primero si llega antes del almuerzo.',
+                        origin: 'auto',
+                        serviceType: 'Llegada',
+                        serviceDate: date,
+                        serviceId: `${date}|arrival|automatic`,
+                        originalPax: occupancy.pax,
+                        originalRooms: occupancy.rooms
+                    });
+                });
 
                 const totalDays = nights + 1; // From check-in day to check-out day inclusive
                 for (let i = 0; i < totalDays; i++) {
@@ -2680,7 +2730,9 @@ ${inputVal}`;
                         dayServices = osServicesForDay.map(row => ({
                             name: row.serv,
                             hour: row.hora || '___:___ h',
-                            note: row.menu || ''
+                            note: row.menu || '',
+                            pax: parseInt(String(row.pax || '').replace(/[^0-9]/g, ''), 10) || 0,
+                            origin: (row.serv || '').toUpperCase().includes('EXTRA') ? 'economic' : 'auto'
                         }));
                     } else {
                         // Fallback to regime-based generation if no Service Order plan exists
@@ -2734,7 +2786,6 @@ ${inputVal}`;
                                 serviceNote = `${s.name} del grupo.`;
                             }
                         } else {
-                            // If they have a custom menu, make sure it has the service name prefix for clarity
                             if (!serviceNote.toLowerCase().includes(s.name.toLowerCase())) {
                                 serviceNote = `${s.name}: ${serviceNote}`;
                             }
@@ -2752,21 +2803,63 @@ ${inputVal}`;
                         } else if (sNameUpper.includes('CENA') && gRegimen.toUpperCase().includes('PC')) {
                             serviceReg = 'PC';
                         }
-                        const serviceOccupancy = getServiceOccupancy(s.name, targetIso);
+                        const isExtraService = s.origin === 'economic' || sNameUpper.includes('EXTRA');
+                        const automaticServiceType = sNameUpper.includes('DESAYUNO') ? 'breakfast'
+                            : sNameUpper.includes('ALMUERZO') ? 'lunch'
+                            : sNameUpper.includes('CENA') ? 'dinner'
+                            : normalizeRoomType(s.name).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                        const serviceOccupancy = isExtraService && s.pax > 0
+                            ? { pax: s.pax, rooms: 0 }
+                            : getServiceOccupancy(s.name, targetIso);
+                        if (!isExtraService && serviceOccupancy.pax <= 0) return;
                         
-                        addRowServicio(targetLabel, s.name, serviceReg, `${serviceOccupancy.pax} pax`, serviceHour, serviceNote);
+                        autoServices.push({
+                            fecha: targetLabel,
+                            servicio: s.name,
+                            regimen: serviceReg,
+                            paxHab: `${serviceOccupancy.pax} pax`,
+                            hora: serviceHour,
+                            notas: serviceNote,
+                            origin: isExtraService ? 'economic' : 'auto',
+                            serviceType: s.name,
+                            serviceDate: targetIso,
+                            serviceId: isExtraService ? '' : `${targetIso}|${automaticServiceType}|automatic`,
+                            originalPax: serviceOccupancy.pax,
+                            originalRooms: serviceOccupancy.rooms
+                        });
                     });
                 }
-                const departureOccupancy = getServiceOccupancy('Salida', checkOutDate);
-                
-                addRowServicio(
-                    formatD(checkOutDate),
-                    'Salida / check-out',
-                    'Salida',
-                    `${departureOccupancy.pax} pax / ${departureOccupancy.rooms} hab.`,
-                    '___:___ h',
-                    'Revisar cargos extras pendientes en recepción antes del check-out.'
-                );
+                departureDates.forEach(date => {
+                    const occupancy = dailyMovements[date].departures;
+                    const isPartial = dailyMovements[date].overnight.pax > 0;
+                    autoServices.push({
+                        fecha: formatD(date),
+                        servicio: isPartial ? 'Salida parcial / check-out' : 'Salida / check-out',
+                        regimen: 'Salida',
+                        paxHab: `${occupancy.pax} pax / ${occupancy.rooms} hab.`,
+                        hora: '___:___ h',
+                        notas: 'Revisar cargos extras pendientes en recepción antes del check-out.',
+                        origin: 'auto',
+                        serviceType: 'Salida',
+                        serviceDate: date,
+                        serviceId: `${date}|departure|automatic`,
+                        originalPax: occupancy.pax,
+                        originalRooms: occupancy.rooms
+                    });
+                });
+
+                let servicesToRender = [];
+                if (loadRoomingFromCache && !forceRegenerateServices && cachedServicios.length > 0) {
+                    servicesToRender = cachedServicios;
+                } else if (forceRegenerateServices && cachedServicios.length > 0) {
+                    servicesToRender = mergeServices(cachedServicios, autoServices);
+                } else {
+                    servicesToRender = autoServices;
+                }
+
+                servicesToRender.forEach(sv => {
+                    addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas || sv.notes, sv);
+                });
             } else {
                 addRowServicio('DÍA 1', 'Llegada / check-in', 'Entrada', `${totalPax} pax`, '---', 'Coordinar llegada.');
             }

@@ -24,5 +24,7 @@ desktop.ini
 # Debug / Test scripts (no deben estar en producción)
 debug*.js
 test_*.js
+!test_rooming.js
+!test_integration.js
 test_*.csv
 patch_*.py

@@ -124,6 +124,22 @@
       );
     };
 
+    const isAccommodationItem = (item) => {
+      if (window.RoomingCore && window.RoomingCore.isAccommodationItem) {
+        return window.RoomingCore.isAccommodationItem(item);
+      }
+      if (!item || item.isService === true || item.isAccommodation === false || item.excludeFromOccupancy === true) return false;
+      if (item.isAccommodation === true || item.isManualRoomingItem === true) return true;
+      return /^(hab\.?|habitaci[oÃ³]n|doble|dbl|dui|twin|individual|triple|cu[aÃ¡]druple|suite|apartamento|familiar)\b/i.test(String(item.roomType || item.type || item.product || ''));
+    };
+
+    const getAccommodationItems = (value, context = "") => {
+      if (window.RoomingCore && window.RoomingCore.getAccommodationItems) {
+        return window.RoomingCore.getAccommodationItems(value, context);
+      }
+      return parseRoomingListSafe(value, context).filter(isAccommodationItem);
+    };
+
     // ─── Métricas de ocupación y habitaciones ────────────────────────────────
     // Fuente de verdad: js/rooming-core.js (window.RoomingCore).
     // Las implementaciones locales han sido eliminadas para evitar divergencias.
@@ -135,8 +151,7 @@
       }
       // Fallback de emergencia (sólo si rooming-core.js no se cargó)
       const dailyPax = {};
-      (list || []).forEach(i => {
-        if (i.isService) return;
+      getAccommodationItems(list, "occupancy-fallback").forEach(i => {
         const s = i.dateIn || i.checkIn; const e = i.dateOut || i.checkOut;
         if (!s || !e) return;
         const dIn = new Date(s); const dOut = new Date(e);
@@ -156,8 +171,7 @@
       }
       // Fallback de emergencia
       const dailyRooms = {};
-      (list || []).forEach(i => {
-        if (i.isService) return;
+      getAccommodationItems(list, "rooms-fallback").forEach(i => {
         const s = i.dateIn || i.checkIn; const e = i.dateOut || i.checkOut;
         if (!s || !e) return;
         const dIn = new Date(s); const dOut = new Date(e);
@@ -1987,7 +2001,7 @@
 
 
 
-          const pax = parseInt(row["Pax."] || 0);
+          let pax = parseInt(row["Pax."] || 0);
 
           let rooms = parseInt(
 
@@ -1997,11 +2011,13 @@
 
           // Fallback to RoomingList_JSON if rooms is 0
 
-          if (rooms === 0 && row.RoomingList_JSON) {
+          if (row.RoomingList_JSON) {
 
             try {
 
-              const rl = parseRoomingListSafe(row.RoomingList_JSON, "calculateMaxDailyRooms");
+              const rl = parseRoomingListSafe(row.RoomingList_JSON, "lodging-metrics");
+
+              pax = calculateMaxDailyOccupancy(rl);
 
               // calculateMaxDailyRooms devuelve el pico diario de habitaciones
               // simultáneas, evitando sumar todos los bloques nocturnos.
@@ -3306,6 +3322,12 @@
                   total: imp,
 
                   isService: true,
+
+                  itemCategory: "service",
+
+                  isAccommodation: false,
+
+                  serviceCategory: /almuerzo|cena|desayuno|coffee/i.test(serviceConcept) ? "food-beverage" : undefined,
 
                   iva: 10,
 
@@ -6253,6 +6275,10 @@
 
               isService: false,
 
+              itemCategory: "accommodation",
+
+              isAccommodation: true,
+
               total: (
 
                 parseFloat(roomManagerForm.price) *
@@ -6312,6 +6338,14 @@
             nights: nights,
 
             isService: roomManagerForm.isService,
+
+            itemCategory: roomManagerForm.isService ? "service" : "accommodation",
+
+            isAccommodation: !roomManagerForm.isService,
+
+            serviceCategory: roomManagerForm.isService && /almuerzo|cena|desayuno|coffee/i.test(roomManagerForm.type)
+              ? "food-beverage"
+              : undefined,
 
             total: (
 
