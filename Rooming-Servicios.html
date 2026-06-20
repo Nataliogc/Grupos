@@ -322,7 +322,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let currentReservaId = "unknown";
         let saveTimeout = null;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 6;
+        const SERVICES_GENERATION_VERSION = 7;
         let departmentSummaryState = {};
         let departmentSummaryLayout = {};
         let lastRoomingSyncErrorMessage = '';
@@ -647,13 +647,90 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             return `${day}/${m}/${y}`;
         }
 
+        function normalizeText(value) {
+            if (value === null || value === undefined) return '';
+            return String(value).trim().replace(/\s+/g, ' ');
+        }
+
+        function normalizeRoomNumber(value) {
+            if (value === null || value === undefined) return '';
+            const s = String(value).trim().toUpperCase();
+            if (s === '' || s === '0' || s === 'PENDIENTE' || s === 'TBD' || s === 'NULL' || s === 'UNDEFINED') return '';
+            return s;
+        }
+
+        function normalizeOccupants(value) {
+            if (value === null || value === undefined) return '';
+            const s = String(value).trim();
+            if (!s) return '';
+            const names = s.split(/[\/,;\n]/)
+                .map(name => name.trim().replace(/\s+/g, ' '))
+                .filter(name => name.length > 0 && name.toLowerCase() !== 'ocupante pendiente');
+            names.sort();
+            return names.join('\n');
+        }
+
+        function normalizeDate(value) {
+            const d = parseDate(value);
+            return d && !isNaN(d.getTime()) ? getLocalDateString(d) : '';
+        }
+
+        function normalizeRoomType(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .toUpperCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function isSameRoomType(type1, type2) {
+            const t1 = normalizeRoomTypeForMatch(type1);
+            const t2 = normalizeRoomTypeForMatch(type2);
+            return t1 === t2;
+        }
+
+        function canMergeStays(last, current) {
+            const roomNoLast = normalizeRoomNumber(last.roomNo);
+            const roomNoCur = normalizeRoomNumber(current.roomNo);
+            if (roomNoLast !== roomNoCur) return false;
+            
+            if (!roomNoLast) {
+                if (last.tempRoomId !== current.tempRoomId) return false;
+            }
+            
+            if (!isSameRoomType(last.type, current.type)) return false;
+            if (parseInt(last.pax) !== parseInt(current.pax)) return false;
+            if (normalizeOccupants(last.ocupantes) !== normalizeOccupants(current.ocupantes)) return false;
+            if (normalizeText(last.observ) !== normalizeText(current.observ)) return false;
+            if ((last.regime || '') !== (current.regime || '')) return false;
+            
+            const lastOut = parseDate(last.checkOut || last.dateOut);
+            const curIn = parseDate(current.checkIn || current.dateIn);
+            if (!lastOut || !curIn) return false;
+            
+            if (lastOut < curIn) return false;
+            
+            return true;
+        }
+
+        function naturalCompare(a, b) {
+            const numA = parseInt(a, 10);
+            const numB = parseInt(b, 10);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                if (numA !== numB) return numA - numB;
+            }
+            return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        }
+
         function groupAndMergeRoomingList(rawList, checkInDate, checkOutDate) {
             const services = rawList.filter(item => item.isService === true);
             const rawRooms = rawList.filter(item => !item.isService);
 
             // 1. Flatten / expand blocks with qty > 1
             const flatRooms = [];
-            rawRooms.forEach(item => {
+            rawRooms.forEach((item, index) => {
                 const rType = String(item.type || item.tipo || 'Habitación Doble').trim();
                 const qty = parseInt(item.qty) || 1;
                 const paxVal = parseInt(item.pax) || (rType.toUpperCase().includes('IND') || rType.toUpperCase().includes('DUI') || rType.toUpperCase().includes('USO INDIVIDUAL') ? 1 : 2);
@@ -664,9 +741,12 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
                 const hasDetails = (item.ocupantes || '').trim() || (item.roomNo || '').trim();
 
+                const itemTotal = parseFloat(item.total) || 0;
+                const unitTotal = qty > 1 ? itemTotal / qty : itemTotal;
+
                 if (hasDetails && qty === 1) {
                     flatRooms.push({
-                        id: item.id || ('new_' + Date.now() + '_' + Math.random()),
+                        id: item.id || ('new_' + index + '_' + Date.now() + '_' + Math.random()),
                         roomNo: String(item.roomNo || item.hab || '').trim(),
                         type: rType,
                         pax: paxVal,
@@ -680,15 +760,15 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         price: parseFloat(item.price) || 0,
                         iva: parseInt(item.iva) || 10,
                         nights: nights,
-                        total: parseFloat(item.total) || 0,
+                        total: unitTotal,
                         comision: item.comision || null
                     });
                 } else {
-                    // Expand qty > 1 into N individual rooms
                     for (let q = 0; q < qty; q++) {
+                        const baseId = item.id || ('block_' + index + '_' + Date.now() + '_' + Math.random());
                         flatRooms.push({
-                            id: (item.id || ('block_' + Date.now() + '_' + Math.random())) + '_' + q,
-                            roomNo: String(item.roomNo || q + 1),
+                            id: baseId + '_' + q,
+                            roomNo: String(item.roomNo || '').trim(),
                             type: rType,
                             pax: paxVal,
                             checkIn: itemDateIn,
@@ -701,28 +781,112 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                             price: parseFloat(item.price) || 0,
                             iva: parseInt(item.iva) || 10,
                             nights: nights,
-                            total: parseFloat(item.total) || 0,
+                            total: unitTotal,
                             comision: item.comision || null
                         });
                     }
                 }
             });
 
-            // 2. Group by roomNo and type
+            // 2. Allocate slots for rooms without a valid room number
+            const unnumberedRoomsByType = {};
+            const numberedRooms = [];
+
+            flatRooms.forEach(room => {
+                const normRoomNo = normalizeRoomNumber(room.roomNo);
+                if (normRoomNo) {
+                    numberedRooms.push(room);
+                } else {
+                    const normType = normalizeRoomType(room.type);
+                    if (!unnumberedRoomsByType[normType]) {
+                        unnumberedRoomsByType[normType] = [];
+                    }
+                    unnumberedRoomsByType[normType].push(room);
+                }
+            });
+
+            Object.entries(unnumberedRoomsByType).forEach(([normType, rooms]) => {
+                rooms.sort((a, b) => {
+                    const dateA = parseDate(a.checkIn);
+                    const dateB = parseDate(b.checkIn);
+                    return (dateA || 0) - (dateB || 0);
+                });
+
+                const slots = [];
+                
+                rooms.forEach(room => {
+                    let bestSlotIndex = -1;
+                    let bestScore = -Infinity;
+
+                    slots.forEach((slotRooms, sIdx) => {
+                        const lastRoomInSlot = slotRooms[slotRooms.length - 1];
+                        const lastOut = parseDate(lastRoomInSlot.checkOut);
+                        const curIn = parseDate(room.checkIn);
+
+                        if (!lastOut || !curIn) return;
+
+                        const lastOcc = normalizeOccupants(lastRoomInSlot.ocupantes);
+                        const curOcc = normalizeOccupants(room.ocupantes);
+                        const hasRealOcc = lastOcc && curOcc;
+                        const sameOcc = lastOcc === curOcc;
+
+                        let score = -Infinity;
+
+                        if (lastOut <= curIn) {
+                            const gapDays = Math.round((curIn - lastOut) / 86400000);
+                            score = 1000 - gapDays;
+
+                            if (hasRealOcc && sameOcc) score += 5000;
+                            if (normalizeText(lastRoomInSlot.observ) === normalizeText(room.observ)) score += 500;
+                            if (parseInt(lastRoomInSlot.pax) === parseInt(room.pax)) score += 200;
+                        } else {
+                            if (hasRealOcc && sameOcc && parseInt(lastRoomInSlot.pax) === parseInt(room.pax) && normalizeText(lastRoomInSlot.observ) === normalizeText(room.observ)) {
+                                const overlapDays = Math.round((lastOut - curIn) / 86400000);
+                                score = 500 - overlapDays;
+                            } else {
+                                score = -Infinity;
+                            }
+                        }
+
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestSlotIndex = sIdx;
+                        }
+                    });
+
+                    if (bestScore >= 0 && bestSlotIndex !== -1) {
+                        slots[bestSlotIndex].push(room);
+                    } else {
+                        slots.push([room]);
+                    }
+                });
+
+                slots.forEach((slotRooms, sIdx) => {
+                    const tempId = `temp_${normType.replace(/\s+/g, '_')}_${sIdx}`;
+                    slotRooms.forEach(r => {
+                        r.tempRoomId = tempId;
+                    });
+                });
+            });
+
+            // 3. Group by physical room number + type, or tempRoomId
             const groups = {};
             flatRooms.forEach(room => {
-                const roomNo = room.roomNo.trim();
-                const rType = room.type.trim();
-                const key = `${roomNo}|${rType.toLowerCase()}`;
+                const normRoomNo = normalizeRoomNumber(room.roomNo);
+                let key;
+                if (normRoomNo) {
+                    key = normRoomNo + "|" + normalizeRoomType(room.type);
+                } else {
+                    key = room.tempRoomId;
+                }
                 if (!groups[key]) groups[key] = [];
                 groups[key].push(room);
             });
 
             const mergedRooms = [];
 
-            // 3. Merge consecutive stays in each group
+            // 4. Merge consecutive/overlapping stays in each group
             Object.values(groups).forEach(rooms => {
-                // Sort by check-in date
                 rooms.sort((a, b) => {
                     const dateA = parseDate(a.checkIn);
                     const dateB = parseDate(b.checkIn);
@@ -735,25 +899,40 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         merged.push({ ...current });
                     } else {
                         const last = merged[merged.length - 1];
-                        const lastIn = parseDate(last.checkIn);
-                        const lastOut = parseDate(last.dateOut || last.checkOut);
-                        const curIn = parseDate(current.checkIn);
-                        const curOut = parseDate(current.dateOut || current.checkOut);
+                        
+                        if (canMergeStays(last, current)) {
+                            const lastOut = parseDate(last.checkOut || last.dateOut);
+                            const curIn = parseDate(current.checkIn || current.dateIn);
+                            const curOut = parseDate(current.checkOut || current.dateOut);
 
-                        const samePax = parseInt(last.pax) === parseInt(current.pax);
-                        const sameOcupantes = String(last.ocupantes || '').trim() === String(current.ocupantes || '').trim();
-                        const sameObserv = String(last.observ || '').trim() === String(current.observ || '').trim();
+                            if (lastOut && curIn && lastOut > curIn) {
+                                console.warn(`[ROOMING SOLAPAMIENTO] Habitación: ${last.roomNo || last.tempRoomId}, Tipo: ${last.type}, Fechas afectadas: ${getLocalDateString(curIn)} a ${getLocalDateString(lastOut)}. Registros implicados: ID ${last.id} y ID ${current.id}`);
+                            }
 
-                        const isConsecutiveOrOverlapping = lastOut && curIn && lastOut >= curIn;
-
-                        if (isConsecutiveOrOverlapping && samePax && sameOcupantes && sameObserv) {
-                            // Merge consecutive stays
                             const maxOut = new Date(Math.max(lastOut, curOut));
                             const maxOutStr = getLocalDateString(maxOut);
                             last.checkOut = maxOutStr;
                             last.dateOut = maxOutStr;
+                            
                             last.nights = calculateRoomingNights(last.checkIn, last.checkOut);
-                            last.total = (parseFloat(last.price || 0) * last.nights).toFixed(2);
+                            if (isNaN(last.nights) || last.nights < 1) {
+                                last.nights = 1;
+                            }
+
+                            last.total = (parseFloat(last.total) + parseFloat(current.total)).toFixed(2);
+                            last.price = last.nights > 0 ? parseFloat(last.total) / last.nights : 0;
+
+                            if (last.comision || current.comision) {
+                                const commA = last.comision || {};
+                                const commB = current.comision || {};
+                                const totalComm = (parseFloat(commA.total_comision) || 0) + (parseFloat(commB.total_comision) || 0);
+                                const avgUnitComm = last.nights > 0 ? totalComm / last.nights : 0;
+                                last.comision = {
+                                    ...(commA || commB),
+                                    comision_unitaria: avgUnitComm,
+                                    total_comision: totalComm
+                                };
+                            }
                         } else {
                             merged.push({ ...current });
                         }
@@ -763,15 +942,201 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 mergedRooms.push(...merged);
             });
 
-            // Sort final rooms by roomNo (numeric if possible)
+            // 5. Sort final rooms: first numbered rooms naturally, then unnumbered rooms stably by type and tempRoomId
             mergedRooms.sort((a, b) => {
-                const numA = parseInt(a.roomNo, 10);
-                const numB = parseInt(b.roomNo, 10);
-                if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-                return a.roomNo.localeCompare(b.roomNo);
+                const hasNumA = !!normalizeRoomNumber(a.roomNo);
+                const hasNumB = !!normalizeRoomNumber(b.roomNo);
+
+                if (hasNumA && !hasNumB) return -1;
+                if (!hasNumA && hasNumB) return 1;
+
+                if (hasNumA && hasNumB) {
+                    return naturalCompare(a.roomNo, b.roomNo);
+                }
+
+                const typeA = normalizeRoomType(a.type);
+                const typeB = normalizeRoomType(b.type);
+                if (typeA !== typeB) return typeA.localeCompare(typeB);
+                return a.tempRoomId.localeCompare(b.tempRoomId);
             });
 
             return [...mergedRooms, ...services];
+        }
+
+        function runRoomingTests() {
+            console.log("=== INICIANDO PRUEBAS DE ROOMING LIST ===");
+            let passCount = 0;
+            let failCount = 0;
+
+            function assert(cond, msg) {
+                if (cond) {
+                    console.log(`%c[PASS] ${msg}`, "color: green; font-weight: bold;");
+                    passCount++;
+                } else {
+                    console.error(`[FAIL] ${msg}`);
+                    failCount++;
+                }
+            }
+
+            // Caso 1: estancia consecutiva
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-23", dateOut: "2026-06-24", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-24");
+                assert(res.length === 1, "Caso 1: Debe producir una única fila");
+                assert(res[0].checkIn === "2026-06-22" && res[0].checkOut === "2026-06-24", "Caso 1: Fechas correctas 22/06 -> 24/06");
+                assert(res[0].nights === 2, "Caso 1: Noches correctas (2)");
+            } catch (e) {
+                assert(false, `Caso 1 falló con error: ${e.message}`);
+            }
+
+            // Caso 2: tres noches consecutivas
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-23", dateOut: "2026-06-24", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "3", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-24", dateOut: "2026-06-25", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-25");
+                assert(res.length === 1, "Caso 2: Debe producir una única fila");
+                assert(res[0].checkIn === "2026-06-22" && res[0].checkOut === "2026-06-25", "Caso 2: Fechas correctas 22/06 -> 25/06");
+                assert(res[0].nights === 3, "Caso 2: Noches correctas (3)");
+            } catch (e) {
+                assert(false, `Caso 2 falló con error: ${e.message}`);
+            }
+
+            // Caso 3: cambio de pax
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 1, dateIn: "2026-06-23", dateOut: "2026-06-24", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-24");
+                assert(res.length === 2, "Caso 3: Debe producir dos filas por cambio de pax");
+            } catch (e) {
+                assert(false, `Caso 3 falló con error: ${e.message}`);
+            }
+
+            // Caso 4: cambio de ocupantes
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ana Ruiz / Juan Perez", observ: "", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-23", dateOut: "2026-06-24", total: 100, price: 100, ocupantes: "Juan Perez / Ana Ruiz", observ: "", isService: false },
+                    { id: "3", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-24", dateOut: "2026-06-25", total: 100, price: 100, ocupantes: "Pedro Garcia", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-25");
+                assert(res.length === 2, "Caso 4: Debe producir dos filas (las primeras dos se fusionan porque los ocupantes son equivalentes)");
+                assert(res[0].ocupantes === "Ana Ruiz / Juan Perez" || res[0].ocupantes === "Juan Perez / Ana Ruiz", "Caso 4: Se conserva el ocupante de la primera stay");
+            } catch (e) {
+                assert(false, `Caso 4 falló con error: ${e.message}`);
+            }
+
+            // Caso 5: interrupción de una noche
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-24", dateOut: "2026-06-25", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-25");
+                assert(res.length === 2, "Caso 5: Debe producir dos filas por interrupción");
+            } catch (e) {
+                assert(false, `Caso 5 falló con error: ${e.message}`);
+            }
+
+            // Caso 6: dos habitaciones sin número del mismo tipo
+            try {
+                const input = [
+                    { id: "1", roomNo: "", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "2", roomNo: "", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante B", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-23");
+                assert(res.length === 2, "Caso 6: Debe mantener dos habitaciones diferentes");
+            } catch (e) {
+                assert(false, `Caso 6 falló con error: ${e.message}`);
+            }
+
+            // Caso 7: bloque de ocho dobles durante dos noches
+            try {
+                const input = [
+                    { id: "b1", roomNo: "", type: "Hab. Doble", qty: 8, pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 800, price: 100, ocupantes: "Ocupante Pendiente", observ: "", isService: false },
+                    { id: "b2", roomNo: "", type: "Hab. Doble", qty: 8, pax: 2, dateIn: "2026-06-23", dateOut: "2026-06-24", total: 800, price: 100, ocupantes: "Ocupante Pendiente", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-24");
+                assert(res.length === 8, `Caso 7: Debe producir 8 filas, no 1 ni 16 (obtuvo ${res.length})`);
+                assert(res.every(r => r.nights === 2), "Caso 7: Todas deben tener 2 noches");
+                assert(res.every(r => parseFloat(r.total) === 200), "Caso 7: Total unitario correcto (200)");
+            } catch (e) {
+                assert(false, `Caso 7 falló con error: ${e.message}`);
+            }
+
+            // Caso 8: solapamiento idéntico
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-24", total: 200, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-23", dateOut: "2026-06-25", total: 200, price: 100, ocupantes: "Ocupante A", observ: "", isService: false }
+                ];
+                console.log("Probando aviso de solapamiento (debe mostrarse advertencia en consola):");
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-25");
+                assert(res.length === 1, "Caso 8: Debe consolidarse");
+                assert(res[0].checkIn === "2026-06-22" && res[0].checkOut === "2026-06-25", "Caso 8: Rango expandido 22/06 -> 25/06");
+            } catch (e) {
+                assert(false, `Caso 8 falló con error: ${e.message}`);
+            }
+
+            // Caso 9: servicios de comida
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "s1", type: "Almuerzo", total: 15, isService: true }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-23");
+                assert(res.length === 2, "Caso 9: Debe contener la habitación y el servicio");
+                assert(res.find(r => r.isService).type === "Almuerzo", "Caso 9: Servicio conservado intacto");
+            } catch (e) {
+                assert(false, `Caso 9 falló con error: ${e.message}`);
+            }
+
+            // Caso 10: doble de uso individual
+            try {
+                const input = [
+                    { id: "1", roomNo: "", type: "Hab. Doble Uso Individual", pax: 1, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 80, price: 80, ocupantes: "Ocupante A", observ: "Uso Individual", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-23");
+                assert(res.length === 1, "Caso 10: Debe mantener 1 fila");
+                assert(res[0].type.includes("Doble Uso Individual") && res[0].pax === 1 && res[0].observ.includes("Uso Individual"), "Caso 10: Conserva propiedades");
+            } catch (e) {
+                assert(false, `Caso 10 falló con error: ${e.message}`);
+            }
+
+            // Caso 11: observaciones diferentes
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "Cama matrimonio", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-23", dateOut: "2026-06-24", total: 100, price: 100, ocupantes: "Ocupante A", observ: "Dos camas", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-24");
+                assert(res.length === 2, "Caso 11: Debe producir dos filas por observaciones diferentes");
+            } catch (e) {
+                assert(false, `Caso 11 falló con error: ${e.message}`);
+            }
+
+            // Caso 12: precio diferente entre noches
+            try {
+                const input = [
+                    { id: "1", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-22", dateOut: "2026-06-23", total: 100, price: 100, ocupantes: "Ocupante A", observ: "", isService: false },
+                    { id: "2", roomNo: "1", type: "Hab. Doble", pax: 2, dateIn: "2026-06-23", dateOut: "2026-06-24", total: 120, price: 120, ocupantes: "Ocupante A", observ: "", isService: false }
+                ];
+                const res = groupAndMergeRoomingList(input, "2026-06-22", "2026-06-24");
+                assert(res.length === 1, "Caso 12: Debe consolidar");
+                assert(parseFloat(res[0].total) === 220, "Caso 12: Conserva el total correcto (220)");
+                assert(res[0].price === 110, "Caso 12: Calcula precio medio correcto (110)");
+            } catch (e) {
+                assert(false, `Caso 12 falló con error: ${e.message}`);
+            }
+
+            console.log(`=== FIN DE PRUEBAS DE ROOMING LIST: ${passCount} PASADAS, ${failCount} FALLADAS ===`);
         }
 
         function parseMoney(value) {
@@ -1296,85 +1661,116 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                     blockDetails[key] = {
                         price: price,
                         regime: item.regime || '',
-                        iva: getRoomLineIva(item, 10)
+                        iva: getRoomLineIva(item, 10),
+                        comision: item.comision || null
                     };
                 });
 
-                const newRoomItems = rooming.map(row => {
-                    // Try to find a match in original list to preserve details
-                    let match = originalRoomItems.find(item => String(item.id) === String(row.id));
-                    if (!match && row.id) {
-                        match = originalRoomItems.find(item => String(row.id).startsWith(String(item.id) + '_'));
-                    }
-                    if (!match) {
-                        const rowTypeForMatch = normalizeRoomTypeForMatch(row.tipo);
-                        match = originalRoomItems.find(item => normalizeRoomTypeForMatch(getRoomLineType(item)) === rowTypeForMatch);
+                const finalRoomItems = [];
+
+                rooming.forEach(row => {
+                    const rowIds = (row.id || '').split(',').filter(id => id.trim().length > 0);
+
+                    // Determine the dates of the stay
+                    const rowDateIn = normalizeRoomingDate(row.checkIn || recData['Entrada'] || '');
+                    const rowDateOut = normalizeRoomingDate(row.checkOut || recData['Salida'] || '');
+                    const totalNights = assertValidRoomingStay(rowDateIn, rowDateOut, row.hab ? `Habitación ${row.hab}` : (row.tipo || 'Habitación'));
+
+                    // Generate the list of nights (each of 1 night duration)
+                    const nightsList = [];
+                    let currentDate = parseDate(rowDateIn);
+                    for (let n = 0; n < totalNights; n++) {
+                        const nextDate = new Date(currentDate);
+                        nextDate.setDate(currentDate.getDate() + 1);
+                        nightsList.push({
+                            dateIn: getLocalDateString(currentDate),
+                            dateOut: getLocalDateString(nextDate)
+                        });
+                        currentDate = nextDate;
                     }
 
-                    const typeKey = normalizeRoomTypeForMatch(row.tipo || 'Doble');
-                    let matchFallback = blockDetails[typeKey] || null;
-                    if (!matchFallback) {
-                        const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
-                        if (matchingKey) {
-                            matchFallback = blockDetails[matchingKey];
+                    // Find matching original items for these nights
+                    const matchedItemsForStay = [];
+                    rowIds.forEach(id => {
+                        const origItem = originalRoomItems.find(item => String(item.id) === id);
+                        if (origItem) matchedItemsForStay.push(origItem);
+                    });
+
+                    // Sort matched items chronologically
+                    matchedItemsForStay.sort((a, b) => (parseDate(a.dateIn) || 0) - (parseDate(b.dateIn) || 0));
+
+                    // Now map each night in nightsList to an item
+                    nightsList.forEach((night, nIdx) => {
+                        let originalMatch = matchedItemsForStay[nIdx] || null;
+
+                        // Fallbacks for price, regime, iva
+                        const typeKey = normalizeRoomTypeForMatch(row.tipo || 'Doble');
+                        let matchFallback = blockDetails[typeKey] || null;
+                        if (!matchFallback) {
+                            const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
+                            if (matchingKey) {
+                                matchFallback = blockDetails[matchingKey];
+                            }
                         }
-                    }
 
-                    const matchPrice = match ? getRoomLinePrice(match) : 0;
-                    const price = matchPrice > 0 ? matchPrice : (matchFallback ? matchFallback.price : NaN);
-                    const iva = match ? getRoomLineIva(match, matchFallback ? matchFallback.iva : 10) : (matchFallback ? matchFallback.iva : 10);
-                    if (!Number.isFinite(price) || price <= 0) {
-                        throw new Error(`No hay precio previo para "${row.tipo || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
-                    }
+                        const price = originalMatch ? getRoomLinePrice(originalMatch) : (matchFallback ? matchFallback.price : NaN);
+                        const iva = originalMatch ? getRoomLineIva(originalMatch, matchFallback ? matchFallback.iva : 10) : (matchFallback ? matchFallback.iva : 10);
+                        const regime = originalMatch ? originalMatch.regime : (row.regime || (matchFallback ? matchFallback.regime : (recData['Régimen'] || 'AD')));
 
-                    const rowDateIn = normalizeRoomingDate(row.checkIn || row.dateIn || (match ? match.dateIn : '') || recData['Entrada'] || '');
-                    const rowDateOut = normalizeRoomingDate(row.checkOut || row.dateOut || (match ? match.dateOut : '') || recData['Salida'] || '');
-                    const nights = assertValidRoomingStay(rowDateIn, rowDateOut, row.hab ? `Habitación ${row.hab}` : (row.tipo || 'Habitación'));
-                    const total = (1 * price * nights).toFixed(2);
-
-                    let newComision = null;
-                    if (match && match.comision) {
-                        newComision = { ...match.comision };
-                        if (newComision.comision_unitaria !== undefined) {
-                            const unitComm = parseFloat(newComision.comision_unitaria) || 0;
-                            newComision.total_comision = Math.round((unitComm * 1 * nights + 1e-9) * 100) / 100;
-                        } else if (newComision.total_comision !== undefined) {
-                            const originalQty = parseInt(match.qty) || 1;
-                            const totalComm = parseFloat(newComision.total_comision) || 0;
-                            newComision.total_comision = Math.round(((totalComm / originalQty) + 1e-9) * 100) / 100;
+                        if (!Number.isFinite(price) || price <= 0) {
+                            throw new Error(`No hay precio previo para "${row.tipo || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
                         }
-                    }
 
-                    return {
-                        id: row.id,
-                        hotel: match ? match.hotel : (recData['Hotel_Asignado'] || recData['Hotel'] || 'Sercotel Guadiana'),
-                        type: row.tipo || 'Habitación Doble',
-                        dateIn: rowDateIn,
-                        dateOut: rowDateOut,
-                        qty: 1,
-                        pax: parseInt(row.pax) || (match ? match.pax : 2),
-                        regime: match ? match.regime : (recData['Régimen'] || 'AD'),
-                        price: price,
-                        iva: iva,
-                        nights: nights,
-                        isService: false,
-                        total: total,
-                        ocupantes: row.ocupantes || '',
-                        dni: row.dni || (match ? match.dni : ''),
-                        observ: row.observ || '',
-                        roomNo: row.hab || '',
-                        source: 'auto_rooming',
-                        generatedFrom: 'rooming_editor',
-                        generatedAt: new Date().toISOString(),
-                        comision: newComision
-                    };
+                        const total = (1 * price * 1).toFixed(2); // 1 night unit total
+
+                        let comision = null;
+                        if (originalMatch && originalMatch.comision) {
+                            comision = { ...originalMatch.comision };
+                            if (comision.comision_unitaria !== undefined) {
+                                const unitComm = parseFloat(comision.comision_unitaria) || 0;
+                                comision.total_comision = Math.round((unitComm * 1 * 1 + 1e-9) * 100) / 100;
+                            } else if (comision.total_comision !== undefined) {
+                                const originalQty = parseInt(originalMatch.qty) || 1;
+                                const totalComm = parseFloat(comision.total_comision) || 0;
+                                comision.total_comision = Math.round(((totalComm / originalQty) + 1e-9) * 100) / 100;
+                            }
+                        } else if (matchFallback && matchFallback.comision) {
+                            comision = { ...matchFallback.comision };
+                        }
+
+                        const newId = originalMatch ? originalMatch.id : (row.id + '_' + nIdx + '_' + Math.random());
+
+                        finalRoomItems.push({
+                            id: newId,
+                            hotel: originalMatch ? originalMatch.hotel : (recData['Hotel_Asignado'] || recData['Hotel'] || 'Sercotel Guadiana'),
+                            type: row.tipo || 'Habitación Doble',
+                            dateIn: night.dateIn,
+                            dateOut: night.dateOut,
+                            qty: 1,
+                            pax: parseInt(row.pax) || (originalMatch ? originalMatch.pax : 2),
+                            regime: regime,
+                            price: price,
+                            iva: iva,
+                            nights: 1,
+                            isService: false,
+                            total: total,
+                            ocupantes: row.ocupantes || '',
+                            dni: row.dni || (originalMatch ? originalMatch.dni : ''),
+                            observ: row.observ || '',
+                            roomNo: row.hab || '',
+                            source: 'auto_rooming',
+                            generatedFrom: 'rooming_editor',
+                            generatedAt: new Date().toISOString(),
+                            comision: comision
+                        });
+                    });
                 });
 
-                const finalRoomingList = [...newRoomItems, ...originalServiceItems];
+                const finalRoomingList = [...finalRoomItems, ...originalServiceItems];
 
-                // Recalculate metadata totals
-                const newTotalRooms = newRoomItems.length;
-                const newTotalPax = newRoomItems.reduce((acc, r) => acc + (parseInt(r.pax) || 0), 0);
+                // Recalculate metadata totals using the correct peak occupancy/physical stay numbers
+                const newTotalRooms = rooming.length;
+                const newTotalPax = rooming.reduce((acc, r) => acc + (parseInt(r.pax) || 0), 0);
                 const newTotalSum = finalRoomingList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
 
                 // Save back to Firestore
@@ -2636,6 +3032,7 @@ ${inputVal}`;
                 }, false);
             }
 
+            runRoomingTests();
             saveStateToCache();
         });
     </script>
