@@ -336,6 +336,11 @@ console.log(`\n=== INTEGRACIÓN: ${passed} PASADAS, ${failed} FALLADAS ===\n`);
         assert(start >= 0 && /clearTimeout\(saveTimeout\)/.test(handler) && /window\.location\.reload\(\)/.test(handler), `${file}: handler descarta solo el autoguardado pendiente`);
         assert(!/(localStorage\.(?:clear|removeItem|setItem)|setDoc|updateDoc|deleteDoc|writeBatch|\.set\(|\.update\(|\.delete\()/i.test(handler), `${file}: handler sin escrituras destructivas ni Firestore`);
         assert(source.includes('DESCARTAR CAMBIOS') && !source.includes('onclick="clearReservaCache()"'), `${file}: boton renombrado y handler antiguo desconectado`);
+        assert(handler.includes('!confirm'), `${file}: cancelacion del usuario (confirm devuelve false y no recarga)`);
+        assert(handler.includes('sessionStorage.setItem("discardUnsavedChanges"'), `${file}: restauracion frente a cache antigua (usa sessionStorage para bypass)`);
+        assert(source.includes('isDiscardingChanges = true'), `${file}: isDiscardingChanges implementado`);
+        assert(source.includes('if (currentReservaId === "unknown" || isDiscardingChanges) return;'), `${file}: bloqueo de escrituras tardias`);
+        assert(source.includes('sessionStorage.removeItem("discardUnsavedChanges")'), `${file}: aislamiento por reserva (elimina la flag tras usarla)`);
     }
 }
 

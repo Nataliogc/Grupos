@@ -343,7 +343,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
         let currentReservaId = "unknown";
         let saveTimeout = null;
-        let isDiscardingUnsavedViewChanges = false;
+        let isDiscardingChanges = false;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
         const SERVICES_GENERATION_VERSION = 10;
 
@@ -1455,7 +1455,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         function saveStateToCache(options = {}) {
-            if (currentReservaId === "unknown" || isDiscardingUnsavedViewChanges) return;
+            if (currentReservaId === "unknown" || isDiscardingChanges) return;
 
             // Dynamically update only non-manual summary boxes
             updateDepartmentSummaries(false);
@@ -1550,7 +1550,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
         let isSyncing = false;
         async function syncRoomingToFirestore(rooming) {
-            if (isDiscardingUnsavedViewChanges) return;
+            if (isDiscardingChanges) return;
             if (!window.db || !currentReservaId) return;
             if (isSyncing) return;
             isSyncing = true;
@@ -1788,12 +1788,14 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 'Los datos ya guardados de la ficha no se modificarán.\n\n¿Desea continuar?';
             if (!confirm(message)) return;
 
-            // Cancel only the pending visual autosave. No localStorage or Firestore writes.
-            isDiscardingUnsavedViewChanges = true;
+            isDiscardingChanges = true;
+
             if (saveTimeout) {
                 clearTimeout(saveTimeout);
                 saveTimeout = null;
             }
+
+            sessionStorage.setItem("discardUnsavedChanges", String(currentReservaId));
             window.location.reload();
         }
 
@@ -2252,7 +2254,17 @@ ${inputVal}`;
             departmentSummaryLayout = normalizeDepartmentSummary(rec.departmentSummaryLayout || group.departmentSummaryLayout || {});
             applyDepartmentSummaryLayout();
 
-            const savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+            const discardReservationId = sessionStorage.getItem("discardUnsavedChanges");
+            let savedStateStr = null;
+            
+            if (discardReservationId === String(currentReservaId)) {
+                sessionStorage.removeItem("discardUnsavedChanges");
+                console.log("[DESCARTAR CAMBIOS] Vista restaurada desde datos persistidos");
+                // Ignorar exclusivamente cualquier borrador de esta vista
+            } else {
+                savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+            }
+
             let loadRoomingFromCache = false;
             let cachedRooming = [];
             let cachedServicios = [];

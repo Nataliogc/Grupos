@@ -189,7 +189,7 @@
     <!-- Script principal de lógica de guardado y carga -->
     <script>
         let currentReservaId = "unknown";
-        let isDiscardingUnsavedViewChanges = false;
+        let isDiscardingChanges = false;
         let currentGroupName = "";
         function goBackToReserva() {
             // Guardamos la referencia para que Gestion de Grupos sepa qué ficha abrir
@@ -293,7 +293,7 @@
 
         // --- Save / Load Core ---
         function saveStateToCache() {
-            if (currentReservaId === "unknown" || isDiscardingUnsavedViewChanges) return;
+            if (currentReservaId === "unknown" || isDiscardingChanges) return;
             // Collect tables data
             const planRows = [];
             document.querySelectorAll('#table-plan tbody tr').forEach(tr => {
@@ -351,12 +351,14 @@
                 'Los datos ya guardados de la ficha no se modificarán.\n\n¿Desea continuar?';
             if (!confirm(message)) return;
 
-            // Cancel only the pending visual autosave. No localStorage or Firestore writes.
-            isDiscardingUnsavedViewChanges = true;
+            isDiscardingChanges = true;
+
             if (saveTimeout) {
                 clearTimeout(saveTimeout);
                 saveTimeout = null;
             }
+
+            sessionStorage.setItem("discardUnsavedChanges", String(currentReservaId));
             window.location.reload();
         }
         function printOrdenServicio() {
@@ -386,7 +388,14 @@
             // Extract core logic
             currentReservaId = rec['Reserva'] || group.id || group.reserva || 'unknown';
             document.getElementById('title-reserva').innerText = currentReservaId;
-            const savedStateStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+            const discardReservationId = sessionStorage.getItem("discardUnsavedChanges");
+            let savedStateStr = null;
+            if (discardReservationId === String(currentReservaId)) {
+                sessionStorage.removeItem("discardUnsavedChanges");
+                console.log("[DESCARTAR CAMBIOS] Vista restaurada desde datos persistidos");
+            } else {
+                savedStateStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+            }
             const eventName = rec['Nombre del Grupo'] || group.name || '---';
             document.title = `${currentReservaId} - Ord Servicio - ${eventName}`;
             // Hotel Logos / Banners Assignment (Always execute, even if cached)
