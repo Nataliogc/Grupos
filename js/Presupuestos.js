@@ -1880,7 +1880,7 @@ function App() {
         clauses,
         textToTranslate,
         _prompt,
-        translated,
+        aiResult,
         _args3 = arguments,
         _t3;
       return _regenerator().w(function (_context3) {
@@ -1900,12 +1900,12 @@ function App() {
             _context3.n = 2;
             return window.callGemini(_prompt);
           case 2:
-            translated = _context3.v;
-            if (translated && !translated.includes('ERROR')) {
-              clauses[idx].body = "".concat(textToTranslate, " [EN] ").concat(translated.trim());
+            aiResult = _context3.v;
+            if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
+              clauses[idx].body = "".concat(textToTranslate, " [EN] ").concat(aiResult.text.trim());
               if (type === 'budget') setTempClauses(clauses);else setTempClausesConf(clauses);
             } else {
-              alert("Error en la traducción: " + translated);
+              alert("Error en la traducción: " + ((aiResult === null || aiResult === void 0 ? void 0 : aiResult.error) || "Desconocido"));
             }
             _context3.n = 4;
             break;
@@ -1924,7 +1924,7 @@ function App() {
   }();
   var handleParseEmailIA = /*#__PURE__*/function () {
     var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var currentYear, _prompt2, response, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
+      var currentYear, _prompt2, aiResult, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
           case 0:
@@ -1948,8 +1948,14 @@ function App() {
             _context4.n = 4;
             return window.callGemini(_prompt2);
           case 4:
-            response = _context4.v;
-            cleanJson = response.replace(/```json/g, "").replace(/```/g, "").trim();
+            aiResult = _context4.v;
+            if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
+              _context4.n = 5;
+              break;
+            }
+            throw new Error((aiResult === null || aiResult === void 0 ? void 0 : aiResult.error) || "Error al conectar con la IA.");
+          case 5:
+            cleanJson = aiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
             parsed = JSON.parse(cleanJson);
             segments = Array.isArray(parsed.segments) ? parsed.segments : [];
             normalizedSegments = segments.map(function (seg, idx) {
@@ -1996,21 +2002,21 @@ function App() {
             }));
             setShowEmailParseModal(false);
             setCurrentView('create');
-            _context4.n = 6;
+            _context4.n = 7;
             break;
-          case 5:
-            _context4.p = 5;
+          case 6:
+            _context4.p = 6;
             _t4 = _context4.v;
             console.error("Error al parsear con IA:", _t4);
             alert("No se pudo analizar el email. Asegúrate de que el contenido es correcto. Error: " + _t4.message);
-          case 6:
-            _context4.p = 6;
-            setIsParsingEmail(false);
-            return _context4.f(6);
           case 7:
+            _context4.p = 7;
+            setIsParsingEmail(false);
+            return _context4.f(7);
+          case 8:
             return _context4.a(2);
         }
-      }, _callee4, null, [[2, 5, 6, 7]]);
+      }, _callee4, null, [[2, 6, 7, 8]]);
     }));
     return function handleParseEmailIA() {
       return _ref40.apply(this, arguments);

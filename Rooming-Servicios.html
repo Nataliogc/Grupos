@@ -303,6 +303,8 @@
                     <div id="file-upload-status" class="text-[10px] text-indigo-600 font-bold hidden text-center mt-1">Procesando archivo...</div>
                 </div>
 
+                <div id="ia-error-alert" class="text-[10px] bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 font-bold mb-3" hidden></div>
+
                 <textarea id="ia-text-input" class="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-sans leading-relaxed resize-none" placeholder="Pega el listado aquí... Ej:
 Hab. 1 - Doble - Cano Llorca, Vicki (DNI: 25120766M) y Carrillo Gascón, María Dolores (DNI: 05107797A)
 Hab. 2 - Individual - Barambio, Amador (DNI: 4536739N)
@@ -1877,19 +1879,53 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             return days[f.getDay()];
         }
 
+        function clearIaError() {
+            const errorElement = document.getElementById("ia-error-alert");
+            if (errorElement) {
+                errorElement.textContent = "";
+                errorElement.hidden = true;
+            }
+        }
+
+        function showIaError(message) {
+            const errorElement = document.getElementById("ia-error-alert");
+            if (errorElement) {
+                errorElement.className = "text-[10px] bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 font-bold mb-3";
+                errorElement.setAttribute("role", "alert");
+                errorElement.setAttribute("aria-live", "assertive");
+                errorElement.textContent = message || "No se ha podido procesar la rooming con IA.";
+                errorElement.hidden = false;
+            }
+        }
+
+        function cleanModelJsonText(value) {
+            if (typeof value !== "string") {
+                return "";
+            }
+            return value
+                .trim()
+                .replace(/^```json\s*/i, "")
+                .replace(/^```\s*/i, "")
+                .replace(/\s*```$/i, "")
+                .trim();
+        }
+
         // Extraction IA logic
         async function processRoomingWithIa() {
-            const inputVal = document.getElementById('ia-text-input').value.trim();
+            const textarea = document.getElementById('ia-text-input');
+            const sourceText = textarea.value;
+            const inputVal = sourceText.trim();
+            
             if (!inputVal) {
-                alert('Por favor, pega el texto de la rooming list.');
+                showIaError('Por favor, pega el texto de la rooming list.');
                 return;
             }
 
             const btn = document.getElementById('ia-submit-btn');
-            const textarea = document.getElementById('ia-text-input');
             
-            // Disable interactions
+            clearIaError();
             btn.disabled = true;
+            btn.setAttribute("aria-busy", "true");
             btn.classList.add('bg-slate-400', 'cursor-not-allowed');
             btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
             btn.innerHTML = '<span>Procesando con IA...</span>';
@@ -1944,15 +1980,42 @@ ${inputVal}`;
                     throw new Error('La API de Gemini no está disponible. Verifica que la API Key esté configurada en el panel del administrador.');
                 }
                 
-                const result = await window.callGemini(prompt);
-                const cleanJson = result.replace(/```json/g, "").replace(/```/g, "").trim();
-                const parsedList = JSON.parse(cleanJson);
+                const aiResult = await window.callGemini(prompt);
                 
-                if (!Array.isArray(parsedList)) {
-                    throw new Error('La respuesta de la IA no es un formato de array válido.');
+                if (!aiResult?.ok) {
+                    throw new Error(aiResult?.error || "No se ha podido conectar con el servicio de IA.");
                 }
 
-                // Query original group record to get current RoomingList_JSON and save back to Firestore
+                const cleanedText = cleanModelJsonText(aiResult.text);
+
+                let parsedList;
+                try {
+                  parsedList = JSON.parse(cleanedText);
+                } catch (error) {
+                  console.error("El texto generado por Gemini no contiene JSON válido:", {
+                    text: aiResult.text,
+                    cleanedText,
+                    error
+                  });
+                  throw new Error("La IA no ha devuelto una rooming con un formato válido.");
+                }
+
+                const rawRooms = Array.isArray(parsedList)
+                  ? parsedList
+                  : parsedList?.rooms ||
+                    parsedList?.habitaciones ||
+                    parsedList?.data?.rooms ||
+                    parsedList?.data?.habitaciones;
+
+                if (!Array.isArray(rawRooms)) {
+                    throw new Error("La respuesta de la IA no contiene una lista válida de habitaciones.");
+                }
+
+                const validRooms = rawRooms.filter((room) => {
+                  return room && typeof room === "object";
+                });
+
+                // Normalización usando RoomingCore
                 const docRef = window.db.collection("groups").doc(String(currentReservaId));
                 const docSnap = await docRef.get();
                 if (!docSnap.exists) {
@@ -1960,88 +2023,84 @@ ${inputVal}`;
                 }
 
                 const recData = docSnap.data();
+                const storedListStr = recData['RoomingList_JSON'] || '[]';
+                
                 let originalList = [];
                 try {
-                    originalList = JSON.parse(recData['RoomingList_JSON'] || '[]');
+                    originalList = JSON.parse(storedListStr);
                 } catch(e) {}
+                
+                const servicesList = window.RoomingCore.getServiceItems(originalList);
+                const economicItems = window.RoomingCore.getAccommodationItems(originalList);
 
-                // Build a map of type -> price, regime, iva from original room blocks to preserve prices
-                const budgetTotal = parseMoney(recData['Importe(*)'] || 0);
-                const blockDetails = {};
-                originalList.forEach(item => {
-                    if (!item.isService && !isSummaryBudgetLine(item, budgetTotal)) {
-                        const key = normalizeRoomTypeForMatch(getRoomLineType(item) || 'Doble');
-                        const price = getRoomLinePrice(item);
-                        if (!key || price <= 0) return;
-                        blockDetails[key] = {
-                            price: price,
-                            regime: item.regime || '',
-                            iva: getRoomLineIva(item, 10)
-                        };
-                    }
-                });
-
-                // Generate new list of detailed rooms
-                const newList = parsedList.map(item => {
-                    const typeKey = normalizeRoomTypeForMatch(item.type || 'Doble');
-                    let match = null;
-                    if (blockDetails[typeKey]) {
-                        match = blockDetails[typeKey];
-                    } else {
-                        const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
-                        if (matchingKey) {
-                            match = blockDetails[matchingKey];
-                        }
-                    }
-                    
-                    const price = match ? match.price : NaN;
-                    const iva = match ? match.iva : 10;
-                    if (!Number.isFinite(price) || price <= 0) {
-                        throw new Error(`No hay precio previo para "${item.type || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
-                    }
-
-                    const rowDateIn = normalizeRoomingDate(item.dateIn || finalInDate);
-                    const rowDateOut = normalizeRoomingDate(item.dateOut || finalOutDate);
-                    const itemNights = assertValidRoomingStay(rowDateIn, rowDateOut, item.roomNo ? `Habitación ${item.roomNo}` : (item.type || 'Habitación'));
-                    
-                    const total = (1 * price * itemNights).toFixed(2);
-
+                // Convertir la salida de Gemini a registros de rooming canónicos (1 fila = 1 hab, qty 1)
+                const newList = validRooms.map(item => {
+                    const rowDateIn = window.RoomingCore.normalizeRoomingDate(item.dateIn || finalInDate);
+                    const rowDateOut = window.RoomingCore.normalizeRoomingDate(item.dateOut || finalOutDate);
                     return {
                         id: item.id || Date.now() + Math.random(),
                         hotel: item.hotel || hHotel,
-                        type: item.type || 'Habitación Doble',
+                        type: window.RoomingCore.normalizeRoomType(item.type || 'Habitación Doble'),
                         dateIn: rowDateIn,
                         dateOut: rowDateOut,
-                        qty: 1,
+                        qty: 1, // REGLA: qty = 1 para cada habitación física
                         pax: parseInt(item.pax) || 2,
                         regime: item.regime || gRegimen,
-                        price: price,
-                        iva: iva,
-                        nights: itemNights,
                         isService: false,
-                        total: total,
-                        ocupantes: item.ocupantes || '',
+                        ocupantes: window.RoomingCore.normalizeOccupants(item.ocupantes || ''),
                         dni: item.dni || '',
                         observ: item.observ || '',
-                        roomNo: item.roomNo || '',
+                        roomNo: window.RoomingCore.normalizeRoomNumber(item.roomNo || ''),
                         source: 'auto_rooming',
                         generatedFrom: 'rooming_ai',
                         generatedAt: new Date().toISOString()
                     };
                 });
 
-                // Preserve services (meals/etc.) from original list
-                const servicesList = originalList.filter(item => item.isService === true);
-                const finalRoomingList = [...newList, ...servicesList];
+                const combinedList = [...newList, ...servicesList];
+
+                // Preservar la estructura económica asignando el precio previo por categoría.
+                const blockDetails = {};
+                economicItems.forEach(item => {
+                    const key = window.RoomingCore.getCanonicalRoomType(item);
+                    if (!key) return;
+                    blockDetails[key] = {
+                        price: window.RoomingCore.parsePositiveNumber(item.price),
+                        iva: window.RoomingCore.parsePositiveNumber(item.iva)
+                    };
+                });
+
+                combinedList.forEach(item => {
+                    if (window.RoomingCore.isAccommodationItem(item)) {
+                        const typeKey = window.RoomingCore.getCanonicalRoomType(item);
+                        let match = blockDetails[typeKey];
+                        if (!match) {
+                            const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
+                            if (matchingKey) match = blockDetails[matchingKey];
+                        }
+                        
+                        const price = match ? match.price : NaN;
+                        const iva = match ? match.iva : 10;
+                        if (!Number.isFinite(price) || price <= 0) {
+                            throw new Error(`No hay precio previo para "${item.type || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
+                        }
+                        
+                        item.price = price;
+                        item.iva = iva;
+                        const itemNights = window.RoomingCore.calculateRoomingNights(item.dateIn, item.dateOut);
+                        item.nights = itemNights;
+                        // Usa la formula económica estándar validando que es un alojamiento
+                        item.total = (1 * price * itemNights).toFixed(2);
+                    }
+                });
 
                 // Recalculate totals
-                const newTotalRooms = newList.length;
-                const newTotalPax = newList.reduce((acc, r) => acc + (parseInt(r.pax) || 0), 0);
-                const newTotalSum = finalRoomingList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
+                const newTotalRooms = window.RoomingCore.calculateMaxDailyRooms(newList);
+                const newTotalPax = window.RoomingCore.calculateMaxDailyOccupancy(newList);
+                const newTotalSum = combinedList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
 
-                // Save back to Firestore (using set with merge: true to support literal keys with dots like "Pax.")
                 await docRef.set({
-                    RoomingList_JSON: JSON.stringify(finalRoomingList),
+                    RoomingList_JSON: JSON.stringify(combinedList),
                     "Pax.": newTotalPax.toString(),
                     "Cant.": newTotalRooms.toString(),
                     "Habitaciones": `${newTotalRooms} habitaciones`,
@@ -2049,13 +2108,12 @@ ${inputVal}`;
                     "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
-                // Sincronizar localStorage.selectedGroup de inmediato
                 const rawGroupData = localStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     try {
                         let group = JSON.parse(rawGroupData);
                         const updatePayload = {
-                            RoomingList_JSON: JSON.stringify(finalRoomingList),
+                            RoomingList_JSON: JSON.stringify(combinedList),
                             "Pax.": newTotalPax.toString(),
                             "Cant.": newTotalRooms.toString(),
                             "Habitaciones": `${newTotalRooms} habitaciones`,
@@ -2086,23 +2144,32 @@ ${inputVal}`;
                         }
                         
                         localStorage.setItem('selectedGroup', JSON.stringify(group));
-                    } catch (e) {
-                        console.error("Error updating selectedGroup in localStorage:", e);
-                    }
+                    } catch (e) {}
                 }
 
-                // Borrar caché local para forzar recarga de los datos de Firestore actualizados
                 localStorage.removeItem('roomingServicios_' + currentReservaId);
 
-                alert('✅ Rooming List importada y estructurada con IA con éxito.');
-                closeIaModal();
-                window.location.reload();
+                const errorElement = document.getElementById("ia-error-alert");
+                if (errorElement) {
+                    errorElement.className = "text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg p-3 font-bold mb-3";
+                    errorElement.setAttribute("role", "status");
+                    errorElement.setAttribute("aria-live", "polite");
+                    errorElement.textContent = '✅ Rooming List importada y estructurada con IA con éxito.';
+                    errorElement.hidden = false;
+                }
+
+                setTimeout(() => {
+                    closeIaModal();
+                    window.location.reload();
+                }, 1500);
 
             } catch (err) {
-                alert('❌ Error al procesar con IA: ' + err.message);
-                console.error(err);
+                console.error("Error al extraer la rooming con IA:", err);
+                showIaError(err?.message || "No se ha podido procesar la rooming con IA.");
+                textarea.value = sourceText;
             } finally {
                 btn.disabled = false;
+                btn.removeAttribute("aria-busy");
                 btn.classList.remove('bg-slate-400', 'cursor-not-allowed');
                 btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
                 btn.innerHTML = '<span>Extraer con IA</span>';

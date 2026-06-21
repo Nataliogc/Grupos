@@ -2617,30 +2617,15 @@
 
         try {
 
-          const result = await callGemini(prompt);
+          const aiResult = await callGemini(prompt);
 
-          // Check if result is an error message
-
-          if (
-
-            result &&
-
-            (result.includes("Error") || result.includes("Hubo un error"))
-
-          ) {
-
+          if (!aiResult?.ok) {
             setAiResult({
-
               title: "Error Detectado",
-
-              content: `**Detalles:** ${result}\n\n*Nota:* Si usas el archivo local (file://), la restricción de API web puede bloquearlo.`,
-
+              content: `**Detalles:** ${aiResult?.error || "No se ha podido conectar con el servicio de IA."}\n\n*Nota:* Si usas el archivo local (file://), la restricción de API web puede bloquearlo.`,
             });
-
           } else {
-
-            setAiResult({ title: "Análisis Estratégico", content: result });
-
+            setAiResult({ title: "Análisis Estratégico", content: aiResult.text });
           }
 
         } catch (e) {
@@ -2685,15 +2670,18 @@
 
 
 
-        const result = await callGemini(prompt);
-
-        setAiResult({
-
-          title: `Borrador Email: ${group.name}`,
-
-          content: result,
-
-        });
+        const aiResult = await callGemini(prompt);
+        if (!aiResult?.ok) {
+            setAiResult({
+              title: "Error Detectado",
+              content: `**Detalles:** ${aiResult?.error || "No se ha podido conectar con el servicio de IA."}`,
+            });
+        } else {
+            setAiResult({
+              title: `Borrador Email: ${group.name}`,
+              content: aiResult.text,
+            });
+        }
 
         setIsAiLoading(false);
 
@@ -2743,9 +2731,13 @@
 
         try {
 
-          const result = await callGemini(prompt);
+          const aiResult = await callGemini(prompt);
 
-          const cleanJson = result
+          if (!aiResult?.ok) {
+              throw new Error(aiResult?.error || "No se ha podido procesar la solicitud con IA.");
+          }
+
+          const cleanJson = aiResult.text
 
             .replace(/```json/g, "")
 

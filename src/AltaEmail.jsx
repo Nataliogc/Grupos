@@ -329,8 +329,11 @@
                 ${emailText}`;
 
                 try {
-                    const result = await callGemini(prompt);
-                    const cleanJson = result.replace(/```json/g, "").replace(/```/g, "").trim();
+                    const aiResult = await callGemini(prompt);
+                    if (!aiResult?.ok) {
+                        throw new Error(aiResult?.error || "Error al conectar con la IA.");
+                    }
+                    const cleanJson = aiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
                     const parsed = JSON.parse(cleanJson);
                     setExtractedData(parsed);
                     validateData(parsed);

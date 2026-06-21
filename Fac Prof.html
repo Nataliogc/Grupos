@@ -1361,7 +1361,9 @@
         async function callGeminiHotel(prompt) {
             const hotelName = HOTELS[currentHotel]?.name + " " + HOTELS[currentHotel]?.subname;
             const fullPrompt = `Eres un asistente de recepción de un hotel de lujo (${hotelName}). Tu tono es profesional, cortés y servicial. Siempre respondes en español.\n\n` + prompt;
-            return window.callGemini(fullPrompt);
+            const aiResult = await window.callGemini(fullPrompt);
+            if (!aiResult?.ok) return "Error: " + (aiResult?.error || "Desconocido");
+            return aiResult.text;
         }
 
         async function generateAIEmail() {
@@ -1444,8 +1446,8 @@
             showAIModal("✨ Sugerencia de Plan para el Grupo");
             const personas = document.getElementById('reserva-personas-1').innerText;
             const prompt = `Sugiere un plan de ocio en Ciudad Real para ${personas} personas.`;
-            const result = await callGemini(prompt);
-            document.getElementById('ai-content').innerText = result;
+            const aiResult = await callGemini(prompt);
+            document.getElementById('ai-content').innerText = aiResult?.ok ? aiResult.text : "Error: " + (aiResult?.error || "Desconocido");
         }
 
         function showAIModal(title) {
@@ -2477,8 +2479,12 @@
 
         async function callGeminiWithTimeout(prompt, timeoutMs = 12000) {
             if (!window.callGemini) throw new Error('gemini_unavailable');
+            const aiPromise = window.callGemini(prompt).then(res => {
+                if (!res?.ok) throw new Error(res?.error || 'gemini_error');
+                return res.text;
+            });
             return await Promise.race([
-                window.callGemini(prompt),
+                aiPromise,
                 new Promise((_, reject) => setTimeout(() => reject(new Error('gemini_timeout')), timeoutMs))
             ]);
         }

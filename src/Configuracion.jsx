@@ -200,12 +200,12 @@
 
                 try {
                     const prompt = `Traduce el siguiente texto de un presupuesto de hotel al inglés. Mantén un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: "${textToTranslate}"`;
-                    const translated = await window.callGemini(prompt);
-                    if (translated && !translated.includes('ERROR')) {
-                        currentList[idx].body = `${textToTranslate} [EN] ${translated.trim()}`;
+                    const aiResult = await window.callGemini(prompt);
+                    if (aiResult?.ok) {
+                        currentList[idx].body = `${textToTranslate} [EN] ${aiResult.text.trim()}`;
                         handleChange(hotel, fieldKey, currentList);
                     } else {
-                        alert("Error en la traducción: " + translated);
+                        alert("Error en la traducción: " + (aiResult?.error || "Desconocido"));
                     }
                 } catch (e) {
                     alert("Error al conectar con la IA.");

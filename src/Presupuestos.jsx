@@ -1603,13 +1603,13 @@
 
         try {
           const prompt = `Traduce el siguiente texto de un presupuesto de hotel al inglés. Mantén un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: "${textToTranslate}"`;
-          const translated = await window.callGemini(prompt);
-          if (translated && !translated.includes('ERROR')) {
-            clauses[idx].body = `${textToTranslate} [EN] ${translated.trim()}`;
+          const aiResult = await window.callGemini(prompt);
+          if (aiResult?.ok) {
+            clauses[idx].body = `${textToTranslate} [EN] ${aiResult.text.trim()}`;
             if (type === 'budget') setTempClauses(clauses);
             else setTempClausesConf(clauses);
           } else {
-            alert("Error en la traducción: " + translated);
+            alert("Error en la traducción: " + (aiResult?.error || "Desconocido"));
           }
         } catch (e) {
           alert("Error al conectar con la IA.");
@@ -1661,8 +1661,11 @@ ${emailContent}`;
             throw new Error('La API de Gemini no está disponible.');
           }
 
-          const response = await window.callGemini(prompt);
-          const cleanJson = response.replace(/```json/g, "").replace(/```/g, "").trim();
+          const aiResult = await window.callGemini(prompt);
+          if (!aiResult?.ok) {
+            throw new Error(aiResult?.error || "Error al conectar con la IA.");
+          }
+          const cleanJson = aiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
           const parsed = JSON.parse(cleanJson);
 
           const segments = Array.isArray(parsed.segments) ? parsed.segments : [];

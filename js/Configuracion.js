@@ -281,7 +281,7 @@ var App = function App() {
   }();
   var handleTranslateClause = /*#__PURE__*/function () {
     var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx, fieldKey, hotel) {
-      var currentList, textToTranslate, prompt, translated, _t2;
+      var currentList, textToTranslate, prompt, aiResult, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
@@ -298,12 +298,12 @@ var App = function App() {
             _context2.n = 2;
             return window.callGemini(prompt);
           case 2:
-            translated = _context2.v;
-            if (translated && !translated.includes('ERROR')) {
-              currentList[idx].body = "".concat(textToTranslate, " [EN] ").concat(translated.trim());
+            aiResult = _context2.v;
+            if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
+              currentList[idx].body = "".concat(textToTranslate, " [EN] ").concat(aiResult.text.trim());
               handleChange(hotel, fieldKey, currentList);
             } else {
-              alert("Error en la traducción: " + translated);
+              alert("Error en la traducción: " + ((aiResult === null || aiResult === void 0 ? void 0 : aiResult.error) || "Desconocido"));
             }
             _context2.n = 4;
             break;

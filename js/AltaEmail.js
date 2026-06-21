@@ -333,7 +333,7 @@ var App = function App() {
 
   var handleAnalyze = /*#__PURE__*/function () {
     var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-      var prompt, result, cleanJson, parsed, _t;
+      var prompt, aiResult, cleanJson, parsed, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
@@ -350,25 +350,31 @@ var App = function App() {
             _context.n = 3;
             return callGemini(prompt);
           case 3:
-            result = _context.v;
-            cleanJson = result.replace(/```json/g, "").replace(/```/g, "").trim();
+            aiResult = _context.v;
+            if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
+              _context.n = 4;
+              break;
+            }
+            throw new Error((aiResult === null || aiResult === void 0 ? void 0 : aiResult.error) || "Error al conectar con la IA.");
+          case 4:
+            cleanJson = aiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
             parsed = JSON.parse(cleanJson);
             setExtractedData(parsed);
             validateData(parsed);
-            _context.n = 5;
+            _context.n = 6;
             break;
-          case 4:
-            _context.p = 4;
-            _t = _context.v;
-            alert("Error en el análisis: " + _t.message);
           case 5:
             _context.p = 5;
-            setIsAnalyzing(false);
-            return _context.f(5);
+            _t = _context.v;
+            alert("Error en el análisis: " + _t.message);
           case 6:
+            _context.p = 6;
+            setIsAnalyzing(false);
+            return _context.f(6);
+          case 7:
             return _context.a(2);
         }
-      }, _callee, null, [[2, 4, 5, 6]]);
+      }, _callee, null, [[2, 5, 6, 7]]);
     }));
     return function handleAnalyze() {
       return _ref7.apply(this, arguments);

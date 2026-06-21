@@ -557,5 +557,57 @@ function testProformaData() {
 testFichaModalData();
 testProformaData();
 
+// --- Pruebas de integración de Gemini ---
+function testGeminiIntegration() {
+    console.log("--- Ejecutando pruebas de contrato de IA ---");
+    function cleanModelJsonText(value) {
+        if (typeof value !== "string") return "";
+        return value.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+    }
+    
+    assert(cleanModelJsonText("```json\n[{\"roomNo\":\"1\"}]\n```") === '[{"roomNo":"1"}]', "Limpia markdown de JSON correctamente");
+    assert(cleanModelJsonText('[{"roomNo":"1"}]') === '[{"roomNo":"1"}]', "Maneja JSON sin markdown");
+    assert(cleanModelJsonText("") === "", "Maneja texto vacío");
+    assert(cleanModelJsonText(null) === "", "Maneja null evitando error tipo");
+    
+    function testParseList(aiResult) {
+        if (!aiResult.ok) return { success: false, error: aiResult.error };
+        const cleaned = cleanModelJsonText(aiResult.text);
+        try {
+            const parsed = JSON.parse(cleaned);
+            const rawRooms = Array.isArray(parsed) ? parsed : parsed?.rooms || parsed?.habitaciones || parsed?.data?.rooms || parsed?.data?.habitaciones;
+            if (!Array.isArray(rawRooms)) throw new Error("Not array");
+            return { success: true, list: rawRooms };
+        } catch (e) {
+            return { success: false, error: "Formato inválido" };
+        }
+    }
+    
+    let htmlError = { ok: false, error: "El servicio devolvió HTML inválido" };
+    let res = testParseList(htmlError);
+    assert(res.success === false && res.error.includes("HTML"), "Rechaza HTML desde el wrapper HTTP");
+
+    let httpError = { ok: false, error: "Error HTTP 503" };
+    res = testParseList(httpError);
+    assert(res.success === false && res.error.includes("503"), "Rechaza HTTP 503 Service Unavailable");
+    
+    let quotaError = { ok: false, error: "Quota exceeded for quota metric" };
+    res = testParseList(quotaError);
+    assert(res.success === false && res.error.includes("Quota"), "Maneja Quota Exceeded desde el backend");
+    
+    let okArray = { ok: true, text: '[{"pax":2}]' };
+    res = testParseList(okArray);
+    assert(res.success === true && res.list.length === 1, "Parsea Array directo y estricto");
+    
+    let okObj = { ok: true, text: '{"rooms": [{"pax":2}]}' };
+    res = testParseList(okObj);
+    assert(res.success === true && res.list.length === 1, "Desanida objetos complejos (ej. data.rooms)");
+    
+    let badJson = { ok: true, text: '[{"pax":2"' };
+    res = testParseList(badJson);
+    assert(res.success === false && res.error === "Formato inválido", "Captura JSON malformado emitido por la IA");
+}
+testGeminiIntegration();
+
 console.log(`TODAS LAS PRUEBAS COMPLETADAS: ${passed} PASADAS, ${failed} FALLADAS`);
 process.exit(failed > 0 ? 1 : 0);
