@@ -1937,10 +1937,35 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             btn.innerHTML = '<span>Procesando con IA...</span>';
             textarea.disabled = true;
 
-            const hHotel = document.getElementById('gen-hotel').innerText;
-            const gRegimen = document.getElementById('gen-regimen').innerText;
-            const finalInDate = window.checkInDateRaw || '';
-            const finalOutDate = window.checkOutDateRaw || '';
+            const hHotel = document.getElementById('gen-hot            // 1. Obtener los tipos de habitación (económicos) disponibles antes de llamar a la IA
+            const docRef = window.db.collection("groups").doc(String(currentReservaId));
+            const docSnap = await docRef.get();
+            if (!docSnap.exists) {
+                showIaError('No se encontró el grupo en la base de datos.');
+                btn.disabled = false;
+                btn.innerHTML = '<span>Extraer con IA</span>';
+                textarea.disabled = false;
+                return;
+            }
+
+            const recData = docSnap.data();
+            const storedListStr = recData['RoomingList_JSON'] || '[]';
+            
+            let originalList = [];
+            try {
+                originalList = JSON.parse(storedListStr);
+            } catch(e) {}
+            
+            const servicesList = window.RoomingCore.getServiceItems(originalList);
+            const economicItems = window.RoomingCore.getAccommodationItems(originalList);
+
+            // Obtener lista de tipos canónicos para inyectarlos en el prompt
+            const availableTypes = economicItems
+                .map(item => item.product || item.type || item.concepto)
+                .filter(Boolean)
+                .map(t => window.RoomingCore.getCanonicalRoomType({ type: t }))
+                .filter((v, i, a) => a.indexOf(v) === i) // Unique
+                .join(", ");
 
             const prompt = `Analiza el siguiente texto que contiene un listado de habitaciones (Rooming List) enviado por un cliente. Extrae la información en formato JSON estrictamente como un array de objetos de habitación.
 
@@ -1948,14 +1973,16 @@ INSTRUCCIONES DE EXTRACCIÓN INTELIGENTE:
 1. IGNORA DATOS IRRELEVANTES: Omite saludos, despedidas, firmas de correo, correos de hilos antiguos, explicaciones generales del viaje, precios o tarifas de habitaciones, y cualquier texto administrativo que no describa a los ocupantes de las habitaciones.
 2. FLEXIBILIDAD DE FORMATOS: El cliente puede enviar los datos en formato de tabla, lista numerada, párrafos narrativos, etc. Extrae la información sin importar el orden de las columnas o cómo esté estructurado el texto.
 3. DETECCIÓN DE TIPOS DE HABITACIÓN IMPLÍCITOS Y RESPETO AL TIPO ORIGINAL: 
-   - MUY IMPORTANTE: Si el texto indica un tipo o código de habitación (ej: "D.STD", "SGL", "DUI", "DOBLE", "TPL", etc.), DEBES capturar exactamente ese mismo texto en el campo "type", sin traducirlo, expandirlo ni alterarlo, sin importar el número de ocupantes.
+   - MUY IMPORTANTE: Tenemos registrados los siguientes tipos de habitación en nuestro sistema con precio asignado: [${availableTypes}].
+   - Si el texto indica un tipo o código de habitación (ej: "D.STD", "SGL", "DUI", "DOBLE", "TPL", etc.), INTENTA emparejarlo lógicamente con uno de los tipos de nuestra lista (por ejemplo, si dice "D.STD" o "Hab. Doble Uso Individual", y en la lista está "hab-doble-uso-individual" o similar, devuelve ese valor exacto de la lista).
+   - Si no puedes emparejarlo con seguridad, captura exactamente el texto original en el campo "type", sin traducirlo.
    - SÓLO si no se especifica absolutamente nada sobre el tipo de habitación, dedúcelo del número de ocupantes:
      * 1 ocupante -> "Individual"
      * 2 ocupantes -> "Doble"
      * 3 ocupantes -> "Triple"
      * 4 ocupantes -> "Cuádruple"
 4. SEPARACIÓN DE NOMBRE Y DNI: Aísla los nombres de los ocupantes de sus DNIs. Si el DNI viene pegado al nombre (ej: "Juan Pérez (DNI: 12345678A)" o "Juan Pérez 12345678A"), limpia el nombre para que quede únicamente "Juan Pérez" y asigna "12345678A" en el campo "dni".
-5. MÚLTIPLES OCUPANTES EN UNA HABITACIÓN: Concatena los nombres en el campo "ocupantes" separados por salto de línea ("\n"). Concatena sus DNIs correspondientes en el campo "dni" en el mismo orden, separados por punto y coma (";"). Si a alguno le falta el DNI, pon "Pendiente" para ese ocupante.
+5. MÚLTIPLES OCUPANTES EN UNA HABITACIÓN: Concatena los nombres en el campo "ocupantes" separados por salto de línea ("\\n"). Concatena sus DNIs correspondientes en el campo "dni" en el mismo orden, separados por punto y coma (";"). Si a alguno le falta el DNI, pon "Pendiente" para ese ocupante.
 6. OBSERVACIONES: Captura peticiones específicas como "cama de matrimonio", "movilidad reducida", "alergia al gluten", "plazas delanteras en autobús", etc., y colócalas en el campo "observ".
 
 CAMPOS DEL JSON PARA CADA HABITACIÓN:
@@ -1980,7 +2007,7 @@ Reglas obligatorias para fechas:
 Responde UNICAMENTE con el bloque de código JSON, sin explicaciones ni texto de markdown adicional (debe empezar con [ y terminar con ]).
 
 TEXTO DEL LISTADO ENVIADO POR EL CLIENTE:
-${inputVal}`;
+${inputVal}\`;
 
             try {
                 if (!window.callGemini) {
@@ -2021,24 +2048,6 @@ ${inputVal}`;
                 const validRooms = rawRooms.filter((room) => {
                   return room && typeof room === "object";
                 });
-
-                // Normalización usando RoomingCore
-                const docRef = window.db.collection("groups").doc(String(currentReservaId));
-                const docSnap = await docRef.get();
-                if (!docSnap.exists) {
-                    throw new Error('No se encontró el grupo en la base de datos.');
-                }
-
-                const recData = docSnap.data();
-                const storedListStr = recData['RoomingList_JSON'] || '[]';
-                
-                let originalList = [];
-                try {
-                    originalList = JSON.parse(storedListStr);
-                } catch(e) {}
-                
-                const servicesList = window.RoomingCore.getServiceItems(originalList);
-                const economicItems = window.RoomingCore.getAccommodationItems(originalList);
 
                 // Convertir la salida de Gemini a registros de rooming canónicos (1 fila = 1 hab, qty 1)
                 const newList = validRooms.map(item => {
