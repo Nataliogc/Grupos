@@ -213,7 +213,7 @@
             const groupRaw = localStorage.getItem('selectedGroup');
             const groupData = groupRaw ? JSON.parse(groupRaw) : {};
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
-            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel"] || "";
+            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "";
             let newTitle = `${ref} - Ord Servicio - ${grupo}`;
             if (hotelName) newTitle += ` - ${hotelName}`;
             document.title = newTitle;
@@ -410,7 +410,7 @@
             const groupRaw = localStorage.getItem('selectedGroup');
             const groupData = groupRaw ? JSON.parse(groupRaw) : {};
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
-            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel"] || "";
+            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "";
             let newTitle = `${ref} - Ord Servicio - ${grupo}`;
             if (hotelName) newTitle += ` - ${hotelName}`;
             document.title = newTitle;

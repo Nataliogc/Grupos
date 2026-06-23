@@ -2389,7 +2389,8 @@
             const oldTitle = document.title;
             const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
-            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel"] || "";
+            const hotelObj = HOTELS[currentHotel] || {};
+            const hotelName = hotelObj.name ? (hotelObj.name + " " + (hotelObj.subname || "")).trim() : (recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "");
             let newTitle = (groupData["Reserva"] || groupData["id"] || '') + ' - ' + (groupData["Nombre del Grupo"] || '');
             if (hotelName) newTitle += ' - ' + hotelName;
             document.title = newTitle;
