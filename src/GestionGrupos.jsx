@@ -5341,7 +5341,12 @@
             }
           }
 
-          if (currentList.length === 0) {
+          let isOnlyFallback = false;
+          if (Array.isArray(currentList) && currentList.length > 0) {
+            isOnlyFallback = currentList.every(item => (item.type || '').trim().toLowerCase() === "habitación (auto)");
+          }
+
+          if (currentList.length === 0 || isOnlyFallback) {
 
             const newAutoList = [];
 
@@ -5368,12 +5373,16 @@
                 const normalizedRooms = {};
 
                 Object.entries(group.roomCounts || {}).forEach(([type, count]) => {
-
                   if(count > 0) normalizedRooms[type.toLowerCase()] = { type, count: Number(count) };
-
                 });
 
-                
+                if (config.counts) {
+                  Object.entries(config.counts).forEach(([type, count]) => {
+                    if (count > 0 && !normalizedRooms[type.toLowerCase()]) {
+                      normalizedRooms[type.toLowerCase()] = { type, count: Number(count) };
+                    }
+                  });
+                }
 
                 Object.values(normalizedRooms).forEach(v => {
 
