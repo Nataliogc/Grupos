@@ -1942,14 +1942,15 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const finalInDate = window.checkInDateRaw || '';
             const finalOutDate = window.checkOutDateRaw || '';
 
+            // Envolver toda la operación en try/catch/finally para garantizar que
+            // el botón siempre se reactiva, incluso si Firestore lanza un error de red.
+            try {
+
             // 1. Obtener los tipos de habitación (económicos) disponibles antes de llamar a la IA
             const docRef = window.db.collection("groups").doc(String(currentReservaId));
             const docSnap = await docRef.get();
             if (!docSnap.exists) {
                 showIaError('No se encontró el grupo en la base de datos.');
-                btn.disabled = false;
-                btn.innerHTML = '<span>Extraer con IA</span>';
-                textarea.disabled = false;
                 return;
             }
 

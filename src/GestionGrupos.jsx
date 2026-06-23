@@ -651,6 +651,7 @@
       );
 
       const authorizingIds = useRef(new Set()); // Para evitar que onSnapshot restaure diffs en proceso de guardado
+      const deepLinkProcessedRef = useRef(null); // Guarda el ID del deep-link ya procesado para evitar bucles de re-ejecución
 
 
 
@@ -2180,6 +2181,10 @@
 
         if (!reservaId) return;
 
+        // GUARDIA ANTI-BUCLE: Si ya procesamos este ID en esta sesión, no volvemos a abrir
+        const normIdCheck = normalizeId(reservaId).toLowerCase();
+        if (deepLinkProcessedRef.current === normIdCheck) return;
+
 
 
         // Si no hay datos aún, esperamos la siguiente ejecución
@@ -2188,7 +2193,7 @@
 
 
 
-        const normId = normalizeId(reservaId).toLowerCase();
+        const normId = normIdCheck;
 
         // 1. Buscar en la fuente cruda (data) para ver si existe
         const matchInData = (data || []).find(r => 
@@ -2201,6 +2206,7 @@
           // Si no existe en absoluto, limpiamos y salimos
           if (data && data.length > 0) {
             console.warn("❌ [Deep Link] ID no encontrado en DB:", normId);
+            deepLinkProcessedRef.current = normId; // marcar como procesado aunque no exista
             safeStorage.removeItem("nexus_return_reserva");
             if (rUrl) {
               const newUrl = window.location.origin + window.location.pathname;
@@ -2228,7 +2234,9 @@
           return; 
         }
 
-        // 3. Si lo encontramos en groupedData, lo abrimos
+        // 3. Si lo encontramos en groupedData, lo abrimos — marcamos como procesado ANTES de mutar estado
+        deepLinkProcessedRef.current = normId;
+
         if (group) {
           // Limpieza de tokens y URL
           safeStorage.removeItem("nexus_return_reserva");
@@ -2670,22 +2678,31 @@
 
                 El objetivo es confirmar los detalles y dar la bienvenida. Menciona que estamos a su disposición para cualquier petición especial (dietas, salones, etc). Firma como "Dpto. de Grupos". Usa formato Markdown.`;
 
+        try {
 
+          const aiResult = await callGemini(prompt);
+          if (!aiResult?.ok) {
+              setAiResult({
+                title: "Error Detectado",
+                content: `**Detalles:** ${aiResult?.error || "No se ha podido conectar con el servicio de IA."}`,
+              });
+          } else {
+              setAiResult({
+                title: `Borrador Email: ${group.name}`,
+                content: aiResult.text,
+              });
+          }
 
-        const aiResult = await callGemini(prompt);
-        if (!aiResult?.ok) {
-            setAiResult({
-              title: "Error Detectado",
-              content: `**Detalles:** ${aiResult?.error || "No se ha podido conectar con el servicio de IA."}`,
-            });
-        } else {
-            setAiResult({
-              title: `Borrador Email: ${group.name}`,
-              content: aiResult.text,
-            });
+        } catch (err) {
+          console.error("[handleEmailClick] Error al llamar a Gemini:", err);
+          setAiResult({
+            title: "Error de Conexión",
+            content: `**No se ha podido conectar con el servicio de IA.**\n\nDetalle: ${err?.message || "Error desconocido"}.\n\nComprueba que la API Key esté configurada correctamente.`,
+          });
+        } finally {
+          // Siempre resetear el estado de carga, aunque la llamada falle
+          setIsAiLoading(false);
         }
-
-        setIsAiLoading(false);
 
       };
 
