@@ -2079,9 +2079,21 @@ ${inputVal}`;
                     };
                 });
 
-                const combinedList = [...newList, ...servicesList];
+                // Separar ítems económicos (los que tienen precio, isEconomicRepresentation:true)
+                // de los ítems de tracking de habitaciones (room assignments individuales)
+                const economicRepresentationItems = originalList.filter(item =>
+                    item && item.isEconomicRepresentation === true
+                );
+                const nonEconomicAccommodationItems = originalList.filter(item =>
+                    item && item.isEconomicRepresentation !== true && !window.RoomingCore.isAccommodationItem(item)
+                );
+
+                // combinedList = nuevas habitaciones (IA) + ítems económicos originales (precios) + servicios
+                // IMPORTANTE: Los ítems económicos se conservan intactos para no borrar los precios
+                const combinedList = [...newList, ...economicRepresentationItems, ...servicesList];
 
                 // Preservar la estructura económica asignando el precio previo por categoría.
+                // Usamos los economicItems para extraer el precio canónico.
                 const blockDetails = {};
                 economicItems.forEach(item => {
                     const key = window.RoomingCore.getCanonicalRoomType(item);
@@ -2093,6 +2105,10 @@ ${inputVal}`;
                 });
 
                 combinedList.forEach(item => {
+                    // Solo intentar asignar precio a las habitaciones generadas por IA (tracking items)
+                    // Los ítems económicos originales (isEconomicRepresentation:true) ya tienen su precio
+                    if (item.isEconomicRepresentation === true) return;
+
                     if (window.RoomingCore.isAccommodationItem(item)) {
                         const typeKey = window.RoomingCore.getCanonicalRoomType(item);
                         let match = blockDetails[typeKey];
@@ -2101,18 +2117,14 @@ ${inputVal}`;
                             if (matchingKey) match = blockDetails[matchingKey];
                         }
                         
-                        const price = match ? match.price : NaN;
-                        const iva = match ? match.iva : 10;
-                        if (!Number.isFinite(price) || price <= 0) {
-                            throw new Error(`No hay precio previo para "${item.type || 'Habitación'}". Añade primero una línea económica con ese tipo/precio.`);
+                        if (match && Number.isFinite(match.price) && match.price > 0) {
+                            item.price = match.price;
+                            item.iva = match.iva;
+                            const itemNights = window.RoomingCore.calculateRoomingNights(item.dateIn, item.dateOut);
+                            item.nights = itemNights;
+                            item.total = (1 * match.price * itemNights).toFixed(2);
                         }
-                        
-                        item.price = price;
-                        item.iva = iva;
-                        const itemNights = window.RoomingCore.calculateRoomingNights(item.dateIn, item.dateOut);
-                        item.nights = itemNights;
-                        // Usa la formula económica estándar validando que es un alojamiento
-                        item.total = (1 * price * itemNights).toFixed(2);
+                        // Si no hay match, el ítem de tracking no tiene precio propio (el precio está en los ítems económicos)
                     }
                 });
 
