@@ -504,12 +504,14 @@
                     return; 
                 }
             }
+
             // CREATE NEW FROM GROUP DATA + RoomingList_JSON
             // (Used if no cache found OR if cache was empty)
             const gName = rec['Nombre del Grupo'] || group.name || '---';
             const gAgency = rec['Empresa/Agencia'] || group.agency || 'Directo';
             const gPax = rec['Pax.'] || rec['Pax'] || group.totalPax || '---';
             const gCom = rec['Com_Comercial'] || group.commercial || 'S/A';
+
             document.getElementById('ref-val').innerText = currentReservaId;
             document.getElementById('grupo-val').innerText = gName;
             document.getElementById('agencia-val').innerText = gAgency;
