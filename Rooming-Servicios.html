@@ -1947,12 +1947,13 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 INSTRUCCIONES DE EXTRACCIÓN INTELIGENTE:
 1. IGNORA DATOS IRRELEVANTES: Omite saludos, despedidas, firmas de correo, correos de hilos antiguos, explicaciones generales del viaje, precios o tarifas de habitaciones, y cualquier texto administrativo que no describa a los ocupantes de las habitaciones.
 2. FLEXIBILIDAD DE FORMATOS: El cliente puede enviar los datos en formato de tabla, lista numerada, párrafos narrativos, etc. Extrae la información sin importar el orden de las columnas o cómo esté estructurado el texto.
-3. DETECCIÓN DE TIPOS DE HABITACIÓN IMPLÍCITOS: Si no se especifica el tipo de habitación ("type") de forma explícita, dedúcelo del número de ocupantes:
-   - 1 ocupante -> "Individual"
-   - 2 ocupantes -> "Doble"
-   - 3 ocupantes -> "Triple"
-   - 4 ocupantes -> "Cuádruple"
-   (Si es un chofer o guía, llámalo "Individual" o "Doble" según corresponda).
+3. DETECCIÓN DE TIPOS DE HABITACIÓN IMPLÍCITOS Y RESPETO AL TIPO ORIGINAL: 
+   - MUY IMPORTANTE: Si el texto indica un tipo o código de habitación (ej: "D.STD", "SGL", "DUI", "DOBLE", "TPL", etc.), DEBES capturar exactamente ese mismo texto en el campo "type", sin traducirlo, expandirlo ni alterarlo, sin importar el número de ocupantes.
+   - SÓLO si no se especifica absolutamente nada sobre el tipo de habitación, dedúcelo del número de ocupantes:
+     * 1 ocupante -> "Individual"
+     * 2 ocupantes -> "Doble"
+     * 3 ocupantes -> "Triple"
+     * 4 ocupantes -> "Cuádruple"
 4. SEPARACIÓN DE NOMBRE Y DNI: Aísla los nombres de los ocupantes de sus DNIs. Si el DNI viene pegado al nombre (ej: "Juan Pérez (DNI: 12345678A)" o "Juan Pérez 12345678A"), limpia el nombre para que quede únicamente "Juan Pérez" y asigna "12345678A" en el campo "dni".
 5. MÚLTIPLES OCUPANTES EN UNA HABITACIÓN: Concatena los nombres en el campo "ocupantes" separados por salto de línea ("\n"). Concatena sus DNIs correspondientes en el campo "dni" en el mismo orden, separados por punto y coma (";"). Si a alguno le falta el DNI, pon "Pendiente" para ese ocupante.
 6. OBSERVACIONES: Captura peticiones específicas como "cama de matrimonio", "movilidad reducida", "alergia al gluten", "plazas delanteras en autobús", etc., y colócalas en el campo "observ".

@@ -4963,10 +4963,7 @@ function App() {
         var originalTitle = document.title;
         var reserva = g.Reserva || '';
         var grupo = g['Nombre del Grupo'] || '';
-        var hotel = g['Hotel_Asignado'] || g['Hotel'] || '';
-        var newTitle = reserva && grupo ? "".concat(reserva, " - ").concat(grupo) : grupo || reserva || 'Propuesta';
-        if (hotel) newTitle += " - ".concat(hotel);
-        document.title = newTitle;
+        document.title = reserva && grupo ? "".concat(reserva, " - ").concat(grupo) : grupo || reserva || 'Propuesta';
         window.print();
         setTimeout(function () {
           document.title = originalTitle;

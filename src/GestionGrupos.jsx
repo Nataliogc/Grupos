@@ -2239,7 +2239,7 @@
 
           // Restaurar los filtros por defecto SOLO si el grupo encaja en ellos.
           const label = group.statusLabel?.toLowerCase() || "";
-          const arrival = group.arrival;
+          const arrival = toInputDate(group.arrival);
           const today = new Date().toISOString().split("T")[0];
           const isActivo = label !== "cancelado" && label !== "desestimado";
           const isFuturo = arrival && arrival >= today;
@@ -2247,13 +2247,15 @@
           if (isActivo && isFuturo) {
             setFilterStatus("activos");
             setFilterTime("future");
+            setSearchTerm("");
           } else {
-            // Si el grupo es pasado/confirmado-antiguo, mantenemos "all" para asegurar visibilidad
+            // Si el grupo es pasado/confirmado-antiguo, filtramos específicamente por él
+            // para evitar renderizar cientos de grupos antiguos y bloquear el navegador.
             setFilterStatus("all");
             setFilterTime("all");
+            setSearchTerm(group.id);
           }
 
-          setSearchTerm("");
           setKpiFilter(null);
 
           // Delay para asegurar que el DOM y el estado de React estén estables
