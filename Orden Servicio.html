@@ -210,7 +210,13 @@
             const grupoEl = document.getElementById('grupo-val');
             const ref = refEl ? refEl.innerText.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() : currentReservaId;
             const grupo = grupoEl ? grupoEl.innerText.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() : '';
-            document.title = `${ref} - Ord Servicio - ${grupo}`;
+            const groupRaw = localStorage.getItem('selectedGroup');
+            const groupData = groupRaw ? JSON.parse(groupRaw) : {};
+            const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
+            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel"] || "";
+            let newTitle = `${ref} - Ord Servicio - ${grupo}`;
+            if (hotelName) newTitle += ` - ${hotelName}`;
+            document.title = newTitle;
         };
         window.onafterprint = () => {
             if (originalTitleBeforePrint) {
@@ -401,7 +407,13 @@
             const originalTitle = document.title;
             const ref = document.getElementById('ref-val').innerText || currentReservaId || '';
             const grupo = document.getElementById('grupo-val').innerText || '';
-            document.title = `${ref} - Ord Servicio - ${grupo}`;
+            const groupRaw = localStorage.getItem('selectedGroup');
+            const groupData = groupRaw ? JSON.parse(groupRaw) : {};
+            const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
+            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel"] || "";
+            let newTitle = `${ref} - Ord Servicio - ${grupo}`;
+            if (hotelName) newTitle += ` - ${hotelName}`;
+            document.title = newTitle;
             window.print();
             setTimeout(() => { document.title = originalTitle; }, 500);
         }

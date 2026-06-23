@@ -1844,7 +1844,13 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const originalTitle = document.title;
             const ref = currentReservaId || '';
             const grupo = document.getElementById('header-grupo').innerText || '';
-            document.title = `${ref} - Rooming y Servicios - ${grupo}`;
+            const groupRaw = localStorage.getItem('selectedGroup');
+            const groupData = groupRaw ? JSON.parse(groupRaw) : {};
+            const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
+            const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel"] || "";
+            let newTitle = `${ref} - Rooming y Servicios - ${grupo}`;
+            if (hotelName) newTitle += ` - ${hotelName}`;
+            document.title = newTitle;
             window.print();
             setTimeout(() => { document.title = originalTitle; }, 500);
         }
