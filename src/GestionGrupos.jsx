@@ -10866,7 +10866,9 @@
 
                     }
 
-                    const roomList = getEconomicRoomingItems(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "ficha-totals");
+                    const rawRoomList = getEconomicRoomingItems(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "ficha-totals");
+                    // Safety guard: if list is massively corrupted, cap it to avoid freezing
+                    const roomList = rawRoomList.length > 500 ? [] : rawRoomList;
 
                     let totalB10 = 0,
 
@@ -12998,6 +13000,37 @@
 
                                   {(() => {
                                     const rawRL = typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems ? window.roomingCore.getGroupEconomicItems(selectedGroupFicha) : parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
+                                    
+                                    // Safety guard: if list is corrupted (>200 auto-generated rows), show reset UI instead of freezing
+                                    if (rawRL.length > 200) {
+                                      const allAuto = rawRL.every(item => (item.type || '').toLowerCase().includes('auto') || (item.type || '').toLowerCase().includes('habitaci'));
+                                      if (allAuto) {
+                                        return (
+                                          <tr>
+                                            <td colSpan="13" className="py-8 px-4 text-center">
+                                              <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex flex-col items-center gap-4">
+                                                <div className="text-red-500 text-3xl">⚠️</div>
+                                                <div>
+                                                  <p className="font-black text-red-700 text-sm">Lista de habitaciones corrupta</p>
+                                                  <p className="text-red-600 text-xs mt-1">{rawRL.length} filas auto-generadas detectadas. Hay que reiniciar esta lista para poder editar el grupo.</p>
+                                                </div>
+                                                <button
+                                                  onClick={() => {
+                                                    if (window.confirm(`¿Reiniciar la lista de habitaciones de "${selectedGroupFicha.name}"? Se perderán los ${rawRL.length} elementos actuales.`)) {
+                                                      updateGroupMetadata(selectedGroupFicha.id, { RoomingList_JSON: '[]' });
+                                                    }
+                                                  }}
+                                                  className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white font-black text-sm rounded-lg shadow-sm transition-colors"
+                                                >
+                                                  🗑️ Reiniciar Lista de Habitaciones
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        );
+                                      }
+                                    }
+
                                     const grouped = [];
                                     rawRL.forEach((item, index) => {
                                       const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
@@ -13323,7 +13356,8 @@
 
 
 
-                                const roomingList = getEconomicRoomingItems(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "hotel-totals");
+                                const rawRoomingList = getEconomicRoomingItems(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "hotel-totals");
+                                const roomingList = rawRoomingList.length > 500 ? [] : rawRoomingList;
 
                                  return (
                                    <div className="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[400px] custom-scrollbar">
