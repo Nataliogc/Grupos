@@ -5583,27 +5583,23 @@
                   let end = parseDate(seg.dateOut);
 
                   if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
-                    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-                      const nextDay = new Date(d);
-                      nextDay.setDate(d.getDate() + 1);
+                    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                    const dailyPrice = totalDays > 0 ? seg.price / totalDays : 0;
+                    const qty = Math.ceil(seg.pax / 2) || 1;
 
-                      const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-                      const dailyPrice = totalDays > 0 ? seg.price / totalDays : 0;
-
-                      newAutoList.push({
-                        id: Date.now() + Math.random(),
-                        hotel: normalizeHotelNameLocal(seg.hotel, "Sercotel Guadiana"),
-                        type: "Habitación (Auto)",
-                        dateIn: d.toISOString().split("T")[0],
-                        dateOut: nextDay.toISOString().split("T")[0],
-                        qty: Math.ceil(seg.pax / 2) || 1,
-                        regime: seg.regime || "AD",
-                        price: (dailyPrice / (Math.ceil(seg.pax / 2) || 1)).toFixed(2),
-                        nights: 1,
-                        total: dailyPrice.toFixed(2),
-                        isService: false
-                      });
-                    }
+                    newAutoList.push({
+                      id: Date.now() + Math.random(),
+                      hotel: normalizeHotelNameLocal(seg.hotel, "Sercotel Guadiana"),
+                      type: "Habitación (Auto)",
+                      dateIn: start.toISOString().split("T")[0],
+                      dateOut: end.toISOString().split("T")[0],
+                      qty: qty,
+                      regime: seg.regime || "AD",
+                      price: (dailyPrice / qty).toFixed(2),
+                      nights: totalDays,
+                      total: seg.price.toFixed(2),
+                      isService: false
+                    });
                   }
                 }
               });
