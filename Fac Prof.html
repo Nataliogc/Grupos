@@ -1801,12 +1801,13 @@
             return !!groupData.isIndependentProforma || rawRef.includes('prof-');
         }
 
-        function reconcilePaymentPlan() {
+        function reconcilePaymentPlan(lockedIndex) {
             const netTotal = Math.max(0, getCurrentNetTotal());
             if (paymentPlan.length === 0) return;
 
-            // 1. Recalculate percent/amount for each row
-            paymentPlan.forEach((p) => {
+            // 1. Recalculate percent/amount for each row (skip locked row — it was just manually edited)
+            paymentPlan.forEach((p, i) => {
+                if (i === lockedIndex) return; // preserve manually edited value
                 if (p.status === "Cobrado") {
                     const amount = parseFloat(p.amount) || 0;
                     p.percent = netTotal > 0 ? ((amount / netTotal) * 100).toFixed(2) : "0.00";
@@ -1818,17 +1819,24 @@
                 }
             });
 
-            // 2. Adjust for any rounding difference in the last pending row (or last row)
+            // 2. Adjust remainder so total always equals netTotal
             let sumOfAmounts = paymentPlan.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
             let diff = netTotal - sumOfAmounts;
+
             if (Math.abs(diff) > 0.001) {
-                let targetRow = [...paymentPlan].reverse().find(p => p.status !== "Cobrado");
+                // Find last pending row that is NOT the locked/just-edited row
+                let targetRow = [...paymentPlan]
+                    .map((p, i) => ({ p, i }))
+                    .reverse()
+                    .find(({ p, i }) => p.status !== "Cobrado" && i !== lockedIndex);
+
                 if (targetRow) {
-                    const currentAmt = parseFloat(targetRow.amount) || 0;
-                    targetRow.amount = (currentAmt + diff).toFixed(2);
-                    targetRow.percent = netTotal > 0 ? ((parseFloat(targetRow.amount) || 0) / netTotal * 100).toFixed(2) : "0.00";
+                    // Absorb the difference into this other pending row
+                    const currentAmt = parseFloat(targetRow.p.amount) || 0;
+                    targetRow.p.amount = (currentAmt + diff).toFixed(2);
+                    targetRow.p.percent = netTotal > 0 ? ((parseFloat(targetRow.p.amount) || 0) / netTotal * 100).toFixed(2) : "0.00";
                 } else if (diff > 0.01) {
-                    // No pending rows to absorb the positive remainder, add a new pending row
+                    // No other pending row available — create a new one to hold the remainder
                     const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
                     let dateStr = new Date().toISOString().split('T')[0];
                     const arrivalDate = groupData.Entrada;
@@ -1854,12 +1862,20 @@
                         date: dateStr,
                         status: "Pendiente"
                     });
+                } else if (diff < -0.01) {
+                    // Sum exceeds total and locked row caused it — only adjust the locked row if no other option
+                    // (nothing to do here; user set an explicit value, leave as-is)
                 }
             }
 
-            // 3. Clean up tiny leftover pending rows if difference is zero or negative
+            // 3. Recalculate diff after any new row was added
+            sumOfAmounts = paymentPlan.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+            diff = netTotal - sumOfAmounts;
+
+            // 4. Clean up tiny leftover pending rows (but never the locked row)
             if (diff <= 0.01) {
                 for (let i = paymentPlan.length - 1; i >= 0; i--) {
+                    if (i === lockedIndex) continue;
                     const p = paymentPlan[i];
                     if (p.status !== "Cobrado" && (parseFloat(p.amount) || 0) <= 0.01) {
                         paymentPlan.splice(i, 1);
@@ -1883,16 +1899,20 @@
                 paymentPlan[index].percent = percent.toFixed(2);
                 const netTotal = getCurrentNetTotal();
                 paymentPlan[index].amount = ((netTotal * percent) / 100).toFixed(2);
+                // Pass the locked index so reconcile doesn't overwrite this row
+                reconcilePaymentPlan(index);
             } else if (field === 'amount') {
                 const amount = parseFloat(value) || 0;
                 paymentPlan[index].amount = amount.toFixed(2);
                 const netTotal = getCurrentNetTotal();
                 paymentPlan[index].percent = netTotal > 0 ? ((amount / netTotal) * 100).toFixed(2) : "0.00";
+                // Pass the locked index so reconcile doesn't overwrite this row
+                reconcilePaymentPlan(index);
             } else {
                 paymentPlan[index][field] = value;
+                reconcilePaymentPlan();
             }
 
-            reconcilePaymentPlan();
             renderItems();
         }
 
