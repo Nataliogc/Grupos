@@ -992,9 +992,13 @@
         // 1. Recalculate percent/amount for each row
         planCopy.forEach((p) => {
           if (p.status === "Cobrado") {
+            // IMPORTANTE: Para filas cobradas, preservar el importe EXACTO tal como fue guardado.
+            // No recalcular desde el porcentaje para evitar el bucle de redondeo:
+            // ej. 2000,00€ → 12.35% guardado → 12.35% × 16200 = 2000,70€ (error)
             const amount = parseFloat(p.amount) || 0;
-            p.percent = netTotal > 0 ? parseFloat(((amount / netTotal) * 100).toFixed(2)) : 0;
-            p.amount = amount.toFixed(2);
+            p.amount = amount.toFixed(2); // preservar importe exacto
+            // El porcentaje es solo informativo para filas cobradas, se calcula con más precisión
+            p.percent = netTotal > 0 ? parseFloat(((amount / netTotal) * 100).toFixed(4)) : 0;
           } else {
             const percent = parseFloat(p.percent) || 0;
             p.amount = ((netTotal * percent) / 100).toFixed(2);
