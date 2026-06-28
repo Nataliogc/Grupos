@@ -495,6 +495,25 @@
               }
             }
 
+            // Fallback: si el precio sigue siendo 0, intentar obtenerlo desde ratesOnlyGrid
+            // Esto cubre el caso en que dailyConfig no ha sido sincronizado con los precios de la grilla
+            if (price === 0 && group.ratesOnlyGrid) {
+              const boardKey = regime.split(' ')[0];
+              const grid = group.ratesOnlyGrid;
+              if (grid[boardKey]) {
+                const gridPk = Object.keys(grid[boardKey]).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                if (gridPk) price = parseFloat(grid[boardKey][gridPk] || 0);
+              }
+              // Si tampoco hay precio para ese régimen, probar con el régimen del grupo
+              if (price === 0) {
+                const fallbackBoard = (group["Régimen"] || "AD").split(' ')[0];
+                if (grid[fallbackBoard]) {
+                  const gridPk2 = Object.keys(grid[fallbackBoard]).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                  if (gridPk2) price = parseFloat(grid[fallbackBoard][gridPk2] || 0);
+                }
+              }
+            }
+
             const paxPerRoom = PAX_PER_ROOM[type] || 2;
             const payingRooms = Math.max(0, count - gratuities);
             

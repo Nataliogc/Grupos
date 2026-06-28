@@ -5435,7 +5435,26 @@
                         discount = parseFloat(config[tk].discount || 0);
                       }
                    }
+
+                   // Fallback: si el precio sigue siendo 0, intentar obtenerlo desde ratesOnlyGrid
+                   // Esto cubre presupuestos confirmados donde dailyConfig.prices no fue sincronizado
+                   if (price === 0 && group.ratesOnlyGrid) {
+                     const boardKey = regime.split(' ')[0];
+                     const grid = group.ratesOnlyGrid;
+                     if (grid[boardKey]) {
+                       const gridPk = Object.keys(grid[boardKey]).find(k => k.trim().toLowerCase() === v.type.trim().toLowerCase());
+                       if (gridPk) price = parseFloat(grid[boardKey][gridPk] || 0);
+                     }
+                     if (price === 0) {
+                       const fallbackBoard = (group["Régimen"] || "AD").split(' ')[0];
+                       if (grid[fallbackBoard]) {
+                         const gridPk2 = Object.keys(grid[fallbackBoard]).find(k => k.trim().toLowerCase() === v.type.trim().toLowerCase());
+                         if (gridPk2) price = parseFloat(grid[fallbackBoard][gridPk2] || 0);
+                       }
+                     }
+                   }
                    
+
                    const paxPerRoom = typeof getPaxByRoomType === 'function' ? getPaxByRoomType(v.type) : (v.type.toLowerCase().includes('ind') || v.type.toLowerCase().includes('dui') ? 1 : (v.type.toLowerCase().includes('tri') ? 3 : 2));
                    
                    const payingRooms = Math.max(0, count - gratuities);

@@ -516,6 +516,29 @@ var buildRoomingList = function buildRoomingList(group) {
             discount = parseFloat(config[tk].discount || 0);
           }
         }
+
+        // Fallback: si el precio sigue siendo 0, intentar obtenerlo desde ratesOnlyGrid
+        // Esto cubre el caso en que dailyConfig no ha sido sincronizado con los precios de la grilla
+        if (price === 0 && group.ratesOnlyGrid) {
+          var boardKey = regime.split(' ')[0];
+          var grid = group.ratesOnlyGrid;
+          if (grid[boardKey]) {
+            var gridPk = Object.keys(grid[boardKey]).find(function (k) {
+              return k.trim().toLowerCase() === type.trim().toLowerCase();
+            });
+            if (gridPk) price = parseFloat(grid[boardKey][gridPk] || 0);
+          }
+          // Si tampoco hay precio para ese régimen, probar con el régimen del grupo
+          if (price === 0) {
+            var fallbackBoard = (group["Régimen"] || "AD").split(' ')[0];
+            if (grid[fallbackBoard]) {
+              var gridPk2 = Object.keys(grid[fallbackBoard]).find(function (k) {
+                return k.trim().toLowerCase() === type.trim().toLowerCase();
+              });
+              if (gridPk2) price = parseFloat(grid[fallbackBoard][gridPk2] || 0);
+            }
+          }
+        }
         var paxPerRoom = PAX_PER_ROOM[type] || 2;
         var payingRooms = Math.max(0, count - gratuities);
         var existingPaying = existingList.find(function (item) {
