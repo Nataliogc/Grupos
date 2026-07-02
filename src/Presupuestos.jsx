@@ -965,20 +965,10 @@
       const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
       const [pastePreview, setPastePreview] = useState({ isOpen: false, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] });
 
-      const handlePasteTarifas = async (textStr) => {
-        let text = textStr;
-        if (!text || typeof text !== 'string') {
-          try {
-            text = await navigator.clipboard.readText();
-          } catch (err) {
-            alert("No se pudo leer el portapapeles. Usa Ctrl+V sobre la tabla de tarifas.");
-            return;
-          }
-        }
-        if (!text) return;
-
+      const parseTarifasString = (text) => {
+        if (!text || typeof text !== 'string') return null;
         const rowsData = text.split('\n').map(r => r.split('\t').map(c => c.trim()));
-        if (rowsData.length < 2) return; 
+        if (rowsData.length < 2) return null;
 
         const normBoard = {
           'sa': 'SA', 'solo alojamiento': 'SA', 'solo aloj.': 'SA',
@@ -1066,13 +1056,26 @@
            }
         }
 
-        setPastePreview({
-           isOpen: true,
-           parsedData: parsedGrid,
-           unrecognizedBoards: Array.from(unrecBoards),
-           unrecognizedRooms: Array.from(unrecRooms)
-        });
+        return {
+          parsedData: parsedGrid,
+          unrecognizedBoards: Array.from(unrecBoards),
+          unrecognizedRooms: Array.from(unrecRooms)
+        };
       };
+
+      const handlePasteTarifas = (textStr) => {
+        if (!textStr || typeof textStr !== 'string') return;
+        const result = parseTarifasString(textStr);
+        if (result) {
+          setPastePreview({
+             isOpen: true,
+             parsedData: result.parsedData,
+             unrecognizedBoards: result.unrecognizedBoards,
+             unrecognizedRooms: result.unrecognizedRooms
+          });
+        }
+      };
+
 
       const applyPastedTarifas = () => {
         const currentGrid = { ...(formData.ratesOnlyGrid || {}) };
@@ -2838,7 +2841,7 @@ ${emailContent}`;
                       )}
                       <button
                         type="button"
-                        onClick={() => handlePasteTarifas()}
+                        onClick={() => setPastePreview({ isOpen: true, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] })}
                         className="px-4 py-2 bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-600 border border-indigo-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-indigo-500/20 outline-none"
                         title="Copiar una tabla de Excel o Word y pulsar aquí para pegar"
                       >
@@ -4253,7 +4256,16 @@ ${emailContent}`;
                 <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                   {Object.keys(pastePreview.parsedData).length > 0 ? (
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tarifas Reconocidas</h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tarifas Reconocidas</h4>
+                        <button
+                          type="button"
+                          onClick={() => setPastePreview({ ...pastePreview, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] })}
+                          className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 shadow-sm"
+                        >
+                          <i className="fas fa-edit"></i> Pegar otra tabla
+                        </button>
+                      </div>
                       <div className="overflow-x-auto border border-slate-100 rounded-xl">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
@@ -4295,10 +4307,50 @@ ${emailContent}`;
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-6">
-                       <i className="fas fa-exclamation-triangle text-3xl text-amber-300 mb-2"></i>
-                       <p className="text-xs font-bold text-slate-600">No se han reconocido datos de tarifas.</p>
-                       <p className="text-[10px] text-slate-400 mt-1">Asegúrate de que la tabla tiene las cabeceras correctas.</p>
+                    <div className="space-y-4">
+                      <div className="text-center py-2">
+                        <i className="fas fa-clipboard text-3xl text-indigo-400 mb-2"></i>
+                        <p className="text-xs font-bold text-slate-700">Pega aquí tu tabla de tarifas</p>
+                        <p className="text-[9px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">
+                          Copia la tabla desde Excel o Word, haz clic abajo y presiona Ctrl + V
+                        </p>
+                      </div>
+                      <textarea
+                        autoFocus
+                        placeholder="Haz clic aquí y pulsa Ctrl+V para pegar..."
+                        className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                        onPaste={(e) => {
+                          const text = e.clipboardData.getData('text/plain');
+                          if (text) {
+                            e.preventDefault();
+                            const result = parseTarifasString(text);
+                            if (result && Object.keys(result.parsedData).length > 0) {
+                              setPastePreview({
+                                ...pastePreview,
+                                parsedData: result.parsedData,
+                                unrecognizedBoards: result.unrecognizedBoards,
+                                unrecognizedRooms: result.unrecognizedRooms
+                              });
+                            } else {
+                              alert("No se han reconocido datos de tarifas en el texto pegado. Asegúrate de copiar las cabeceras de régimen y tipo de habitación.");
+                            }
+                          }
+                        }}
+                        onChange={(e) => {
+                          const text = e.target.value;
+                          if (text && text.includes('\t')) {
+                            const result = parseTarifasString(text);
+                            if (result && Object.keys(result.parsedData).length > 0) {
+                              setPastePreview({
+                                ...pastePreview,
+                                parsedData: result.parsedData,
+                                unrecognizedBoards: result.unrecognizedBoards,
+                                unrecognizedRooms: result.unrecognizedRooms
+                              });
+                            }
+                          }
+                        }}
+                      />
                     </div>
                   )}
 
