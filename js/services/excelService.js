@@ -167,9 +167,17 @@
         continue;
       }
 
-      // Ignore totals / summary rows or section titles (valid bookings MUST have both Entrada and Salida dates)
-      const hasNoDates = (!rowObj["Entrada"] || String(rowObj["Entrada"]).trim() === "") ||
-                         (!rowObj["Salida"] || String(rowObj["Salida"]).trim() === "");
+      // Ignore segment configuration / summary rows where Reserva is a segment code
+      const segmentCodes = ["CO", "ON", "OF", "TA", "GR", "SEGMENTO", "SEGMENT"];
+      const resVal = String(rowObj["Reserva"] || "").trim().toUpperCase();
+      if (segmentCodes.includes(resVal)) {
+        continue;
+      }
+
+      // Ignore totals / summary rows or section titles (valid bookings MUST have both valid Entrada and Salida dates, and not in the year 1900)
+      const arrIso = toIsoDate(rowObj["Entrada"]);
+      const depIso = toIsoDate(rowObj["Salida"]);
+      const hasNoDates = !arrIso || !depIso || arrIso.startsWith("1900") || depIso.startsWith("1900");
       if (hasNoDates) {
         continue;
       }
@@ -190,8 +198,10 @@
   const normalizeDateForSanitize = (val) => {
     if (!val) return "";
     let d, m, y;
-    if (typeof val === "number" || (!isNaN(parseFloat(val)) && /^\d{5}$/.test(val))) {
-      const serial = parseFloat(val);
+    const num = parseFloat(val);
+    const isValidSerial = !isNaN(num) && num >= 40000 && num <= 60000 && (typeof val === "number" || /^\d{5}$/.test(String(val).trim()));
+    if (isValidSerial) {
+      const serial = num;
       const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
       d = date.getUTCDate();
       m = date.getUTCMonth() + 1;
