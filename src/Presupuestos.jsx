@@ -112,7 +112,7 @@
       const globalIn = allIn[0];
       const globalOut = allOut[allOut.length - 1];
 
-      const nights = generateDates(globalIn, globalOut);
+      const nights = generateSeriesDates(validSegments);
       const dailyCounts = {};
 
       nights.forEach(date => {
@@ -447,7 +447,9 @@
       }
 
       let dates = [];
-      if (group.DateRanges_JSON && Array.isArray(group.DateRanges_JSON) && group.DateRanges_JSON.length > 0) {
+      if (group.isMultiSegment && Array.isArray(group.segments) && group.segments.length > 0) {
+        dates = generateSeriesDates(group.segments);
+      } else if (group.DateRanges_JSON && Array.isArray(group.DateRanges_JSON) && group.DateRanges_JSON.length > 0) {
         dates = generateSeriesDates(group.DateRanges_JSON);
       } else {
         dates = generateDates(group.Entrada, group.Salida);
@@ -691,7 +693,7 @@
         newData["Pax."] = stats.totalPax;
 
         const segmentCountsByDate = buildDailyCountsFromSegments(newData.segments);
-        const stayDates = generateDates(stats.globalIn, stats.globalOut);
+        const stayDates = generateSeriesDates(newData.segments);
         
         const maxByType = {};
         Object.values(segmentCountsByDate).forEach(countsByType => {
@@ -748,8 +750,7 @@
       let dates = [];
       // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
       if (groupData.isMultiSegment && Array.isArray(groupData.segments) && groupData.segments.length > 0) {
-        const stats = getSegmentStats(groupData.segments);
-        dates = generateDates(stats.globalIn, stats.globalOut);
+        dates = generateSeriesDates(groupData.segments);
       } else if (groupData.DateRanges_JSON && Array.isArray(groupData.DateRanges_JSON) && groupData.DateRanges_JSON.length > 0) {
         dates = generateSeriesDates(groupData.DateRanges_JSON);
       } else {
@@ -953,8 +954,7 @@
       const getCurrentStayDates = (data = formData) => {
         // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
         if (data.isMultiSegment && Array.isArray(data.segments) && data.segments.length > 0) {
-          const stats = getSegmentStats(data.segments);
-          return generateDates(stats.globalIn, stats.globalOut);
+          return generateSeriesDates(data.segments);
         }
         if (data.DateRanges_JSON && Array.isArray(data.DateRanges_JSON) && data.DateRanges_JSON.length > 0) {
           return generateSeriesDates(data.DateRanges_JSON);
@@ -1477,18 +1477,7 @@
             if (!confirmSave) return;
           }
 
-          // Check for empty nights (nights with 0 rooms occupied)
-          const segmentCountsByDate = buildDailyCountsFromSegments(normalizedFormData.segments);
-          const globalDates = generateDates(metrics.globalIn, metrics.globalOut);
-          const emptyDates = globalDates.filter(d => {
-            const countsForDate = segmentCountsByDate[d] || {};
-            const roomsSum = Object.values(countsForDate).reduce((s, c) => s + Number(c), 0);
-            return roomsSum === 0;
-          });
-          if (emptyDates.length > 0) {
-            const confirmSave = window.confirm(`⚠️ Advertencia: Hay fechas dentro del rango global con 0 habitaciones ocupadas (por ejemplo: ${emptyDates.slice(0, 3).map(formatDate).join(', ')}${emptyDates.length > 3 ? '...' : ''}). ¿Desea continuar?`);
-            if (!confirmSave) return;
-          }
+          // En series, las noches intermedias vacías son esperadas, así que no mostramos advertencia.
         }
 
         const reservaId = normalizedFormData.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
