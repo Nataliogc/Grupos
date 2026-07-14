@@ -3910,11 +3910,29 @@ ${emailContent}`;
                                      let lineSubtotal = 0;
                                      let roomBoard = '';
 
-                                     if (config.prices && config.prices[typeKey] !== undefined) {
-                                        price = Number(config.prices[typeKey] || 0);
-                                        roomBoard = config[typeKey]?.board || '';
-                                        gratuities = parseInt(config[typeKey]?.gratuities || 0);
-                                        lineSubtotal = Math.max(0, currentCount - gratuities) * price;
+                                     if (config.prices) {
+                                        const pk = Object.keys(config.prices).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                                        if (pk !== undefined) {
+                                           price = Number(config.prices[pk] || 0);
+                                           
+                                           const tk = Object.keys(config).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                                           if (tk && config[tk]) {
+                                              roomBoard = config[tk]?.board || '';
+                                           }
+                                           
+                                           const gratKey = config.gratuities ? Object.keys(config.gratuities).find(k => k.trim().toLowerCase() === type.trim().toLowerCase()) : null;
+                                           gratuities = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
+                                           
+                                           lineSubtotal = Math.max(0, currentCount - gratuities) * price;
+                                        }
+                                     } else {
+                                        const tk = Object.keys(config).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                                        if (tk && config[tk]) {
+                                           price = parseFloat(config[tk].price || 0);
+                                           roomBoard = config[tk].board || '';
+                                           gratuities = parseInt(config[tk].gratuities || 0);
+                                           lineSubtotal = Math.max(0, currentCount - gratuities) * price;
+                                        }
                                      }
                                      if (price === 0 && lineSubtotal === 0 && gratuities === 0) return null;
 

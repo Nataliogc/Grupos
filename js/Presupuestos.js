@@ -4576,12 +4576,35 @@ function App() {
         var gratuities = 0;
         var lineSubtotal = 0;
         var roomBoard = '';
-        if (config.prices && config.prices[typeKey] !== undefined) {
-          var _config$typeKey, _config$typeKey2;
-          price = Number(config.prices[typeKey] || 0);
-          roomBoard = ((_config$typeKey = config[typeKey]) === null || _config$typeKey === void 0 ? void 0 : _config$typeKey.board) || '';
-          gratuities = parseInt(((_config$typeKey2 = config[typeKey]) === null || _config$typeKey2 === void 0 ? void 0 : _config$typeKey2.gratuities) || 0);
-          lineSubtotal = Math.max(0, currentCount - gratuities) * price;
+        if (config.prices) {
+          var pk = Object.keys(config.prices).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          });
+          if (pk !== undefined) {
+            price = Number(config.prices[pk] || 0);
+            var tk = Object.keys(config).find(function (k) {
+              return k.trim().toLowerCase() === type.trim().toLowerCase();
+            });
+            if (tk && config[tk]) {
+              var _config$tk;
+              roomBoard = ((_config$tk = config[tk]) === null || _config$tk === void 0 ? void 0 : _config$tk.board) || '';
+            }
+            var gratKey = config.gratuities ? Object.keys(config.gratuities).find(function (k) {
+              return k.trim().toLowerCase() === type.trim().toLowerCase();
+            }) : null;
+            gratuities = gratKey ? parseInt(config.gratuities[gratKey] || 0) : 0;
+            lineSubtotal = Math.max(0, currentCount - gratuities) * price;
+          }
+        } else {
+          var _tk = Object.keys(config).find(function (k) {
+            return k.trim().toLowerCase() === type.trim().toLowerCase();
+          });
+          if (_tk && config[_tk]) {
+            price = parseFloat(config[_tk].price || 0);
+            roomBoard = config[_tk].board || '';
+            gratuities = parseInt(config[_tk].gratuities || 0);
+            lineSubtotal = Math.max(0, currentCount - gratuities) * price;
+          }
         }
         if (price === 0 && lineSubtotal === 0 && gratuities === 0) return null;
         subtotalDate += lineSubtotal;
