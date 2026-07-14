@@ -140,7 +140,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             _context2.n = 2;
             return db.runTransaction(/*#__PURE__*/function () {
               var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(transaction) {
-                var parentDocRef, parentSnapshot, parentData, allSegments, activeSegments, seenCodes, childDocs, i, seg, childId, childDocRef, childSnapshot, childData, childTotalsSum, childWrites, parentTotal, parentTrack, parentUpdates;
+                var parentDocRef, parentSnapshot, parentData, allSegments, activeSegments, seenCodes, childDocs, i, seg, childId, childDocRef, childSnapshot, childData, childTotalsSum, childWrites, parseAmount, parentTotal, parentTrack, parentUpdates;
                 return _regenerator().w(function (_context) {
                   while (1) switch (_context.n) {
                     case 0:
@@ -389,7 +389,19 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                           data: childData
                         });
                       });
-                      parentTotal = parseFloat(parentData["Importe(*)"] || 0);
+
+                      // Helper to parse amounts formatted with dots and commas (Spanish locale)
+                      parseAmount = function parseAmount(val) {
+                        if (!val) return 0;
+                        if (typeof val === 'number') return val;
+                        var str = String(val).trim();
+                        if (str.indexOf(',') !== -1) {
+                          str = str.replace(/\./g, '').replace(/,/g, '.');
+                        }
+                        var num = parseFloat(str);
+                        return isNaN(num) ? 0 : num;
+                      };
+                      parentTotal = parseAmount(parentData["Importe(*)"]);
                       if (!(Math.abs(childTotalsSum - parentTotal) > 0.05)) {
                         _context.n = 10;
                         break;
@@ -451,7 +463,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   }
   function _confirmBudget() {
     _confirmBudget = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(_ref4) {
-      var budgetId, requestedStatus, confirmationSource, db, confirmedBy, docRef, snapshot, budget, allSegments, activeSegments, isMulti, segIdsStr, msg, now, formattedDate, track, serverTimestampVal, updates;
+      var budgetId, requestedStatus, confirmationSource, db, confirmedBy, docRef, snapshot, budget, previousStatus, allSegments, activeSegments, isMulti, isTransitioningToConfirmed, segIdsStr, msg, userAccepted, now, formattedDate, track, serverTimestampVal, updates;
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.n) {
           case 0:
@@ -480,7 +492,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             }
             throw new Error("Esta serie ya ha sido desglosada previamente.");
           case 4:
-            allSegments = budget.segments || []; // Check if any segment is active (has dates & rooms) but lacks ID
+            previousStatus = (budget.Com_Estado_Interno || budget.Estado || "").toUpperCase(); // Check if any segment is active (has dates & rooms) but lacks ID
+            allSegments = budget.segments || [];
             allSegments.forEach(function (seg, i) {
               var hasDates = seg.in && seg.out && seg.in < seg.out;
               var hasRooms = false;
@@ -510,8 +523,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               }
               return hasId && hasDates && hasRooms;
             });
-            isMulti = budget.isMultiSegment === true && activeSegments.length > 1;
-            if (!(requestedStatus === "CONFIRMADO" && isMulti)) {
+            isMulti = budget.isMultiSegment === true && activeSegments.length > 1; // DESGLOSE CONDITIONAL check:
+            // Only split if isMulti segment, requestedStatus is "CONFIRMADO", and previousStatus is NOT "CONFIRMADO".
+            // This blocks split execution if someone is only updating/saving changes on an already confirmed quote.
+            isTransitioningToConfirmed = requestedStatus === "CONFIRMADO" && previousStatus !== "CONFIRMADO";
+            if (!(isMulti && isTransitioningToConfirmed)) {
               _context3.n = 7;
               break;
             }
@@ -519,7 +535,14 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               return s.id;
             }).join(", ");
             msg = "Esta serie contiene ".concat(activeSegments.length, " estancias. Al confirmarla se crear\xE1n ").concat(activeSegments.length, " reservas independientes con los siguientes c\xF3digos: ").concat(segIdsStr, ".\n\n\xBFDeseas continuar?");
-            if (!(typeof window !== "undefined" && !window.confirm(msg))) {
+            userAccepted = false;
+            if (typeof window !== "undefined") {
+              userAccepted = window.confirm(msg);
+            } else {
+              // Non-browser script execution
+              userAccepted = true;
+            }
+            if (userAccepted) {
               _context3.n = 5;
               break;
             }
@@ -540,6 +563,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               })
             });
           case 7:
+            // Normal update/save process: update status and timestamp in parent document
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             track = [];

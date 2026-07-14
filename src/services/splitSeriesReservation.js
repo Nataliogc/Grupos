@@ -344,7 +344,19 @@
         childWrites.push({ ref, data: childData });
       });
 
-      const parentTotal = parseFloat(parentData["Importe(*)"] || 0);
+      // Helper to parse amounts formatted with dots and commas (Spanish locale)
+      const parseAmount = (val) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        let str = String(val).trim();
+        if (str.indexOf(',') !== -1) {
+          str = str.replace(/\./g, '').replace(/,/g, '.');
+        }
+        const num = parseFloat(str);
+        return isNaN(num) ? 0 : num;
+      };
+
+      const parentTotal = parseAmount(parentData["Importe(*)"]);
       if (Math.abs(childTotalsSum - parentTotal) > 0.05) {
         throw new Error(`Reconciliación fallida: La suma de subtotales desglosados (€${childTotalsSum.toFixed(2)}) difiere del total estimado del presupuesto (€${parentTotal.toFixed(2)}).`);
       }
@@ -406,9 +418,10 @@
       throw new Error("Esta serie ya ha sido desglosada previamente.");
     }
 
-    const allSegments = budget.segments || [];
-    
+    const previousStatus = (budget.Com_Estado_Interno || budget.Estado || "").toUpperCase();
+
     // Check if any segment is active (has dates & rooms) but lacks ID
+    const allSegments = budget.segments || [];
     allSegments.forEach((seg, i) => {
       const hasDates = seg.in && seg.out && seg.in < seg.out;
       let hasRooms = false;
@@ -440,11 +453,24 @@
 
     const isMulti = budget.isMultiSegment === true && activeSegments.length > 1;
 
-    if (requestedStatus === "CONFIRMADO" && isMulti) {
+    // DESGLOSE CONDITIONAL check:
+    // Only split if isMulti segment, requestedStatus is "CONFIRMADO", and previousStatus is NOT "CONFIRMADO".
+    // This blocks split execution if someone is only updating/saving changes on an already confirmed quote.
+    const isTransitioningToConfirmed = requestedStatus === "CONFIRMADO" && previousStatus !== "CONFIRMADO";
+
+    if (isMulti && isTransitioningToConfirmed) {
       const segIdsStr = activeSegments.map(s => s.id).join(", ");
       const msg = `Esta serie contiene ${activeSegments.length} estancias. Al confirmarla se crearán ${activeSegments.length} reservas independientes con los siguientes códigos: ${segIdsStr}.\n\n¿Deseas continuar?`;
       
-      if (typeof window !== "undefined" && !window.confirm(msg)) {
+      let userAccepted = false;
+      if (typeof window !== "undefined") {
+        userAccepted = window.confirm(msg);
+      } else {
+        // Non-browser script execution
+        userAccepted = true; 
+      }
+
+      if (!userAccepted) {
         throw new Error("Operación cancelada por el usuario.");
       }
 
@@ -457,6 +483,7 @@
 
       return { split: true, childIds: activeSegments.map(s => s.id) };
     } else {
+      // Normal update/save process: update status and timestamp in parent document
       const now = new Date();
       const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       
