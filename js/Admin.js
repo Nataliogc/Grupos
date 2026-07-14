@@ -296,9 +296,9 @@ var Dashboard = function Dashboard(_ref2) {
     fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
     (data || []).forEach(function (g) {
       var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
-      var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(function (s) {
+      var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO"].some(function (s) {
         return status.includes(s);
-      });
+      }) || g.excludeFromStatistics === true;
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;
@@ -389,9 +389,9 @@ var Dashboard = function Dashboard(_ref2) {
     filteredGroups.forEach(function (g) {
       var resId = g.Reserva || g.Com_Id || "";
       var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
-      var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(function (s) {
+      var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO"].some(function (s) {
         return status.includes(s);
-      });
+      }) || g.excludeFromStatistics === true;
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;

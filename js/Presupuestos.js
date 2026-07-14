@@ -1360,9 +1360,9 @@ function App() {
     }).filter(function (g) {
       var intEst = (g.Com_Estado_Interno || "").toUpperCase();
       var extEst = (g.Estado || "").toUpperCase();
-      var isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO"].some(function (status) {
+      var isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(function (status) {
         return intEst.includes(status) || extEst.includes(status);
-      });
+      }) || g.excludeFromStatistics === true;
       var isConfirmed = intEst.includes("CONFIRM") || extEst.includes("CONFIRM");
       var departureStr = g.Salida || g.Entrada || "";
       var isPast = departureStr && departureStr < todayStr;
@@ -1530,9 +1530,9 @@ function App() {
       });
     });
   };
-  var handleSave = /*#__PURE__*/function () {
+  var _handleSave = /*#__PURE__*/function () {
     var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
-      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, uidToUpdate, oldDoc, changes, fieldsToTrack, validUpdateData, fallbackData, _t;
+      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
@@ -1699,8 +1699,6 @@ function App() {
                 }
                 if (!newExt.budgetId) newExt.budgetId = reservaId;
                 if (!newExt.version) newExt.version = 1;
-
-                // Detect changes if updating
                 if (oldDocForExtras && oldDocForExtras.extraCharges) {
                   var oldExt = oldDocForExtras.extraCharges.find(function (e) {
                     return e.id === newExt.id;
@@ -1718,8 +1716,15 @@ function App() {
               });
             }
             _context.p = 17;
+            if (!_handleSave.running) {
+              _context.n = 18;
+              break;
+            }
+            return _context.a(2);
+          case 18:
+            _handleSave.running = true;
             if (!isNew) {
-              _context.n = 19;
+              _context.n = 22;
               break;
             }
             groupData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -1729,12 +1734,30 @@ function App() {
               date: formattedDate,
               text: "Presupuesto registrado (Alta Manual)."
             }];
-            _context.n = 18;
+            _context.n = 19;
             return db.collection("groups").doc(reservaId).set(groupData);
-          case 18:
-            _context.n = 21;
-            break;
           case 19:
+            if (!(groupData.Com_Estado_Interno === "CONFIRMADO")) {
+              _context.n = 21;
+              break;
+            }
+            _context.n = 20;
+            return window.confirmBudget({
+              budgetId: reservaId,
+              requestedStatus: "CONFIRMADO",
+              confirmationSource: "Guardado Alta Presupuesto",
+              db: db,
+              confirmedBy: "Usuario"
+            });
+          case 20:
+            res = _context.v;
+            if (res && res.split) {
+              alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(res.childIds.join(', ')));
+            }
+          case 21:
+            _context.n = 27;
+            break;
+          case 22:
             uidToUpdate = groupData.uid;
             oldDoc = groups.find(function (g) {
               return g.uid === uidToUpdate;
@@ -1761,12 +1784,17 @@ function App() {
               groupData.tracking = [{
                 id: Date.now(),
                 date: formattedDate,
-                text: "ðŸ“ " + changes.join(" | ")
+                text: "📌 " + changes.join(" | ")
               }].concat(_toConsumableArray(Array.isArray(oldDoc.tracking) ? oldDoc.tracking : []));
             } else {
               groupData.tracking = Array.isArray(oldDoc.tracking) ? oldDoc.tracking : [];
             }
             delete groupData.uid; // evitar guardarlo duplicado en document fields
+            targetStatus = groupData.Com_Estado_Interno;
+            statusChangedToConfirmed = targetStatus === "CONFIRMADO" && oldDoc.Com_Estado_Interno !== "CONFIRMADO";
+            if (statusChangedToConfirmed) {
+              groupData.Com_Estado_Interno = oldDoc.Com_Estado_Interno || "PRESUPUESTO";
+            }
             validUpdateData = {};
             fallbackData = {}; // Firebase update() no soporta ciertos caracteres en las keys.
             // Extraemos esos campos para guardarlos con set({merge: true})
@@ -1781,33 +1809,67 @@ function App() {
             // Usar update en lugar de set({merge: true}) para que mapas
             // enteros (roomCounts, dailyConfig) se REEMPLACEN, no se deep-mergen.
             if (!(Object.keys(validUpdateData).length > 0)) {
-              _context.n = 20;
+              _context.n = 23;
               break;
             }
-            _context.n = 20;
+            _context.n = 23;
             return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
-          case 20:
+          case 23:
             if (!(Object.keys(fallbackData).length > 0)) {
-              _context.n = 21;
+              _context.n = 24;
               break;
             }
-            _context.n = 21;
+            _context.n = 24;
             return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
               merge: true
             });
-          case 21:
-            setCurrentView('dashboard');
-            _context.n = 23;
+          case 24:
+            if (!statusChangedToConfirmed) {
+              _context.n = 26;
+              break;
+            }
+            _context.n = 25;
+            return window.confirmBudget({
+              budgetId: uidToUpdate,
+              requestedStatus: "CONFIRMADO",
+              confirmationSource: "Guardado Edición Presupuesto",
+              db: db,
+              confirmedBy: "Usuario"
+            });
+          case 25:
+            _res = _context.v;
+            if (_res && _res.split) {
+              alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(_res.childIds.join(', ')));
+            } else {
+              alert("\u2705 Presupuesto confirmado con \xE9xito.");
+            }
+            _context.n = 27;
             break;
-          case 22:
-            _context.p = 22;
+          case 26:
+            if (!(targetStatus && targetStatus !== oldDoc.Com_Estado_Interno)) {
+              _context.n = 27;
+              break;
+            }
+            _context.n = 27;
+            return window.confirmBudget({
+              budgetId: uidToUpdate,
+              requestedStatus: targetStatus,
+              confirmationSource: "Guardado Edición Presupuesto",
+              db: db,
+              confirmedBy: "Usuario"
+            });
+          case 27:
+            setCurrentView('dashboard');
+            _context.n = 29;
+            break;
+          case 28:
+            _context.p = 28;
             _t = _context.v;
             console.error("Error saving budget:", _t);
-            alert("Error al guardar.");
-          case 23:
+          case 29:
             return _context.a(2);
         }
-      }, _callee, null, [[17, 22]]);
+      }, _callee, null, [[17, 28]]);
     }));
     return function handleSave(_x) {
       return _ref35.apply(this, arguments);
@@ -2013,39 +2075,50 @@ function App() {
       return _ref40.apply(this, arguments);
     };
   }();
-  var updateStatus = /*#__PURE__*/function () {
+  var _updateStatus = /*#__PURE__*/function () {
     var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid, newStatus) {
-      var now, formattedDate, budget, newTracking, _t5;
+      var result, _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
           case 0:
             _context5.p = 0;
-            now = new Date();
-            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            budget = groups.find(function (g) {
-              return g.uid === uid;
-            });
-            newTracking = [{
-              id: Date.now(),
-              date: formattedDate,
-              text: "Estado -> ".concat(newStatus)
-            }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
-            _context5.n = 1;
-            return db.collection("groups").doc(uid).update({
-              Com_Estado_Interno: newStatus,
-              tracking: newTracking
-            });
+            if (!_updateStatus.running) {
+              _context5.n = 1;
+              break;
+            }
+            return _context5.a(2);
           case 1:
-            _context5.n = 3;
-            break;
+            _updateStatus.running = true;
+            _context5.n = 2;
+            return window.confirmBudget({
+              budgetId: uid,
+              requestedStatus: newStatus,
+              confirmationSource: "Listado Presupuestos",
+              db: db,
+              confirmedBy: "Usuario"
+            });
           case 2:
-            _context5.p = 2;
-            _t5 = _context5.v;
-            console.error(_t5);
+            result = _context5.v;
+            if (result && result.split) {
+              alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(result.childIds.join(', ')));
+            } else {
+              alert("\u2705 Estado del presupuesto actualizado a ".concat(newStatus, "."));
+            }
+            _context5.n = 4;
+            break;
           case 3:
+            _context5.p = 3;
+            _t5 = _context5.v;
+            console.error("Error al actualizar estado:", _t5);
+            alert("Error: " + _t5.message);
+          case 4:
+            _context5.p = 4;
+            _updateStatus.running = false;
+            return _context5.f(4);
+          case 5:
             return _context5.a(2);
         }
-      }, _callee5, null, [[0, 2]]);
+      }, _callee5, null, [[0, 3, 4, 5]]);
     }));
     return function updateStatus(_x4, _x5) {
       return _ref41.apply(this, arguments);
@@ -2526,7 +2599,7 @@ function App() {
         value: (g.Com_Estado_Interno || g.Estado || '').toUpperCase(),
         onChange: function onChange(e) {
           e.stopPropagation();
-          updateStatus(g.uid, e.target.value);
+          _updateStatus(g.uid, e.target.value);
         },
         onClick: function onClick(e) {
           return e.stopPropagation();
@@ -2556,7 +2629,7 @@ function App() {
       }, /*#__PURE__*/React.createElement("button", {
         onClick: function onClick(e) {
           e.stopPropagation();
-          updateStatus(g.uid, 'CONFIRMADO');
+          _updateStatus(g.uid, 'CONFIRMADO');
         },
         className: "w-7 h-7 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all",
         title: "Confirmar Grupo"
@@ -3906,7 +3979,7 @@ function App() {
       },
       className: "px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all"
     }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-      onClick: handleSave,
+      onClick: _handleSave,
       className: "bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-indigo-200/50"
     }, "Guardar Cotizaci\xF3n"))));
   };
@@ -4102,7 +4175,7 @@ function App() {
       value: (g.Com_Estado_Interno || g.Estado || '').toUpperCase(),
       onChange: function onChange(e) {
         var newStatus = e.target.value;
-        updateStatus(g.uid, newStatus);
+        _updateStatus(g.uid, newStatus);
         setSelectedGroup(_objectSpread(_objectSpread({}, g), {}, {
           Com_Estado_Interno: newStatus
         }));

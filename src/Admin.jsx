@@ -292,7 +292,7 @@
 
         (data || []).forEach(g => {
           const status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
-          const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
+          const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO"].some(s => status.includes(s)) || g.excludeFromStatistics === true;
           const departureDate = parseDate(g.Salida || g.Entrada);
           const isPast = departureDate && departureDate < startOfToday;
 
@@ -387,7 +387,7 @@
         filteredGroups.forEach((g) => {
           const resId = g.Reserva || g.Com_Id || "";
           const status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
-          const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS"].some(s => status.includes(s));
+          const isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO"].some(s => status.includes(s)) || g.excludeFromStatistics === true;
           
           const departureDate = parseDate(g.Salida || g.Entrada);
           const isPast = departureDate && departureDate < startOfToday;

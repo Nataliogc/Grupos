@@ -1236,7 +1236,7 @@
           .filter(g => {
             const intEst = (g.Com_Estado_Interno || "").toUpperCase();
             const extEst = (g.Estado || "").toUpperCase();
-            const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO"].some(status => intEst.includes(status) || extEst.includes(status));
+            const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(status => intEst.includes(status) || extEst.includes(status)) || g.excludeFromStatistics === true;
             const isConfirmed = intEst.includes("CONFIRM") || extEst.includes("CONFIRM");
             
             const departureStr = g.Salida || g.Entrada || "";
@@ -1514,8 +1514,6 @@
              }
              if (!newExt.budgetId) newExt.budgetId = reservaId;
              if (!newExt.version) newExt.version = 1;
-             
-             // Detect changes if updating
              if (oldDocForExtras && oldDocForExtras.extraCharges) {
                 const oldExt = oldDocForExtras.extraCharges.find(e => e.id === newExt.id);
                 if (oldExt) {
@@ -1532,11 +1530,27 @@
         }
 
         try {
+          if (handleSave.running) return;
+          handleSave.running = true;
+
           if (isNew) {
             groupData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
             groupData.Estado = "Presupuesto";
             groupData.tracking = [{ id: Date.now(), date: formattedDate, text: "Presupuesto registrado (Alta Manual)." }];
             await db.collection("groups").doc(reservaId).set(groupData);
+
+            if (groupData.Com_Estado_Interno === "CONFIRMADO") {
+              const res = await window.confirmBudget({
+                budgetId: reservaId,
+                requestedStatus: "CONFIRMADO",
+                confirmationSource: "Guardado Alta Presupuesto",
+                db: db,
+                confirmedBy: "Usuario"
+              });
+              if (res && res.split) {
+                alert(`✅ Serie confirmada y desglosada en reservas individuales: ${res.childIds.join(', ')}`);
+              }
+            }
           } else {
             const uidToUpdate = groupData.uid;
             const oldDoc = groups.find(g => g.uid === uidToUpdate);
@@ -1559,12 +1573,19 @@
             });
 
             if (changes.length > 0) {
-              groupData.tracking = [{ id: Date.now(), date: formattedDate, text: "ðŸ“ " + changes.join(" | ") }, ...(Array.isArray(oldDoc.tracking) ? oldDoc.tracking : [])];
+              groupData.tracking = [{ id: Date.now(), date: formattedDate, text: "📌 " + changes.join(" | ") }, ...(Array.isArray(oldDoc.tracking) ? oldDoc.tracking : [])];
             } else {
               groupData.tracking = Array.isArray(oldDoc.tracking) ? oldDoc.tracking : [];
             }
 
             delete groupData.uid; // evitar guardarlo duplicado en document fields
+
+            const targetStatus = groupData.Com_Estado_Interno;
+            const statusChangedToConfirmed = targetStatus === "CONFIRMADO" && oldDoc.Com_Estado_Interno !== "CONFIRMADO";
+            
+            if (statusChangedToConfirmed) {
+              groupData.Com_Estado_Interno = oldDoc.Com_Estado_Interno || "PRESUPUESTO";
+            }
 
             const validUpdateData = {};
             const fallbackData = {};
@@ -1587,11 +1608,33 @@
             if (Object.keys(fallbackData).length > 0) {
               await db.collection("groups").doc(uidToUpdate).set(fallbackData, { merge: true });
             }
+
+            if (statusChangedToConfirmed) {
+              const res = await window.confirmBudget({
+                budgetId: uidToUpdate,
+                requestedStatus: "CONFIRMADO",
+                confirmationSource: "Guardado Edición Presupuesto",
+                db: db,
+                confirmedBy: "Usuario"
+              });
+              if (res && res.split) {
+                alert(`✅ Serie confirmada y desglosada en reservas individuales: ${res.childIds.join(', ')}`);
+              } else {
+                alert(`✅ Presupuesto confirmado con éxito.`);
+              }
+            } else if (targetStatus && targetStatus !== oldDoc.Com_Estado_Interno) {
+              await window.confirmBudget({
+                budgetId: uidToUpdate,
+                requestedStatus: targetStatus,
+                confirmationSource: "Guardado Edición Presupuesto",
+                db: db,
+                confirmedBy: "Usuario"
+              });
+            }
           }
           setCurrentView('dashboard');
         } catch (error) {
           console.error("Error saving budget:", error);
-          alert("Error al guardar.");
         }
       };
 
@@ -1759,12 +1802,28 @@ ${emailContent}`;
 
       const updateStatus = async (uid, newStatus) => {
         try {
-          const now = new Date();
-          const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          const budget = groups.find(g => g.uid === uid);
-          const newTracking = [{ id: Date.now(), date: formattedDate, text: `Estado -> ${newStatus}` }, ...(Array.isArray(budget.tracking) ? budget.tracking : [])];
-          await db.collection("groups").doc(uid).update({ Com_Estado_Interno: newStatus, tracking: newTracking });
-        } catch (error) { console.error(error); }
+          if (updateStatus.running) return;
+          updateStatus.running = true;
+
+          const result = await window.confirmBudget({
+            budgetId: uid,
+            requestedStatus: newStatus,
+            confirmationSource: "Listado Presupuestos",
+            db: db,
+            confirmedBy: "Usuario"
+          });
+          
+          if (result && result.split) {
+            alert(`✅ Serie confirmada y desglosada en reservas individuales: ${result.childIds.join(', ')}`);
+          } else {
+            alert(`✅ Estado del presupuesto actualizado a ${newStatus}.`);
+          }
+        } catch (error) {
+          console.error("Error al actualizar estado:", error);
+          alert("Error: " + error.message);
+        } finally {
+          updateStatus.running = false;
+        }
       };
 
       const duplicateBudgetToOtherHotel = async (budget) => {

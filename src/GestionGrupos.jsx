@@ -1402,6 +1402,15 @@
 
         let filtered = normalizedData;
 
+        // Excluir de estadísticas y listados generales si está desglosado o excluido
+        filtered = filtered.filter(row => {
+          const statusVal = (row["Com_Estado_Interno"] || row["Estado"] || "").toUpperCase();
+          if (row.excludeFromStatistics === true || statusVal === "DESGLOSADO" || row.status === "DESGLOSADO") {
+            return false;
+          }
+          return true;
+        });
+
 
 
         // 0. Filtro de Validez (Reserva obligatoria) + Normalización de Segmentos
@@ -5772,6 +5781,40 @@
             (!hotelFilterArg ||
               (r["Hotel_Asignado"] || r["Hotel"]) === hotelFilterArg),
         );
+
+        if (updates["Com_Estado_Interno"] !== undefined) {
+          const newStatus = updates["Com_Estado_Interno"];
+          const currentStatus = currentGroupRows[0]?.Com_Estado_Interno || currentGroupRows[0]?.Estado || "";
+          
+          if (newStatus !== currentStatus) {
+            try {
+              if (updateGroupMetadata.running) return;
+              updateGroupMetadata.running = true;
+
+              const res = await window.confirmBudget({
+                budgetId: normTargetId,
+                requestedStatus: newStatus,
+                confirmationSource: "Ficha Grupo",
+                db: db,
+                confirmedBy: "Usuario"
+              });
+
+              if (res && res.split) {
+                alert(`✅ Serie confirmada y desglosada en reservas individuales: ${res.childIds.join(', ')}`);
+                setShowFichaModal(false);
+              } else {
+                alert(`✅ Estado actualizado a ${newStatus}.`);
+              }
+              return;
+            } catch (err) {
+              console.error("Error confirmBudget in updateGroupMetadata:", err);
+              alert("Error: " + err.message);
+              return;
+            } finally {
+              updateGroupMetadata.running = false;
+            }
+          }
+        }
 
         // --- VALIDACIÓN HOTEL ---
         const hVal = updates["Hotel_Asignado"] !== undefined ? updates["Hotel_Asignado"] : updates["Hotel"];
