@@ -490,10 +490,14 @@ async function runDryRun(db) {
 // -------------------------------------------------------------
 // EJECUCIÓN DE ELIMINACIÓN Y ARCHIVADO COMBINADO (Atomic Batch)
 // -------------------------------------------------------------
-async function executeCleanup(db, manifestPath, confirmCount) {
+async function executeCleanup(db, manifestPath, confirmCount, confirmSha256) {
     const startTime = new Date();
     if (!fs.existsSync(manifestPath)) {
         throw new Error(`Manifiesto no encontrado en la ruta: ${manifestPath}`);
+    }
+
+    if (!confirmSha256) {
+        throw new Error("❌ ERROR: Debes confirmar el hash del manifiesto usando --confirm-sha256 <hash>");
     }
 
     console.log("Leyendo manifiesto...");
@@ -501,15 +505,30 @@ async function executeCleanup(db, manifestPath, confirmCount) {
     const candidates = backupData.records;
     const cleanupId = path.basename(manifestPath, '.json');
 
-    // Recalcular SHA256 del contenido de los records para verificación de integridad
+    // Recalcular SHA256
+    // 1. Recalcular hash de los registros
     const calculatedRecordsHash = crypto.createHash('sha256').update(JSON.stringify(backupData.records)).digest('hex');
-    const expectedHash = "e5a12a78f3be80874918c08726d203c5480d1ee82608b5c2cad6226bb466362c";
-    console.log(`Hash calculado de los registros: ${calculatedRecordsHash}`);
-    console.log(`Hash esperado de los registros:   ${expectedHash}`);
+    // 2. Recalcular hash de los bytes del archivo
+    const fileBytes = fs.readFileSync(manifestPath);
+    const calculatedBytesHash = crypto.createHash('sha256').update(fileBytes).digest('hex');
 
-    if (calculatedRecordsHash !== expectedHash) {
-        throw new Error(`CRITICAL: El hash calculado (${calculatedRecordsHash}) no coincide con el esperado (${expectedHash}). Abortando por seguridad.`);
+    // Comprobar coincidencia
+    let matchedHash = null;
+    if (confirmSha256 === calculatedRecordsHash) {
+        matchedHash = calculatedRecordsHash;
+    } else if (confirmSha256 === calculatedBytesHash) {
+        matchedHash = calculatedBytesHash;
     }
+
+    console.log(`Manifest SHA256 expected: ${confirmSha256}`);
+    console.log(`Manifest SHA256 calculated: ${matchedHash || calculatedRecordsHash}`);
+
+    if (!matchedHash) {
+        console.log("Manifest integrity: FAILED");
+        throw new Error(`CRITICAL: El hash calculado (${calculatedRecordsHash}) no coincide con el esperado (${confirmSha256}). Abortando por seguridad.`);
+    }
+
+    console.log("Manifest integrity: PASSED");
 
     if (candidates.length !== confirmCount) {
         throw new Error(`CRITICAL: La cantidad de candidatos en el manifiesto (${candidates.length}) no coincide con --confirm-count (${confirmCount}). Ejecución abortada.`);
@@ -724,6 +743,8 @@ async function run() {
     let restorePath = null;
     let overwrite = false;
 
+    let confirmSha256 = null;
+
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--dry-run' || args[i] === '--analyze') action = 'dry-run';
         else if (args[i] === '--delete') action = 'delete';
@@ -733,6 +754,7 @@ async function run() {
         }
         else if (args[i] === '--confirm-project') confirmProject = args[++i];
         else if (args[i] === '--confirm-count') confirmCount = parseInt(args[++i], 10);
+        else if (args[i] === '--confirm-sha256') confirmSha256 = args[++i];
         else if (args[i] === '--manifest') manifestPath = args[++i];
         else if (args[i] === '--overwrite') overwrite = true;
     }
@@ -755,7 +777,7 @@ async function run() {
             console.error("❌ ERROR: Debes especificar la cantidad confirmada usando --confirm-count <cantidad>");
             process.exit(1);
         }
-        await executeCleanup(db, manifestPath, confirmCount);
+        await executeCleanup(db, manifestPath, confirmCount, confirmSha256);
     } else if (action === 'restore') {
         if (!confirmProject || confirmProject !== 'gest-grupos-hotel') {
             console.error("❌ ERROR: Debes confirmar el proyecto usando --confirm-project gest-grupos-hotel");
