@@ -1,0 +1,2235 @@
+[
+  {
+    "id": "00336394 BTRAVEL NAVALMORAL",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "110",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "111",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "116",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "1206268-4",
+    "name": "",
+    "estado": "",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "199721",
+    "name": "BAILA CONMIGO 2026",
+    "estado": "ANULADA",
+    "entrada": "2026-06-05",
+    "salida": "2026-06-07",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "199823",
+    "name": "TANGO MALEVAJE",
+    "estado": "ANULADA",
+    "entrada": "2026-05-08",
+    "salida": "2026-05-10",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "1A65PA68966 GRUPOS3@INTERRIAS.",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200550",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-05-03",
+    "salida": "2026-05-08",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200551",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-05-10",
+    "salida": "2026-05-15",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200552",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-05-17",
+    "salida": "2026-05-22",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200553",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-05-24",
+    "salida": "2026-05-29",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200554",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-05-31",
+    "salida": "2026-06-05",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200555",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-06-07",
+    "salida": "2026-06-12",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200556",
+    "name": "HOLAINCLOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-06-14",
+    "salida": "2026-06-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200557",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-06-21",
+    "salida": "2026-06-26",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200558",
+    "name": "HOLAINCOMING",
+    "estado": "ANULADA",
+    "entrada": "2026-06-28",
+    "salida": "2026-07-03",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200569",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-05-08",
+    "salida": "2026-05-11",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200570",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-05-15",
+    "salida": "2026-05-18",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200571",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-05-22",
+    "salida": "2026-05-25",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200572",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-05-29",
+    "salida": "2026-06-01",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200573",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-06-12",
+    "salida": "2026-06-15",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200574",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-06-19",
+    "salida": "2026-06-22",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200575",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-06-26",
+    "salida": "2026-06-29",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200576",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-03",
+    "salida": "2026-07-06",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "200577",
+    "name": "ALICIASAAVEDRA@CNTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-10",
+    "salida": "2026-07-14",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "201321",
+    "name": "INFO@MITOURCOSTABLANCA.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-01-10",
+    "salida": "2026-01-11",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "202052",
+    "name": "AR08 GRUPOS27@CNTRAVELGRUPOS.E",
+    "estado": "ANULADA",
+    "entrada": "2026-05-01",
+    "salida": "2026-05-03",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "202308",
+    "name": "TMONTOLIO@SEMFYC..ES",
+    "estado": "ANULADA",
+    "entrada": "2026-04-23",
+    "salida": "2026-04-26",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "202371",
+    "name": "TABLAO Y TUMBAO",
+    "estado": "ANULADA",
+    "entrada": "2026-01-16",
+    "salida": "2026-01-18",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "202767",
+    "name": "TANGO MAR MOHINO",
+    "estado": "ANULADA",
+    "entrada": "2026-09-03",
+    "salida": "2026-09-06",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "203580",
+    "name": "DAVID@FECAMCLM.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-06-26",
+    "salida": "2026-06-28",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "203581",
+    "name": "GRUPOS2@TABORATOURS.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-02-13",
+    "salida": "2026-02-15",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "203601",
+    "name": "GRUPOSEYLO@GMAIL.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-04-02",
+    "salida": "2026-04-04",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "204042",
+    "name": "INFO@DONDETELLEVO.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-15",
+    "salida": "2026-07-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "204084",
+    "name": "GRUPO SOLO VIAJEROS",
+    "estado": "ANULADA",
+    "entrada": "2026-04-23",
+    "salida": "2026-04-26",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "204120",
+    "name": "NATACIONRESERVAVIAJES@GMAIL.CO",
+    "estado": "ANULADA",
+    "entrada": "2026-07-15",
+    "salida": "2026-07-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "204135",
+    "name": "SUSANA@CELTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-15",
+    "salida": "2026-07-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "204159",
+    "name": "335853 TRIATHLON BLOQUEO",
+    "estado": "ANULADA",
+    "entrada": "2026-03-20",
+    "salida": "2026-03-22",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "205094",
+    "name": "@CAMARACR.ORG",
+    "estado": "ANULADA",
+    "entrada": "2026-05-04",
+    "salida": "2026-05-07",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "205110",
+    "name": "GRUPOS6@QWAYTRAVEL.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-02-28",
+    "salida": "2026-03-02",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "205176",
+    "name": "GRUPOSOPE5@EUROPAMUNDO.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-09-13",
+    "salida": "2026-09-14",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "205281",
+    "name": "01754268 GRUPOS@HOTUSAGROUPS.C",
+    "estado": "ANULADA",
+    "entrada": "2026-03-26",
+    "salida": "2026-03-28",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "205496",
+    "name": "OSCAR.GARCIA@TRANSVIAJES.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-03-25",
+    "salida": "2026-03-27",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "206268-2",
+    "name": "",
+    "estado": "",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "206288",
+    "name": "MARIA@VIAJESELIMAR.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-05-23",
+    "salida": "2026-05-24",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "206300",
+    "name": "GRX-LASGABIAS@HALCONVIANES.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-04-10",
+    "salida": "2026-04-12",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "206415",
+    "name": "GRUPOS@CIRTUR.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-05-15",
+    "salida": "2026-05-17",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "206465",
+    "name": "MULTIEVENTOSJC@GMAIL.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-06-13",
+    "salida": "2026-06-14",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "206661",
+    "name": "VIAJESPICHARDO@GMAIL.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-07-08",
+    "salida": "2026-07-13",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "207087",
+    "name": "MARCOS@VIAJESNEVADA.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-06-26",
+    "salida": "2026-06-28",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "207128",
+    "name": "COMUNION ALBA",
+    "estado": "ANULADA",
+    "entrada": "2026-05-09",
+    "salida": "2026-05-10",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "207422",
+    "name": "GRUPOS.MARSOL@MARSOL.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-05-30",
+    "salida": "2026-05-31",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "208462",
+    "name": "260524-N-FCE544  FLYING INTER",
+    "estado": "ANULADA",
+    "entrada": "2026-05-30",
+    "salida": "2026-05-31",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "208815",
+    "name": "JEREZ SUR INMA@VIAJESNEVADA.CO",
+    "estado": "ANULADA",
+    "entrada": "2026-10-28",
+    "salida": "2026-10-30",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "208992",
+    "name": "TORERO AGUADO ONUBAS@HOTMAI",
+    "estado": "ANULADA",
+    "entrada": "2026-08-19",
+    "salida": "2026-08-21",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "209003",
+    "name": "PGA",
+    "estado": "ANULADA",
+    "entrada": "2026-05-21",
+    "salida": "2026-05-24",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "209676",
+    "name": "SUSANA@CELTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-03",
+    "salida": "2026-07-05",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "209679",
+    "name": "AUTOCARES EL TORERO",
+    "estado": "ANULADA",
+    "entrada": "2026-05-22",
+    "salida": "2026-05-23",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "210290",
+    "name": "AREAEVENTOS@VIAJESECI.ES",
+    "estado": "ANULADA",
+    "entrada": "2027-06-03",
+    "salida": "2027-06-06",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "210293",
+    "name": "AREAEVENTOS@VIAJESECI.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-11-26",
+    "salida": "2026-11-29",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "210557",
+    "name": "GRUPOS@IRISTOURSVACANCES.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-11-06",
+    "salida": "2026-11-08",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "210742",
+    "name": "BLOQ GRUPOS INTERPLAN",
+    "estado": "ANULADA",
+    "entrada": "09/05/2027",
+    "salida": "14/05/2027",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "210865",
+    "name": "GRUPO SAHARA CHIDALGOGARCIA@HO",
+    "estado": "ANULADA",
+    "entrada": "2026-09-28",
+    "salida": "2026-10-01",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "211592",
+    "name": "PSOE",
+    "estado": "ANULADA",
+    "entrada": "17/07/2026",
+    "salida": "18/07/2026",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "260413-N-FCE484 FLYING INTERNA",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "262903.206268-3",
+    "name": "",
+    "estado": "",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "262905.206268-1",
+    "name": "",
+    "estado": "",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "262907.206268-5",
+    "name": "",
+    "estado": "",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "44",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "60",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "72988",
+    "name": "DAVID@FECAMCLM.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-06-26",
+    "salida": "2026-06-28",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "73278",
+    "name": "INFO@DONDETELLEVO.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-15",
+    "salida": "2026-07-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "73318",
+    "name": "RAFA@OPENTOURS.TRAVEL",
+    "estado": "ANULADA",
+    "entrada": "2026-07-15",
+    "salida": "2026-07-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "73319",
+    "name": "NATACIONRESERVAVIAJES@GMAIL.CO",
+    "estado": "ANULADA",
+    "entrada": "2026-07-15",
+    "salida": "2026-07-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "73672",
+    "name": "CELTC3S4W SUSANA@CELTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-06-24",
+    "salida": "2026-06-28",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "73673",
+    "name": "CELTC3S4W SUSANA@CELTRAVAL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-08",
+    "salida": "2026-07-12",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "73674",
+    "name": "CELTC3S4W SUSANA@CELTRAVEL.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-07-22",
+    "salida": "2026-07-26",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "74909",
+    "name": "GRUPOS@AIRBUSGALICIA.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-04-02",
+    "salida": "2026-04-05",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "75216",
+    "name": "VIAJESPICHARDO@GMAIL.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-07-08",
+    "salida": "2026-07-13",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "76244",
+    "name": "TGSS",
+    "estado": "ANULADA",
+    "entrada": "2026-05-12",
+    "salida": "2026-05-15",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "76403",
+    "name": "JEREZ SUR INMA@VIAJESNEVADA.CO",
+    "estado": "ANULADA",
+    "entrada": "2026-10-28",
+    "salida": "2026-10-30",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "76460",
+    "name": "37010258 GRUPOS14@CNTRAVELGRUP",
+    "estado": "ANULADA",
+    "entrada": "2026-06-18",
+    "salida": "2026-06-19",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "76646",
+    "name": "GRUPO ESTUDIANTES",
+    "estado": "ANULADA",
+    "entrada": "16/04/2026",
+    "salida": "17/04/2026",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "76950",
+    "name": "BAZU AZUQUECA ZAPAURE71@HOTMAI",
+    "estado": "ANULADA",
+    "entrada": "25/04/2026",
+    "salida": "26/04/2026",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "77719",
+    "name": "CRISTINA.ELIPE@NYMOUNT.ES",
+    "estado": "ANULADA",
+    "entrada": "2026-06-25",
+    "salida": "2026-06-26",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "77881",
+    "name": "GRUPOS3@LORTRAVEL.COM",
+    "estado": "ANULADA",
+    "entrada": "2026-09-25",
+    "salida": "2026-09-27",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "78348",
+    "name": "RESERVAS@PARALELO66.COM",
+    "estado": "ANULADA",
+    "entrada": "31/12/2026",
+    "salida": "03/01/2027",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "AG",
+    "name": "Agencias",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "AGUA-SAC ADICIONALES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "AGUSTINCARRILLO@FESPM.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ALCERCIUDADREAL@HOTMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ALEXANDRA.GAMERO@HALCONVIAJES.",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ALVARO.UP@HOTMAIL.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ANDALUCIA2026@VIAJESECI.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ASOCIACIÓN ALCER",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ASOCIACIÓN SOCIOCULTURAL TRAMO",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "Agencias",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "BODA ANTONIO CARAVACA",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CD",
+    "name": "CORPORATIVO DINAMICO",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CEHEGIN MAR@COLORESDELMUNDO",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CENTRAL01@FEELTRAVEL.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CLUBAJEDREZCIUDADREAL@GMAIL.CO",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "COMUNION ALBA",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CONGRESO AGUA-SAC",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CONTABILIDAD@UPPERMAT.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CORPORATIVO DINAMICO",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "CORPORATIVO LINEAL",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "D0512@NAUTALIAVIAJES.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "DAVID@FECAMCLM.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "DBERRUGA@LARODA.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "DI",
+    "name": "TTOO DINAMICA",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "DIRECTO OFFLINE",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "DIRONLINE",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "DULCINEA TANGO (MANU)",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "Descripcion",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "EAPN",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "EDDIONFUTURE@GMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "EM",
+    "name": "Empresas",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "EVA@VIAJESNEVADA.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "Empresas",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "FAMILIA PELAYO",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "FEDERICO@VIAJESALBER.NET",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GESTION@SEGANOSA.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRTANTEO",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPO ALVARO",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPO SOLO VIAJEROS",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPO UNV FILOSOFIA",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPOS",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPOS SEISURE 00358830",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPOS.MARSOL@MARSOL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPOS@CIRTUR.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPOS@RUTASGALEGRIA.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPOS@VIAJESINNOVATRAVEL.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "GRUPOSEYLO@GMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "INFO@BALONMANOCANGAS.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "INFO@MITOURCOSTABLANCA.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "INMA@VIAJESNEVADA.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "J.CASANOVA.LASPALMAS@FOLDER.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "LMVALERO@DRAGOEVENTOS.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "LOLA@VIAJESOCEAN.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MALAGA MARCOS@VIAJESNEVADA.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MALAKACENTRAL@MALAKAVIAJES.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MAR@COLORESDELMUNDOVIAJES.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MARCOS@VIAJESNEVADA.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MARCOS@VIAJESNEVADA.COM CADIZ",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MARIA@VIAJESELIMAR.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MAZARIOONTOUR@MAZARIO.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "MULTIEVENTOSJC@GMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "NG",
+    "name": "Tarifas Negociadas",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "OR",
+    "name": "OTROS",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ORGANIZACION BAILA CONMIGO",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "OT",
+    "name": "OTA/AAVV",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "OTA-AAVV",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "OTROS",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PA",
+    "name": "Particulares",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PAU JUANANGEL.ALVAREZ@UCLM.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PAULAPINAPROD@GMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-1772389788559",
+    "name": "GIRA SILOE",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-08-14",
+    "salida": "2026-08-16",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-1772477995164",
+    "name": "TWISTER TEAM -campeonato regional de kickboxing K1",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-03-13",
+    "salida": "2026-03-14",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-242239",
+    "name": "V1284",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-06-11",
+    "salida": "2026-06-14",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-320693",
+    "name": "Serie Interplan ",
+    "estado": "CADUCADO",
+    "entrada": "2027-02-12",
+    "salida": "2027-12-08",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-435032",
+    "name": "GUAPALSA S.L.",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-04-13",
+    "salida": "2026-04-17",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-466999",
+    "name": "GRUPO SANTANDER",
+    "estado": "CADUCADO",
+    "entrada": "2026-09-27",
+    "salida": "2026-10-02",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-545318",
+    "name": "GRUPOS VIAJES ESTYSOL",
+    "estado": "CADUCADO",
+    "entrada": "2026-10-04",
+    "salida": "2026-10-07",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-622202",
+    "name": "VIAJES NEWTOURVIS",
+    "estado": "CADUCADO",
+    "entrada": "2024-09-09",
+    "salida": "2024-09-12",
+    "categories": [
+      "empty_stale",
+      "old_cancelled"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-628165",
+    "name": "RUBEN MARTOREL",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-10-09",
+    "salida": "2026-10-11",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-636737",
+    "name": "EVENTIBA EVENT MANAGEMENT",
+    "estado": "CADUCADO",
+    "entrada": "2024-06-26",
+    "salida": "2024-06-28",
+    "categories": [
+      "old_cancelled"
+    ],
+    "isEmpty": false
+  },
+  {
+    "id": "PRES-663491",
+    "name": "G. GINÉS",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-06-06",
+    "salida": "2026-06-08",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-690767",
+    "name": "EVENTAZO",
+    "estado": "DESESTIMADO",
+    "entrada": "2024-05-21",
+    "salida": "2024-05-22",
+    "categories": [
+      "empty_stale",
+      "old_cancelled"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-770443",
+    "name": "GRUPO DE TAMITRIP ",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-06-13",
+    "salida": "2026-06-14",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-780057",
+    "name": "ESTUDIANTES",
+    "estado": "DESESTIMADO",
+    "entrada": "2024-07-02",
+    "salida": "2024-07-03",
+    "categories": [
+      "empty_stale",
+      "old_cancelled"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-827067",
+    "name": "CAMPEONATO TAEKWONDO",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-05-22",
+    "salida": "2026-05-24",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-892888",
+    "name": "CAMPUS INCLUSIVO",
+    "estado": "DESESTIMADO",
+    "entrada": "2024-06-28",
+    "salida": "2024-07-05",
+    "categories": [
+      "empty_stale",
+      "old_cancelled"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-896290",
+    "name": "VIAJES ESTYSOL",
+    "estado": "DESESTIMADO",
+    "entrada": "2023-09-11",
+    "salida": "2023-09-13",
+    "categories": [
+      "old_cancelled"
+    ],
+    "isEmpty": false
+  },
+  {
+    "id": "PRES-976823",
+    "name": "POLICIAS",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-10-14",
+    "salida": "2026-10-16",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES-981237",
+    "name": "GRUPO CHICHARRADA",
+    "estado": "DESESTIMADO",
+    "entrada": "2026-05-15",
+    "salida": "2026-05-17",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRES. 9732",
+    "name": "",
+    "estado": "CANCELADO",
+    "entrada": "21-04-2026",
+    "salida": "24-04-2026",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "PRESIDENCIA@SERVICIOREIKI.ORG",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "Particulares",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "RCERRO@CAMARACR.ORG",
+    "name": "",
+    "estado": "CANCELADO",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "REALIATOURINMA@GMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ROMANSINUES@HOTMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "ROSARIO MARCOS@VIAJESNEVADA.C",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "SALSEA 2027",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "SANALIATOURS@GMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "SUSANA@CELTRAVEL.ES",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "SWING ORGANIZACIÓN",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "Segmentacion",
+    "name": "Descripcion",
+    "estado": "ANULADA",
+    "entrada": "Confirmadas",
+    "salida": "Anuladas",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "Sercotel",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "TEATROROBRES@GMAIL.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "TEMP-1777553468373-88",
+    "name": "Reservas de Grupos ANULADAS",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "temp"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "TEMP-1777553468381-163",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "25/04/1900",
+    "salida": "28/02/1900",
+    "categories": [
+      "temp",
+      "year1900",
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "TINA FERNANDEZ PELAYO",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "TTOO DINAMICA",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "Tarifas Negociadas",
+    "name": "",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed",
+      "empty_stale"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "VANESA.CALDERON@TOURDIEZ.COM",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "XX52 GRUPOS27@CNTRAVELGRUPOS.E",
+    "name": "",
+    "estado": "CONFIRMADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "prof-1776559293347",
+    "name": "",
+    "estado": "",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "prof-1782636261431",
+    "name": "",
+    "estado": "",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "unnamed"
+    ],
+    "isEmpty": true
+  },
+  {
+    "id": "sc",
+    "name": "Sercotel",
+    "estado": "ANULADA",
+    "entrada": "",
+    "salida": "",
+    "categories": [
+      "empty_stale"
+    ],
+    "isEmpty": true
+  }
+]
