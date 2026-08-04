@@ -2044,6 +2044,7 @@
             const pBank = document.getElementById('proforma-bank-container');
             if (pSummary) pSummary.innerHTML = '';
             if (pBank) pBank.innerHTML = '';
+            const showBank = sessionStorage.getItem('proforma_bank_hidden') !== '1';
 
             let processedItems = [...items];
             let zeroPriceRooms = processedItems.filter(i => (parseFloat(i.precio) || 0) === 0 && (i.concepto || '').match(/DOBLE|INDIVIDUAL|HAB|DUI|SGL|TPL/i) && !String(i.concepto).includes("GRATUIDAD"));
@@ -2185,7 +2186,7 @@
                             </div>
                         </div>
                         <div class="space-y-4">
-                            ${(!(groupData["Enlace_TPV"] || h.paymentGateway) && !isFullyPaid) ? `
+                            ${(showBank && !(groupData["Enlace_TPV"] || h.paymentGateway) && !isFullyPaid) ? `
                             <div class="bg-gradient-to-br from-slate-50 to-white pt-2 pb-4 px-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
                                  <div class="flex items-center gap-2 mb-3 relative z-10"><h5 class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] pt-0.5">Transferencia Bancaria</h5></div>
                                  <div class="relative z-10 flex border-t border-slate-100 pt-3">
@@ -2239,19 +2240,18 @@
                 if (base21 > 0) ivaRows += `<tr><td class="text-left px-3 py-1.5 text-slate-500">Base Imponible (21%)</td><td class="text-right px-3 py-1.5 tabular-nums">${formatNum(base21)}  EUR</td></tr><tr><td class="text-left px-3 py-1.5 text-slate-500">IVA (21%)</td><td class="text-right px-3 py-1.5 tabular-nums font-bold">${formatNum(iva21)}  EUR</td></tr>`;
                 if (pSummary) pSummary.innerHTML = `<div class="flex flex-row justify-end items-start gap-3 w-full"><div class="proforma-total-box w-[240px] shadow-lg flex-shrink-0"><span class="text-[9px] font-bold uppercase tracking-widest mr-4">Total:</span><span class="text-lg tabular-nums font-black">${formatNum(netTotal)}  EUR</span></div>${ivaRows ? `<table class="text-[9px] w-[270px] border-collapse border border-gray-200 rounded-lg overflow-hidden flex-shrink-0"><thead><tr class="bg-gray-50"><td colspan="2" class="text-[8px] font-black text-slate-400 uppercase tracking-widest px-3 py-1.5">Desglose Fiscal</td></tr></thead><tbody class="font-mono text-[9px]">${ivaRows}</tbody></table>` : ''}</div>`;
                 
-                const showBank = sessionStorage.getItem('proforma_bank_hidden') !== '1';
                 if (pBank && showBank) {
                     pBank.innerHTML = `<div class="mt-3 w-full h-px bg-slate-200"></div><div style="margin-top:8px; display:flex; align-items:stretch; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:white;"><div style="width:4px; background:#1e293b;"></div><div style="padding:8px 14px; flex:1;"><div style="font-size:5px; font-weight:700; text-transform:uppercase; color:#cbd5e1;">Transferencia Bancaria</div><div style="font-size:14px; font-weight:900; letter-spacing:0.08em; color:#0f172a; font-family:'Courier Prime', monospace;">${h.iban}</div><div style="font-size:6px; color:#94a3b8;">${h.bank} Â· Beneficiario: <strong>${h.company}</strong></div></div></div>`;
                 } else if (pBank) {
                     pBank.innerHTML = '';
                 }
-                
-                const btnBank = document.getElementById('toggle-bank-btn');
-                const btnText = document.getElementById('bank-btn-text');
-                if (btnBank && btnText) {
-                    btnText.innerText = showBank ? 'Banco: ON' : 'Banco: OFF';
-                    btnBank.className = showBank ? 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 shadow-lg text-[10px] font-black uppercase tracking-wider transition-all' : 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/50 border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all';
-                }
+            }
+
+            const btnBank = document.getElementById('toggle-bank-btn');
+            const btnText = document.getElementById('bank-btn-text');
+            if (btnBank && btnText) {
+                btnText.innerText = showBank ? 'Banco: ON' : 'Banco: OFF';
+                btnBank.className = showBank ? 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 shadow-lg text-[10px] font-black uppercase tracking-wider transition-all' : 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/50 border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all';
             }
             updatePaymentLink();
             validateProformaAgainstSource();
