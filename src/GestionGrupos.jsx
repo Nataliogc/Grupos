@@ -944,14 +944,16 @@
           });
         }
 
-        // 2. Search in Com_Vencimiento_Rel manual field
-        const manualRel = group.records?.[0]?.["Com_Vencimiento_Rel"];
-        if (manualRel) {
-          const dStr = toInputDate(manualRel);
-          if (dStr) {
-            if (!deadlineDateStr || dStr < deadlineDateStr) {
-              deadlineDateStr = dStr;
-              isPaymentPlanDeadline = false;
+        // 2. Search in Com_Vencimiento_Rel manual field (solo si no es crédito)
+        if (!isCredito) {
+          const manualRel = group.records?.[0]?.["Com_Vencimiento_Rel"];
+          if (manualRel) {
+            const dStr = toInputDate(manualRel);
+            if (dStr) {
+              if (!deadlineDateStr || dStr < deadlineDateStr) {
+                deadlineDateStr = dStr;
+                isPaymentPlanDeadline = false;
+              }
             }
           }
         }
@@ -9299,6 +9301,37 @@
 
                                 }
 
+                                const isGroupCredito = Boolean(
+                                  group?.isCredito ||
+                                  group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                                );
+
+                                if (isGroupCredito) {
+
+                                  return (
+
+                                    <div className="flex flex-col items-center">
+
+                                      <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 whitespace-nowrap">
+
+                                        <IconCreditCard size={9} stroke={2.5} />
+
+                                        A CRÉDITO
+
+                                      </span>
+
+                                      <span className="text-[8px] text-indigo-500 font-bold mt-0.5 tracking-tighter">
+
+                                        Sin prepago
+
+                                      </span>
+
+                                    </div>
+
+                                  );
+
+                                }
+
                                 const todayStr = new Date().toISOString().split("T")[0];
 
                                 const info = getDeadlineInfo(group, todayStr);
@@ -9425,27 +9458,39 @@
 
                                     </div>
 
-                                    {isFullyPaid ? (
+                                    {(() => {
+                                      const isRowCredito = Boolean(
+                                        group?.isCredito ||
+                                        group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                                      );
 
-                                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                      if (isFullyPaid) {
+                                        return (
+                                          <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                            <IconCheck size={10} /> OK
+                                          </span>
+                                        );
+                                      }
 
-                                        <IconCheck size={10} /> OK
+                                      if (isRowCredito) {
+                                        return (
+                                          <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                                            <IconCreditCard size={9} stroke={2} />
+                                            {formatNum(pending, true)} crédito
+                                          </span>
+                                        );
+                                      }
 
-                                      </span>
+                                      if (pending > 0.05) {
+                                        return (
+                                          <span className="text-[10px] font-bold text-rose-600 tabular-nums">
+                                            {formatNum(pending, true)} pdte.
+                                          </span>
+                                        );
+                                      }
 
-                                    ) : (
-
-                                      pending > 0.05 && (
-
-                                        <span className="text-[10px] font-bold text-rose-600 tabular-nums">
-
-                                          {formatNum(pending, true)} pdte.
-
-                                        </span>
-
-                                      )
-
-                                    )}
+                                      return null;
+                                    })()}
 
                                   </div>
 
