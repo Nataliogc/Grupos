@@ -3600,11 +3600,31 @@ function App() {
           key: percent,
           type: "button",
           onClick: function onClick() {
-            return setQuickPercent(percent);
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              Es_Credito: false
+            }));
+            setQuickPercent(percent);
           },
           className: "px-3 py-2 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-100 rounded-xl text-[9px] font-black transition-all"
         }, percent, "%");
-      }))), plan.length === 0 ? /*#__PURE__*/React.createElement("button", {
+      }), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            Es_Credito: !formData.Es_Credito,
+            PaymentPlan_JSON: "[]"
+          }));
+        },
+        className: "px-3 py-2 border rounded-xl text-[9px] font-black transition-all flex items-center gap-1.5 ".concat(formData.Es_Credito ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border-slate-100")
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-credit-card text-[8px]"
+      }), " ", formData.Es_Credito ? "A Crédito" : "Crédito"))), formData.Es_Credito && plan.length === 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-center space-y-1"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "text-[10px] font-black text-indigo-700 uppercase tracking-wider"
+      }, "A Cr\xE9dito (Sin Pago Anticipado)"), /*#__PURE__*/React.createElement("p", {
+        className: "text-[9px] text-indigo-900/60 font-medium"
+      }, "Este presupuesto se emite con l\xEDnea de cr\xE9dito concedida. No se requieren dep\xF3sitos ni pagos anticipados previos.")) : plan.length === 0 ? /*#__PURE__*/React.createElement("button", {
         type: "button",
         onClick: function onClick() {
           return setQuickPercent(30);

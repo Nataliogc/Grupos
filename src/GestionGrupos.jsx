@@ -919,24 +919,30 @@
       const getDeadlineInfo = (group, todayStr) => {
         let deadlineDateStr = null;
         let isPaymentPlanDeadline = false;
+        const isCredito = Boolean(
+          group?.isCredito ||
+          group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+        );
 
-        // 1. Search in payment plan
-        (group.records || []).forEach((r) => {
-          try {
-            const plan = JSON.parse(r.PaymentPlan_JSON || "[]");
-            plan.forEach((p) => {
-              if (p.status !== "Cobrado" && p.date) {
-                const dStr = toInputDate(p.date);
-                if (dStr) {
-                  if (!deadlineDateStr || dStr < deadlineDateStr) {
-                    deadlineDateStr = dStr;
-                    isPaymentPlanDeadline = true;
+        // 1. Search in payment plan (solo si no es a crédito)
+        if (!isCredito) {
+          (group.records || []).forEach((r) => {
+            try {
+              const plan = JSON.parse(r.PaymentPlan_JSON || "[]");
+              plan.forEach((p) => {
+                if (p.status !== "Cobrado" && p.date) {
+                  const dStr = toInputDate(p.date);
+                  if (dStr) {
+                    if (!deadlineDateStr || dStr < deadlineDateStr) {
+                      deadlineDateStr = dStr;
+                      isPaymentPlanDeadline = true;
+                    }
                   }
                 }
-              }
-            });
-          } catch (e) {}
-        });
+              });
+            } catch (e) {}
+          });
+        }
 
         // 2. Search in Com_Vencimiento_Rel manual field
         const manualRel = group.records?.[0]?.["Com_Vencimiento_Rel"];
@@ -1966,6 +1972,8 @@
 
               hotel: row["Hotel_Asignado"] || row["Hotel"] || "",
 
+              isCredito: Boolean(row["Es_Credito"] === true || row["Es_Credito"] === "true" || row["Com_Es_Credito"] === true),
+
               records: [],
 
             };
@@ -2098,6 +2106,9 @@
                       groups[key].processedJSONs.add(legacyKey);
                   }
               }
+          }
+          if (row["Es_Credito"] === true || row["Es_Credito"] === "true" || row["Com_Es_Credito"] === true) {
+              groups[key].isCredito = true;
           }
 
           groups[key].records.push(row);
@@ -9098,14 +9109,25 @@
                                            );
                                        }
 
-                                       // 3. Alert Pago
+                                       // 3. Alert Pago (o Badge Crédito)
+                                       const isGroupCredito = Boolean(
+                                           group?.isCredito ||
+                                           group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                                       );
                                        const paymentOverdue = deadlineInfo.isDeadline && deadlineInfo.diffDays < 0;
                                        const paymentCritical = isClose || paymentOverdue;
-                                       if (paymentCritical && pending > 0.05) {
+                                       if (!isGroupCredito && paymentCritical && pending > 0.05) {
                                            alerts.push(
                                                <div key="pago" className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[8px] font-black text-amber-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso de Cobro! Pendiente de cobro final: ${pending.toFixed(2)} €`}>
                                                    <IconAlertTriangle size={10} stroke={3} />
                                                    <span>FALTA PAGO</span>
+                                               </div>
+                                           );
+                                       } else if (isGroupCredito) {
+                                           alerts.push(
+                                               <div key="credito" className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black text-indigo-700 shadow-sm whitespace-nowrap" title="Grupo a crédito: no requiere pago anticipado">
+                                                   <IconCreditCard size={10} stroke={2.5} />
+                                                   <span>CRÉDITO</span>
                                                </div>
                                            );
                                        }
@@ -10985,6 +11007,12 @@
                     );
 
                     const firstRec = selectedGroupFicha.records[0] || {};
+                    const isGroupCredito = Boolean(
+                      firstRec["Es_Credito"] === true ||
+                      firstRec["Es_Credito"] === "true" ||
+                      firstRec["Com_Es_Credito"] === true ||
+                      selectedGroupFicha.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                    );
 
                     let baseTotal = grandTotal;
 
@@ -11036,11 +11064,13 @@
 
                     const urgentPayments = [];
 
-                    const todayForAlert = new Date();
+                    if (!isGroupCredito) {
 
-                    todayForAlert.setHours(0, 0, 0, 0);
+                      const todayForAlert = new Date();
 
-                    (selectedGroupFicha.records || []).forEach((r) => {
+                      todayForAlert.setHours(0, 0, 0, 0);
+
+                      (selectedGroupFicha.records || []).forEach((r) => {
 
                       try {
 
@@ -11083,6 +11113,7 @@
                       } catch (e) { }
 
                     });
+                  }
 
                     const hotelAsignado =
 
@@ -11354,6 +11385,21 @@
 
                                     </span>
 
+                                    {isGroupCredito && (
+                                      <span
+                                        onClick={() => {
+                                          if (confirm("¿Deseas desactivar la condición de crédito para este grupo y volver a prepago?")) {
+                                            updateGroupMetadata(selectedGroupFicha.id, "Es_Credito", false);
+                                          }
+                                        }}
+                                        className="bg-indigo-500/30 hover:bg-indigo-500/40 text-indigo-100 border border-indigo-400/40 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                                        title="Grupo a Crédito (Sin pago anticipado). Clic para modificar."
+                                      >
+                                        <IconCreditCard size={11} stroke={2.5} />
+                                        CRÉDITO
+                                      </span>
+                                    )}
+
                                   </div>
 
                                 </div>
@@ -11554,9 +11600,17 @@
 
                                      <div className="text-center">
 
-                                       <p className="text-[8px] font-black uppercase text-rose-300 tracking-widest mb-1">Pendiente</p>
+                                       <p className={`text-[8px] font-black uppercase tracking-widest mb-1 ${isGroupCredito ? "text-indigo-300 flex items-center justify-center gap-1" : "text-rose-300"}`}>
+                                        {isGroupCredito ? <><IconCreditCard size={10} stroke={2.5} /> A Crédito</> : "Pendiente"}
+                                      </p>
 
-                                       <p className="text-sm font-black text-rose-400 tabular-nums">{pVal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</p>
+                                      <p className={`text-sm font-black tabular-nums ${isGroupCredito ? "text-indigo-200" : "text-rose-400"}`}>{pVal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</p>
+
+                                      {isGroupCredito && (
+                                        <span className="text-[8px] font-bold text-white/50 block leading-none mt-0.5">
+                                          Sin prepago
+                                        </span>
+                                      )}
 
                                      </div>
 
@@ -13875,10 +13929,55 @@
                                                 )}
                                               </span>
                                             </div>
-                                          </div>
+                                          
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const nextVal = !isGroupCredito;
+                                                  updateGroupMetadata(selectedGroupFicha.id, "Es_Credito", nextVal);
+                                                }}
+                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all border ${
+                                                  isGroupCredito
+                                                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm"
+                                                    : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200"
+                                                }`}
+                                                title={isGroupCredito ? "Grupo a crédito activo. Clic para cambiar a prepago" : "Marcar este grupo como crédito (no requiere pago anticipado)"}
+                                              >
+                                                <IconCreditCard size={11} stroke={isGroupCredito ? 2.5 : 2} />
+                                                {isGroupCredito ? "A Crédito" : "Marcar Crédito"}
+                                              </button>
+                                            </div>
 
-                                          <div className="space-y-1.5">
-                                            <div className="grid grid-cols-[20px_60px_85px_60px_120px_65px_20px] justify-between gap-1.5 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+                                          {isGroupCredito && plan.length === 0 ? (
+                                              <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 text-center space-y-2 my-1 shadow-2xs">
+                                                <div className="flex items-center justify-center gap-1.5 text-indigo-700 font-black text-[10px] uppercase tracking-wider">
+                                                  <IconCreditCard size={14} stroke={2.5} />
+                                                  <span>Cliente con Crédito Concedido</span>
+                                                </div>
+                                                <p className="text-[9px] text-indigo-900/70 font-medium leading-relaxed max-w-xs mx-auto">
+                                                  Este grupo no requiere pago anticipado ni depósitos previos a la entrada. Facturación a crédito según condiciones acordadas.
+                                                </p>
+                                                <div className="pt-1 flex items-center justify-center gap-2">
+                                                  <button
+                                                    type="button"
+                                                    onClick={addPlanRow}
+                                                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded text-[8px] font-black uppercase tracking-wider transition-all shadow-2xs flex items-center gap-1.5"
+                                                    title="Opcional: Añadir tramo si se acuerda algún pago o abono específico"
+                                                  >
+                                                    <IconPlus size={10} stroke={2.5} />
+                                                    Añadir Tramo Específico (Opcional)
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="space-y-1.5">
+                                                {isGroupCredito && (
+                                                  <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50/40 border border-indigo-100 rounded text-[8px] font-bold text-indigo-700 mb-1">
+                                                    <IconCreditCard size={10} stroke={2} />
+                                                    <span>Condición a Crédito activa: tramos informativos (sin prepago obligatorio).</span>
+                                                  </div>
+                                                )}
+                                                <div className="grid grid-cols-[20px_60px_85px_60px_120px_65px_20px] justify-between gap-1.5 px-1 mb-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
                                               <div></div>
                                               <div className="text-center">
                                                 %
@@ -14100,24 +14199,15 @@
                                             })()}
 
                                             {totalPercent < 100 && (
-
-                                              <button
-
-                                                onClick={addPlanRow}
-
-                                                className="w-full py-2 border border-dashed border-slate-200 rounded text-slate-400 hover:border-slate-400 hover:text-slate-500 transition-all text-[9px] font-black uppercase flex items-center justify-center gap-2 bg-white"
-
-                                              >
-
-                                                <IconPlus size={12} /> Añadir
-
-                                                Tramo ({100 - totalPercent}%)
-
-                                              </button>
-
+                                                <button
+                                                  onClick={addPlanRow}
+                                                  className={`w-full py-2 border border-dashed rounded transition-all text-[9px] font-black uppercase flex items-center justify-center gap-2 bg-white ${isGroupCredito ? "border-indigo-200 text-indigo-400 hover:border-indigo-400 hover:text-indigo-600" : "border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-500"}`}
+                                                >
+                                                  <IconPlus size={12} /> {isGroupCredito ? "Añadir Tramo Opcional" : "Añadir Tramo"} ({100 - totalPercent}%)
+                                                </button>
+                                              )}
+                                            </div>
                                             )}
-
-                                          </div>
 
                                         </div>
 
@@ -14337,6 +14427,15 @@
                                         Rooming List
 
                                       </button>
+
+                                        <button
+                                          onClick={() => updateGroupMetadata(selectedGroupFicha.id, "Es_Credito", !isGroupCredito)}
+                                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all border ${isGroupCredito ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-100'}`}
+                                          title="Indicar si este grupo dispone de crédito y no requiere pago anticipado"
+                                        >
+                                          {isGroupCredito ? <IconCheckCircle size={12} stroke={3} className="text-indigo-600" /> : <IconCreditCard size={12} stroke={2} />}
+                                          {isGroupCredito ? "A Crédito" : "Pago a Crédito"}
+                                        </button>
 
 
 

@@ -1761,7 +1761,8 @@
                         return p;
                     });
                 }
-                if (paymentPlan.length === 0) {
+                const isCreditoGroup = Boolean(group.Es_Credito === true || group.Es_Credito === "true" || group.Com_Es_Credito === true);
+                if (paymentPlan.length === 0 && !isCreditoGroup) {
                     const entradaStr = mapping['reserva-entrada'] || today;
                     const [d, m, yRaw] = entradaStr.split(/[-\/]/).map(Number);
                     const fEntrada = (d && m && yRaw) ? new Date(yRaw < 100 ? 2000 + yRaw : yRaw, m - 1, d) : new Date();
@@ -2196,6 +2197,12 @@
                             </div>` : ''}
                             <div>
                                 <div class="flex items-center justify-between mb-2"><h5 class="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.1em]">Plan de Garantía y Pagos</h5><button onclick="addPayment()" class="no-print px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[8px] font-black uppercase">+ Añadir Anticipo</button></div>
+                                ${paymentPlan.length === 0 ? `
+                                <div class="p-3.5 mb-4 rounded-xl border border-indigo-100 bg-indigo-50/50 text-center">
+                                    <p class="text-[10px] font-black text-indigo-700 uppercase tracking-wider">Condición de Pago: A Crédito</p>
+                                    <p class="text-[8px] text-indigo-900/60 font-medium mt-0.5">Esta reserva cuenta con crédito concedido (sin requerimiento de pago anticipado). Facturación según condiciones comerciales acordadas.</p>
+                                </div>
+                                ` : `
                                 <div class="grid grid-cols-2 gap-4 mb-4">
                                     ${paymentPlan.map((dep, idx) => {
                                         const isPaid = dep.status === "Cobrado";
@@ -2229,6 +2236,7 @@
                                         </div>`;
                                     }).join('')}
                                 </div>
+                                `}
                                 ${termsHtml}
                             </div>
                         </div>

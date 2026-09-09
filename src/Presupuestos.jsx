@@ -3046,14 +3046,39 @@ ${emailContent}`;
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {[20, 30, 50, 100].map(percent => (
-                            <button key={percent} type="button" onClick={() => setQuickPercent(percent)} className="px-3 py-2 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-100 rounded-xl text-[9px] font-black transition-all">
+                            <button key={percent} type="button" onClick={() => {
+                              setFormData({ ...formData, Es_Credito: false });
+                              setQuickPercent(percent);
+                            }} className="px-3 py-2 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-100 rounded-xl text-[9px] font-black transition-all">
                               {percent}%
                             </button>
                           ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                Es_Credito: !formData.Es_Credito,
+                                PaymentPlan_JSON: "[]"
+                              });
+                            }}
+                            className={`px-3 py-2 border rounded-xl text-[9px] font-black transition-all flex items-center gap-1.5 ${
+                              formData.Es_Credito
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                : "bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border-slate-100"
+                            }`}
+                          >
+                            <i className="fas fa-credit-card text-[8px]"></i> {formData.Es_Credito ? "A Crédito" : "Crédito"}
+                          </button>
                         </div>
                       </div>
 
-                      {plan.length === 0 ? (
+                      {formData.Es_Credito && plan.length === 0 ? (
+                        <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl text-center space-y-1">
+                          <p className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">A Crédito (Sin Pago Anticipado)</p>
+                          <p className="text-[9px] text-indigo-900/60 font-medium">Este presupuesto se emite con línea de crédito concedida. No se requieren depósitos ni pagos anticipados previos.</p>
+                        </div>
+                      ) : plan.length === 0 ? (
                         <button type="button" onClick={() => setQuickPercent(30)} className="w-full py-3 border border-dashed border-slate-200 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-300 hover:text-indigo-500 transition-all">
                           Crear condiciones de pago
                         </button>

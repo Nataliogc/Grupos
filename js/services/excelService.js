@@ -357,7 +357,7 @@
       "RoomingList_JSON", "Fiscal_RazonSocial", "Fiscal_CIF", "Fiscal_Direccion",
       "Fiscal_CP", "Fiscal_Poblacion", "Fiscal_Provincia", "Fiscal_Pais", "Email",
       "Telefono", "Persona_Contacto", "Proforma_NetRate", "Proforma_Rooms",
-      "Proforma_RoomList", "Com_Pagado", "updatedAt"
+      "Proforma_RoomList", "Com_Pagado", "Es_Credito", "Com_Es_Credito", "updatedAt"
     ]);
 
     incomingRows.forEach((newRow, idx) => {

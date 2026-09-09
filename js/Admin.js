@@ -315,9 +315,10 @@ var Dashboard = function Dashboard(_ref2) {
       } catch (e) {}
       var pending = Math.max(0, totalAmt - paid);
       var hasAlert = false;
+      var isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
 
-      // 1. Financial
-      if ((isConfirmed || isTentative) && pending > 0.1) {
+      // 1. Financial (ignorar si es crédito)
+      if (!isCredito && (isConfirmed || isTentative) && pending > 0.1) {
         try {
           var _plan = JSON.parse(g.PaymentPlan_JSON || "[]");
           var pastDueMilestones = _plan.filter(function (p) {
@@ -407,9 +408,10 @@ var Dashboard = function Dashboard(_ref2) {
         });
       } catch (e) {}
       var pending = Math.max(0, total - paid);
+      var isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
 
-      // 1. Column 1: Financial Alerts
-      if ((isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
+      // 1. Column 1: Financial Alerts (ignorar si es crédito)
+      if (!isCredito && (isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
         try {
           var _plan2 = JSON.parse(g.PaymentPlan_JSON || "[]");
           var pastDueMilestones = _plan2.filter(function (p) {
@@ -1449,22 +1451,25 @@ var App = function App() {
         });
       }
 
-      // Alert 3: Pagos Pendientes
-      try {
-        var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-        var hasPending = plan.some(function (p) {
-          var pDate = p.date ? new Date(p.date) : null;
-          return p.status !== "Cobrado" && pDate && pDate <= now;
-        });
-        if (hasPending) {
-          list.push({
-            label: "Pago Atrasado: ".concat(groupName),
-            icon: "AlertTriangle",
-            type: "danger",
-            group: g
+      // Alert 3: Pagos Pendientes (ignorar si es crédito)
+      var isCreditoAlert = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+      if (!isCreditoAlert) {
+        try {
+          var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+          var hasPending = plan.some(function (p) {
+            var pDate = p.date ? new Date(p.date) : null;
+            return p.status !== "Cobrado" && pDate && pDate <= now;
           });
-        }
-      } catch (e) {}
+          if (hasPending) {
+            list.push({
+              label: "Pago Atrasado: ".concat(groupName),
+              icon: "AlertTriangle",
+              type: "danger",
+              group: g
+            });
+          }
+        } catch (e) {}
+      }
 
       // Alert 4: Tentativa próxima a llegada
       var isTentative = (g["Estado"] || "").toLowerCase().includes("tentat") || (g["Com_Estado_Interno"] || "").toLowerCase().includes("tentat");

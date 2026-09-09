@@ -312,8 +312,10 @@
 
           let hasAlert = false;
 
-          // 1. Financial
-          if ((isConfirmed || isTentative) && pending > 0.1) {
+          const isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+
+          // 1. Financial (ignorar si es crédito)
+          if (!isCredito && (isConfirmed || isTentative) && pending > 0.1) {
             try {
               const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
               const pastDueMilestones = plan.filter(p => {
@@ -408,8 +410,10 @@
           } catch (e) {}
           const pending = Math.max(0, total - paid);
 
-          // 1. Column 1: Financial Alerts
-          if ((isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
+          const isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+
+          // 1. Column 1: Financial Alerts (ignorar si es crédito)
+          if (!isCredito && (isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
             try {
               const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
               const pastDueMilestones = plan.filter(p => {
@@ -1568,22 +1572,25 @@
             });
           }
 
-          // Alert 3: Pagos Pendientes
-          try {
-            const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-            const hasPending = plan.some((p) => {
-              let pDate = p.date ? new Date(p.date) : null;
-              return p.status !== "Cobrado" && pDate && pDate <= now;
-            });
-            if (hasPending) {
-              list.push({
-                label: `Pago Atrasado: ${groupName}`,
-                icon: "AlertTriangle",
-                type: "danger",
-                group: g,
+          // Alert 3: Pagos Pendientes (ignorar si es crédito)
+          const isCreditoAlert = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+          if (!isCreditoAlert) {
+            try {
+              const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+              const hasPending = plan.some((p) => {
+                let pDate = p.date ? new Date(p.date) : null;
+                return p.status !== "Cobrado" && pDate && pDate <= now;
               });
-            }
-          } catch (e) { }
+              if (hasPending) {
+                list.push({
+                  label: `Pago Atrasado: ${groupName}`,
+                  icon: "AlertTriangle",
+                  type: "danger",
+                  group: g,
+                });
+              }
+            } catch (e) { }
+          }
 
           // Alert 4: Tentativa próxima a llegada
           const isTentative =
