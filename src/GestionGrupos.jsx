@@ -1976,6 +1976,14 @@
 
               isCredito: Boolean(row["Es_Credito"] === true || row["Es_Credito"] === "true" || row["Com_Es_Credito"] === true),
 
+              isBudget: Boolean(
+                String(resId || "").toUpperCase().startsWith("PRES-") ||
+                String(row["uid"] || "").toUpperCase().startsWith("PRES-") ||
+                String(row["Estado"] || "").toUpperCase().includes("PRESUP") ||
+                String(row["Com_Estado_Interno"] || "").toUpperCase().includes("PRESUP") ||
+                String(row["Segment."] || "").toUpperCase().includes("PRESUP")
+              ),
+
               records: [],
 
             };
@@ -2016,6 +2024,16 @@
 
             }
 
+          }
+
+          if (
+            String(resId || "").toUpperCase().startsWith("PRES-") ||
+            String(row["uid"] || "").toUpperCase().startsWith("PRES-") ||
+            String(row["Estado"] || "").toUpperCase().includes("PRESUP") ||
+            String(row["Com_Estado_Interno"] || "").toUpperCase().includes("PRESUP") ||
+            String(row["Segment."] || "").toUpperCase().includes("PRESUP")
+          ) {
+            groups[key].isBudget = true;
           }
 
 
@@ -8993,13 +9011,37 @@
 
                         );
 
+                        const isBudget = Boolean(
+                          group.isBudget ||
+                          String(group.id || "").toUpperCase().startsWith("PRES-") ||
+                          group.records?.some((r) => {
+                            const res = String(r["Reserva"] || "").toUpperCase();
+                            const uid = String(r.uid || "").toUpperCase();
+                            const ext = String(r["Estado"] || "").toUpperCase();
+                            const inSt = String(r["Com_Estado_Interno"] || "").toUpperCase();
+                            const seg = String(r["Segment."] || "").toUpperCase();
+                            return (
+                              res.startsWith("PRES-") ||
+                              uid.startsWith("PRES-") ||
+                              ext.includes("PRESUP") ||
+                              inSt.includes("PRESUP") ||
+                              seg.includes("PRESUP")
+                            );
+                          }) ||
+                          statusText === "PRESUPUESTO"
+                        );
+
                         return (
 
                           <tr
 
                             key={idx}
 
-                            className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                            className={`transition-colors cursor-pointer group ${
+                              isBudget
+                                ? "bg-indigo-50/70 hover:bg-indigo-100/70"
+                                : "hover:bg-slate-50"
+                            }`}
 
                             onClick={() => openFicha(group)}
 
@@ -9007,7 +9049,7 @@
 
                             {/* HOTEL */}
 
-                            <td className="px-3 py-3">
+                            <td className={`px-3 py-3 ${isBudget ? "border-l-4 border-indigo-500" : "border-l-4 border-transparent"}`}>
 
                               <div className="flex items-center gap-1.5">
 
@@ -9041,7 +9083,7 @@
 
                                 <div className="flex flex-wrap items-center gap-1.5">
 
-                                  <div className="text-[13px] font-black text-slate-800 group-hover:text-[#2d5a43] transition-colors leading-tight">
+                                  <div className={`text-[13px] font-black text-slate-800 ${isBudget ? "group-hover:text-indigo-600" : "group-hover:text-[#2d5a43]"} transition-colors leading-tight`}>
 
                                     {group.name}
 
@@ -9187,7 +9229,7 @@
 
                                 <div className="text-[9px] font-bold text-slate-400 mt-0.5 flex items-center gap-1.5">
 
-                                  <span className="shrink-0">
+                                  <span className={`shrink-0 ${isBudget ? "text-indigo-600 font-extrabold" : ""}`}>
 
                                     ID:{" "}
 
