@@ -20,6 +20,10 @@
 
       Bar,
 
+      LineChart,
+
+      Line,
+
       XAxis,
 
       YAxis,
@@ -1364,6 +1368,13 @@
 
       });
 
+      // Estados para Panel de Estudio y Comparativa YoY
+      const [studySubTab, setStudySubTab] = useState("global"); // 'global', 'fechas', 'comercial', 'precio_medio', 'segmentos'
+      const [chartMetric, setChartMetric] = useState("Pax"); // 'Pax' o 'Ingresos'
+      const [showPrevYearComparison, setShowPrevYearComparison] = useState(true);
+      const [expandedCommercial, setExpandedCommercial] = useState(null);
+
+
 
 
       // --- Normalización de Datos (Fuente de Verdad) ---
@@ -2471,121 +2482,283 @@
 
 
 
-      // --- Datos para Gráficos Globales (Filtrados) ---
+      // --- Mapa Histórico por Año y Mes (YYYY-M) para Comparativas YoY ---
+      const historicalByYearMonth = useMemo(() => {
+        const map = {};
 
-      const chartData = useMemo(() => {
-
-        const monthNames = [
-
-          "Ene",
-
-          "Feb",
-
-          "Mar",
-
-          "Abr",
-
-          "May",
-
-          "Jun",
-
-          "Jul",
-
-          "Ago",
-
-          "Sep",
-
-          "Oct",
-
-          "Nov",
-
-          "Dic",
-
-        ];
-
-        const revenueByMonth = {};
-
-        const paxByMonth = {};
-
-        const monthNamesLong = [
-
-          "Enero",
-
-          "Febrero",
-
-          "Marzo",
-
-          "Abril",
-
-          "Mayo",
-
-          "Junio",
-
-          "Julio",
-
-          "Agosto",
-
-          "Septiembre",
-
-          "Octubre",
-
-          "Noviembre",
-
-          "Diciembre",
-
-        ];
-
-
-
-        processedData.forEach((row) => {
-
-          const arrival = toInputDate(row["Entrada"]);
-
-          if (arrival) {
-
-            const date = new Date(arrival);
-
-            if (!isNaN(date)) {
-
-              const key = `${monthNames[date.getMonth()]} ${date.getFullYear().toString().slice(-2)}`;
-
-              const importe = parseNum(row["Importe(*)"]);
-
-              const pax = parseInt(row["Pax."] || 0);
-
-
-
-              revenueByMonth[key] =
-
-                (revenueByMonth[key] || 0) + (isNaN(importe) ? 0 : importe);
-
-              paxByMonth[key] =
-
-                (paxByMonth[key] || 0) + (isNaN(pax) ? 0 : pax);
-
-            }
-
+        (normalizedData || []).forEach((row) => {
+          const statusVal = (row["Com_Estado_Interno"] || row["Estado"] || "").toUpperCase();
+          if (row.excludeFromStatistics === true || statusVal === "DESGLOSADO" || row.status === "DESGLOSADO") {
+            return;
           }
 
+          const hasReserva = (row["Reserva"] &&
+            row["Reserva"].toString().trim() !== "" &&
+            row["Reserva"].toString().trim() !== "-") ||
+            (row["uid"] && row["uid"].toString().startsWith("PRES-"));
+          if (!hasReserva) return;
+
+          const stateLabel = row._stateLabel || "";
+          if (stateLabel === "desestimado" || stateLabel === "cancelado") {
+            return;
+          }
+
+          if (filterDirHotel) {
+            const h = normalizeHotelName(row["Hotel_Asignado"] || row["Hotel"]);
+            if (h !== filterDirHotel) return;
+          }
+
+          if (filterDirCommercial) {
+            const com = (row["Com_Comercial"] || "").trim();
+            if (filterDirCommercial === "SIN_ASIGNAR") {
+              if (com !== "") return;
+            } else if (com !== filterDirCommercial) {
+              return;
+            }
+          }
+
+          const arrival = row._normArrival || toInputDate(row["Entrada"]);
+          if (arrival && arrival.length >= 7) {
+            const parts = arrival.split("-");
+            if (parts.length >= 2) {
+              const y = parseInt(parts[0], 10);
+              const m = parseInt(parts[1], 10) - 1;
+              if (!isNaN(y) && !isNaN(m) && y > 2000 && y < 2100) {
+                const key = `${y}-${m}`;
+                if (!map[key]) {
+                  map[key] = { pax: 0, revenue: 0, nights: 0, count: 0 };
+                }
+                const importe = parseNum(row["Importe(*)"]);
+                const pax = parseInt(row["Pax."] || 0);
+                const noches = parseInt(row["Noches"] || 0);
+
+                map[key].pax += isNaN(pax) ? 0 : pax;
+                map[key].revenue += isNaN(importe) ? 0 : importe;
+                map[key].nights += isNaN(noches) ? 0 : noches;
+                map[key].count += 1;
+              }
+            }
+          }
         });
 
+        return map;
+      }, [normalizedData, filterDirHotel, filterDirCommercial]);
 
+      // --- Datos para Gráficos Globales (Filtrados) y Comparativa YoY ---
+      const chartData = useMemo(() => {
+        const monthNames = [
+          "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+          "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+        ];
+        const monthNamesLong = [
+          "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+        ];
 
-        const barData = Object.keys(revenueByMonth).map((key) => ({
+        const currentMonthsMap = new Map();
 
-          name: key,
+        processedData.forEach((row) => {
+          const arrival = row._normArrival || toInputDate(row["Entrada"]);
+          if (arrival) {
+            const date = new Date(arrival);
+            if (!isNaN(date)) {
+              const y = date.getFullYear();
+              const m = date.getMonth();
+              const key = `${y}-${m}`;
+              if (!currentMonthsMap.has(key)) {
+                currentMonthsMap.set(key, {
+                  year: y,
+                  month: m,
+                  pax: 0,
+                  revenue: 0,
+                  nights: 0,
+                  count: 0
+                });
+              }
+              const item = currentMonthsMap.get(key);
+              const importe = parseNum(row["Importe(*)"]);
+              const pax = parseInt(row["Pax."] || 0);
+              const noches = parseInt(row["Noches"] || 0);
 
-          Ingresos: revenueByMonth[key],
+              item.pax += isNaN(pax) ? 0 : pax;
+              item.revenue += isNaN(importe) ? 0 : importe;
+              item.nights += isNaN(noches) ? 0 : noches;
+              item.count += 1;
+            }
+          }
+        });
 
-          Pax: paxByMonth[key],
+        const sortedMonthKeys = Array.from(currentMonthsMap.keys()).sort((a, b) => {
+          const [yA, mA] = a.split("-").map(Number);
+          const [yB, mB] = b.split("-").map(Number);
+          return (yA * 12 + mA) - (yB * 12 + mB);
+        });
 
-        }));
+        const barData = sortedMonthKeys.map((key) => {
+          const item = currentMonthsMap.get(key);
+          const y = item.year;
+          const m = item.month;
+          const prevYear = y - 1;
+          const prevKey = `${prevYear}-${m}`;
+          const prevItem = historicalByYearMonth[prevKey] || { pax: 0, revenue: 0, nights: 0, count: 0 };
 
+          const diffPax = item.pax - prevItem.pax;
+          const pctPax = prevItem.pax > 0 ? ((diffPax / prevItem.pax) * 100) : (item.pax > 0 ? 100 : 0);
 
+          const diffRevenue = item.revenue - prevItem.revenue;
+          const pctRevenue = prevItem.revenue > 0 ? ((diffRevenue / prevItem.revenue) * 100) : (item.revenue > 0 ? 100 : 0);
+
+          const adr = item.nights > 0 ? item.revenue / item.nights : 0;
+          const prevAdr = prevItem.nights > 0 ? prevItem.revenue / prevItem.nights : 0;
+          const diffAdr = adr - prevAdr;
+          const pctAdr = prevAdr > 0 ? ((diffAdr / prevAdr) * 100) : (adr > 0 ? 100 : 0);
+
+          const pricePerPax = item.pax > 0 ? item.revenue / item.pax : 0;
+          const prevPricePerPax = prevItem.pax > 0 ? prevItem.revenue / prevItem.pax : 0;
+
+          return {
+            name: `${monthNames[m]} ${y.toString().slice(-2)}`,
+            prevName: `${monthNames[m]} ${prevYear.toString().slice(-2)}`,
+            monthShort: monthNames[m],
+            monthLong: monthNamesLong[m],
+            year: y,
+            prevYear: prevYear,
+            Pax: item.pax,
+            Ingresos: item.revenue,
+            Noches: item.nights,
+            ADR: Math.round(adr * 100) / 100,
+            PrecioMedioPax: Math.round(pricePerPax * 100) / 100,
+            Grupos: item.count,
+            PaxAnterior: prevItem.pax,
+            IngresosAnterior: prevItem.revenue,
+            NochesAnterior: prevItem.nights,
+            ADRAnterior: Math.round(prevAdr * 100) / 100,
+            PrecioMedioPaxAnterior: Math.round(prevPricePerPax * 100) / 100,
+            GruposAnterior: prevItem.count,
+            diffPax,
+            pctPax: Math.round(pctPax * 10) / 10,
+            diffRevenue,
+            pctRevenue: Math.round(pctRevenue * 10) / 10,
+            diffAdr,
+            pctAdr: Math.round(pctAdr * 10) / 10,
+          };
+        });
 
         return { barData };
+      }, [processedData, historicalByYearMonth]);
 
+      // --- Rendimiento y Estudio por Comercial ---
+      const commercialStats = useMemo(() => {
+        const commMap = {};
+
+        processedData.forEach((row) => {
+          const stateProps = getStatusProps(
+            row["Com_Estado_Interno"] || row["Segment."],
+            row["Entrada"],
+            row["Estado"]
+          );
+          if (stateProps.label === "DESESTIMADO") return;
+
+          let comName = (row["Com_Comercial"] || "").toString().trim().toUpperCase();
+          if (!comName) comName = "SIN ASIGNAR";
+
+          if (!commMap[comName]) {
+            commMap[comName] = {
+              name: comName,
+              revenue: 0,
+              pax: 0,
+              nights: 0,
+              groupCount: 0,
+              groupList: new Set(),
+            };
+          }
+
+          const importe = parseNum(row["Importe(*)"]);
+          const pax = parseInt(row["Pax."] || 0);
+          const noches = parseInt(row["Noches"] || 0);
+          const gName = row["Nombre del Grupo"] || row["Reserva"] || "Grupo";
+
+          if (!isNaN(importe)) commMap[comName].revenue += importe;
+          if (!isNaN(pax)) commMap[comName].pax += pax;
+          if (!isNaN(noches)) commMap[comName].nights += noches;
+          commMap[comName].groupList.add(gName);
+        });
+
+        const totalRevAll = Object.values(commMap).reduce((acc, c) => acc + c.revenue, 0);
+
+        return Object.values(commMap)
+          .map((c) => {
+            const groups = c.groupList.size;
+            const adr = c.nights > 0 ? c.revenue / c.nights : 0;
+            const pricePerPax = c.pax > 0 ? c.revenue / c.pax : 0;
+            const share = totalRevAll > 0 ? (c.revenue / totalRevAll) * 100 : 0;
+            return {
+              ...c,
+              groupCount: groups,
+              adr: Math.round(adr * 100) / 100,
+              pricePerPax: Math.round(pricePerPax * 100) / 100,
+              share: Math.round(share * 10) / 10,
+            };
+          })
+          .sort((a, b) => b.revenue - a.revenue);
       }, [processedData]);
+
+      // --- Métricas Globales Consolidadas con Comparativa YoY ---
+      const globalStatsYoY = useMemo(() => {
+        let totalPax = 0;
+        let totalPaxPrev = 0;
+        let totalRev = 0;
+        let totalRevPrev = 0;
+        let totalNights = 0;
+        let totalNightsPrev = 0;
+        let totalGroups = 0;
+
+        (chartData.barData || []).forEach((m) => {
+          totalPax += m.Pax || 0;
+          totalPaxPrev += m.PaxAnterior || 0;
+          totalRev += m.Ingresos || 0;
+          totalRevPrev += m.IngresosAnterior || 0;
+          totalNights += m.Noches || 0;
+          totalNightsPrev += m.NochesAnterior || 0;
+          totalGroups += m.Grupos || 0;
+        });
+
+        const adr = totalNights > 0 ? totalRev / totalNights : 0;
+        const prevAdr = totalNightsPrev > 0 ? totalRevPrev / totalNightsPrev : 0;
+
+        const pricePerPax = totalPax > 0 ? totalRev / totalPax : 0;
+        const prevPricePerPax = totalPaxPrev > 0 ? totalRevPrev / totalPaxPrev : 0;
+
+        const diffRev = totalRev - totalRevPrev;
+        const pctRev = totalRevPrev > 0 ? ((diffRev / totalRevPrev) * 100) : (totalRev > 0 ? 100 : 0);
+
+        const diffPax = totalPax - totalPaxPrev;
+        const pctPax = totalPaxPrev > 0 ? ((diffPax / totalPaxPrev) * 100) : (totalPax > 0 ? 100 : 0);
+
+        const diffAdr = adr - prevAdr;
+        const pctAdr = prevAdr > 0 ? ((diffAdr / prevAdr) * 100) : (adr > 0 ? 100 : 0);
+
+        return {
+          totalPax,
+          totalPaxPrev,
+          diffPax,
+          pctPax: Math.round(pctPax * 10) / 10,
+          totalRev,
+          totalRevPrev,
+          diffRev,
+          pctRev: Math.round(pctRev * 10) / 10,
+          totalNights,
+          totalNightsPrev,
+          adr: Math.round(adr * 100) / 100,
+          prevAdr: Math.round(prevAdr * 100) / 100,
+          diffAdr: Math.round(diffAdr * 100) / 100,
+          pctAdr: Math.round(pctAdr * 10) / 10,
+          pricePerPax: Math.round(pricePerPax * 100) / 100,
+          prevPricePerPax: Math.round(prevPricePerPax * 100) / 100,
+          totalGroups,
+        };
+      }, [chartData]);
+
 
 
 
@@ -7720,7 +7893,7 @@
 
                 >
 
-                  <IconPieChart size={18} /> Segmentación
+                  <IconChart size={18} /> Estudio & Segmentación
 
                 </button>
 
@@ -8485,493 +8658,900 @@
 
             )}
 
-            {/* 2. SEGMENTATION ANALYSIS (NEW) */}
+            {/* 2. PANEL DE ESTUDIO Y SEGMENTACIÓN */}
+            {activeTab === "segments" && (() => {
+              const formatCurrency = (val) =>
+                new Intl.NumberFormat("es-ES", {
+                  style: "currency",
+                  currency: "EUR",
+                  maximumFractionDigits: 0,
+                }).format(val || 0);
 
-            {activeTab === "segments" && (
+              const formatAdr = (val) =>
+                new Intl.NumberFormat("es-ES", {
+                  style: "currency",
+                  currency: "EUR",
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(val || 0);
 
-              <div className="animate-fade-in space-y-6">
+              const CustomYoYTooltip = ({ active, payload }) => {
+                if (!active || !payload || !payload.length) return null;
+                const d = payload[0]?.payload;
+                if (!d) return null;
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                const isPax = chartMetric === "Pax";
+                const curVal = isPax ? d.Pax : d.Ingresos;
+                const prevVal = isPax ? d.PaxAnterior : d.IngresosAnterior;
+                const diff = isPax ? d.diffPax : d.diffRevenue;
+                const pct = isPax ? d.pctPax : d.pctRevenue;
+                const isPositive = diff >= 0;
 
-                  <div className="bg-white p-6 rounded-lg shadow h-80">
-
-                    <h3 className="text-lg font-bold mb-4 text-slate-700">
-
-                      Ingresos por Segmento
-
-                    </h3>
-
-                    <ResponsiveContainer width="100%" height="100%">
-
-                      <BarChart
-
-                        data={segmentStats}
-
-                        layout="vertical"
-
-                        margin={{ left: 20 }}
-
-                      >
-
-                        <CartesianGrid
-
-                          strokeDasharray="3 3"
-
-                          horizontal={false}
-
-                        />
-
-                        <XAxis type="number" hide />
-
-                        <YAxis
-
-                          type="category"
-
-                          dataKey="name"
-
-                          width={100}
-
-                          tick={{ fontSize: 11 }}
-
-                          interval={0}
-
-                        />
-
-                        <Tooltip
-
-                          formatter={(value) =>
-
-                            new Intl.NumberFormat("es-ES", {
-
-                              style: "currency",
-
-                              currency: "EUR",
-
-                            }).format(value)
-
-                          }
-
-                        />
-
-                        <Bar
-
-                          dataKey="revenue"
-
-                          fill="#8884d8"
-
-                          radius={[0, 4, 4, 0]}
-
+                return (
+                  <div className="bg-slate-900 text-white p-3.5 rounded-xl shadow-xl text-xs border border-slate-700 min-w-[220px] space-y-2 z-50">
+                    <div className="border-b border-slate-700 pb-1.5 flex justify-between items-center">
+                      <span className="font-bold text-slate-100">
+                        {d.monthLong} {d.year} vs {d.prevYear}
+                      </span>
+                      {showPrevYearComparison && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
+                            isPositive
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                              : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                          }`}
                         >
+                          {isPositive ? "+" : ""}{pct}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center gap-1.5 text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span>
+                          Año {d.year}:
+                        </span>
+                        <span className="font-bold text-white">
+                          {isPax ? `${curVal.toLocaleString()} Pax` : formatCurrency(curVal)}
+                        </span>
+                      </div>
+                      {showPrevYearComparison && (
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center gap-1.5 text-slate-400">
+                            <span className="w-2.5 h-2.5 rounded-sm bg-slate-400 inline-block"></span>
+                            Año {d.prevYear}:
+                          </span>
+                          <span className="font-semibold text-slate-300">
+                            {isPax ? `${prevVal.toLocaleString()} Pax` : formatCurrency(prevVal)}
+                          </span>
+                        </div>
+                      )}
+                      {showPrevYearComparison && (
+                        <div className="flex justify-between items-center pt-1 border-t border-slate-800 text-[11px]">
+                          <span className="text-slate-400">Diferencia:</span>
+                          <span className={`font-bold ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                            {isPositive ? "+" : ""}{isPax ? `${diff.toLocaleString()} Pax` : formatCurrency(diff)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="pt-1.5 border-t border-slate-800/80 flex justify-between text-[10px] text-slate-400">
+                      <span>ADR: {formatAdr(d.ADR)}</span>
+                      <span>Noches: {d.Noches}</span>
+                    </div>
+                  </div>
+                );
+              };
 
-                          {segmentStats.map((entry, index) => (
+              const renderYoYBarChart = (heightClass = "h-80") => (
+                <div className={`bg-white p-5 rounded-xl shadow border border-slate-200 flex flex-col ${heightClass}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span>Ocupación de Grupos por Meses</span>
+                        {showPrevYearComparison && (
+                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold border border-slate-200">
+                            Comparativa Año Anterior
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        {chartMetric === "Pax" ? "Plazas (Pax) reservadas por mes" : "Ingresos totales (€) previstos por mes"}
+                      </p>
+                    </div>
 
-                            <Cell
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-bold">
+                        <button
+                          onClick={() => setChartMetric("Pax")}
+                          className={`px-2.5 py-1 rounded-md transition-all ${
+                            chartMetric === "Pax"
+                              ? "bg-white text-emerald-600 shadow-sm font-extrabold"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          Pax
+                        </button>
+                        <button
+                          onClick={() => setChartMetric("Ingresos")}
+                          className={`px-2.5 py-1 rounded-md transition-all ${
+                            chartMetric === "Ingresos"
+                              ? "bg-white text-emerald-600 shadow-sm font-extrabold"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          € Ingresos
+                        </button>
+                      </div>
 
-                              key={`cell-${index}`}
-
-                              fill={COLORS[index % COLORS.length]}
-
-                            />
-
-                          ))}
-
-                        </Bar>
-
-                      </BarChart>
-
-                    </ResponsiveContainer>
-
+                      <button
+                        onClick={() => setShowPrevYearComparison(!showPrevYearComparison)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                          showPrevYearComparison
+                            ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
+                        title="Activar o desactivar barras del año anterior"
+                      >
+                        <span className={`w-2 h-2 rounded-full ${showPrevYearComparison ? "bg-emerald-400 animate-pulse" : "bg-slate-300"}`}></span>
+                        Año -1
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-lg shadow h-80">
-
-                    <h3 className="text-lg font-bold mb-4 text-slate-700">
-
-                      Ocupación de Grupos por Meses
-
-                    </h3>
-
+                  <div className="flex-1 min-h-0 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-
-                      <BarChart data={chartData.barData}>
-
-                        <CartesianGrid
-
-                          strokeDasharray="3 3"
-
-                          vertical={false}
-
+                      <BarChart data={chartData.barData} margin={{ top: 8, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b" }} />
+                        <YAxis
+                          tick={{ fontSize: 10, fill: "#64748b" }}
+                          tickFormatter={(v) => (chartMetric === "Pax" ? `${v}` : `${Math.round(v / 1000)}k€`)}
                         />
-
-                        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-
-                        <YAxis tick={{ fontSize: 10 }} />
-
-                        <Tooltip formatter={(value) => `${value} Pax`} />
-
+                        <Tooltip content={<CustomYoYTooltip />} />
+                        <Legend
+                          wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+                          iconType="circle"
+                          iconSize={8}
+                        />
                         <Bar
-
-                          dataKey="Pax"
-
+                          name={chartMetric === "Pax" ? "Pax Actual" : "Ingresos Actual"}
+                          dataKey={chartMetric === "Pax" ? "Pax" : "Ingresos"}
                           fill="#10b981"
-
                           radius={[4, 4, 0, 0]}
-
+                          maxBarSize={28}
                         />
-
+                        {showPrevYearComparison && (
+                          <Bar
+                            name={chartMetric === "Pax" ? "Pax Año Ant." : "Ingresos Año Ant."}
+                            dataKey={chartMetric === "Pax" ? "PaxAnterior" : "IngresosAnterior"}
+                            fill="#94a3b8"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={28}
+                          />
+                        )}
                       </BarChart>
-
                     </ResponsiveContainer>
-
                   </div>
-
                 </div>
+              );
 
-                {/* Detailed Table */}
+              return (
+                <div className="animate-fade-in space-y-6">
+                  {/* HEADER DEL PANEL DE ESTUDIO */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                        <IconChart size={22} />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-800 leading-tight">
+                          Panel de Estudio & Rentabilidad
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          Estudio analítico de ocupación, comparativa año sobre año (YoY), rendimiento por comercial y precio medio (ADR)
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-
-                  <div className="p-4 border-b bg-slate-50">
-
-                    <h3 className="text-lg font-bold text-slate-700">
-
-                      Tabla de Rentabilidad por Segmento
-
-                    </h3>
-
+                    {/* SUB-TABS NAVIGATION */}
+                    <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
+                      <button
+                        onClick={() => setStudySubTab("global")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          studySubTab === "global"
+                            ? "bg-white text-blue-600 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <span>🌐</span> Visión Global
+                      </button>
+                      <button
+                        onClick={() => setStudySubTab("fechas")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          studySubTab === "fechas"
+                            ? "bg-white text-blue-600 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <IconCalendar size={14} /> Por Fechas (YoY)
+                      </button>
+                      <button
+                        onClick={() => setStudySubTab("comercial")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          studySubTab === "comercial"
+                            ? "bg-white text-blue-600 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <IconUsers size={14} /> Por Comercial
+                      </button>
+                      <button
+                        onClick={() => setStudySubTab("precio_medio")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          studySubTab === "precio_medio"
+                            ? "bg-white text-blue-600 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <span>💶</span> Precio Medio (ADR)
+                      </button>
+                      <button
+                        onClick={() => setStudySubTab("segmentos")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                          studySubTab === "segmentos"
+                            ? "bg-white text-blue-600 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <IconPieChart size={14} /> Segmentos
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  {/* SUB-VIEW 1: GLOBAL */}
+                  {studySubTab === "global" && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Top 5 KPI Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ingresos Totales</span>
+                          <div className="text-lg font-black text-slate-800 mt-1">
+                            {formatCurrency(globalStatsYoY.totalRev)}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                              globalStatsYoY.pctRev >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                            }`}>
+                              {globalStatsYoY.pctRev >= 0 ? "+" : ""}{globalStatsYoY.pctRev}%
+                            </span>
+                            <span className="text-[10px] text-slate-400">vs año ant.</span>
+                          </div>
+                        </div>
 
-                    <table className="w-full text-left text-sm">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pax Totales</span>
+                          <div className="text-lg font-black text-slate-800 mt-1">
+                            {globalStatsYoY.totalPax.toLocaleString()} Pax
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                              globalStatsYoY.pctPax >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                            }`}>
+                              {globalStatsYoY.pctPax >= 0 ? "+" : ""}{globalStatsYoY.pctPax}%
+                            </span>
+                            <span className="text-[10px] text-slate-400">vs año ant.</span>
+                          </div>
+                        </div>
 
-                      <thead className="bg-slate-100 text-slate-600 font-semibold uppercase text-xs">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ADR Medio (Noche)</span>
+                          <div className="text-lg font-black text-emerald-600 mt-1">
+                            {formatAdr(globalStatsYoY.adr)}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                              globalStatsYoY.pctAdr >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                            }`}>
+                              {globalStatsYoY.pctAdr >= 0 ? "+" : ""}{globalStatsYoY.pctAdr}%
+                            </span>
+                            <span className="text-[10px] text-slate-400">ant: {formatAdr(globalStatsYoY.prevAdr)}</span>
+                          </div>
+                        </div>
 
-                        <tr>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Precio Medio / Pax</span>
+                          <div className="text-lg font-black text-blue-600 mt-1">
+                            {formatAdr(globalStatsYoY.pricePerPax)}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1.5">
+                            Año ant: {formatAdr(globalStatsYoY.prevPricePerPax)}
+                          </div>
+                        </div>
 
-                          <th className="p-3 w-10"></th>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 col-span-2 md:col-span-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Volumen</span>
+                          <div className="text-lg font-black text-purple-600 mt-1">
+                            {globalStatsYoY.totalGroups} Grupos
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-1.5">
+                            {globalStatsYoY.totalNights.toLocaleString()} Noches Totales
+                          </div>
+                        </div>
+                      </div>
 
-                          <th className="p-3">Segmento</th>
+                      {/* Main 2 Charts */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {renderYoYBarChart("h-88")}
 
-                          <th className="p-3 text-right"># Grupos</th>
+                        {/* Ingresos por Segmento */}
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-88 flex flex-col">
+                          <div className="mb-3">
+                            <h3 className="text-base font-bold text-slate-800">
+                              Ingresos por Segmento
+                            </h3>
+                            <p className="text-[11px] text-slate-500">Distribución de facturación según categoría</p>
+                          </div>
+                          <div className="flex-1 min-h-0 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={segmentStats} layout="vertical" margin={{ left: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                <XAxis type="number" hide />
+                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: "#64748b" }} interval={0} />
+                                <Tooltip formatter={(value) => formatCurrency(value)} />
+                                <Bar dataKey="revenue" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                                  {segmentStats.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      </div>
 
-                          <th className="p-3 text-right">Pax Total</th>
-
-                          <th className="p-3 text-right">Noches Totales</th>
-
-                          <th className="p-3 text-right">Ingresos Totales</th>
-
-                          <th className="p-3 text-right">ADR Medio</th>
-
-                        </tr>
-
-                      </thead>
-
-                      <tbody className="divide-y divide-gray-100">
-
-                        {segmentStats.map((seg, idx) => (
-
-                          <React.Fragment key={idx}>
-
-                            <tr
-
-                              className="hover:bg-slate-50 transition-colors cursor-pointer"
-
-                              onClick={() =>
-
-                                setExpandedSegment(
-
-                                  expandedSegment === seg.name
-
-                                    ? null
-
-                                    : seg.name,
-
-                                )
-
-                              }
-
+                      {/* Mini Rankings */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Top Comerciales */}
+                        <div className="bg-white rounded-xl shadow border border-slate-200 p-5">
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                              <IconUsers size={16} className="text-blue-600" />
+                              Top Comerciales
+                            </h4>
+                            <button
+                              onClick={() => setStudySubTab("comercial")}
+                              className="text-xs text-blue-600 hover:underline font-bold"
                             >
+                              Ver estudio completo →
+                            </button>
+                          </div>
+                          <div className="space-y-2.5">
+                            {commercialStats.slice(0, 4).map((c, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full ${getCommColor(c.name)}`}></span>
+                                  <span className="font-bold text-xs text-slate-700">{c.name}</span>
+                                  <span className="text-[10px] bg-white border px-1.5 py-0.5 rounded text-slate-500 font-semibold">
+                                    {c.groupCount} grp
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-extrabold text-xs text-slate-800">{formatCurrency(c.revenue)}</div>
+                                  <div className="text-[10px] text-emerald-600 font-bold">ADR: {formatAdr(c.adr)}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-                              <td className="p-3 text-center text-gray-400">
+                        {/* Resumen Precios Medios & Ocupación */}
+                        <div className="bg-white rounded-xl shadow border border-slate-200 p-5">
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                              <span className="text-emerald-600 font-bold">💶</span>
+                              Métricas Clave de Precios & Estancia
+                            </h4>
+                            <button
+                              onClick={() => setStudySubTab("precio_medio")}
+                              className="text-xs text-blue-600 hover:underline font-bold"
+                            >
+                              Ver análisis de precios →
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase">ADR Global Ponderado</div>
+                              <div className="text-base font-black text-emerald-600 mt-0.5">{formatAdr(globalStatsYoY.adr)}</div>
+                              <div className="text-[10px] text-slate-500">Por habitación/noche</div>
+                            </div>
+                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase">Precio Medio / Persona</div>
+                              <div className="text-base font-black text-blue-600 mt-0.5">{formatAdr(globalStatsYoY.pricePerPax)}</div>
+                              <div className="text-[10px] text-slate-500">Por asistente (Pax)</div>
+                            </div>
+                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase">Facturación / Grupo</div>
+                              <div className="text-base font-black text-slate-800 mt-0.5">
+                                {globalStatsYoY.totalGroups > 0 ? formatCurrency(globalStatsYoY.totalRev / globalStatsYoY.totalGroups) : "0 €"}
+                              </div>
+                              <div className="text-[10px] text-slate-500">Ticket medio por grupo</div>
+                            </div>
+                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase">Noches / Grupo</div>
+                              <div className="text-base font-black text-purple-600 mt-0.5">
+                                {globalStatsYoY.totalGroups > 0 ? (globalStatsYoY.totalNights / globalStatsYoY.totalGroups).toFixed(1) : "0"} Noches
+                              </div>
+                              <div className="text-[10px] text-slate-500">Estancia media por grupo</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                                {expandedSegment === seg.name ? (
+                  {/* SUB-VIEW 2: POR FECHAS (YOY) */}
+                  {studySubTab === "fechas" && (
+                    <div className="space-y-6 animate-fade-in">
+                      {renderYoYBarChart("h-96")}
 
-                                  <IconChevronUp size={16} />
-
-                                ) : (
-
-                                  <IconChevronDown size={16} />
-
-                                )}
-
-                              </td>
-
-                              <td className="p-3 font-medium text-slate-800 flex items-center gap-2">
-
-                                <span
-
-                                  className="w-3 h-3 rounded-full"
-
-                                  style={{
-
-                                    backgroundColor:
-
-                                      COLORS[idx % COLORS.length],
-
-                                  }}
-
-                                ></span>
-
-                                {seg.name}
-
-                              </td>
-
-                              <td className="p-3 text-right font-bold text-blue-600">
-
-                                {seg.groupCount}
-
-                              </td>
-
-                              <td className="p-3 text-right">{seg.pax}</td>
-
-                              <td className="p-3 text-right">{seg.nights}</td>
-
-                              <td className="p-3 text-right font-bold text-slate-700">
-
-                                {seg.revenue.toLocaleString("es-ES", {
-
-                                  style: "currency",
-
-                                  currency: "EUR",
-
-                                })}
-
-                              </td>
-
-                              <td className="p-3 text-right text-emerald-600 font-bold">
-
-                                {(seg.nights > 0
-
-                                  ? seg.revenue / seg.nights
-
-                                  : 0
-
-                                ).toLocaleString("es-ES", {
-
-                                  style: "currency",
-
-                                  currency: "EUR",
-
-                                })}
-
-                              </td>
-
-                            </tr>
-
-                            {expandedSegment === seg.name && (
-
+                      {/* Tabla Comparativa Mensual Detallada */}
+                      <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-800">
+                              Evolución Mensual Detallada y Comparativa Año sobre Año (YoY)
+                            </h3>
+                            <p className="text-xs text-slate-500">Datos mes a mes de Ocupación (Pax), Ingresos y Precio Medio (ADR)</p>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
                               <tr>
-
-                                <td colSpan="7" className="p-0 bg-slate-50">
-
-                                  <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-
-                                    {seg.groups.map((group, gIdx) => {
-
-                                      const groupObj = group.obj;
-
-                                      const isTanteo =
-
-                                        seg.name === "GRUPO TANTEO" ||
-
-                                        (
-
-                                          groupObj?.records?.[0]?.[
-
-                                          "Segment."
-
-                                          ] || ""
-
-                                        ).toUpperCase() === "GRTANTEO";
-
-                                      const arrivalDate = group.arrival;
-
-                                      const today = new Date();
-
-                                      const arrival = new Date(
-
-                                        toInputDate(arrivalDate),
-
-                                      );
-
-                                      const diffDays = Math.ceil(
-
-                                        (arrival - today) /
-
-                                        (1000 * 60 * 60 * 24),
-
-                                      );
-
-                                      const isUrgent =
-
-                                        isTanteo &&
-
-                                        diffDays >= 0 &&
-
-                                        diffDays <= 30;
-
-                                      return (
-
-                                        <div
-
-                                          key={gIdx}
-
-                                          onClick={() =>
-
-                                            groupObj && openFicha(groupObj)
-
-                                          }
-
-                                          className="bg-white p-2 rounded border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
-
-                                        >
-
-                                          <div className="flex justify-between items-center mb-1">
-
-                                            <span className="text-[10px] font-black text-slate-400 tracking-wider">
-
-                                              #
-
-                                              {groupObj?.records[0]?.[
-
-                                                "Reserva"
-
-                                              ] || "-"}
-
-                                            </span>
-
-                                            <div className="flex items-center gap-2">
-
-                                              {arrivalDate && (
-
-                                                <span className="text-[9px] font-black text-slate-400 flex items-center gap-1">
-
-                                                  <IconCalendar size={10} />{" "}
-
-                                                  {arrivalDate}
-
-                                                  {isUrgent && (
-
-                                                    <span
-
-                                                      className="w-2 h-2 bg-red-500 rounded-full animate-ping ml-1"
-
-                                                      title="Tanteo urgente (< 30 días)"
-
-                                                    ></span>
-
-                                                  )}
-
-                                                </span>
-
-                                              )}
-
-                                              <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded uppercase">
-
-                                                {groupObj?.records[0]?.[
-
-                                                  "Hotel"
-
-                                                ] ||
-
-                                                  groupObj?.records[0]?.[
-
-                                                  "Hotel_Asignado"
-
-                                                  ] ||
-
-                                                  "S/H"}
-
-                                              </span>
-
-                                            </div>
-
-                                          </div>
-
-                                          <div className="flex justify-between items-center">
-
-                                            <span className="text-xs font-bold text-slate-800 group-hover:text-blue-600 truncate">
-
-                                              {group.name}
-
-                                            </span>
-
-                                            <div className="flex items-center gap-2">
-
-                                              <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded uppercase">
-
-                                                {normalizeHotelNameLocal(
-
-                                                  groupObj?.records[0]?.[
-
-                                                  "Hotel"
-
-                                                  ] ||
-
-                                                  groupObj?.records[0]?.[
-
-                                                  "Hotel_Asignado"
-
-                                                  ],
-
-                                                  "Sercotel Guadiana"
-
-                                                )}
-
-                                              </span>
-
-                                              <IconChevronRight
-
-                                                size={16}
-
-                                                className="text-slate-300 group-hover:text-blue-500"
-
-                                              />
-
-                                            </div>
-
-                                          </div>
-
-                                        </div>
-
-                                      );
-
-                                    })}
-
-                                  </div>
-
-                                </td>
-
+                                <th className="p-3">Mes</th>
+                                <th className="p-3 text-right">Pax Actual</th>
+                                <th className="p-3 text-right">Pax Año Ant.</th>
+                                <th className="p-3 text-right">Var. Pax</th>
+                                <th className="p-3 text-right">Ingresos Actual</th>
+                                <th className="p-3 text-right">Ingresos Año Ant.</th>
+                                <th className="p-3 text-right">Var. Ingresos</th>
+                                <th className="p-3 text-right">ADR Actual</th>
+                                <th className="p-3 text-right">ADR Año Ant.</th>
+                                <th className="p-3 text-right">Var. ADR</th>
+                                <th className="p-3 text-right"># Grupos</th>
                               </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {chartData.barData.map((m, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                  <td className="p-3 font-bold text-slate-800">
+                                    {m.monthLong} {m.year}
+                                    <span className="text-[10px] text-slate-400 block font-normal">vs {m.monthLong} {m.prevYear}</span>
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-slate-700">{m.Pax.toLocaleString()}</td>
+                                  <td className="p-3 text-right text-slate-400">{m.PaxAnterior.toLocaleString()}</td>
+                                  <td className="p-3 text-right">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
+                                      m.diffPax >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                                    }`}>
+                                      {m.diffPax >= 0 ? "+" : ""}{m.pctPax}%
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-slate-800">{formatCurrency(m.Ingresos)}</td>
+                                  <td className="p-3 text-right text-slate-400">{formatCurrency(m.IngresosAnterior)}</td>
+                                  <td className="p-3 text-right">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
+                                      m.diffRevenue >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                                    }`}>
+                                      {m.diffRevenue >= 0 ? "+" : ""}{m.pctRevenue}%
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-emerald-600">{formatAdr(m.ADR)}</td>
+                                  <td className="p-3 text-right text-slate-400">{formatAdr(m.ADRAnterior)}</td>
+                                  <td className="p-3 text-right">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
+                                      m.diffAdr >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                                    }`}>
+                                      {m.diffAdr >= 0 ? "+" : ""}{m.pctAdr}%
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-blue-600">{m.Grupos}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                            )}
+                  {/* SUB-VIEW 3: POR COMERCIAL */}
+                  {studySubTab === "comercial" && (
+                    <div className="space-y-6 animate-fade-in">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Gráfico de Ingresos por Comercial */}
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-80 flex flex-col">
+                          <h3 className="text-base font-bold text-slate-800 mb-1">
+                            Facturación por Comercial (€)
+                          </h3>
+                          <p className="text-[11px] text-slate-500 mb-3">Volumen de ventas por comercial asignado</p>
+                          <div className="flex-1 min-h-0 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={commercialStats} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#475569" }} interval={0} />
+                                <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => `${Math.round(v / 1000)}k€`} />
+                                <Tooltip formatter={(v) => formatCurrency(v)} />
+                                <Bar dataKey="revenue" name="Ingresos" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                                  {commercialStats.map((entry, index) => (
+                                    <Cell key={`comm-rev-${index}`} fill={COLORS[index % COLORS.length]} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
 
-                          </React.Fragment>
+                        {/* Gráfico de ADR por Comercial */}
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-80 flex flex-col">
+                          <h3 className="text-base font-bold text-slate-800 mb-1">
+                            Precio Medio (ADR) por Comercial
+                          </h3>
+                          <p className="text-[11px] text-slate-500 mb-3">ADR medio conseguido (€/habitación/noche)</p>
+                          <div className="flex-1 min-h-0 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={commercialStats} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#475569" }} interval={0} />
+                                <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => `${v}€`} />
+                                <Tooltip formatter={(v) => formatAdr(v)} />
+                                <Bar dataKey="adr" name="ADR Medio" fill="#10b981" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      </div>
 
-                        ))}
+                      {/* Tabla Completa de Rendimiento Comercial */}
+                      <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b bg-slate-50">
+                          <h3 className="text-sm font-bold text-slate-800">
+                            Tabla Detallada de Rendimiento por Comercial
+                          </h3>
+                          <p className="text-xs text-slate-500">Métricas comparativas de volumen, pax, precios medios y cuota de ventas</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
+                              <tr>
+                                <th className="p-3">Comercial</th>
+                                <th className="p-3 text-right"># Grupos</th>
+                                <th className="p-3 text-right">Pax Total</th>
+                                <th className="p-3 text-right">Noches Totales</th>
+                                <th className="p-3 text-right">Ingresos Totales</th>
+                                <th className="p-3 text-right">Cuota Mercado</th>
+                                <th className="p-3 text-right">ADR Medio</th>
+                                <th className="p-3 text-right">Precio / Pax</th>
+                                <th className="p-3 text-right">Ticket Medio / Grupo</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {commercialStats.map((c, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                  <td className="p-3 font-bold text-slate-800 flex items-center gap-2">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${getCommColor(c.name)}`}></span>
+                                    {c.name}
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-blue-600">{c.groupCount}</td>
+                                  <td className="p-3 text-right">{c.pax.toLocaleString()}</td>
+                                  <td className="p-3 text-right">{c.nights.toLocaleString()}</td>
+                                  <td className="p-3 text-right font-bold text-slate-800">{formatCurrency(c.revenue)}</td>
+                                  <td className="p-3 text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                        <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(100, c.share)}%` }}></div>
+                                      </div>
+                                      <span className="font-semibold text-[11px]">{c.share}%</span>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-emerald-600">{formatAdr(c.adr)}</td>
+                                  <td className="p-3 text-right font-medium text-slate-700">{formatAdr(c.pricePerPax)}</td>
+                                  <td className="p-3 text-right text-slate-600">
+                                    {c.groupCount > 0 ? formatCurrency(c.revenue / c.groupCount) : "0 €"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                      </tbody>
+                  {/* SUB-VIEW 4: PRECIO MEDIO (ADR) */}
+                  {studySubTab === "precio_medio" && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Top 4 ADR KPIs */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ADR Medio Global</span>
+                          <div className="text-2xl font-black text-emerald-600 mt-1">{formatAdr(globalStatsYoY.adr)}</div>
+                          <div className="text-[11px] text-slate-500 mt-1">Año anterior: {formatAdr(globalStatsYoY.prevAdr)} ({globalStatsYoY.pctAdr >= 0 ? "+" : ""}{globalStatsYoY.pctAdr}%)</div>
+                        </div>
 
-                    </table>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Precio Medio por Pax</span>
+                          <div className="text-2xl font-black text-blue-600 mt-1">{formatAdr(globalStatsYoY.pricePerPax)}</div>
+                          <div className="text-[11px] text-slate-500 mt-1">Año anterior: {formatAdr(globalStatsYoY.prevPricePerPax)}</div>
+                        </div>
 
-                  </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Top Segmento en ADR</span>
+                          <div className="text-lg font-black text-slate-800 mt-1 truncate">
+                            {(() => {
+                              const topSeg = segmentStats
+                                .slice()
+                                .filter((s) => s.nights > 0)
+                                .sort((a, b) => b.revenue / b.nights - a.revenue / a.nights)[0];
+                              return topSeg ? `${topSeg.name}` : "N/D";
+                            })()}
+                          </div>
+                          <div className="text-[11px] text-emerald-600 font-bold mt-1">
+                            {(() => {
+                              const topSeg = segmentStats
+                                .slice()
+                                .filter((s) => s.nights > 0)
+                                .sort((a, b) => b.revenue / b.nights - a.revenue / a.nights)[0];
+                              return topSeg ? `${formatAdr(topSeg.revenue / topSeg.nights)}/noche` : "-";
+                            })()}
+                          </div>
+                        </div>
 
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Top Comercial en ADR</span>
+                          <div className="text-lg font-black text-slate-800 mt-1 truncate">
+                            {commercialStats.slice().filter((c) => c.nights > 0).sort((a, b) => b.adr - a.adr)[0]?.name || "N/D"}
+                          </div>
+                          <div className="text-[11px] text-emerald-600 font-bold mt-1">
+                            {formatAdr(commercialStats.slice().filter((c) => c.nights > 0).sort((a, b) => b.adr - a.adr)[0]?.adr || 0)}/noche
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Gráfico de Evolución del ADR por Mes */}
+                      <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-88 flex flex-col">
+                        <div className="flex justify-between items-center mb-3">
+                          <div>
+                            <h3 className="text-base font-bold text-slate-800">
+                              Evolución del Precio Medio (ADR) por Mes
+                            </h3>
+                            <p className="text-[11px] text-slate-500">Comparativa de ADR (€/noche) respecto al año anterior</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-h-0 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData.barData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                              <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b" }} />
+                              <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => `${v}€`} />
+                              <Tooltip
+                                formatter={(val, name) => [`${formatAdr(val)}`, name]}
+                                labelFormatter={(label) => `Mes: ${label}`}
+                              />
+                              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 4 }} iconType="circle" iconSize={8} />
+                              <Bar name="ADR Actual (€)" dataKey="ADR" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                              <Bar name="ADR Año Anterior (€)" dataKey="ADRAnterior" fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      {/* 2 Rankings: Segmento y Comercial */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Ranking ADR por Segmento */}
+                        <div className="bg-white rounded-xl shadow border border-slate-200 p-5">
+                          <h4 className="font-bold text-slate-800 text-sm mb-3">
+                            Ranking de ADR por Segmento
+                          </h4>
+                          <div className="space-y-2.5">
+                            {segmentStats
+                              .slice()
+                              .filter((s) => s.nights > 0)
+                              .sort((a, b) => b.revenue / b.nights - a.revenue / a.nights)
+                              .map((s, idx) => {
+                                const adr = s.nights > 0 ? s.revenue / s.nights : 0;
+                                return (
+                                  <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                                      <span className="font-bold text-xs text-slate-700">{s.name}</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="font-extrabold text-sm text-emerald-600">{formatAdr(adr)}</span>
+                                      <span className="text-[10px] text-slate-400 block">{s.nights} noches</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+
+                        {/* Ranking ADR por Comercial */}
+                        <div className="bg-white rounded-xl shadow border border-slate-200 p-5">
+                          <h4 className="font-bold text-slate-800 text-sm mb-3">
+                            Ranking de ADR por Comercial
+                          </h4>
+                          <div className="space-y-2.5">
+                            {commercialStats
+                              .slice()
+                              .filter((c) => c.nights > 0)
+                              .sort((a, b) => b.adr - a.adr)
+                              .map((c, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${getCommColor(c.name)}`}></span>
+                                    <span className="font-bold text-xs text-slate-700">{c.name}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="font-extrabold text-sm text-emerald-600">{formatAdr(c.adr)}</span>
+                                    <span className="text-[10px] text-slate-400 block">{c.nights} noches / {formatCurrency(c.revenue)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-VIEW 5: SEGMENTOS (EXISTENTE MEJORADA) */}
+                  {studySubTab === "segmentos" && (
+                    <div className="space-y-6 animate-fade-in">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Ingresos por Segmento */}
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-88 flex flex-col">
+                          <h3 className="text-base font-bold text-slate-800 mb-1">
+                            Ingresos por Segmento
+                          </h3>
+                          <p className="text-[11px] text-slate-500 mb-3">Distribución de ingresos totales por categoría</p>
+                          <div className="flex-1 min-h-0 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={segmentStats} layout="vertical" margin={{ left: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                <XAxis type="number" hide />
+                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: "#64748b" }} interval={0} />
+                                <Tooltip formatter={(value) => formatCurrency(value)} />
+                                <Bar dataKey="revenue" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                                  {segmentStats.map((entry, index) => (
+                                    <Cell key={`cell-seg-${index}`} fill={COLORS[index % COLORS.length]} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Ocupación con Comparativa YoY */}
+                        {renderYoYBarChart("h-88")}
+                      </div>
+
+                      {/* Detailed Table */}
+                      <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b bg-slate-50">
+                          <h3 className="text-sm font-bold text-slate-800">
+                            Tabla de Rentabilidad por Segmento
+                          </h3>
+                          <p className="text-xs text-slate-500">Haz clic en cada segmento para ver el desglose de grupos asociados</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
+                              <tr>
+                                <th className="p-3 w-10"></th>
+                                <th className="p-3">Segmento</th>
+                                <th className="p-3 text-right"># Grupos</th>
+                                <th className="p-3 text-right">Pax Total</th>
+                                <th className="p-3 text-right">Noches Totales</th>
+                                <th className="p-3 text-right">Ingresos Totales</th>
+                                <th className="p-3 text-right">ADR Medio</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {segmentStats.map((seg, idx) => (
+                                <React.Fragment key={idx}>
+                                  <tr
+                                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                    onClick={() =>
+                                      setExpandedSegment(
+                                        expandedSegment === seg.name ? null : seg.name
+                                      )
+                                    }
+                                  >
+                                    <td className="p-3 text-center text-gray-400">
+                                      {expandedSegment === seg.name ? (
+                                        <IconChevronUp size={16} />
+                                      ) : (
+                                        <IconChevronDown size={16} />
+                                      )}
+                                    </td>
+                                    <td className="p-3 font-medium text-slate-800 flex items-center gap-2">
+                                      <span
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                                      ></span>
+                                      {seg.name}
+                                    </td>
+                                    <td className="p-3 text-right font-bold text-blue-600">
+                                      {seg.groupCount}
+                                    </td>
+                                    <td className="p-3 text-right">{seg.pax}</td>
+                                    <td className="p-3 text-right">{seg.nights}</td>
+                                    <td className="p-3 text-right font-bold text-slate-700">
+                                      {formatCurrency(seg.revenue)}
+                                    </td>
+                                    <td className="p-3 text-right text-emerald-600 font-bold">
+                                      {formatAdr(seg.nights > 0 ? seg.revenue / seg.nights : 0)}
+                                    </td>
+                                  </tr>
+                                  {expandedSegment === seg.name && (
+                                    <tr>
+                                      <td colSpan="7" className="p-0 bg-slate-50">
+                                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                          {seg.groups.map((group, gIdx) => {
+                                            const groupObj = group.obj;
+                                            const isTanteo =
+                                              seg.name === "GRUPO TANTEO" ||
+                                              (groupObj?.records?.[0]?.["Segment."] || "").toUpperCase() === "GRTANTEO";
+                                            const arrivalDate = group.arrival;
+                                            const today = new Date();
+                                            const arrival = new Date(toInputDate(arrivalDate));
+                                            const diffDays = Math.ceil((arrival - today) / (1000 * 60 * 60 * 24));
+                                            const isUrgent = isTanteo && diffDays >= 0 && diffDays <= 30;
+                                            return (
+                                              <div
+                                                key={gIdx}
+                                                onClick={() => groupObj && openFicha(groupObj)}
+                                                className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
+                                              >
+                                                <div className="flex justify-between items-center mb-1">
+                                                  <span className="text-[10px] font-black text-slate-400 tracking-wider">
+                                                    #{groupObj?.records[0]?.["Reserva"] || "-"}
+                                                  </span>
+                                                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                                    {formatCurrency(groupObj?.totalRevenue)}
+                                                  </span>
+                                                </div>
+                                                <div className="font-bold text-slate-800 truncate text-xs group-hover:text-blue-600">
+                                                  {group.name}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400 flex justify-between mt-1 pt-1 border-t border-slate-100">
+                                                  <span>{formatDate(arrivalDate)}</span>
+                                                  <span>{groupObj?.totalPax || 0} Pax</span>
+                                                </div>
+                                                {isUrgent && (
+                                                  <div className="mt-1 bg-amber-50 text-amber-700 text-[9px] px-1 py-0.5 rounded font-bold text-center border border-amber-200">
+                                                    ⚠️ Tanteo próximo ({diffDays}d)
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-              </div>
-
-            )}
+              );
+            })()}
 
             {/* 3. GROUP ANALYSIS */}
 
