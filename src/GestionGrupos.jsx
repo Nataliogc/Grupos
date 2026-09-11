@@ -6202,7 +6202,63 @@
 
       };
 
-      // ... (skipping updateGroupMetadata implementation here as I can't easily match large block without context, I will do separate edits if needed) ...
+      // --- Segment Helpers & Handlers ---
+      const DEFAULT_SEGMENTS = [
+        "GRUPO TANTEO",
+        "GRUPOS",
+        "CORPORATIVO LINEAL",
+        "DIRECTO OFFLINE",
+        "EVENTOS / BANQUETES",
+        "DEPORTIVO",
+        "CIRCUITO / TOUR OPERADOR",
+        "INCENTIVOS / MICE",
+        "BODAS",
+        "EMPRESA",
+      ];
+
+      const availableSegments = useMemo(() => {
+        const segSet = new Set(DEFAULT_SEGMENTS);
+        (data || []).forEach((r) => {
+          const s = (r["Segment."] || "").toString().trim().toUpperCase();
+          if (s && s !== "-" && s !== "SIN SEGMENTO") {
+            segSet.add(s);
+          }
+        });
+        if (selectedGroupFicha?.records?.[0]?.["Segment."]) {
+          const current = selectedGroupFicha.records[0]["Segment."].toString().trim().toUpperCase();
+          if (current && current !== "-" && current !== "SIN SEGMENTO") {
+            segSet.add(current);
+          }
+        }
+        return Array.from(segSet).sort();
+      }, [data, selectedGroupFicha]);
+
+      const handleSegmentChange = async (newVal) => {
+        if (!selectedGroupFicha) return;
+        let targetSegment = newVal;
+        if (newVal === "__CUSTOM__") {
+          const custom = window.prompt("Introduce el nombre del nuevo segmento:");
+          if (!custom || !custom.trim()) return;
+          targetSegment = custom.trim().toUpperCase();
+        }
+        if (!targetSegment) return;
+
+        const currentRec = selectedGroupFicha.records?.[0] || {};
+        const updates = {
+          "Segment.": targetSegment,
+          "Segment": targetSegment,
+        };
+
+        // Salvaguarda: si no tenía Com_Estado_Interno explícito fijado, preservamos su estado actual
+        // para que cambiar el segmento no altere de forma inadvertida el estado de seguimiento del grupo
+        if (!currentRec["Com_Estado_Interno"]) {
+          const rawSt = currentRec["Com_Estado_Interno"] || currentRec["Segment."] || currentRec["Estado"] || "PROSPECTO";
+          const stProps = getStatusProps(rawSt, selectedGroupFicha.arrival, currentRec["Estado"]);
+          updates["Com_Estado_Interno"] = stProps.label || "PROSPECTO";
+        }
+
+        await updateGroupMetadata(selectedGroupFicha.id, updates);
+      };
 
       // --- Room Manager Helpers ---
       const normalizeRoomIds = (value) => {
@@ -11462,15 +11518,28 @@
 
                                     </span>
 
-                                    <span className="bg-blue-500/20 px-2 py-1 rounded-lg text-[9px] font-black text-blue-200 uppercase border border-blue-500/30">
-
-                                      {selectedGroupFicha.records[0]?.[
-
-                                        "Segment."
-
-                                      ] || "GRUPOS"}
-
-                                    </span>
+                                    <div className="relative inline-flex items-center group/seg" title="Modificar segmento">
+                                      <select
+                                        value={
+                                          ((selectedGroupFicha.records[0]?.["Segment."] || "GRUPOS").toString().trim().toUpperCase())
+                                        }
+                                        onChange={(e) => handleSegmentChange(e.target.value)}
+                                        className="bg-blue-500/25 hover:bg-blue-500/35 text-blue-100 border border-blue-400/30 hover:border-blue-400/50 pl-2 pr-5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider appearance-none outline-none cursor-pointer transition-all shadow-sm"
+                                      >
+                                        {availableSegments.map((s) => (
+                                          <option key={s} value={s} className="bg-slate-800 text-white text-xs">
+                                            {s}
+                                          </option>
+                                        ))}
+                                        <option value="__CUSTOM__" className="bg-slate-900 text-cyan-300 font-bold">
+                                          + OTRO SEGMENTO...
+                                        </option>
+                                      </select>
+                                      <IconChevronDown
+                                        size={10}
+                                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-blue-200/70 pointer-events-none group-hover/seg:text-blue-100"
+                                      />
+                                    </div>
 
                                     {isGroupCredito && (
                                       <span
@@ -12183,6 +12252,35 @@
 
                               </div>
 
+                              {/* Segmento */}
+                              <div className="md:col-span-2">
+                                <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 ml-1">
+                                  Segmento
+                                </label>
+                                <div className="relative">
+                                  <select
+                                    className="w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl bg-slate-50 border border-slate-200 text-slate-700 appearance-none outline-none hover:border-blue-400 transition-all cursor-pointer"
+                                    value={
+                                      ((selectedGroupFicha.records[0]?.["Segment."] || "GRUPOS").toString().trim().toUpperCase())
+                                    }
+                                    onChange={(e) => handleSegmentChange(e.target.value)}
+                                  >
+                                    {availableSegments.map((s) => (
+                                      <option key={s} value={s}>
+                                        {s}
+                                      </option>
+                                    ))}
+                                    <option value="__CUSTOM__" className="text-blue-600 font-bold">
+                                      + OTRO SEGMENTO...
+                                    </option>
+                                  </select>
+                                  <IconChevronDown
+                                    size={14}
+                                    className="absolute right-3 top-2.5 text-slate-400 pointer-events-none"
+                                  />
+                                </div>
+                              </div>
+
                               {/* Nexus Presupuestos Link */}
 
                               {(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO") && (
@@ -12219,7 +12317,7 @@
 
                               {/* Fechas de Gestión */}
 
-                              <div className="md:col-span-3 grid grid-cols-1 gap-2">
+                              <div className={`grid grid-cols-1 gap-2 ${(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO") ? "md:col-span-1" : "md:col-span-2"}`}>
 
                                 <div>
 
@@ -12267,7 +12365,7 @@
 
                               {/* Finanzas Rápidas */}
 
-                              <div className="md:col-span-3 grid grid-cols-2 gap-2">
+                              <div className="md:col-span-2 grid grid-cols-2 gap-2">
 
                                 <button
 
