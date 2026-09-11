@@ -8956,8 +8956,9 @@
                       </button>
                     </div>
                   </div>
+                </div>
 
-                  {/* SUB-VIEW 1: GLOBAL */}
+                {/* SUB-VIEW 1: GLOBAL */}
                   {studySubTab === "global" && (
                     <div className="space-y-6 animate-fade-in">
                       {/* Top 5 KPI Cards */}
@@ -9382,9 +9383,13 @@
                         <div className="flex justify-between items-center mb-3">
                           <div>
                             <h3 className="text-base font-bold text-slate-800">
-                              Evolución del Precio Medio (ADR) por Mes
+                              Evolución del Precio Medio (ADR) por Mes {studyYear === "all" ? "(Todos los Años)" : `— Año ${studyYear}`}
                             </h3>
-                            <p className="text-[11px] text-slate-500">Comparativa de ADR (€/noche) respecto al año anterior</p>
+                            <p className="text-[11px] text-slate-500">
+                              {studyYear === "all"
+                                ? "Comparativa de ADR (€/habitación/noche) acumulado"
+                                : `Comparativa de ADR (€/habitación/noche) del año ${studyYear} respecto al año anterior (${parseInt(studyYear) - 1})`}
+                            </p>
                           </div>
                         </div>
                         <div className="flex-1 min-h-[300px] w-full" style={{ minHeight: "300px" }}>
@@ -9410,7 +9415,7 @@
                         {/* Ranking ADR por Segmento */}
                         <div className="bg-white rounded-xl shadow border border-slate-200 p-5">
                           <h4 className="font-bold text-slate-800 text-sm mb-3">
-                            Ranking de ADR por Segmento
+                            Ranking de ADR por Segmento {studyYear === "all" ? "(Todos los Años)" : `— Año ${studyYear}`}
                           </h4>
                           <div className="space-y-2.5">
                             {segmentStats
@@ -9438,7 +9443,7 @@
                         {/* Ranking ADR por Comercial */}
                         <div className="bg-white rounded-xl shadow border border-slate-200 p-5">
                           <h4 className="font-bold text-slate-800 text-sm mb-3">
-                            Ranking de ADR por Comercial
+                            Ranking de ADR por Comercial {studyYear === "all" ? "(Todos los Años)" : `— Año ${studyYear}`}
                           </h4>
                           <div className="space-y-2.5">
                             {commercialStats
@@ -9470,9 +9475,11 @@
                         {/* Ingresos por Segmento */}
                         <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "380px" }}>
                           <h3 className="text-base font-bold text-slate-800 mb-1">
-                            Ingresos por Segmento
+                            Ingresos por Segmento {studyYear === "all" ? "(Todos los Años)" : `— Año ${studyYear}`}
                           </h3>
-                          <p className="text-[11px] text-slate-500 mb-3">Distribución de ingresos totales por categoría</p>
+                          <p className="text-[11px] text-slate-500 mb-3">
+                            Distribución de ingresos totales por categoría en {studyYear === "all" ? "todos los periodos" : `el año ${studyYear}`}
+                          </p>
                           {segmentStats.length === 0 ? (
                             <div className="flex-1 flex items-center justify-center text-slate-400 text-xs italic">
                               No hay datos de segmentos disponibles
@@ -9504,7 +9511,7 @@
                       <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
                         <div className="p-4 border-b bg-slate-50">
                           <h3 className="text-sm font-bold text-slate-800">
-                            Tabla de Rentabilidad por Segmento
+                            Tabla de Rentabilidad por Segmento {studyYear === "all" ? "(Todos los Años)" : `— Año ${studyYear}`}
                           </h3>
                           <p className="text-xs text-slate-500">Haz clic en cada segmento para ver el desglose de grupos asociados</p>
                         </div>
