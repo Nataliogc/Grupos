@@ -1370,6 +1370,7 @@
 
       // Estados para Panel de Estudio y Comparativa YoY
       const [studySubTab, setStudySubTab] = useState("global"); // 'global', 'fechas', 'comercial', 'precio_medio', 'segmentos'
+      const [studyYear, setStudyYear] = useState(() => new Date().getFullYear()); // Año de estudio (ej. 2026)
       const [chartMetric, setChartMetric] = useState("Pax"); // 'Pax' o 'Ingresos'
       const [showPrevYearComparison, setShowPrevYearComparison] = useState(true);
       const [expandedCommercial, setExpandedCommercial] = useState(null);
@@ -1412,6 +1413,70 @@
         });
 
       }, [data]);
+
+
+
+      // Años disponibles detectados para el Panel de Estudio
+      const availableStudyYears = useMemo(() => {
+        const yearsSet = new Set();
+        (normalizedData || []).forEach((row) => {
+          const arrival = row._normArrival || toInputDate(row["Entrada"]);
+          if (arrival && arrival.length >= 4) {
+            const y = parseInt(arrival.substring(0, 4), 10);
+            if (!isNaN(y) && y >= 2020 && y <= 2035) {
+              yearsSet.add(y);
+            }
+          }
+        });
+        const currentY = new Date().getFullYear();
+        yearsSet.add(currentY);
+        yearsSet.add(currentY + 1);
+        return Array.from(yearsSet).sort((a, b) => a - b);
+      }, [normalizedData]);
+
+      // Conjunto de datos acotados al Año de Estudio para todo el Panel de Rentabilidad & Comerciales
+      const studyData = useMemo(() => {
+        return (normalizedData || []).filter((row) => {
+          const statusVal = (row["Com_Estado_Interno"] || row["Estado"] || "").toUpperCase();
+          if (row.excludeFromStatistics === true || statusVal === "DESGLOSADO" || row.status === "DESGLOSADO") {
+            return false;
+          }
+
+          const hasReserva = (row["Reserva"] &&
+            row["Reserva"].toString().trim() !== "" &&
+            row["Reserva"].toString().trim() !== "-") ||
+            (row["uid"] && row["uid"].toString().startsWith("PRES-"));
+          if (!hasReserva) return false;
+
+          const stateLabel = (row._stateLabel || "").toLowerCase();
+          if (stateLabel === "desestimado" || stateLabel === "cancelado") {
+            return false;
+          }
+
+          if (filterDirHotel) {
+            const h = normalizeHotelName(row["Hotel_Asignado"] || row["Hotel"]);
+            if (h !== filterDirHotel) return false;
+          }
+
+          if (filterDirCommercial) {
+            const com = (row["Com_Comercial"] || "").trim();
+            if (filterDirCommercial === "SIN_ASIGNAR") {
+              if (com !== "") return false;
+            } else if (com !== filterDirCommercial) {
+              return false;
+            }
+          }
+
+          if (studyYear && studyYear !== "all") {
+            const arrival = row._normArrival || toInputDate(row["Entrada"]);
+            if (!arrival || arrival.length < 4) return false;
+            const y = parseInt(arrival.substring(0, 4), 10);
+            if (y !== parseInt(studyYear, 10)) return false;
+          }
+
+          return true;
+        });
+      }, [normalizedData, filterDirHotel, filterDirCommercial, studyYear]);
 
 
 
@@ -2338,147 +2403,67 @@
 
 
 
-      // --- Análisis detallado por Segmentos (Filtrados) ---
-
+      // --- Análisis detallado por Segmentos (Filtrados por Año de Estudio) ---
       const segmentStats = useMemo(() => {
-
         const segments = {};
 
-
-
-        processedData.forEach((row) => {
-
-          // Filtrar grupos cancelados o pasados de la estadística de rentabilidad
-
-          const stateProps = getStatusProps(
-
-            row["Com_Estado_Interno"] || row["Segment."],
-
-            row["Entrada"],
-
-            row["Estado"]
-
-          );
-
-          const isPast = row._normArrival && row._normArrival < new Date().toISOString().split("T")[0];
-
-          if (stateProps.label === "DESESTIMADO" || isPast) {
-
-            return;
-
-          }
-
-
-
+        studyData.forEach((row) => {
           let segName = (row["Segment."] || "Sin Segmento")
-
             .toString()
-
             .trim()
-
             .toUpperCase();
 
           if (segName === "GRTANTEO") segName = "GRUPO TANTEO";
-
           if (segName === "GRUPOS") segName = "GRUPO";
-
           const groupName = row["Nombre del Grupo"] || "Sin Nombre";
 
-
-
           if (!segments[segName]) {
-
             segments[segName] = {
-
               name: segName,
-
               revenue: 0,
-
               pax: 0,
-
               nights: 0,
-
               count: 0,
-
               groupList: new Set(),
-
             };
-
           }
 
-
-
           const importe = parseNum(row["Importe(*)"]);
-
           const pax = parseInt(row["Pax."] || 0);
-
           const noches = parseInt(row["Noches"] || 0);
 
-
-
           if (!isNaN(importe)) segments[segName].revenue += importe;
-
           if (!isNaN(pax)) segments[segName].pax += pax;
-
           if (!isNaN(noches)) segments[segName].nights += noches;
-
           segments[segName].count += 1;
-
           segments[segName].groupList.add(groupName);
-
         });
 
-
-
         return Object.values(segments)
-
           .map((s) => ({
-
             ...s,
-
             groupCount: s.groupList.size,
-
             groups: Array.from(s.groupList)
-
               .map((name) => {
-
                 const groupObj = groupedData.find((g) => g.name === name);
-
                 if (!groupObj) return { name, arrival: null, obj: null };
-
                 return {
-
                   name,
-
                   arrival:
-
                     groupObj?.arrival || groupObj?.records?.[0]?.["Entrada"],
-
                   obj: groupObj,
-
                 };
-
               })
-
               .sort((a, b) => {
-
                 const da = new Date(toInputDate(a.arrival));
-
                 const db = new Date(toInputDate(b.arrival));
-
                 if (isNaN(da.getTime())) return 1;
-
                 if (isNaN(db.getTime())) return -1;
-
                 return da - db;
-
               }),
-
           }))
-
           .sort((a, b) => b.revenue - a.revenue);
-
-      }, [processedData]);
+      }, [studyData, groupedData]);
 
 
 
@@ -2526,15 +2511,19 @@
               if (!isNaN(y) && !isNaN(m) && y > 2000 && y < 2100) {
                 const key = `${y}-${m}`;
                 if (!map[key]) {
-                  map[key] = { pax: 0, revenue: 0, nights: 0, count: 0 };
+                  map[key] = { pax: 0, revenue: 0, nights: 0, roomNights: 0, count: 0 };
                 }
                 const importe = parseNum(row["Importe(*)"]);
                 const pax = parseInt(row["Pax."] || 0);
                 const noches = parseInt(row["Noches"] || 0);
+                const habs = parseInt(row["Cant. Habitaciones"] || row["Cant."] || row["Hab."] || row["Habitaciones"] || 0);
+                const roomCount = habs > 0 ? habs : Math.max(1, Math.ceil(pax / 2));
+                const roomNights = roomCount * Math.max(1, noches);
 
                 map[key].pax += isNaN(pax) ? 0 : pax;
                 map[key].revenue += isNaN(importe) ? 0 : importe;
                 map[key].nights += isNaN(noches) ? 0 : noches;
+                map[key].roomNights += isNaN(roomNights) ? 0 : roomNights;
                 map[key].count += 1;
               }
             }
@@ -2557,7 +2546,24 @@
 
         const currentMonthsMap = new Map();
 
-        processedData.forEach((row) => {
+        // Si hay un año concreto seleccionado, inicializamos los 12 meses de ese año
+        // para que siempre aparezca el año completo ordenado de Enero a Diciembre
+        if (studyYear && studyYear !== "all") {
+          const sy = parseInt(studyYear, 10);
+          for (let m = 0; m < 12; m++) {
+            currentMonthsMap.set(`${sy}-${m}`, {
+              year: sy,
+              month: m,
+              pax: 0,
+              revenue: 0,
+              nights: 0,
+              roomNights: 0,
+              count: 0
+            });
+          }
+        }
+
+        studyData.forEach((row) => {
           const arrival = row._normArrival || toInputDate(row["Entrada"]);
           if (arrival) {
             const date = new Date(arrival);
@@ -2572,6 +2578,7 @@
                   pax: 0,
                   revenue: 0,
                   nights: 0,
+                  roomNights: 0,
                   count: 0
                 });
               }
@@ -2579,10 +2586,14 @@
               const importe = parseNum(row["Importe(*)"]);
               const pax = parseInt(row["Pax."] || 0);
               const noches = parseInt(row["Noches"] || 0);
+              const habs = parseInt(row["Cant. Habitaciones"] || row["Cant."] || row["Hab."] || row["Habitaciones"] || 0);
+              const roomCount = habs > 0 ? habs : Math.max(1, Math.ceil(pax / 2));
+              const roomNights = roomCount * Math.max(1, noches);
 
               item.pax += isNaN(pax) ? 0 : pax;
               item.revenue += isNaN(importe) ? 0 : importe;
               item.nights += isNaN(noches) ? 0 : noches;
+              item.roomNights += isNaN(roomNights) ? 0 : roomNights;
               item.count += 1;
             }
           }
@@ -2600,7 +2611,7 @@
           const m = item.month;
           const prevYear = y - 1;
           const prevKey = `${prevYear}-${m}`;
-          const prevItem = historicalByYearMonth[prevKey] || { pax: 0, revenue: 0, nights: 0, count: 0 };
+          const prevItem = historicalByYearMonth[prevKey] || { pax: 0, revenue: 0, nights: 0, roomNights: 0, count: 0 };
 
           const diffPax = item.pax - prevItem.pax;
           const pctPax = prevItem.pax > 0 ? ((diffPax / prevItem.pax) * 100) : (item.pax > 0 ? 100 : 0);
@@ -2608,8 +2619,8 @@
           const diffRevenue = item.revenue - prevItem.revenue;
           const pctRevenue = prevItem.revenue > 0 ? ((diffRevenue / prevItem.revenue) * 100) : (item.revenue > 0 ? 100 : 0);
 
-          const adr = item.nights > 0 ? item.revenue / item.nights : 0;
-          const prevAdr = prevItem.nights > 0 ? prevItem.revenue / prevItem.nights : 0;
+          const adr = item.roomNights > 0 ? item.revenue / item.roomNights : (item.nights > 0 ? item.revenue / item.nights : 0);
+          const prevAdr = prevItem.roomNights > 0 ? prevItem.revenue / prevItem.roomNights : (prevItem.nights > 0 ? prevItem.revenue / prevItem.nights : 0);
           const diffAdr = adr - prevAdr;
           const pctAdr = prevAdr > 0 ? ((diffAdr / prevAdr) * 100) : (adr > 0 ? 100 : 0);
 
@@ -2645,20 +2656,13 @@
         });
 
         return { barData };
-      }, [processedData, historicalByYearMonth]);
+      }, [studyData, historicalByYearMonth, studyYear]);
 
-      // --- Rendimiento y Estudio por Comercial ---
+      // --- Rendimiento y Estudio por Comercial (Acotado a Producción del Año de Estudio) ---
       const commercialStats = useMemo(() => {
         const commMap = {};
 
-        processedData.forEach((row) => {
-          const stateProps = getStatusProps(
-            row["Com_Estado_Interno"] || row["Segment."],
-            row["Entrada"],
-            row["Estado"]
-          );
-          if (stateProps.label === "DESESTIMADO") return;
-
+        studyData.forEach((row) => {
           let comName = (row["Com_Comercial"] || "").toString().trim().toUpperCase();
           if (!comName) comName = "SIN ASIGNAR";
 
@@ -2668,6 +2672,7 @@
               revenue: 0,
               pax: 0,
               nights: 0,
+              roomNights: 0,
               groupCount: 0,
               groupList: new Set(),
             };
@@ -2676,11 +2681,15 @@
           const importe = parseNum(row["Importe(*)"]);
           const pax = parseInt(row["Pax."] || 0);
           const noches = parseInt(row["Noches"] || 0);
+          const habs = parseInt(row["Cant. Habitaciones"] || row["Cant."] || row["Hab."] || row["Habitaciones"] || 0);
+          const roomCount = habs > 0 ? habs : Math.max(1, Math.ceil(pax / 2));
+          const roomNights = roomCount * Math.max(1, noches);
           const gName = row["Nombre del Grupo"] || row["Reserva"] || "Grupo";
 
           if (!isNaN(importe)) commMap[comName].revenue += importe;
           if (!isNaN(pax)) commMap[comName].pax += pax;
           if (!isNaN(noches)) commMap[comName].nights += noches;
+          commMap[comName].roomNights += roomNights;
           commMap[comName].groupList.add(gName);
         });
 
@@ -2689,7 +2698,7 @@
         return Object.values(commMap)
           .map((c) => {
             const groups = c.groupList.size;
-            const adr = c.nights > 0 ? c.revenue / c.nights : 0;
+            const adr = c.roomNights > 0 ? c.revenue / c.roomNights : (c.nights > 0 ? c.revenue / c.nights : 0);
             const pricePerPax = c.pax > 0 ? c.revenue / c.pax : 0;
             const share = totalRevAll > 0 ? (c.revenue / totalRevAll) * 100 : 0;
             return {
@@ -2701,7 +2710,7 @@
             };
           })
           .sort((a, b) => b.revenue - a.revenue);
-      }, [processedData]);
+      }, [studyData]);
 
       // --- Métricas Globales Consolidadas con Comparativa YoY ---
       const globalStatsYoY = useMemo(() => {
@@ -8751,15 +8760,17 @@
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div>
                       <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                        <span>Ocupación de Grupos por Meses</span>
+                        <span>Ocupación de Grupos por Meses {studyYear === "all" ? "" : `(${studyYear})`}</span>
                         {showPrevYearComparison && (
                           <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold border border-slate-200">
-                            Comparativa Año Anterior
+                            {studyYear === "all" ? "Comparativa Año Anterior" : `vs ${parseInt(studyYear) - 1}`}
                           </span>
                         )}
                       </h3>
                       <p className="text-[11px] text-slate-500">
-                        {chartMetric === "Pax" ? "Plazas (Pax) reservadas por mes" : "Ingresos totales (€) previstos por mes"}
+                        {chartMetric === "Pax"
+                          ? `Plazas (Pax) reservadas por mes ${studyYear === "all" ? "" : `en ${studyYear}`}`
+                          : `Ingresos totales (€) previstos por mes ${studyYear === "all" ? "" : `en ${studyYear}`}`}
                       </p>
                     </div>
 
@@ -8842,14 +8853,17 @@
               return (
                 <div className="animate-fade-in space-y-6">
                   {/* HEADER DEL PANEL DE ESTUDIO */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <div className="flex items-center gap-3">
                       <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
                         <IconChart size={22} />
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-slate-800 leading-tight">
-                          Panel de Estudio & Rentabilidad
+                        <h2 className="text-lg font-bold text-slate-800 leading-tight flex items-center gap-2">
+                          <span>Panel de Estudio & Rentabilidad</span>
+                          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold border border-blue-200">
+                            {studyYear === "all" ? "Todos los Años" : `Año ${studyYear}`}
+                          </span>
                         </h2>
                         <p className="text-xs text-slate-500">
                           Estudio analítico de ocupación, comparativa año sobre año (YoY), rendimiento por comercial y precio medio (ADR)
@@ -8857,16 +8871,47 @@
                       </div>
                     </div>
 
-                    {/* SUB-TABS NAVIGATION */}
-                    <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
-                      <button
-                        onClick={() => setStudySubTab("global")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                          studySubTab === "global"
-                            ? "bg-white text-blue-600 shadow-sm"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
+                    <div className="flex flex-wrap items-center gap-3 self-start xl:self-auto">
+                      {/* SELECTOR DE AÑO DE ESTUDIO */}
+                      <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 border border-slate-200 shadow-inner">
+                        <span className="text-[10px] font-black uppercase text-slate-400 pl-2 pr-1 tracking-wider">
+                          Año:
+                        </span>
+                        {availableStudyYears.map((yr) => (
+                          <button
+                            key={yr}
+                            onClick={() => setStudyYear(yr)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                              studyYear === yr
+                                ? "bg-white text-blue-600 shadow-sm border border-slate-200/80 scale-105"
+                                : "text-slate-600 hover:text-slate-900"
+                            }`}
+                          >
+                            {yr}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setStudyYear("all")}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            studyYear === "all"
+                              ? "bg-white text-blue-600 shadow-sm border border-slate-200/80 scale-105"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          Todos
+                        </button>
+                      </div>
+
+                      {/* SUB-TABS NAVIGATION */}
+                      <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
+                        <button
+                          onClick={() => setStudySubTab("global")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                            studySubTab === "global"
+                              ? "bg-white text-blue-600 shadow-sm"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
                         <span>🌐</span> Visión Global
                       </button>
                       <button
@@ -8991,7 +9036,7 @@
                         <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "380px" }}>
                           <div className="mb-3">
                             <h3 className="text-base font-bold text-slate-800">
-                              Ingresos por Segmento
+                              Ingresos por Segmento {studyYear === "all" ? "" : `(${studyYear})`}
                             </h3>
                             <p className="text-[11px] text-slate-500">Distribución de facturación según categoría</p>
                           </div>
@@ -9182,9 +9227,11 @@
                         {/* Gráfico de Ingresos por Comercial */}
                         <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "360px" }}>
                           <h3 className="text-base font-bold text-slate-800 mb-1">
-                            Facturación por Comercial (€)
+                            Facturación por Comercial (€) {studyYear === "all" ? "(Todos los Años)" : `— Año ${studyYear}`}
                           </h3>
-                          <p className="text-[11px] text-slate-500 mb-3">Volumen de ventas por comercial asignado</p>
+                          <p className="text-[11px] text-slate-500 mb-3">
+                            Volumen de ventas cerrado por comercial en {studyYear === "all" ? "todos los periodos" : `el año ${studyYear}`}
+                          </p>
                           <div className="flex-1 min-h-[280px] w-full" style={{ minHeight: "280px" }}>
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={commercialStats} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
@@ -9205,9 +9252,11 @@
                         {/* Gráfico de ADR por Comercial */}
                         <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "360px" }}>
                           <h3 className="text-base font-bold text-slate-800 mb-1">
-                            Precio Medio (ADR) por Comercial
+                            Precio Medio (ADR) por Comercial {studyYear === "all" ? "(Todos los Años)" : `— Año ${studyYear}`}
                           </h3>
-                          <p className="text-[11px] text-slate-500 mb-3">ADR medio conseguido (€/habitación/noche)</p>
+                          <p className="text-[11px] text-slate-500 mb-3">
+                            ADR medio conseguido (€/habitación/noche) en {studyYear === "all" ? "todos los periodos" : `el año ${studyYear}`}
+                          </p>
                           <div className="flex-1 min-h-[280px] w-full" style={{ minHeight: "280px" }}>
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={commercialStats} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
@@ -9226,7 +9275,7 @@
                       <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
                         <div className="p-4 border-b bg-slate-50">
                           <h3 className="text-sm font-bold text-slate-800">
-                            Tabla Detallada de Rendimiento por Comercial
+                            Tabla Detallada de Rendimiento por Comercial {studyYear === "all" ? "(Todos los Años)" : `— Producción Año ${studyYear}`}
                           </h3>
                           <p className="text-xs text-slate-500">Métricas comparativas de volumen, pax, precios medios y cuota de ventas</p>
                         </div>
