@@ -8743,8 +8743,11 @@
                 );
               };
 
-              const renderYoYBarChart = (heightClass = "h-80") => (
-                <div className={`bg-white p-5 rounded-xl shadow border border-slate-200 flex flex-col ${heightClass}`}>
+              const renderYoYBarChart = (heightClass = "h-96") => (
+                <div
+                  className={`bg-white p-5 rounded-xl shadow border border-slate-200 flex flex-col ${heightClass}`}
+                  style={{ minHeight: "380px" }}
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <div>
                       <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
@@ -8799,7 +8802,7 @@
                     </div>
                   </div>
 
-                  <div className="flex-1 min-h-0 w-full">
+                  <div className="flex-1 min-h-[300px] w-full" style={{ minHeight: "300px" }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData.barData} margin={{ top: 8, right: 10, left: -10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -8982,31 +8985,37 @@
 
                       {/* Main 2 Charts */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {renderYoYBarChart("h-88")}
+                        {renderYoYBarChart("h-96")}
 
                         {/* Ingresos por Segmento */}
-                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-88 flex flex-col">
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "380px" }}>
                           <div className="mb-3">
                             <h3 className="text-base font-bold text-slate-800">
                               Ingresos por Segmento
                             </h3>
                             <p className="text-[11px] text-slate-500">Distribución de facturación según categoría</p>
                           </div>
-                          <div className="flex-1 min-h-0 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={segmentStats} layout="vertical" margin={{ left: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                                <XAxis type="number" hide />
-                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: "#64748b" }} interval={0} />
-                                <Tooltip formatter={(value) => formatCurrency(value)} />
-                                <Bar dataKey="revenue" fill="#8884d8" radius={[0, 4, 4, 0]}>
-                                  {segmentStats.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                  ))}
-                                </Bar>
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
+                          {segmentStats.length === 0 ? (
+                            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs italic">
+                              No hay datos de segmentos disponibles
+                            </div>
+                          ) : (
+                            <div className="flex-1 min-h-[300px] w-full" style={{ minHeight: "300px" }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={segmentStats} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                  <XAxis type="number" hide />
+                                  <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10, fill: "#64748b" }} interval={0} />
+                                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                                  <Bar dataKey="revenue" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                                    {segmentStats.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -9171,12 +9180,12 @@
                     <div className="space-y-6 animate-fade-in">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Gráfico de Ingresos por Comercial */}
-                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-80 flex flex-col">
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "360px" }}>
                           <h3 className="text-base font-bold text-slate-800 mb-1">
                             Facturación por Comercial (€)
                           </h3>
                           <p className="text-[11px] text-slate-500 mb-3">Volumen de ventas por comercial asignado</p>
-                          <div className="flex-1 min-h-0 w-full">
+                          <div className="flex-1 min-h-[280px] w-full" style={{ minHeight: "280px" }}>
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={commercialStats} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -9194,12 +9203,12 @@
                         </div>
 
                         {/* Gráfico de ADR por Comercial */}
-                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-80 flex flex-col">
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "360px" }}>
                           <h3 className="text-base font-bold text-slate-800 mb-1">
                             Precio Medio (ADR) por Comercial
                           </h3>
                           <p className="text-[11px] text-slate-500 mb-3">ADR medio conseguido (€/habitación/noche)</p>
-                          <div className="flex-1 min-h-0 w-full">
+                          <div className="flex-1 min-h-[280px] w-full" style={{ minHeight: "280px" }}>
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={commercialStats} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -9320,7 +9329,7 @@
                       </div>
 
                       {/* Gráfico de Evolución del ADR por Mes */}
-                      <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-88 flex flex-col">
+                      <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "380px" }}>
                         <div className="flex justify-between items-center mb-3">
                           <div>
                             <h3 className="text-base font-bold text-slate-800">
@@ -9329,7 +9338,7 @@
                             <p className="text-[11px] text-slate-500">Comparativa de ADR (€/noche) respecto al año anterior</p>
                           </div>
                         </div>
-                        <div className="flex-1 min-h-0 w-full">
+                        <div className="flex-1 min-h-[300px] w-full" style={{ minHeight: "300px" }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData.barData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -9410,30 +9419,36 @@
                     <div className="space-y-6 animate-fade-in">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Ingresos por Segmento */}
-                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-88 flex flex-col">
+                        <div className="bg-white p-5 rounded-xl shadow border border-slate-200 h-96 flex flex-col" style={{ minHeight: "380px" }}>
                           <h3 className="text-base font-bold text-slate-800 mb-1">
                             Ingresos por Segmento
                           </h3>
                           <p className="text-[11px] text-slate-500 mb-3">Distribución de ingresos totales por categoría</p>
-                          <div className="flex-1 min-h-0 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={segmentStats} layout="vertical" margin={{ left: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                                <XAxis type="number" hide />
-                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: "#64748b" }} interval={0} />
-                                <Tooltip formatter={(value) => formatCurrency(value)} />
-                                <Bar dataKey="revenue" fill="#8884d8" radius={[0, 4, 4, 0]}>
-                                  {segmentStats.map((entry, index) => (
-                                    <Cell key={`cell-seg-${index}`} fill={COLORS[index % COLORS.length]} />
-                                  ))}
-                                </Bar>
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
+                          {segmentStats.length === 0 ? (
+                            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs italic">
+                              No hay datos de segmentos disponibles
+                            </div>
+                          ) : (
+                            <div className="flex-1 min-h-[300px] w-full" style={{ minHeight: "300px" }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={segmentStats} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                  <XAxis type="number" hide />
+                                  <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10, fill: "#64748b" }} interval={0} />
+                                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                                  <Bar dataKey="revenue" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                                    {segmentStats.map((entry, index) => (
+                                      <Cell key={`cell-seg-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          )}
                         </div>
 
                         {/* Ocupación con Comparativa YoY */}
-                        {renderYoYBarChart("h-88")}
+                        {renderYoYBarChart("h-96")}
                       </div>
 
                       {/* Detailed Table */}
