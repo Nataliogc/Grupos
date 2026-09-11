@@ -2423,45 +2423,67 @@
               revenue: 0,
               pax: 0,
               nights: 0,
+              roomNights: 0,
               count: 0,
               groupList: new Set(),
             };
           }
 
           const importe = parseNum(row["Importe(*)"]);
-          const pax = parseInt(row["Pax."] || 0);
-          const noches = parseInt(row["Noches"] || 0);
+          let pax = parseInt(row["Pax."] || 0);
+          if (isNaN(pax) || pax < 0) pax = 0;
+          const noches = Math.max(1, parseInt(row["Noches"] || 1));
+          let habs = parseInt(row["Cant. Habitaciones"] || row["Cant."] || row["Hab."] || row["Habitaciones"] || 0);
+          if (isNaN(habs) || habs < 0) habs = 0;
+
+          if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]") {
+            try {
+              const rl = parseRoomingListSafe(row.RoomingList_JSON, "lodging-metrics");
+              const rRooms = calculateMaxDailyRooms(rl);
+              if (rRooms > 0) habs = rRooms;
+              const rPax = calculateMaxDailyOccupancy(rl);
+              if (rPax > 0) pax = rPax;
+            } catch (e) { }
+          }
+
+          const roomCount = habs > 0 ? habs : (pax > 0 ? Math.max(1, Math.ceil(pax / 2)) : 1);
+          const roomNights = roomCount * noches;
 
           if (!isNaN(importe)) segments[segName].revenue += importe;
-          if (!isNaN(pax)) segments[segName].pax += pax;
-          if (!isNaN(noches)) segments[segName].nights += noches;
+          segments[segName].pax += pax;
+          segments[segName].nights += isNaN(noches) ? 0 : noches;
+          segments[segName].roomNights += roomNights;
           segments[segName].count += 1;
           segments[segName].groupList.add(groupName);
         });
 
         return Object.values(segments)
-          .map((s) => ({
-            ...s,
-            groupCount: s.groupList.size,
-            groups: Array.from(s.groupList)
-              .map((name) => {
-                const groupObj = groupedData.find((g) => g.name === name);
-                if (!groupObj) return { name, arrival: null, obj: null };
-                return {
-                  name,
-                  arrival:
-                    groupObj?.arrival || groupObj?.records?.[0]?.["Entrada"],
-                  obj: groupObj,
-                };
-              })
-              .sort((a, b) => {
-                const da = new Date(toInputDate(a.arrival));
-                const db = new Date(toInputDate(b.arrival));
-                if (isNaN(da.getTime())) return 1;
-                if (isNaN(db.getTime())) return -1;
-                return da - db;
-              }),
-          }))
+          .map((s) => {
+            const adr = s.roomNights > 0 ? s.revenue / s.roomNights : (s.nights > 0 ? s.revenue / s.nights : 0);
+            return {
+              ...s,
+              adr: Math.round(adr * 100) / 100,
+              groupCount: s.groupList.size,
+              groups: Array.from(s.groupList)
+                .map((name) => {
+                  const groupObj = groupedData.find((g) => g.name === name);
+                  if (!groupObj) return { name, arrival: null, obj: null };
+                  return {
+                    name,
+                    arrival:
+                      groupObj?.arrival || groupObj?.records?.[0]?.["Entrada"],
+                    obj: groupObj,
+                  };
+                })
+                .sort((a, b) => {
+                  const da = new Date(toInputDate(a.arrival));
+                  const db = new Date(toInputDate(b.arrival));
+                  if (isNaN(da.getTime())) return 1;
+                  if (isNaN(db.getTime())) return -1;
+                  return da - db;
+                }),
+            };
+          })
           .sort((a, b) => b.revenue - a.revenue);
       }, [studyData, groupedData]);
 
@@ -2637,12 +2659,14 @@
             Pax: item.pax,
             Ingresos: item.revenue,
             Noches: item.nights,
+            RoomNights: item.roomNights,
             ADR: Math.round(adr * 100) / 100,
             PrecioMedioPax: Math.round(pricePerPax * 100) / 100,
             Grupos: item.count,
             PaxAnterior: prevItem.pax,
             IngresosAnterior: prevItem.revenue,
             NochesAnterior: prevItem.nights,
+            RoomNightsAnterior: prevItem.roomNights,
             ADRAnterior: Math.round(prevAdr * 100) / 100,
             PrecioMedioPaxAnterior: Math.round(prevPricePerPax * 100) / 100,
             GruposAnterior: prevItem.count,
@@ -2679,16 +2703,29 @@
           }
 
           const importe = parseNum(row["Importe(*)"]);
-          const pax = parseInt(row["Pax."] || 0);
-          const noches = parseInt(row["Noches"] || 0);
-          const habs = parseInt(row["Cant. Habitaciones"] || row["Cant."] || row["Hab."] || row["Habitaciones"] || 0);
-          const roomCount = habs > 0 ? habs : Math.max(1, Math.ceil(pax / 2));
-          const roomNights = roomCount * Math.max(1, noches);
+          let pax = parseInt(row["Pax."] || 0);
+          if (isNaN(pax) || pax < 0) pax = 0;
+          const noches = Math.max(1, parseInt(row["Noches"] || 1));
+          let habs = parseInt(row["Cant. Habitaciones"] || row["Cant."] || row["Hab."] || row["Habitaciones"] || 0);
+          if (isNaN(habs) || habs < 0) habs = 0;
+
+          if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]") {
+            try {
+              const rl = parseRoomingListSafe(row.RoomingList_JSON, "lodging-metrics");
+              const rRooms = calculateMaxDailyRooms(rl);
+              if (rRooms > 0) habs = rRooms;
+              const rPax = calculateMaxDailyOccupancy(rl);
+              if (rPax > 0) pax = rPax;
+            } catch (e) { }
+          }
+
+          const roomCount = habs > 0 ? habs : (pax > 0 ? Math.max(1, Math.ceil(pax / 2)) : 1);
+          const roomNights = roomCount * noches;
           const gName = row["Nombre del Grupo"] || row["Reserva"] || "Grupo";
 
           if (!isNaN(importe)) commMap[comName].revenue += importe;
-          if (!isNaN(pax)) commMap[comName].pax += pax;
-          if (!isNaN(noches)) commMap[comName].nights += noches;
+          commMap[comName].pax += pax;
+          commMap[comName].nights += isNaN(noches) ? 0 : noches;
           commMap[comName].roomNights += roomNights;
           commMap[comName].groupList.add(gName);
         });
@@ -2720,6 +2757,8 @@
         let totalRevPrev = 0;
         let totalNights = 0;
         let totalNightsPrev = 0;
+        let totalRoomNights = 0;
+        let totalRoomNightsPrev = 0;
         let totalGroups = 0;
 
         (chartData.barData || []).forEach((m) => {
@@ -2729,11 +2768,13 @@
           totalRevPrev += m.IngresosAnterior || 0;
           totalNights += m.Noches || 0;
           totalNightsPrev += m.NochesAnterior || 0;
+          totalRoomNights += m.RoomNights || 0;
+          totalRoomNightsPrev += m.RoomNightsAnterior || 0;
           totalGroups += m.Grupos || 0;
         });
 
-        const adr = totalNights > 0 ? totalRev / totalNights : 0;
-        const prevAdr = totalNightsPrev > 0 ? totalRevPrev / totalNightsPrev : 0;
+        const adr = totalRoomNights > 0 ? totalRev / totalRoomNights : (totalNights > 0 ? totalRev / totalNights : 0);
+        const prevAdr = totalRoomNightsPrev > 0 ? totalRevPrev / totalRoomNightsPrev : (totalNightsPrev > 0 ? totalRevPrev / totalNightsPrev : 0);
 
         const pricePerPax = totalPax > 0 ? totalRev / totalPax : 0;
         const prevPricePerPax = totalPaxPrev > 0 ? totalRevPrev / totalPaxPrev : 0;
@@ -2758,13 +2799,15 @@
           pctRev: Math.round(pctRev * 10) / 10,
           totalNights,
           totalNightsPrev,
+          totalRoomNights,
+          totalRoomNightsPrev,
+          totalGroups,
           adr: Math.round(adr * 100) / 100,
           prevAdr: Math.round(prevAdr * 100) / 100,
           diffAdr: Math.round(diffAdr * 100) / 100,
           pctAdr: Math.round(pctAdr * 10) / 10,
           pricePerPax: Math.round(pricePerPax * 100) / 100,
           prevPricePerPax: Math.round(prevPricePerPax * 100) / 100,
-          totalGroups,
         };
       }, [chartData]);
 
@@ -8994,7 +9037,7 @@
                         </div>
 
                         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ADR Medio (Noche)</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ADR Medio Hab.</span>
                           <div className="text-lg font-black text-emerald-600 mt-1">
                             {formatAdr(globalStatsYoY.adr)}
                           </div>
@@ -9024,7 +9067,7 @@
                             {globalStatsYoY.totalGroups} Grupos
                           </div>
                           <div className="text-[10px] text-slate-400 mt-1.5">
-                            {globalStatsYoY.totalNights.toLocaleString()} Noches Totales
+                            {(globalStatsYoY.totalRoomNights || globalStatsYoY.totalNights).toLocaleString()} Hab. Noches
                           </div>
                         </div>
                       </div>
@@ -9287,7 +9330,7 @@
                                 <th className="p-3">Comercial</th>
                                 <th className="p-3 text-right"># Grupos</th>
                                 <th className="p-3 text-right">Pax Total</th>
-                                <th className="p-3 text-right">Noches Totales</th>
+                                <th className="p-3 text-right">Hab. Noches</th>
                                 <th className="p-3 text-right">Ingresos Totales</th>
                                 <th className="p-3 text-right">Cuota Mercado</th>
                                 <th className="p-3 text-right">ADR Medio</th>
@@ -9304,7 +9347,7 @@
                                   </td>
                                   <td className="p-3 text-right font-bold text-blue-600">{c.groupCount}</td>
                                   <td className="p-3 text-right">{c.pax.toLocaleString()}</td>
-                                  <td className="p-3 text-right">{c.nights.toLocaleString()}</td>
+                                  <td className="p-3 text-right font-semibold text-slate-700">{(c.roomNights > 0 ? c.roomNights : c.nights).toLocaleString()}</td>
                                   <td className="p-3 text-right font-bold text-slate-800">{formatCurrency(c.revenue)}</td>
                                   <td className="p-3 text-right">
                                     <div className="flex items-center justify-end gap-1.5">
@@ -9351,8 +9394,8 @@
                             {(() => {
                               const topSeg = segmentStats
                                 .slice()
-                                .filter((s) => s.nights > 0)
-                                .sort((a, b) => b.revenue / b.nights - a.revenue / a.nights)[0];
+                                .filter((s) => (s.roomNights > 0 || s.nights > 0))
+                                .sort((a, b) => b.adr - a.adr)[0];
                               return topSeg ? `${topSeg.name}` : "N/D";
                             })()}
                           </div>
@@ -9360,9 +9403,9 @@
                             {(() => {
                               const topSeg = segmentStats
                                 .slice()
-                                .filter((s) => s.nights > 0)
-                                .sort((a, b) => b.revenue / b.nights - a.revenue / a.nights)[0];
-                              return topSeg ? `${formatAdr(topSeg.revenue / topSeg.nights)}/noche` : "-";
+                                .filter((s) => (s.roomNights > 0 || s.nights > 0))
+                                .sort((a, b) => b.adr - a.adr)[0];
+                              return topSeg ? `${formatAdr(topSeg.adr)}/hab` : "-";
                             })()}
                           </div>
                         </div>
@@ -9370,10 +9413,10 @@
                         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Top Comercial en ADR</span>
                           <div className="text-lg font-black text-slate-800 mt-1 truncate">
-                            {commercialStats.slice().filter((c) => c.nights > 0).sort((a, b) => b.adr - a.adr)[0]?.name || "N/D"}
+                            {commercialStats.slice().filter((c) => (c.roomNights > 0 || c.nights > 0)).sort((a, b) => b.adr - a.adr)[0]?.name || "N/D"}
                           </div>
                           <div className="text-[11px] text-emerald-600 font-bold mt-1">
-                            {formatAdr(commercialStats.slice().filter((c) => c.nights > 0).sort((a, b) => b.adr - a.adr)[0]?.adr || 0)}/noche
+                            {formatAdr(commercialStats.slice().filter((c) => (c.roomNights > 0 || c.nights > 0)).sort((a, b) => b.adr - a.adr)[0]?.adr || 0)}/hab
                           </div>
                         </div>
                       </div>
@@ -9420,23 +9463,20 @@
                           <div className="space-y-2.5">
                             {segmentStats
                               .slice()
-                              .filter((s) => s.nights > 0)
-                              .sort((a, b) => b.revenue / b.nights - a.revenue / a.nights)
-                              .map((s, idx) => {
-                                const adr = s.nights > 0 ? s.revenue / s.nights : 0;
-                                return (
-                                  <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
-                                      <span className="font-bold text-xs text-slate-700">{s.name}</span>
-                                    </div>
-                                    <div className="text-right">
-                                      <span className="font-extrabold text-sm text-emerald-600">{formatAdr(adr)}</span>
-                                      <span className="text-[10px] text-slate-400 block">{s.nights} noches</span>
-                                    </div>
+                              .filter((s) => (s.roomNights > 0 || s.nights > 0))
+                              .sort((a, b) => b.adr - a.adr)
+                              .map((s, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                                    <span className="font-bold text-xs text-slate-700">{s.name}</span>
                                   </div>
-                                );
-                              })}
+                                  <div className="text-right">
+                                    <span className="font-extrabold text-sm text-emerald-600">{formatAdr(s.adr)}/hab</span>
+                                    <span className="text-[10px] text-slate-400 block">{s.roomNights > 0 ? `${s.roomNights.toLocaleString()} hab-noches` : `${s.nights} noches`} · {formatCurrency(s.revenue)}</span>
+                                  </div>
+                                </div>
+                              ))}
                           </div>
                         </div>
 
@@ -9448,7 +9488,7 @@
                           <div className="space-y-2.5">
                             {commercialStats
                               .slice()
-                              .filter((c) => c.nights > 0)
+                              .filter((c) => (c.roomNights > 0 || c.nights > 0))
                               .sort((a, b) => b.adr - a.adr)
                               .map((c, idx) => (
                                 <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100">
@@ -9457,8 +9497,8 @@
                                     <span className="font-bold text-xs text-slate-700">{c.name}</span>
                                   </div>
                                   <div className="text-right">
-                                    <span className="font-extrabold text-sm text-emerald-600">{formatAdr(c.adr)}</span>
-                                    <span className="text-[10px] text-slate-400 block">{c.nights} noches / {formatCurrency(c.revenue)}</span>
+                                    <span className="font-extrabold text-sm text-emerald-600">{formatAdr(c.adr)}/hab</span>
+                                    <span className="text-[10px] text-slate-400 block">{c.roomNights > 0 ? `${c.roomNights.toLocaleString()} hab-noches` : `${c.nights} noches`} · {formatCurrency(c.revenue)}</span>
                                   </div>
                                 </div>
                               ))}
@@ -9523,7 +9563,7 @@
                                 <th className="p-3">Segmento</th>
                                 <th className="p-3 text-right"># Grupos</th>
                                 <th className="p-3 text-right">Pax Total</th>
-                                <th className="p-3 text-right">Noches Totales</th>
+                                <th className="p-3 text-right">Hab. Noches</th>
                                 <th className="p-3 text-right">Ingresos Totales</th>
                                 <th className="p-3 text-right">ADR Medio</th>
                               </tr>
@@ -9556,13 +9596,13 @@
                                     <td className="p-3 text-right font-bold text-blue-600">
                                       {seg.groupCount}
                                     </td>
-                                    <td className="p-3 text-right">{seg.pax}</td>
-                                    <td className="p-3 text-right">{seg.nights}</td>
+                                    <td className="p-3 text-right">{seg.pax.toLocaleString()}</td>
+                                    <td className="p-3 text-right font-semibold text-slate-700">{(seg.roomNights > 0 ? seg.roomNights : seg.nights).toLocaleString()}</td>
                                     <td className="p-3 text-right font-bold text-slate-700">
                                       {formatCurrency(seg.revenue)}
                                     </td>
                                     <td className="p-3 text-right text-emerald-600 font-bold">
-                                      {formatAdr(seg.nights > 0 ? seg.revenue / seg.nights : 0)}
+                                      {formatAdr(seg.adr)}
                                     </td>
                                   </tr>
                                   {expandedSegment === seg.name && (
