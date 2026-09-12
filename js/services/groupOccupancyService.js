@@ -401,7 +401,8 @@
           precio: line["Precio"],
           importe: line["Importe"] || line["Importe(*)"] || line["importe"] || line["importeTotal"] || line["ImporteTotal"] || 0,
           descripcion: line["Descripción"] || line["Descripcion"],
-          cant: line["Cant."] || line["Cant"]
+          cant: line["Cant."] || line["Cant"],
+          roomingList: line["RoomingList_JSON"] || line["roomingList"] || null
         });
       });
     });
@@ -491,32 +492,92 @@
 
       var isDefinitive = (status === "confirmada" || status === "modificada" || status === "validada_sin_cambios");
 
-      var dayAmount = 0;
-      (entry.contributingLines || []).forEach(function (cl) {
-        var nch = Math.max(1, parseInt(cl.noches, 10) || 1);
-        var impVal = cl.importe;
-        var imp = 0;
-        if (typeof impVal === "number") {
-          imp = isNaN(impVal) ? 0 : impVal;
-        } else if (impVal) {
-          var s = String(impVal).trim().replace(/€/g, "").replace(/\s/g, "");
-          if (s.includes(",") && s.includes(".")) {
-            s = s.replace(/\./g, "").replace(",", ".");
-          } else if (s.includes(",")) {
-            s = s.replace(",", ".");
+      // Función auxiliar para normalizar fechas de rooming items a YYYY-MM-DD
+      function normDateIso(d) {
+        if (!d) return "";
+        var s = String(d).trim().split("T")[0];
+        if (s.includes("/")) {
+          var p = s.split("/");
+          if (p.length === 3) {
+            if (p[0].length === 4) return p[0] + "-" + p[1].padStart(2, "0") + "-" + p[2].padStart(2, "0");
+            return p[2] + "-" + p[1].padStart(2, "0") + "-" + p[0].padStart(2, "0");
           }
-          var n = parseFloat(s);
-          imp = isNaN(n) ? 0 : n;
         }
-        dayAmount += (imp / nch);
+        return s;
+      }
+
+      // Buscar si existen habitaciones en RoomingList_JSON para esta fecha específica
+      var foundRoomingReg = null;
+      var roomingDaySum = 0;
+      var hasRoomingDayLodging = false;
+
+      (entry.contributingLines || []).forEach(function (cl) {
+        if (cl.roomingList) {
+          try {
+            var rlItems = typeof cl.roomingList === "string" ? JSON.parse(cl.roomingList) : cl.roomingList;
+            if (Array.isArray(rlItems)) {
+              rlItems.forEach(function (item) {
+                if (item.isService) return;
+                var dIn = normDateIso(item.dateIn || item.date);
+                var dOut = normDateIso(item.dateOut);
+                var covers = dOut ? (entry.fecha >= dIn && entry.fecha < dOut) : (entry.fecha === dIn);
+                if (covers) {
+                  if (!foundRoomingReg && item.regime && item.regime !== "-" && item.regime !== "---") {
+                    foundRoomingReg = item.regime;
+                  }
+                  var p = parseFloat(item.price) || 0;
+                  var q = parseInt(item.qty, 10) || 1;
+                  var t = String(item.type || item.roomType || "").toUpperCase();
+                  if (!t.includes("GRATUIDAD")) {
+                    roomingDaySum += (p * q);
+                  }
+                  hasRoomingDayLodging = true;
+                }
+              });
+            }
+          } catch (e) {}
+        }
       });
+
+      var finalRegimen = "---";
+      if (dateSaved && dateSaved.regimen && dateSaved.regimen !== "-" && dateSaved.regimen !== "---") {
+        finalRegimen = dateSaved.regimen;
+      } else if (foundRoomingReg) {
+        finalRegimen = foundRoomingReg;
+      } else {
+        finalRegimen = Array.from(entry.regimenSet).join(", ") || "---";
+      }
+
+      var dayAmount = 0;
+      if (hasRoomingDayLodging && roomingDaySum > 0) {
+        dayAmount = Math.round(roomingDaySum * 100) / 100;
+      } else {
+        (entry.contributingLines || []).forEach(function (cl) {
+          var nch = Math.max(1, parseInt(cl.noches, 10) || 1);
+          var impVal = cl.importe;
+          var imp = 0;
+          if (typeof impVal === "number") {
+            imp = isNaN(impVal) ? 0 : impVal;
+          } else if (impVal) {
+            var s = String(impVal).trim().replace(/€/g, "").replace(/\s/g, "");
+            if (s.includes(",") && s.includes(".")) {
+              s = s.replace(/\./g, "").replace(",", ".");
+            } else if (s.includes(",")) {
+              s = s.replace(",", ".");
+            }
+            var n = parseFloat(s);
+            imp = isNaN(n) ? 0 : n;
+          }
+          dayAmount += (imp / nch);
+        });
+      }
 
       result.push({
         hotel: entry.hotel,
         reserva: entry.reserva,
         nombreGrupo: entry.nombreGrupo,
         fecha: entry.fecha,
-        regimen: Array.from(entry.regimenSet).join(", ") || "---",
+        regimen: finalRegimen,
         pax: entry.pax,
         dailyAmount: dayAmount,
         importe: dayAmount,

@@ -4465,7 +4465,9 @@
 
           g.days.forEach((day) => {
             let dayImp = 0.0;
-            if (day.contributingLines && day.contributingLines.length > 0) {
+            if (day.dailyAmount !== undefined && day.dailyAmount > 0) {
+              dayImp = day.dailyAmount;
+            } else if (day.contributingLines && day.contributingLines.length > 0) {
               day.contributingLines.forEach(l => {
                 const nch = parseInt(l.noches, 10) || 1;
                 dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
@@ -4630,6 +4632,26 @@
         const totalInitialFree = initialFreeInd + initialFreeDbl + initialFreeTpl + initialFreeCua;
         // ────────────────────────────────────────────────────────────────────
 
+        // Obtener el régimen real de este día si existe en DailyDistribution_JSON o RoomingList_JSON
+        let resolvedRegimen = dailyItem.regimen;
+        if (matchRow?.DailyDistribution_JSON) {
+          try {
+            const distMap = typeof matchRow.DailyDistribution_JSON === "string"
+              ? JSON.parse(matchRow.DailyDistribution_JSON)
+              : matchRow.DailyDistribution_JSON;
+            if (distMap?.[dailyItem.fecha]?.regimen) {
+              resolvedRegimen = distMap[dailyItem.fecha].regimen;
+            }
+          } catch(e) {}
+        }
+        if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
+          const roomingThisDate = existingRL.find(item => !item.isService && toInputDate(item.dateIn || item.date) === dailyItem.fecha && item.regime && item.regime !== "-");
+          if (roomingThisDate) resolvedRegimen = roomingThisDate.regime;
+        }
+        if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
+          resolvedRegimen = "HD";
+        }
+
         setDistributionFormError(null);
         setEditingDistribution({
           hotel: dailyItem.hotel,
@@ -4637,7 +4659,7 @@
           nombreGrupo: dailyItem.nombreGrupo,
           fecha: dailyItem.fecha,
           pax: dailyItem.pax,
-          regimen: dailyItem.regimen,
+          regimen: resolvedRegimen,
           proposal: proposal,
           individuales: currentInd,
           dobles: currentDbl,
@@ -4652,7 +4674,7 @@
           status: dailyItem.distributionStatus || "propuesta",
           revisionReasons: dailyItem.revisionReasons || [],
           previousDistribution: dailyItem.previousDistribution || null,
-          applyToAllHomogeneous: true
+          applyToAllHomogeneous: false
         });
       };
 
@@ -4736,6 +4758,7 @@
             cuadruples: finalCua,
             totalHabitaciones: finalStatus === "pendiente" ? null : (finalInd + finalDbl + finalTpl + finalCua),
             pax: editingDistribution.pax,
+            regimen: editingDistribution.regimen || "HD",
             proposed: editingDistribution.proposal,
             observations: editingDistribution.observations || "",
             gratuities: {
@@ -4831,18 +4854,32 @@
                 return iDate === dStr;
               });
 
-              // Preservar el régimen de este día (ej: MP si era MP, PC si era PC)
-              let dayReg = editingDistribution.regimen || "HD";
-              const foundReg = prevLodgingThisDay.find((i) => i.regime && i.regime !== "-")?.regime;
-              if (foundReg) dayReg = foundReg;
+              // Régimen para este día: si dStr es la fecha que se está editando, usar editingDistribution.regimen
+              let dayReg = (dStr === editingDistribution.fecha)
+                ? (editingDistribution.regimen || "HD")
+                : (existingDistMap[dStr]?.regimen || prevLodgingThisDay.find((i) => i.regime && i.regime !== "-")?.regime || editingDistribution.regimen || "HD");
 
-              // Preservar precios unitarios existentes para cada tipo en este día
+              // Preservar precios unitarios existentes para cada tipo en este día ajustando por régimen si difiere
               const getExistingUnitPrice = (typeKeyword) => {
                 const match = prevLodgingThisDay.find((i) => {
                   const t = String(i.type || i.roomType || "").toUpperCase();
                   return t.includes(typeKeyword) && !t.includes("GRATUIDAD") && parseFloat(i.price) > 0;
                 });
-                return match ? parseFloat(match.price) : null;
+                if (!match) return null;
+                const prevP = parseFloat(match.price);
+                const prevR = match.regime;
+                if (!prevR || prevR === "-" || prevR === dayReg) return prevP;
+                if (window.BoardPricingService) {
+                  const oldCounts = window.BoardPricingService.getMealCounts(prevR);
+                  const newCounts = window.BoardPricingService.getMealCounts(dayReg);
+                  const pConf = window.BoardPricingService.getPricingForHotelAndDate(hotelName, dStr, boardPricingConfig);
+                  const bCost = typeof pConf.breakfast === "number" ? pConf.breakfast : 6.0;
+                  const mCost = typeof pConf.meal === "number" ? pConf.meal : 16.0;
+                  const deltaPerPax = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((newCounts.meals - oldCounts.meals) * mCost);
+                  const pCount = typeKeyword.includes("INDIV") ? 1 : (typeKeyword.includes("DBL") ? 2 : (typeKeyword.includes("TPL") ? 3 : 4));
+                  return Math.max(0, Math.round((prevP + (deltaPerPax * pCount)) * 100) / 100);
+                }
+                return prevP;
               };
 
               const oldIndP = getExistingUnitPrice("INDIV");
@@ -4850,7 +4887,7 @@
               const oldTplP = getExistingUnitPrice("TPL");
               const oldCuaP = getExistingUnitPrice("CUA");
 
-              // Si no había precio previo, calcular proporcional a Pax
+              // Si no había precio previo, calcular proporcional a Pax considerando el régimen de este día
               const dayMatched = dailyOccupancyList.find((d) => d.reserva === editingDistribution.reserva && d.fecha === dStr);
               let dayImp = 0;
               if (dayMatched?.contributingLines) {
@@ -4860,6 +4897,18 @@
                 });
               }
               if (dayImp <= 0) dayImp = totImp / Math.max(1, targetDates.size);
+
+              const headerReg = String(firstR["Régimen"] || firstR["Regimen"] || "PC").toUpperCase();
+              if (window.BoardPricingService && headerReg && dayReg && headerReg !== dayReg) {
+                const oldCounts = window.BoardPricingService.getMealCounts(headerReg);
+                const newCounts = window.BoardPricingService.getMealCounts(dayReg);
+                const pConf = window.BoardPricingService.getPricingForHotelAndDate(hotelName, dStr, boardPricingConfig);
+                const bCost = typeof pConf.breakfast === "number" ? pConf.breakfast : 6.0;
+                const mCost = typeof pConf.meal === "number" ? pConf.meal : 16.0;
+                const deltaPerPax = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((newCounts.meals - oldCounts.meals) * mCost);
+                const totalPayingPax = (payingInd * 1) + (payingDbl * 2) + (payingTpl * 3) + (payingCua * 4);
+                dayImp = Math.max(0, dayImp + (deltaPerPax * totalPayingPax));
+              }
 
               const payingPaxCount = Math.max(1, (payingInd * 1) + (payingDbl * 2) + (payingTpl * 3) + (payingCua * 4));
               const dailyPerPax = dayImp > 0 ? (dayImp / payingPaxCount) : 0;
@@ -9823,10 +9872,35 @@
             } else if (field === "pax") {
               r.pax = Math.max(1, parseInt(rawValue, 10) || 1);
             } else if (field === "regime") {
-              r.regime = rawValue;
+              const oldRegime = (r.regime || "").trim().toUpperCase();
+              const newRegime = (rawValue || "").trim().toUpperCase();
+              r.regime = newRegime;
+
+              // Si el item tiene precio y cambia el régimen (ej. PC a MP o MP a PC):
+              // Ajustar el precio por habitación según la diferencia de manutención
+              const currentPrice = parseFloat(r.price) || 0;
+              const isFree = String(r.type || "").toUpperCase().includes("GRATUIDAD") || currentPrice === 0;
+              if (!isFree && oldRegime && newRegime && oldRegime !== newRegime && !r.isService && window.BoardPricingService) {
+                const oldCounts = window.BoardPricingService.getMealCounts(oldRegime);
+                const newCounts = window.BoardPricingService.getMealCounts(newRegime);
+                
+                const hotelForPricing = r.hotel || selectedGroupFicha.hotel || "Sercotel Guadiana";
+                const pricing = window.BoardPricingService.getPricingForHotelAndDate(hotelForPricing, r.dateIn || r.date, boardPricingConfig);
+                const bPrice = typeof pricing.breakfast === "number" ? pricing.breakfast : 6.0;
+                const mPrice = typeof pricing.meal === "number" ? pricing.meal : 16.0;
+                
+                const deltaPerPax = ((newCounts.breakfasts - oldCounts.breakfasts) * bPrice) + ((newCounts.meals - oldCounts.meals) * mPrice);
+                const paxInRoom = Math.max(1, parseInt(r.pax, 10) || getPaxByRoomType(r.type));
+                const deltaTotal = deltaPerPax * paxInRoom;
+                
+                const adjustedPrice = Math.max(0, currentPrice + deltaTotal);
+                r.price = adjustedPrice.toFixed(2);
+              }
+
               const nights = parseInt(r.nights, 10) || 1;
               const qty = parseInt(r.qty, 10) || 1;
               const price = parseFloat(r.price) || 0;
+              r.total = (price * qty * nights).toFixed(2);
               r.comision = calculateDefaultCommission(
                 price,
                 r.isService ? "" : (r.regime || ""),
@@ -9863,8 +9937,32 @@
         const newTotalPax = calculateMaxDailyOccupancy(currentList);
         const newTotalRooms = calculateMaxDailyRooms(currentList);
 
+        // Sincronizar DailyDistribution_JSON con los regímenes de cada día según el rooming list
+        let updatedDailyDistMap = null;
+        if (currentRecord.DailyDistribution_JSON) {
+          try {
+            updatedDailyDistMap = typeof currentRecord.DailyDistribution_JSON === "string"
+              ? JSON.parse(currentRecord.DailyDistribution_JSON)
+              : { ...currentRecord.DailyDistribution_JSON };
+          } catch (e) {}
+        }
+        if (!updatedDailyDistMap) updatedDailyDistMap = {};
+
+        const expandedRL = expandRoomListByDays(currentList);
+        expandedRL.forEach((rm) => {
+          if (rm.isService) return;
+          const f = toInputDate(rm.dateIn || rm.date);
+          if (f) {
+            if (!updatedDailyDistMap[f]) updatedDailyDistMap[f] = {};
+            if (rm.regime && rm.regime !== "-") {
+              updatedDailyDistMap[f].regimen = rm.regime;
+            }
+          }
+        });
+
         updateGroupMetadata(selectedGroupFicha.id, {
           RoomingList_JSON: JSON.stringify(currentList),
+          DailyDistribution_JSON: JSON.stringify(updatedDailyDistMap),
           "Importe(*)": newTotalSum.toFixed(2),
           "Pax.": newTotalPax.toString(),
           "Cant.": newTotalRooms.toString(),
@@ -13316,7 +13414,9 @@
                                           }
 
                                           let dayImp = 0.0;
-                                          if (day.contributingLines && day.contributingLines.length > 0) {
+                                          if (day.dailyAmount !== undefined && day.dailyAmount > 0) {
+                                            dayImp = day.dailyAmount;
+                                          } else if (day.contributingLines && day.contributingLines.length > 0) {
                                             day.contributingLines.forEach(l => {
                                               const nch = parseInt(l.noches, 10) || 1;
                                               dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
@@ -13403,7 +13503,9 @@
 
                                     // Cálculo de Importe Diario y Desglose Económico
                                     let dailyImp = 0.0;
-                                    if (item.contributingLines && item.contributingLines.length > 0) {
+                                    if (item.dailyAmount !== undefined && item.dailyAmount > 0) {
+                                      dailyImp = item.dailyAmount;
+                                    } else if (item.contributingLines && item.contributingLines.length > 0) {
                                       item.contributingLines.forEach(l => {
                                         const nch = parseInt(l.noches, 10) || 1;
                                         dailyImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
@@ -14100,11 +14202,25 @@
               // Obtener importe diario
               const matchedDay = dailyOccupancyList.find(d => d.reserva === editingDistribution.reserva && d.fecha === editingDistribution.fecha);
               let dailyImp = 0.0;
-              if (matchedDay?.contributingLines) {
+              if (matchedDay?.dailyAmount !== undefined && matchedDay?.dailyAmount > 0) {
+                dailyImp = matchedDay.dailyAmount;
+              } else if (matchedDay?.contributingLines) {
                 matchedDay.contributingLines.forEach(l => {
                   const nch = parseInt(l.noches, 10) || 1;
                   dailyImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
                 });
+              }
+
+              // Si el usuario cambia el régimen en el modal respecto al régimen del día original, ajustar dailyImp por la diferencia de comidas
+              const origDayReg = matchedDay?.regimen || "PC";
+              const currentModalReg = editingDistribution.regimen || origDayReg;
+              if (window.BoardPricingService && origDayReg && currentModalReg && origDayReg !== currentModalReg) {
+                const oldCounts = window.BoardPricingService.getMealCounts(origDayReg);
+                const newCounts = window.BoardPricingService.getMealCounts(currentModalReg);
+                const bCost = typeof pricing.breakfast === "number" ? pricing.breakfast : 6.0;
+                const mCost = typeof pricing.meal === "number" ? pricing.meal : 16.0;
+                const deltaPerPerson = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((newCounts.meals - oldCounts.meals) * mCost);
+                dailyImp = Math.max(0, dailyImp + (deltaPerPerson * editingDistribution.pax));
               }
 
               const eco = window.BoardPricingService
@@ -14153,8 +14269,24 @@
                           <span className="font-black text-blue-600 text-sm">{editingDistribution.pax} personas</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block font-medium">Régimen</span>
-                          <span className="font-bold text-slate-800 font-mono">{editingDistribution.regimen || "-"}</span>
+                          <label className="text-slate-400 block font-medium mb-1">Régimen</label>
+                          <select
+                            value={editingDistribution.regimen || "PC"}
+                            onChange={(e) => {
+                              const newReg = e.target.value;
+                              setEditingDistribution((prev) => ({
+                                ...prev,
+                                regimen: newReg
+                              }));
+                            }}
+                            className="font-bold text-slate-800 font-mono bg-white border border-slate-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full shadow-sm cursor-pointer"
+                            title="Seleccionar régimen oficial"
+                          >
+                            <option value="HA">HA (Solo Alojamiento)</option>
+                            <option value="HD">HD (Alojamiento y Desayuno)</option>
+                            <option value="MP">MP (Media Pensión)</option>
+                            <option value="PC">PC (Pensión Completa)</option>
+                          </select>
                         </div>
                       </div>
 
