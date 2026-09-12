@@ -275,13 +275,112 @@
 
 
 
+    // Helper para desglosar elementos con noches múltiples en días individuales
+    const expandRoomListByDays = (list) => {
+      if (!Array.isArray(list)) return [];
+      const result = [];
+      list.forEach((item) => {
+        const nights = parseInt(item.nights, 10) || 1;
+        if (!item.isService && nights > 1 && (item.dateIn || item.date)) {
+          const cleanDateIn = toInputDate(item.dateIn || item.date);
+          const unitP = parseNum(item.price);
+          const q = parseInt(item.qty, 10) || 1;
+          for (let i = 0; i < nights; i++) {
+            let dInStr = cleanDateIn;
+            let dOutStr = cleanDateIn;
+            try {
+              const parts = cleanDateIn.split("-");
+              if (parts.length === 3) {
+                const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                d.setDate(d.getDate() + i);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, "0");
+                const day = String(d.getDate()).padStart(2, "0");
+                dInStr = `${y}-${m}-${day}`;
+                d.setDate(d.getDate() + 1);
+                dOutStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+              }
+            } catch (e) {}
+
+            result.push({
+              ...item,
+              id: `${item.id || Date.now()}_d${i}`,
+              dateIn: dInStr,
+              dateOut: dOutStr,
+              nights: 1,
+              total: (unitP * q).toFixed(2),
+              originalMultiNightId: item.id,
+              originalNights: nights
+            });
+          }
+        } else {
+          result.push(item);
+        }
+      });
+      return result;
+    };
+
     // Intercepta la tecla "." (punto) del teclado/numpad y la convierte en "," (coma)
-    // para que los inputs type="number" en locale español acepten decimales desde el numpad.
+    // para que al meter los decimales en el teclado el punto se coja como coma.
     const handleDotAsComma = (e) => {
-      if (e.key === '.' || e.code === 'NumpadDecimal') {
+      if (
+        e.key === '.' ||
+        e.key === 'Decimal' ||
+        e.code === 'NumpadDecimal' ||
+        e.code === 'Period' ||
+        e.keyCode === 110 ||
+        e.keyCode === 190
+      ) {
+        if (e.key !== '.' && e.code !== 'NumpadDecimal' && e.key !== 'Decimal') return;
         e.preventDefault();
-        e.target.focus();
-        document.execCommand('insertText', false, ',');
+        const input = e.target;
+        if (!input) return;
+
+        let start = null;
+        let end = null;
+        try {
+          start = input.selectionStart;
+          end = input.selectionEnd;
+        } catch (err) {}
+
+        const val = String(input.value || '');
+        // Evitar insertar doble coma si ya existe en el valor y la selección no la cubre
+        if (val.includes(',') && (start === null || !val.slice(start, end).includes(','))) {
+          return;
+        }
+
+        let newVal;
+        let newCursorPos;
+
+        if (typeof start === 'number' && start !== null) {
+          newVal = val.slice(0, start) + ',' + val.slice(end);
+          newCursorPos = start + 1;
+        } else {
+          newVal = val + ',';
+          newCursorPos = newVal.length;
+        }
+
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+
+        if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(input, newVal);
+        } else {
+          input.value = newVal;
+        }
+
+        try {
+          if (typeof start === 'number' && start !== null) {
+            input.selectionStart = input.selectionEnd = newCursorPos;
+          }
+        } catch (err) {}
+
+        const ev = new Event('input', { bubbles: true });
+        input.dispatchEvent(ev);
+        const evChange = new Event('change', { bubbles: true });
+        input.dispatchEvent(evChange);
       }
     };
 
@@ -5626,8 +5725,26 @@
               const groupEconomicTotal = parseFloat(groupEconomicItems.reduce((acc, item) => acc + (parseFloat(item.total || item.lineTotal || item.importe) || 0), 0).toFixed(2));
               const proformaItemsTotal = totalProforma; // mapped items sum
 
-              const MONEY_TOLERANCE = 0.01;
+              let MONEY_TOLERANCE = 0.05;
               const budgetMatchesGroup = Math.abs(confirmedBudgetTotal - groupEconomicTotal) <= MONEY_TOLERANCE;
+              const roundingDiff = parseFloat((groupEconomicTotal - proformaItemsTotal).toFixed(2));
+
+              // Si el presupuesto coincide con la ficha económica pero hay un descuadre menor por redondeo de días/líneas:
+              if (budgetMatchesGroup && Math.abs(roundingDiff) <= 1.00 && Math.abs(roundingDiff) > 0) {
+                const lastItem = mappedItems[mappedItems.length - 1];
+                if (lastItem) {
+                  const qty = parseRoomingAmount(lastItem.cant) || 1;
+                  const days = parseRoomingAmount(lastItem.dias) || 1;
+                  lastItem.precio = parseFloat((parseRoomingAmount(lastItem.precio) + (roundingDiff / (qty * days))).toFixed(2));
+                  proformaItemsTotal = parseFloat(mappedItems.reduce((acc, item) => {
+                    const q = parseRoomingAmount(item.cant);
+                    const p = parseRoomingAmount(item.precio);
+                    const d = parseRoomingAmount(item.dias) || 1;
+                    return acc + (q * p * d);
+                  }, 0).toFixed(2));
+                }
+              }
+
               const groupMatchesProforma = Math.abs(groupEconomicTotal - proformaItemsTotal) <= MONEY_TOLERANCE;
 
               if (!budgetMatchesGroup || !groupMatchesProforma) {
@@ -7790,31 +7907,37 @@
                       ].filter(c => c.count > 0);
 
                       let runningTotal = 0;
-                      categories.forEach((cat, cIdx) => {
-                        const isLast = cIdx === categories.length - 1;
-                        const catPricePerRoom = Math.round(dailyPerPax * cat.paxPerRoom * 100) / 100;
-                        let catTotal = Math.round(cat.count * catPricePerRoom * totalDays * 100) / 100;
-                        runningTotal += catTotal;
-                        if (isLast && seg.price > 0) {
-                          const diff = Math.round((seg.price - runningTotal) * 100) / 100;
-                          if (Math.abs(diff) < 1.0) catTotal = Math.round((catTotal + diff) * 100) / 100;
-                        }
+                      for (let dayIdx = 0; dayIdx < totalDays; dayIdx++) {
+                        let curIn = dateInIso;
+                        let curOut = dateOutIso;
+                        try {
+                          const d = new Date(start);
+                          d.setDate(start.getDate() + dayIdx);
+                          curIn = d.toISOString().split("T")[0];
+                          d.setDate(d.getDate() + 1);
+                          curOut = d.toISOString().split("T")[0];
+                        } catch (e) {}
 
-                        newAutoList.push({
-                          id: Date.now() + Math.random(),
-                          hotel: segHotel,
-                          type: cat.type,
-                          dateIn: dateInIso,
-                          dateOut: dateOutIso,
-                          qty: cat.count,
-                          pax: cat.paxPerRoom,
-                          regime: seg.regime || "AD",
-                          price: catPricePerRoom.toFixed(2),
-                          nights: totalDays,
-                          total: catTotal.toFixed(2),
-                          isService: false
+                        categories.forEach((cat) => {
+                          const catPricePerRoom = Math.round(dailyPerPax * cat.paxPerRoom * 100) / 100;
+                          const catTotal = Math.round(cat.count * catPricePerRoom * 100) / 100;
+
+                          newAutoList.push({
+                            id: `${Date.now()}_${Math.random().toString(36).substr(2, 6)}_d${dayIdx}`,
+                            hotel: segHotel,
+                            type: cat.type,
+                            dateIn: curIn,
+                            dateOut: curOut,
+                            qty: cat.count,
+                            pax: cat.paxPerRoom,
+                            regime: seg.regime || "AD",
+                            price: catPricePerRoom.toFixed(2),
+                            nights: 1,
+                            total: catTotal.toFixed(2),
+                            isService: false
+                          });
                         });
-                      });
+                      }
                     } else {
                       // Fallback si no hay distribución configurada
                       const dailyPrice = totalDays > 0 ? seg.price / totalDays : 0;
@@ -7866,6 +7989,24 @@
               lastRoomingListRef.current = { groupName: group.name, list };
           }
         } catch (e) { }
+
+        // Asegurar que elementos multi-noche se desglosen por días
+        try {
+          const rec0 = group.records && group.records[0];
+          if (rec0 && rec0["RoomingList_JSON"]) {
+            const parsedRL = parseRoomingListSafe(rec0["RoomingList_JSON"], "openFicha-expand");
+            const hasMulti = parsedRL.some(i => !i.isService && (parseInt(i.nights, 10) || 1) > 1);
+            if (hasMulti) {
+              const expandedRL = expandRoomListByDays(parsedRL);
+              expandedRL.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+              const jsonStr = JSON.stringify(expandedRL);
+              group.records.forEach(r => {
+                r["RoomingList_JSON"] = jsonStr;
+              });
+              updateGroupMetadata(group.id, { RoomingList_JSON: jsonStr }).catch(console.error);
+            }
+          }
+        } catch (e) {}
 
         setSelectedGroupFicha(group);
         setCollapsedFichaDays(new Set());
@@ -8537,7 +8678,7 @@
 
               regime: roomManagerForm.regime,
 
-              price: parseFloat(roomManagerForm.price),
+              price: parseNum(roomManagerForm.price),
 
               iva: parseInt(roomManagerForm.iva || 10),
 
@@ -8551,7 +8692,7 @@
 
               total: (
 
-                parseFloat(roomManagerForm.price) *
+                parseNum(roomManagerForm.price) *
 
                 parseInt(roomManagerForm.qty)
 
@@ -8601,7 +8742,7 @@
 
             regime: roomManagerForm.isService ? "" : roomManagerForm.regime,
 
-            price: parseFloat(roomManagerForm.price),
+            price: parseNum(roomManagerForm.price),
 
             iva: parseInt(roomManagerForm.iva || 10),
 
@@ -8619,7 +8760,7 @@
 
             total: (
 
-              parseFloat(roomManagerForm.price) *
+              parseNum(roomManagerForm.price) *
 
               parseInt(roomManagerForm.qty) *
 
@@ -8776,7 +8917,7 @@
 
           regime: item.regime,
 
-          price: item.price,
+          price: item.price !== undefined && item.price !== null ? String(item.price).replace('.', ',') : 0,
 
           iva: item.iva || 10,
 
@@ -16316,20 +16457,20 @@
 
                                   <input
 
-                                    type="number"
+                                    type="text"
+
+                                    inputMode="decimal"
 
                                     onKeyDown={handleDotAsComma}
 
                                     className="bg-transparent border-none text-[12px] font-black text-emerald-700 outline-none w-full tabular-nums"
 
                                     value={
-
                                       selectedGroupFicha.records[0]?.[
-
                                       "Com_Pagado"
-
-                                      ] || ""
-
+                                      ] !== undefined && selectedGroupFicha.records[0]?.["Com_Pagado"] !== null
+                                        ? String(selectedGroupFicha.records[0]["Com_Pagado"]).replace('.', ',')
+                                        : ""
                                     }
 
                                     onChange={(e) =>
@@ -16340,7 +16481,7 @@
 
                                         "Com_Pagado",
 
-                                        e.target.value,
+                                        e.target.value.replace('.', ','),
 
                                       )
 
@@ -16786,27 +16927,30 @@
 
                                     <input
 
-                                      type="number"
+                                      type="text"
 
-                                      onKeyDown={handleDotAsComma}
+                                      inputMode="decimal"
+
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleSaveRoomManager();
+                                        } else {
+                                          handleDotAsComma(e);
+                                        }
+                                      }}
 
                                       className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg pl-2 pr-6 text-right text-xs font-black text-slate-800 outline-none focus:border-emerald-500 transition-all"
 
-                                      value={roomManagerForm.price}
+                                      value={roomManagerForm.price !== undefined && roomManagerForm.price !== null ? String(roomManagerForm.price).replace('.', ',') : ''}
 
-                                      onChange={(e) =>
-
-                                        setRoomManagerForm({
-
-                                          ...roomManagerForm,
-
-                                          price:
-
-                                            parseFloat(e.target.value) || 0,
-
-                                        })
-
-                                      }
+                                      onChange={(e) => {
+                                        const raw = e.target.value.replace('.', ',');
+                                        setRoomManagerForm((prev) => ({
+                                          ...prev,
+                                          price: raw,
+                                        }));
+                                      }}
 
                                     />
 
@@ -17042,9 +17186,10 @@
                             })()}
 {/* Barra de herramientas para ampliar / disminuir por día */}
                             {(() => {
-                              const currentRL = typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems
+                              const currentRLUnexpanded = typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems
                                 ? window.roomingCore.getGroupEconomicItems(selectedGroupFicha)
                                 : parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
+                              const currentRL = expandRoomListByDays(currentRLUnexpanded);
                               const uniqueDayKeys = Array.from(new Set(currentRL.map(i => i.dateIn || i.date || i.fecha || "Varios"))).filter(Boolean);
                               if (uniqueDayKeys.length <= 1) return null;
 
@@ -17179,7 +17324,8 @@
                                 <tbody className="divide-y divide-slate-100">
 
                                   {(() => {
-                                    const rawRL = typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems ? window.roomingCore.getGroupEconomicItems(selectedGroupFicha) : parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
+                                    const rawRLUnexpanded = typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems ? window.roomingCore.getGroupEconomicItems(selectedGroupFicha) : parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
+                                    const rawRL = expandRoomListByDays(rawRLUnexpanded);
                                     
                                     // Safety guard: if list is corrupted (>200 auto-generated rows), show reset UI instead of freezing
                                     if (rawRL.length > 200) {
@@ -17484,18 +17630,25 @@
                                         <td className="py-1.5 px-2 text-right">
                                           <div className="inline-flex items-center justify-end gap-1">
                                             <input
-                                              type="number"
-                                              step="0.01"
-                                              min="0"
+                                              type="text"
+                                              inputMode="decimal"
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                  e.target.blur();
+                                                } else {
+                                                  handleDotAsComma(e);
+                                                }
+                                              }}
                                               className="w-16 text-right bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1.5 py-0.5 text-[11px] font-bold text-slate-800 outline-none transition shadow-2xs"
-                                              value={item.price !== undefined ? item.price : 0}
-                                              onChange={(e) => {
-                                                const val = parseFloat(e.target.value);
+                                              defaultValue={item.price !== undefined && item.price !== null ? String(item.price).replace('.', ',') : '0'}
+                                              key={`price_${item.id}_${item.price}`}
+                                              onBlur={(e) => {
+                                                const val = parseNum(e.target.value);
                                                 if (!isNaN(val) && val >= 0) {
                                                   handleInlineRoomItemUpdate(item, "price", val);
                                                 }
                                               }}
-                                              title="Editar precio unitario"
+                                              title="Editar precio unitario (el punto se toma como coma)"
                                             />
                                             <span className="text-slate-400 text-[11px]">€</span>
                                           </div>
@@ -17858,7 +18011,7 @@
 
                                           const pct =
 
-                                            parseFloat(
+                                            parseNum(
 
                                               newPlan[idx].percent,
 
@@ -18296,7 +18449,8 @@
                                                     {/* % Input */}
                                                     <div className="flex items-center justify-center bg-slate-50 rounded h-5 border border-slate-100 w-full px-1">
                                                       <input
-                                                        type="number"
+                                                        type="text"
+                                                        inputMode="decimal"
                                                         onKeyDown={handleDotAsComma}
                                                         key={idx + "-" + dep.percent}
                                                         className="bg-transparent border-none text-[10px] font-black text-slate-600 w-full text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -18317,8 +18471,8 @@
                                                     {/* Importe Input */}
                                                     <div className="flex items-center justify-end bg-slate-50 rounded px-1 h-5 border border-slate-100 w-full">
                                                       <input
-                                                        type="number"
-                                                        step="0.01"
+                                                        type="text"
+                                                        inputMode="decimal"
                                                         onKeyDown={handleDotAsComma}
                                                         key={idx + "-" + dep.amount}
                                                         className={`bg-transparent border-none text-[10px] font-black text-right outline-none w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"}`}
@@ -19364,13 +19518,15 @@
 
                           <input
 
-                            type="number"
+                            type="text"
+
+                            inputMode="decimal"
 
                             onKeyDown={handleDotAsComma}
 
                             className="w-full h-10 bg-white border border-slate-200 rounded-xl px-3 text-sm font-black text-blue-600 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
 
-                            value={commissionModal.tempCom.porcentaje}
+                            value={commissionModal.tempCom.porcentaje !== undefined ? String(commissionModal.tempCom.porcentaje).replace('.', ',') : ''}
 
                             onChange={(e) =>
 
@@ -19382,7 +19538,7 @@
 
                                   ...prev.tempCom,
 
-                                  porcentaje: parseFloat(e.target.value) || 0,
+                                  porcentaje: parseNum(e.target.value) || 0,
 
                                 },
 
