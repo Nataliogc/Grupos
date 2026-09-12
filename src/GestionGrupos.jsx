@@ -86,6 +86,8 @@
 
     const formatNum = NexusUtils.formatNum;
 
+    const toInputDate = NexusUtils.toInputDate || ((v) => String(v || "").split("T")[0]);
+
     const formatCurrency = (val, maxDecimals = 2) => {
       if (window.NexusUtils && window.NexusUtils.formatCurrency && maxDecimals === 2) {
         return window.NexusUtils.formatCurrency(val);
@@ -164,6 +166,44 @@
         return window.RoomingCore.getAccommodationItems(value, context);
       }
       return parseRoomingListSafe(value, context).filter(isAccommodationItem);
+    };
+
+    const calculateLodgingRevenue = (row) => {
+      const totalImporte = parseNum(row["Importe(*)"]);
+      if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]") {
+        try {
+          const rl = parseRoomingListSafe(row.RoomingList_JSON, "lodging-revenue");
+          if (Array.isArray(rl) && rl.length > 0) {
+            const isLodging = (item) => {
+              if (!item) return false;
+              if (item.isService === true || item.isAccommodation === false || item.excludeFromOccupancy === true) return false;
+              if (item.isAccommodation === true || item.isManualRoomingItem === true) return true;
+              if (typeof isAccommodationItem === "function" && isAccommodationItem(item)) return true;
+              const t = String(item.roomType || item.type || item.product || "").toLowerCase();
+              if (/almuerzo|cena|desayuno|coffee|sal[oó]n|coctel|men[uú]|traslado|gu[ií]a|pensi[oó]n|comida|extra|audiovisual/i.test(t)) {
+                return false;
+              }
+              return true;
+            };
+            const roomLines = rl.filter(isLodging);
+            if (roomLines.length > 0) {
+              return roomLines.reduce((acc, item) => {
+                let lineTot = parseFloat(item.total || item.lineTotal || item.importe);
+                if (isNaN(lineTot) || lineTot === 0) {
+                  const p = parseNum(item.price);
+                  const q = parseInt(item.qty, 10) || 1;
+                  const n = parseInt(item.nights, 10) || 1;
+                  lineTot = p * q * n;
+                }
+                return acc + (isNaN(lineTot) ? 0 : lineTot);
+              }, 0);
+            } else {
+              return 0;
+            }
+          }
+        } catch (e) {}
+      }
+      return !isNaN(totalImporte) ? totalImporte : 0;
     };
     const parseDateToComparable = (dStr) => {
       if (!dStr) return "9999-99-99";
@@ -278,11 +318,14 @@
     // Helper para desglosar elementos con noches múltiples en días individuales
     const expandRoomListByDays = (list) => {
       if (!Array.isArray(list)) return [];
+      const toDateFn = typeof toInputDate === "function" 
+        ? toInputDate 
+        : (window.NexusUtils && window.NexusUtils.toInputDate) || ((v) => String(v || "").split("T")[0]);
       const result = [];
       list.forEach((item) => {
         const nights = parseInt(item.nights, 10) || 1;
         if (!item.isService && nights > 1 && (item.dateIn || item.date)) {
-          const cleanDateIn = toInputDate(item.dateIn || item.date);
+          const cleanDateIn = toDateFn(item.dateIn || item.date);
           const unitP = parseNum(item.price);
           const q = parseInt(item.qty, 10) || 1;
           for (let i = 0; i < nights; i++) {
@@ -4408,6 +4451,7 @@
             segments[segName] = {
               name: segName,
               revenue: 0,
+              roomRevenue: 0,
               pax: 0,
               nights: 0,
               roomNights: 0,
@@ -4437,6 +4481,7 @@
           const roomNights = roomCount * noches;
 
           if (!isNaN(importe)) segments[segName].revenue += importe;
+          segments[segName].roomRevenue += calculateLodgingRevenue(row);
           segments[segName].pax += pax;
           segments[segName].nights += isNaN(noches) ? 0 : noches;
           segments[segName].roomNights += roomNights;
@@ -4446,7 +4491,7 @@
 
         return Object.values(segments)
           .map((s) => {
-            const adr = s.roomNights > 0 ? s.revenue / s.roomNights : (s.nights > 0 ? s.revenue / s.nights : 0);
+            const adr = s.roomNights > 0 ? s.roomRevenue / s.roomNights : (s.nights > 0 ? s.roomRevenue / s.nights : 0);
             return {
               ...s,
               adr: Math.round(adr * 100) / 100,
@@ -4520,7 +4565,7 @@
               if (!isNaN(y) && !isNaN(m) && y > 2000 && y < 2100) {
                 const key = `${y}-${m}`;
                 if (!map[key]) {
-                  map[key] = { pax: 0, revenue: 0, nights: 0, roomNights: 0, count: 0 };
+                  map[key] = { pax: 0, revenue: 0, roomRevenue: 0, nights: 0, roomNights: 0, count: 0 };
                 }
                 const importe = parseNum(row["Importe(*)"]);
                 const pax = parseInt(row["Pax."] || 0);
@@ -4531,6 +4576,7 @@
 
                 map[key].pax += isNaN(pax) ? 0 : pax;
                 map[key].revenue += isNaN(importe) ? 0 : importe;
+                map[key].roomRevenue = (map[key].roomRevenue || 0) + calculateLodgingRevenue(row);
                 map[key].nights += isNaN(noches) ? 0 : noches;
                 map[key].roomNights += isNaN(roomNights) ? 0 : roomNights;
                 map[key].count += 1;
@@ -4565,6 +4611,7 @@
               month: m,
               pax: 0,
               revenue: 0,
+              roomRevenue: 0,
               nights: 0,
               roomNights: 0,
               count: 0
@@ -4586,6 +4633,7 @@
                   month: m,
                   pax: 0,
                   revenue: 0,
+                  roomRevenue: 0,
                   nights: 0,
                   roomNights: 0,
                   count: 0
@@ -4601,6 +4649,7 @@
 
               item.pax += isNaN(pax) ? 0 : pax;
               item.revenue += isNaN(importe) ? 0 : importe;
+              item.roomRevenue = (item.roomRevenue || 0) + calculateLodgingRevenue(row);
               item.nights += isNaN(noches) ? 0 : noches;
               item.roomNights += isNaN(roomNights) ? 0 : roomNights;
               item.count += 1;
@@ -4620,7 +4669,7 @@
           const m = item.month;
           const prevYear = y - 1;
           const prevKey = `${prevYear}-${m}`;
-          const prevItem = historicalByYearMonth[prevKey] || { pax: 0, revenue: 0, nights: 0, roomNights: 0, count: 0 };
+          const prevItem = historicalByYearMonth[prevKey] || { pax: 0, revenue: 0, roomRevenue: 0, nights: 0, roomNights: 0, count: 0 };
 
           const diffPax = item.pax - prevItem.pax;
           const pctPax = prevItem.pax > 0 ? ((diffPax / prevItem.pax) * 100) : (item.pax > 0 ? 100 : 0);
@@ -4628,8 +4677,8 @@
           const diffRevenue = item.revenue - prevItem.revenue;
           const pctRevenue = prevItem.revenue > 0 ? ((diffRevenue / prevItem.revenue) * 100) : (item.revenue > 0 ? 100 : 0);
 
-          const adr = item.roomNights > 0 ? item.revenue / item.roomNights : (item.nights > 0 ? item.revenue / item.nights : 0);
-          const prevAdr = prevItem.roomNights > 0 ? prevItem.revenue / prevItem.roomNights : (prevItem.nights > 0 ? prevItem.revenue / prevItem.nights : 0);
+          const adr = item.roomNights > 0 ? (item.roomRevenue || item.revenue) / item.roomNights : (item.nights > 0 ? (item.roomRevenue || item.revenue) / item.nights : 0);
+          const prevAdr = prevItem.roomNights > 0 ? (prevItem.roomRevenue || prevItem.revenue) / prevItem.roomNights : (prevItem.nights > 0 ? (prevItem.roomRevenue || prevItem.revenue) / prevItem.nights : 0);
           const diffAdr = adr - prevAdr;
           const pctAdr = prevAdr > 0 ? ((diffAdr / prevAdr) * 100) : (adr > 0 ? 100 : 0);
 
@@ -4645,6 +4694,7 @@
             prevYear: prevYear,
             Pax: item.pax,
             Ingresos: item.revenue,
+            RoomRevenue: item.roomRevenue || 0,
             Noches: item.nights,
             RoomNights: item.roomNights,
             ADR: Math.round(adr * 100) / 100,
@@ -4652,6 +4702,7 @@
             Grupos: item.count,
             PaxAnterior: prevItem.pax,
             IngresosAnterior: prevItem.revenue,
+            RoomRevenueAnterior: prevItem.roomRevenue || 0,
             NochesAnterior: prevItem.nights,
             RoomNightsAnterior: prevItem.roomNights,
             ADRAnterior: Math.round(prevAdr * 100) / 100,
@@ -4681,6 +4732,7 @@
             commMap[comName] = {
               name: comName,
               revenue: 0,
+              roomRevenue: 0,
               pax: 0,
               nights: 0,
               roomNights: 0,
@@ -4711,6 +4763,7 @@
           const gName = row["Nombre del Grupo"] || row["Reserva"] || "Grupo";
 
           if (!isNaN(importe)) commMap[comName].revenue += importe;
+          commMap[comName].roomRevenue += calculateLodgingRevenue(row);
           commMap[comName].pax += pax;
           commMap[comName].nights += isNaN(noches) ? 0 : noches;
           commMap[comName].roomNights += roomNights;
@@ -4722,7 +4775,7 @@
         return Object.values(commMap)
           .map((c) => {
             const groups = c.groupList.size;
-            const adr = c.roomNights > 0 ? c.revenue / c.roomNights : (c.nights > 0 ? c.revenue / c.nights : 0);
+            const adr = c.roomNights > 0 ? c.roomRevenue / c.roomNights : (c.nights > 0 ? c.roomRevenue / c.nights : 0);
             const pricePerPax = c.pax > 0 ? c.revenue / c.pax : 0;
             const share = totalRevAll > 0 ? (c.revenue / totalRevAll) * 100 : 0;
             return {
@@ -4742,6 +4795,8 @@
         let totalPaxPrev = 0;
         let totalRev = 0;
         let totalRevPrev = 0;
+        let totalRoomRev = 0;
+        let totalRoomRevPrev = 0;
         let totalNights = 0;
         let totalNightsPrev = 0;
         let totalRoomNights = 0;
@@ -4753,6 +4808,8 @@
           totalPaxPrev += m.PaxAnterior || 0;
           totalRev += m.Ingresos || 0;
           totalRevPrev += m.IngresosAnterior || 0;
+          totalRoomRev += m.RoomRevenue || 0;
+          totalRoomRevPrev += m.RoomRevenueAnterior || 0;
           totalNights += m.Noches || 0;
           totalNightsPrev += m.NochesAnterior || 0;
           totalRoomNights += m.RoomNights || 0;
@@ -4760,8 +4817,8 @@
           totalGroups += m.Grupos || 0;
         });
 
-        const adr = totalRoomNights > 0 ? totalRev / totalRoomNights : (totalNights > 0 ? totalRev / totalNights : 0);
-        const prevAdr = totalRoomNightsPrev > 0 ? totalRevPrev / totalRoomNightsPrev : (totalNightsPrev > 0 ? totalRevPrev / totalNightsPrev : 0);
+        const adr = totalRoomNights > 0 ? (totalRoomRev || totalRev) / totalRoomNights : (totalNights > 0 ? (totalRoomRev || totalRev) / totalNights : 0);
+        const prevAdr = totalRoomNightsPrev > 0 ? (totalRoomRevPrev || totalRevPrev) / totalRoomNightsPrev : (totalNightsPrev > 0 ? (totalRoomRevPrev || totalRevPrev) / totalNightsPrev : 0);
 
         const pricePerPax = totalPax > 0 ? totalRev / totalPax : 0;
         const prevPricePerPax = totalPaxPrev > 0 ? totalRevPrev / totalPaxPrev : 0;
