@@ -58,8 +58,13 @@
     if (price === null || price === undefined || isNaN(price)) return price;
     var r = String(rounding || "none").toLowerCase().trim();
     var p = Number(price);
-    if (r === "0.5" || r === "0.50") {
-      return Math.round(p * 2) / 2;
+    if (r === "0.5" || r === "0.50" || r === "half" || r === "estadistico" || r === "estadistica") {
+      var intPart = Math.floor(p);
+      var cents = Math.round((p - intPart) * 100);
+      if (cents === 0) return intPart;
+      if (cents <= 10) return intPart;
+      if (cents <= 65) return intPart + 0.5;
+      return intPart + 1;
     }
     if (r === "1" || r === "1.00" || r === "integer" || r === "entero") {
       return Math.round(p);
@@ -217,6 +222,81 @@
     }
 
     return newTariffs;
+  }
+
+  /**
+   * Sugiere una propuesta de tarifas oficiales para un año determinado (ej. 2028) según estadísticas.
+   * - Toma como referencia la tarifa oficial del año anterior disponible (ej. 2027).
+   * - Aplica una variación porcentual estadística (options.growthPercent o calculada s/ ADR histórico o 4.0% por defecto).
+   * - Aplica la regla de redondeo oficial hotelera (0.50):
+   *     .11 - .65 -> .50 (ej. 65.24 -> 65.50, 65.54 -> 65.50)
+   *     > .65     -> 1.00 (ej. 65.89 -> 66.00)
+   * - Cumbria mantiene estrictamente cuádruples en null.
+   * - Ajusta y redondea también el desglose oficial de manutención (desayuno, almuerzo, cena).
+   */
+  function suggestTariffsForYear(catalog, hotel, targetYear, options) {
+    options = options || {};
+    var tYear = Number(targetYear) || 2028;
+    var refYear = tYear - 1;
+    var hKey = normalizeHotelKey(hotel);
+
+    // Obtener tarifa base del año de referencia (o fallback a 2027)
+    var baseTariffs = getTariffsForHotelAndYear(catalog, hKey, refYear);
+
+    // Determinar crecimiento estadístico:
+    var growth = 4.0;
+    if (typeof options.growthPercent === "number" && !isNaN(options.growthPercent)) {
+      growth = options.growthPercent;
+    } else if (options.histData && options.prevData) {
+      var currAdr = options.histData.overall && options.histData.overall.totalRoomNights > 0
+        ? options.histData.overall.totalLodgingRevenue / options.histData.overall.totalRoomNights
+        : 0;
+      var prevAdr = options.prevData.overall && options.prevData.overall.totalRoomNights > 0
+        ? options.prevData.overall.totalLodgingRevenue / options.prevData.overall.totalRoomNights
+        : 0;
+      if (currAdr > 0 && prevAdr > 0) {
+        var calculatedTrend = ((currAdr - prevAdr) / prevAdr) * 100;
+        if (calculatedTrend >= 1.0 && calculatedTrend <= 15.0) {
+          growth = Math.round(calculatedTrend * 10) / 10;
+        }
+      }
+    }
+
+    var suggested = copyTariffsWithAdjustment(baseTariffs, {
+      percentIncrease: growth,
+      targetHotel: hKey,
+      rounding: "0.50"
+    });
+
+    // Desglose oficial sugerido de manutención
+    var baseB = 8.5;
+    var baseL = 19.5;
+    var baseD = 19.5;
+    if (baseTariffs && baseTariffs._desglose) {
+      baseB = Number(baseTariffs._desglose.breakfast) || baseB;
+      baseL = Number(baseTariffs._desglose.lunch) || Number(baseTariffs._desglose.meal) || baseL;
+      baseD = Number(baseTariffs._desglose.dinner) || baseD;
+    } else if (baseTariffs && baseTariffs.HD && baseTariffs.HA && baseTariffs.HD.doble && baseTariffs.HA.doble) {
+      baseB = Math.round(((baseTariffs.HD.doble - baseTariffs.HA.doble) / 2) * 100) / 100;
+      if (baseTariffs.MP && baseTariffs.MP.doble) {
+        baseL = Math.round(((baseTariffs.MP.doble - baseTariffs.HD.doble) / 2) * 100) / 100;
+      }
+      if (baseTariffs.PC && baseTariffs.PC.doble && baseTariffs.MP && baseTariffs.MP.doble) {
+        baseD = Math.round(((baseTariffs.PC.doble - baseTariffs.MP.doble) / 2) * 100) / 100;
+      }
+    }
+
+    suggested._desglose = {
+      breakfast: roundPrice(baseB * (1 + growth / 100), "0.50"),
+      lunch: roundPrice(baseL * (1 + growth / 100), "0.50"),
+      dinner: roundPrice(baseD * (1 + growth / 100), "0.50")
+    };
+
+    suggested._isSuggested = true;
+    suggested._suggestedGrowth = growth;
+    suggested._baseYear = refYear;
+
+    return suggested;
   }
 
   // ── 4. CÁLCULO DE INGRESOS PREVISTOS (Requisito 27) ───────────────────
@@ -871,6 +951,7 @@
     enrichTariffsWithPricePerPerson: enrichTariffsWithPricePerPerson,
     getTariffsForHotelAndYear: getTariffsForHotelAndYear,
     copyTariffsWithAdjustment: copyTariffsWithAdjustment,
+    suggestTariffsForYear: suggestTariffsForYear,
     calculateTargetRevenue: calculateTargetRevenue,
     aggregateHistoricalGroupData: aggregateHistoricalGroupData,
     generateTargetFromHistorical: generateTargetFromHistorical,

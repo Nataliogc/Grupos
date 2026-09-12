@@ -893,9 +893,17 @@
       const [copySourceYear, setCopySourceYear] = useState(2027);
       const [copyPercent, setCopyPercent] = useState(0);
       const [copyFixed, setCopyFixed] = useState(0);
-      const [copyRounding, setCopyRounding] = useState("none");
+      const [copyRounding, setCopyRounding] = useState("0.50");
       const [showCancelledModal, setShowCancelledModal] = useState(false);
       const [toastMsg, setToastMsg] = useState(null);
+
+      // Estados de Seguridad y Edición de Tarifas Oficiales (Clave 1234 y Sugerencias)
+      const [isTariffLocked, setIsTariffLocked] = useState(false);
+      const [showTariffPinModal, setShowTariffPinModal] = useState(false);
+      const [tariffPinInput, setTariffPinInput] = useState("");
+      const [tariffPinError, setTariffPinError] = useState(null);
+      const [isTariffSuggested, setIsTariffSuggested] = useState(false);
+      const [tariffSuggestedGrowth, setTariffSuggestedGrowth] = useState(4.0);
 
       // Catálogo de tarifas local y editable
       const [tariffsCatalog, setTariffsCatalog] = useState(() => {
@@ -1033,41 +1041,111 @@
       const openTariffModal = (h, y) => {
         const selH = h || targetHotel;
         const selY = Number(y) || targetYear;
+        const hKey = gts ? gts.normalizeHotelKey(selH) : (selH.includes("cumbria") ? "cumbria" : "guadiana");
+        const yKey = String(selY);
+
         setTariffModalHotel(selH);
         setTariffModalYear(selY);
-        if (gts) {
-          const t = gts.getTariffsForHotelAndYear(tariffsCatalog, selH, selY);
-          const tariffsCopy = JSON.parse(JSON.stringify(t));
-          // Inicializar desgloses oficiales por defecto si no existen
-          if (!tariffsCopy._desglose) {
-            let defB = 8.5;
-            let defL = 19.5;
-            let defD = 19.5;
-            if (tariffsCopy.HD?.doble && tariffsCopy.HA?.doble) {
-              const diff = Math.round(((tariffsCopy.HD.doble - tariffsCopy.HA.doble) / 2) * 100) / 100;
-              if (diff > 0) defB = diff;
+        setTariffPinError(null);
+        setTariffPinInput("");
+
+        const isSavedOfficial = Boolean(
+          (tariffsCatalog[yKey] && tariffsCatalog[yKey][hKey] && (tariffsCatalog[yKey][hKey]._isOfficial || tariffsCatalog[yKey][hKey]._savedAt)) ||
+          (selY === 2027 && (tariffsCatalog[yKey]?.[hKey] || (gts && gts.DEFAULT_GROUP_TARIFFS_2027 && gts.DEFAULT_GROUP_TARIFFS_2027[hKey])))
+        );
+
+        if (isSavedOfficial) {
+          setIsTariffLocked(true);
+          setIsTariffSuggested(false);
+          if (gts) {
+            const t = gts.getTariffsForHotelAndYear(tariffsCatalog, selH, selY);
+            const tariffsCopy = JSON.parse(JSON.stringify(t));
+            // Inicializar desgloses oficiales por defecto si no existen
+            if (!tariffsCopy._desglose) {
+              let defB = 8.5;
+              let defL = 19.5;
+              let defD = 19.5;
+              if (tariffsCopy.HD?.doble && tariffsCopy.HA?.doble) {
+                const diff = Math.round(((tariffsCopy.HD.doble - tariffsCopy.HA.doble) / 2) * 100) / 100;
+                if (diff > 0) defB = diff;
+              }
+              if (tariffsCopy.MP?.doble && tariffsCopy.HD?.doble) {
+                const diff = Math.round(((tariffsCopy.MP.doble - tariffsCopy.HD.doble) / 2) * 100) / 100;
+                if (diff > 0) defL = diff;
+              }
+              if (tariffsCopy.PC?.doble && tariffsCopy.MP?.doble) {
+                const diff = Math.round(((tariffsCopy.PC.doble - tariffsCopy.MP.doble) / 2) * 100) / 100;
+                if (diff > 0) defD = diff;
+              }
+              tariffsCopy._desglose = {
+                breakfast: defB,
+                lunch: defL,
+                dinner: defD
+              };
             }
-            if (tariffsCopy.MP?.doble && tariffsCopy.HD?.doble) {
-              const diff = Math.round(((tariffsCopy.MP.doble - tariffsCopy.HD.doble) / 2) * 100) / 100;
-              if (diff > 0) defL = diff;
-            }
-            if (tariffsCopy.PC?.doble && tariffsCopy.MP?.doble) {
-              const diff = Math.round(((tariffsCopy.PC.doble - tariffsCopy.MP.doble) / 2) * 100) / 100;
-              if (diff > 0) defD = diff;
-            }
-            tariffsCopy._desglose = {
-              breakfast: defB,
-              lunch: defL,
-              dinner: defD
-            };
+            setEditingTariffs(tariffsCopy);
           }
-          setEditingTariffs(tariffsCopy);
+        } else {
+          // Año aún no guardado como oficial (ej. 2028) -> sugerir según estadísticas
+          if (gts && typeof gts.suggestTariffsForYear === "function") {
+            const sug = gts.suggestTariffsForYear(tariffsCatalog, selH, selY, {
+              growthPercent: 4.0,
+              histData: histData,
+              prevData: realDataTargetYear
+            });
+            setIsTariffSuggested(true);
+            setTariffSuggestedGrowth(sug._suggestedGrowth || 4.0);
+            setIsTariffLocked(false);
+            setEditingTariffs(sug);
+          } else if (gts) {
+            const t = gts.getTariffsForHotelAndYear(tariffsCatalog, selH, selY);
+            setIsTariffSuggested(false);
+            setIsTariffLocked(false);
+            setEditingTariffs(JSON.parse(JSON.stringify(t)));
+          }
         }
         setShowTariffModal(true);
       };
 
+      const handleApplyStatisticalSuggestion = (customGrowth) => {
+        if (!gts || typeof gts.suggestTariffsForYear !== "function") return;
+        if (isTariffLocked) {
+          setShowTariffPinModal(true);
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para recalcular.");
+          return;
+        }
+        const growth = typeof customGrowth === "number" ? customGrowth : (tariffSuggestedGrowth || 4.0);
+        const sug = gts.suggestTariffsForYear(tariffsCatalog, tariffModalHotel, tariffModalYear, {
+          growthPercent: growth,
+          histData: histData,
+          prevData: realDataTargetYear
+        });
+        setIsTariffSuggested(true);
+        setTariffSuggestedGrowth(sug._suggestedGrowth || growth);
+        setEditingTariffs(sug);
+        showToast("Tarifas sugeridas calculadas para " + tariffModalYear + " (+" + (sug._suggestedGrowth || growth) + "% con redondeo oficial).");
+      };
+
+      const handleVerifyTariffPin = (e) => {
+        if (e) e.preventDefault();
+        if (tariffPinInput.trim() === "1234") {
+          setIsTariffLocked(false);
+          setShowTariffPinModal(false);
+          setTariffPinInput("");
+          setTariffPinError(null);
+          showToast("🔓 Tarifa Oficial " + tariffModalYear + " desbloqueada para modificación.");
+        } else {
+          setTariffPinError("Clave incorrecta. Solo autorizada con clave 1234.");
+        }
+      };
+
       const handleCellPriceChange = (reg, cat, val) => {
         if (!editingTariffs) return;
+        if (isTariffLocked) {
+          setShowTariffPinModal(true);
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para editar.");
+          return;
+        }
         const updated = JSON.parse(JSON.stringify(editingTariffs));
         if (tariffModalHotel === "cumbria" && cat === "cuadruple") {
           return; // Bloqueado estrictamente (Req 26 y 33)
@@ -1083,12 +1161,28 @@
 
       const handleSaveTariffs = () => {
         if (!editingTariffs) return;
+        if (isTariffLocked) {
+          setShowTariffPinModal(true);
+          setTariffPinError("La tarifa oficial está bloqueada. Introduce la clave 1234 para guardar cambios.");
+          return;
+        }
         const updatedCatalog = JSON.parse(JSON.stringify(tariffsCatalog));
         const yKey = String(tariffModalYear);
         const hKey = gts ? gts.normalizeHotelKey(tariffModalHotel) : (tariffModalHotel.includes("cumbria") ? "cumbria" : "guadiana");
         if (!updatedCatalog[yKey]) updatedCatalog[yKey] = {};
-        updatedCatalog[yKey][hKey] = editingTariffs;
+
+        const savedData = JSON.parse(JSON.stringify(editingTariffs));
+        savedData._isOfficial = true;
+        savedData._savedAt = new Date().toISOString();
+        savedData._officialYear = tariffModalYear;
+        savedData._hotel = hKey;
+        delete savedData._isSuggested;
+
+        updatedCatalog[yKey][hKey] = savedData;
         setTariffsCatalog(updatedCatalog);
+        setIsTariffLocked(true);
+        setIsTariffSuggested(false);
+
         try {
           localStorage.setItem("nexus_group_tariffs", JSON.stringify(updatedCatalog));
         } catch(e) {}
@@ -1100,13 +1194,13 @@
         }
 
         // Sincronizar desgloses oficiales con boardPricingConfig
-        if (editingTariffs._desglose) {
+        if (savedData._desglose) {
           const hotelFullName = tariffModalHotel === "guadiana" ? "Sercotel Guadiana" : "Cumbria Spa&Hotel";
           const newBoardPricing = {
             ...boardPricingConfig,
             [hotelFullName]: {
-              breakfast: Number(editingTariffs._desglose.breakfast) || 8.5,
-              meal: Number(editingTariffs._desglose.lunch || editingTariffs._desglose.meal) || 19.5,
+              breakfast: Number(savedData._desglose.breakfast) || 8.5,
+              meal: Number(savedData._desglose.lunch || savedData._desglose.meal) || 19.5,
             }
           };
           setBoardPricingConfig(newBoardPricing);
@@ -1119,11 +1213,16 @@
         }
 
         setShowTariffModal(false);
-        showToast("Tarifas y desgloses guardados correctamente para " + (tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria") + " " + tariffModalYear);
+        showToast("🔒 Tarifa Oficial " + tariffModalYear + " guardada y bloqueada para " + (tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"));
       };
 
       const handleResetDefault2027 = () => {
         if (!gts) return;
+        if (isTariffLocked) {
+          setShowTariffPinModal(true);
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para restablecer.");
+          return;
+        }
         const def = gts.DEFAULT_GROUP_TARIFFS_2027[tariffModalHotel] || gts.DEFAULT_GROUP_TARIFFS_2027.guadiana;
         setEditingTariffs(JSON.parse(JSON.stringify(def)));
         showToast("Tarifas restablecidas a los valores oficiales 2027.");
@@ -1131,6 +1230,11 @@
 
       const handleApplyCopyTariffs = () => {
         if (!gts) return;
+        if (isTariffLocked) {
+          setShowTariffPinModal(true);
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para aplicar copia.");
+          return;
+        }
         const src = gts.getTariffsForHotelAndYear(tariffsCatalog, tariffModalHotel, copySourceYear);
         const copied = gts.copyTariffsWithAdjustment(src, {
           percentIncrease: Number(copyPercent) || 0,
@@ -1144,6 +1248,11 @@
 
       const handleRoundCurrentTariffs = (roundingType) => {
         if (!editingTariffs || !gts) return;
+        if (isTariffLocked) {
+          setShowTariffPinModal(true);
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para redondear.");
+          return;
+        }
         const updated = JSON.parse(JSON.stringify(editingTariffs));
         for (const reg in updated) {
           for (const cat in updated[reg]) {
@@ -1837,21 +1946,100 @@
                           className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800"
                         >
                           <option value={2026}>2026</option>
-                          <option value={2027}>2027 (Oficial)</option>
-                          <option value={2028}>2028</option>
-                          <option value={2029}>2029</option>
-                          <option value={2030}>2030</option>
+                          <option value={2027}>2027 (Oficial 🔒)</option>
+                          <option value={2028}>
+                            2028 {tariffsCatalog["2028"]?.[gts ? gts.normalizeHotelKey(tariffModalHotel) : tariffModalHotel]?._isOfficial ? "(Oficial 🔒)" : "(Sugerencia 💡)"}
+                          </option>
+                          <option value={2029}>
+                            2029 {tariffsCatalog["2029"]?.[gts ? gts.normalizeHotelKey(tariffModalHotel) : tariffModalHotel]?._isOfficial ? "(Oficial 🔒)" : ""}
+                          </option>
+                          <option value={2030}>
+                            2030 {tariffsCatalog["2030"]?.[gts ? gts.normalizeHotelKey(tariffModalHotel) : tariffModalHotel]?._isOfficial ? "(Oficial 🔒)" : ""}
+                          </option>
                         </select>
                       </div>
                     </div>
 
-                    <button
-                      onClick={handleResetDefault2027}
-                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition"
-                    >
-                      Restablecer Oficial 2027
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyStatisticalSuggestion()}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                        title="Calcular sugerencia de precios según estadísticas"
+                      >
+                        <span>💡</span>
+                        <span>Sugerir según estadísticas</span>
+                      </button>
+                      <button
+                        onClick={handleResetDefault2027}
+                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition"
+                      >
+                        Restablecer Oficial 2027
+                      </button>
+                    </div>
                   </div>
+
+                  {/* BANNER DE ESTADO OFICIAL / BLOQUEO / SUGERENCIA */}
+                  {isTariffLocked ? (
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl">🔒</span>
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-amber-950">
+                            Tarifa Oficial {tariffModalYear} Bloqueada
+                          </h4>
+                          <p className="text-[11px] text-amber-800">
+                            Los precios oficiales de este año están protegidos contra modificaciones accidentales. Solo pueden modificarse con la clave 1234.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setShowTariffPinModal(true); setTariffPinError(null); setTariffPinInput(""); }}
+                        className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1.5"
+                      >
+                        <span>🔓 Desbloquear Modificación (Clave 1234)</span>
+                      </button>
+                    </div>
+                  ) : isTariffSuggested ? (
+                    <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl">📊</span>
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-indigo-950">
+                            Precios sugeridos según estadísticas para {tariffModalYear} (+{tariffSuggestedGrowth}%)
+                          </h4>
+                          <p className="text-[11px] text-indigo-700">
+                            Calculados con tendencia de ADR y redondeo comercial hotelero (.24/.54 &rarr; .50, .89 &rarr; entero). Puedes editar cualquier celda o desglose. Al guardar, quedará fijada como la Tarifa Oficial del año protegida con clave 1234.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full border border-indigo-200">
+                        Propuesta editable
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl">🔓</span>
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-emerald-950">
+                            Edición Habilitada (Tarifa Oficial {tariffModalYear})
+                          </h4>
+                          <p className="text-[11px] text-emerald-800">
+                            Clave 1234 autorizada. Puedes modificar libremente los precios y desgloses.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setIsTariffLocked(true); showToast("🔒 Tarifa Oficial vuelta a bloquear."); }}
+                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                      >
+                        <span>🔒 Bloquear de nuevo</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* HERRAMIENTA: COPIAR TARIFAS DE OTRO AÑO (Req 28) */}
                   <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
@@ -1952,9 +2140,16 @@
                                         <input
                                           type="number"
                                           step="0.5"
+                                          disabled={isTariffLocked}
                                           value={rawVal !== null && rawVal !== undefined ? rawVal : ""}
                                           onChange={(e) => handleCellPriceChange(reg, cat, e.target.value)}
-                                          className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 pr-6 transition"
+                                          onClick={() => {
+                                            if (isTariffLocked) {
+                                              setShowTariffPinModal(true);
+                                              setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar precios.");
+                                            }
+                                          }}
+                                          className={"w-full border rounded-xl px-3 py-1.5 text-xs font-bold pr-6 transition " + (isTariffLocked ? "bg-slate-100 text-slate-500 cursor-pointer border-slate-200" : "bg-slate-50 focus:bg-white text-slate-900 border-slate-200 focus:border-indigo-500")}
                                         />
                                         <span className="absolute right-2 text-slate-400 text-xs font-bold">€</span>
                                       </div>
@@ -2005,8 +2200,16 @@
                           <input
                             type="number"
                             step="0.5"
+                            disabled={isTariffLocked}
                             value={editingTariffs._desglose?.breakfast !== undefined ? editingTariffs._desglose.breakfast : 8.5}
+                            onClick={() => {
+                              if (isTariffLocked) {
+                                setShowTariffPinModal(true);
+                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar desgloses.");
+                              }
+                            }}
                             onChange={(e) => {
+                              if (isTariffLocked) return;
                               const val = e.target.value === "" ? "" : parseFloat(e.target.value);
                               setEditingTariffs(prev => ({
                                 ...prev,
@@ -2016,7 +2219,7 @@
                                 }
                               }));
                             }}
-                            className="w-full bg-amber-50/40 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-black text-slate-800 text-right pr-5 outline-none transition"
+                            className={"w-full border rounded-lg px-2 py-1 text-xs font-black text-right pr-5 outline-none transition " + (isTariffLocked ? "bg-slate-100 text-slate-500 cursor-pointer border-slate-200" : "bg-amber-50/40 focus:bg-white border-slate-200 focus:border-amber-500 text-slate-800")}
                           />
                           <span className="absolute right-2 top-1 text-xs font-bold text-slate-400">€</span>
                         </div>
@@ -2031,8 +2234,16 @@
                           <input
                             type="number"
                             step="0.5"
+                            disabled={isTariffLocked}
                             value={editingTariffs._desglose?.lunch !== undefined ? editingTariffs._desglose.lunch : 19.5}
+                            onClick={() => {
+                              if (isTariffLocked) {
+                                setShowTariffPinModal(true);
+                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar desgloses.");
+                              }
+                            }}
                             onChange={(e) => {
+                              if (isTariffLocked) return;
                               const val = e.target.value === "" ? "" : parseFloat(e.target.value);
                               setEditingTariffs(prev => ({
                                 ...prev,
@@ -2042,7 +2253,7 @@
                                 }
                               }));
                             }}
-                            className="w-full bg-amber-50/40 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-black text-slate-800 text-right pr-5 outline-none transition"
+                            className={"w-full border rounded-lg px-2 py-1 text-xs font-black text-right pr-5 outline-none transition " + (isTariffLocked ? "bg-slate-100 text-slate-500 cursor-pointer border-slate-200" : "bg-amber-50/40 focus:bg-white border-slate-200 focus:border-amber-500 text-slate-800")}
                           />
                           <span className="absolute right-2 top-1 text-xs font-bold text-slate-400">€</span>
                         </div>
@@ -2057,8 +2268,16 @@
                           <input
                             type="number"
                             step="0.5"
+                            disabled={isTariffLocked}
                             value={editingTariffs._desglose?.dinner !== undefined ? editingTariffs._desglose.dinner : 19.5}
+                            onClick={() => {
+                              if (isTariffLocked) {
+                                setShowTariffPinModal(true);
+                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar desgloses.");
+                              }
+                            }}
                             onChange={(e) => {
+                              if (isTariffLocked) return;
                               const val = e.target.value === "" ? "" : parseFloat(e.target.value);
                               setEditingTariffs(prev => ({
                                 ...prev,
@@ -2068,7 +2287,7 @@
                                 }
                               }));
                             }}
-                            className="w-full bg-amber-50/40 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-black text-slate-800 text-right pr-5 outline-none transition"
+                            className={"w-full border rounded-lg px-2 py-1 text-xs font-black text-right pr-5 outline-none transition " + (isTariffLocked ? "bg-slate-100 text-slate-500 cursor-pointer border-slate-200" : "bg-amber-50/40 focus:bg-white border-slate-200 focus:border-amber-500 text-slate-800")}
                           />
                           <span className="absolute right-2 top-1 text-xs font-bold text-slate-400">€</span>
                         </div>
@@ -2115,12 +2334,71 @@
                     </button>
                     <button
                       onClick={handleSaveTariffs}
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100 flex items-center gap-1.5"
                     >
-                      Guardar Tarifas
+                      <span>🔒</span>
+                      <span>{isTariffLocked ? "Guardar Cambios Oficiales" : `Guardar como Tarifa Oficial ${tariffModalYear}`}</span>
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE CLAVE PIN 1234 PARA TARIFAS OFICIALES */}
+          {showTariffPinModal && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🔒</span>
+                    <div>
+                      <h3 className="text-base font-black text-slate-900">Autorización Tarifa Oficial</h3>
+                      <p className="text-[11px] text-slate-500">Solo modificable con clave 1234</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setShowTariffPinModal(false); setTariffPinError(null); setTariffPinInput(""); }}
+                    className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <form onSubmit={handleVerifyTariffPin} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Clave de Autorización
+                    </label>
+                    <input
+                      type="password"
+                      value={tariffPinInput}
+                      onChange={(e) => { setTariffPinInput(e.target.value); setTariffPinError(null); }}
+                      placeholder="••••"
+                      autoFocus
+                      className={"w-full bg-slate-50 border rounded-xl px-4 py-3 text-lg font-black text-center tracking-[0.5em] focus:outline-none focus:ring-2 transition " + (tariffPinError ? "border-red-400 focus:ring-red-200" : "border-slate-200 focus:ring-indigo-200")}
+                    />
+                    {tariffPinError && (
+                      <p className="text-[11px] text-red-600 font-bold mt-1.5 flex items-center gap-1">
+                        <span>⚠️</span> {tariffPinError}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowTariffPinModal(false); setTariffPinError(null); setTariffPinInput(""); }}
+                      className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
+                    >
+                      Desbloquear
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
