@@ -1297,16 +1297,17 @@
             const parsedY = date ? new Date(toInputDate(date)).getFullYear() : (formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027);
             const targetY = isNaN(parsedY) ? 2027 : parsedY;
             const officialGrid = getOfficialTariffsGrid(formData.Hotel_Asignado, targetY);
-            const boardPrices = (grid && grid[boardKey]) || officialGrid[boardKey] || {};
+            const boardPrices = (formData.isRatesOnly && grid && grid[boardKey]) ? grid[boardKey] : (officialGrid[boardKey] || {});
 
             const updatedPrices = { ...(dayConf.prices || {}) };
             roomTypes.forEach(room => {
-              const p = boardPrices[room] !== undefined && boardPrices[room] !== '' 
-                ? boardPrices[room] 
-                : (officialGrid[boardKey] ? officialGrid[boardKey][room] : null);
-              if (p !== null && p !== undefined && p !== '') {
-                const numVal = Number(p);
-                if (updatedPrices[room] !== numVal) {
+              const hasExistingPrice = updatedPrices[room] !== undefined && updatedPrices[room] !== '' && updatedPrices[room] !== null;
+              if (!hasExistingPrice) {
+                const p = boardPrices[room] !== undefined && boardPrices[room] !== '' 
+                  ? boardPrices[room] 
+                  : (officialGrid[boardKey] ? officialGrid[boardKey][room] : null);
+                if (p !== null && p !== undefined && p !== '') {
+                  const numVal = Number(p);
                   updatedPrices[room] = numVal;
                   changed = true;
                 }
@@ -1331,6 +1332,28 @@
         formData.isMultiSegment,
         formData.segments
       ]);
+
+      // Sincronizar catálogo de tarifas oficiales desde Firestore (settings/groupTariffs)
+      useEffect(() => {
+        if (window.db && typeof window.db.collection === "function") {
+          window.db.collection("settings").doc("groupTariffs").get()
+            .then(snap => {
+              if (snap.exists) {
+                const fsTariffs = snap.data();
+                if (fsTariffs && typeof fsTariffs === "object") {
+                  let local = {};
+                  try {
+                    const saved = localStorage.getItem("nexus_group_tariffs");
+                    if (saved) local = JSON.parse(saved);
+                  } catch(e) {}
+                  const merged = { ...local, ...fsTariffs };
+                  try { localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged)); } catch(e) {}
+                }
+              }
+            })
+            .catch(err => console.warn("Error sincronizando groupTariffs en Presupuestos:", err));
+        }
+      }, []);
 
       // Cargar datos y manejar parámetros de URL
       useEffect(() => {
@@ -1480,7 +1503,7 @@
               const parsedY = date ? new Date(toInputDate(date)).getFullYear() : (prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2027);
               const targetY = isNaN(parsedY) ? 2027 : parsedY;
               const officialGrid = getOfficialTariffsGrid(hotel, targetY);
-              const boardPrices = (prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey]) || officialGrid[boardKey] || {};
+              const boardPrices = (prev.isRatesOnly && prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey]) || officialGrid[boardKey] || {};
 
               const updatedPrices = { ...(newDailyConfig[date].prices || {}) };
               roomTypes.forEach(room => {
@@ -1562,13 +1585,15 @@
           const dayConf = newDailyConfig[date];
           const currentBoard = dayConf.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
           const boardKey = currentBoard.split(' ')[0];
-          const pricesForBoard = mergedGrid[boardKey] || officialGrid[boardKey] || {};
+          
+          const parsedNightY = date ? new Date(toInputDate(date)).getFullYear() : validYear;
+          const nightYear = isNaN(parsedNightY) ? validYear : parsedNightY;
+          const nightOfficialGrid = getOfficialTariffsGrid(hotel, nightYear);
+          const pricesForBoard = nightOfficialGrid[boardKey] || {};
 
           const updatedPrices = { ...(dayConf.prices || {}) };
           roomTypes.forEach(rt => {
-            const p = pricesForBoard[rt] !== undefined && pricesForBoard[rt] !== '' 
-              ? pricesForBoard[rt] 
-              : (officialGrid[boardKey] ? officialGrid[boardKey][rt] : null);
+            const p = pricesForBoard[rt];
             if (p !== null && p !== undefined && p !== '') {
               updatedPrices[rt] = Number(p);
             }
@@ -2503,7 +2528,10 @@ ${emailContent}`;
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-2">Hotel:</span>
                   <select 
                     value={formData.Hotel_Asignado} 
-                    onChange={e => setFormData({ ...formData, Hotel_Asignado: e.target.value })}
+                    onChange={e => {
+                      const newH = e.target.value;
+                      setFormData(prev => remapBudgetRoomsForHotel(prev, newH));
+                    }}
                     className="bg-indigo-50 text-indigo-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-indigo-100 focus:ring-indigo-300 transition-all cursor-pointer"
                   >
                     <option value="Sercotel Guadiana">Sercotel Guadiana</option>

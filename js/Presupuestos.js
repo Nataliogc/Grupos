@@ -1477,13 +1477,14 @@ function App() {
         var parsedY = date ? new Date(toInputDate(date)).getFullYear() : formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
         var targetY = isNaN(parsedY) ? 2027 : parsedY;
         var officialGrid = getOfficialTariffsGrid(formData.Hotel_Asignado, targetY);
-        var boardPrices = grid && grid[boardKey] || officialGrid[boardKey] || {};
+        var boardPrices = formData.isRatesOnly && grid && grid[boardKey] ? grid[boardKey] : officialGrid[boardKey] || {};
         var updatedPrices = _objectSpread({}, dayConf.prices || {});
         roomTypes.forEach(function (room) {
-          var p = boardPrices[room] !== undefined && boardPrices[room] !== '' ? boardPrices[room] : officialGrid[boardKey] ? officialGrid[boardKey][room] : null;
-          if (p !== null && p !== undefined && p !== '') {
-            var numVal = Number(p);
-            if (updatedPrices[room] !== numVal) {
+          var hasExistingPrice = updatedPrices[room] !== undefined && updatedPrices[room] !== '' && updatedPrices[room] !== null;
+          if (!hasExistingPrice) {
+            var p = boardPrices[room] !== undefined && boardPrices[room] !== '' ? boardPrices[room] : officialGrid[boardKey] ? officialGrid[boardKey][room] : null;
+            if (p !== null && p !== undefined && p !== '') {
+              var numVal = Number(p);
               updatedPrices[room] = numVal;
               changed = true;
             }
@@ -1503,6 +1504,30 @@ function App() {
       }
     }
   }, [formData.Entrada, formData.Salida, formData.Hotel_Asignado, formData.ratesOnlyGrid, formData.isRatesOnly, formData.isMultiSegment, formData.segments]);
+
+  // Sincronizar catálogo de tarifas oficiales desde Firestore (settings/groupTariffs)
+  useEffect(function () {
+    if (window.db && typeof window.db.collection === "function") {
+      window.db.collection("settings").doc("groupTariffs").get().then(function (snap) {
+        if (snap.exists) {
+          var fsTariffs = snap.data();
+          if (fsTariffs && _typeof(fsTariffs) === "object") {
+            var local = {};
+            try {
+              var saved = localStorage.getItem("nexus_group_tariffs");
+              if (saved) local = JSON.parse(saved);
+            } catch (e) {}
+            var merged = _objectSpread(_objectSpread({}, local), fsTariffs);
+            try {
+              localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged));
+            } catch (e) {}
+          }
+        }
+      }).catch(function (err) {
+        return console.warn("Error sincronizando groupTariffs en Presupuestos:", err);
+      });
+    }
+  }, []);
 
   // Cargar datos y manejar parámetros de URL
   useEffect(function () {
@@ -1651,7 +1676,7 @@ function App() {
           var parsedY = date ? new Date(toInputDate(date)).getFullYear() : prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2027;
           var targetY = isNaN(parsedY) ? 2027 : parsedY;
           var officialGrid = getOfficialTariffsGrid(hotel, targetY);
-          var boardPrices = prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey] || officialGrid[boardKey] || {};
+          var boardPrices = prev.isRatesOnly && prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey] || officialGrid[boardKey] || {};
           var updatedPrices = _objectSpread({}, newDailyConfig[date].prices || {});
           roomTypes.forEach(function (room) {
             var p = boardPrices[room] !== undefined && boardPrices[room] !== '' ? boardPrices[room] : officialGrid[boardKey] ? officialGrid[boardKey][room] : null;
@@ -1738,10 +1763,13 @@ function App() {
       var dayConf = newDailyConfig[date];
       var currentBoard = dayConf.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
       var boardKey = currentBoard.split(' ')[0];
-      var pricesForBoard = mergedGrid[boardKey] || officialGrid[boardKey] || {};
+      var parsedNightY = date ? new Date(toInputDate(date)).getFullYear() : validYear;
+      var nightYear = isNaN(parsedNightY) ? validYear : parsedNightY;
+      var nightOfficialGrid = getOfficialTariffsGrid(hotel, nightYear);
+      var pricesForBoard = nightOfficialGrid[boardKey] || {};
       var updatedPrices = _objectSpread({}, dayConf.prices || {});
       roomTypes.forEach(function (rt) {
-        var p = pricesForBoard[rt] !== undefined && pricesForBoard[rt] !== '' ? pricesForBoard[rt] : officialGrid[boardKey] ? officialGrid[boardKey][rt] : null;
+        var p = pricesForBoard[rt];
         if (p !== null && p !== undefined && p !== '') {
           updatedPrices[rt] = Number(p);
         }
@@ -2984,9 +3012,10 @@ function App() {
     }, "Hotel:"), /*#__PURE__*/React.createElement("select", {
       value: formData.Hotel_Asignado,
       onChange: function onChange(e) {
-        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-          Hotel_Asignado: e.target.value
-        }));
+        var newH = e.target.value;
+        setFormData(function (prev) {
+          return remapBudgetRoomsForHotel(prev, newH);
+        });
       },
       className: "bg-indigo-50 text-indigo-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-indigo-100 focus:ring-indigo-300 transition-all cursor-pointer"
     }, /*#__PURE__*/React.createElement("option", {

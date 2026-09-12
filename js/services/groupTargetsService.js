@@ -165,11 +165,34 @@
     if (catalog && catalog[yKey] && catalog[yKey][hKey]) {
       return JSON.parse(JSON.stringify(catalog[yKey][hKey]));
     }
+    if (catalog && catalog[hKey] && yKey === "2027") {
+      return JSON.parse(JSON.stringify(catalog[hKey]));
+    }
     // Fallback al catálogo 2027 por defecto
     if (DEFAULT_GROUP_TARIFFS_2027[hKey]) {
       return JSON.parse(JSON.stringify(DEFAULT_GROUP_TARIFFS_2027[hKey]));
     }
     return JSON.parse(JSON.stringify(DEFAULT_GROUP_TARIFFS_2027.guadiana));
+  }
+
+  /**
+   * Determina si un hotel y año cuenta con tarifa oficial establecida
+   */
+  function isOfficialTariff(catalog, hotel, year) {
+    var hKey = normalizeHotelKey(hotel);
+    var yKey = String(year || 2027);
+
+    if (catalog && catalog[yKey] && catalog[yKey][hKey]) {
+      var entry = catalog[yKey][hKey];
+      if (entry._isOfficial === true || entry._savedAt) {
+        return true;
+      }
+    }
+    // 2027 es la tarifa oficial base por defecto
+    if (Number(year) === 2027) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -950,6 +973,7 @@
     calculatePricePerPerson: calculatePricePerPerson,
     enrichTariffsWithPricePerPerson: enrichTariffsWithPricePerPerson,
     getTariffsForHotelAndYear: getTariffsForHotelAndYear,
+    isOfficialTariff: isOfficialTariff,
     copyTariffsWithAdjustment: copyTariffsWithAdjustment,
     suggestTariffsForYear: suggestTariffsForYear,
     calculateTargetRevenue: calculateTargetRevenue,

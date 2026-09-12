@@ -907,12 +907,29 @@
 
       // Catálogo de tarifas local y editable
       const [tariffsCatalog, setTariffsCatalog] = useState(() => {
+        let initial = {};
         try {
           const saved = localStorage.getItem("nexus_group_tariffs");
-          if (saved) return JSON.parse(saved);
+          if (saved) initial = JSON.parse(saved);
         } catch(e) {}
-        return gts ? JSON.parse(JSON.stringify(gts.DEFAULT_GROUP_TARIFFS_2027)) : {};
+        if (!initial["2027"] && gts && gts.DEFAULT_GROUP_TARIFFS_2027) {
+          initial["2027"] = JSON.parse(JSON.stringify(gts.DEFAULT_GROUP_TARIFFS_2027));
+        }
+        return initial;
       });
+
+      const isYearOfficial = (hotelKeyOrName, year) => {
+        if (gts && typeof gts.isOfficialTariff === "function") {
+          return gts.isOfficialTariff(tariffsCatalog, hotelKeyOrName, year);
+        }
+        const hKey = gts ? gts.normalizeHotelKey(hotelKeyOrName) : (String(hotelKeyOrName || "").toLowerCase().includes("cumbria") ? "cumbria" : "guadiana");
+        const yKey = String(year);
+        if (tariffsCatalog && tariffsCatalog[yKey] && tariffsCatalog[yKey][hKey]) {
+          const entry = tariffsCatalog[yKey][hKey];
+          if (entry._isOfficial === true || entry._savedAt) return true;
+        }
+        return Number(year) === 2027;
+      };
 
       // Copia editable temporal para el modal de tarifas
       const [editingTariffs, setEditingTariffs] = useState(null);
@@ -1049,10 +1066,7 @@
         setTariffPinError(null);
         setTariffPinInput("");
 
-        const isSavedOfficial = Boolean(
-          (tariffsCatalog[yKey] && tariffsCatalog[yKey][hKey] && (tariffsCatalog[yKey][hKey]._isOfficial || tariffsCatalog[yKey][hKey]._savedAt)) ||
-          (selY === 2027 && (tariffsCatalog[yKey]?.[hKey] || (gts && gts.DEFAULT_GROUP_TARIFFS_2027 && gts.DEFAULT_GROUP_TARIFFS_2027[hKey])))
-        );
+        const isSavedOfficial = isYearOfficial(selH, selY);
 
         if (isSavedOfficial) {
           setIsTariffLocked(true);
@@ -1461,11 +1475,14 @@
                   onChange={(e) => setTargetYear(Number(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
                 >
-                  <option value={2026}>2026</option>
-                  <option value={2027}>2027 (Oficial)</option>
-                  <option value={2028}>2028</option>
-                  <option value={2029}>2029</option>
-                  <option value={2030}>2030</option>
+                  {[2025, 2026, 2027, 2028, 2029, 2030].map(y => {
+                    const isOff = isYearOfficial(targetHotel, y);
+                    return (
+                      <option key={y} value={y}>
+                        {y} {isOff ? "(Oficial 🔒)" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -1945,17 +1962,15 @@
                           onChange={(e) => openTariffModal(tariffModalHotel, Number(e.target.value))}
                           className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800"
                         >
-                          <option value={2026}>2026</option>
-                          <option value={2027}>2027 (Oficial 🔒)</option>
-                          <option value={2028}>
-                            2028 {tariffsCatalog["2028"]?.[gts ? gts.normalizeHotelKey(tariffModalHotel) : tariffModalHotel]?._isOfficial ? "(Oficial 🔒)" : "(Sugerencia 💡)"}
-                          </option>
-                          <option value={2029}>
-                            2029 {tariffsCatalog["2029"]?.[gts ? gts.normalizeHotelKey(tariffModalHotel) : tariffModalHotel]?._isOfficial ? "(Oficial 🔒)" : ""}
-                          </option>
-                          <option value={2030}>
-                            2030 {tariffsCatalog["2030"]?.[gts ? gts.normalizeHotelKey(tariffModalHotel) : tariffModalHotel]?._isOfficial ? "(Oficial 🔒)" : ""}
-                          </option>
+                          {[2025, 2026, 2027, 2028, 2029, 2030].map(y => {
+                            const isOff = isYearOfficial(tariffModalHotel, y);
+                            const isSug = !isOff && y >= 2028;
+                            return (
+                              <option key={y} value={y}>
+                                {y} {isOff ? "(Oficial 🔒)" : (isSug ? "(Sugerencia 💡)" : "")}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     </div>
@@ -2054,9 +2069,14 @@
                           onChange={(e) => setCopySourceYear(Number(e.target.value))}
                           className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold"
                         >
-                          <option value={2026}>2026</option>
-                          <option value={2027}>2027</option>
-                          <option value={2028}>2028</option>
+                          {[2025, 2026, 2027, 2028, 2029, 2030].map(y => {
+                            const isOff = isYearOfficial(tariffModalHotel, y);
+                            return (
+                              <option key={y} value={y}>
+                                {y} {isOff ? "(Oficial 🔒)" : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                       <div>
