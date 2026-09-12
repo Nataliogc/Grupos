@@ -401,8 +401,12 @@
                     const numNew = toNum(rawNew);
                     if (isNaN(numOld) && isNaN(numNew)) return;
                     if (isNaN(numOld) !== isNaN(numNew)) isDifferent = Math.abs(isNaN(numOld) ? numNew : numOld) > 0.01;
-                    // Round both to 2 decimals before comparing to avoid floating point drift
-                    else isDifferent = Math.abs(Math.round(numOld * 100) - Math.round(numNew * 100)) >= 50;
+                    else {
+                        // Para Importe(*) usar tolerancia de ±1.00€ para evitar falsos positivos por redondeo
+                        // Para otros campos numéricos (Pax, Noches, etc.) usar ±0.50
+                        const tolerance = key === "Importe(*)" ? 100 : 50; // en centésimas
+                        isDifferent = Math.abs(Math.round(numOld * 100) - Math.round(numNew * 100)) >= tolerance;
+                    }
                 } else if (DATE_KEYS.has(key)) {
                     // Normalise BOTH sides to ISO YYYY-MM-DD before comparing
                     const dateOld = toIsoDate(rawOld);
@@ -420,11 +424,28 @@
                         if (s === "DIRECTO" || s === "DIRECTO ONLINE" || s === "DIRECTO OFFLINE") return s; // keep as-is
                         return s;
                     };
+                    // Normalise regime aliases so "PC"≡"PENSIÓN COMPLETA"≡"PENSION COMPLETA", etc.
+                    const normalizeRegimen = (s) => {
+                        const val = String(s || "").toUpperCase().trim().replace(/\s+/g, " ");
+                        if (val === "AD" || val.startsWith("AD ") || val.includes("ALOJAMIENTO Y DESAYUNO") || val.includes("ALOJ") && val.includes("DESAY")) return "AD";
+                        if (val === "AD+D" || val === "ADD" || val.startsWith("AD+D") || val.startsWith("ADD ")) return "AD+D";
+                        if (val === "MP" || val.startsWith("MP ") || val.includes("MEDIA PENSION") || val.includes("MEDIA PENSIÓN")) return "MP";
+                        if (val === "PC" || val.startsWith("PC ") || val.includes("PENSION COMPLETA") || val.includes("PENSIÓN COMPLETA")) return "PC";
+                        if (val === "TI" || val.startsWith("TI ") || val.includes("TODO INCLUIDO") || val.includes("ALL INCLUSIVE")) return "TI";
+                        if (val === "SA" || val === "SO" || val === "SOLO ALOJ" || val.includes("SIN DESAYUNO")) return "AD";
+                        if (val === "D" || val === "DESAYUNO" || val === "BREAKFAST") return "AD";
+                        // Fallback: tomar solo la primera palabra (código corto)
+                        return val.split(" ")[0];
+                    };
                     let cleanOld = isEmptyOld ? "" : cleanStr(rawOld);
                     let cleanNew = isEmptyNew ? "" : cleanStr(rawNew);
                     if (key === "Segment.") {
                         cleanOld = normalizeSegment(cleanOld);
                         cleanNew = normalizeSegment(cleanNew);
+                    }
+                    if (key === "Régimen") {
+                        cleanOld = normalizeRegimen(cleanOld);
+                        cleanNew = normalizeRegimen(cleanNew);
                     }
                     isDifferent = cleanOld !== cleanNew;
                 }

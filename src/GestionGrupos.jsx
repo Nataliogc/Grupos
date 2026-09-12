@@ -4654,6 +4654,23 @@
             const totImp = parseNum(firstR["Importe(*)"]) || 0;
             const totPax = editingDistribution.pax || ((finalInd * 1) + (finalDbl * 2) + (finalTpl * 3) + (finalCua * 4)) || 1;
 
+            // ── PRESERVAR GRATUIDADES ────────────────────────────────────────────
+            // Leer el RoomingList existente y separar los items de gratuidad
+            const existingRoomingRaw = primaryDoc?.RoomingList_JSON;
+            const existingRooming = existingRoomingRaw ? parseRoomingListSafe(existingRoomingRaw, "dist-save-preserve") : [];
+            const gratuityItems = existingRooming.filter((item) => {
+              const itype = String(item.type || item.roomType || "").toUpperCase();
+              const iprice = parseFloat(item.price);
+              return itype.includes("GRATUIDAD") || (itype.includes("INDIV") && (iprice === 0 || isNaN(iprice)));
+            });
+
+            // Calcular PAX de las gratuidades para excluirlos del cálculo de precio
+            const gratuityPax = gratuityItems.reduce((sum, g) => {
+              return sum + ((parseInt(g.pax) || 1) * (parseInt(g.qty) || 1));
+            }, 0);
+            const payingPax = Math.max(1, totPax - gratuityPax);
+            // ────────────────────────────────────────────────────────────────────
+
             const parseDateLocal = (dStr) => {
               if (!dStr) return null;
               const s = dStr.toString();
@@ -4679,7 +4696,8 @@
             }
             const dateInIso = (start && !isNaN(start.getTime())) ? start.toISOString().split("T")[0] : editingDistribution.fecha;
             const dateOutIso = (end && !isNaN(end.getTime())) ? end.toISOString().split("T")[0] : editingDistribution.fecha;
-            const dailyPerPax = (totalDays > 0 && totPax > 0 && totImp > 0) ? (totImp / totalDays / totPax) : 0;
+            // Usar payingPax (no totPax) para que el precio por pax sea correcto
+            const dailyPerPax = (totalDays > 0 && payingPax > 0 && totImp > 0) ? (totImp / totalDays / payingPax) : 0;
 
             const cats = [
               { type: "INDIVIDUAL", count: finalInd, pax: 1 },
@@ -4713,6 +4731,20 @@
                 isService: false
               });
             });
+
+            // ── AÑADIR GRATUIDADES AL FINAL (preservadas del RoomingList anterior) ──
+            gratuityItems.forEach((gItem) => {
+              // Asegurar que el pax de gratuidad individual sea correcto (fix por si tenía pax:2)
+              const itype = String(gItem.type || gItem.roomType || "").toUpperCase();
+              const correctedPax = itype.includes("INDIV") ? 1 : (gItem.pax || 1);
+              newRoomingItems.push({
+                ...gItem,
+                pax: correctedPax,
+                price: "0.00",
+                total: "0.00"
+              });
+            });
+            // ────────────────────────────────────────────────────────────────────
           }
           newRoomingItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
           const roomingJsonToSave = newRoomingItems.length > 0 ? JSON.stringify(newRoomingItems) : null;
@@ -7917,16 +7949,15 @@
 
         const t = (type || "").toUpperCase();
 
-        if (t.includes("DUI") || t.includes("JS1") || t.includes("SS1"))
-
+        if (t.includes("DUI") || t.includes("JS1") || t.includes("SS1") ||
+            t.includes("INDIV") || t.includes("SINGLE") || t.includes("SGL"))
           return 1;
 
-        if (t.includes("TPL")) return 3;
+        if (t.includes("TPL") || t.includes("TRIPLE")) return 3;
 
-        if (t.includes("CUA")) return 4;
+        if (t.includes("CUA") || t.includes("CUAD")) return 4;
 
-        if (t.includes("JS2") || t.includes("SS2") || t.includes("DBL"))
-
+        if (t.includes("JS2") || t.includes("SS2") || t.includes("DBL") || t.includes("DOBLE"))
           return 2;
 
         return 2; // Default
