@@ -566,6 +566,71 @@ var getBoardDisplayName = function getBoardDisplayName(boardName) {
   if (match) return match[1];
   return boardName;
 };
+var parseDateToComparable = function parseDateToComparable(dStr) {
+  if (!dStr) return "9999-99-99";
+  var s = dStr.toString().trim();
+  if (/^\d{5}$/.test(s)) {
+    var serial = parseInt(s, 10);
+    if (serial > 25569) {
+      var d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+      return d.toISOString().split("T")[0];
+    }
+  }
+  if (s.includes("/") && s.split("/")[0].length <= 2) {
+    var parts = s.split("/");
+    if (parts.length === 3) {
+      var _parts = _slicedToArray(parts, 3),
+        _d = _parts[0],
+        m = _parts[1],
+        y = _parts[2];
+      return "".concat(y.padStart(4, "20"), "-").concat(m.padStart(2, "0"), "-").concat(_d.padStart(2, "0"));
+    }
+  }
+  if (s.includes("-") && s.split("-")[0].length <= 2) {
+    var _parts2 = s.split("-");
+    if (_parts2.length === 3) {
+      var _parts3 = _slicedToArray(_parts2, 3),
+        _d2 = _parts3[0],
+        _m = _parts3[1],
+        _y = _parts3[2];
+      return "".concat(_y.padStart(4, "20"), "-").concat(_m.padStart(2, "0"), "-").concat(_d2.padStart(2, "0"));
+    }
+  }
+  if (s.includes("-") && s.split("-")[0].length === 4) {
+    return s.split("T")[0];
+  }
+  var dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    return dt.toISOString().split("T")[0];
+  }
+  return s;
+};
+var getRoomTypeHierarchyOrder = function getRoomTypeHierarchyOrder(item) {
+  if (!item) return 99;
+  if (item.isService) return 90;
+  var t = (item.type || "").toLowerCase();
+  if (t.includes("ind") || t.includes("dui") || t.includes("single")) return 10;
+  if (t.includes("dob") || t.includes("dbl") || t.includes("twin") || t.includes("matrimonial")) return 20;
+  if (t.includes("tri")) return 30;
+  if (t.includes("cua")) return 40;
+  if (t.includes("quin") || t.includes("fami")) return 50;
+  if (t.includes("suite") || t.includes("junior")) return 60;
+  if (t.includes("habitaci")) return 70;
+  return 80;
+};
+var compareRoomItemsByDateAndType = function compareRoomItemsByDateAndType(a, b) {
+  var dateA = parseDateToComparable(a.dateIn || a.date || a.fecha);
+  var dateB = parseDateToComparable(b.dateIn || b.date || b.fecha);
+  if (dateA !== dateB) {
+    return dateA.localeCompare(dateB);
+  }
+  var orderA = getRoomTypeHierarchyOrder(a);
+  var orderB = getRoomTypeHierarchyOrder(b);
+  if (orderA !== orderB) {
+    return orderA - orderB;
+  }
+  return (a.type || "").localeCompare(b.type || "");
+};
 var buildRoomingList = function buildRoomingList(group) {
   var existingListJson = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "[]";
   var existingList = [];
@@ -704,6 +769,9 @@ var buildRoomingList = function buildRoomingList(group) {
     if (item.isService && !dates.includes(item.dateIn)) {
       newList.push(item);
     }
+  });
+  newList.sort(function (a, b) {
+    return compareRoomItemsByDateAndType(a, b);
   });
   return newList;
 };

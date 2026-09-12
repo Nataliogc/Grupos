@@ -165,6 +165,68 @@
       }
       return parseRoomingListSafe(value, context).filter(isAccommodationItem);
     };
+    const parseDateToComparable = (dStr) => {
+      if (!dStr) return "9999-99-99";
+      const s = dStr.toString().trim();
+      if (/^\d{5}$/.test(s)) {
+        const serial = parseInt(s, 10);
+        if (serial > 25569) {
+          const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+          return d.toISOString().split("T")[0];
+        }
+      }
+      if (s.includes("/") && s.split("/")[0].length <= 2) {
+        const parts = s.split("/");
+        if (parts.length === 3) {
+          const [d, m, y] = parts;
+          return `${y.padStart(4, "20")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+      }
+      if (s.includes("-") && s.split("-")[0].length <= 2) {
+        const parts = s.split("-");
+        if (parts.length === 3) {
+          const [d, m, y] = parts;
+          return `${y.padStart(4, "20")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+      }
+      if (s.includes("-") && s.split("-")[0].length === 4) {
+        return s.split("T")[0];
+      }
+      const dt = new Date(s);
+      if (!isNaN(dt.getTime())) {
+        return dt.toISOString().split("T")[0];
+      }
+      return s;
+    };
+
+    const getRoomTypeHierarchyOrder = (item) => {
+      if (!item) return 99;
+      if (item.isService) return 90;
+      const t = (item.type || "").toLowerCase();
+      if (t.includes("ind") || t.includes("dui") || t.includes("single")) return 10;
+      if (t.includes("dob") || t.includes("dbl") || t.includes("twin") || t.includes("matrimonial")) return 20;
+      if (t.includes("tri")) return 30;
+      if (t.includes("cua")) return 40;
+      if (t.includes("quin") || t.includes("fami")) return 50;
+      if (t.includes("suite") || t.includes("junior")) return 60;
+      if (t.includes("habitaci")) return 70;
+      return 80;
+    };
+
+    const compareRoomItemsByDateAndType = (a, b) => {
+      const dateA = parseDateToComparable(a.dateIn || a.date || a.fecha);
+      const dateB = parseDateToComparable(b.dateIn || b.date || b.fecha);
+      if (dateA !== dateB) {
+        return dateA.localeCompare(dateB);
+      }
+      const orderA = getRoomTypeHierarchyOrder(a);
+      const orderB = getRoomTypeHierarchyOrder(b);
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return (a.type || "").localeCompare(b.type || "");
+    };
+
 
     // ─── Métricas de ocupación y habitaciones ────────────────────────────────
     // Fuente de verdad: js/rooming-core.js (window.RoomingCore).
@@ -2353,6 +2415,8 @@
         meal: 16.0
       });
       const [dailyViewSection, setDailyViewSection] = useState("breakdown"); // 'breakdown' | 'statistics'
+      const [dailyGroupingMode, setDailyGroupingMode] = useState("reserva"); // 'reserva' | 'lineas'
+      const [expandedReservas, setExpandedReservas] = useState(new Set());
       const [distributionFormError, setDistributionFormError] = useState(null);
       const [isSavingDistribution, setIsSavingDistribution] = useState(false);
 
@@ -3683,6 +3747,144 @@
         });
       }, [dailyOccupancyList, dailyHotelFilter, dailyStatusFilter, dailyDistributionFilter, dailyDateFrom, dailyDateTo, searchTerm]);
 
+      // --- AGRUPACIÓN POR RESERVA (Agrupar por nº de reserva para no duplicar líneas de estancia) ---
+      const groupedDailyOccupancyByReserva = useMemo(() => {
+        const map = new Map();
+
+        filteredDailyOccupancy.forEach((dailyItem) => {
+          const resNorm = normalizeId(dailyItem.reserva);
+          const hotelNorm = normalizeHotelNameLocal(dailyItem.hotel, "Sercotel Guadiana");
+          const key = `${hotelNorm}___${resNorm}`;
+
+          if (!map.has(key)) {
+            map.set(key, {
+              reservaKey: key,
+              hotel: hotelNorm,
+              reserva: dailyItem.reserva,
+              nombreGrupo: dailyItem.nombreGrupo,
+              regimen: dailyItem.regimen || "-",
+              estadoReserva: dailyItem.estadoReserva,
+              dates: [dailyItem.fecha],
+              days: [dailyItem],
+              maxPax: dailyItem.pax || 0,
+              contributingLines: [...(dailyItem.contributingLines || [])]
+            });
+          } else {
+            const entry = map.get(key);
+            if (!entry.dates.includes(dailyItem.fecha)) {
+              entry.dates.push(dailyItem.fecha);
+            }
+            entry.days.push(dailyItem);
+            if ((dailyItem.pax || 0) > entry.maxPax) {
+              entry.maxPax = dailyItem.pax;
+            }
+            if ((!entry.regimen || entry.regimen === "-") && dailyItem.regimen) {
+              entry.regimen = dailyItem.regimen;
+            }
+            if (dailyItem.contributingLines && dailyItem.contributingLines.length > 0) {
+              entry.contributingLines.push(...dailyItem.contributingLines);
+            }
+          }
+        });
+
+        const statusPriority = {
+          "revision_necesaria": 6,
+          "pendiente": 5,
+          "propuesta": 4,
+          "modificada": 3,
+          "confirmada": 2,
+          "validada_sin_cambios": 1
+        };
+
+        const result = [];
+        map.forEach((g) => {
+          g.dates.sort();
+          let totalImp = 0.0;
+          let totalBreakfast = 0.0;
+          let totalMeals = 0.0;
+          let totalNet = 0.0;
+
+          let highestStatus = "propuesta";
+          let highestPriority = -1;
+          let primaryReasons = [];
+
+          g.days.forEach((day) => {
+            let dayImp = 0.0;
+            if (day.contributingLines && day.contributingLines.length > 0) {
+              day.contributingLines.forEach(l => {
+                const nch = parseInt(l.noches, 10) || 1;
+                dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
+              });
+            }
+            totalImp += dayImp;
+
+            const pricing = window.BoardPricingService
+              ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
+              : { breakfast: 6.0, meal: 16.0 };
+
+            const eco = window.BoardPricingService
+              ? window.BoardPricingService.calculateDailyEconomicBreakdown({
+                  pax: day.pax,
+                  regimen: day.regimen,
+                  dailyAmount: dayImp,
+                  pricingConfig: pricing
+                })
+              : { breakfastCost: 0, mealCost: 0, netAccommodationPrice: dayImp, isNegativeAccommodation: false };
+
+            totalBreakfast += (eco.breakfastCost || 0);
+            totalMeals += (eco.mealCost || 0);
+            totalNet += (eco.netAccommodationPrice || 0);
+
+            const p = statusPriority[day.distributionStatus] || 0;
+            if (p > highestPriority) {
+              highestPriority = p;
+              highestStatus = day.distributionStatus;
+              if (day.revisionReasons && day.revisionReasons.length > 0) {
+                primaryReasons = day.revisionReasons;
+              }
+            }
+          });
+
+          const repDay = g.days.find(d => d.distributionStatus === highestStatus) || g.days[0];
+
+          const minDate = g.dates[0];
+          const maxDate = g.dates[g.dates.length - 1];
+          let dateDisplay = formatDate(minDate);
+          if (minDate !== maxDate) {
+            dateDisplay = `${formatDate(minDate)} - ${formatDate(maxDate)}`;
+          }
+
+          result.push({
+            ...g,
+            minDate,
+            maxDate,
+            dateDisplay,
+            nightCount: g.dates.length,
+            pax: g.maxPax,
+            individuales: repDay.individuales,
+            dobles: repDay.dobles,
+            triples: repDay.triples,
+            cuadruples: repDay.cuadruples,
+            totalHabitaciones: repDay.totalHabitaciones,
+            totalImp,
+            totalBreakfast,
+            totalMeals,
+            totalNet,
+            distributionStatus: highestStatus,
+            revisionReasons: primaryReasons,
+            representativeDay: repDay
+          });
+        });
+
+        // Ordenar por fecha de inicio y luego por número de reserva
+        result.sort((a, b) => {
+          if (a.minDate !== b.minDate) return a.minDate.localeCompare(b.minDate);
+          return (a.reserva || "").localeCompare(b.reserva || "");
+        });
+
+        return result;
+      }, [filteredDailyOccupancy, boardPricingConfig]);
+
       // --- TOTALES DE REPORTE DIARIO ---
       const dailyReportTotals = useMemo(() => {
         if (!window.GroupOccupancyService) return {};
@@ -3734,7 +3936,7 @@
           status: dailyItem.distributionStatus || "propuesta",
           revisionReasons: dailyItem.revisionReasons || [],
           previousDistribution: dailyItem.previousDistribution || null,
-          applyToAllHomogeneous: false
+          applyToAllHomogeneous: true
         });
       };
 
@@ -3903,6 +4105,7 @@
               });
             });
           }
+          newRoomingItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
           const roomingJsonToSave = newRoomingItems.length > 0 ? JSON.stringify(newRoomingItems) : null;
 
           // Recopilar todos los docIds de esta reserva en un Set para no omitir ninguno
@@ -7637,6 +7840,7 @@
             }
 
             if (newAutoList.length > 0) {
+              newAutoList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
               const resNormKey = normalizeId(group.id || group.records?.[0]?.["Reserva"]);
               const jsonStr = JSON.stringify(newAutoList);
               if (group.records) {
@@ -8502,6 +8706,7 @@
         // Clean final list defensively
 
         newList = cleanRoomingListIds(newList);
+        newList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
 
         const newTotalSum = newList.reduce(
 
@@ -8615,6 +8820,7 @@
           }
         });
 
+        grouped.sort((a, b) => compareRoomItemsByDateAndType(a.items[0] || {}, b.items[0] || {}));
         const [moved] = grouped.splice(sourceIndex, 1);
         grouped.splice(targetIndex, 0, moved);
 
@@ -11435,7 +11641,7 @@
                       <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
                         groupsSubView === "daily" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
                       }`}>
-                        {filteredDailyOccupancy.length}
+                        {dailyGroupingMode === "reserva" ? groupedDailyOccupancyByReserva.length : filteredDailyOccupancy.length}
                       </span>
                     </button>
                   </div>
@@ -11785,8 +11991,44 @@
                             )}
                           </div>
 
-                          <div className="text-xs text-slate-500">
-                            Mostrando <strong className="text-slate-800">{filteredDailyOccupancy.length}</strong> registros día/reserva
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => setDailyGroupingMode("reserva")}
+                                className={`px-3 py-1 rounded-md font-bold transition flex items-center gap-1.5 ${
+                                  dailyGroupingMode === "reserva"
+                                    ? "bg-white text-blue-700 shadow-sm"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                <span>🏨</span> Agrupar por Reserva
+                                <span className="ml-1 text-[10px] px-1.5 py-0.2 bg-blue-50 text-blue-700 rounded-full font-bold">
+                                  {groupedDailyOccupancyByReserva.length}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDailyGroupingMode("lineas")}
+                                className={`px-3 py-1 rounded-md font-bold transition flex items-center gap-1.5 ${
+                                  dailyGroupingMode === "lineas"
+                                    ? "bg-white text-blue-700 shadow-sm"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                <span>📅</span> Desglose por Días
+                                <span className="ml-1 text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-bold">
+                                  {filteredDailyOccupancy.length}
+                                </span>
+                              </button>
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {dailyGroupingMode === "reserva" ? (
+                                <>Mostrando <strong className="text-slate-800">{groupedDailyOccupancyByReserva.length}</strong> reservas ({filteredDailyOccupancy.length} noches)</>
+                              ) : (
+                                <>Mostrando <strong className="text-slate-800">{filteredDailyOccupancy.length}</strong> registros día/reserva</>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -11820,9 +12062,235 @@
                                 {filteredDailyOccupancy.length === 0 ? (
                                   <tr>
                                     <td colSpan="18" className="px-6 py-12 text-center text-slate-400 font-medium">
-                                      No hay registros diarios que coincidan con los filtros aplicados.
+                                      No hay registros que coincidan con los filtros aplicados.
                                     </td>
                                   </tr>
+                                ) : dailyGroupingMode === "reserva" ? (
+                                  groupedDailyOccupancyByReserva.map((item, idx) => {
+                                    const st = item.distributionStatus;
+                                    let badgeClass = "bg-amber-100 text-amber-800 border-amber-200";
+                                    let badgeText = "Propuesta automática";
+
+                                    if (st === "validada_sin_cambios") {
+                                      badgeClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                                      badgeText = "✓ Validada sin cambios";
+                                    } else if (st === "revision_necesaria") {
+                                      badgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-black animate-pulse";
+                                      badgeText = "⚠️ Revisión necesaria";
+                                    } else if (st === "confirmada") {
+                                      badgeClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                                      badgeText = "Confirmada";
+                                    } else if (st === "modificada") {
+                                      badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                                      badgeText = "Modificada";
+                                    } else if (st === "pendiente") {
+                                      badgeClass = "bg-rose-100 text-rose-800 border-rose-200";
+                                      badgeText = "Pendiente de revisión";
+                                    }
+
+                                    const matchingGroup = groupedData.find(g => normalizeId(g.id) === normalizeId(item.reserva));
+                                    const comercialName = matchingGroup?.comercial || (matchingGroup?.records?.[0]?.Com_Comercial) || "-";
+                                    const isExpanded = expandedReservas.has(item.reservaKey);
+
+                                    return (
+                                      <React.Fragment key={`reserva_${item.reservaKey}_${idx}`}>
+                                        <tr className="hover:bg-slate-50/80 transition">
+                                          <td className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">{item.hotel}</td>
+                                          <td className="px-3 py-2 whitespace-nowrap">
+                                            <div className="flex items-center gap-1.5">
+                                              {item.days.length > 1 && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setExpandedReservas(prev => {
+                                                      const next = new Set(prev);
+                                                      if (next.has(item.reservaKey)) next.delete(item.reservaKey);
+                                                      else next.add(item.reservaKey);
+                                                      return next;
+                                                    });
+                                                  }}
+                                                  className="text-slate-400 hover:text-slate-700 text-[10px] w-4 h-4 rounded flex items-center justify-center hover:bg-slate-200 transition"
+                                                  title={isExpanded ? "Ocultar noches" : `Ver ${item.days.length} noches`}
+                                                >
+                                                  {isExpanded ? "▼" : "▶"}
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const targetGroup = matchingGroup || { id: item.reserva, name: item.nombreGrupo, records: (data || []).filter(r => normalizeId(r.Reserva) === normalizeId(item.reserva)) };
+                                                  openFicha(targetGroup);
+                                                }}
+                                                className="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer inline-flex items-center gap-1 group"
+                                                title="Abrir Ficha del Grupo"
+                                              >
+                                                <span>{item.reserva}</span>
+                                                <span className="text-[10px] text-blue-400 group-hover:text-blue-700">↗</span>
+                                              </button>
+                                            </div>
+                                          </td>
+                                          <td className="px-3 py-2 max-w-[170px] truncate" title={item.nombreGrupo}>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const targetGroup = matchingGroup || { id: item.reserva, name: item.nombreGrupo, records: (data || []).filter(r => normalizeId(r.Reserva) === normalizeId(item.reserva)) };
+                                                openFicha(targetGroup);
+                                              }}
+                                              className="font-semibold text-slate-800 hover:text-blue-600 hover:underline text-left cursor-pointer truncate max-w-full block"
+                                              title={`Abrir Ficha de ${item.nombreGrupo}`}
+                                            >
+                                              {item.nombreGrupo}
+                                            </button>
+                                          </td>
+                                          <td className="px-3 py-2 whitespace-nowrap">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700">
+                                              {comercialName}
+                                            </span>
+                                          </td>
+                                          <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">
+                                            <div className="flex items-center gap-1.5">
+                                              <span>{item.dateDisplay}</span>
+                                              {item.nightCount > 1 && (
+                                                <span className="text-[10px] font-black px-1.5 py-0.2 bg-blue-50 text-blue-600 rounded border border-blue-100">
+                                                  {item.nightCount}n
+                                                </span>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="px-2 py-2 text-center font-black text-slate-900 bg-slate-50/60">{item.pax}</td>
+                                          <td className="px-2 py-2 text-slate-600 font-mono font-bold whitespace-nowrap">{item.regimen || "-"}</td>
+                                          <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                            {item.individuales !== null && item.individuales !== undefined ? item.individuales : "-"}
+                                          </td>
+                                          <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                            {item.dobles !== null && item.dobles !== undefined ? item.dobles : "-"}
+                                          </td>
+                                          <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                            {item.triples !== null && item.triples !== undefined ? item.triples : "-"}
+                                          </td>
+                                          <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                            {item.cuadruples !== null && item.cuadruples !== undefined ? item.cuadruples : "-"}
+                                          </td>
+                                          <td className="px-2 py-2 text-center font-black text-blue-700 bg-blue-50/30">
+                                            {item.totalHabitaciones !== null && item.totalHabitaciones !== undefined ? item.totalHabitaciones : "-"}
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                            {item.totalImp.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                          </td>
+                                          <td className="px-2 py-2 text-right font-mono text-slate-500 whitespace-nowrap">
+                                            {item.totalBreakfast > 0 ? item.totalBreakfast.toFixed(2) + " €" : "-"}
+                                          </td>
+                                          <td className="px-2 py-2 text-right font-mono text-slate-500 whitespace-nowrap">
+                                            {item.totalMeals > 0 ? item.totalMeals.toFixed(2) + " €" : "-"}
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-mono font-black whitespace-nowrap text-blue-700">
+                                            {item.totalNet.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                          </td>
+                                          <td className="px-3 py-2 text-center whitespace-nowrap">
+                                            <span
+                                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}`}
+                                              title={item.revisionReasons && item.revisionReasons.length > 0 ? item.revisionReasons.join(" • ") : badgeText}
+                                            >
+                                              {badgeText}
+                                            </span>
+                                          </td>
+                                          <td className="px-3 py-2 text-center whitespace-nowrap">
+                                            <button
+                                              type="button"
+                                              onClick={() => openDistributionModal(item.representativeDay)}
+                                              className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
+                                                st === "revision_necesaria"
+                                                  ? "bg-orange-600 hover:bg-orange-700 text-white"
+                                                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                                              }`}
+                                            >
+                                              {st === "revision_necesaria" ? "Revisar Cambio" : "Revisar"}
+                                            </button>
+                                          </td>
+                                        </tr>
+
+                                        {/* Sub-filas desplegables para cada noche si está expandido */}
+                                        {isExpanded && item.days.map((day, dIdx) => {
+                                          const daySt = day.distributionStatus;
+                                          let dayBadgeClass = "bg-amber-100 text-amber-800 border-amber-200";
+                                          let dayBadgeText = "Propuesta automática";
+
+                                          if (daySt === "validada_sin_cambios") {
+                                            dayBadgeClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                                            dayBadgeText = "✓ Validada";
+                                          } else if (daySt === "revision_necesaria") {
+                                            dayBadgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-bold";
+                                            dayBadgeText = "⚠️ Revisar";
+                                          } else if (daySt === "confirmada") {
+                                            dayBadgeClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                                            dayBadgeText = "Confirmada";
+                                          } else if (daySt === "modificada") {
+                                            dayBadgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                                            dayBadgeText = "Modificada";
+                                          } else if (daySt === "pendiente") {
+                                            dayBadgeClass = "bg-rose-100 text-rose-800 border-rose-200";
+                                            dayBadgeText = "Pendiente";
+                                          }
+
+                                          let dayImp = 0.0;
+                                          if (day.contributingLines && day.contributingLines.length > 0) {
+                                            day.contributingLines.forEach(l => {
+                                              const nch = parseInt(l.noches, 10) || 1;
+                                              dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
+                                            });
+                                          }
+
+                                          const pricing = window.BoardPricingService
+                                            ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
+                                            : { breakfast: 6.0, meal: 16.0 };
+
+                                          const eco = window.BoardPricingService
+                                            ? window.BoardPricingService.calculateDailyEconomicBreakdown({
+                                                pax: day.pax,
+                                                regimen: day.regimen,
+                                                dailyAmount: dayImp,
+                                                pricingConfig: pricing
+                                              })
+                                            : { breakfastCost: 0, mealCost: 0, netAccommodationPrice: dayImp, isNegativeAccommodation: false };
+
+                                          return (
+                                            <tr key={`sub_${item.reservaKey}_${day.fecha}_${dIdx}`} className="bg-slate-50/70 text-[11px] border-l-4 border-blue-400">
+                                              <td className="px-3 py-1.5 text-slate-400 pl-6">↳ Noche {dIdx + 1}</td>
+                                              <td className="px-3 py-1.5 text-slate-400 font-mono text-[10px]">#{item.reserva}</td>
+                                              <td className="px-3 py-1.5 text-slate-500 italic">Desglose {formatDate(day.fecha)}</td>
+                                              <td className="px-3 py-1.5 text-slate-400">-</td>
+                                              <td className="px-3 py-1.5 font-mono font-bold text-slate-700">{formatDate(day.fecha)}</td>
+                                              <td className="px-2 py-1.5 text-center font-bold text-slate-700">{day.pax}</td>
+                                              <td className="px-2 py-1.5 font-mono text-slate-600">{day.regimen || "-"}</td>
+                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.individuales !== null ? day.individuales : "-"}</td>
+                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.dobles !== null ? day.dobles : "-"}</td>
+                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.triples !== null ? day.triples : "-"}</td>
+                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.cuadruples !== null ? day.cuadruples : "-"}</td>
+                                              <td className="px-2 py-1.5 text-center font-bold text-blue-600">{day.totalHabitaciones !== null ? day.totalHabitaciones : "-"}</td>
+                                              <td className="px-3 py-1.5 text-right font-mono text-slate-600">{dayImp.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
+                                              <td className="px-2 py-1.5 text-right font-mono text-slate-400">{eco.breakfastCost > 0 ? eco.breakfastCost.toFixed(2) + " €" : "-"}</td>
+                                              <td className="px-2 py-1.5 text-right font-mono text-slate-400">{eco.mealCost > 0 ? eco.mealCost.toFixed(2) + " €" : "-"}</td>
+                                              <td className="px-3 py-1.5 text-right font-mono text-blue-600">{eco.netAccommodationPrice.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
+                                              <td className="px-3 py-1.5 text-center">
+                                                <span className={`inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold border ${dayBadgeClass}`}>
+                                                  {dayBadgeText}
+                                                </span>
+                                              </td>
+                                              <td className="px-3 py-1.5 text-center">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => openDistributionModal(day)}
+                                                  className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 hover:bg-blue-600 hover:text-white text-slate-700 transition"
+                                                >
+                                                  Editar noche
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </React.Fragment>
+                                    );
+                                  })
                                 ) : (
                                   filteredDailyOccupancy.map((item, idx) => {
                                     const st = item.distributionStatus;
@@ -16565,6 +17033,9 @@
                                         });
                                       }
                                     });
+
+                                    // Ordenar por días (cronológico) y jerarquía de habitación
+                                    grouped.sort((a, b) => compareRoomItemsByDateAndType(a, b));
 
                                     return grouped.map((item, index) => (
                                       <tr

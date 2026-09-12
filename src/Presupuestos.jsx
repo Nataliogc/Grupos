@@ -513,6 +513,69 @@
       return boardName;
     };
 
+
+    const parseDateToComparable = (dStr) => {
+      if (!dStr) return "9999-99-99";
+      const s = dStr.toString().trim();
+      if (/^\d{5}$/.test(s)) {
+        const serial = parseInt(s, 10);
+        if (serial > 25569) {
+          const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+          return d.toISOString().split("T")[0];
+        }
+      }
+      if (s.includes("/") && s.split("/")[0].length <= 2) {
+        const parts = s.split("/");
+        if (parts.length === 3) {
+          const [d, m, y] = parts;
+          return `${y.padStart(4, "20")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+      }
+      if (s.includes("-") && s.split("-")[0].length <= 2) {
+        const parts = s.split("-");
+        if (parts.length === 3) {
+          const [d, m, y] = parts;
+          return `${y.padStart(4, "20")}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+        }
+      }
+      if (s.includes("-") && s.split("-")[0].length === 4) {
+        return s.split("T")[0];
+      }
+      const dt = new Date(s);
+      if (!isNaN(dt.getTime())) {
+        return dt.toISOString().split("T")[0];
+      }
+      return s;
+    };
+
+    const getRoomTypeHierarchyOrder = (item) => {
+      if (!item) return 99;
+      if (item.isService) return 90;
+      const t = (item.type || "").toLowerCase();
+      if (t.includes("ind") || t.includes("dui") || t.includes("single")) return 10;
+      if (t.includes("dob") || t.includes("dbl") || t.includes("twin") || t.includes("matrimonial")) return 20;
+      if (t.includes("tri")) return 30;
+      if (t.includes("cua")) return 40;
+      if (t.includes("quin") || t.includes("fami")) return 50;
+      if (t.includes("suite") || t.includes("junior")) return 60;
+      if (t.includes("habitaci")) return 70;
+      return 80;
+    };
+
+    const compareRoomItemsByDateAndType = (a, b) => {
+      const dateA = parseDateToComparable(a.dateIn || a.date || a.fecha);
+      const dateB = parseDateToComparable(b.dateIn || b.date || b.fecha);
+      if (dateA !== dateB) {
+        return dateA.localeCompare(dateB);
+      }
+      const orderA = getRoomTypeHierarchyOrder(a);
+      const orderB = getRoomTypeHierarchyOrder(b);
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return (a.type || "").localeCompare(b.type || "");
+    };
+
     const buildRoomingList = (group, existingListJson = "[]") => {
       let existingList = [];
       try {
@@ -655,6 +718,7 @@
         }
       });
 
+      newList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
       return newList;
     };
 
