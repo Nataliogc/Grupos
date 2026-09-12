@@ -4528,24 +4528,33 @@
           ? dailyItem.cuadruples 
           : proposal.cuadruples;
 
-        // ── LEER GRATUIDADES EXISTENTES DEL ROOMINGLIST ──────────────────────
+        // ── LEER GRATUIDADES EXISTENTES DEL ROOMINGLIST PARA ESTA FECHA ──────
         const targetResId = normalizeId(dailyItem.reserva);
         const matchRow = (data || []).find(r => normalizeId(r["Reserva"]) === targetResId);
         const existingRL = matchRow?.RoomingList_JSON 
           ? parseRoomingListSafe(matchRow.RoomingList_JSON, "open-dist-modal") 
           : [];
-        const gratuities = { individuales: 0, dobles: 0, triples: 0, cuadruples: 0 };
+        let initialFreeInd = 0;
         existingRL.forEach((item) => {
           const itype = String(item.type || item.roomType || "").toUpperCase();
           const iprice = parseFloat(item.price);
-          const isGratuity = itype.includes("GRATUIDAD") || (itype.includes("INDIV") && iprice === 0);
+          const isGratuity = itype.includes("GRATUIDAD") || (itype.includes("INDIV") && (iprice === 0 || isNaN(iprice)));
           if (!isGratuity) return;
-          const qty = parseInt(item.qty) || 1;
-          if (itype.includes("INDIV") || itype.includes("INDIVIDUAL")) gratuities.individuales += qty;
-          else if (itype.includes("DBL") || itype.includes("DOBLE")) gratuities.dobles += qty;
-          else if (itype.includes("TPL") || itype.includes("TRIPLE")) gratuities.triples += qty;
-          else if (itype.includes("CUA") || itype.includes("CUAD")) gratuities.cuadruples += qty;
+          const iDate = toInputDate(item.dateIn || item.date);
+          if (iDate && dailyItem.fecha && iDate !== dailyItem.fecha) return;
+          const qty = parseInt(item.qty, 10) || 1;
+          if (itype.includes("INDIV") || itype.includes("INDIVIDUAL")) {
+            initialFreeInd += qty;
+          }
         });
+        if (initialFreeInd === 0 && currentInd > 0) {
+          const hasAnyGratuity = existingRL.some(item => {
+            const itype = String(item.type || item.roomType || "").toUpperCase();
+            const iprice = parseFloat(item.price);
+            return (itype.includes("GRATUIDAD") || (itype.includes("INDIV") && (iprice === 0 || isNaN(iprice)))) && (itype.includes("INDIV") || itype.includes("INDIVIDUAL"));
+          });
+          if (hasAnyGratuity) initialFreeInd = 1;
+        }
         // ────────────────────────────────────────────────────────────────────
 
         setDistributionFormError(null);
@@ -4561,7 +4570,7 @@
           dobles: currentDbl,
           triples: currentTpl,
           cuadruples: currentCua,
-          gratuities: gratuities,
+          gratuitiesCount: initialFreeInd,
           observations: dailyItem.observations || "",
           status: dailyItem.distributionStatus || "propuesta",
           revisionReasons: dailyItem.revisionReasons || [],
@@ -4669,118 +4678,186 @@
           if (finalStatus !== "pendiente" && (finalInd + finalDbl + finalTpl + finalCua) > 0) {
             const firstR = matchingRows[0] || {};
             const hotelName = normalizeHotelNameLocal(firstR["Hotel_Asignado"] || firstR["Hotel"] || editingDistribution.hotel, "Sercotel Guadiana");
-            const dIn = firstR["Entrada"] || editingDistribution.fecha;
-            const dOut = firstR["Salida"] || editingDistribution.fecha;
-            const reg = firstR["Régimen"] || editingDistribution.regimen || "AD";
             const totImp = parseNum(firstR["Importe(*)"]) || 0;
-            const totPax = editingDistribution.pax || ((finalInd * 1) + (finalDbl * 2) + (finalTpl * 3) + (finalCua * 4)) || 1;
 
-            // ── PRESERVAR GRATUIDADES ────────────────────────────────────────────
-            // Leer el RoomingList existente y separar los items de gratuidad
+            // Cantidad de gratuitas definidas explícitamente en el modal
+            const freeInd = Math.min(finalInd, parseInt(editingDistribution.gratuitiesCount, 10) || 0);
+            const payingInd = Math.max(0, finalInd - freeInd);
+
+            // Fechas a las que aplica esta distribución
+            const targetDates = new Set();
+            if (editingDistribution.applyToAllHomogeneous) {
+              const allDatesOfRes = dailyOccupancyList.filter((d) => d.reserva === editingDistribution.reserva && d.pax === editingDistribution.pax);
+              allDatesOfRes.forEach((d) => targetDates.add(d.fecha));
+            } else {
+              targetDates.add(editingDistribution.fecha);
+            }
+
+            // 1. Obtener items existentes de la Ficha expandidos por día
             const existingRoomingRaw = primaryDoc?.RoomingList_JSON;
             const existingRooming = existingRoomingRaw ? parseRoomingListSafe(existingRoomingRaw, "dist-save-preserve") : [];
-            const gratuityItems = existingRooming.filter((item) => {
-              const itype = String(item.type || item.roomType || "").toUpperCase();
-              const iprice = parseFloat(item.price);
-              return itype.includes("GRATUIDAD") || (itype.includes("INDIV") && (iprice === 0 || isNaN(iprice)));
+            const expandedExisting = expandRoomListByDays(existingRooming);
+
+            // 2. Conservar items de fechas NO afectadas (o que sean servicios/extras)
+            const keptItems = expandedExisting.filter((item) => {
+              if (item.isService) return true;
+              const iDate = toInputDate(item.dateIn || item.date);
+              return iDate && !targetDates.has(iDate);
             });
 
-            // Calcular PAX de las gratuidades para excluirlos del cálculo de precio
-            const gratuityPax = gratuityItems.reduce((sum, g) => {
-              return sum + ((parseInt(g.pax) || 1) * (parseInt(g.qty) || 1));
-            }, 0);
-            const payingPax = Math.max(1, totPax - gratuityPax);
-            // ────────────────────────────────────────────────────────────────────
-
-            const parseDateLocal = (dStr) => {
-              if (!dStr) return null;
-              const s = dStr.toString();
-              if (s.includes("-") && s.split("-")[0].length <= 2) {
-                const [d, m, y] = s.split("-");
-                return new Date(`${y}-${m}-${d}T12:00:00Z`);
-              }
-              if (s.includes("/") && s.split("/")[0].length <= 2) {
-                const [d, m, y] = s.split("/");
-                return new Date(`${y}-${m}-${d}T12:00:00Z`);
-              }
-              if (s.includes("-") && s.split("-")[0].length === 4) {
-                return new Date(`${s}T12:00:00Z`);
-              }
-              return new Date(s);
+            // Función auxiliar para calcular día siguiente
+            const getNextDate = (dStr) => {
+              try {
+                const parts = dStr.split("-");
+                if (parts.length === 3) {
+                  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                  d.setDate(d.getDate() + 1);
+                  const y = d.getFullYear();
+                  const m = String(d.getMonth() + 1).padStart(2, "0");
+                  const day = String(d.getDate()).padStart(2, "0");
+                  return `${y}-${m}-${day}`;
+                }
+              } catch (e) {}
+              return dStr;
             };
 
-            let start = parseDateLocal(dIn);
-            let end = parseDateLocal(dOut);
-            let totalDays = 1;
-            if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
-              totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-            }
-            const dateInIso = (start && !isNaN(start.getTime())) ? start.toISOString().split("T")[0] : editingDistribution.fecha;
-            const dateOutIso = (end && !isNaN(end.getTime())) ? end.toISOString().split("T")[0] : editingDistribution.fecha;
-            // Usar payingPax (no totPax) para que el precio por pax sea correcto
-            const dailyPerPax = (totalDays > 0 && payingPax > 0 && totImp > 0) ? (totImp / totalDays / payingPax) : 0;
+            // 3. Generar líneas para cada fecha afectada preservando su régimen y precio existente
+            const generatedDayItems = [];
+            targetDates.forEach((dStr) => {
+              const nextDStr = getNextDate(dStr);
 
-            // ── RESTAR GRATUIDADES DEL CONTEO PAGANTE ────────────────────────
-            // finalInd=5 con 1 gratuidad → 4 pagantes + 1 gratuidad (preservada)
-            const gratuityCount = {
-              individuales: gratuityItems.filter(g => String(g.type || g.roomType || "").toUpperCase().includes("INDIV")).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
-              dobles: gratuityItems.filter(g => { const t = String(g.type || g.roomType || "").toUpperCase(); return t.includes("DBL") || t.includes("DOBLE"); }).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
-              triples: gratuityItems.filter(g => { const t = String(g.type || g.roomType || "").toUpperCase(); return t.includes("TPL") || t.includes("TRIPLE"); }).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
-              cuadruples: gratuityItems.filter(g => { const t = String(g.type || g.roomType || "").toUpperCase(); return t.includes("CUA") || t.includes("CUAD"); }).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
-            };
-            const payingInd = Math.max(0, finalInd - gratuityCount.individuales);
-            const payingDbl = Math.max(0, finalDbl - gratuityCount.dobles);
-            const payingTpl = Math.max(0, finalTpl - gratuityCount.triples);
-            const payingCua = Math.max(0, finalCua - gratuityCount.cuadruples);
-            // ────────────────────────────────────────────────────────────────────
+              // Buscar líneas previas de alojamiento en este día específico
+              const prevLodgingThisDay = expandedExisting.filter((item) => {
+                if (item.isService) return false;
+                const iDate = toInputDate(item.dateIn || item.date);
+                return iDate === dStr;
+              });
 
-            const cats = [
-              { type: "INDIVIDUAL", count: payingInd, pax: 1 },
-              { type: "DOBLE", count: payingDbl, pax: 2 },
-              { type: "TRIPLE", count: payingTpl, pax: 3 },
-              { type: "CUÁDRUPLE", count: payingCua, pax: 4 }
-            ].filter(c => c.count > 0);
+              // Preservar el régimen de este día (ej: MP si era MP, PC si era PC)
+              let dayReg = editingDistribution.regimen || "AD";
+              const foundReg = prevLodgingThisDay.find((i) => i.regime && i.regime !== "-")?.regime;
+              if (foundReg) dayReg = foundReg;
 
+              // Preservar precios unitarios existentes para cada tipo en este día
+              const getExistingUnitPrice = (typeKeyword) => {
+                const match = prevLodgingThisDay.find((i) => {
+                  const t = String(i.type || i.roomType || "").toUpperCase();
+                  return t.includes(typeKeyword) && !t.includes("GRATUIDAD") && parseFloat(i.price) > 0;
+                });
+                return match ? parseFloat(match.price) : null;
+              };
 
-            let runningSum = 0;
-            cats.forEach((cat, cIdx) => {
-              const isLast = cIdx === cats.length - 1;
-              const unitPrice = Math.round(dailyPerPax * cat.pax * 100) / 100;
-              let lineTot = Math.round(cat.count * unitPrice * totalDays * 100) / 100;
-              runningSum += lineTot;
-              if (isLast && totImp > 0) {
-                const diff = Math.round((totImp - runningSum) * 100) / 100;
-                if (Math.abs(diff) < 1.0) lineTot = Math.round((lineTot + diff) * 100) / 100;
+              const oldIndP = getExistingUnitPrice("INDIV");
+              const oldDblP = getExistingUnitPrice("DBL");
+              const oldTplP = getExistingUnitPrice("TPL");
+              const oldCuaP = getExistingUnitPrice("CUA");
+
+              // Si no había precio previo, calcular proporcional a Pax
+              const dayMatched = dailyOccupancyList.find((d) => d.reserva === editingDistribution.reserva && d.fecha === dStr);
+              let dayImp = 0;
+              if (dayMatched?.contributingLines) {
+                dayMatched.contributingLines.forEach((l) => {
+                  const nch = parseInt(l.noches, 10) || 1;
+                  dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
+                });
               }
-              newRoomingItems.push({
-                id: Date.now() + Math.random(),
-                hotel: hotelName,
-                type: cat.type,
-                dateIn: dateInIso,
-                dateOut: dateOutIso,
-                qty: cat.count,
-                pax: cat.pax,
-                regime: reg,
-                price: unitPrice.toFixed(2),
-                nights: totalDays,
-                total: lineTot.toFixed(2),
-                isService: false
-              });
+              if (dayImp <= 0) dayImp = totImp / Math.max(1, targetDates.size);
+
+              const payingPaxCount = Math.max(1, (payingInd * 1) + (finalDbl * 2) + (finalTpl * 3) + (finalCua * 4));
+              const dailyPerPax = dayImp > 0 ? (dayImp / payingPaxCount) : 0;
+
+              const indUnitPrice = oldIndP !== null ? oldIndP : Math.round(dailyPerPax * 1 * 100) / 100;
+              const dblUnitPrice = oldDblP !== null ? oldDblP : Math.round(dailyPerPax * 2 * 100) / 100;
+              const tplUnitPrice = oldTplP !== null ? oldTplP : Math.round(dailyPerPax * 3 * 100) / 100;
+              const cuaUnitPrice = oldCuaP !== null ? oldCuaP : Math.round(dailyPerPax * 4 * 100) / 100;
+
+              if (payingInd > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.01,
+                  hotel: hotelName,
+                  type: "INDIVIDUAL",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: payingInd,
+                  pax: 1,
+                  regime: dayReg,
+                  price: indUnitPrice.toFixed(2),
+                  nights: 1,
+                  total: (payingInd * indUnitPrice).toFixed(2),
+                  isService: false
+                });
+              }
+
+              if (freeInd > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.02,
+                  hotel: hotelName,
+                  type: "INDIVIDUAL (GRATUIDAD)",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: freeInd,
+                  pax: 1,
+                  regime: dayReg,
+                  price: "0.00",
+                  nights: 1,
+                  total: "0.00",
+                  isService: false
+                });
+              }
+
+              if (finalDbl > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.03,
+                  hotel: hotelName,
+                  type: "DOBLE",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: finalDbl,
+                  pax: 2,
+                  regime: dayReg,
+                  price: dblUnitPrice.toFixed(2),
+                  nights: 1,
+                  total: (finalDbl * dblUnitPrice).toFixed(2),
+                  isService: false
+                });
+              }
+
+              if (finalTpl > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.04,
+                  hotel: hotelName,
+                  type: "TRIPLE",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: finalTpl,
+                  pax: 3,
+                  regime: dayReg,
+                  price: tplUnitPrice.toFixed(2),
+                  nights: 1,
+                  total: (finalTpl * tplUnitPrice).toFixed(2),
+                  isService: false
+                });
+              }
+
+              if (finalCua > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.05,
+                  hotel: hotelName,
+                  type: "CUÁDRUPLE",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: finalCua,
+                  pax: 4,
+                  regime: dayReg,
+                  price: cuaUnitPrice.toFixed(2),
+                  nights: 1,
+                  total: (finalCua * cuaUnitPrice).toFixed(2),
+                  isService: false
+                });
+              }
             });
 
-            // ── AÑADIR GRATUIDADES AL FINAL (preservadas del RoomingList anterior) ──
-            gratuityItems.forEach((gItem) => {
-              // Asegurar que el pax de gratuidad individual sea correcto (fix por si tenía pax:2)
-              const itype = String(gItem.type || gItem.roomType || "").toUpperCase();
-              const correctedPax = itype.includes("INDIV") ? 1 : (gItem.pax || 1);
-              newRoomingItems.push({
-                ...gItem,
-                pax: correctedPax,
-                price: "0.00",
-                total: "0.00"
-              });
-            });
-            // ────────────────────────────────────────────────────────────────────
+            newRoomingItems = [...keptItems, ...generatedDayItems];
           }
           newRoomingItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
           const roomingJsonToSave = newRoomingItems.length > 0 ? JSON.stringify(newRoomingItems) : null;
@@ -14017,11 +14094,31 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curInd * 1} pax
                             </div>
-                            {(editingDistribution.gratuities?.individuales > 0) && (
-                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 text-center mt-1 font-bold">
-                                incl. {editingDistribution.gratuities.individuales} gratuita{editingDistribution.gratuities.individuales > 1 ? "s" : ""}
+
+                            {/* Campo editable de gratuidades para Individuales */}
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
+                                🎁 Gratuitas (0 €):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={curInd}
+                                value={editingDistribution.gratuitiesCount !== undefined ? editingDistribution.gratuitiesCount : 0}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(curInd, parseInt(e.target.value, 10) || 0));
+                                  setEditingDistribution({
+                                    ...editingDistribution,
+                                    gratuitiesCount: val
+                                  });
+                                }}
+                                className="w-full bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-xs font-black text-amber-900 text-center focus:outline-none focus:border-amber-500"
+                                title="Número de habitaciones individuales sin cargo (0,00 €)"
+                              />
+                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                {Math.max(0, curInd - (editingDistribution.gratuitiesCount !== undefined ? editingDistribution.gratuitiesCount : 0))} pago + {(editingDistribution.gratuitiesCount !== undefined ? editingDistribution.gratuitiesCount : 0)} gratis
                               </div>
-                            )}
+                            </div>
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -14041,11 +14138,6 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curDbl * 2} pax
                             </div>
-                            {(editingDistribution.gratuities?.dobles > 0) && (
-                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 text-center mt-1 font-bold">
-                                incl. {editingDistribution.gratuities.dobles} gratuita{editingDistribution.gratuities.dobles > 1 ? "s" : ""}
-                              </div>
-                            )}
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -14065,11 +14157,6 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curTpl * 3} pax
                             </div>
-                            {(editingDistribution.gratuities?.triples > 0) && (
-                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 text-center mt-1 font-bold">
-                                incl. {editingDistribution.gratuities.triples} gratuita{editingDistribution.gratuities.triples > 1 ? "s" : ""}
-                              </div>
-                            )}
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -14106,7 +14193,7 @@
                               {isPaxMatch ? "Distribución correcta" : "La distribución no coincide con el número total de personas."}
                             </div>
                             <div className="text-[11px] opacity-80 mt-0.5">
-                              Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones) • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
+                              Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones){(editingDistribution.gratuitiesCount > 0) ? ` • ${editingDistribution.gratuitiesCount} gratuita${editingDistribution.gratuitiesCount > 1 ? "s" : ""}` : ""} • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
                             </div>
                           </div>
                         </div>
