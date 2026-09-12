@@ -20308,7 +20308,7 @@
 
                                   LA SUMA ({sum.toFixed(2)}€) NO COINCIDE CON
 
-                                  EL PRECIO UNITARIO ({unitPrice.toFixed(2)}€)
+                                  EL PRECIO UNITARIO ({modalUnitPrice.toFixed(2)}€)
 
                                 </span>
 
