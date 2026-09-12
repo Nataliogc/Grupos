@@ -1312,10 +1312,23 @@
           setShowPinModal(false);
           setPinInput("");
           setPinError(null);
-          showToast("🔓 Presupuesto Oficial desbloqueado para modificación.");
+          setScenario("personalizado");
+          setIsManualEditMode(true);
+          showToast("🔓 Presupuesto Oficial desbloqueado. Ya puedes modificar los objetivos mes a mes.");
         } else {
           setPinError("Clave incorrecta. Solo autorizada con clave 1234.");
         }
+      };
+
+      const handleStartManualEditing = () => {
+        if (isOfficial && !isUnlocked) {
+          setShowPinModal(true);
+          setPinError("El presupuesto oficial está bloqueado. Introduzca la clave 1234 para desbloquear y modificar los objetivos.");
+          return;
+        }
+        setScenario("personalizado");
+        setIsManualEditMode(true);
+        showToast("✏️ Modo edición de objetivos activado. Introduce los importes directamente en la columna 'Ingresos Obj'.");
       };
 
       const handleRelockBudget = () => {
@@ -1696,24 +1709,49 @@
           {/* VISTA 1: TABLA MENSUAL REAL VS OBJETIVO (Req 30 y 31) */}
           {activeSubView === "monthly" && comparison && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  Seguimiento Mensual {targetYear} — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
-                </span>
-                <div className="flex items-center gap-3">
-                  {scenario === "personalizado" && Object.keys(manualMonthOverrides).length > 0 && (!isOfficial || isUnlocked) && (
+              <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                    Seguimiento Mensual {targetYear} — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {scenario === "personalizado" && (!isOfficial || isUnlocked)
+                      ? "✏️ Modo edición activo: introduce el objetivo deseado en la columna 'Ingresos Obj' de cada mes y pulsa 'Grabar Presupuesto'."
+                      : "Haz clic en '✏️ Modificar Objetivos' o sobre cualquier mes para editar directamente los importes objetivo."}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {scenario === "personalizado" && (!isOfficial || isUnlocked) ? (
+                    <>
+                      {Object.keys(manualMonthOverrides).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearManualOverrides}
+                          className="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                          title="Restablecer todos los meses a los valores calculados"
+                        >
+                          <span>🔄</span> Restablecer cálculos
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleSaveOfficialTarget}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                        title="Guardar como presupuesto oficial"
+                      >
+                        <span>💾</span> Grabar Presupuesto
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
-                      onClick={handleClearManualOverrides}
-                      className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-bold transition flex items-center gap-1"
-                      title="Restablecer todos los meses a los valores calculados"
+                      onClick={handleStartManualEditing}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                      title="Modificar los importes de ingresos objetivo"
                     >
-                      <span>🔄</span> Restablecer cálculos
+                      <span>✏️</span> Modificar Objetivos
                     </button>
                   )}
-                  <span className="text-xs text-slate-500">
-                    Comparador Diferencia (Real - Obj) y % Cumplimiento
-                  </span>
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -1766,13 +1804,21 @@
                                   step="100"
                                   value={manualMonthOverrides[m]?.targetRevenue !== undefined && manualMonthOverrides[m]?.targetRevenue !== null ? manualMonthOverrides[m].targetRevenue : Math.round(row.target.revenue)}
                                   onChange={(e) => handleMonthOverrideChange(m, "targetRevenue", e.target.value)}
-                                  className="w-24 bg-indigo-50/70 border border-indigo-200 focus:border-indigo-500 rounded-lg px-2 py-1 text-right text-xs font-bold text-indigo-900 outline-none"
+                                  className="w-28 bg-white border-2 border-indigo-400 focus:border-indigo-600 rounded-lg px-2 py-1 text-right text-xs font-black text-indigo-900 shadow-xs outline-none"
                                   title="Editar objetivo de ingresos para este mes"
                                 />
                                 <span className="text-[10px] text-slate-400 font-bold">€</span>
                               </div>
                             ) : (
-                              <span>{row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                              <button
+                                type="button"
+                                onClick={handleStartManualEditing}
+                                className="inline-flex items-center gap-1.5 hover:text-indigo-900 hover:bg-indigo-50 px-2 py-1 rounded-lg transition group cursor-pointer"
+                                title="Haz clic para modificar los objetivos de este mes"
+                              >
+                                <span>{row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                                <span className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500">✏️</span>
+                              </button>
                             )}
                           </td>
                           <td className={"p-3 text-right font-bold " + (isPositive ? "text-emerald-600" : "text-red-500")}>

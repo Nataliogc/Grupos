@@ -103,6 +103,43 @@
     return h;
   }
 
+  /**
+   * Parsea de forma flexible y segura formatos de fecha: ISO (YYYY-MM-DD),
+   * español (DD/MM/YYYY), números de serie Excel y Date objects.
+   */
+  function parseDateFlexible(val) {
+    if (!val) return null;
+    if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+    var s = String(val).trim();
+    if (!s) return null;
+    var num = parseFloat(s);
+    if (!isNaN(num) && num > 40000 && num < 60000 && !s.includes("/") && !s.includes("-")) {
+      try {
+        var d = new Date(Math.round((num - 25569) * 86400 * 1000));
+        if (!isNaN(d.getTime())) return d;
+      } catch (e) {}
+    }
+    // Formato YYYY-MM-DD o YYYY/MM/DD
+    if (/^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}/.test(s)) {
+      var p = s.substring(0, 10).split(/[-\/]/);
+      var y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1, d = parseInt(p[2], 10);
+      return new Date(y, m, d, 12, 0, 0);
+    }
+    // Formato DD-MM-YYYY o DD/MM/YYYY
+    var parts = s.split(/[-\/.]/);
+    if (parts.length >= 3) {
+      var dStr = parts[0], mStr = parts[1], yStr = parts[2].substring(0, 4);
+      if (dStr.length <= 2 && yStr.length >= 4) {
+        return new Date(parseInt(yStr, 10), parseInt(mStr, 10) - 1, parseInt(dStr, 10), 12, 0, 0);
+      }
+      if (dStr.length >= 4) {
+        return new Date(parseInt(dStr, 10), parseInt(mStr, 10) - 1, parseInt(yStr, 10), 12, 0, 0);
+      }
+    }
+    var fallback = new Date(s);
+    return isNaN(fallback.getTime()) ? null : fallback;
+  }
+
   // ── 2. CÁLCULO DE PRECIO POR PERSONA (Requisito 29) ──────────────────
 
   /**
@@ -446,8 +483,8 @@
       if (!dateStr && r.Entrada) dateStr = r.Entrada;
       if (!dateStr) continue;
 
-      var parsedDate = new Date(dateStr);
-      if (isNaN(parsedDate.getTime())) continue;
+      var parsedDate = parseDateFlexible(dateStr);
+      if (!parsedDate || isNaN(parsedDate.getTime())) continue;
 
       var recYear = parsedDate.getFullYear();
       if (filterYear && recYear !== filterYear) continue;
@@ -455,13 +492,13 @@
       var recMonth = parsedDate.getMonth() + 1; // 1-12
 
       // Manejo de reservas anuladas (Req 23)
-      var status = String(r.estado || r.Estado || "").toLowerCase();
+      var status = String(r.estado || r.Estado || r.estadoReserva || "").toLowerCase();
       var isCancelled = status.indexOf("anulad") !== -1 || status.indexOf("cancel") !== -1;
 
       if (isCancelled) {
         cancelledSummary.count++;
         cancelledSummary.pax += Number(r.pax || r.Pax || 0);
-        cancelledSummary.lostRevenue += Number(r.importeTotal || r.Importe || r.totalRevenue || 0);
+        cancelledSummary.lostRevenue += Number(r.importeTotal || r.Importe || r.totalRevenue || r.dailyAmount || 0);
         continue;
       }
 
@@ -502,7 +539,27 @@
 
       var lineHabNoches = ind + dbl + tpl + cua;
       var resNum = String(r.reserva || r.Reserva || r.id || i);
-      var totalImporte = Number(r.importeTotal || r.importe || r.Importe || r.dailyAmount || 0);
+      var totalImporte = Number(r.importeTotal || r.importe || r.Importe || r.dailyAmount || r.totalRevenue || 0);
+      if (totalImporte === 0 && Array.isArray(r.contributingLines) && r.contributingLines.length > 0) {
+        r.contributingLines.forEach(function (cl) {
+          var nch = Math.max(1, parseInt(cl.noches, 10) || 1);
+          var impVal = cl.importe;
+          var imp = 0;
+          if (typeof impVal === "number") {
+            imp = isNaN(impVal) ? 0 : impVal;
+          } else if (impVal) {
+            var s = String(impVal).trim().replace(/€/g, "").replace(/\s/g, "");
+            if (s.includes(",") && s.includes(".")) {
+              s = s.replace(/\./g, "").replace(",", ".");
+            } else if (s.includes(",")) {
+              s = s.replace(",", ".");
+            }
+            var n = parseFloat(s);
+            imp = isNaN(n) ? 0 : n;
+          }
+          totalImporte += (imp / nch);
+        });
+      }
       var lodgingRev = Number(r.netAccommodationPrice || r.alojamientoNeto || totalImporte);
       var breakfasts = Number(r.breakfastCount || 0);
       var meals = Number(r.mealCount || 0);

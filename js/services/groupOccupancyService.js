@@ -399,7 +399,7 @@
           noches: noches,
           pernoct: pernoct,
           precio: line["Precio"],
-          importe: line["Importe"] || line["Importe(*)"],
+          importe: line["Importe"] || line["Importe(*)"] || line["importe"] || line["importeTotal"] || line["ImporteTotal"] || 0,
           descripcion: line["Descripción"] || line["Descripcion"],
           cant: line["Cant."] || line["Cant"]
         });
@@ -491,6 +491,26 @@
 
       var isDefinitive = (status === "confirmada" || status === "modificada" || status === "validada_sin_cambios");
 
+      var dayAmount = 0;
+      (entry.contributingLines || []).forEach(function (cl) {
+        var nch = Math.max(1, parseInt(cl.noches, 10) || 1);
+        var impVal = cl.importe;
+        var imp = 0;
+        if (typeof impVal === "number") {
+          imp = isNaN(impVal) ? 0 : impVal;
+        } else if (impVal) {
+          var s = String(impVal).trim().replace(/€/g, "").replace(/\s/g, "");
+          if (s.includes(",") && s.includes(".")) {
+            s = s.replace(/\./g, "").replace(",", ".");
+          } else if (s.includes(",")) {
+            s = s.replace(",", ".");
+          }
+          var n = parseFloat(s);
+          imp = isNaN(n) ? 0 : n;
+        }
+        dayAmount += (imp / nch);
+      });
+
       result.push({
         hotel: entry.hotel,
         reserva: entry.reserva,
@@ -498,6 +518,10 @@
         fecha: entry.fecha,
         regimen: Array.from(entry.regimenSet).join(", ") || "---",
         pax: entry.pax,
+        dailyAmount: dayAmount,
+        importe: dayAmount,
+        totalRevenue: dayAmount,
+        estado: entry.estado,
         estadoReserva: entry.estado, // 'Confirmada' | 'Anulada'
         distributionStatus: status, // 'pendiente' | 'propuesta' | 'confirmada' | 'modificada' | 'validada_sin_cambios' | 'revision_necesaria'
         isDefinitive: isDefinitive, // Solo confirmada, modificada y validada_sin_cambios cuentan para totales definitivos
