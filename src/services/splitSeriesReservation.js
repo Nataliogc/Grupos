@@ -515,10 +515,12 @@
         tracking: JSON.stringify(track)
       };
 
-      if (requestedStatus === "CANCELADO") {
+      if (requestedStatus === "CANCELADO" || requestedStatus === "DESESTIMADO" || requestedStatus === "CADUCADO") {
         updates.Estado = "ANULADA";
       } else if (requestedStatus === "CONFIRMADO") {
         updates.Estado = "Confirmado";
+      } else {
+        updates.Estado = "Presupuesto";
       }
 
       await docRef.update(updates);

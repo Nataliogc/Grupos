@@ -590,10 +590,12 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               updatedAt: serverTimestampVal,
               tracking: JSON.stringify(track)
             };
-            if (requestedStatus === "CANCELADO") {
+            if (requestedStatus === "CANCELADO" || requestedStatus === "DESESTIMADO" || requestedStatus === "CADUCADO") {
               updates.Estado = "ANULADA";
             } else if (requestedStatus === "CONFIRMADO") {
               updates.Estado = "Confirmado";
+            } else {
+              updates.Estado = "Presupuesto";
             }
             _context3.n = 8;
             return docRef.update(updates);

@@ -1425,10 +1425,14 @@
             return { ...g, _totalAmount: totalAmount };
           })
           .filter(g => {
-            const intEst = (g.Com_Estado_Interno || "").toUpperCase();
-            const extEst = (g.Estado || "").toUpperCase();
-            const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(status => intEst.includes(status) || extEst.includes(status)) || g.excludeFromStatistics === true;
-            const isConfirmed = intEst.includes("CONFIRM") || extEst.includes("CONFIRM");
+            const intEst = (g.Com_Estado_Interno || "").toUpperCase().trim();
+            const extEst = (g.Estado || "").toUpperCase().trim();
+
+            // El estado comercial interno (si existe) tiene prioridad sobre el estado general
+            const effectiveStatus = intEst || extEst;
+
+            const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(status => effectiveStatus.includes(status)) || g.excludeFromStatistics === true;
+            const isConfirmed = effectiveStatus.includes("CONFIRM");
             
             const departureStr = g.Salida || g.Entrada || "";
             const isPast = departureStr && departureStr < todayStr;
@@ -1437,7 +1441,7 @@
             if (filterTab === 'confirmados' && !isConfirmed) return false;
             if (filterTab === 'desestimados' && !isCancelled) return false;
             if (filterTab === 'activos') {
-              const isActiveStatus = ["PRESUPUESTO", "PENDIENTE", "ENVIADO", "SEGUIMIENTO"].some(s => intEst.includes(s));
+              const isActiveStatus = ["PRESUPUESTO", "PENDIENTE", "ENVIADO", "SEGUIMIENTO"].some(s => effectiveStatus.includes(s));
               if (isCancelled || isConfirmed || (isPast && !isActiveStatus)) return false;
             }
 
@@ -2054,6 +2058,15 @@ ${emailContent}`;
         try {
           if (updateStatus.running) return;
           updateStatus.running = true;
+
+          // Actualización optimista inmediata en la UI
+          const newExt = (newStatus === "CONFIRMADO") ? "Confirmado" : (["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(newStatus) ? "ANULADA" : "Presupuesto");
+          setGroups(prev => (prev || []).map(item => {
+            if (item.uid === uid || item.Reserva === uid) {
+              return { ...item, Com_Estado_Interno: newStatus, Estado: newExt };
+            }
+            return item;
+          }));
 
           const result = await window.confirmBudget({
             budgetId: uid,

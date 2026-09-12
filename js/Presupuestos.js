@@ -1596,12 +1596,15 @@ function App() {
         _totalAmount: totalAmount
       });
     }).filter(function (g) {
-      var intEst = (g.Com_Estado_Interno || "").toUpperCase();
-      var extEst = (g.Estado || "").toUpperCase();
+      var intEst = (g.Com_Estado_Interno || "").toUpperCase().trim();
+      var extEst = (g.Estado || "").toUpperCase().trim();
+
+      // El estado comercial interno (si existe) tiene prioridad sobre el estado general
+      var effectiveStatus = intEst || extEst;
       var isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(function (status) {
-        return intEst.includes(status) || extEst.includes(status);
+        return effectiveStatus.includes(status);
       }) || g.excludeFromStatistics === true;
-      var isConfirmed = intEst.includes("CONFIRM") || extEst.includes("CONFIRM");
+      var isConfirmed = effectiveStatus.includes("CONFIRM");
       var departureStr = g.Salida || g.Entrada || "";
       var isPast = departureStr && departureStr < todayStr;
 
@@ -1610,7 +1613,7 @@ function App() {
       if (filterTab === 'desestimados' && !isCancelled) return false;
       if (filterTab === 'activos') {
         var isActiveStatus = ["PRESUPUESTO", "PENDIENTE", "ENVIADO", "SEGUIMIENTO"].some(function (s) {
-          return intEst.includes(s);
+          return effectiveStatus.includes(s);
         });
         if (isCancelled || isConfirmed || isPast && !isActiveStatus) return false;
       }
@@ -2368,7 +2371,7 @@ function App() {
   }();
   var _updateStatus = /*#__PURE__*/function () {
     var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid, newStatus) {
-      var result, _t5;
+      var newExt, result, _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
           case 0:
@@ -2380,6 +2383,20 @@ function App() {
             return _context5.a(2);
           case 1:
             _updateStatus.running = true;
+
+            // Actualización optimista inmediata en la UI
+            newExt = newStatus === "CONFIRMADO" ? "Confirmado" : ["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(newStatus) ? "ANULADA" : "Presupuesto";
+            setGroups(function (prev) {
+              return (prev || []).map(function (item) {
+                if (item.uid === uid || item.Reserva === uid) {
+                  return _objectSpread(_objectSpread({}, item), {}, {
+                    Com_Estado_Interno: newStatus,
+                    Estado: newExt
+                  });
+                }
+                return item;
+              });
+            });
             _context5.n = 2;
             return window.confirmBudget({
               budgetId: uid,
