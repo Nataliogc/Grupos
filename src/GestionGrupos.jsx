@@ -4832,7 +4832,7 @@
               });
 
               // Preservar el régimen de este día (ej: MP si era MP, PC si era PC)
-              let dayReg = editingDistribution.regimen || "AD";
+              let dayReg = editingDistribution.regimen || "HD";
               const foundReg = prevLodgingThisDay.find((i) => i.regime && i.regime !== "-")?.regime;
               if (foundReg) dayReg = foundReg;
 
@@ -8173,7 +8173,7 @@
 
         pax: 2,
 
-        regime: "AD",
+        regime: "HD",
 
         price: 0,
 
@@ -17823,15 +17823,13 @@
 
                                       <option value="">-</option>
 
-                                      <option>AD</option>
+                                      <option value="HA">HA</option>
 
-                                      <option>MP</option>
+                                      <option value="HD">HD</option>
 
-                                      <option>PC</option>
+                                      <option value="MP">MP</option>
 
-                                      <option>SA</option>
-
-                                      <option>TI</option>
+                                      <option value="PC">PC</option>
 
                                     </select>
 
@@ -18541,7 +18539,13 @@
                                         <td className="py-1.5 px-2 text-center">
                                           <select
                                             className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 text-[10px] font-bold text-slate-700 uppercase outline-none transition cursor-pointer shadow-2xs"
-                                            value={(item.regime || "HD").toUpperCase()}
+                                            value={(() => {
+                                              const raw = String(item.regime || "HD").toUpperCase().trim();
+                                              if (raw === "AD") return "HD";
+                                              if (raw === "SA") return "HA";
+                                              if (["HA", "HD", "MP", "PC", "-"].includes(raw)) return raw;
+                                              return raw || "HD";
+                                            })()}
                                             onChange={(e) => handleInlineRoomItemUpdate(item, "regime", e.target.value)}
                                             title="Cambiar régimen"
                                           >
@@ -18549,9 +18553,6 @@
                                             <option value="HD">HD</option>
                                             <option value="MP">MP</option>
                                             <option value="PC">PC</option>
-                                            <option value="AD">AD</option>
-                                            <option value="SA">SA</option>
-                                            <option value="TI">TI</option>
                                             <option value="-">-</option>
                                           </select>
                                         </td>
