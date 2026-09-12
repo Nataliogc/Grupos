@@ -8,7 +8,65 @@
   "use strict";
 
   // Helpers internos movidos desde Gestión de Grupos.html
-  const toNum = (v) => window.NexusUtils.parseNum(v);
+  const toNum = (v) => {
+    if (typeof window !== "undefined" && window.NexusUtils && window.NexusUtils.parseNum) {
+      return window.NexusUtils.parseNum(v);
+    }
+    if (v === null || v === undefined || v === "" || v === "---") return 0;
+    const str = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const normalizeId = (id) => {
+    if (typeof window !== "undefined" && window.NexusUtils && window.NexusUtils.normalizeId) {
+      return window.NexusUtils.normalizeId(id);
+    }
+    return String(id || "").trim().toUpperCase();
+  };
+
+  const cleanStr = (v) => String(v || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\.0$/, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s\u00A0]+/g, " ");
+
+  const normalizeEstado = (s) => {
+    const v = cleanStr(s);
+    if (v.includes("CONFIRM")) return "CONFIRMADA";
+    if (v.includes("ANUL") || v.includes("CANCEL") || v.includes("BAJA") || v.includes("DESESTIM") || v.includes("CADUC")) return "ANULADA";
+    if (v.includes("PRESUP") || v.includes("COTIZ") || v.includes("TANTEO") || v.includes("PROSPECT")) return "PRESUPUESTO";
+    return v;
+  };
+
+  const normalizeHotel = (h) => {
+    const s = String(h || "").toLowerCase().trim();
+    if (s.includes("cumbria")) return "Cumbria Spa&Hotel";
+    if (s.includes("guadiana") || s.includes("sercotel")) return "Sercotel Guadiana";
+    return String(h || "").trim();
+  };
+
+  const normalizeSegment = (s) => {
+    const v = cleanStr(s);
+    if (v === "GRUPOS" || v === "GRUPO" || v.startsWith("GRUP")) return "GRUPO";
+    if (v === "GRTANTEO" || v === "GRUPO TANTEO" || v === "TANTEO") return "GRUPO TANTEO";
+    if (v.includes("DIRECTO")) return "DIRECTO";
+    return v;
+  };
+
+  const normalizeRegimen = (s) => {
+    const val = String(s || "").toUpperCase().trim().replace(/\s+/g, " ");
+    if (val === "HA" || val.startsWith("HA ") || val === "SA" || val.startsWith("SA ") || val === "SO" || val.includes("SOLO ALOJ") || val.includes("SOLO ALOJAMIENTO") || val.includes("SIN DESAYUNO")) return "HA";
+    if (val === "HD" || val.startsWith("HD ") || val === "AD" || val.startsWith("AD ") || val.includes("ALOJAMIENTO Y DESAYUNO") || (val.includes("ALOJ") && val.includes("DESAY"))) return "HD";
+    if (val === "AD+D" || val === "ADD" || val === "HD+D" || val.startsWith("AD+D") || val.startsWith("ADD ") || val.startsWith("HD+D")) return "HD+D";
+    if (val === "MP" || val.startsWith("MP ") || val.includes("MEDIA PENSION") || val.includes("MEDIA PENSIÓN")) return "MP";
+    if (val === "PC" || val.startsWith("PC ") || val.includes("PENSION COMPLETA") || val.includes("PENSIÓN COMPLETA")) return "PC";
+    if (val === "TI" || val.startsWith("TI ") || val.includes("TODO INCLUIDO") || val.includes("ALL INCLUSIVE")) return "TI";
+    if (val === "D" || val === "DESAYUNO" || val === "BREAKFAST") return "HD";
+    return val.split(" ")[0];
+  };
 
   const toIsoDate = (v) => {
     if (v === null || v === undefined || v === "" || v === "---") return "";
@@ -288,7 +346,7 @@
 
     simpleRows.forEach((row, idx) => {
         const rawResId = row["Reserva"];
-        const resId = window.NexusUtils.normalizeId(rawResId) || `TEMP-${Date.now()}-${idx}`;
+        const resId = normalizeId(rawResId) || `TEMP-${Date.now()}-${idx}`;
         row["Reserva"] = resId;
 
         const lineaId = String(row["precios"] || row["_linea"] || row["_rowNum"] || (idx + 1)).trim();
@@ -312,6 +370,14 @@
             if (eInDate && eOutDate && !isNaN(eInDate.getTime()) && !isNaN(eOutDate.getTime())) {
                 const diffDays = Math.round((eOutDate - eInDate) / (1000 * 60 * 60 * 24));
                 if (diffDays > 0) row["Noches"] = diffDays.toString();
+            }
+        }
+
+        if ((!row["Pernoct."] || row["Pernoct."] === "" || row["Pernoct."] === "0") && row["Pax."] && row["Noches"]) {
+            const pNum = toNum(row["Pax."]);
+            const nNum = toNum(row["Noches"]);
+            if (pNum > 0 && nNum > 0) {
+                row["Pernoct."] = (pNum * nNum).toString();
             }
         }
 
@@ -342,39 +408,93 @@
       "Proforma_RoomList", "Com_Pagado", "Es_Credito", "Com_Es_Credito", "updatedAt"
     ]);
 
+    const matchedExistingIndices = new Set();
+
     incomingRows.forEach((newRow, idx) => {
         if (!newRow["Reserva"]) newRow["Reserva"] = `TEMP-${Date.now()}-${idx}`;
-        const resID = window.NexusUtils.normalizeId(newRow["Reserva"]);
+        const resID = normalizeId(newRow["Reserva"]);
         const targetRecordKey = newRow["_recordKey"];
         const newInIso = toIsoDate(newRow["Entrada"]);
         const newLinea = newRow["_linea"];
-        
-        const existingIdx = mergedData.findIndex((r) => {
-            const rRes = window.NexusUtils.normalizeId(r["Reserva"]);
-            if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+        const newRegimen = normalizeRegimen(newRow["Régimen"]);
 
-            // 1. Si coincide la clave de registro exacta
-            if (r["_recordKey"] && r["_recordKey"] === targetRecordKey) return true;
+        // Búsqueda en pases sucesivos asegurando correspondencia unívoca
+        let existingIdx = -1;
 
-            // 2. Si coincide el _docId o id con la línea y entrada
-            if (r["_docId"] && (r["_docId"] === `${resID}_${newLinea}` || r["_docId"] === resID)) {
-                if (toIsoDate(r["Entrada"]) === newInIso) return true;
+        // Pase 1: Coincidencia exacta de _recordKey
+        if (targetRecordKey) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                return r["_recordKey"] && r["_recordKey"] === targetRecordKey;
+            });
+        }
+
+        // Pase 2: Coincidencia de _docId exacto con sufijo de línea
+        if (existingIdx === -1 && newLinea) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+                if (r["_docId"] && r["_docId"] === `${resID}_${newLinea}`) {
+                    return toIsoDate(r["Entrada"]) === newInIso;
+                }
+                return false;
+            });
+        }
+
+        // Pase 3: Misma reserva, misma línea identificada y misma fecha de entrada
+        if (existingIdx === -1 && newLinea) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+                const rLinea = String(r["_linea"] || r["precios"] || "").trim();
+                return rLinea === newLinea && toIsoDate(r["Entrada"]) === newInIso;
+            });
+        }
+
+        // Pase 4: Misma reserva, misma fecha de entrada y mismo régimen
+        if (existingIdx === -1) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+                if (toIsoDate(r["Entrada"]) === newInIso) {
+                    if (newRegimen && normalizeRegimen(r["Régimen"]) === newRegimen) return true;
+                }
+                return false;
+            });
+        }
+
+        // Pase 5: Misma reserva y misma fecha de entrada
+        if (existingIdx === -1) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+                return toIsoDate(r["Entrada"]) === newInIso;
+            });
+        }
+
+        // Pase 6: Misma reserva si solo queda una fila libre
+        if (existingIdx === -1) {
+            const candidates = [];
+            mergedData.forEach((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes === resID || rRes.startsWith(resID + "_") || resID.startsWith(rRes + "_")) {
+                    candidates.push(rIdx);
+                }
+            });
+            if (candidates.length === 1) {
+                existingIdx = candidates[0];
             }
-
-            // 3. Si coincide la fecha de entrada y la línea o régimen
-            const rInIso = toIsoDate(r["Entrada"]);
-            if (rInIso === newInIso) {
-                const rLinea = String(r["_linea"] || r["precios"] || "");
-                if (rLinea && rLinea === newLinea) return true;
-                if (r["Régimen"] && newRow["Régimen"] && String(r["Régimen"]).trim().toUpperCase() === String(newRow["Régimen"]).trim().toUpperCase()) return true;
-            }
-
-            return false;
-        });
+        }
 
         if (existingIdx === -1) {
             mergedData.push({ ...newRow, _diff: "new" });
         } else {
+            matchedExistingIndices.add(existingIdx);
             const existingRow = mergedData[existingIdx];
             let diffType = null;
             let changes = {};
@@ -384,12 +504,39 @@
             const relevantKeys = ["Entrada", "Salida", "Pax.", "Importe(*)", "Estado", "Hotel_Asignado", "Régimen", "Segment.", "Nombre del Grupo", "Noches", "Pernoct.", "Empresa/Agencia", "Cant. Habitaciones"];
 
             relevantKeys.forEach((key) => {
-                const rawOld = existingRow[key];
-                const rawNew = newRow[key];
+                let rawOld = existingRow[key];
+                let rawNew = newRow[key];
                 if (rawNew === undefined) return;
                 
-                const isEmptyOld = rawOld === null || rawOld === undefined || String(rawOld).trim() === "" || String(rawOld).trim() === "---";
-                const isEmptyNew = rawNew === null || rawNew === undefined || String(rawNew).trim() === "" || String(rawNew).trim() === "---";
+                let isEmptyOld = rawOld === null || rawOld === undefined || String(rawOld).trim() === "" || String(rawOld).trim() === "---";
+                let isEmptyNew = rawNew === null || rawNew === undefined || String(rawNew).trim() === "" || String(rawNew).trim() === "---";
+
+                // Si Noches no estaba guardado en Firestore, derivarlo de Entrada y Salida existentes
+                if (key === "Noches" && isEmptyOld) {
+                    const eIn = parseToDateObj(existingRow["Entrada"]);
+                    const eOut = parseToDateObj(existingRow["Salida"]);
+                    if (eIn && eOut && !isNaN(eIn.getTime()) && !isNaN(eOut.getTime())) {
+                        const diff = Math.round((eOut - eIn) / (1000 * 60 * 60 * 24));
+                        if (diff > 0) {
+                            rawOld = diff.toString();
+                            isEmptyOld = false;
+                        }
+                    }
+                }
+
+                // Si Pernoct. no estaba guardado en Firestore, derivarlo de Pax y fechas
+                if (key === "Pernoct." && isEmptyOld) {
+                    const pax = toNum(existingRow["Pax."]);
+                    const eIn = parseToDateObj(existingRow["Entrada"]);
+                    const eOut = parseToDateObj(existingRow["Salida"]);
+                    if (pax > 0 && eIn && eOut && !isNaN(eIn.getTime()) && !isNaN(eOut.getTime())) {
+                        const diff = Math.round((eOut - eIn) / (1000 * 60 * 60 * 24));
+                        if (diff > 0) {
+                            rawOld = (pax * diff).toString();
+                            isEmptyOld = false;
+                        }
+                    }
+                }
 
                 // NO detectar cambios si el nuevo valor está vacío pero el antiguo tenía algo
                 if (!isEmptyOld && isEmptyNew) return;
@@ -397,56 +544,41 @@
 
                 let isDifferent = false;
                 if (NUMERIC_KEYS.has(key)) {
-                    const numOld = toNum(rawOld);
-                    const numNew = toNum(rawNew);
+                    const numOld = isEmptyOld ? 0 : toNum(rawOld);
+                    const numNew = isEmptyNew ? 0 : toNum(rawNew);
                     if (isNaN(numOld) && isNaN(numNew)) return;
-                    if (isNaN(numOld) !== isNaN(numNew)) isDifferent = Math.abs(isNaN(numOld) ? numNew : numOld) > 0.01;
-                    else {
-                        // Para Importe(*) usar tolerancia de ±1.00€ para evitar falsos positivos por redondeo
-                        // Para otros campos numéricos (Pax, Noches, etc.) usar ±0.50
-                        const tolerance = key === "Importe(*)" ? 100 : 50; // en centésimas
-                        isDifferent = Math.abs(Math.round(numOld * 100) - Math.round(numNew * 100)) >= tolerance;
-                    }
+                    if ((isNaN(numOld) || numOld === 0) && (isNaN(numNew) || numNew === 0)) return;
+                    
+                    // Para Importe(*) usar tolerancia de ±1.00€ para evitar falsos positivos por redondeo
+                    // Para otros campos numéricos usar ±0.50
+                    const tolerance = key === "Importe(*)" ? 100 : 50; // en centésimas
+                    isDifferent = Math.abs(Math.round(numOld * 100) - Math.round(numNew * 100)) >= tolerance;
                 } else if (DATE_KEYS.has(key)) {
-                    // Normalise BOTH sides to ISO YYYY-MM-DD before comparing
+                    // Normalizar ambas fechas a ISO YYYY-MM-DD
                     const dateOld = toIsoDate(rawOld);
                     const dateNew = toIsoDate(rawNew);
                     if (dateOld === "" && dateNew === "") return;
-                    // If either side fails to parse, skip (avoid false positives)
                     if (dateOld === "" || dateNew === "") return;
                     isDifferent = dateOld !== dateNew;
+                } else if (key === "Estado") {
+                    const stOld = normalizeEstado(rawOld || existingRow["Com_Estado_Interno"]);
+                    const stNew = normalizeEstado(rawNew);
+                    isDifferent = stOld !== stNew;
+                } else if (key === "Hotel_Asignado") {
+                    const hOld = normalizeHotel(rawOld || existingRow["Hotel"]);
+                    const hNew = normalizeHotel(rawNew);
+                    isDifferent = hOld !== hNew;
+                } else if (key === "Segment.") {
+                    const segOld = normalizeSegment(rawOld || existingRow["Segmento"] || existingRow["Segment"] || "");
+                    const segNew = normalizeSegment(rawNew);
+                    isDifferent = segOld !== segNew;
+                } else if (key === "Régimen") {
+                    const regOld = normalizeRegimen(rawOld);
+                    const regNew = normalizeRegimen(rawNew);
+                    isDifferent = regOld !== regNew;
                 } else {
-                    const cleanStr = (v) => String(v).replace(/\.0$/, "").trim().toUpperCase().replace(/\s+/g, " ");
-                    // Normalise segment aliases so "GRUPOS"≡"GRUPO", "GRTANTEO"≡"GRUPO TANTEO", etc.
-                    const normalizeSegment = (s) => {
-                        if (s === "GRUPOS" || s === "GRUPO") return "GRUPO";
-                        if (s === "GRTANTEO" || s === "GRUPO TANTEO" || s === "TANTEO") return "GRUPO TANTEO";
-                        if (s === "DIRECTO" || s === "DIRECTO ONLINE" || s === "DIRECTO OFFLINE") return s; // keep as-is
-                        return s;
-                    };
-                    // Normalise regime aliases so "PC"≡"PENSIÓN COMPLETA"≡"PENSION COMPLETA", etc.
-                    const normalizeRegimen = (s) => {
-                        const val = String(s || "").toUpperCase().trim().replace(/\s+/g, " ");
-                        if (val === "HA" || val.startsWith("HA ") || val === "SA" || val.startsWith("SA ") || val === "SO" || val.includes("SOLO ALOJ") || val.includes("SOLO ALOJAMIENTO") || val.includes("SIN DESAYUNO")) return "HA";
-                        if (val === "HD" || val.startsWith("HD ") || val === "AD" || val.startsWith("AD ") || val.includes("ALOJAMIENTO Y DESAYUNO") || (val.includes("ALOJ") && val.includes("DESAY"))) return "HD";
-                        if (val === "AD+D" || val === "ADD" || val === "HD+D" || val.startsWith("AD+D") || val.startsWith("ADD ") || val.startsWith("HD+D")) return "HD+D";
-                        if (val === "MP" || val.startsWith("MP ") || val.includes("MEDIA PENSION") || val.includes("MEDIA PENSIÓN")) return "MP";
-                        if (val === "PC" || val.startsWith("PC ") || val.includes("PENSION COMPLETA") || val.includes("PENSIÓN COMPLETA")) return "PC";
-                        if (val === "TI" || val.startsWith("TI ") || val.includes("TODO INCLUIDO") || val.includes("ALL INCLUSIVE")) return "TI";
-                        if (val === "D" || val === "DESAYUNO" || val === "BREAKFAST") return "HD";
-                        // Fallback: tomar solo la primera palabra (código corto)
-                        return val.split(" ")[0];
-                    };
                     let cleanOld = isEmptyOld ? "" : cleanStr(rawOld);
                     let cleanNew = isEmptyNew ? "" : cleanStr(rawNew);
-                    if (key === "Segment.") {
-                        cleanOld = normalizeSegment(cleanOld);
-                        cleanNew = normalizeSegment(cleanNew);
-                    }
-                    if (key === "Régimen") {
-                        cleanOld = normalizeRegimen(cleanOld);
-                        cleanNew = normalizeRegimen(cleanNew);
-                    }
                     isDifferent = cleanOld !== cleanNew;
                 }
 
@@ -460,9 +592,9 @@
                 }
             });
 
-            const oldStatus = (existingRow["Estado"] || "").toLowerCase();
-            const newStatus = (newRow["Estado"] || "").toLowerCase();
-            if (newStatus.includes("anul") && !oldStatus.includes("anul")) diffType = "cancelled";
+            const oldStatusNorm = normalizeEstado(existingRow["Estado"] || existingRow["Com_Estado_Interno"]);
+            const newStatusNorm = normalizeEstado(newRow["Estado"]);
+            if (newStatusNorm === "ANULADA" && oldStatusNorm !== "ANULADA") diffType = "cancelled";
             else if (Object.keys(changes).length > 0) diffType = "modified";
 
             const mergedRow = { ...existingRow };
@@ -475,6 +607,10 @@
                 else if (DATE_KEYS.has(key)) mergedRow[key] = toIsoDate(valNew);
                 else mergedRow[key] = valNew;
             });
+
+            // Preservar clave de registro y número de línea para re-importaciones estables
+            if (targetRecordKey) mergedRow["_recordKey"] = targetRecordKey;
+            if (newLinea) mergedRow["_linea"] = newLinea;
 
             if (newRow._hasWarning) mergedRow._hasWarning = true;
 
@@ -590,8 +726,15 @@
 
   var ExcelService = {
       parseAndMergeFile,
+      sanitizeAndMerge,
+      processMatrixData,
       toIsoDate,
-      toInputDate
+      toInputDate,
+      normalizeEstado,
+      normalizeHotel,
+      normalizeSegment,
+      normalizeRegimen,
+      cleanStr
   };
 
   if (typeof window !== "undefined") {

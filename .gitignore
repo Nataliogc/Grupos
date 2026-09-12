@@ -26,5 +26,6 @@ debug*.js
 test_*.js
 !test_rooming.js
 !test_integration.js
+!test_excel_sync.js
 test_*.csv
 patch_*.py

@@ -6709,29 +6709,26 @@
                 if (authorizingIds.current.has(resID)) {
 
                   // Autorización en curso: preservar datos locales (que son los nuevos del Excel)
-
                   // NO usar dbRow que puede tener los datos viejos de Firestore aún no propagados
-
                   const localPreview = prevData.find(
-
-                    (p) => normalizeId(p.Reserva) === resID,
-
+                    (p) =>
+                      (p._docId && dbRow._docId && p._docId === dbRow._docId) ||
+                      (p._recordKey && dbRow._recordKey && p._recordKey === dbRow._recordKey) ||
+                      (normalizeId(p.Reserva) === resID && String(p._linea || "") === String(dbRow._linea || "") && p._linea) ||
+                      normalizeId(p.Reserva) === resID,
                   );
 
                   if (localPreview)
-
                     return { ...localPreview, _diff: null, _changes: null };
-
                   return { ...dbRow, _diff: null, _changes: null };
-
                 }
 
-
-
                 const localMatch = prevData.find(
-
-                  (p) => normalizeId(p.Reserva) === resID,
-
+                  (p) =>
+                    (p._docId && dbRow._docId && p._docId === dbRow._docId) ||
+                    (p._recordKey && dbRow._recordKey && p._recordKey === dbRow._recordKey) ||
+                    (normalizeId(p.Reserva) === resID && String(p._linea || "") === String(dbRow._linea || "") && p._linea) ||
+                    normalizeId(p.Reserva) === resID,
                 );
 
                 if (localMatch) {
