@@ -224,7 +224,8 @@
     };
 
     const normalizeHotelNameLocal = (value, fallbackHotel) => {
-      const raw = String(value || "").trim().toLowerCase();
+      const rawValue = String(value || "").trim();
+      const raw = rawValue.toLowerCase().replace(/\s*&\s*/g, "&").replace(/\s+/g, " ");
 
       if (
         raw.includes("guadiana") ||
@@ -241,7 +242,7 @@
         return "Cumbria Spa&Hotel";
       }
 
-      return fallbackHotel || "Sercotel Guadiana";
+      return fallbackHotel || rawValue || "Sercotel Guadiana";
     };
 
     const BudgetManager = ({ data, openFicha, formatDate }) => {
@@ -417,67 +418,6 @@
 
           <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
 
-            <div>
-
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-
-                Seguimiento de Cotizaciones
-
-              </h2>
-
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
-
-                Control comercial y conversión de leads
-
-              </p>
-
-            </div>
-
-            <div className="flex flex-wrap gap-3 w-full md:w-auto">
-
-              <div className="relative flex-1 md:w-64">
-
-                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-
-                <DebouncedSearchInput
-                  placeholder="Buscar presupuesto..."
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-indigo-500 transition-all font-medium"
-                  value={searchTerm}
-                  onChange={setSearchTerm}
-                />
-
-              </div>
-
-              <select
-
-                value={statusFilter}
-
-                onChange={(e) => setStatusFilter(e.target.value)}
-
-                className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:border-indigo-500 text-slate-600"
-
-              >
-
-                <option value="TODOS">Todos los Estados</option>
-
-                <option value="PENDIENTE">Pendientes</option>
-
-                <option value="ENVIADO">Enviados</option>
-
-                <option value="SEGUIMIENTO">En Seguimiento</option>
-
-              </select>
-
-              <button
-
-                onClick={() => (window.location.href = "AltaEmail.html")}
-
-                className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-indigo-700 transition-all text-xs uppercase tracking-widest shadow-lg shadow-indigo-100"
-
-              >
-
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col gap-6">
-
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
 
               <div>
@@ -549,50 +489,7 @@
 
             </div>
 
-            {/* TARJETAS DE ESCENARIO */}
-            <div className="pt-4">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
-                Escenario de Objetivo
-                {isOfficial && !isUnlocked && (
-                  <span className="ml-2 text-amber-600 font-normal normal-case">🔒 Bloqueado — desbloquea para cambiar escenario</span>
-                )}
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                {[
-                  { key: "base",          icon: "🏛️", label: "Base",        pct: "+0%",   desc: "Igual que año base",       color: "slate"  },
-                  { key: "conservador",   icon: "🛡️", label: "Conservador", pct: "+3%",   desc: "Crecimiento prudente",     color: "sky"    },
-                  { key: "recomendado",   icon: "⭐",  label: "Recomendado", pct: "+7%",   desc: "Objetivo equilibrado",     color: "indigo" },
-                  { key: "ambicioso",     icon: "🚀",  label: "Ambicioso",   pct: "+12%",  desc: "Máximo crecimiento",       color: "purple" },
-                  { key: "personalizado", icon: "✏️",  label: "Manual",      pct: "libre", desc: "Define tu % mensualmente", color: "amber"  }
-                ].map(sc => {
-                  const isActive = scenario === sc.key;
-                  const colorMap = {
-                    slate:  { active: "border-slate-500 bg-slate-50 text-slate-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-slate-400" },
-                    sky:    { active: "border-sky-500 bg-sky-50 text-sky-900",          inactive: "border-slate-200 bg-white text-slate-500 hover:border-sky-400" },
-                    indigo: { active: "border-indigo-500 bg-indigo-50 text-indigo-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-indigo-400" },
-                    purple: { active: "border-purple-500 bg-purple-50 text-purple-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-purple-400" },
-                    amber:  { active: "border-amber-500 bg-amber-50 text-amber-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-amber-400" }
-                  };
-                  const cls = colorMap[sc.color][isActive ? "active" : "inactive"];
-                  return (
-                    <button
-                      key={sc.key}
-                      onClick={() => handleSelectScenario(sc.key)}
-                      className={"rounded-xl border-2 p-3 text-left transition flex flex-col gap-0.5 " + cls + (isOfficial && !isUnlocked ? " opacity-60 cursor-not-allowed" : " cursor-pointer")}
-                    >
-                      <span className="text-base leading-none">{sc.icon}</span>
-                      <span className="text-[11px] font-black mt-1 block">{sc.label}</span>
-                      <span className={"text-[13px] font-black " + (isActive ? "" : "text-slate-400")}>{sc.pct}</span>
-                      <span className="text-[9px] font-semibold mt-0.5 opacity-70 leading-tight">{sc.desc}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
           </div>
-
-
 
           <div className="overflow-x-auto bg-white rounded-3xl border border-slate-100">
             <table className="w-full text-left border-collapse min-w-[1000px]">
@@ -3551,8 +3448,21 @@
       // --- MATRIZ DE OCUPACIÓN Y DISTRIBUCIÓN DIARIA ---
       const dailyOccupancyList = useMemo(() => {
         if (!window.GroupOccupancyService) return [];
-        return window.GroupOccupancyService.calculateDailyOccupancyMatrix(processedData, savedDistributionsByReserva);
+        return window.GroupOccupancyService
+          .calculateDailyOccupancyMatrix(processedData, savedDistributionsByReserva)
+          .map((item) => ({
+            ...item,
+            hotel: normalizeHotelNameLocal(item.hotel, item.hotel || "Sercotel Guadiana"),
+          }));
       }, [processedData, savedDistributionsByReserva]);
+
+      const dailyHotelOptions = useMemo(() => {
+        return Array.from(new Set(
+          dailyOccupancyList
+            .map((d) => normalizeHotelNameLocal(d.hotel, d.hotel || "Sercotel Guadiana"))
+            .filter(Boolean)
+        )).sort();
+      }, [dailyOccupancyList]);
 
       // --- FILTRADO DE LA LISTA DIARIA ---
       const filteredDailyOccupancy = useMemo(() => {
@@ -11463,7 +11373,7 @@
                                 className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
                               >
                                 <option value="">Todos los hoteles</option>
-                                {Array.from(new Set(dailyOccupancyList.map(d => d.hotel).filter(Boolean))).sort().map(h => (
+                                {dailyHotelOptions.map(h => (
                                   <option key={h} value={h}>{h}</option>
                                 ))}
                               </select>
@@ -12164,7 +12074,7 @@
                         className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
                       >
                         <option value="default">Predeterminado (Todos los hoteles)</option>
-                        {Array.from(new Set(dailyOccupancyList.map(d => d.hotel).filter(Boolean))).sort().map(h => (
+                        {dailyHotelOptions.map(h => (
                           <option key={h} value={h}>{h}</option>
                         ))}
                       </select>

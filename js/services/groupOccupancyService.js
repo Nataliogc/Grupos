@@ -65,6 +65,21 @@
     return nights;
   }
 
+  function normalizeHotelName(value) {
+    var raw = String(value || "").trim();
+    var key = raw.toLowerCase().replace(/\s*&\s*/g, "&").replace(/\s+/g, " ");
+
+    if (key.includes("guadiana") || key.includes("sercotel guadiana")) {
+      return "Sercotel Guadiana";
+    }
+
+    if (key.includes("cumbria") || key.includes("spa&hotel")) {
+      return "Cumbria Spa&Hotel";
+    }
+
+    return raw || "Sercotel Guadiana";
+  }
+
   // ── 1. Automatic Proposal Generator ─────────────────────────
   // Regla requerida:
   // Dobles = floor(Pax / 2)
@@ -340,7 +355,7 @@
       var reserva = String(line["Reserva"] || line["id"] || "").trim();
       if (!reserva || reserva === "-" || reserva.toUpperCase().includes("TOTAL")) return;
 
-      var hotel = String(line["Hotel_Asignado"] || line["Hotel"] || "Sercotel Guadiana").trim();
+      var hotel = normalizeHotelName(line["Hotel_Asignado"] || line["Hotel"] || "Sercotel Guadiana");
       var inDate = line["Entrada"] || line["Desde"];
       var outDate = line["Salida"] || line["Hasta"];
       var paxLine = parseInt(line["Pax."] || line["Pax"] || line["Pers."] || 0, 10);
