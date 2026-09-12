@@ -33,6 +33,11 @@ var ROOM_TYPES = {
   "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE"],
   "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
 };
+var getRoomTypesForHotel = function getRoomTypesForHotel(hotelName) {
+  var s = String(hotelName || "").toLowerCase();
+  if (s.includes("cumbria")) return ROOM_TYPES["Cumbria Spa&Hotel"];
+  return ROOM_TYPES["Sercotel Guadiana"];
+};
 var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (Media Pensión)", "PC (Pensión Completa)"];
 
 // Personas por tipo de habitación (auto-cálculo PAX)
@@ -152,7 +157,7 @@ var getOfficialTariffsGrid = function getOfficialTariffsGrid(hotelName, year) {
     tariffs = defaults[hotelKey] || defaults.guadiana;
   }
   var grid = {};
-  var rooms = ROOM_TYPES[hotelName] || ROOM_TYPES["Sercotel Guadiana"];
+  var rooms = getRoomTypesForHotel(hotelName);
   ["SA", "AD", "MP", "PC"].forEach(function (bKey) {
     var gtsCode = BOARD_CODE_MAP[bKey] || bKey;
     grid[bKey] = {};
@@ -1467,25 +1472,26 @@ function App() {
           }
         }
         var currentBoard = dayConf.board || formData["Régimen"] || 'AD (Alojamiento y Desayuno)';
-        var boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
-
-        if (grid[boardKey]) {
-          var roomTypes = ROOM_TYPES[formData.Hotel_Asignado] || [];
-          var updatedPrices = _objectSpread({}, dayConf.prices || {});
-          roomTypes.forEach(function (room) {
-            var gridPrice = grid[boardKey][room];
-            if (gridPrice !== undefined && gridPrice !== '') {
-              var numVal = Number(gridPrice);
-              if (updatedPrices[room] !== numVal) {
-                updatedPrices[room] = numVal;
-                changed = true;
-              }
+        var boardKey = currentBoard.split(' ')[0]; // e.g. "AD", "PC"
+        var roomTypes = getRoomTypesForHotel(formData.Hotel_Asignado);
+        var parsedY = date ? new Date(toInputDate(date)).getFullYear() : formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+        var targetY = isNaN(parsedY) ? 2027 : parsedY;
+        var officialGrid = getOfficialTariffsGrid(formData.Hotel_Asignado, targetY);
+        var boardPrices = grid && grid[boardKey] || officialGrid[boardKey] || {};
+        var updatedPrices = _objectSpread({}, dayConf.prices || {});
+        roomTypes.forEach(function (room) {
+          var p = boardPrices[room] !== undefined && boardPrices[room] !== '' ? boardPrices[room] : officialGrid[boardKey] ? officialGrid[boardKey][room] : null;
+          if (p !== null && p !== undefined && p !== '') {
+            var numVal = Number(p);
+            if (updatedPrices[room] !== numVal) {
+              updatedPrices[room] = numVal;
+              changed = true;
             }
-          });
-          if (JSON.stringify(dayConf.prices) !== JSON.stringify(updatedPrices)) {
-            dayConf.prices = updatedPrices;
-            changed = true;
           }
+        });
+        if (JSON.stringify(dayConf.prices) !== JSON.stringify(updatedPrices)) {
+          dayConf.prices = updatedPrices;
+          changed = true;
         }
       });
       if (changed) {
@@ -1605,7 +1611,7 @@ function App() {
   var handleRoomCountChange = function handleRoomCountChange(type, value) {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
     // Auto-calcular PAX total (solo para los tipos válidos del hotel actual)
-    var currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || ROOM_TYPES['Sercotel Guadiana'];
+    var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
     var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref31) {
       var _ref32 = _slicedToArray(_ref31, 2),
         roomType = _ref32[0],
@@ -1637,20 +1643,23 @@ function App() {
       } else {
         newDailyConfig[date][field] = value;
 
-        // Auto-fill prices from ratesOnlyGrid if board type (regime) changes
-        if (field === 'board' && prev.ratesOnlyGrid) {
-          var boardKey = value.split(' ')[0]; // e.g. "AD"
-          if (prev.ratesOnlyGrid[boardKey]) {
-            var roomTypes = ROOM_TYPES[prev.Hotel_Asignado] || [];
-            var updatedPrices = _objectSpread({}, newDailyConfig[date].prices || {});
-            roomTypes.forEach(function (room) {
-              var gridPrice = prev.ratesOnlyGrid[boardKey][room];
-              if (gridPrice !== undefined && gridPrice !== '') {
-                updatedPrices[room] = Number(gridPrice);
-              }
-            });
-            newDailyConfig[date].prices = updatedPrices;
-          }
+        // Auto-fill prices from ratesOnlyGrid or official tariffs when regime changes
+        if (field === 'board') {
+          var boardKey = value.split(' ')[0]; // e.g. "PC", "AD"
+          var hotel = prev.Hotel_Asignado || 'Sercotel Guadiana';
+          var roomTypes = getRoomTypesForHotel(hotel);
+          var parsedY = date ? new Date(toInputDate(date)).getFullYear() : prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2027;
+          var targetY = isNaN(parsedY) ? 2027 : parsedY;
+          var officialGrid = getOfficialTariffsGrid(hotel, targetY);
+          var boardPrices = prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey] || officialGrid[boardKey] || {};
+          var updatedPrices = _objectSpread({}, newDailyConfig[date].prices || {});
+          roomTypes.forEach(function (room) {
+            var p = boardPrices[room] !== undefined && boardPrices[room] !== '' ? boardPrices[room] : officialGrid[boardKey] ? officialGrid[boardKey][room] : null;
+            if (p !== null && p !== undefined && p !== '') {
+              updatedPrices[room] = Number(p);
+            }
+          });
+          newDailyConfig[date].prices = updatedPrices;
         }
       }
       return _objectSpread(_objectSpread({}, prev), {}, {
@@ -1676,7 +1685,7 @@ function App() {
       var boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
 
       if (grid[boardKey]) {
-        var roomTypes = ROOM_TYPES[formData.Hotel_Asignado] || [];
+        var roomTypes = getRoomTypesForHotel(formData.Hotel_Asignado);
         var updatedPrices = _objectSpread({}, dayConf.prices || {});
         roomTypes.forEach(function (room) {
           var gridPrice = grid[boardKey][room];
@@ -1709,6 +1718,7 @@ function App() {
     var parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
     var validYear = isNaN(parsedY) ? 2027 : parsedY;
     var hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+    var roomTypes = getRoomTypesForHotel(hotel);
     var officialGrid = getOfficialTariffsGrid(hotel, validYear);
     var mergedGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
     Object.keys(officialGrid).forEach(function (b) {
@@ -1716,7 +1726,6 @@ function App() {
     });
     var stayDates = getCurrentStayDates(formData);
     var newDailyConfig = _objectSpread({}, formData.dailyConfig || {});
-    var roomTypes = ROOM_TYPES[hotel] || ROOM_TYPES['Sercotel Guadiana'];
     stayDates.forEach(function (date) {
       if (!newDailyConfig[date]) {
         newDailyConfig[date] = {
@@ -1729,11 +1738,12 @@ function App() {
       var dayConf = newDailyConfig[date];
       var currentBoard = dayConf.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
       var boardKey = currentBoard.split(' ')[0];
-      var pricesForBoard = mergedGrid[boardKey] || {};
+      var pricesForBoard = mergedGrid[boardKey] || officialGrid[boardKey] || {};
       var updatedPrices = _objectSpread({}, dayConf.prices || {});
       roomTypes.forEach(function (rt) {
-        if (pricesForBoard[rt] !== undefined && pricesForBoard[rt] !== null && pricesForBoard[rt] !== '') {
-          updatedPrices[rt] = Number(pricesForBoard[rt]);
+        var p = pricesForBoard[rt] !== undefined && pricesForBoard[rt] !== '' ? pricesForBoard[rt] : officialGrid[boardKey] ? officialGrid[boardKey][rt] : null;
+        if (p !== null && p !== undefined && p !== '') {
+          updatedPrices[rt] = Number(p);
         }
       });
       dayConf.prices = updatedPrices;
@@ -2921,7 +2931,7 @@ function App() {
   var renderCreate = function renderCreate() {
     var _formData$segments3, _formData$hiddenGridR, _formData$hiddenGridC;
     var stayDates = getCurrentStayDates(formData);
-    var currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || [];
+    var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
     return /*#__PURE__*/React.createElement("div", {
       className: "max-w-5xl mx-auto space-y-8 animate-fade-in pb-20"
     }, /*#__PURE__*/React.createElement("div", {

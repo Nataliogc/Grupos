@@ -942,6 +942,24 @@
 
         applyTargetDoc(localData);
 
+        // Sincronizar catálogo de tarifas desde Firestore settings si existe
+        if (window.db && typeof window.db.collection === "function") {
+          window.db.collection("settings").doc("groupTariffs").get()
+            .then(snap => {
+              if (snap.exists) {
+                const fsTariffs = snap.data();
+                if (fsTariffs && typeof fsTariffs === "object") {
+                  setTariffsCatalog(prev => {
+                    const merged = { ...fsTariffs, ...prev };
+                    try { localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged)); } catch(e) {}
+                    return merged;
+                  });
+                }
+              }
+            })
+            .catch(err => console.warn("Error cargando groupTariffs desde Firestore:", err));
+        }
+
         if (window.db && typeof window.db.collection === "function") {
           window.db.collection("groupTargets").doc(targetHotel + "_" + targetYear).get()
             .then(snap => {
@@ -1014,12 +1032,36 @@
       // Manejadores de Modal de Tarifas
       const openTariffModal = (h, y) => {
         const selH = h || targetHotel;
-        const selY = y || targetYear;
+        const selY = Number(y) || targetYear;
         setTariffModalHotel(selH);
         setTariffModalYear(selY);
         if (gts) {
           const t = gts.getTariffsForHotelAndYear(tariffsCatalog, selH, selY);
-          setEditingTariffs(JSON.parse(JSON.stringify(t)));
+          const tariffsCopy = JSON.parse(JSON.stringify(t));
+          // Inicializar desgloses oficiales por defecto si no existen
+          if (!tariffsCopy._desglose) {
+            let defB = 8.5;
+            let defL = 19.5;
+            let defD = 19.5;
+            if (tariffsCopy.HD?.doble && tariffsCopy.HA?.doble) {
+              const diff = Math.round(((tariffsCopy.HD.doble - tariffsCopy.HA.doble) / 2) * 100) / 100;
+              if (diff > 0) defB = diff;
+            }
+            if (tariffsCopy.MP?.doble && tariffsCopy.HD?.doble) {
+              const diff = Math.round(((tariffsCopy.MP.doble - tariffsCopy.HD.doble) / 2) * 100) / 100;
+              if (diff > 0) defL = diff;
+            }
+            if (tariffsCopy.PC?.doble && tariffsCopy.MP?.doble) {
+              const diff = Math.round(((tariffsCopy.PC.doble - tariffsCopy.MP.doble) / 2) * 100) / 100;
+              if (diff > 0) defD = diff;
+            }
+            tariffsCopy._desglose = {
+              breakfast: defB,
+              lunch: defL,
+              dinner: defD
+            };
+          }
+          setEditingTariffs(tariffsCopy);
         }
         setShowTariffModal(true);
       };
@@ -1043,15 +1085,41 @@
         if (!editingTariffs) return;
         const updatedCatalog = JSON.parse(JSON.stringify(tariffsCatalog));
         const yKey = String(tariffModalYear);
-        const hKey = gts.normalizeHotelKey(tariffModalHotel);
+        const hKey = gts ? gts.normalizeHotelKey(tariffModalHotel) : (tariffModalHotel.includes("cumbria") ? "cumbria" : "guadiana");
         if (!updatedCatalog[yKey]) updatedCatalog[yKey] = {};
         updatedCatalog[yKey][hKey] = editingTariffs;
         setTariffsCatalog(updatedCatalog);
         try {
           localStorage.setItem("nexus_group_tariffs", JSON.stringify(updatedCatalog));
         } catch(e) {}
+
+        // Persistir en Firestore en settings/groupTariffs para todos los usuarios y pestañas
+        if (window.db && typeof window.db.collection === "function") {
+          window.db.collection("settings").doc("groupTariffs").set(updatedCatalog, { merge: true })
+            .catch(err => console.warn("Error guardando groupTariffs en Firestore:", err));
+        }
+
+        // Sincronizar desgloses oficiales con boardPricingConfig
+        if (editingTariffs._desglose) {
+          const hotelFullName = tariffModalHotel === "guadiana" ? "Sercotel Guadiana" : "Cumbria Spa&Hotel";
+          const newBoardPricing = {
+            ...boardPricingConfig,
+            [hotelFullName]: {
+              breakfast: Number(editingTariffs._desglose.breakfast) || 8.5,
+              meal: Number(editingTariffs._desglose.lunch || editingTariffs._desglose.meal) || 19.5,
+            }
+          };
+          setBoardPricingConfig(newBoardPricing);
+          try {
+            window.NexusUtils?.safeStorage?.setItem("boardPricingConfig", JSON.stringify(newBoardPricing));
+            if (window.db && typeof window.db.collection === "function") {
+              window.db.collection("settings").doc("boardPricing").set(newBoardPricing, { merge: true });
+            }
+          } catch(e) {}
+        }
+
         setShowTariffModal(false);
-        showToast("Tarifas guardadas correctamente para " + (tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria") + " " + tariffModalYear);
+        showToast("Tarifas y desgloses guardados correctamente para " + (tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria") + " " + tariffModalYear);
       };
 
       const handleResetDefault2027 = () => {
@@ -1906,6 +1974,106 @@
                         ))}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* SECCIÓN DESGLOSE DE MANUTENCIÓN Y PENSIONES (Establecer desgloses por hotel y año) */}
+                  <div className="p-5 bg-amber-50/60 rounded-2xl border border-amber-200/80 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">🍽️</span>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">
+                            Desglose Oficial de Manutención y Pensiones (€ / pax / día)
+                          </h4>
+                        </div>
+                        <p className="text-[11px] text-amber-700/80 mt-0.5">
+                          Valores de manutención aplicados al cálculo de comisiones netas de alojamiento, costes y presupuestos para {tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ({tariffModalYear}).
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full border border-amber-200">
+                        Por persona / día
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                      <div className="bg-white p-3 rounded-xl border border-amber-200 shadow-sm flex items-center justify-between gap-3">
+                        <div>
+                          <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">☕ Desayuno</span>
+                          <span className="text-[10px] text-slate-500 font-medium">Incluido en HD, MP, PC</span>
+                        </div>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={editingTariffs._desglose?.breakfast !== undefined ? editingTariffs._desglose.breakfast : 8.5}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? "" : parseFloat(e.target.value);
+                              setEditingTariffs(prev => ({
+                                ...prev,
+                                _desglose: {
+                                  ...(prev._desglose || {}),
+                                  breakfast: val
+                                }
+                              }));
+                            }}
+                            className="w-full bg-amber-50/40 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-black text-slate-800 text-right pr-5 outline-none transition"
+                          />
+                          <span className="absolute right-2 top-1 text-xs font-bold text-slate-400">€</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-amber-200 shadow-sm flex items-center justify-between gap-3">
+                        <div>
+                          <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">🥗 Almuerzo</span>
+                          <span className="text-[10px] text-slate-500 font-medium">Incluido en MP, PC</span>
+                        </div>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={editingTariffs._desglose?.lunch !== undefined ? editingTariffs._desglose.lunch : 19.5}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? "" : parseFloat(e.target.value);
+                              setEditingTariffs(prev => ({
+                                ...prev,
+                                _desglose: {
+                                  ...(prev._desglose || {}),
+                                  lunch: val
+                                }
+                              }));
+                            }}
+                            className="w-full bg-amber-50/40 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-black text-slate-800 text-right pr-5 outline-none transition"
+                          />
+                          <span className="absolute right-2 top-1 text-xs font-bold text-slate-400">€</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-amber-200 shadow-sm flex items-center justify-between gap-3">
+                        <div>
+                          <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">🌙 Cena</span>
+                          <span className="text-[10px] text-slate-500 font-medium">Incluido en PC</span>
+                        </div>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={editingTariffs._desglose?.dinner !== undefined ? editingTariffs._desglose.dinner : 19.5}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? "" : parseFloat(e.target.value);
+                              setEditingTariffs(prev => ({
+                                ...prev,
+                                _desglose: {
+                                  ...(prev._desglose || {}),
+                                  dinner: val
+                                }
+                              }));
+                            }}
+                            className="w-full bg-amber-50/40 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-black text-slate-800 text-right pr-5 outline-none transition"
+                          />
+                          <span className="absolute right-2 top-1 text-xs font-bold text-slate-400">€</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

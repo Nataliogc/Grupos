@@ -10,6 +10,12 @@
       "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
     };
 
+    const getRoomTypesForHotel = (hotelName) => {
+      const s = String(hotelName || "").toLowerCase();
+      if (s.includes("cumbria")) return ROOM_TYPES["Cumbria Spa&Hotel"];
+      return ROOM_TYPES["Sercotel Guadiana"];
+    };
+
     const BOARD_TYPES = [
       "SA (Solo Alojamiento)",
       "AD (Alojamiento y Desayuno)",
@@ -97,7 +103,7 @@
       }
 
       const grid = {};
-      const rooms = ROOM_TYPES[hotelName] || ROOM_TYPES["Sercotel Guadiana"];
+      const rooms = getRoomTypesForHotel(hotelName);
       ["SA", "AD", "MP", "PC"].forEach(bKey => {
         const gtsCode = BOARD_CODE_MAP[bKey] || bKey;
         grid[bKey] = {};
@@ -1286,25 +1292,29 @@
             }
 
             const currentBoard = dayConf.board || formData["Régimen"] || 'AD (Alojamiento y Desayuno)';
-            const boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
+            const boardKey = currentBoard.split(' ')[0]; // e.g. "AD", "PC"
+            const roomTypes = getRoomTypesForHotel(formData.Hotel_Asignado);
+            const parsedY = date ? new Date(toInputDate(date)).getFullYear() : (formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027);
+            const targetY = isNaN(parsedY) ? 2027 : parsedY;
+            const officialGrid = getOfficialTariffsGrid(formData.Hotel_Asignado, targetY);
+            const boardPrices = (grid && grid[boardKey]) || officialGrid[boardKey] || {};
 
-            if (grid[boardKey]) {
-              const roomTypes = ROOM_TYPES[formData.Hotel_Asignado] || [];
-              const updatedPrices = { ...(dayConf.prices || {}) };
-              roomTypes.forEach(room => {
-                const gridPrice = grid[boardKey][room];
-                if (gridPrice !== undefined && gridPrice !== '') {
-                  const numVal = Number(gridPrice);
-                  if (updatedPrices[room] !== numVal) {
-                    updatedPrices[room] = numVal;
-                    changed = true;
-                  }
+            const updatedPrices = { ...(dayConf.prices || {}) };
+            roomTypes.forEach(room => {
+              const p = boardPrices[room] !== undefined && boardPrices[room] !== '' 
+                ? boardPrices[room] 
+                : (officialGrid[boardKey] ? officialGrid[boardKey][room] : null);
+              if (p !== null && p !== undefined && p !== '') {
+                const numVal = Number(p);
+                if (updatedPrices[room] !== numVal) {
+                  updatedPrices[room] = numVal;
+                  changed = true;
                 }
-              });
-              if (JSON.stringify(dayConf.prices) !== JSON.stringify(updatedPrices)) {
-                dayConf.prices = updatedPrices;
-                changed = true;
               }
+            });
+            if (JSON.stringify(dayConf.prices) !== JSON.stringify(updatedPrices)) {
+              dayConf.prices = updatedPrices;
+              changed = true;
             }
           });
 
@@ -1437,7 +1447,7 @@
       const handleRoomCountChange = (type, value) => {
         const newRoomCounts = { ...(formData.roomCounts || {}), [type]: Number(value) };
         // Auto-calcular PAX total (solo para los tipos válidos del hotel actual)
-        const currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || ROOM_TYPES['Sercotel Guadiana'];
+        const currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
         const totalPax = Object.entries(newRoomCounts).reduce((sum, [roomType, count]) => {
           if (currentRooms.includes(roomType)) {
             return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
@@ -1462,20 +1472,26 @@
           } else {
             newDailyConfig[date][field] = value;
             
-            // Auto-fill prices from ratesOnlyGrid if board type (regime) changes
-            if (field === 'board' && prev.ratesOnlyGrid) {
-              const boardKey = value.split(' ')[0]; // e.g. "AD"
-              if (prev.ratesOnlyGrid[boardKey]) {
-                const roomTypes = ROOM_TYPES[prev.Hotel_Asignado] || [];
-                const updatedPrices = { ...(newDailyConfig[date].prices || {}) };
-                roomTypes.forEach(room => {
-                  const gridPrice = prev.ratesOnlyGrid[boardKey][room];
-                  if (gridPrice !== undefined && gridPrice !== '') {
-                    updatedPrices[room] = Number(gridPrice);
-                  }
-                });
-                newDailyConfig[date].prices = updatedPrices;
-              }
+            // Auto-fill prices from ratesOnlyGrid or official tariffs when regime changes
+            if (field === 'board') {
+              const boardKey = value.split(' ')[0]; // e.g. "PC", "AD"
+              const hotel = prev.Hotel_Asignado || 'Sercotel Guadiana';
+              const roomTypes = getRoomTypesForHotel(hotel);
+              const parsedY = date ? new Date(toInputDate(date)).getFullYear() : (prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2027);
+              const targetY = isNaN(parsedY) ? 2027 : parsedY;
+              const officialGrid = getOfficialTariffsGrid(hotel, targetY);
+              const boardPrices = (prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey]) || officialGrid[boardKey] || {};
+
+              const updatedPrices = { ...(newDailyConfig[date].prices || {}) };
+              roomTypes.forEach(room => {
+                const p = boardPrices[room] !== undefined && boardPrices[room] !== '' 
+                  ? boardPrices[room] 
+                  : (officialGrid[boardKey] ? officialGrid[boardKey][room] : null);
+                if (p !== null && p !== undefined && p !== '') {
+                  updatedPrices[room] = Number(p);
+                }
+              });
+              newDailyConfig[date].prices = updatedPrices;
             }
           }
           return { ...prev, dailyConfig: newDailyConfig };
@@ -1496,7 +1512,7 @@
           const boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
 
           if (grid[boardKey]) {
-            const roomTypes = ROOM_TYPES[formData.Hotel_Asignado] || [];
+            const roomTypes = getRoomTypesForHotel(formData.Hotel_Asignado);
             const updatedPrices = { ...(dayConf.prices || {}) };
             roomTypes.forEach(room => {
               const gridPrice = grid[boardKey][room];
@@ -1528,6 +1544,7 @@
         const parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
         const validYear = isNaN(parsedY) ? 2027 : parsedY;
         const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+        const roomTypes = getRoomTypesForHotel(hotel);
         const officialGrid = getOfficialTariffsGrid(hotel, validYear);
 
         const mergedGrid = { ...(formData.ratesOnlyGrid || {}) };
@@ -1537,7 +1554,6 @@
 
         const stayDates = getCurrentStayDates(formData);
         const newDailyConfig = { ...(formData.dailyConfig || {}) };
-        const roomTypes = ROOM_TYPES[hotel] || ROOM_TYPES['Sercotel Guadiana'];
 
         stayDates.forEach(date => {
           if (!newDailyConfig[date]) {
@@ -1546,12 +1562,15 @@
           const dayConf = newDailyConfig[date];
           const currentBoard = dayConf.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
           const boardKey = currentBoard.split(' ')[0];
-          const pricesForBoard = mergedGrid[boardKey] || {};
+          const pricesForBoard = mergedGrid[boardKey] || officialGrid[boardKey] || {};
 
           const updatedPrices = { ...(dayConf.prices || {}) };
           roomTypes.forEach(rt => {
-            if (pricesForBoard[rt] !== undefined && pricesForBoard[rt] !== null && pricesForBoard[rt] !== '') {
-              updatedPrices[rt] = Number(pricesForBoard[rt]);
+            const p = pricesForBoard[rt] !== undefined && pricesForBoard[rt] !== '' 
+              ? pricesForBoard[rt] 
+              : (officialGrid[boardKey] ? officialGrid[boardKey][rt] : null);
+            if (p !== null && p !== undefined && p !== '') {
+              updatedPrices[rt] = Number(p);
             }
           });
           dayConf.prices = updatedPrices;
@@ -2448,7 +2467,7 @@ ${emailContent}`;
 
     const renderCreate = () => {
         const stayDates = getCurrentStayDates(formData);
-        const currentRooms = ROOM_TYPES[formData.Hotel_Asignado] || [];
+        const currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
 
         return (
           <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
