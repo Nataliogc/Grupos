@@ -32,11 +32,43 @@
   var REGIMEN_TYPES = ["HA", "HD", "MP", "PC"];
 
   var SCENARIOS = {
-    CONSERVADOR: "conservador",
     BASE: "base",
+    CONSERVADOR: "conservador",
+    RECOMENDADO: "recomendado",
     AMBICIOSO: "ambicioso",
     PERSONALIZADO: "personalizado"
   };
+
+  var SCENARIO_DEFAULTS = {
+    base: { label: "Histórico Base", growthPercent: 0, icon: "🏛️", desc: "Mantiene producción del año base (0%)" },
+    conservador: { label: "Conservador", growthPercent: 3, icon: "🛡️", desc: "Crecimiento prudente (+3%)" },
+    recomendado: { label: "Recomendado", growthPercent: 7, icon: "⭐", desc: "Equilibrado y optimizado (+7%)" },
+    ambicioso: { label: "Ambicioso", growthPercent: 12, icon: "🚀", desc: "Alta demanda y captación (+12%)" },
+    personalizado: { label: "Manual", growthPercent: 0, icon: "✏️", desc: "Ajuste manual libre por porcentaje o mensual" }
+  };
+
+  /**
+   * Redondea un precio según la regla especificada:
+   * - "none": sin redondeo (2 decimales)
+   * - "0.50": redondea a 0,50 € más cercano
+   * - "1.00" / "integer": redondea al euro entero más cercano
+   * - "5.00": redondea a múltiplos de 5 €
+   */
+  function roundPrice(price, rounding) {
+    if (price === null || price === undefined || isNaN(price)) return price;
+    var r = String(rounding || "none").toLowerCase().trim();
+    var p = Number(price);
+    if (r === "0.5" || r === "0.50") {
+      return Math.round(p * 2) / 2;
+    }
+    if (r === "1" || r === "1.00" || r === "integer" || r === "entero") {
+      return Math.round(p);
+    }
+    if (r === "5" || r === "5.00") {
+      return Math.round(p / 5) * 5;
+    }
+    return Math.round(p * 100) / 100;
+  }
 
   // Tarifas Oficiales 2027 (Requisito 26)
   // Cumbria Spa & Hotel no dispone de cuádruples (null)
@@ -180,7 +212,7 @@
         if (fixedIncrease !== 0) {
           price = price + fixedIncrease;
         }
-        newTariffs[reg][cat] = Math.round(price * 100) / 100;
+        newTariffs[reg][cat] = roundPrice(price, options.rounding);
       }
     }
 
@@ -529,26 +561,61 @@
       // Calcular ingresos previstos con tarifas (Req 27)
       var revCalc = calculateTargetRevenue(targetMatrix, tariffs);
 
+      // Override manual si existe para este mes
+      var monthRev = revCalc.totalRevenue;
+      var monthRN = tRoomNights;
+      var monthPax = tPax;
+      var isManual = false;
+
+      if (options.manualOverrides && options.manualOverrides[m]) {
+        var mo = options.manualOverrides[m];
+        if (mo.targetRevenue !== undefined && mo.targetRevenue !== null && !isNaN(Number(mo.targetRevenue))) {
+          monthRev = Math.round(Number(mo.targetRevenue) * 100) / 100;
+          isManual = true;
+        }
+        if (mo.targetRoomNights !== undefined && mo.targetRoomNights !== null && !isNaN(Number(mo.targetRoomNights))) {
+          monthRN = Math.round(Number(mo.targetRoomNights));
+          isManual = true;
+        }
+        if (mo.targetPax !== undefined && mo.targetPax !== null && !isNaN(Number(mo.targetPax))) {
+          monthPax = Math.round(Number(mo.targetPax));
+          isManual = true;
+        }
+      }
+
+      // Opciones de redondeo de ingresos si se requiere
+      if (options.revenueRounding) {
+        var rr = String(options.revenueRounding).toLowerCase();
+        if (rr === "integer" || rr === "1" || rr === "entero") {
+          monthRev = Math.round(monthRev);
+        } else if (rr === "100") {
+          monthRev = Math.round(monthRev / 100) * 100;
+        } else if (rr === "1000") {
+          monthRev = Math.round(monthRev / 1000) * 1000;
+        }
+      }
+
       targetMonthly[m] = {
         month: m,
         targetReservas: tReservas,
-        targetPax: tPax,
-        targetPernoctaciones: tPernoctaciones,
-        targetRoomNights: tRoomNights,
-        targetRevenue: revCalc.totalRevenue,
+        targetPax: monthPax,
+        targetPernoctaciones: monthPax,
+        targetRoomNights: monthRN,
+        targetRevenue: monthRev,
         byCategory: tByCat,
         byRegimen: tByReg,
         regimenCategoryMatrix: targetMatrix,
         revenueByRegimen: revCalc.byRegimen,
         revenueByCategory: revCalc.byCategory,
-        isProvisional: !!h.isProvisional || !!h.hasProvisionalData
+        isProvisional: !!h.isProvisional || !!h.hasProvisionalData,
+        isManualOverride: isManual
       };
 
       overallTarget.targetReservas += tReservas;
-      overallTarget.targetPax += tPax;
-      overallTarget.targetPernoctaciones += tPernoctaciones;
-      overallTarget.targetRoomNights += tRoomNights;
-      overallTarget.targetRevenue = Math.round((overallTarget.targetRevenue + revCalc.totalRevenue) * 100) / 100;
+      overallTarget.targetPax += monthPax;
+      overallTarget.targetPernoctaciones += monthPax;
+      overallTarget.targetRoomNights += monthRN;
+      overallTarget.targetRevenue = Math.round((overallTarget.targetRevenue + monthRev) * 100) / 100;
 
       for (var cat in tByCat) {
         overallTarget.byCategory[cat] += tByCat[cat];
@@ -764,7 +831,10 @@
   /**
    * Genera el documento estructurado para persistencia en Firestore
    */
-  function prepareTargetDocumentForSave(targetData, userEmail) {
+  function prepareTargetDocumentForSave(targetData, userEmail, options) {
+    options = options || {};
+    var isOfficial = options.isOfficial !== undefined ? !!options.isOfficial : true;
+    var manualOverrides = options.manualOverrides || targetData.manualOverrides || null;
     return {
       hotel: targetData.hotel,
       targetYear: targetData.targetYear,
@@ -776,7 +846,11 @@
       tariffsVersion: targetData.tariffsUsed ? "v_" + targetData.targetYear : "default",
       updatedAt: new Date().toISOString(),
       updatedBy: userEmail || "system",
-      status: targetData.overall && targetData.overall.isProvisional ? "Provisional" : "Definitivo"
+      status: targetData.overall && targetData.overall.isProvisional ? "Provisional" : "Definitivo",
+      isOfficial: isOfficial,
+      officialSavedAt: isOfficial ? (options.officialSavedAt || new Date().toISOString()) : null,
+      officialSavedBy: isOfficial ? (options.officialSavedBy || userEmail || "Dirección Comercial") : null,
+      manualOverrides: manualOverrides
     };
   }
 
@@ -788,8 +862,10 @@
     ROOM_CATEGORIES: ROOM_CATEGORIES,
     REGIMEN_TYPES: REGIMEN_TYPES,
     SCENARIOS: SCENARIOS,
+    SCENARIO_DEFAULTS: SCENARIO_DEFAULTS,
     FIRESTORE_COLLECTIONS: FIRESTORE_COLLECTIONS,
 
+    roundPrice: roundPrice,
     normalizeHotelKey: normalizeHotelKey,
     calculatePricePerPerson: calculatePricePerPerson,
     enrichTariffsWithPricePerPerson: enrichTariffsWithPricePerPerson,

@@ -476,12 +476,118 @@
 
               >
 
-                <IconPlus className="w-4 h-4" />
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col gap-6">
 
-                Nuevo
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
 
-              </button>
+              <div>
 
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+
+                  Seguimiento de Cotizaciones
+
+                </h2>
+
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+
+                  Control comercial y conversión de leads
+
+                </p>
+
+              </div>
+
+              <div className="flex flex-wrap gap-3 w-full md:w-auto">
+
+                <div className="relative flex-1 md:w-64">
+
+                  <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+
+                  <DebouncedSearchInput
+                    placeholder="Buscar presupuesto..."
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-indigo-500 transition-all font-medium"
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                  />
+
+                </div>
+
+                <select
+
+                  value={statusFilter}
+
+                  onChange={(e) => setStatusFilter(e.target.value)}
+
+                  className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:border-indigo-500 text-slate-600"
+
+                >
+
+                  <option value="TODOS">Todos los Estados</option>
+
+                  <option value="PENDIENTE">Pendientes</option>
+
+                  <option value="ENVIADO">Enviados</option>
+
+                  <option value="SEGUIMIENTO">En Seguimiento</option>
+
+                </select>
+
+                <button
+
+                  onClick={() => (window.location.href = "AltaEmail.html")}
+
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-indigo-700 transition-all text-xs uppercase tracking-widest shadow-lg shadow-indigo-100"
+
+                >
+
+                  <IconPlus className="w-4 h-4" />
+
+                  Nuevo
+
+                </button>
+
+              </div>
+
+            </div>
+
+            {/* TARJETAS DE ESCENARIO */}
+            <div className="pt-4">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Escenario de Objetivo
+                {isOfficial && !isUnlocked && (
+                  <span className="ml-2 text-amber-600 font-normal normal-case">🔒 Bloqueado — desbloquea para cambiar escenario</span>
+                )}
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {[
+                  { key: "base",          icon: "🏛️", label: "Base",        pct: "+0%",   desc: "Igual que año base",       color: "slate"  },
+                  { key: "conservador",   icon: "🛡️", label: "Conservador", pct: "+3%",   desc: "Crecimiento prudente",     color: "sky"    },
+                  { key: "recomendado",   icon: "⭐",  label: "Recomendado", pct: "+7%",   desc: "Objetivo equilibrado",     color: "indigo" },
+                  { key: "ambicioso",     icon: "🚀",  label: "Ambicioso",   pct: "+12%",  desc: "Máximo crecimiento",       color: "purple" },
+                  { key: "personalizado", icon: "✏️",  label: "Manual",      pct: "libre", desc: "Define tu % mensualmente", color: "amber"  }
+                ].map(sc => {
+                  const isActive = scenario === sc.key;
+                  const colorMap = {
+                    slate:  { active: "border-slate-500 bg-slate-50 text-slate-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-slate-400" },
+                    sky:    { active: "border-sky-500 bg-sky-50 text-sky-900",          inactive: "border-slate-200 bg-white text-slate-500 hover:border-sky-400" },
+                    indigo: { active: "border-indigo-500 bg-indigo-50 text-indigo-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-indigo-400" },
+                    purple: { active: "border-purple-500 bg-purple-50 text-purple-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-purple-400" },
+                    amber:  { active: "border-amber-500 bg-amber-50 text-amber-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-amber-400" }
+                  };
+                  const cls = colorMap[sc.color][isActive ? "active" : "inactive"];
+                  return (
+                    <button
+                      key={sc.key}
+                      onClick={() => handleSelectScenario(sc.key)}
+                      className={"rounded-xl border-2 p-3 text-left transition flex flex-col gap-0.5 " + cls + (isOfficial && !isUnlocked ? " opacity-60 cursor-not-allowed" : " cursor-pointer")}
+                    >
+                      <span className="text-base leading-none">{sc.icon}</span>
+                      <span className="text-[11px] font-black mt-1 block">{sc.label}</span>
+                      <span className={"text-[13px] font-black " + (isActive ? "" : "text-slate-400")}>{sc.pct}</span>
+                      <span className="text-[9px] font-semibold mt-0.5 opacity-70 leading-tight">{sc.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
           </div>
@@ -669,6 +775,16 @@
       const [scenario, setScenario] = useState("base");
       const [growthPercent, setGrowthPercent] = useState(0); // 0% por defecto (Req 25)
 
+      // Estados de Presupuesto Oficial y Seguridad (Clave 1234)
+      const [isOfficial, setIsOfficial] = useState(false);
+      const [isUnlocked, setIsUnlocked] = useState(false);
+      const [officialDoc, setOfficialDoc] = useState(null);
+      const [showPinModal, setShowPinModal] = useState(false);
+      const [pinInput, setPinInput] = useState("");
+      const [pinError, setPinError] = useState(null);
+      const [manualMonthOverrides, setManualMonthOverrides] = useState({});
+      const [isManualEditMode, setIsManualEditMode] = useState(false);
+
       const [activeSubView, setActiveSubView] = useState("monthly"); // 'monthly' | 'regimen' | 'category'
       const [showTariffModal, setShowTariffModal] = useState(false);
       const [tariffModalHotel, setTariffModalHotel] = useState("guadiana");
@@ -676,6 +792,7 @@
       const [copySourceYear, setCopySourceYear] = useState(2027);
       const [copyPercent, setCopyPercent] = useState(0);
       const [copyFixed, setCopyFixed] = useState(0);
+      const [copyRounding, setCopyRounding] = useState("none");
       const [showCancelledModal, setShowCancelledModal] = useState(false);
       const [toastMsg, setToastMsg] = useState(null);
 
@@ -695,6 +812,53 @@
         setToastMsg(msg);
         setTimeout(() => setToastMsg(null), 4000);
       };
+
+      // Carga y verificación automática de Presupuesto Oficial al cambiar hotel o año
+      useEffect(() => {
+        const docKey = "nexus_target_" + targetHotel + "_" + targetYear;
+        let localData = null;
+        try {
+          const raw = localStorage.getItem(docKey);
+          if (raw) localData = JSON.parse(raw);
+        } catch(e) {}
+
+        const applyTargetDoc = (doc) => {
+          if (doc && doc.isOfficial) {
+            setOfficialDoc(doc);
+            setIsOfficial(true);
+            setIsUnlocked(false);
+            if (doc.scenario) setScenario(doc.scenario);
+            if (typeof doc.growthPercent === "number") setGrowthPercent(doc.growthPercent);
+            if (doc.manualOverrides) setManualMonthOverrides(doc.manualOverrides);
+            else setManualMonthOverrides({});
+          } else {
+            setOfficialDoc(null);
+            setIsOfficial(false);
+            setIsUnlocked(true); // Libre para simular en años sin presupuesto
+            setManualMonthOverrides({});
+          }
+        };
+
+        applyTargetDoc(localData);
+
+        if (window.db && typeof window.db.collection === "function") {
+          window.db.collection("groupTargets").doc(targetHotel + "_" + targetYear).get()
+            .then(snap => {
+              if (snap.exists) {
+                const fsData = snap.data();
+                if (fsData) {
+                  applyTargetDoc(fsData);
+                  try {
+                    localStorage.setItem(docKey, JSON.stringify(fsData));
+                  } catch(e) {}
+                }
+              } else if (!localData) {
+                applyTargetDoc(null);
+              }
+            })
+            .catch(err => console.warn("Error cargando groupTargets desde Firestore:", err));
+        }
+      }, [targetHotel, targetYear]);
 
       // 1. Agregación histórica base (Req 23)
       const histData = useMemo(() => {
@@ -720,9 +884,10 @@
           baseYear: baseYear,
           scenario: scenario,
           growthPercent: Number(growthPercent) || 0,
-          tariffs: currentTariffs
+          tariffs: currentTariffs,
+          manualOverrides: manualMonthOverrides
         });
-      }, [histData, targetHotel, targetYear, baseYear, scenario, growthPercent, currentTariffs]);
+      }, [histData, targetHotel, targetYear, baseYear, scenario, growthPercent, currentTariffs, manualMonthOverrides]);
 
       // 4. Datos reales del año objetivo (si existen)
       const realDataTargetYear = useMemo(() => {
@@ -801,26 +966,103 @@
         const copied = gts.copyTariffsWithAdjustment(src, {
           percentIncrease: Number(copyPercent) || 0,
           fixedIncrease: Number(copyFixed) || 0,
-          targetHotel: tariffModalHotel
+          targetHotel: tariffModalHotel,
+          rounding: copyRounding
         });
         setEditingTariffs(copied);
-        showToast("Tarifas copiadas desde " + copySourceYear + " con ajuste aplicado.");
+        showToast("Tarifas copiadas desde " + copySourceYear + " con ajuste y redondeo aplicado.");
       };
 
-      const handleSaveTarget = () => {
+      const handleRoundCurrentTariffs = (roundingType) => {
+        if (!editingTariffs || !gts) return;
+        const updated = JSON.parse(JSON.stringify(editingTariffs));
+        for (const reg in updated) {
+          for (const cat in updated[reg]) {
+            if (updated[reg][cat] !== null && updated[reg][cat] !== undefined) {
+              updated[reg][cat] = gts.roundPrice(updated[reg][cat], roundingType);
+            }
+          }
+        }
+        setEditingTariffs(updated);
+        showToast("Tarifas redondeadas a " + (roundingType === "0.50" ? "0,50 €" : roundingType === "1.00" ? "1 € entero" : "5 €"));
+      };
+
+      // Guardar Presupuesto Oficial
+      const handleSaveOfficialTarget = () => {
         if (!gts || !generatedTarget) return;
         try {
-          const doc = gts.prepareTargetDocumentForSave(generatedTarget, "Usuario Actual");
+          const doc = gts.prepareTargetDocumentForSave(generatedTarget, "Dirección Comercial", {
+            isOfficial: true,
+            officialSavedAt: new Date().toISOString(),
+            officialSavedBy: "Dirección Comercial",
+            manualOverrides: manualMonthOverrides
+          });
           const key = "nexus_target_" + targetHotel + "_" + targetYear;
           localStorage.setItem(key, JSON.stringify(doc));
           if (window.db && typeof window.db.collection === "function") {
             window.db.collection("groupTargets").doc(targetHotel + "_" + targetYear).set(doc, { merge: true })
               .catch(err => console.warn("Error guardando en Firestore groupTargets:", err));
           }
-          showToast("Objetivo de " + (targetHotel === "guadiana" ? "Guadiana" : "Cumbria") + " " + targetYear + " guardado con éxito.");
+          setOfficialDoc(doc);
+          setIsOfficial(true);
+          setIsUnlocked(false);
+          showToast("🔒 Presupuesto Oficial " + targetYear + " grabado y bloqueado con éxito.");
         } catch(err) {
-          showToast("Error al guardar el objetivo: " + err.message);
+          showToast("Error al guardar el presupuesto: " + err.message);
         }
+      };
+
+      // Desbloqueo mediante Clave 1234
+      const handleVerifyPin = (e) => {
+        if (e) e.preventDefault();
+        if (pinInput.trim() === "1234") {
+          setIsUnlocked(true);
+          setShowPinModal(false);
+          setPinInput("");
+          setPinError(null);
+          showToast("🔓 Presupuesto Oficial desbloqueado para modificación.");
+        } else {
+          setPinError("Clave incorrecta. Solo autorizada con clave 1234.");
+        }
+      };
+
+      const handleRelockBudget = () => {
+        setIsUnlocked(false);
+        showToast("🔒 Presupuesto Oficial vuelto a bloquear.");
+      };
+
+      // Selección rápida de escenario
+      const handleSelectScenario = (scenKey) => {
+        if (isOfficial && !isUnlocked) {
+          setShowPinModal(true);
+          setPinError("El presupuesto oficial está bloqueado. Introduzca la clave 1234 para modificar el escenario.");
+          return;
+        }
+        setScenario(scenKey);
+        if (scenKey === "base") setGrowthPercent(0);
+        else if (scenKey === "conservador") setGrowthPercent(3);
+        else if (scenKey === "recomendado") setGrowthPercent(7);
+        else if (scenKey === "ambicioso") setGrowthPercent(12);
+        else if (scenKey === "personalizado") setIsManualEditMode(true);
+      };
+
+      // Ajustes mensuales manuales
+      const handleMonthOverrideChange = (m, field, value) => {
+        if (isOfficial && !isUnlocked) return;
+        const val = value === "" ? null : parseFloat(value);
+        setManualMonthOverrides(prev => ({
+          ...prev,
+          [m]: {
+            ...(prev[m] || {}),
+            [field]: isNaN(val) ? null : val
+          }
+        }));
+      };
+
+      const handleClearManualOverrides = () => {
+        if (isOfficial && !isUnlocked) return;
+        setManualMonthOverrides({});
+        showToast("Ajustes manuales restablecidos a valores calculados.");
       };
 
       const monthNames = [
@@ -859,6 +1101,18 @@
 
               {/* ACCIONES PRINCIPALES */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* Badge de Presupuesto Oficial */}
+                {isOfficial && (
+                  <span className={"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border " + (isUnlocked ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-emerald-50 text-emerald-800 border-emerald-200")}>
+                    {isUnlocked ? "🔓 Desbloqueado para edición" : "🔒 Presupuesto Oficial"}
+                    {officialDoc && officialDoc.officialSavedAt && (
+                      <span className="font-normal text-[10px] opacity-70">
+                        · {new Date(officialDoc.officialSavedAt).toLocaleDateString("es-ES")}
+                      </span>
+                    )}
+                  </span>
+                )}
+
                 <button
                   onClick={() => openTariffModal(targetHotel, targetYear)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-slate-200"
@@ -873,17 +1127,37 @@
                   <span>🚫</span> Anuladas ({histData.cancelled.count})
                 </button>
 
-                <button
-                  onClick={handleSaveTarget}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition flex items-center gap-2"
-                >
-                  <span>💾</span> Guardar Objetivo
-                </button>
+                {/* Botón principal de guardado según estado */}
+                {isOfficial && !isUnlocked ? (
+                  <button
+                    onClick={() => { setShowPinModal(true); setPinError(null); setPinInput(""); }}
+                    className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2"
+                  >
+                    <span>🔑</span> Desbloquear (Clave)
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleSaveOfficialTarget}
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition flex items-center gap-2"
+                    >
+                      <span>💾</span> Grabar Presupuesto Oficial
+                    </button>
+                    {isOfficial && isUnlocked && (
+                      <button
+                        onClick={handleRelockBudget}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2"
+                      >
+                        <span>🔒</span> Volver a Bloquear
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
             {/* SELECTORES DE CONFIGURACIÓN DEL OBJETIVO */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
               {/* Hotel */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -933,28 +1207,6 @@
                 </select>
               </div>
 
-              {/* Escenario */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Escenario
-                </label>
-                <select
-                  value={scenario}
-                  onChange={(e) => {
-                    const s = e.target.value;
-                    setScenario(s);
-                    if (s === "conservador" && growthPercent > 0) setGrowthPercent(0);
-                    else if (s === "ambicioso" && growthPercent === 0) setGrowthPercent(5);
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                >
-                  <option value="base">Base</option>
-                  <option value="conservador">Conservador (0%)</option>
-                  <option value="ambicioso">Ambicioso (+5%)</option>
-                  <option value="personalizado">Personalizado</option>
-                </select>
-              </div>
-
               {/* % Incremento propuesto */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -985,6 +1237,47 @@
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* TARJETAS DE ESCENARIO */}
+            <div className="pt-4">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Escenario de Objetivo
+                {isOfficial && !isUnlocked && (
+                  <span className="ml-2 text-amber-600 font-normal normal-case">🔒 Bloqueado — desbloquea para cambiar escenario</span>
+                )}
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {[
+                  { key: "base",          icon: "🏛️", label: "Base",        pct: "+0%",   desc: "Igual que año base",       color: "slate"  },
+                  { key: "conservador",   icon: "🛡️", label: "Conservador", pct: "+3%",   desc: "Crecimiento prudente",     color: "sky"    },
+                  { key: "recomendado",   icon: "⭐",  label: "Recomendado", pct: "+7%",   desc: "Objetivo equilibrado",     color: "indigo" },
+                  { key: "ambicioso",     icon: "🚀",  label: "Ambicioso",   pct: "+12%",  desc: "Máximo crecimiento",       color: "purple" },
+                  { key: "personalizado", icon: "✏️",  label: "Manual",      pct: "libre", desc: "Define tu % mensualmente", color: "amber"  }
+                ].map(sc => {
+                  const isActive = scenario === sc.key;
+                  const colorMap = {
+                    slate:  { active: "border-slate-500 bg-slate-50 text-slate-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-slate-400" },
+                    sky:    { active: "border-sky-500 bg-sky-50 text-sky-900",          inactive: "border-slate-200 bg-white text-slate-500 hover:border-sky-400" },
+                    indigo: { active: "border-indigo-500 bg-indigo-50 text-indigo-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-indigo-400" },
+                    purple: { active: "border-purple-500 bg-purple-50 text-purple-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-purple-400" },
+                    amber:  { active: "border-amber-500 bg-amber-50 text-amber-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-amber-400" }
+                  };
+                  const cls = colorMap[sc.color][isActive ? "active" : "inactive"];
+                  return (
+                    <button
+                      key={sc.key}
+                      onClick={() => handleSelectScenario(sc.key)}
+                      className={"rounded-xl border-2 p-3 text-left transition flex flex-col gap-0.5 " + cls + (isOfficial && !isUnlocked ? " opacity-60 cursor-not-allowed" : " cursor-pointer")}
+                    >
+                      <span className="text-base leading-none">{sc.icon}</span>
+                      <span className="text-[11px] font-black mt-1 block">{sc.label}</span>
+                      <span className={"text-[13px] font-black " + (isActive ? "" : "text-slate-400")}>{sc.pct}</span>
+                      <span className="text-[9px] font-semibold mt-0.5 opacity-70 leading-tight">{sc.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
