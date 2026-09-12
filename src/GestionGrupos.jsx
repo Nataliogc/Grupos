@@ -86,6 +86,18 @@
 
     const formatNum = NexusUtils.formatNum;
 
+    const formatCurrency = (val, maxDecimals = 2) => {
+      if (window.NexusUtils && window.NexusUtils.formatCurrency && maxDecimals === 2) {
+        return window.NexusUtils.formatCurrency(val);
+      }
+      return new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: maxDecimals === 0 ? 0 : 2,
+        maximumFractionDigits: maxDecimals,
+      }).format(Number(val) || 0);
+    };
+
     // Helpers para ocupación máxima y habitaciones simultáneas
     const parseLocalDate = (dStr) => {
       if (!dStr) return null;
@@ -1551,6 +1563,8 @@
 
       const authorizingIds = useRef(new Set()); // Para evitar que onSnapshot restaure diffs en proceso de guardado
       const deepLinkProcessedRef = useRef(null); // Guarda el ID del deep-link ya procesado para evitar bucles de re-ejecución
+      const [highlightSyncCharges, setHighlightSyncCharges] = useState(false);
+      const syncChargesRef = useRef(null);
 
 
 
@@ -6704,7 +6718,7 @@
 
               ...groupOrRow,
 
-              name: groupName,
+              name: groupOrRow["Nombre del Grupo"] || groupOrRow.name || "Grupo",
 
               records: [groupOrRow],
 
@@ -11405,7 +11419,7 @@
                           return (
                             <tr
                               key={group.id || idx}
-                              onClick={() => setSelectedGroup(group)}
+                              onClick={() => openFicha(group)}
                               className="hover:bg-blue-50/50 transition cursor-pointer group"
                             >
                               <td className="px-3 py-3 font-bold text-slate-800 text-xs">
