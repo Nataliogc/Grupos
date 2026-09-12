@@ -2417,6 +2417,7 @@
       const [dailyViewSection, setDailyViewSection] = useState("breakdown"); // 'breakdown' | 'statistics'
       const [dailyGroupingMode, setDailyGroupingMode] = useState("reserva"); // 'reserva' | 'lineas'
       const [expandedReservas, setExpandedReservas] = useState(new Set());
+      const [collapsedFichaDays, setCollapsedFichaDays] = useState(new Set());
       const [distributionFormError, setDistributionFormError] = useState(null);
       const [isSavingDistribution, setIsSavingDistribution] = useState(false);
 
@@ -7867,6 +7868,7 @@
         } catch (e) { }
 
         setSelectedGroupFicha(group);
+        setCollapsedFichaDays(new Set());
         setShowFichaModal(true);
         setIsEditingGroupName(false);
         setTempGroupName(group.name || "");
@@ -8786,6 +8788,162 @@
 
         setEditingId(item.ids || item.id);
 
+      };
+
+      const handleInlineRoomItemUpdate = (item, field, rawValue) => {
+        if (!selectedGroupFicha || !selectedGroupFicha.records || !selectedGroupFicha.records[0]) return;
+        const currentRecord = selectedGroupFicha.records[0] || {};
+        let currentList = [];
+        try {
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "selectedGroupFicha");
+        } catch (e) {
+          return;
+        }
+        if (!Array.isArray(currentList) || currentList.length === 0) return;
+
+        const targetIds = new Set(normalizeRoomIds(item.ids || item.id));
+
+        // Encontrar todos los elementos que coinciden en currentList
+        const matchedIndices = [];
+        currentList.forEach((r, idx) => {
+          const rIds = normalizeRoomIds(r.id);
+          if (rIds.some((id) => targetIds.has(id))) {
+            matchedIndices.push(idx);
+          }
+        });
+
+        if (matchedIndices.length === 0) return;
+
+        if (field === "qty") {
+          const newQty = Math.max(1, parseInt(rawValue, 10) || 1);
+          const primaryIdx = matchedIndices[0];
+          const primary = currentList[primaryIdx];
+          primary.qty = newQty;
+          const nights = parseInt(primary.nights, 10) || 1;
+          const price = parseFloat(primary.price) || 0;
+          primary.total = (price * newQty * nights).toFixed(2);
+          primary.comision = calculateDefaultCommission(
+            price,
+            primary.isService ? "" : (primary.regime || ""),
+            newQty,
+            nights,
+            primary.type
+          );
+          // Si había varios items agrupados, consolidar en el principal
+          if (matchedIndices.length > 1) {
+            const toRemove = new Set(matchedIndices.slice(1));
+            currentList = currentList.filter((_, idx) => !toRemove.has(idx));
+          }
+        } else {
+          matchedIndices.forEach((idx) => {
+            const r = currentList[idx];
+            if (field === "type") {
+              const val = String(rawValue || "").toUpperCase().trim();
+              r.type = val;
+              r.pax = getPaxByRoomType(val);
+              const nights = parseInt(r.nights, 10) || 1;
+              const qty = parseInt(r.qty, 10) || 1;
+              const price = parseFloat(r.price) || 0;
+              r.comision = calculateDefaultCommission(
+                price,
+                r.isService ? "" : (r.regime || ""),
+                qty,
+                nights,
+                r.type
+              );
+            } else if (field === "hotel") {
+              r.hotel = rawValue;
+            } else if (field === "dateIn") {
+              const cleanDateStr = toInputDate(rawValue);
+              r.dateIn = cleanDateStr;
+              const nights = parseInt(r.nights, 10) || 1;
+              try {
+                const parts = cleanDateStr.split("-");
+                if (parts.length === 3) {
+                  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                  d.setDate(d.getDate() + nights);
+                  const y = d.getFullYear();
+                  const m = String(d.getMonth() + 1).padStart(2, "0");
+                  const day = String(d.getDate()).padStart(2, "0");
+                  r.dateOut = `${y}-${m}-${day}`;
+                }
+              } catch (e) {}
+            } else if (field === "nights") {
+              const newNights = Math.max(1, parseInt(rawValue, 10) || 1);
+              r.nights = newNights;
+              if (r.dateIn) {
+                try {
+                  const cleanDateStr = toInputDate(r.dateIn);
+                  const parts = cleanDateStr.split("-");
+                  if (parts.length === 3) {
+                    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    d.setDate(d.getDate() + newNights);
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    r.dateOut = `${y}-${m}-${day}`;
+                  }
+                } catch (e) {}
+              }
+              const qty = parseInt(r.qty, 10) || 1;
+              const price = parseFloat(r.price) || 0;
+              r.total = (price * qty * newNights).toFixed(2);
+              r.comision = calculateDefaultCommission(
+                price,
+                r.isService ? "" : (r.regime || ""),
+                qty,
+                newNights,
+                r.type
+              );
+            } else if (field === "pax") {
+              r.pax = Math.max(1, parseInt(rawValue, 10) || 1);
+            } else if (field === "regime") {
+              r.regime = rawValue;
+              const nights = parseInt(r.nights, 10) || 1;
+              const qty = parseInt(r.qty, 10) || 1;
+              const price = parseFloat(r.price) || 0;
+              r.comision = calculateDefaultCommission(
+                price,
+                r.isService ? "" : (r.regime || ""),
+                qty,
+                nights,
+                r.type
+              );
+            } else if (field === "price") {
+              const newPrice = Math.max(0, parseFloat(rawValue) || 0);
+              r.price = newPrice;
+              const nights = parseInt(r.nights, 10) || 1;
+              const qty = parseInt(r.qty, 10) || 1;
+              r.total = (newPrice * qty * nights).toFixed(2);
+              r.comision = calculateDefaultCommission(
+                newPrice,
+                r.isService ? "" : (r.regime || ""),
+                qty,
+                nights,
+                r.type
+              );
+            } else if (field === "iva") {
+              r.iva = parseInt(rawValue, 10) || 10;
+            }
+          });
+        }
+
+        currentList = cleanRoomingListIds(currentList);
+        currentList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+
+        const newTotalSum = currentList.reduce(
+          (acc, i) => acc + (parseFloat(i.total) || 0),
+          0
+        );
+        const newTotalPax = calculateMaxDailyOccupancy(currentList);
+        const newTotalRooms = calculateMaxDailyRooms(currentList);
+
+        updateGroupMetadata(selectedGroupFicha.id, {
+          RoomingList_JSON: JSON.stringify(currentList),
+          "Importe(*)": newTotalSum.toFixed(2),
+          "Pax.": newTotalPax.toString(),
+          "Cant.": newTotalRooms.toString(),
+        });
       };
 
       const handleRoomManagerDrop = (sourceIndex, targetIndex) => {
@@ -16882,7 +17040,47 @@
                               }
                               return null;
                             })()}
-{/* Tabla de Resultados - Clean UI */}
+{/* Barra de herramientas para ampliar / disminuir por día */}
+                            {(() => {
+                              const currentRL = typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems
+                                ? window.roomingCore.getGroupEconomicItems(selectedGroupFicha)
+                                : parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
+                              const uniqueDayKeys = Array.from(new Set(currentRL.map(i => i.dateIn || i.date || i.fecha || "Varios"))).filter(Boolean);
+                              if (uniqueDayKeys.length <= 1) return null;
+
+                              return (
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-1">
+                                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                                    <span className="font-bold text-slate-700">Desglose por Días:</span>
+                                    <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full font-bold text-[11px]">
+                                      {uniqueDayKeys.length} días de estancia
+                                    </span>
+                                    <span className="text-slate-400">•</span>
+                                    <span className="text-[11px]">Haz clic en la cabecera de cada día para ampliar o disminuir</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCollapsedFichaDays(new Set())}
+                                      className="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition flex items-center gap-1 border border-slate-200"
+                                      title="Ampliar todos los días para ver todas las líneas de habitaciones"
+                                    >
+                                      <span>▾</span> Ampliar todos los días
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCollapsedFichaDays(new Set(uniqueDayKeys))}
+                                      className="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition flex items-center gap-1 border border-slate-200"
+                                      title="Disminuir todos los días para que la pantalla no sea tan extensa"
+                                    >
+                                      <span>▴</span> Disminuir todos los días
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Tabla de Resultados - Clean UI */}
 
                             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
 
@@ -17037,109 +17235,288 @@
                                     // Ordenar por días (cronológico) y jerarquía de habitación
                                     grouped.sort((a, b) => compareRoomItemsByDateAndType(a, b));
 
-                                    return grouped.map((item, index) => (
-                                      <tr
-                                        key={item.id}
-                                        draggable
-                                        onDragStart={(e) =>
-                                          e.dataTransfer.setData("idx", index)
-                                        }
-                                        onDragOver={(e) => e.preventDefault()}
-                                        onDrop={(e) =>
-                                          handleRoomManagerDrop(
-                                            parseInt(
-                                              e.dataTransfer.getData("idx"),
-                                            ),
-                                            index,
-                                          )
-                                        }
-                                        className="hover:bg-blue-50/50 transition-colors group cursor-default"
-                                      >
+                                    // Agrupar en bloques por día para poder ampliar o disminuir por día
+                                    const dayBuckets = [];
+                                    const dayBucketMap = new Map();
+
+                                    grouped.forEach((item, index) => {
+                                      const dayKey = item.dateIn || item.date || item.fecha || "Varios";
+                                      if (!dayBucketMap.has(dayKey)) {
+                                        const bucket = {
+                                          dayKey,
+                                          items: [],
+                                          totalRooms: 0,
+                                          totalPax: 0,
+                                          totalAmount: 0,
+                                          roomTypes: {}
+                                        };
+                                        dayBucketMap.set(dayKey, bucket);
+                                        dayBuckets.push(bucket);
+                                      }
+                                      const b = dayBucketMap.get(dayKey);
+                                      const qty = parseInt(item.qty, 10) || 1;
+                                      const pax = parseInt(item.pax, 10) || (getPaxByRoomType(item.type));
+                                      const tot = parseFloat(item.total) || 0;
+
+                                      b.items.push({ ...item, globalIndex: index });
+                                      b.totalRooms += (item.isService ? 0 : qty);
+                                      b.totalPax += (item.isService ? 0 : (qty * pax));
+                                      b.totalAmount += tot;
+
+                                      const tName = item.type || "Habitación";
+                                      b.roomTypes[tName] = (b.roomTypes[tName] || 0) + qty;
+                                    });
+
+                                    return dayBuckets.map((bucket) => {
+                                      const isCollapsed = collapsedFichaDays.has(bucket.dayKey);
+                                      const roomTypesSummary = Object.entries(bucket.roomTypes)
+                                        .map(([type, count]) => `${count} ${type}`)
+                                        .join(" • ");
+
+                                      return (
+                                        <React.Fragment key={`day_group_${bucket.dayKey}`}>
+                                          {/* CABECERA PARA AMPLIAR / DISMINUIR POR DÍA */}
+                                          <tr
+                                            onClick={() => {
+                                              setCollapsedFichaDays(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(bucket.dayKey)) next.delete(bucket.dayKey);
+                                                else next.add(bucket.dayKey);
+                                                return next;
+                                              });
+                                            }}
+                                            className="bg-slate-100/95 hover:bg-blue-50/90 cursor-pointer select-none transition-colors border-t-2 border-slate-200"
+                                            title="Haz clic para ampliar o disminuir este día"
+                                          >
+                                            <td colSpan="13" className="py-2 px-3">
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2.5">
+                                                  <span className={`text-[11px] font-black transition-transform duration-200 inline-block ${
+                                                    isCollapsed ? "text-slate-400 -rotate-90" : "text-blue-600 rotate-0"
+                                                  }`}>
+                                                    ▼
+                                                  </span>
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="font-mono font-black text-xs text-slate-800 bg-white px-2.5 py-0.5 rounded border border-slate-300 shadow-2xs">
+                                                      📅 {formatDate(bucket.dayKey)}
+                                                    </span>
+                                                    <span className="text-[11px] font-bold text-slate-600">
+                                                      {bucket.items.length} {bucket.items.length === 1 ? "línea" : "líneas"}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                                                    {bucket.totalRooms > 0 && (
+                                                      <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100">
+                                                        {bucket.totalRooms} hab.
+                                                      </span>
+                                                    )}
+                                                    {bucket.totalPax > 0 && (
+                                                      <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
+                                                        {bucket.totalPax} pax
+                                                      </span>
+                                                    )}
+                                                    {roomTypesSummary && (
+                                                      <span className="text-slate-500 font-medium">
+                                                        ({roomTypesSummary})
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-3">
+                                                  <div className="text-right">
+                                                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mr-1">Total día:</span>
+                                                    <span className="font-mono font-black text-xs text-emerald-700">
+                                                      {bucket.totalAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                                    </span>
+                                                  </div>
+                                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                                                    isCollapsed
+                                                      ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                                      : "bg-slate-200 text-slate-600 border-slate-300 hover:bg-slate-300"
+                                                  }`}>
+                                                    {isCollapsed ? "+ Ampliar día" : "- Disminuir día"}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </td>
+                                          </tr>
+
+                                          {/* FILAS DE PRODUCTOS DE ESTE DÍA (SI NO ESTÁ DISMINUIDO/COLAPSADO) */}
+                                          {!isCollapsed && bucket.items.map((item) => (
+                                            <tr
+                                              key={item.id}
+                                              draggable
+                                              onDragStart={(e) =>
+                                                e.dataTransfer.setData("idx", item.globalIndex)
+                                              }
+                                              onDragOver={(e) => e.preventDefault()}
+                                              onDrop={(e) =>
+                                                handleRoomManagerDrop(
+                                                  parseInt(
+                                                    e.dataTransfer.getData("idx"),
+                                                  ),
+                                                  item.globalIndex,
+                                                )
+                                              }
+                                              className="hover:bg-blue-50/50 transition-colors group cursor-default"
+                                            >
                                         <td className="py-2 px-3">
                                           <div className="text-slate-300 group-hover:text-slate-400 cursor-grab active:cursor-grabbing">
                                             <IconGripVertical size={14} />
                                           </div>
                                         </td>
-                                        <td className="py-2 px-3">
+                                        {/* HOTEL */}
+                                        <td className="py-1.5 px-2">
                                           <div className="flex items-center gap-1">
                                             <IconBuildingSkyscraper
-                                              size={10}
-                                              className="text-slate-400"
+                                              size={12}
+                                              className="text-slate-400 shrink-0"
                                             />
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase">
-                                              {item.hotel || "Sercotel Guadiana"}
-                                            </span>
+                                            <select
+                                              className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 text-[10px] font-bold text-slate-700 uppercase outline-none transition cursor-pointer max-w-[125px] truncate shadow-2xs"
+                                              value={item.hotel || "Sercotel Guadiana"}
+                                              onChange={(e) => handleInlineRoomItemUpdate(item, "hotel", e.target.value)}
+                                              title="Cambiar hotel directamente"
+                                            >
+                                              <option value="Sercotel Guadiana">Sercotel Guadiana</option>
+                                              <option value="Cumbria Spa&Hotel">Cumbria Spa&Hotel</option>
+                                            </select>
                                           </div>
                                         </td>
-                                        <td className="py-2 px-3">
+
+                                        {/* PRODUCTO (TIPO) */}
+                                        <td className="py-1.5 px-2 min-w-[140px]">
                                           <input
                                             type="text"
-                                            className="bg-transparent border-none font-bold text-slate-700 outline-none w-full uppercase text-[11px]"
-                                            value={item.type}
-                                            onChange={(e) => {
-                                              const newType =
-                                                e.target.value.toUpperCase();
-                                              const newRL = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
-                                              item.ids.forEach(id => {
-                                                const targetIds = new Set(normalizeRoomIds(id));
-                                                const match = newRL.find((x) => {
-                                                  const itemIds = normalizeRoomIds(x.id);
-                                                  return itemIds.some((itemId) => targetIds.has(itemId));
-                                                });
-                                                if (match) {
-                                                  match.type = newType;
-                                                  match.pax = getPaxByRoomType(newType);
-                                                }
-                                              });
-                                              // Usa calculateMaxDailyOccupancy (pico diario) en lugar de
-                                              // reduce(pax * qty) que produce personas-noche cuando hay
-                                              // bloques de varias noches.
-                                              const newTotalPax = calculateMaxDailyOccupancy(newRL);
-                                              updateGroupMetadata(
-                                                selectedGroupFicha.id,
-                                                {
-                                                  RoomingList_JSON:
-                                                    JSON.stringify(newRL),
-                                                  "Pax.":
-                                                    newTotalPax.toString(),
-                                                },
-                                              );
-                                            }}
+                                            className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1.5 py-0.5 font-bold text-slate-800 outline-none w-full uppercase text-[11px] transition shadow-2xs"
+                                            value={item.type || ""}
+                                            onChange={(e) => handleInlineRoomItemUpdate(item, "type", e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                                            title="Editar nombre de producto o tipo de habitación"
                                           />
                                         </td>
-                                        <td className="py-2 px-3">
-                                          <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded w-fit">
-                                            <span>
-                                              {formatDate(item.dateIn)}
-                                            </span>
+
+                                        {/* FECHA CARGO */}
+                                        <td className="py-1.5 px-2">
+                                          <input
+                                            type="date"
+                                            className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-700 outline-none transition cursor-pointer shadow-2xs"
+                                            value={toInputDate(item.dateIn)}
+                                            onChange={(e) => {
+                                              if (e.target.value) {
+                                                handleInlineRoomItemUpdate(item, "dateIn", e.target.value);
+                                              }
+                                            }}
+                                            title="Editar fecha de cargo"
+                                          />
+                                        </td>
+
+                                        {/* NOCHES */}
+                                        <td className="py-1.5 px-2 text-center">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            className="w-12 text-center bg-blue-50/70 hover:bg-white focus:bg-white border border-blue-200 focus:border-blue-400 rounded px-1 py-0.5 text-[11px] font-bold text-blue-700 outline-none transition shadow-2xs"
+                                            value={item.nights || 1}
+                                            onChange={(e) => {
+                                              const val = parseInt(e.target.value, 10);
+                                              if (!isNaN(val) && val >= 1) {
+                                                handleInlineRoomItemUpdate(item, "nights", val);
+                                              }
+                                            }}
+                                            title="Editar número de noches"
+                                          />
+                                        </td>
+
+                                        {/* CANTIDAD */}
+                                        <td className="py-1.5 px-2 text-center">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            className="w-12 text-center bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 text-[11px] font-bold text-slate-800 outline-none transition shadow-2xs"
+                                            value={item.qty || 1}
+                                            onChange={(e) => {
+                                              const val = parseInt(e.target.value, 10);
+                                              if (!isNaN(val) && val >= 1) {
+                                                handleInlineRoomItemUpdate(item, "qty", val);
+                                              }
+                                            }}
+                                            title="Editar cantidad de habitaciones o unidades"
+                                          />
+                                        </td>
+
+                                        {/* PAX */}
+                                        <td className="py-1.5 px-2 text-center">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            className="w-12 text-center bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 text-[11px] font-bold text-slate-600 outline-none transition shadow-2xs"
+                                            value={item.pax !== undefined && item.pax !== null && item.pax !== "" ? item.pax : getPaxByRoomType(item.type)}
+                                            onChange={(e) => {
+                                              const val = parseInt(e.target.value, 10);
+                                              if (!isNaN(val) && val >= 1) {
+                                                handleInlineRoomItemUpdate(item, "pax", val);
+                                              }
+                                            }}
+                                            title="Editar pax por habitación"
+                                          />
+                                        </td>
+
+                                        {/* RÉGIMEN */}
+                                        <td className="py-1.5 px-2 text-center">
+                                          <select
+                                            className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 text-[10px] font-bold text-slate-700 uppercase outline-none transition cursor-pointer shadow-2xs"
+                                            value={(item.regime || "AD").toUpperCase()}
+                                            onChange={(e) => handleInlineRoomItemUpdate(item, "regime", e.target.value)}
+                                            title="Cambiar régimen"
+                                          >
+                                            <option value="AD">AD</option>
+                                            <option value="MP">MP</option>
+                                            <option value="PC">PC</option>
+                                            <option value="SA">SA</option>
+                                            <option value="TI">TI</option>
+                                            <option value="-">-</option>
+                                          </select>
+                                        </td>
+
+                                        {/* PRECIO UNITARIO */}
+                                        <td className="py-1.5 px-2 text-right">
+                                          <div className="inline-flex items-center justify-end gap-1">
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              min="0"
+                                              className="w-16 text-right bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1.5 py-0.5 text-[11px] font-bold text-slate-800 outline-none transition shadow-2xs"
+                                              value={item.price !== undefined ? item.price : 0}
+                                              onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                if (!isNaN(val) && val >= 0) {
+                                                  handleInlineRoomItemUpdate(item, "price", val);
+                                                }
+                                              }}
+                                              title="Editar precio unitario"
+                                            />
+                                            <span className="text-slate-400 text-[11px]">€</span>
                                           </div>
                                         </td>
-                                        <td className="py-2 px-3 text-center">
-                                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
-                                            {item.nights}
-                                          </span>
-                                        </td>
-                                        <td className="py-2 px-3 text-center font-bold text-slate-800">
-                                          {item.qty}
-                                        </td>
-                                        <td className="py-2 px-3 text-center font-bold text-slate-400">
-                                          {item.pax ||
-                                            getPaxByRoomType(item.type)}
-                                        </td>
-                                        <td className="py-2 px-3 text-center">
-                                          <span className="text-[10px] font-bold text-slate-500 uppercase bg-slate-100 px-1.5 py-0.5 rounded">
-                                            {item.regime}
-                                          </span>
-                                        </td>
-                                        <td className="py-2 px-3 text-right font-medium text-slate-600">
-                                          {parseFloat(item.price).toFixed(2)} €
-                                        </td>
-                                        <td className="py-2 px-3 text-center">
-                                          <span
-                                            className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.iva == 21 ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}
+
+                                        {/* IVA */}
+                                        <td className="py-1.5 px-2 text-center">
+                                          <select
+                                            className={`border rounded px-1 py-0.5 text-[10px] font-black outline-none transition cursor-pointer shadow-2xs ${
+                                              item.iva == 21
+                                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                                : "bg-blue-50 text-blue-700 border-blue-200"
+                                            }`}
+                                            value={item.iva || 10}
+                                            onChange={(e) => handleInlineRoomItemUpdate(item, "iva", parseInt(e.target.value, 10))}
+                                            title="Cambiar IVA"
                                           >
-                                            {item.iva || 10}%
-                                          </span>
+                                            <option value={10}>10%</option>
+                                            <option value={21}>21%</option>
+                                            <option value={0}>0%</option>
+                                          </select>
                                         </td>
                                         <td className="py-2 px-3 text-right bg-blue-50/10 border-l border-blue-50">
                                           <div className="flex items-center justify-end gap-1">
@@ -17238,7 +17615,10 @@
                                           </button>
                                         </td>
                                       </tr>
-                                    ));
+                                          ))}
+                                        </React.Fragment>
+                                      );
+                                    });
                                   })()}
 
                                   {parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha").length === 0 && (
