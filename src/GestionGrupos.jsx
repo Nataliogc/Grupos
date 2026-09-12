@@ -2013,7 +2013,7 @@
       const [searchTerm, setSearchTerm] = useState("");
 
       // Estados para Desglose Diario de Habitaciones
-      const [groupsSubView, setGroupsSubView] = useState("daily"); // 'daily' | 'groups'
+      const [groupsSubView, setGroupsSubView] = useState("groups"); // 'groups' | 'daily'
       const [dailyDateFrom, setDailyDateFrom] = useState("");
       const [dailyDateTo, setDailyDateTo] = useState("");
       const [dailyStatusFilter, setDailyStatusFilter] = useState("confirmada"); // 'confirmada' | 'anulada' | 'todos'
@@ -2980,6 +2980,8 @@
 
               status: row["Estado"] || "",
 
+              comercial: row["Com_Comercial"] || row["Comercial"] || "",
+
               totalPax: 0,
 
               totalRooms: 0,
@@ -3036,6 +3038,10 @@
 
               groups[key].status = row["Estado"];
 
+              groups[key].comercial =
+
+                row["Com_Comercial"] || row["Comercial"] || groups[key].comercial;
+
               // También actualizar hotel si es un registro con mayor prioridad
 
               groups[key].hotel =
@@ -3044,6 +3050,10 @@
 
             }
 
+          }
+
+          if (row["Com_Comercial"] || row["Comercial"]) {
+            groups[key].comercial = row["Com_Comercial"] || row["Comercial"];
           }
 
           if (
@@ -10848,25 +10858,6 @@
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setGroupsSubView("daily")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                        groupsSubView === "daily"
-                          ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Distribución Diaria y Económica
-                      <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
-                        groupsSubView === "daily" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-                      }`}>
-                        {filteredDailyOccupancy.length}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => setGroupsSubView("groups")}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
                         groupsSubView === "groups"
@@ -10882,6 +10873,25 @@
                         groupsSubView === "groups" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
                       }`}>
                         {groupedData.length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGroupsSubView("daily")}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                        groupsSubView === "daily"
+                          ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Distribución Diaria y Económica
+                      <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                        groupsSubView === "daily" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                      }`}>
+                        {filteredDailyOccupancy.length}
                       </span>
                     </button>
                   </div>
@@ -11320,7 +11330,7 @@
                                         <td className="px-3 py-2 font-semibold text-slate-800 max-w-[170px] truncate" title={item.nombreGrupo}>
                                           {item.nombreGrupo}
                                         </td>
-                                        <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{item.fecha}</td>
+                                        <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{formatDate(item.fecha)}</td>
                                         <td className="px-2 py-2 text-center font-black text-slate-900 bg-slate-50/60">{item.pax}</td>
                                         <td className="px-2 py-2 text-slate-600 font-mono font-bold whitespace-nowrap">{item.regimen || "-"}</td>
                                         <td className="px-2 py-2 text-center font-semibold text-slate-700">
@@ -11388,8 +11398,7 @@
                     )}
                   </div>
                 )}
-
-                {/* VISTA 2: LISTADO DE GRUPOS CONSOLIDADO */}
+                {/* VISTA 2: LISTADO DE GRUPOS CONSOLIDADO (DIRECTORIO) */}
                 {groupsSubView === "groups" && (
                   <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <table className="w-full text-left border-collapse">
@@ -11407,6 +11416,7 @@
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {groupedData.map((group, idx) => {
+                          // Prioridad: Com_Estado_Interno siempre gana sobre Estado (campo del Excel importado)
                           const internalSt = group.records?.[0]?.["Com_Estado_Interno"];
                           const externalSt = group.records?.[0]?.["Estado"];
                           const effectiveSt = internalSt || group.records?.[0]?.["Segment."];
@@ -11415,47 +11425,396 @@
                             group.arrival,
                             internalSt ? null : externalSt,
                           );
+                          const statusText = st.label;
+                          const statusColor = st.text;
+
+                          // Normalizar nombre hotel para visualización
+                          const displayHotel = normalizeHotelNameLocal(
+                            group.records?.[0]?.["Hotel_Asignado"] ||
+                            group.records?.[0]?.["Hotel"] ||
+                            group.hotel,
+                            "Sercotel Guadiana"
+                          );
+
+                          const isBudget = Boolean(
+                            group.isBudget ||
+                            String(group.id || "").toUpperCase().startsWith("PRES-") ||
+                            group.records?.some((r) => {
+                              const res = String(r["Reserva"] || "").toUpperCase();
+                              const uid = String(r.uid || "").toUpperCase();
+                              const ext = String(r["Estado"] || "").toUpperCase();
+                              const inSt = String(r["Com_Estado_Interno"] || "").toUpperCase();
+                              const seg = String(r["Segment."] || "").toUpperCase();
+                              return (
+                                res.startsWith("PRES-") ||
+                                uid.startsWith("PRES-") ||
+                                ext.includes("PRESUP") ||
+                                inSt.includes("PRESUP") ||
+                                seg.includes("PRESUP")
+                              );
+                            }) ||
+                            statusText === "PRESUPUESTO"
+                          );
+
+                          const commercialName =
+                            group.records?.find((r) => r["Com_Comercial"] || r["Comercial"])?.["Com_Comercial"] ||
+                            group.records?.[0]?.["Com_Comercial"] ||
+                            group.records?.[0]?.["Comercial"] ||
+                            group.comercial ||
+                            "";
 
                           return (
                             <tr
                               key={group.id || idx}
+                              className={`transition-colors cursor-pointer group ${
+                                isBudget
+                                  ? "bg-indigo-50/70 hover:bg-indigo-100/70"
+                                  : "hover:bg-slate-50"
+                              }`}
                               onClick={() => openFicha(group)}
-                              className="hover:bg-blue-50/50 transition cursor-pointer group"
                             >
-                              <td className="px-3 py-3 font-bold text-slate-800 text-xs">
-                                {group.hotel}
-                              </td>
-                              <td className="px-3 py-3 font-bold text-slate-900 text-xs">
-                                <div>{group.name}</div>
-                                <div className="text-[10px] text-slate-400 font-mono">
-                                  #{group.id}
+                              {/* HOTEL */}
+                              <td className={`px-3 py-3 ${isBudget ? "border-l-4 border-indigo-500" : "border-l-4 border-transparent"}`}>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="p-1.5 bg-white border border-slate-100 rounded-lg shadow-sm shrink-0">
+                                    <IconBuildingSkyscraper
+                                      size={14}
+                                      className="text-slate-400"
+                                    />
+                                  </div>
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight leading-tight">
+                                    {displayHotel}
+                                  </span>
                                 </div>
                               </td>
-                              <td className="px-3 py-3 text-slate-600 text-xs">
-                                {group.comercial || "-"}
+
+                              {/* GRUPO / ID */}
+                              <td className="px-3 py-2">
+                                <div className="max-w-[280px]">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <div className={`text-[13px] font-black text-slate-800 ${isBudget ? "group-hover:text-indigo-600" : "group-hover:text-[#2d5a43]"} transition-colors leading-tight`}>
+                                      {group.name}
+                                    </div>
+
+                                    {(() => {
+                                      const record = group.records?.[0] || {};
+                                      const hasRooming = record["Logistica_Rooming"] === true || group.records?.some((r) => r["Logistica_Rooming"] === true);
+                                      const hasMP = record["Logistica_MenuMP"] === true || group.records?.some((r) => r["Logistica_MenuMP"] === true);
+                                      const hasPC = record["Logistica_MenuPC"] === true || group.records?.some((r) => r["Logistica_MenuPC"] === true);
+                                      const regimen = (record["Régimen"] || "").toUpperCase();
+                                      const needsMP = regimen.includes("MP");
+                                      const needsPC = regimen.includes("PC");
+
+                                      let daysToArrival = 999;
+                                      if (record["Entrada"]) {
+                                        const arrDateStr = String(record["Entrada"]).trim();
+                                        let arrDate = null;
+                                        if (arrDateStr.includes("/")) {
+                                          const [d, m, y] = arrDateStr.split("/");
+                                          arrDate = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T12:00:00`);
+                                        } else {
+                                          arrDate = new Date(arrDateStr.includes("T") ? arrDateStr : arrDateStr + "T12:00:00");
+                                        }
+                                        if (arrDate && !isNaN(arrDate.getTime())) {
+                                          daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+                                        }
+                                      }
+
+                                      const isClose = daysToArrival <= 15 && daysToArrival >= 0;
+                                      const status = (record["Estado"] || "").toUpperCase();
+                                      const isInactive = ["ANULADA", "CANCELADA", "GASTOS DE ANULACION", "BAJA"].includes(status);
+                                      const internalStUpper = (record["Com_Estado_Interno"] || "").toUpperCase();
+                                      const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some((s) => internalStUpper.includes(s));
+                                      const recordStatusProps = getStatusProps(record["Com_Estado_Interno"] || record["Segment."], record["Entrada"], record["Estado"]);
+                                      const isConfirmed = recordStatusProps.label === "CONFIRMADO";
+
+                                      if (!isConfirmed || isInactive || isInternalInactive) return null;
+
+                                      const todayStr = new Date().toISOString().split("T")[0];
+                                      const deadlineInfo = getDeadlineInfo(group, todayStr);
+                                      const netRev = (group.totalRevenue || 0) - (group.totalCommission || 0);
+                                      const paid = group.totalPaid || 0;
+                                      const pending = netRev - paid;
+
+                                      const alerts = [];
+
+                                      // 1. Alert Rooming
+                                      if (isClose && !hasRooming) {
+                                        alerts.push(
+                                          <div key="rooming" className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse shadow-sm whitespace-nowrap" title="¡Aviso Operativo! Falta la Rooming List.">
+                                            <IconAlertTriangle size={10} stroke={3} />
+                                            <span>FALTA ROOMING</span>
+                                          </div>
+                                        );
+                                      }
+
+                                      // 2. Alert Menú
+                                      const menuMissing = (needsMP && !hasMP) || (needsPC && !hasPC);
+                                      if (isClose && menuMissing) {
+                                        const missingMenus = [needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
+                                        alerts.push(
+                                          <div key="menu" className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black text-indigo-600 animate-pulse shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Falta definir menú: ${missingMenus}`}>
+                                            <IconAlertTriangle size={10} stroke={3} />
+                                            <span>FALTA MENÚ</span>
+                                          </div>
+                                        );
+                                      }
+
+                                      // 3. Alert Pago (o Badge Crédito)
+                                      const isGroupCredito = Boolean(
+                                        group?.isCredito ||
+                                        group?.records?.some((r) => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                                      );
+                                      const paymentOverdue = deadlineInfo.isDeadline && deadlineInfo.diffDays < 0;
+                                      const paymentCritical = isClose || paymentOverdue;
+                                      if (!isGroupCredito && paymentCritical && pending > 0.05) {
+                                        alerts.push(
+                                          <div key="pago" className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[8px] font-black text-amber-600 animate-pulse shadow-sm whitespace-nowrap" title={`¡Aviso de Cobro! Pendiente de cobro final: ${pending.toFixed(2)} €`}>
+                                            <IconAlertTriangle size={10} stroke={3} />
+                                            <span>FALTA PAGO</span>
+                                          </div>
+                                        );
+                                      } else if (isGroupCredito) {
+                                        alerts.push(
+                                          <div key="credito" className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black text-indigo-700 shadow-sm whitespace-nowrap" title="Grupo a crédito: no requiere pago anticipado">
+                                            <IconCreditCard size={10} stroke={2.5} />
+                                            <span>CRÉDITO</span>
+                                          </div>
+                                        );
+                                      }
+
+                                      if (alerts.length === 0) return null;
+                                      return <>{alerts}</>;
+                                    })()}
+
+                                    {group.records?.[0]?.["Com_Notas"] && (
+                                      <div
+                                        className="flex items-center gap-1 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded text-[8px] font-bold text-amber-600 max-w-[120px] truncate"
+                                        title={group.records[0]["Com_Notas"]}
+                                      >
+                                        <IconFile size={8} />
+                                        <span className="truncate">
+                                          {group.records[0]["Com_Notas"]}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {group.records?.[0]?.["Com_Seguimiento"] && (
+                                      <div
+                                        className={`flex items-center gap-1 px-1 py-0.5 rounded text-[8px] font-bold border ${new Date(group.records[0]["Com_Seguimiento"]) <= new Date() ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-blue-50 border-blue-100 text-blue-600"}`}
+                                        title="Próximo Seguimiento"
+                                      >
+                                        <IconClock size={8} />
+                                        {formatDate(group.records[0]["Com_Seguimiento"])}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="text-[9px] font-bold text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                    <span className={`shrink-0 ${isBudget ? "text-indigo-600 font-extrabold" : ""}`}>
+                                      ID: {group.records?.[0]?.["Reserva"] || group.id || "---"}
+                                    </span>
+                                    {(group.records?.[0]?.["Fiscal_RazonSocial"] || group.records?.[0]?.["Empresa/Agencia"] || group.agency) && (
+                                      <>
+                                        <span className="opacity-20">•</span>
+                                        <span className="truncate max-w-[200px]">
+                                          {group.records?.[0]?.["Fiscal_RazonSocial"] || group.records?.[0]?.["Empresa/Agencia"] || group.agency}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
                               </td>
-                              <td className="px-3 py-3 text-slate-600 text-xs font-mono">
-                                {formatDate(group.arrival)}
-                              </td>
-                              <td className="px-3 py-3 text-slate-600 text-xs font-mono">
-                                {formatDate(group.departure)}
-                              </td>
-                              <td className="px-3 py-3 text-center text-xs">
-                                {group.releaseDate ? (
-                                  <span className="font-mono text-slate-500">
-                                    {formatDate(group.releaseDate)}
+
+                              {/* COMERCIAL */}
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-1">
+                                  <div
+                                    className={`w-1.5 h-1.5 rounded-full ${getCommColor(commercialName)} shrink-0`}
+                                  ></div>
+                                  <span className="text-[9px] font-bold text-slate-600 uppercase">
+                                    {commercialName || "S/A"}
                                   </span>
-                                ) : (
-                                  "-"
-                                )}
+                                </div>
                               </td>
-                              <td className="px-3 py-3 text-right font-black text-slate-900 text-xs">
-                                {formatCurrency(group.totalRevenue)}
+
+                              {/* ENTRADA & SALIDA */}
+                              <td className="px-3 py-2">
+                                <div className="text-[11px] font-bold text-slate-600 tabular-nums font-mono">
+                                  {formatDate(group.arrival)}
+                                </div>
                               </td>
-                              <td className="px-3 py-3 text-center">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${st.bg} ${st.color}`}>
-                                  {st.label}
-                                </span>
+                              <td className="px-3 py-2">
+                                <div className="text-[11px] font-bold text-slate-600 tabular-nums font-mono">
+                                  {formatDate(group.departure)}
+                                </div>
+                              </td>
+
+                              {/* RELEASE */}
+                              <td className="px-3 py-2 text-center">
+                                {(() => {
+                                  const grossRev = group.totalRevenue || 0;
+                                  const commission = group.totalCommission || 0;
+                                  const netRev = grossRev - commission;
+                                  const paid = group.totalPaid || 0;
+                                  const isFullyPaid = paid > 0 && netRev > 0 && paid >= netRev - 0.05;
+
+                                  if (isFullyPaid) {
+                                    return (
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">
+                                          OK
+                                        </span>
+                                        <span className="text-[8px] text-slate-400 font-bold mt-0.5 tracking-tighter">
+                                          Pagado
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  const isGroupCredito = Boolean(
+                                    group?.isCredito ||
+                                    group?.records?.some((r) => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                                  );
+
+                                  if (isGroupCredito) {
+                                    return (
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 whitespace-nowrap">
+                                          <IconCreditCard size={9} stroke={2.5} />
+                                          A CRÉDITO
+                                        </span>
+                                        <span className="text-[8px] text-indigo-500 font-bold mt-0.5 tracking-tighter">
+                                          Sin prepago
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  const todayStr = new Date().toISOString().split("T")[0];
+                                  const info = getDeadlineInfo(group, todayStr);
+                                  if (!info.hasDate) {
+                                    return <span className="text-slate-400">-</span>;
+                                  }
+
+                                  let badgeText = "";
+                                  let badgeClass = "";
+                                  let labelText = info.isDeadline ? "Límite" : "Entrada";
+                                  if (info.diffDays < 0) {
+                                    badgeText = "PASADO";
+                                    badgeClass = "bg-rose-100 text-rose-700 font-bold border border-rose-200";
+                                  } else if (info.diffDays === 0) {
+                                    badgeText = "HOY";
+                                    badgeClass = "bg-rose-600 text-white font-black animate-pulse";
+                                  } else {
+                                    badgeText = `${info.diffDays}d`;
+                                    if (info.isDeadline) {
+                                      if (info.diffDays <= 7) {
+                                        badgeClass = "bg-amber-500 text-white font-bold";
+                                      } else {
+                                        badgeClass = "bg-slate-100 text-slate-700 font-bold border border-slate-200";
+                                      }
+                                    } else {
+                                      if (info.diffDays <= 15) {
+                                        badgeClass = "bg-amber-50 text-amber-700 font-bold border border-amber-200";
+                                      } else {
+                                        badgeClass = "bg-slate-100 text-slate-500 font-bold border border-slate-200";
+                                      }
+                                    }
+                                  }
+
+                                  return (
+                                    <div className="flex flex-col items-center">
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap ${badgeClass}`}>
+                                        {badgeText}
+                                      </span>
+                                      <span className="text-[8px] text-slate-500 font-bold mt-0.5 tracking-tighter">
+                                        {labelText}: {formatDate(info.dateStr)}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+
+                              {/* IMPORTE */}
+                              <td className="px-3 py-2 text-right">
+                                {(() => {
+                                  const grossRev = group.totalRevenue || 0;
+                                  const commission = group.totalCommission || 0;
+                                  const netRev = grossRev - commission;
+                                  const paid = group.totalPaid || 0;
+                                  const pending = netRev - paid;
+                                  const isFullyPaid = paid > 0 && pending <= 0.05;
+
+                                  return (
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      <div className="flex flex-col items-end leading-none">
+                                        <span className="text-[12px] font-black text-slate-700 tabular-nums">
+                                          {formatCurrency(grossRev)}
+                                        </span>
+                                        {commission > 0 && (
+                                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                            Neto: {formatCurrency(netRev)}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {(() => {
+                                        const isRowCredito = Boolean(
+                                          group?.isCredito ||
+                                          group?.records?.some((r) => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                                        );
+
+                                        if (isFullyPaid) {
+                                          return (
+                                            <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                              <IconCheck size={10} /> OK
+                                            </span>
+                                          );
+                                        }
+
+                                        if (isRowCredito) {
+                                          return (
+                                            <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                                              <IconCreditCard size={9} stroke={2} />
+                                              {formatCurrency(pending, 0)} crédito
+                                            </span>
+                                          );
+                                        }
+
+                                        if (pending > 0.05) {
+                                          return (
+                                            <span className="text-[10px] font-bold text-rose-600 tabular-nums">
+                                              {formatCurrency(pending)} pdte.
+                                            </span>
+                                          );
+                                        }
+
+                                        return null;
+                                      })()}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+
+                              {/* ESTADO */}
+                              <td className="px-3 py-2 text-center">
+                                <div className="flex items-center justify-center gap-2 group/status">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${statusColor}`}
+                                  >
+                                    {statusText}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.location.href = `Presupuestos.html?id=${group.records?.[0]?.["Reserva"] || group.id}`;
+                                    }}
+                                    className="p-1 px-1.5 bg-slate-100 text-slate-400 hover:bg-purple-600 hover:text-white rounded-lg transition-all opacity-0 group-hover/status:opacity-100 shadow-sm"
+                                    title="Ver Presupuesto"
+                                  >
+                                    <IconFileText size={12} stroke={2.5} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -11632,7 +11991,7 @@
                       <div>
                         <h3 className="font-bold text-base text-white">Revisión de Distribución de Habitaciones</h3>
                         <p className="text-xs text-slate-300 mt-0.5">
-                          {editingDistribution.hotel} • Reserva #{editingDistribution.reserva} • {editingDistribution.fecha}
+                          {editingDistribution.hotel} • Reserva #{editingDistribution.reserva} • {formatDate(editingDistribution.fecha)}
                         </p>
                       </div>
                       <button
@@ -11654,7 +12013,7 @@
                         </div>
                         <div>
                           <span className="text-slate-400 block font-medium">Fecha estancia</span>
-                          <span className="font-bold text-slate-800">{editingDistribution.fecha}</span>
+                          <span className="font-bold text-slate-800">{formatDate(editingDistribution.fecha)}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 block font-medium">Personas (Pax)</span>
