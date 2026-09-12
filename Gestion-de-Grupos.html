@@ -111,13 +111,23 @@
 
 
 
-  <!-- Lucide Icons -->
+  <!-- Lucide Icons (Local con fallback) -->
+  <script src="js/vendor/lucide.min.js"></script>
+  <script>
+    if (typeof lucide === "undefined") {
+      document.write('<script src="https://unpkg.com/lucide@latest"><\/script>');
+    }
+  </script>
 
-  <script src="https://unpkg.com/lucide@latest"></script>
-
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK (Compat mode - Local con fallback) -->
+  <script src="js/vendor/firebase-app-compat.js"></script>
+  <script src="js/vendor/firebase-firestore-compat.js"></script>
+  <script>
+    if (typeof firebase === "undefined") {
+      document.write('<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"><\/script>');
+      document.write('<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"><\/script>');
+    }
+  </script>
 
 
 

@@ -21,8 +21,29 @@
         return;
     }
 
+    // Si Firebase SDK no cargó por bloqueo de red, DNS o tracking, activar fallback offline
+    if (typeof firebase === "undefined") {
+        console.warn("[Firebase] SDK no disponible (sin conexión o CDN bloqueado). Activando fallback local/offline.");
+        window.db = window.db || {
+            collection: function() {
+                return {
+                    doc: function() {
+                        return {
+                            get: function() { return Promise.resolve({ exists: false, data: function() { return {}; } }); },
+                            set: function() { return Promise.resolve(); },
+                            update: function() { return Promise.resolve(); }
+                        };
+                    },
+                    get: function() { return Promise.resolve({ docs: [], forEach: function() {} }); },
+                    onSnapshot: function() { return function() {}; }
+                };
+            }
+        };
+        return;
+    }
+
     // Inicialización robusta — evitar duplicados
-    if (!firebase.apps.length) {
+    if (!firebase.apps || !firebase.apps.length) {
         firebase.initializeApp(config);
     }
 

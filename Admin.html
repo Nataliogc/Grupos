@@ -27,17 +27,28 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@300;400;600;700&display=swap"
     rel="stylesheet" />
 
-  <!-- Lucide Icons -->
-  <script src="https://cdn.jsdelivr.net/npm/lucide/dist/umd/lucide.js"></script>
+  <!-- Lucide Icons (Local con fallback) -->
+  <script src="js/vendor/lucide.min.js"></script>
+  <script>
+    if (typeof lucide === "undefined") {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/lucide/dist/umd/lucide.js"><\/script>');
+    }
+  </script>
 
   <!-- React & ReactDOM (Versión 18) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
 
-  <!-- Firebase SDK (Compat mode) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK (Compat mode - Local con fallback) -->
+  <script src="js/vendor/firebase-app-compat.js"></script>
+  <script src="js/vendor/firebase-firestore-compat.js"></script>
+  <script>
+    if (typeof firebase === "undefined") {
+      document.write('<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"><\/script>');
+      document.write('<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"><\/script>');
+    }
+  </script>
 
   <!-- Markdown Parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>

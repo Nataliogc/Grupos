@@ -15,9 +15,15 @@
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- Firebase SDK (Compat mode) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK (Compat mode - Local con fallback a CDN) -->
+  <script src="js/vendor/firebase-app-compat.js"></script>
+  <script src="js/vendor/firebase-firestore-compat.js"></script>
+  <script>
+    if (typeof firebase === "undefined") {
+      document.write('<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"><\/script>');
+      document.write('<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"><\/script>');
+    }
+  </script>
 
   <!-- Configuración Centralizada -->
   <script src="js/firebase-config.js"></script>
