@@ -205,6 +205,16 @@
     return ("0000000" + h.toString(16)).slice(-8);
   }
 
+  function normalizeRegimenLocal(s) {
+    if (!s) return "";
+    var v = String(s).toUpperCase().trim();
+    if (v.includes("COMPLETA") || v === "PC") return "PC";
+    if (v.includes("MEDIA") || v === "MP") return "MP";
+    if (v.includes("DESAYUNO") || v === "HD" || v === "AD" || v.includes("ALOJAMIENTO Y DESAYUNO")) return "HD";
+    if (v.includes("SOLO") || v === "HA" || v === "SA" || v.includes("SOLO ALOJAMIENTO")) return "HA";
+    return v;
+  }
+
   function generateValidationFingerprint(lines) {
     lines = lines || [];
     var totalPax = 0;
@@ -218,12 +228,43 @@
 
     var normalizedLines = lines.map(function (l) {
       var p = parseInt(l.pax, 10) || 0;
-      var pn = parseInt(l.pernoct, 10) || 0;
-      var imp = parseFloat(l.importe) || 0.0;
       var inIso = toIsoDate(l.inDate || l.entrada);
       var outIso = toIsoDate(l.outDate || l.salida);
       var nch = parseInt(l.noches, 10) || 0;
-      var reg = String(l.regimen || "").trim().toUpperCase();
+      if (nch <= 0 && inIso && outIso) {
+        var d1 = new Date(inIso + "T12:00:00Z");
+        var d2 = new Date(outIso + "T12:00:00Z");
+        if (!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d2 > d1) {
+          nch = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+      }
+      if (nch <= 0) nch = 1;
+
+      var pn = parseInt(l.pernoct, 10) || 0;
+      if (pn <= 0 && p > 0) {
+        pn = p * nch;
+      }
+
+      var imp = 0.0;
+      if (typeof l.importe === "number") {
+        imp = isNaN(l.importe) ? 0.0 : l.importe;
+      } else if (l.importe) {
+        if (typeof window !== "undefined" && window.NexusUtils && typeof window.NexusUtils.parseNum === "function") {
+          imp = window.NexusUtils.parseNum(l.importe);
+        } else {
+          var sImp = String(l.importe).trim().replace(/€/g, "").replace(/\s/g, "");
+          if (sImp.includes(",") && sImp.includes(".")) {
+            if (sImp.lastIndexOf(",") > sImp.lastIndexOf(".")) sImp = sImp.replace(/\./g, "").replace(",", ".");
+            else sImp = sImp.replace(/,/g, "");
+          } else if (sImp.includes(",")) {
+            sImp = sImp.replace(",", ".");
+          }
+          var pImp = parseFloat(sImp);
+          imp = isNaN(pImp) ? 0.0 : pImp;
+        }
+      }
+
+      var reg = normalizeRegimenLocal(l.regimen);
       var est = String(l.estado || "Confirmada").trim();
       var lid = String(l.linea || "").trim();
 
@@ -234,9 +275,10 @@
       if (!maxSalida || (outIso && outIso > maxSalida)) maxSalida = outIso;
       if (nch > maxNoches) maxNoches = nch;
       if (reg) regimenSet.add(reg);
-      if (est.toLowerCase().includes("anul")) estadoReserva = "Anulada";
+      if (est.toLowerCase().includes("anul") || est.toLowerCase().includes("cancel") || est.toLowerCase().includes("baja")) estadoReserva = "Anulada";
+      else if (est.toLowerCase().includes("presup")) estadoReserva = "Presupuesto";
 
-      return [lid, p, pn, inIso, outIso, nch, imp.toFixed(2), reg, est].join(":");
+      return [lid, p, pn, inIso, outIso, nch, imp.toFixed(2), reg, estadoReserva].join(":");
     });
 
     // Orden canónico de líneas para ser inmune al orden de filas en el Excel
@@ -287,9 +329,9 @@
     var reasons = [];
     var changedFields = [];
 
-    // 1. Importe (Dato de control principal, Req 12)
+    // 1. Importe (Dato de control principal, Req 12 - tolerancia de 0.50 € para evitar falsos positivos por formato)
     var diffImporte = Math.abs((currentFp.totalImporte || 0) - (savedSnapshot.importe || 0));
-    if (diffImporte > 0.01) {
+    if (diffImporte > 0.50) {
       reasons.push("Revisión necesaria: ha cambiado el importe de la reserva (de " + Number(savedSnapshot.importe || 0).toFixed(2) + " € a " + Number(currentFp.totalImporte || 0).toFixed(2) + " €)");
       changedFields.push("importe");
     }
@@ -301,39 +343,45 @@
     }
 
     // 3. Fechas de estancia
-    if (currentFp.minEntrada !== savedSnapshot.entrada || currentFp.maxSalida !== savedSnapshot.salida) {
+    if (currentFp.minEntrada && savedSnapshot.entrada && (currentFp.minEntrada !== savedSnapshot.entrada || currentFp.maxSalida !== savedSnapshot.salida)) {
       reasons.push("Revisión necesaria: han cambiado las fechas de estancia (Entrada: " + currentFp.minEntrada + ", Salida: " + currentFp.maxSalida + ")");
       changedFields.push("fechas");
     }
 
-    // 4. Noches
-    if (currentFp.maxNoches !== (savedSnapshot.noches || 0)) {
+    // 4. Noches (solo si el snapshot guardado tenía noches > 0 y hubo cambio real)
+    if (savedSnapshot.noches > 0 && currentFp.maxNoches > 0 && currentFp.maxNoches !== savedSnapshot.noches) {
       reasons.push("Revisión necesaria: ha cambiado el número de noches (de " + (savedSnapshot.noches || 0) + " a " + currentFp.maxNoches + ")");
       changedFields.push("noches");
     }
 
-    // 5. Pernoctaciones
-    if (currentFp.totalPernoct !== (savedSnapshot.pernoct || 0)) {
+    // 5. Pernoctaciones (solo si el snapshot guardado tenía pernoct > 0 y hubo cambio real)
+    if (savedSnapshot.pernoct > 0 && currentFp.totalPernoct > 0 && currentFp.totalPernoct !== savedSnapshot.pernoct) {
       reasons.push("Revisión necesaria: ha cambiado el número de pernoctaciones (de " + (savedSnapshot.pernoct || 0) + " a " + currentFp.totalPernoct + ")");
       changedFields.push("pernoct");
     }
 
-    // 6. Régimen
-    if (currentFp.regimen && savedSnapshot.regimen && currentFp.regimen !== savedSnapshot.regimen) {
-      reasons.push("Revisión necesaria: ha cambiado el régimen (de " + savedSnapshot.regimen + " a " + currentFp.regimen + ")");
+    // 6. Régimen (normalizado, insensible a mayúsculas/espacios/sinónimos)
+    var regCur = normalizeRegimenLocal(currentFp.regimen);
+    var regSnap = normalizeRegimenLocal(savedSnapshot.regimen);
+    if (regCur && regSnap && regCur !== regSnap) {
+      reasons.push("Revisión necesaria: ha cambiado el régimen (de " + regSnap + " a " + regCur + ")");
       changedFields.push("regimen");
     }
 
-    // 7. Estado de reserva
-    if (currentFp.estadoReserva !== savedSnapshot.estadoReserva) {
+    // 7. Estado de reserva (insensible a mayúsculas/minúsculas)
+    var estCur = String(currentFp.estadoReserva || "").toUpperCase();
+    var estSnap = String(savedSnapshot.estadoReserva || "").toUpperCase();
+    if (estCur && estSnap && estCur !== estSnap) {
       reasons.push("Revisión necesaria: la reserva ha cambiado de estado (a " + currentFp.estadoReserva + ")");
       changedFields.push("estado");
     }
 
-    // 8. Altas o bajas de líneas
-    if (currentFp.lineCount !== (savedSnapshot.lineCount || 0)) {
-      reasons.push("Revisión necesaria: se han añadido o eliminado líneas en la reserva");
-      changedFields.push("lineCount");
+    // 8. Altas o bajas de líneas (solo alertar si también cambió el total de pax o importe)
+    if (savedSnapshot.lineCount && currentFp.lineCount !== savedSnapshot.lineCount) {
+      if (currentFp.totalPax !== (savedSnapshot.pax || 0) || diffImporte > 0.50) {
+        reasons.push("Revisión necesaria: se han añadido o eliminado líneas en la reserva");
+        changedFields.push("lineCount");
+      }
     }
 
     return {
@@ -352,7 +400,7 @@
     var matrixMap = new Map(); // Key: `${hotel}|||${reserva}|||${fecha}`
 
     (rawLines || []).forEach(function (line, lineIdx) {
-      var reserva = String(line["Reserva"] || line["id"] || "").trim();
+      var reserva = String(line["Reserva"] || line["id"] || "").trim().replace(/\.0$/, "");
       if (!reserva || reserva === "-" || reserva.toUpperCase().includes("TOTAL")) return;
 
       var hotel = normalizeHotelName(line["Hotel_Asignado"] || line["Hotel"] || "Sercotel Guadiana");
@@ -362,7 +410,19 @@
       if (isNaN(paxLine)) paxLine = 0;
 
       var noches = parseInt(line["Noches"] || line["Días"] || line["Dias"] || 0, 10);
+      if ((isNaN(noches) || noches <= 0) && inDate && outDate) {
+        var d1 = new Date(toIsoDate(inDate) + "T12:00:00Z");
+        var d2 = new Date(toIsoDate(outDate) + "T12:00:00Z");
+        if (!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d2 > d1) {
+          noches = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+      }
+      if (isNaN(noches) || noches <= 0) noches = 1;
+
       var pernoct = parseInt(line["Pernoct."] || line["Pernoctaciones"] || 0, 10);
+      if ((isNaN(pernoct) || pernoct <= 0) && paxLine > 0) {
+        pernoct = paxLine * noches;
+      }
       var regimen = String(
         line["Régimen"] ||
         line["Regimen"] ||
@@ -436,8 +496,13 @@
     // Proyectamos cada día con su estado y propuesta/distribución
     var result = [];
     matrixMap.forEach(function (entry) {
+      var normId = (typeof window !== "undefined" && window.NexusUtils && typeof window.NexusUtils.normalizeId === "function")
+        ? window.NexusUtils.normalizeId(entry.reserva)
+        : String(entry.reserva || "").trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
       var normKey = String(entry.reserva || "").trim().replace(/\s+/g, "");
-      var reservaSaved = savedDistributionsByReserva[normKey] || savedDistributionsByReserva[entry.reserva] || {};
+      var reservaSaved = savedDistributionsByReserva[normId] ||
+                         savedDistributionsByReserva[normKey] ||
+                         savedDistributionsByReserva[entry.reserva] || {};
       var dateSaved = reservaSaved[entry.fecha] || null;
 
       var proposal = generateDefaultProposal(entry.pax);
@@ -449,8 +514,8 @@
       var revisionReasons = [];
       var previousDistribution = null;
 
-      if (dateSaved && dateSaved.status) {
-        status = dateSaved.status;
+      if (dateSaved && (dateSaved.status || dateSaved.dobles !== undefined || dateSaved.individuales !== undefined)) {
+        status = dateSaved.status || "confirmada";
         observations = dateSaved.observations || "";
         reviewedBy = dateSaved.reviewedBy || "";
         reviewedAt = dateSaved.reviewedAt || "";

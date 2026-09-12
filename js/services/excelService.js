@@ -13,8 +13,17 @@
       return window.NexusUtils.parseNum(v);
     }
     if (v === null || v === undefined || v === "" || v === "---") return 0;
-    const str = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
-    const num = parseFloat(str);
+    if (typeof v === "number") return v;
+    let s = String(v).trim().replace(/[^\d.,\-]/g, "");
+    if (s.includes(",") && s.includes(".")) {
+      if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
+      else s = s.replace(/,/g, "");
+    } else if (s.includes(",")) {
+      s = s.replace(",", ".");
+    } else if (s.includes(".")) {
+      if (s.split(".").pop().length === 3 && s.length > 4) s = s.replace(/\./g, "");
+    }
+    const num = parseFloat(s);
     return isNaN(num) ? 0 : num;
   };
 
@@ -409,6 +418,20 @@
     ]);
 
     const matchedExistingIndices = new Set();
+    const existingAppOnlyByRes = new Map();
+    currentData.forEach((r) => {
+        const rId = normalizeId(r["Reserva"]);
+        if (!rId) return;
+        if (!existingAppOnlyByRes.has(rId)) {
+            existingAppOnlyByRes.set(rId, {});
+        }
+        const target = existingAppOnlyByRes.get(rId);
+        APP_ONLY_FIELDS.forEach((f) => {
+            if (r[f] !== undefined && r[f] !== null && r[f] !== "" && r[f] !== "{}" && r[f] !== "[]") {
+                if (!target[f]) target[f] = r[f];
+            }
+        });
+    });
 
     incomingRows.forEach((newRow, idx) => {
         if (!newRow["Reserva"]) newRow["Reserva"] = `TEMP-${Date.now()}-${idx}`;
@@ -492,7 +515,16 @@
         }
 
         if (existingIdx === -1) {
-            mergedData.push({ ...newRow, _diff: "new" });
+            const freshRow = { ...newRow, _diff: "new" };
+            if (existingAppOnlyByRes.has(resID)) {
+                const savedAppFields = existingAppOnlyByRes.get(resID);
+                APP_ONLY_FIELDS.forEach((f) => {
+                    if (savedAppFields[f] !== undefined && (freshRow[f] === undefined || freshRow[f] === null || freshRow[f] === "")) {
+                        freshRow[f] = savedAppFields[f];
+                    }
+                });
+            }
+            mergedData.push(freshRow);
         } else {
             matchedExistingIndices.add(existingIdx);
             const existingRow = mergedData[existingIdx];
@@ -620,6 +652,15 @@
             } else {
                 mergedRow["_diff"] = diffType || (existingRow._diff ? existingRow._diff : null);
                 mergedRow["_changes"] = changes;
+            }
+
+            if (existingAppOnlyByRes.has(resID)) {
+                const savedAppFields = existingAppOnlyByRes.get(resID);
+                APP_ONLY_FIELDS.forEach((f) => {
+                    if (savedAppFields[f] !== undefined && (mergedRow[f] === undefined || mergedRow[f] === null || mergedRow[f] === "" || mergedRow[f] === "{}" || mergedRow[f] === "[]")) {
+                        mergedRow[f] = savedAppFields[f];
+                    }
+                });
             }
             mergedData[existingIdx] = mergedRow;
         }

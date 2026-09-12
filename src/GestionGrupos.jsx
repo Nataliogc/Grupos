@@ -4338,15 +4338,19 @@
       const savedDistributionsByReserva = useMemo(() => {
         const map = {};
         (data || []).forEach((row) => {
-          const resId = normalizeId(row["Reserva"]);
-          if (!resId) return;
+          const rawId = String(row["Reserva"] || "").trim();
+          const normId = normalizeId(rawId);
+          if (!normId && !rawId) return;
           if (row.DailyDistribution_JSON) {
             try {
               const parsed = typeof row.DailyDistribution_JSON === "string" 
                 ? JSON.parse(row.DailyDistribution_JSON) 
                 : row.DailyDistribution_JSON;
               if (parsed && typeof parsed === "object") {
-                map[resId] = { ...(map[resId] || {}), ...parsed };
+                if (normId) map[normId] = { ...(map[normId] || {}), ...parsed };
+                if (rawId) map[rawId] = { ...(map[rawId] || {}), ...parsed };
+                const cleanId = rawId.replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+                if (cleanId) map[cleanId] = { ...(map[cleanId] || {}), ...parsed };
               }
             } catch (e) {}
           }
@@ -7612,6 +7616,18 @@
 
 
           const sameResRows = (data || []).filter(r => normalizeId(r["Reserva"]) === normalizeId(resID));
+          if (!clean.DailyDistribution_JSON) {
+            const foundDistRow = sameResRows.find(r => r.DailyDistribution_JSON && r.DailyDistribution_JSON !== "{}" && r.DailyDistribution_JSON !== "[]");
+            if (foundDistRow) {
+              clean.DailyDistribution_JSON = foundDistRow.DailyDistribution_JSON;
+            }
+          }
+          if (!clean.RoomingList_JSON) {
+            const foundRlRow = sameResRows.find(r => r.RoomingList_JSON && r.RoomingList_JSON !== "[]");
+            if (foundRlRow) {
+              clean.RoomingList_JSON = foundRlRow.RoomingList_JSON;
+            }
+          }
           let docId = row._docId;
           if (!docId) {
             const linea = String(row["_linea"] || row["precios"] || "").trim();
