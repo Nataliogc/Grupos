@@ -409,7 +409,8 @@
     // Proyectamos cada día con su estado y propuesta/distribución
     var result = [];
     matrixMap.forEach(function (entry) {
-      var reservaSaved = savedDistributionsByReserva[entry.reserva] || {};
+      var normKey = String(entry.reserva || "").trim().replace(/\s+/g, "");
+      var reservaSaved = savedDistributionsByReserva[normKey] || savedDistributionsByReserva[entry.reserva] || {};
       var dateSaved = reservaSaved[entry.fecha] || null;
 
       var proposal = generateDefaultProposal(entry.pax);

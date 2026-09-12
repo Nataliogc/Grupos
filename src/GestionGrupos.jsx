@@ -3481,7 +3481,71 @@
 
         });
 
+        // --- Consolidación Bidireccional de Metadatos del Grupo por Reserva ---
+        Object.values(groups).forEach((group) => {
+          let bestComercial = group.comercial || "";
+          let bestDailyDist = "";
+          let bestRoomingList = "";
+          let bestPaymentPlan = "";
+          let bestLogRooming = "";
+          let bestLogMenuMP = "";
+          let bestLogMenuPC = "";
+          let bestTpv = "";
+          let bestNotas = "";
+          let isCredito = group.isCredito || false;
 
+          group.records.forEach((r) => {
+            if (!bestComercial && (r["Com_Comercial"] || r["Comercial"])) {
+              bestComercial = r["Com_Comercial"] || r["Comercial"];
+            }
+            if (!bestDailyDist && r.DailyDistribution_JSON && r.DailyDistribution_JSON !== "{}" && r.DailyDistribution_JSON !== "[]") {
+              bestDailyDist = typeof r.DailyDistribution_JSON === "string" ? r.DailyDistribution_JSON : JSON.stringify(r.DailyDistribution_JSON);
+            }
+            if (!bestRoomingList && r.RoomingList_JSON && r.RoomingList_JSON !== "[]") {
+              bestRoomingList = typeof r.RoomingList_JSON === "string" ? r.RoomingList_JSON : JSON.stringify(r.RoomingList_JSON);
+            }
+            if (!bestPaymentPlan && r.PaymentPlan_JSON && r.PaymentPlan_JSON !== "[]") {
+              bestPaymentPlan = typeof r.PaymentPlan_JSON === "string" ? r.PaymentPlan_JSON : JSON.stringify(r.PaymentPlan_JSON);
+            }
+            if (!bestLogRooming && (r["Logistica_Rooming"] !== undefined && r["Logistica_Rooming"] !== null && r["Logistica_Rooming"] !== "")) {
+              bestLogRooming = r["Logistica_Rooming"];
+            }
+            if (!bestLogMenuMP && (r["Logistica_MenuMP"] !== undefined && r["Logistica_MenuMP"] !== null && r["Logistica_MenuMP"] !== "")) {
+              bestLogMenuMP = r["Logistica_MenuMP"];
+            }
+            if (!bestLogMenuPC && (r["Logistica_MenuPC"] !== undefined && r["Logistica_MenuPC"] !== null && r["Logistica_MenuPC"] !== "")) {
+              bestLogMenuPC = r["Logistica_MenuPC"];
+            }
+            if (!bestTpv && r.Enlace_TPV) bestTpv = r.Enlace_TPV;
+            if (!bestNotas && r.Com_Notas) bestNotas = r.Com_Notas;
+            if (r.Es_Credito === true || r.Es_Credito === "true" || r.Com_Es_Credito === true) isCredito = true;
+          });
+
+          group.comercial = bestComercial;
+          group.dailyDistribution = bestDailyDist;
+          group.roomingList = bestRoomingList;
+          group.paymentPlan = bestPaymentPlan;
+          group.logisticaRooming = bestLogRooming;
+          group.logisticaMenuMP = bestLogMenuMP;
+          group.logisticaMenuPC = bestLogMenuPC;
+          group.enlaceTpv = bestTpv;
+          group.comNotas = bestNotas;
+          group.isCredito = isCredito;
+
+          // Propagar al registro maestro records[0] y a todos los demás para que cualquier vista tenga los datos completos
+          group.records.forEach((r) => {
+            if (bestComercial && !r["Com_Comercial"]) r["Com_Comercial"] = bestComercial;
+            if (bestDailyDist && !r.DailyDistribution_JSON) r.DailyDistribution_JSON = bestDailyDist;
+            if (bestRoomingList && (!r.RoomingList_JSON || r.RoomingList_JSON === "[]")) r.RoomingList_JSON = bestRoomingList;
+            if (bestPaymentPlan && (!r.PaymentPlan_JSON || r.PaymentPlan_JSON === "[]")) r.PaymentPlan_JSON = bestPaymentPlan;
+            if (bestLogRooming && !r["Logistica_Rooming"]) r["Logistica_Rooming"] = bestLogRooming;
+            if (bestLogMenuMP && !r["Logistica_MenuMP"]) r["Logistica_MenuMP"] = bestLogMenuMP;
+            if (bestLogMenuPC && !r["Logistica_MenuPC"]) r["Logistica_MenuPC"] = bestLogMenuPC;
+            if (bestTpv && !r.Enlace_TPV) r.Enlace_TPV = bestTpv;
+            if (bestNotas && !r.Com_Notas) r.Com_Notas = bestNotas;
+            if (isCredito) r.Es_Credito = true;
+          });
+        });
 
         return Object.values(groups).sort((a, b) => {
 
@@ -3768,24 +3832,129 @@
 
           const jsonStringToSave = JSON.stringify(existingDistMap);
 
+          // Construir RoomingList sincronizado si la distribución está confirmada/modificada
+          let newRoomingItems = [];
+          if (finalStatus !== "pendiente" && (finalInd + finalDbl + finalTpl + finalCua) > 0) {
+            const firstR = matchingRows[0] || {};
+            const hotelName = normalizeHotelNameLocal(firstR["Hotel_Asignado"] || firstR["Hotel"] || editingDistribution.hotel, "Sercotel Guadiana");
+            const dIn = firstR["Entrada"] || editingDistribution.fecha;
+            const dOut = firstR["Salida"] || editingDistribution.fecha;
+            const reg = firstR["Régimen"] || editingDistribution.regimen || "AD";
+            const totImp = parseNum(firstR["Importe(*)"]) || 0;
+            const totPax = editingDistribution.pax || ((finalInd * 1) + (finalDbl * 2) + (finalTpl * 3) + (finalCua * 4)) || 1;
+
+            const parseDateLocal = (dStr) => {
+              if (!dStr) return null;
+              const s = dStr.toString();
+              if (s.includes("-") && s.split("-")[0].length <= 2) {
+                const [d, m, y] = s.split("-");
+                return new Date(`${y}-${m}-${d}T12:00:00Z`);
+              }
+              if (s.includes("/") && s.split("/")[0].length <= 2) {
+                const [d, m, y] = s.split("/");
+                return new Date(`${y}-${m}-${d}T12:00:00Z`);
+              }
+              if (s.includes("-") && s.split("-")[0].length === 4) {
+                return new Date(`${s}T12:00:00Z`);
+              }
+              return new Date(s);
+            };
+
+            let start = parseDateLocal(dIn);
+            let end = parseDateLocal(dOut);
+            let totalDays = 1;
+            if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+              totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+            }
+            const dateInIso = (start && !isNaN(start.getTime())) ? start.toISOString().split("T")[0] : editingDistribution.fecha;
+            const dateOutIso = (end && !isNaN(end.getTime())) ? end.toISOString().split("T")[0] : editingDistribution.fecha;
+            const dailyPerPax = (totalDays > 0 && totPax > 0 && totImp > 0) ? (totImp / totalDays / totPax) : 0;
+
+            const cats = [
+              { type: "INDIVIDUAL", count: finalInd, pax: 1 },
+              { type: "DOBLE", count: finalDbl, pax: 2 },
+              { type: "TRIPLE", count: finalTpl, pax: 3 },
+              { type: "CUÁDRUPLE", count: finalCua, pax: 4 }
+            ].filter(c => c.count > 0);
+
+            let runningSum = 0;
+            cats.forEach((cat, cIdx) => {
+              const isLast = cIdx === cats.length - 1;
+              const unitPrice = Math.round(dailyPerPax * cat.pax * 100) / 100;
+              let lineTot = Math.round(cat.count * unitPrice * totalDays * 100) / 100;
+              runningSum += lineTot;
+              if (isLast && totImp > 0) {
+                const diff = Math.round((totImp - runningSum) * 100) / 100;
+                if (Math.abs(diff) < 1.0) lineTot = Math.round((lineTot + diff) * 100) / 100;
+              }
+              newRoomingItems.push({
+                id: Date.now() + Math.random(),
+                hotel: hotelName,
+                type: cat.type,
+                dateIn: dateInIso,
+                dateOut: dateOutIso,
+                qty: cat.count,
+                pax: cat.pax,
+                regime: reg,
+                price: unitPrice.toFixed(2),
+                nights: totalDays,
+                total: lineTot.toFixed(2),
+                isService: false
+              });
+            });
+          }
+          const roomingJsonToSave = newRoomingItems.length > 0 ? JSON.stringify(newRoomingItems) : null;
+
+          // Recopilar todos los docIds de esta reserva en un Set para no omitir ninguno
+          const docIdsToUpdate = new Set();
+          if (targetResId) docIdsToUpdate.add(targetResId);
+          matchingRows.forEach((r) => {
+            if (r._docId) docIdsToUpdate.add(r._docId);
+            const rNorm = normalizeId(r["Reserva"]);
+            if (rNorm) docIdsToUpdate.add(rNorm);
+          });
+
           // Actualizar en Firestore para todos los documentos de esta reserva
-          if (matchingRows.length > 0) {
+          if (docIdsToUpdate.size > 0) {
             const batch = db.batch();
-            matchingRows.forEach((r) => {
-              const docId = r._docId || normalizeId(r["Reserva"]);
+            docIdsToUpdate.forEach((docId) => {
               const docRef = db.collection("groups").doc(docId);
-              batch.set(docRef, { DailyDistribution_JSON: jsonStringToSave }, { merge: true });
+              const payload = {
+                DailyDistribution_JSON: jsonStringToSave,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              };
+              if (roomingJsonToSave) payload.RoomingList_JSON = roomingJsonToSave;
+              batch.set(docRef, payload, { merge: true });
             });
             await batch.commit();
           }
 
           // Actualizar estado local inmediatamente
           setData((prev) => prev.map((r) => {
-            if (normalizeId(r["Reserva"]) === targetResId) {
-              return { ...r, DailyDistribution_JSON: jsonStringToSave };
+            if (normalizeId(r["Reserva"]) === targetResId || docIdsToUpdate.has(r._docId)) {
+              const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
+              if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
+              return updated;
             }
             return r;
           }));
+
+          if (selectedGroupFicha && normalizeId(selectedGroupFicha.id) === targetResId) {
+            setSelectedGroupFicha(prev => {
+              if (!prev) return prev;
+              const updatedRecords = (prev.records || []).map(r => {
+                const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
+                if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
+                return updated;
+              });
+              return {
+                ...prev,
+                dailyDistribution: jsonStringToSave,
+                roomingList: roomingJsonToSave || prev.roomingList,
+                records: updatedRecords
+              };
+            });
+          }
 
           setEditingDistribution(null);
         } catch (err) {
@@ -7341,6 +7510,30 @@
                 }
               });
 
+              // Comprobar si hay distribución diaria registrada para esta reserva
+              const resNorm = normalizeId(group.id || group.records?.[0]?.["Reserva"]);
+              const rawDist = group.records?.[0]?.["DailyDistribution_JSON"] || 
+                              group.dailyDistribution || 
+                              (typeof savedDistributionsByReserva !== "undefined" && (savedDistributionsByReserva[resNorm] || savedDistributionsByReserva[group.id]));
+              let distMap = null;
+              if (rawDist) {
+                try {
+                  distMap = typeof rawDist === "string" ? JSON.parse(rawDist) : rawDist;
+                } catch(e) { distMap = null; }
+              }
+
+              let foundDistribution = null;
+              if (distMap && typeof distMap === "object") {
+                const dateKeys = Object.keys(distMap).sort();
+                for (const dk of dateKeys) {
+                  const entry = distMap[dk];
+                  if (entry && (entry.totalHabitaciones > 0 || (entry.individuales || 0) + (entry.dobles || 0) + (entry.triples || 0) + (entry.cuadruples || 0) > 0)) {
+                    foundDistribution = entry;
+                    break;
+                  }
+                }
+              }
+
               uniqueSegments.forEach((seg) => {
                 if (seg.dateIn && seg.dateOut) {
                   const parseDate = (dStr) => {
@@ -7371,30 +7564,89 @@
 
                   if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
                     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-                    const dailyPrice = totalDays > 0 ? seg.price / totalDays : 0;
-                    const qty = Math.ceil(seg.pax / 2) || 1;
+                    const segHotel = normalizeHotelNameLocal(seg.hotel, "Sercotel Guadiana");
+                    const dateInIso = start.toISOString().split("T")[0];
+                    const dateOutIso = end.toISOString().split("T")[0];
 
-                    newAutoList.push({
-                      id: Date.now() + Math.random(),
-                      hotel: normalizeHotelNameLocal(seg.hotel, "Sercotel Guadiana"),
-                      type: "Habitación (Auto)",
-                      dateIn: start.toISOString().split("T")[0],
-                      dateOut: end.toISOString().split("T")[0],
-                      qty: qty,
-                      regime: seg.regime || "AD",
-                      price: (dailyPrice / qty).toFixed(2),
-                      nights: totalDays,
-                      total: seg.price.toFixed(2),
-                      isService: false
-                    });
+                    if (foundDistribution) {
+                      // Usar la distribución real validada (ej. 5 Ind, 17 Dbl, 1 Tpl = 23 Hab)
+                      const ind = parseInt(foundDistribution.individuales || 0, 10);
+                      const dbl = parseInt(foundDistribution.dobles || 0, 10);
+                      const tpl = parseInt(foundDistribution.triples || 0, 10);
+                      const cua = parseInt(foundDistribution.cuadruples || 0, 10);
+                      const totalDistPax = (ind * 1) + (dbl * 2) + (tpl * 3) + (cua * 4);
+                      const effPax = totalDistPax > 0 ? totalDistPax : (seg.pax || 1);
+                      const dailyPerPax = (totalDays > 0 && effPax > 0) ? (seg.price / totalDays / effPax) : 0;
+
+                      const categories = [
+                        { type: "INDIVIDUAL", count: ind, paxPerRoom: 1 },
+                        { type: "DOBLE", count: dbl, paxPerRoom: 2 },
+                        { type: "TRIPLE", count: tpl, paxPerRoom: 3 },
+                        { type: "CUÁDRUPLE", count: cua, paxPerRoom: 4 }
+                      ].filter(c => c.count > 0);
+
+                      let runningTotal = 0;
+                      categories.forEach((cat, cIdx) => {
+                        const isLast = cIdx === categories.length - 1;
+                        const catPricePerRoom = Math.round(dailyPerPax * cat.paxPerRoom * 100) / 100;
+                        let catTotal = Math.round(cat.count * catPricePerRoom * totalDays * 100) / 100;
+                        runningTotal += catTotal;
+                        if (isLast && seg.price > 0) {
+                          const diff = Math.round((seg.price - runningTotal) * 100) / 100;
+                          if (Math.abs(diff) < 1.0) catTotal = Math.round((catTotal + diff) * 100) / 100;
+                        }
+
+                        newAutoList.push({
+                          id: Date.now() + Math.random(),
+                          hotel: segHotel,
+                          type: cat.type,
+                          dateIn: dateInIso,
+                          dateOut: dateOutIso,
+                          qty: cat.count,
+                          pax: cat.paxPerRoom,
+                          regime: seg.regime || "AD",
+                          price: catPricePerRoom.toFixed(2),
+                          nights: totalDays,
+                          total: catTotal.toFixed(2),
+                          isService: false
+                        });
+                      });
+                    } else {
+                      // Fallback si no hay distribución configurada
+                      const dailyPrice = totalDays > 0 ? seg.price / totalDays : 0;
+                      const qty = Math.ceil(seg.pax / 2) || 1;
+
+                      newAutoList.push({
+                        id: Date.now() + Math.random(),
+                        hotel: segHotel,
+                        type: "Habitación (Auto)",
+                        dateIn: dateInIso,
+                        dateOut: dateOutIso,
+                        qty: qty,
+                        pax: 2,
+                        regime: seg.regime || "AD",
+                        price: (dailyPrice / qty).toFixed(2),
+                        nights: totalDays,
+                        total: seg.price.toFixed(2),
+                        isService: false
+                      });
+                    }
                   }
                 }
               });
             }
 
             if (newAutoList.length > 0) {
-              if (group.records && group.records[0]) {
-                group.records[0]["RoomingList_JSON"] = JSON.stringify(newAutoList);
+              const resNormKey = normalizeId(group.id || group.records?.[0]?.["Reserva"]);
+              const jsonStr = JSON.stringify(newAutoList);
+              if (group.records) {
+                group.records.forEach(r => {
+                  r["RoomingList_JSON"] = jsonStr;
+                });
+              }
+              // Persistir en segundo plano a Firestore para mantenerlo sincronizado
+              if (resNormKey && (!firstRecord["RoomingList_JSON"] || firstRecord["RoomingList_JSON"] === "[]" || isOnlyFallback)) {
+                updateGroupMetadata(resNormKey, { RoomingList_JSON: jsonStr }).catch(console.error);
               }
             }
           }
@@ -7849,80 +8101,43 @@
         try {
 
           const batch = db.batch();
+          const targetNormId = normalizeId(resId);
+          const docIdsToUpdate = new Set();
+          if (targetNormId) docIdsToUpdate.add(targetNormId);
 
           currentGroupRows.forEach((row) => {
-
-            const resID = String(row.Reserva).trim();
-
-            if (resID) {
-
-              const normRes = normalizeId(resID);
-
-              const docRef = db.collection("groups").doc(normRes);
-
-              
-
-              const payload = {
-
-                ...updates,
-
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-
-              };
-
-              // No loggear tracking de forma recursiva o redundante si ya viene en updates
-
-              if (!updates.tracking && !updates.RoomingList_JSON && !updates.PaymentPlan_JSON && !updates.updatedAt) {
-
-                 const changesText = Object.keys(updates)
-
-                   .map(k => `${k}: ${row[k] || 'vacio'} -> ${updates[k]}`)
-
-                   .join(" | ");
-
-                 
-
-                 const now_str = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0') + ' ' + String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0');
-
-                 const logEntry = {
-
-                   id: Date.now(),
-
-                   date: now_str,
-
-                   text: `Modificación field: ${changesText}`
-
-                 };
-
-                 
-
-                 let oldTrack = [];
-
-                 try { oldTrack = JSON.parse(row.tracking || "[]"); } catch(e){}
-
-                 payload.tracking = JSON.stringify([...oldTrack, logEntry]);
-
-              }
-
-              batch.set(docRef, payload, { merge: true });
-
-            }
-
+            if (row._docId) docIdsToUpdate.add(row._docId);
+            const rNorm = normalizeId(row.Reserva);
+            if (rNorm) docIdsToUpdate.add(rNorm);
           });
 
-          if (currentGroupRows.length === 0) {
+          docIdsToUpdate.forEach((docId) => {
+            const docRef = db.collection("groups").doc(docId);
+            const payload = {
+              ...updates,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            };
 
-            console.warn(
+            if (!updates.tracking && !updates.RoomingList_JSON && !updates.PaymentPlan_JSON && !updates.DailyDistribution_JSON && !updates.updatedAt) {
+              const sampleRow = currentGroupRows[0] || {};
+              const changesText = Object.keys(updates)
+                .map(k => `${k}: ${sampleRow[k] || 'vacio'} -> ${updates[k]}`)
+                .join(" | ");
 
-              "⚠️ updateGroupMetadata: No se encontraron filas para",
+              const now_str = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0') + ' ' + String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0');
+              const logEntry = {
+                id: Date.now(),
+                date: now_str,
+                text: `Modificación field: ${changesText}`
+              };
 
-              resId,
+              let oldTrack = [];
+              try { oldTrack = JSON.parse(sampleRow.tracking || "[]"); } catch(e){}
+              payload.tracking = JSON.stringify([...oldTrack, logEntry]);
+            }
 
-              "- el cambio puede no haberse guardado en Firestore.",
-
-            );
-
-          }
+            batch.set(docRef, payload, { merge: true });
+          });
 
           await batch.commit();
 
@@ -11584,6 +11799,7 @@
                                   <th className="px-3 py-3">Hotel</th>
                                   <th className="px-3 py-3">Reserva</th>
                                   <th className="px-3 py-3">Grupo</th>
+                                  <th className="px-3 py-3">Comercial</th>
                                   <th className="px-3 py-3">Fecha</th>
                                   <th className="px-2 py-3 text-center">Pax</th>
                                   <th className="px-2 py-3">Rég.</th>
@@ -11603,7 +11819,7 @@
                               <tbody className="divide-y divide-slate-100">
                                 {filteredDailyOccupancy.length === 0 ? (
                                   <tr>
-                                    <td colSpan="17" className="px-6 py-12 text-center text-slate-400 font-medium">
+                                    <td colSpan="18" className="px-6 py-12 text-center text-slate-400 font-medium">
                                       No hay registros diarios que coincidan con los filtros aplicados.
                                     </td>
                                   </tr>
@@ -11630,6 +11846,10 @@
                                       badgeText = "Pendiente de revisión";
                                     }
 
+                                    // Localizar grupo para navegación y comercial
+                                    const matchingGroup = groupedData.find(g => normalizeId(g.id) === normalizeId(item.reserva));
+                                    const comercialName = matchingGroup?.comercial || (matchingGroup?.records?.[0]?.Com_Comercial) || "-";
+
                                     // Cálculo de Importe Diario y Desglose Económico
                                     let dailyImp = 0.0;
                                     if (item.contributingLines && item.contributingLines.length > 0) {
@@ -11655,9 +11875,37 @@
                                     return (
                                       <tr key={`${item.reserva}_${item.fecha}_${idx}`} className="hover:bg-slate-50/80 transition">
                                         <td className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">{item.hotel}</td>
-                                        <td className="px-3 py-2 font-mono font-bold text-blue-600 whitespace-nowrap">{item.reserva}</td>
-                                        <td className="px-3 py-2 font-semibold text-slate-800 max-w-[170px] truncate" title={item.nombreGrupo}>
-                                          {item.nombreGrupo}
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const targetGroup = matchingGroup || { id: item.reserva, name: item.nombreGrupo, records: (data || []).filter(r => normalizeId(r.Reserva) === normalizeId(item.reserva)) };
+                                              openFicha(targetGroup);
+                                            }}
+                                            className="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer inline-flex items-center gap-1 group"
+                                            title="Abrir Ficha del Grupo"
+                                          >
+                                            <span>{item.reserva}</span>
+                                            <span className="text-[10px] text-blue-400 group-hover:text-blue-700">↗</span>
+                                          </button>
+                                        </td>
+                                        <td className="px-3 py-2 max-w-[170px] truncate" title={item.nombreGrupo}>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const targetGroup = matchingGroup || { id: item.reserva, name: item.nombreGrupo, records: (data || []).filter(r => normalizeId(r.Reserva) === normalizeId(item.reserva)) };
+                                              openFicha(targetGroup);
+                                            }}
+                                            className="font-semibold text-slate-800 hover:text-blue-600 hover:underline text-left cursor-pointer truncate max-w-full block"
+                                            title={`Abrir Ficha de ${item.nombreGrupo}`}
+                                          >
+                                            {item.nombreGrupo}
+                                          </button>
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700">
+                                            {comercialName}
+                                          </span>
                                         </td>
                                         <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{formatDate(item.fecha)}</td>
                                         <td className="px-2 py-2 text-center font-black text-slate-900 bg-slate-50/60">{item.pax}</td>

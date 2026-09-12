@@ -335,7 +335,8 @@
       "Com_Vencimiento_Rel", "Com_Precio", "Dep1_Label", "Dep1_Percent", "Dep1_Importe",
       "Dep1_Fecha", "Dep2_Label", "Dep2_Percent", "Dep2_Importe", "Dep2_Fecha",
       "Dep3_Label", "Dep3_Percent", "Dep3_Importe", "Dep3_Fecha", "PaymentPlan_JSON",
-      "RoomingList_JSON", "Fiscal_RazonSocial", "Fiscal_CIF", "Fiscal_Direccion",
+      "RoomingList_JSON", "DailyDistribution_JSON", "Logistica_Rooming", "Logistica_MenuMP",
+      "Logistica_MenuPC", "Enlace_TPV", "tracking", "Fiscal_RazonSocial", "Fiscal_CIF", "Fiscal_Direccion",
       "Fiscal_CP", "Fiscal_Poblacion", "Fiscal_Provincia", "Fiscal_Pais", "Email",
       "Telefono", "Persona_Contacto", "Proforma_NetRate", "Proforma_Rooms",
       "Proforma_RoomList", "Com_Pagado", "Es_Credito", "Com_Es_Credito", "updatedAt"
