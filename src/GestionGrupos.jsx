@@ -16081,6 +16081,38 @@
 
                                   {(() => {
                                     const r = selectedGroupFicha.records[0] || {};
+                                    const entrada = r["Entrada"];
+                                    const salida = r["Salida"];
+                                    const noches = r["Noches"] || r["noches"];
+                                    if (!entrada && !salida) return null;
+                                    const fmtDate = (d) => {
+                                      if (!d) return "—";
+                                      const s = String(d).trim();
+                                      // YYYY-MM-DD → DD/MM/YYYY
+                                      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+                                        const [y, m, dd] = s.split("-");
+                                        return `${dd}/${m}/${y}`;
+                                      }
+                                      return s;
+                                    };
+                                    return (
+                                      <>
+                                        <span className="opacity-30">•</span>
+                                        <span className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded text-emerald-200 font-black text-[10px]">
+                                          <IconCalendar size={11} className="opacity-70 shrink-0" />
+                                          {fmtDate(entrada)}
+                                          <span className="opacity-50 mx-0.5">→</span>
+                                          {fmtDate(salida)}
+                                          {noches && (
+                                            <span className="opacity-60 ml-0.5">({noches}n)</span>
+                                          )}
+                                        </span>
+                                      </>
+                                    );
+                                  })()}
+
+                                  {(() => {
+                                    const r = selectedGroupFicha.records[0] || {};
                                     const contactName = r["Com_Nombre_Contacto"] || r["Persona_Contacto"];
                                     const contactEmail = r["Com_Email_Contacto"] || r["Email"];
                                     const contactPhone = r["Com_Telefono_Contacto"] || r["Telefono"] || r["Teléfono"];
