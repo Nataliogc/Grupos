@@ -4581,26 +4581,53 @@
           ? parseRoomingListSafe(matchRow.RoomingList_JSON, "open-dist-modal") 
           : [];
         let initialFreeInd = 0;
-        existingRL.forEach((item) => {
-          const itype = String(item.type || item.roomType || "").toUpperCase();
-          const iprice = parseFloat(item.price);
-          const isGratuity = itype.includes("GRATUIDAD") || (itype.includes("INDIV") && (iprice === 0 || isNaN(iprice)));
-          if (!isGratuity) return;
-          const iDate = toInputDate(item.dateIn || item.date);
-          if (iDate && dailyItem.fecha && iDate !== dailyItem.fecha) return;
-          const qty = parseInt(item.qty, 10) || 1;
-          if (itype.includes("INDIV") || itype.includes("INDIVIDUAL")) {
-            initialFreeInd += qty;
-          }
-        });
-        if (initialFreeInd === 0 && currentInd > 0) {
-          const hasAnyGratuity = existingRL.some(item => {
+        let initialFreeDbl = 0;
+        let initialFreeTpl = 0;
+        let initialFreeCua = 0;
+
+        // Intentar leer gratuidades guardadas previamente en DailyDistribution_JSON
+        let distGratuities = null;
+        if (matchRow?.DailyDistribution_JSON) {
+          try {
+            const distMap = typeof matchRow.DailyDistribution_JSON === "string"
+              ? JSON.parse(matchRow.DailyDistribution_JSON)
+              : matchRow.DailyDistribution_JSON;
+            distGratuities = distMap?.[dailyItem.fecha]?.gratuities;
+          } catch(e) {}
+        }
+
+        if (distGratuities) {
+          initialFreeInd = parseInt(distGratuities.individuales, 10) || 0;
+          initialFreeDbl = parseInt(distGratuities.dobles, 10) || 0;
+          initialFreeTpl = parseInt(distGratuities.triples, 10) || 0;
+          initialFreeCua = parseInt(distGratuities.cuadruples, 10) || 0;
+        } else {
+          existingRL.forEach((item) => {
             const itype = String(item.type || item.roomType || "").toUpperCase();
             const iprice = parseFloat(item.price);
-            return (itype.includes("GRATUIDAD") || (itype.includes("INDIV") && (iprice === 0 || isNaN(iprice)))) && (itype.includes("INDIV") || itype.includes("INDIVIDUAL"));
+            const isGratuity = itype.includes("GRATUIDAD") || iprice === 0 || isNaN(iprice);
+            if (!isGratuity) return;
+            const iDate = toInputDate(item.dateIn || item.date);
+            if (iDate && dailyItem.fecha && iDate !== dailyItem.fecha) return;
+            const qty = parseInt(item.qty, 10) || 1;
+            if (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI")) {
+              initialFreeInd += qty;
+            } else if (itype.includes("DBL") || itype.includes("DOBLE")) {
+              initialFreeDbl += qty;
+            } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
+              initialFreeTpl += qty;
+            } else if (itype.includes("CUA") || itype.includes("CUAD")) {
+              initialFreeCua += qty;
+            }
           });
-          if (hasAnyGratuity) initialFreeInd = 1;
         }
+
+        // Acotar para no exceder las habitaciones de cada tipo
+        initialFreeInd = Math.min(currentInd, initialFreeInd);
+        initialFreeDbl = Math.min(currentDbl, initialFreeDbl);
+        initialFreeTpl = Math.min(currentTpl, initialFreeTpl);
+        initialFreeCua = Math.min(currentCua, initialFreeCua);
+        const totalInitialFree = initialFreeInd + initialFreeDbl + initialFreeTpl + initialFreeCua;
         // ────────────────────────────────────────────────────────────────────
 
         setDistributionFormError(null);
@@ -4616,7 +4643,11 @@
           dobles: currentDbl,
           triples: currentTpl,
           cuadruples: currentCua,
-          gratuitiesCount: initialFreeInd,
+          gratuitiesInd: initialFreeInd,
+          gratuitiesDbl: initialFreeDbl,
+          gratuitiesTpl: initialFreeTpl,
+          gratuitiesCua: initialFreeCua,
+          gratuitiesCount: totalInitialFree,
           observations: dailyItem.observations || "",
           status: dailyItem.distributionStatus || "propuesta",
           revisionReasons: dailyItem.revisionReasons || [],
@@ -4692,6 +4723,11 @@
             ? window.GroupOccupancyService.createValidationSnapshot({ contributingLines: matchedDay?.contributingLines || [] }, "Usuario")
             : null;
 
+          const freeIndVal = Math.min(finalInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : editingDistribution.gratuitiesCount, 10) || 0);
+          const freeDblVal = Math.min(finalDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
+          const freeTplVal = Math.min(finalTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
+          const freeCuaVal = Math.min(finalCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
+
           const newEntry = {
             status: finalStatus,
             individuales: finalInd,
@@ -4702,6 +4738,13 @@
             pax: editingDistribution.pax,
             proposed: editingDistribution.proposal,
             observations: editingDistribution.observations || "",
+            gratuities: {
+              individuales: freeIndVal,
+              dobles: freeDblVal,
+              triples: freeTplVal,
+              cuadruples: freeCuaVal
+            },
+            gratuitiesCount: freeIndVal + freeDblVal + freeTplVal + freeCuaVal,
             validationSnapshot: validationSnap,
             reviewedBy: "Usuario",
             reviewedAt: new Date().toISOString()
@@ -4726,9 +4769,18 @@
             const hotelName = normalizeHotelNameLocal(firstR["Hotel_Asignado"] || firstR["Hotel"] || editingDistribution.hotel, "Sercotel Guadiana");
             const totImp = parseNum(firstR["Importe(*)"]) || 0;
 
-            // Cantidad de gratuitas definidas explícitamente en el modal
-            const freeInd = Math.min(finalInd, parseInt(editingDistribution.gratuitiesCount, 10) || 0);
+            // Cantidades de gratuitas definidas explícitamente en el modal
+            const freeInd = Math.min(finalInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : editingDistribution.gratuitiesCount, 10) || 0);
             const payingInd = Math.max(0, finalInd - freeInd);
+
+            const freeDbl = Math.min(finalDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
+            const payingDbl = Math.max(0, finalDbl - freeDbl);
+
+            const freeTpl = Math.min(finalTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
+            const payingTpl = Math.max(0, finalTpl - freeTpl);
+
+            const freeCua = Math.min(finalCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
+            const payingCua = Math.max(0, finalCua - freeCua);
 
             // Fechas a las que aplica esta distribución
             const targetDates = new Set();
@@ -4809,7 +4861,7 @@
               }
               if (dayImp <= 0) dayImp = totImp / Math.max(1, targetDates.size);
 
-              const payingPaxCount = Math.max(1, (payingInd * 1) + (finalDbl * 2) + (finalTpl * 3) + (finalCua * 4));
+              const payingPaxCount = Math.max(1, (payingInd * 1) + (payingDbl * 2) + (payingTpl * 3) + (payingCua * 4));
               const dailyPerPax = dayImp > 0 ? (dayImp / payingPaxCount) : 0;
 
               const indUnitPrice = oldIndP !== null ? oldIndP : Math.round(dailyPerPax * 1 * 100) / 100;
@@ -4851,53 +4903,104 @@
                 });
               }
 
-              if (finalDbl > 0) {
+              if (payingDbl > 0) {
                 generatedDayItems.push({
                   id: Date.now() + Math.random() + 0.03,
                   hotel: hotelName,
                   type: "DOBLE",
                   dateIn: dStr,
                   dateOut: nextDStr,
-                  qty: finalDbl,
+                  qty: payingDbl,
                   pax: 2,
                   regime: dayReg,
                   price: dblUnitPrice.toFixed(2),
                   nights: 1,
-                  total: (finalDbl * dblUnitPrice).toFixed(2),
+                  total: (payingDbl * dblUnitPrice).toFixed(2),
                   isService: false
                 });
               }
 
-              if (finalTpl > 0) {
+              if (freeDbl > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.035,
+                  hotel: hotelName,
+                  type: "DOBLE (GRATUIDAD)",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: freeDbl,
+                  pax: 2,
+                  regime: dayReg,
+                  price: "0.00",
+                  nights: 1,
+                  total: "0.00",
+                  isService: false
+                });
+              }
+
+              if (payingTpl > 0) {
                 generatedDayItems.push({
                   id: Date.now() + Math.random() + 0.04,
                   hotel: hotelName,
                   type: "TRIPLE",
                   dateIn: dStr,
                   dateOut: nextDStr,
-                  qty: finalTpl,
+                  qty: payingTpl,
                   pax: 3,
                   regime: dayReg,
                   price: tplUnitPrice.toFixed(2),
                   nights: 1,
-                  total: (finalTpl * tplUnitPrice).toFixed(2),
+                  total: (payingTpl * tplUnitPrice).toFixed(2),
                   isService: false
                 });
               }
 
-              if (finalCua > 0) {
+              if (freeTpl > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.045,
+                  hotel: hotelName,
+                  type: "TRIPLE (GRATUIDAD)",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: freeTpl,
+                  pax: 3,
+                  regime: dayReg,
+                  price: "0.00",
+                  nights: 1,
+                  total: "0.00",
+                  isService: false
+                });
+              }
+
+              if (payingCua > 0) {
                 generatedDayItems.push({
                   id: Date.now() + Math.random() + 0.05,
                   hotel: hotelName,
                   type: "CUÁDRUPLE",
                   dateIn: dStr,
                   dateOut: nextDStr,
-                  qty: finalCua,
+                  qty: payingCua,
                   pax: 4,
                   regime: dayReg,
                   price: cuaUnitPrice.toFixed(2),
                   nights: 1,
-                  total: (finalCua * cuaUnitPrice).toFixed(2),
+                  total: (payingCua * cuaUnitPrice).toFixed(2),
+                  isService: false
+                });
+              }
+
+              if (freeCua > 0) {
+                generatedDayItems.push({
+                  id: Date.now() + Math.random() + 0.055,
+                  hotel: hotelName,
+                  type: "CUÁDRUPLE (GRATUIDAD)",
+                  dateIn: dStr,
+                  dateOut: nextDStr,
+                  qty: freeCua,
+                  pax: 4,
+                  regime: dayReg,
+                  price: "0.00",
+                  nights: 1,
+                  total: "0.00",
                   isService: false
                 });
               }
@@ -13981,6 +14084,11 @@
               const curDbl = parseInt(editingDistribution.dobles, 10) || 0;
               const curTpl = parseInt(editingDistribution.triples, 10) || 0;
               const curCua = parseInt(editingDistribution.cuadruples, 10) || 0;
+              const freeInd = Math.min(curInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : (editingDistribution.gratuitiesCount || 0), 10) || 0);
+              const freeDbl = Math.min(curDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
+              const freeTpl = Math.min(curTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
+              const freeCua = Math.min(curCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
+              const totGratuities = freeInd + freeDbl + freeTpl + freeCua;
               const calcPax = (curInd * 1) + (curDbl * 2) + (curTpl * 3) + (curCua * 4);
               const calcRooms = curInd + curDbl + curTpl + curCua;
               const isPaxMatch = calcPax === editingDistribution.pax;
@@ -14150,19 +14258,20 @@
                                 type="number"
                                 min="0"
                                 max={curInd}
-                                value={editingDistribution.gratuitiesCount !== undefined ? editingDistribution.gratuitiesCount : 0}
+                                value={editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : (editingDistribution.gratuitiesCount || 0)}
                                 onChange={(e) => {
                                   const val = Math.max(0, Math.min(curInd, parseInt(e.target.value, 10) || 0));
                                   setEditingDistribution({
                                     ...editingDistribution,
-                                    gratuitiesCount: val
+                                    gratuitiesInd: val,
+                                    gratuitiesCount: val + freeDbl + freeTpl + freeCua
                                   });
                                 }}
                                 className="w-full bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-xs font-black text-amber-900 text-center focus:outline-none focus:border-amber-500"
                                 title="Número de habitaciones individuales sin cargo (0,00 €)"
                               />
                               <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
-                                {Math.max(0, curInd - (editingDistribution.gratuitiesCount !== undefined ? editingDistribution.gratuitiesCount : 0))} pago + {(editingDistribution.gratuitiesCount !== undefined ? editingDistribution.gratuitiesCount : 0)} gratis
+                                {Math.max(0, curInd - freeInd)} pago + {freeInd} gratis
                               </div>
                             </div>
                           </div>
@@ -14184,6 +14293,32 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curDbl * 2} pax
                             </div>
+
+                            {/* Campo editable de gratuidades para Dobles */}
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
+                                🎁 Gratuitas (0 €):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={curDbl}
+                                value={editingDistribution.gratuitiesDbl !== undefined ? editingDistribution.gratuitiesDbl : 0}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(curDbl, parseInt(e.target.value, 10) || 0));
+                                  setEditingDistribution({
+                                    ...editingDistribution,
+                                    gratuitiesDbl: val,
+                                    gratuitiesCount: freeInd + val + freeTpl + freeCua
+                                  });
+                                }}
+                                className="w-full bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-xs font-black text-amber-900 text-center focus:outline-none focus:border-amber-500"
+                                title="Número de habitaciones dobles sin cargo (0,00 €)"
+                              />
+                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                {Math.max(0, curDbl - freeDbl)} pago + {freeDbl} gratis
+                              </div>
+                            </div>
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -14202,6 +14337,32 @@
                             />
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curTpl * 3} pax
+                            </div>
+
+                            {/* Campo editable de gratuidades para Triples */}
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
+                                🎁 Gratuitas (0 €):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={curTpl}
+                                value={editingDistribution.gratuitiesTpl !== undefined ? editingDistribution.gratuitiesTpl : 0}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(curTpl, parseInt(e.target.value, 10) || 0));
+                                  setEditingDistribution({
+                                    ...editingDistribution,
+                                    gratuitiesTpl: val,
+                                    gratuitiesCount: freeInd + freeDbl + val + freeCua
+                                  });
+                                }}
+                                className="w-full bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-xs font-black text-amber-900 text-center focus:outline-none focus:border-amber-500"
+                                title="Número de habitaciones triples sin cargo (0,00 €)"
+                              />
+                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                {Math.max(0, curTpl - freeTpl)} pago + {freeTpl} gratis
+                              </div>
                             </div>
                           </div>
 
@@ -14222,6 +14383,32 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curCua * 4} pax
                             </div>
+
+                            {/* Campo editable de gratuidades para Cuádruples */}
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
+                                🎁 Gratuitas (0 €):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={curCua}
+                                value={editingDistribution.gratuitiesCua !== undefined ? editingDistribution.gratuitiesCua : 0}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(curCua, parseInt(e.target.value, 10) || 0));
+                                  setEditingDistribution({
+                                    ...editingDistribution,
+                                    gratuitiesCua: val,
+                                    gratuitiesCount: freeInd + freeDbl + freeTpl + val
+                                  });
+                                }}
+                                className="w-full bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-xs font-black text-amber-900 text-center focus:outline-none focus:border-amber-500"
+                                title="Número de habitaciones cuádruples sin cargo (0,00 €)"
+                              />
+                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                {Math.max(0, curCua - freeCua)} pago + {freeCua} gratis
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -14239,7 +14426,7 @@
                               {isPaxMatch ? "Distribución correcta" : "La distribución no coincide con el número total de personas."}
                             </div>
                             <div className="text-[11px] opacity-80 mt-0.5">
-                              Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones){(editingDistribution.gratuitiesCount > 0) ? ` • ${editingDistribution.gratuitiesCount} gratuita${editingDistribution.gratuitiesCount > 1 ? "s" : ""}` : ""} • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
+                              Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones){totGratuities > 0 ? ` • ${totGratuities} gratuita${totGratuities > 1 ? "s" : ""}` : ""} • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
                             </div>
                           </div>
                         </div>
