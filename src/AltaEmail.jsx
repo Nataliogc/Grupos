@@ -306,7 +306,7 @@
                 - "Salida": fecha en formato YYYY-MM-DD.
                 - "Pax.": número total de personas (entero).
                 - "Empresa/Agencia": nombre de la empresa o agencia.
-                - "Régimen": (HD, AD, MP, PC, TI, SA).
+                - "Régimen": (HA, HD, MP, PC).
                 - "Habitaciones": resumen en texto de la distribución solicitada (ej. 10 dobles, 5 triples).
                 - "roomCounts": objeto JSON con el desglose numérico por tipo de habitación. USA ESTOS TIPOS SEGÚN EL HOTEL SI SE IDENTIFICA (si no, usa los de Sercotel Guadiana):
                   * Sercotel Guadiana: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "CUÁDRUPLE": 0}
@@ -741,9 +741,6 @@
                                                                 <option value="HD">HD (Aloj. y Des.)</option>
                                                                 <option value="MP">MP (Media Pensión)</option>
                                                                 <option value="PC">PC (Pensión Completa)</option>
-                                                                <option value="TI">TI (Todo Incluido)</option>
-                                                                <option value="AD">AD (alias HD)</option>
-                                                                <option value="SA">SA (alias HA)</option>
                                                             </select>
                                                         </div>
                                                     </div>
