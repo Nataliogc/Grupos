@@ -18308,13 +18308,15 @@
                                         <td className="py-1.5 px-2 text-center">
                                           <select
                                             className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1 py-0.5 text-[10px] font-bold text-slate-700 uppercase outline-none transition cursor-pointer shadow-2xs"
-                                            value={(item.regime || "AD").toUpperCase()}
+                                            value={(item.regime || "HD").toUpperCase()}
                                             onChange={(e) => handleInlineRoomItemUpdate(item, "regime", e.target.value)}
                                             title="Cambiar régimen"
                                           >
-                                            <option value="AD">AD</option>
+                                            <option value="HA">HA</option>
+                                            <option value="HD">HD</option>
                                             <option value="MP">MP</option>
                                             <option value="PC">PC</option>
+                                            <option value="AD">AD</option>
                                             <option value="SA">SA</option>
                                             <option value="TI">TI</option>
                                             <option value="-">-</option>

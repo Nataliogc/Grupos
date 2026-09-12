@@ -13,8 +13,8 @@
         };
 
         const BOARD_TYPES = [
-            "SA (Solo Alojamiento)",
-            "AD (Alojamiento y Desayuno)",
+            "HA (Solo Alojamiento)",
+            "HD (Alojamiento y Desayuno)",
             "MP (Media Pensión)",
             "PC (Pensión Completa)"
         ];
@@ -737,12 +737,13 @@
                                                                 value={extractedData["Régimen"]}
                                                                 onChange={(e) => updateField("Régimen", e.target.value)}
                                                             >
-                                                                <option value="HD">HD (Sólo Aloj.)</option>
-                                                                <option value="AD">AD (Aloj. + Desay.)</option>
+                                                                <option value="HA">HA (Solo Aloj.)</option>
+                                                                <option value="HD">HD (Aloj. y Des.)</option>
                                                                 <option value="MP">MP (Media Pensión)</option>
-                                                                <option value="PC">PC (Pensión Comp.)</option>
-                                                                <option value="TI">TI (Todo Incl.)</option>
-                                                                <option value="SA">SA (Sin Alim.)</option>
+                                                                <option value="PC">PC (Pensión Completa)</option>
+                                                                <option value="TI">TI (Todo Incluido)</option>
+                                                                <option value="AD">AD (alias HD)</option>
+                                                                <option value="SA">SA (alias HA)</option>
                                                             </select>
                                                         </div>
                                                     </div>

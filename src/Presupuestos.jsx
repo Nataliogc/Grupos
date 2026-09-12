@@ -17,8 +17,8 @@
     };
 
     const BOARD_TYPES = [
-      "SA (Solo Alojamiento)",
-      "AD (Alojamiento y Desayuno)",
+      "HA (Solo Alojamiento)",
+      "HD (Alojamiento y Desayuno)",
       "MP (Media Pensión)",
       "PC (Pensión Completa)"
     ];
@@ -61,10 +61,13 @@
 
     // Mapeo de regímenes del presupuesto a códigos oficiales (HA, HD, MP, PC)
     const BOARD_CODE_MAP = {
-      "SA": "HA",
-      "AD": "HD",
+      "HA": "HA",
+      "HD": "HD",
       "MP": "MP",
-      "PC": "PC"
+      "PC": "PC",
+      // Retrocompatibilidad con datos legacy
+      "SA": "HA",
+      "AD": "HD"
     };
 
     /**
@@ -104,7 +107,7 @@
 
       const grid = {};
       const rooms = getRoomTypesForHotel(hotelName);
-      ["SA", "AD", "MP", "PC"].forEach(bKey => {
+      ["HA", "HD", "MP", "PC"].forEach(bKey => {
         const gtsCode = BOARD_CODE_MAP[bKey] || bKey;
         grid[bKey] = {};
         rooms.forEach(roomType => {
@@ -114,6 +117,9 @@
           }
         });
       });
+      // Retrocompatibilidad para lectores que busquen SA o AD
+      grid["SA"] = grid["HA"];
+      grid["AD"] = grid["HD"];
       return grid;
     };
 
@@ -510,8 +516,8 @@
     const getBoardDisplayName = (boardName) => {
       if (!boardName) return "";
       const b = boardName.toUpperCase().trim();
-      if (b.includes("SOLO ALOJAMIENTO") || b.startsWith("SA")) return "SA";
-      if (b.includes("ALOJAMIENTO Y DESAYUNO") || b.startsWith("AD")) return "AD";
+      if (b.includes("SOLO ALOJAMIENTO") || b.startsWith("HA") || b.startsWith("SA")) return "HA";
+      if (b.includes("ALOJAMIENTO Y DESAYUNO") || b.startsWith("HD") || b.startsWith("AD")) return "HD";
       if (b.includes("MEDIA PENSIÓN") || b.includes("MEDIA PENSION") || b.startsWith("MP")) return "MP";
       if (b.includes("PENSIÓN COMPLETA") || b.includes("PENSION COMPLETA") || b.startsWith("PC")) return "PC";
       const match = boardName.match(/^([A-Z]{2})/);
@@ -618,7 +624,7 @@
 
           if (count > 0) {
             let price = 0;
-            let regime = config.board || group["Régimen"] || "AD";
+            let regime = config.board || group["Régimen"] || "HD";
             let gratuities = 0;
             let discount = 0;
 
@@ -644,18 +650,22 @@
             // Fallback: si el precio sigue siendo 0, intentar obtenerlo desde ratesOnlyGrid
             // Esto cubre el caso en que dailyConfig no ha sido sincronizado con los precios de la grilla
             if (price === 0 && group.ratesOnlyGrid) {
-              const boardKey = regime.split(' ')[0];
+              const rawBoardKey = regime.split(' ')[0];
+              const boardKey = rawBoardKey === "SA" ? "HA" : (rawBoardKey === "AD" ? "HD" : rawBoardKey);
               const grid = group.ratesOnlyGrid;
-              if (grid[boardKey]) {
-                const gridPk = Object.keys(grid[boardKey]).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
-                if (gridPk) price = parseFloat(grid[boardKey][gridPk] || 0);
+              const targetGrid = grid[boardKey] || grid[rawBoardKey];
+              if (targetGrid) {
+                const gridPk = Object.keys(targetGrid).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                if (gridPk) price = parseFloat(targetGrid[gridPk] || 0);
               }
               // Si tampoco hay precio para ese régimen, probar con el régimen del grupo
               if (price === 0) {
-                const fallbackBoard = (group["Régimen"] || "AD").split(' ')[0];
-                if (grid[fallbackBoard]) {
-                  const gridPk2 = Object.keys(grid[fallbackBoard]).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
-                  if (gridPk2) price = parseFloat(grid[fallbackBoard][gridPk2] || 0);
+                const fallbackRaw = (group["Régimen"] || "HD").split(' ')[0];
+                const fallbackBoard = fallbackRaw === "SA" ? "HA" : (fallbackRaw === "AD" ? "HD" : fallbackRaw);
+                const targetGrid2 = grid[fallbackBoard] || grid[fallbackRaw];
+                if (targetGrid2) {
+                  const gridPk2 = Object.keys(targetGrid2).find(k => k.trim().toLowerCase() === type.trim().toLowerCase());
+                  if (gridPk2) price = parseFloat(targetGrid2[gridPk2] || 0);
                 }
               }
             }
@@ -1116,8 +1126,8 @@
         if (rowsData.length < 2) return null;
 
         const normBoard = {
-          'sa': 'SA', 'solo alojamiento': 'SA', 'solo aloj.': 'SA',
-          'ad': 'AD', 'alojamiento y desayuno': 'AD', 'hd': 'AD', 'bb': 'AD', 'b&b': 'AD',
+          'ha': 'HA', 'sa': 'HA', 'solo alojamiento': 'HA', 'solo aloj.': 'HA', 'solo aloj': 'HA',
+          'hd': 'HD', 'ad': 'HD', 'alojamiento y desayuno': 'HD', 'aloj. y des.': 'HD', 'aloj. y des': 'HD', 'bb': 'HD', 'b&b': 'HD',
           'mp': 'MP', 'media pensión': 'MP', 'media pension': 'MP', 'median pensión': 'MP', 'median pension': 'MP', 'hb': 'MP', 'half board': 'MP',
           'pc': 'PC', 'pensión completa': 'PC', 'pension completa': 'PC', 'fb': 'PC', 'full board': 'PC'
         };
@@ -1488,7 +1498,7 @@
         setFormData(prev => {
           const newDailyConfig = { ...(prev.dailyConfig || {}) };
           if (!newDailyConfig[date]) {
-            newDailyConfig[date] = { board: 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
+            newDailyConfig[date] = { board: 'HD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
           }
           if (roomType) {
             newDailyConfig[date][field] = { ...(newDailyConfig[date][field] || {}), [roomType]: value === '' ? '' : Number(value) };
@@ -1497,13 +1507,14 @@
             
             // Auto-fill prices from ratesOnlyGrid or official tariffs when regime changes
             if (field === 'board') {
-              const boardKey = value.split(' ')[0]; // e.g. "PC", "AD"
+              const rawBoardKey = value.split(' ')[0]; // e.g. "PC", "HD", "HA"
+              const boardKey = rawBoardKey === "SA" ? "HA" : (rawBoardKey === "AD" ? "HD" : rawBoardKey);
               const hotel = prev.Hotel_Asignado || 'Sercotel Guadiana';
               const roomTypes = getRoomTypesForHotel(hotel);
               const parsedY = date ? new Date(toInputDate(date)).getFullYear() : (prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2027);
               const targetY = isNaN(parsedY) ? 2027 : parsedY;
               const officialGrid = getOfficialTariffsGrid(hotel, targetY);
-              const boardPrices = (prev.isRatesOnly && prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey]) || officialGrid[boardKey] || {};
+              const boardPrices = (prev.isRatesOnly && prev.ratesOnlyGrid && (prev.ratesOnlyGrid[boardKey] || prev.ratesOnlyGrid[rawBoardKey])) || officialGrid[boardKey] || {};
 
               const updatedPrices = { ...(newDailyConfig[date].prices || {}) };
               roomTypes.forEach(room => {
@@ -1528,11 +1539,12 @@
 
         stayDates.forEach(date => {
           if (!newDailyConfig[date]) {
-            newDailyConfig[date] = { board: formData["Régimen"] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
+            newDailyConfig[date] = { board: formData["Régimen"] || 'HD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
           }
           const dayConf = newDailyConfig[date];
-          const currentBoard = dayConf.board || formData["Régimen"] || 'AD (Alojamiento y Desayuno)';
-          const boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
+          const currentBoard = dayConf.board || formData["Régimen"] || 'HD (Alojamiento y Desayuno)';
+          const rawBoardKey = currentBoard.split(' ')[0]; // e.g. "HD", "HA"
+          const boardKey = rawBoardKey === "SA" ? "HA" : (rawBoardKey === "AD" ? "HD" : rawBoardKey);
 
           if (grid[boardKey]) {
             const roomTypes = getRoomTypesForHotel(formData.Hotel_Asignado);
@@ -3086,7 +3098,15 @@ ${emailContent}`;
                               <div className="shrink-0 w-32 flex flex-col gap-0.5">
                                 <label className="text-[7px] font-black text-indigo-500 uppercase px-1">Régimen</label>
                                 <select
-                                  value={formData.dailyConfig?.[date]?.board || 'AD (Alojamiento y Desayuno)'}
+                                  value={(() => {
+                                    const b = formData.dailyConfig?.[date]?.board;
+                                    if (!b) return 'HD (Alojamiento y Desayuno)';
+                                    if (b.startsWith('SA') || b.startsWith('HA')) return 'HA (Solo Alojamiento)';
+                                    if (b.startsWith('AD') || b.startsWith('HD')) return 'HD (Alojamiento y Desayuno)';
+                                    if (b.startsWith('MP')) return 'MP (Media Pensión)';
+                                    if (b.startsWith('PC')) return 'PC (Pensión Completa)';
+                                    return b;
+                                  })()}
                                   onChange={e => handleDailyConfigChange(date, 'board', e.target.value)}
                                   className="w-full bg-indigo-50/30 border border-indigo-100 text-indigo-700 rounded-md px-2 py-1.5 text-[9px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-indigo-500/10 transition-all cursor-pointer"
                                 >
@@ -3113,49 +3133,41 @@ ${emailContent}`;
                     }
                   }}
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-50 pb-4 gap-4">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                          <i className="fas fa-tags text-[10px]"></i>
-                        </div>
-                        <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tarifas por Régimen y Habitación</h3>
-                      </div>
-                      <p className="text-[9px] text-slate-400 font-medium ml-9">
-                        Puedes copiar una tabla desde Excel o Word y pegarla aquí para rellenar las tarifas automáticamente.
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-800 tracking-tight flex items-center gap-2">
+                        <i className="fas fa-th text-indigo-500"></i>
+                        Matriz de Precios por Régimen
+                      </h4>
+                      <p className="text-[11px] font-bold text-slate-400 mt-0.5">
+                        Define los precios por tipología y régimen aplicables a todo el presupuesto.
                       </p>
                     </div>
+
                     <div className="flex items-center gap-2">
-                      {(formData.hiddenGridRows?.length > 0 || formData.hiddenGridCols?.length > 0) && (
+                      <button
+                        onClick={handlePrefillOfficialTariffs}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                        title="Rellena la tabla con las tarifas oficiales vigentes para este hotel"
+                      >
+                        <i className="fas fa-magic text-[10px]"></i>
+                        Tarifas Oficiales
+                      </button>
+
+                      {((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && (
                         <button
-                          type="button"
                           onClick={() => setFormData({ ...formData, hiddenGridRows: [], hiddenGridCols: [] })}
-                          className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm outline-none"
-                          title="Restaurar filas y columnas ocultas"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
                         >
-                          <i className="fas fa-undo"></i>
+                          <i className="fas fa-eye text-[10px]"></i>
+                          Mostrar Ocultos ({ (formData.hiddenGridRows || []).length + (formData.hiddenGridCols || []).length })
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={handleLoadOfficialTariffs}
-                        className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                        title="Rellenar automáticamente con las tarifas oficiales de grupos"
-                      >
-                        <i className="fas fa-tags text-emerald-600"></i> Cargar Tarifas Oficiales
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPastePreview({ isOpen: true, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] })}
-                        className="px-4 py-2 bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-600 border border-indigo-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                        title="Copiar una tabla de Excel o Word y pulsar aquí para pegar"
-                      >
-                        <i className="fas fa-paste text-indigo-500"></i> Pegar tabla
-                      </button>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left border-collapse">
+
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100">
                           <th className="p-4 pl-8">Régimen</th>
@@ -3175,7 +3187,7 @@ ${emailContent}`;
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {BOARD_TYPES.filter(b => !(formData.hiddenGridRows || []).includes(b.split(' ')[0])).map(board => {
-                          const boardKey = board.split(' ')[0]; // E.g., "AD", "MP", "PC", "SA"
+                          const boardKey = board.split(' ')[0]; // E.g., "HA", "HD", "MP", "PC"
                           return (
                             <tr key={board} className="group">
                               <td className="p-4 pl-8 font-bold text-slate-700 relative">
@@ -3189,7 +3201,7 @@ ${emailContent}`;
                                 {board}
                               </td>
                               {currentRooms.filter(r => !(formData.hiddenGridCols || []).includes(r)).map(room => {
-                                const priceVal = formData.ratesOnlyGrid?.[boardKey]?.[room] || '';
+                                const priceVal = formData.ratesOnlyGrid?.[boardKey]?.[room] || (boardKey === "HA" ? formData.ratesOnlyGrid?.["SA"]?.[room] : (boardKey === "HD" ? formData.ratesOnlyGrid?.["AD"]?.[room] : '')) || '';
                                 return (
                                   <td key={room} className="p-4">
                                     <div className="relative max-w-[150px] mx-auto">

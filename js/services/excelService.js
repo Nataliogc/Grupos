@@ -427,13 +427,13 @@
                     // Normalise regime aliases so "PC"≡"PENSIÓN COMPLETA"≡"PENSION COMPLETA", etc.
                     const normalizeRegimen = (s) => {
                         const val = String(s || "").toUpperCase().trim().replace(/\s+/g, " ");
-                        if (val === "AD" || val.startsWith("AD ") || val.includes("ALOJAMIENTO Y DESAYUNO") || val.includes("ALOJ") && val.includes("DESAY")) return "AD";
-                        if (val === "AD+D" || val === "ADD" || val.startsWith("AD+D") || val.startsWith("ADD ")) return "AD+D";
+                        if (val === "HA" || val.startsWith("HA ") || val === "SA" || val.startsWith("SA ") || val === "SO" || val.includes("SOLO ALOJ") || val.includes("SOLO ALOJAMIENTO") || val.includes("SIN DESAYUNO")) return "HA";
+                        if (val === "HD" || val.startsWith("HD ") || val === "AD" || val.startsWith("AD ") || val.includes("ALOJAMIENTO Y DESAYUNO") || (val.includes("ALOJ") && val.includes("DESAY"))) return "HD";
+                        if (val === "AD+D" || val === "ADD" || val === "HD+D" || val.startsWith("AD+D") || val.startsWith("ADD ") || val.startsWith("HD+D")) return "HD+D";
                         if (val === "MP" || val.startsWith("MP ") || val.includes("MEDIA PENSION") || val.includes("MEDIA PENSIÓN")) return "MP";
                         if (val === "PC" || val.startsWith("PC ") || val.includes("PENSION COMPLETA") || val.includes("PENSIÓN COMPLETA")) return "PC";
                         if (val === "TI" || val.startsWith("TI ") || val.includes("TODO INCLUIDO") || val.includes("ALL INCLUSIVE")) return "TI";
-                        if (val === "SA" || val === "SO" || val === "SOLO ALOJ" || val.includes("SIN DESAYUNO")) return "AD";
-                        if (val === "D" || val === "DESAYUNO" || val === "BREAKFAST") return "AD";
+                        if (val === "D" || val === "DESAYUNO" || val === "BREAKFAST") return "HD";
                         // Fallback: tomar solo la primera palabra (código corto)
                         return val.split(" ")[0];
                     };

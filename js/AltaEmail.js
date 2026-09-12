@@ -31,7 +31,7 @@ var ROOM_TYPES = {
   "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE"],
   "Cumbria Spa & Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
 };
-var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (Media Pensión)", "PC (Pensión Completa)"];
+var BOARD_TYPES = ["HA (Solo Alojamiento)", "HD (Alojamiento y Desayuno)", "MP (Media Pensión)", "PC (Pensión Completa)"];
 
 // --- UTILS (cargadas desde js/utils.js) ---
 var generateDates = NexusUtils.generateDates;
@@ -847,18 +847,20 @@ var App = function App() {
       return updateField("Régimen", e.target.value);
     }
   }, /*#__PURE__*/React.createElement("option", {
+    value: "HA"
+  }, "HA (Solo Aloj.)"), /*#__PURE__*/React.createElement("option", {
     value: "HD"
-  }, "HD (S\xF3lo Aloj.)"), /*#__PURE__*/React.createElement("option", {
-    value: "AD"
-  }, "AD (Aloj. + Desay.)"), /*#__PURE__*/React.createElement("option", {
+  }, "HD (Aloj. y Des.)"), /*#__PURE__*/React.createElement("option", {
     value: "MP"
   }, "MP (Media Pensi\xF3n)"), /*#__PURE__*/React.createElement("option", {
     value: "PC"
-  }, "PC (Pensi\xF3n Comp.)"), /*#__PURE__*/React.createElement("option", {
+  }, "PC (Pensi\xF3n Completa)"), /*#__PURE__*/React.createElement("option", {
     value: "TI"
-  }, "TI (Todo Incl.)"), /*#__PURE__*/React.createElement("option", {
+  }, "TI (Todo Incluido)"), /*#__PURE__*/React.createElement("option", {
+    value: "AD"
+  }, "AD (alias HD)"), /*#__PURE__*/React.createElement("option", {
     value: "SA"
-  }, "SA (Sin Alim.)")))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, "SA (alias HA)")))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 mb-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center border border-emerald-100"

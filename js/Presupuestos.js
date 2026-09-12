@@ -38,7 +38,7 @@ var getRoomTypesForHotel = function getRoomTypesForHotel(hotelName) {
   if (s.includes("cumbria")) return ROOM_TYPES["Cumbria Spa&Hotel"];
   return ROOM_TYPES["Sercotel Guadiana"];
 };
-var BOARD_TYPES = ["SA (Solo Alojamiento)", "AD (Alojamiento y Desayuno)", "MP (Media Pensión)", "PC (Pensión Completa)"];
+var BOARD_TYPES = ["HA (Solo Alojamiento)", "HD (Alojamiento y Desayuno)", "MP (Media Pensión)", "PC (Pensión Completa)"];
 
 // Personas por tipo de habitación (auto-cálculo PAX)
 var PAX_PER_ROOM = {
@@ -78,10 +78,13 @@ var ROOM_CATEGORY_MAP = {
 
 // Mapeo de regímenes del presupuesto a códigos oficiales (HA, HD, MP, PC)
 var BOARD_CODE_MAP = {
-  "SA": "HA",
-  "AD": "HD",
+  "HA": "HA",
+  "HD": "HD",
   "MP": "MP",
-  "PC": "PC"
+  "PC": "PC",
+  // Retrocompatibilidad con datos legacy
+  "SA": "HA",
+  "AD": "HD"
 };
 
 /**
@@ -158,7 +161,7 @@ var getOfficialTariffsGrid = function getOfficialTariffsGrid(hotelName, year) {
   }
   var grid = {};
   var rooms = getRoomTypesForHotel(hotelName);
-  ["SA", "AD", "MP", "PC"].forEach(function (bKey) {
+  ["HA", "HD", "MP", "PC"].forEach(function (bKey) {
     var gtsCode = BOARD_CODE_MAP[bKey] || bKey;
     grid[bKey] = {};
     rooms.forEach(function (roomType) {
@@ -168,6 +171,9 @@ var getOfficialTariffsGrid = function getOfficialTariffsGrid(hotelName, year) {
       }
     });
   });
+  // Retrocompatibilidad para lectores que busquen SA o AD
+  grid["SA"] = grid["HA"];
+  grid["AD"] = grid["HD"];
   return grid;
 };
 
@@ -563,8 +569,8 @@ var getRoomDisplayName = function getRoomDisplayName(roomName) {
 var getBoardDisplayName = function getBoardDisplayName(boardName) {
   if (!boardName) return "";
   var b = boardName.toUpperCase().trim();
-  if (b.includes("SOLO ALOJAMIENTO") || b.startsWith("SA")) return "SA";
-  if (b.includes("ALOJAMIENTO Y DESAYUNO") || b.startsWith("AD")) return "AD";
+  if (b.includes("SOLO ALOJAMIENTO") || b.startsWith("HA") || b.startsWith("SA")) return "HA";
+  if (b.includes("ALOJAMIENTO Y DESAYUNO") || b.startsWith("HD") || b.startsWith("AD")) return "HD";
   if (b.includes("MEDIA PENSIÓN") || b.includes("MEDIA PENSION") || b.startsWith("MP")) return "MP";
   if (b.includes("PENSIÓN COMPLETA") || b.includes("PENSION COMPLETA") || b.startsWith("PC")) return "PC";
   var match = boardName.match(/^([A-Z]{2})/);
@@ -673,7 +679,7 @@ var buildRoomingList = function buildRoomingList(group) {
       }
       if (count > 0) {
         var price = 0;
-        var regime = config.board || group["Régimen"] || "AD";
+        var regime = config.board || group["Régimen"] || "HD";
         var gratuities = 0;
         var discount = 0;
         if (config.prices) {
@@ -704,22 +710,26 @@ var buildRoomingList = function buildRoomingList(group) {
         // Fallback: si el precio sigue siendo 0, intentar obtenerlo desde ratesOnlyGrid
         // Esto cubre el caso en que dailyConfig no ha sido sincronizado con los precios de la grilla
         if (price === 0 && group.ratesOnlyGrid) {
-          var boardKey = regime.split(' ')[0];
+          var rawBoardKey = regime.split(' ')[0];
+          var boardKey = rawBoardKey === "SA" ? "HA" : rawBoardKey === "AD" ? "HD" : rawBoardKey;
           var grid = group.ratesOnlyGrid;
-          if (grid[boardKey]) {
-            var gridPk = Object.keys(grid[boardKey]).find(function (k) {
+          var targetGrid = grid[boardKey] || grid[rawBoardKey];
+          if (targetGrid) {
+            var gridPk = Object.keys(targetGrid).find(function (k) {
               return k.trim().toLowerCase() === type.trim().toLowerCase();
             });
-            if (gridPk) price = parseFloat(grid[boardKey][gridPk] || 0);
+            if (gridPk) price = parseFloat(targetGrid[gridPk] || 0);
           }
           // Si tampoco hay precio para ese régimen, probar con el régimen del grupo
           if (price === 0) {
-            var fallbackBoard = (group["Régimen"] || "AD").split(' ')[0];
-            if (grid[fallbackBoard]) {
-              var gridPk2 = Object.keys(grid[fallbackBoard]).find(function (k) {
+            var fallbackRaw = (group["Régimen"] || "HD").split(' ')[0];
+            var fallbackBoard = fallbackRaw === "SA" ? "HA" : fallbackRaw === "AD" ? "HD" : fallbackRaw;
+            var targetGrid2 = grid[fallbackBoard] || grid[fallbackRaw];
+            if (targetGrid2) {
+              var gridPk2 = Object.keys(targetGrid2).find(function (k) {
                 return k.trim().toLowerCase() === type.trim().toLowerCase();
               });
-              if (gridPk2) price = parseFloat(grid[fallbackBoard][gridPk2] || 0);
+              if (gridPk2) price = parseFloat(targetGrid2[gridPk2] || 0);
             }
           }
         }
@@ -1261,14 +1271,18 @@ function App() {
     });
     if (rowsData.length < 2) return null;
     var normBoard = {
-      'sa': 'SA',
-      'solo alojamiento': 'SA',
-      'solo aloj.': 'SA',
-      'ad': 'AD',
-      'alojamiento y desayuno': 'AD',
-      'hd': 'AD',
-      'bb': 'AD',
-      'b&b': 'AD',
+      'ha': 'HA',
+      'sa': 'HA',
+      'solo alojamiento': 'HA',
+      'solo aloj.': 'HA',
+      'solo aloj': 'HA',
+      'hd': 'HD',
+      'ad': 'HD',
+      'alojamiento y desayuno': 'HD',
+      'aloj. y des.': 'HD',
+      'aloj. y des': 'HD',
+      'bb': 'HD',
+      'b&b': 'HD',
       'mp': 'MP',
       'media pensión': 'MP',
       'media pension': 'MP',
@@ -1657,7 +1671,7 @@ function App() {
       var newDailyConfig = _objectSpread({}, prev.dailyConfig || {});
       if (!newDailyConfig[date]) {
         newDailyConfig[date] = {
-          board: 'AD (Alojamiento y Desayuno)',
+          board: 'HD (Alojamiento y Desayuno)',
           prices: {},
           counts: {},
           gratuities: {}
@@ -1670,13 +1684,14 @@ function App() {
 
         // Auto-fill prices from ratesOnlyGrid or official tariffs when regime changes
         if (field === 'board') {
-          var boardKey = value.split(' ')[0]; // e.g. "PC", "AD"
+          var rawBoardKey = value.split(' ')[0]; // e.g. "PC", "HD", "HA"
+          var boardKey = rawBoardKey === "SA" ? "HA" : rawBoardKey === "AD" ? "HD" : rawBoardKey;
           var hotel = prev.Hotel_Asignado || 'Sercotel Guadiana';
           var roomTypes = getRoomTypesForHotel(hotel);
           var parsedY = date ? new Date(toInputDate(date)).getFullYear() : prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2027;
           var targetY = isNaN(parsedY) ? 2027 : parsedY;
           var officialGrid = getOfficialTariffsGrid(hotel, targetY);
-          var boardPrices = prev.isRatesOnly && prev.ratesOnlyGrid && prev.ratesOnlyGrid[boardKey] || officialGrid[boardKey] || {};
+          var boardPrices = prev.isRatesOnly && prev.ratesOnlyGrid && (prev.ratesOnlyGrid[boardKey] || prev.ratesOnlyGrid[rawBoardKey]) || officialGrid[boardKey] || {};
           var updatedPrices = _objectSpread({}, newDailyConfig[date].prices || {});
           roomTypes.forEach(function (room) {
             var p = boardPrices[room] !== undefined && boardPrices[room] !== '' ? boardPrices[room] : officialGrid[boardKey] ? officialGrid[boardKey][room] : null;
@@ -1699,16 +1714,16 @@ function App() {
     stayDates.forEach(function (date) {
       if (!newDailyConfig[date]) {
         newDailyConfig[date] = {
-          board: formData["Régimen"] || 'AD (Alojamiento y Desayuno)',
+          board: formData["Régimen"] || 'HD (Alojamiento y Desayuno)',
           prices: {},
           counts: {},
           gratuities: {}
         };
       }
       var dayConf = newDailyConfig[date];
-      var currentBoard = dayConf.board || formData["Régimen"] || 'AD (Alojamiento y Desayuno)';
-      var boardKey = currentBoard.split(' ')[0]; // e.g. "AD"
-
+      var currentBoard = dayConf.board || formData["Régimen"] || 'HD (Alojamiento y Desayuno)';
+      var rawBoardKey = currentBoard.split(' ')[0]; // e.g. "HD", "HA"
+      var boardKey = rawBoardKey === "SA" ? "HA" : rawBoardKey === "AD" ? "HD" : rawBoardKey;
       if (grid[boardKey]) {
         var roomTypes = getRoomTypesForHotel(formData.Hotel_Asignado);
         var updatedPrices = _objectSpread({}, dayConf.prices || {});
@@ -2957,7 +2972,7 @@ function App() {
     }, "No hay presupuestos para mostrar")))));
   };
   var renderCreate = function renderCreate() {
-    var _formData$segments3, _formData$hiddenGridR, _formData$hiddenGridC;
+    var _formData$segments3;
     var stayDates = getCurrentStayDates(formData);
     var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
     return /*#__PURE__*/React.createElement("div", {
@@ -3567,7 +3582,6 @@ function App() {
     }), " Copiar 1\xBA D\xEDa a Todos"))), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
-      var _formData$dailyConfig5;
       var selectedTypes = formData.isMultiSegment ? Array.from(new Set((formData.segments || []).flatMap(function (s) {
         var allocations = Array.isArray(s.roomAllocations) && s.roomAllocations.length > 0 ? s.roomAllocations : [{
           roomType: s.roomType || "DOBLE DE USO INDIVIDUAL"
@@ -3647,7 +3661,15 @@ function App() {
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
       }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
-        value: ((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.board) || 'AD (Alojamiento y Desayuno)',
+        value: function (_formData$dailyConfig5) {
+          var b = (_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.board;
+          if (!b) return 'HD (Alojamiento y Desayuno)';
+          if (b.startsWith('SA') || b.startsWith('HA')) return 'HA (Solo Alojamiento)';
+          if (b.startsWith('AD') || b.startsWith('HD')) return 'HD (Alojamiento y Desayuno)';
+          if (b.startsWith('MP')) return 'MP (Media Pensión)';
+          if (b.startsWith('PC')) return 'PC (Pensión Completa)';
+          return b;
+        }(),
         onChange: function onChange(e) {
           return handleDailyConfigChange(date, 'board', e.target.value);
         },
@@ -3672,58 +3694,35 @@ function App() {
         }
       }
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col md:flex-row md:items-center justify-between border-b border-slate-50 pb-4 gap-4"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col gap-1"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center"
+      className: "flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+      className: "text-sm font-black text-slate-800 tracking-tight flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-tags text-[10px]"
-    })), /*#__PURE__*/React.createElement("h3", {
-      className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "2. Tarifas por R\xE9gimen y Habitaci\xF3n")), /*#__PURE__*/React.createElement("p", {
-      className: "text-[9px] text-slate-400 font-medium ml-9"
-    }, "Puedes copiar una tabla desde Excel o Word y pegarla aqu\xED para rellenar las tarifas autom\xE1ticamente.")), /*#__PURE__*/React.createElement("div", {
+      className: "fas fa-th text-indigo-500"
+    }), "Matriz de Precios por R\xE9gimen"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[11px] font-bold text-slate-400 mt-0.5"
+    }, "Define los precios por tipolog\xEDa y r\xE9gimen aplicables a todo el presupuesto.")), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
-    }, (((_formData$hiddenGridR = formData.hiddenGridRows) === null || _formData$hiddenGridR === void 0 ? void 0 : _formData$hiddenGridR.length) > 0 || ((_formData$hiddenGridC = formData.hiddenGridCols) === null || _formData$hiddenGridC === void 0 ? void 0 : _formData$hiddenGridC.length) > 0) && /*#__PURE__*/React.createElement("button", {
-      type: "button",
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: handlePrefillOfficialTariffs,
+      className: "px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95",
+      title: "Rellena la tabla con las tarifas oficiales vigentes para este hotel"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-magic text-[10px]"
+    }), "Tarifas Oficiales"), ((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           hiddenGridRows: [],
           hiddenGridCols: []
         }));
       },
-      className: "px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm outline-none",
-      title: "Restaurar filas y columnas ocultas"
+      className: "px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-undo"
-    })), /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: handleLoadOfficialTariffs,
-      className: "px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-emerald-500/20 outline-none",
-      title: "Rellenar autom\xE1ticamente con las tarifas oficiales de grupos"
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-tags text-emerald-600"
-    }), " Cargar Tarifas Oficiales"), /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: function onClick() {
-        return setPastePreview({
-          isOpen: true,
-          parsedData: {},
-          unrecognizedBoards: [],
-          unrecognizedRooms: []
-        });
-      },
-      className: "px-4 py-2 bg-indigo-50/50 hover:bg-indigo-100/80 text-indigo-600 border border-indigo-100 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-indigo-500/20 outline-none",
-      title: "Copiar una tabla de Excel o Word y pulsar aqu\xED para pegar"
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-paste text-indigo-500"
-    }), " Pegar tabla"))), /*#__PURE__*/React.createElement("div", {
-      className: "overflow-x-auto"
+      className: "fas fa-eye text-[10px]"
+    }), "Mostrar Ocultos (", (formData.hiddenGridRows || []).length + (formData.hiddenGridCols || []).length, ")"))), /*#__PURE__*/React.createElement("div", {
+      className: "overflow-x-auto rounded-2xl border border-slate-100"
     }, /*#__PURE__*/React.createElement("table", {
-      className: "w-full text-xs text-left border-collapse"
+      className: "w-full text-left border-collapse text-xs"
     }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
       className: "bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest border-b border-slate-100"
     }, /*#__PURE__*/React.createElement("th", {
@@ -3750,7 +3749,7 @@ function App() {
     }, BOARD_TYPES.filter(function (b) {
       return !(formData.hiddenGridRows || []).includes(b.split(' ')[0]);
     }).map(function (board) {
-      var boardKey = board.split(' ')[0]; // E.g., "AD", "MP", "PC", "SA"
+      var boardKey = board.split(' ')[0]; // E.g., "HA", "HD", "MP", "PC"
       return /*#__PURE__*/React.createElement("tr", {
         key: board,
         className: "group"
@@ -3769,8 +3768,8 @@ function App() {
       })), board), currentRooms.filter(function (r) {
         return !(formData.hiddenGridCols || []).includes(r);
       }).map(function (room) {
-        var _formData$ratesOnlyGr;
-        var priceVal = ((_formData$ratesOnlyGr = formData.ratesOnlyGrid) === null || _formData$ratesOnlyGr === void 0 || (_formData$ratesOnlyGr = _formData$ratesOnlyGr[boardKey]) === null || _formData$ratesOnlyGr === void 0 ? void 0 : _formData$ratesOnlyGr[room]) || '';
+        var _formData$ratesOnlyGr, _formData$ratesOnlyGr2, _formData$ratesOnlyGr3;
+        var priceVal = ((_formData$ratesOnlyGr = formData.ratesOnlyGrid) === null || _formData$ratesOnlyGr === void 0 || (_formData$ratesOnlyGr = _formData$ratesOnlyGr[boardKey]) === null || _formData$ratesOnlyGr === void 0 ? void 0 : _formData$ratesOnlyGr[room]) || (boardKey === "HA" ? (_formData$ratesOnlyGr2 = formData.ratesOnlyGrid) === null || _formData$ratesOnlyGr2 === void 0 || (_formData$ratesOnlyGr2 = _formData$ratesOnlyGr2["SA"]) === null || _formData$ratesOnlyGr2 === void 0 ? void 0 : _formData$ratesOnlyGr2[room] : boardKey === "HD" ? (_formData$ratesOnlyGr3 = formData.ratesOnlyGrid) === null || _formData$ratesOnlyGr3 === void 0 || (_formData$ratesOnlyGr3 = _formData$ratesOnlyGr3["AD"]) === null || _formData$ratesOnlyGr3 === void 0 ? void 0 : _formData$ratesOnlyGr3[room] : '') || '';
         return /*#__PURE__*/React.createElement("td", {
           key: room,
           className: "p-4"
