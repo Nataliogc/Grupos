@@ -4528,6 +4528,26 @@
           ? dailyItem.cuadruples 
           : proposal.cuadruples;
 
+        // ── LEER GRATUIDADES EXISTENTES DEL ROOMINGLIST ──────────────────────
+        const targetResId = normalizeId(dailyItem.reserva);
+        const matchRow = (data || []).find(r => normalizeId(r["Reserva"]) === targetResId);
+        const existingRL = matchRow?.RoomingList_JSON 
+          ? parseRoomingListSafe(matchRow.RoomingList_JSON, "open-dist-modal") 
+          : [];
+        const gratuities = { individuales: 0, dobles: 0, triples: 0, cuadruples: 0 };
+        existingRL.forEach((item) => {
+          const itype = String(item.type || item.roomType || "").toUpperCase();
+          const iprice = parseFloat(item.price);
+          const isGratuity = itype.includes("GRATUIDAD") || (itype.includes("INDIV") && iprice === 0);
+          if (!isGratuity) return;
+          const qty = parseInt(item.qty) || 1;
+          if (itype.includes("INDIV") || itype.includes("INDIVIDUAL")) gratuities.individuales += qty;
+          else if (itype.includes("DBL") || itype.includes("DOBLE")) gratuities.dobles += qty;
+          else if (itype.includes("TPL") || itype.includes("TRIPLE")) gratuities.triples += qty;
+          else if (itype.includes("CUA") || itype.includes("CUAD")) gratuities.cuadruples += qty;
+        });
+        // ────────────────────────────────────────────────────────────────────
+
         setDistributionFormError(null);
         setEditingDistribution({
           hotel: dailyItem.hotel,
@@ -4541,6 +4561,7 @@
           dobles: currentDbl,
           triples: currentTpl,
           cuadruples: currentCua,
+          gratuities: gratuities,
           observations: dailyItem.observations || "",
           status: dailyItem.distributionStatus || "propuesta",
           revisionReasons: dailyItem.revisionReasons || [],
@@ -4699,12 +4720,27 @@
             // Usar payingPax (no totPax) para que el precio por pax sea correcto
             const dailyPerPax = (totalDays > 0 && payingPax > 0 && totImp > 0) ? (totImp / totalDays / payingPax) : 0;
 
+            // ── RESTAR GRATUIDADES DEL CONTEO PAGANTE ────────────────────────
+            // finalInd=5 con 1 gratuidad → 4 pagantes + 1 gratuidad (preservada)
+            const gratuityCount = {
+              individuales: gratuityItems.filter(g => String(g.type || g.roomType || "").toUpperCase().includes("INDIV")).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
+              dobles: gratuityItems.filter(g => { const t = String(g.type || g.roomType || "").toUpperCase(); return t.includes("DBL") || t.includes("DOBLE"); }).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
+              triples: gratuityItems.filter(g => { const t = String(g.type || g.roomType || "").toUpperCase(); return t.includes("TPL") || t.includes("TRIPLE"); }).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
+              cuadruples: gratuityItems.filter(g => { const t = String(g.type || g.roomType || "").toUpperCase(); return t.includes("CUA") || t.includes("CUAD"); }).reduce((s, g) => s + (parseInt(g.qty) || 1), 0),
+            };
+            const payingInd = Math.max(0, finalInd - gratuityCount.individuales);
+            const payingDbl = Math.max(0, finalDbl - gratuityCount.dobles);
+            const payingTpl = Math.max(0, finalTpl - gratuityCount.triples);
+            const payingCua = Math.max(0, finalCua - gratuityCount.cuadruples);
+            // ────────────────────────────────────────────────────────────────────
+
             const cats = [
-              { type: "INDIVIDUAL", count: finalInd, pax: 1 },
-              { type: "DOBLE", count: finalDbl, pax: 2 },
-              { type: "TRIPLE", count: finalTpl, pax: 3 },
-              { type: "CUÁDRUPLE", count: finalCua, pax: 4 }
+              { type: "INDIVIDUAL", count: payingInd, pax: 1 },
+              { type: "DOBLE", count: payingDbl, pax: 2 },
+              { type: "TRIPLE", count: payingTpl, pax: 3 },
+              { type: "CUÁDRUPLE", count: payingCua, pax: 4 }
             ].filter(c => c.count > 0);
+
 
             let runningSum = 0;
             cats.forEach((cat, cIdx) => {
@@ -13981,6 +14017,11 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curInd * 1} pax
                             </div>
+                            {(editingDistribution.gratuities?.individuales > 0) && (
+                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 text-center mt-1 font-bold">
+                                incl. {editingDistribution.gratuities.individuales} gratuita{editingDistribution.gratuities.individuales > 1 ? "s" : ""}
+                              </div>
+                            )}
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -14000,6 +14041,11 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curDbl * 2} pax
                             </div>
+                            {(editingDistribution.gratuities?.dobles > 0) && (
+                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 text-center mt-1 font-bold">
+                                incl. {editingDistribution.gratuities.dobles} gratuita{editingDistribution.gratuities.dobles > 1 ? "s" : ""}
+                              </div>
+                            )}
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -14019,6 +14065,11 @@
                             <div className="text-[10px] text-slate-400 text-center mt-1">
                               {curTpl * 3} pax
                             </div>
+                            {(editingDistribution.gratuities?.triples > 0) && (
+                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 text-center mt-1 font-bold">
+                                incl. {editingDistribution.gratuities.triples} gratuita{editingDistribution.gratuities.triples > 1 ? "s" : ""}
+                              </div>
+                            )}
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
