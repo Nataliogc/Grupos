@@ -7470,108 +7470,79 @@
 
 
       const calculateDefaultCommission = (
-
         price,
-
         regime,
-
         qty,
-
         nights,
-
         type,
-
+        hotelName,
+        customPax,
       ) => {
-
         const p = parseFloat(price) || 0;
-
         const q = parseInt(qty) || 1;
-
         const n = parseInt(nights) || 1;
-
-        const r = (regime || "").toUpperCase();
-
-        const paxPerRoom = getPaxByRoomType(type);
+        const r = (regime || "").toUpperCase().split(" ")[0];
+        const paxPerRoom = customPax !== undefined && customPax !== null && !isNaN(parseInt(customPax))
+          ? parseInt(customPax)
+          : getPaxByRoomType(type);
 
         let porcentaje = 0; // Default commission 0% per request
 
+        // Obtener precios de manutención establecidos para el hotel desde boardPricingConfig
+        const hotel = hotelName || (selectedGroupFicha ? (selectedGroupFicha.hotel || selectedGroupFicha.records?.[0]?.["Hotel_Asignado"] || selectedGroupFicha.records?.[0]?.["Hotel"]) : "") || "Sercotel Guadiana";
+        const pricing = window.BoardPricingService
+          ? window.BoardPricingService.getPricingForHotelAndDate(hotel, null, boardPricingConfig)
+          : (boardPricingConfig?.[hotel] || boardPricingConfig?.default || { breakfast: 6.0, meal: 16.0 });
 
+        const bCost = typeof pricing.breakfast === "number" ? pricing.breakfast : 6.0;
+        const mCost = typeof pricing.meal === "number" ? pricing.meal : 16.0;
+
+        let desPerPax = 0;
+        let almPerPax = 0;
+        let cenPerPax = 0;
+
+        if (p > 0) {
+          if (r === "AD" || r === "HD" || r === "BB") {
+            desPerPax = bCost;
+          } else if (r === "MP" || r === "HB") {
+            desPerPax = bCost;
+            almPerPax = mCost;
+          } else if (r === "PC" || r === "FB" || r === "TI") {
+            desPerPax = bCost;
+            almPerPax = mCost;
+            cenPerPax = mCost;
+          }
+        }
+
+        // Totales de manutención en la habitación según las personas por habitación
+        const totalDes = parseFloat((desPerPax * paxPerRoom).toFixed(2));
+        const totalAlm = parseFloat((almPerPax * paxPerRoom).toFixed(2));
+        const totalCen = parseFloat((cenPerPax * paxPerRoom).toFixed(2));
+        const mealsTotal = totalDes + totalAlm + totalCen;
+        const totalAloj = Math.max(0, parseFloat((p - mealsTotal).toFixed(2)));
 
         // Desglose unitario inicial
-
         let desglose = {
-
-          Alojamiento: { valor: p, comisionable: true },
-
-          Desayuno: { valor: 0, comisionable: false },
-
-          Almuerzo: { valor: 0, comisionable: false },
-
-          Cena: { valor: 0, comisionable: false },
-
+          Alojamiento: { valor: totalAloj, comisionable: true },
+          Desayuno: { valor: totalDes, comisionable: false },
+          Almuerzo: { valor: totalAlm, comisionable: false },
+          Cena: { valor: totalCen, comisionable: false },
         };
-
-
-
-        const applyMeals = (des, alm, cen) => {
-
-          desglose.Desayuno.valor = des;
-
-          desglose.Almuerzo.valor = alm;
-
-          desglose.Cena.valor = cen;
-
-          // Restar del alojamiento total: (desayuno + almuerzo + cena) * personas por habitacion
-
-          desglose.Alojamiento.valor = Math.max(
-
-            0,
-
-            p - (des + alm + cen) * paxPerRoom,
-
-          );
-
-        };
-
-
-
-        if (r === "AD") applyMeals(5, 0, 0);
-
-        else if (r === "MP") applyMeals(5, 10, 0);
-
-        else if (r === "PC") applyMeals(5, 10, 10);
-
-        else if (r === "TI") applyMeals(4, 8, 8);
-
-
 
         const baseUnitaria = Object.entries(desglose).reduce(
-
           (acc, [k, c]) => acc + (c.comisionable ? c.valor : 0),
-
           0,
-
         );
-
-
 
         const comUnit = Math.round((((baseUnitaria * porcentaje) / 100) + 1e-9) * 100) / 100;
         return {
-
           porcentaje,
-
           modo: "manual",
-
           desglose,
-
-          base_unitaria: parseFloat(baseUnitaria.toFixed(2)),
-
+          base_unitaria: baseUnitaria,
           comision_unitaria: comUnit,
-
           total_comision: Math.round((comUnit * q * n + 1e-9) * 100) / 100,
-
         };
-
       };
 
 
@@ -17743,28 +17714,28 @@
                                               €
                                             </span>
                                             <button
-                                              onClick={() =>
-                                                setCommissionModal({
-                                                  isOpen: true,
-                                                  itemIdx: item.originalIndices[0],
-                                                  itemIds: item.ids,
-                                                  tempCom: item.comision
-                                                    ?.desglose
-                                                    ? JSON.parse(
-                                                      JSON.stringify(
-                                                        item.comision,
-                                                      ),
-                                                    )
-                                                    : calculateDefaultCommission(
-                                                      item.price,
-                                                      item.regime,
-                                                      item.qty,
-                                                      item.nights,
-                                                      item.type,
-                                                    ),
-                                                })
-                                              }
-                                              className="p-1 hover:bg-blue-100 text-blue-400 hover:text-blue-600 rounded transition-colors"
+                                               onClick={() => {
+                                                 const hotelForPricing = item.hotel || selectedGroupFicha?.hotel || selectedGroupFicha?.records?.[0]?.["Hotel_Asignado"] || selectedGroupFicha?.records?.[0]?.["Hotel"] || "Sercotel Guadiana";
+                                                 const itemPax = item.pax || getPaxByRoomType(item.type);
+                                                 setCommissionModal({
+                                                   isOpen: true,
+                                                   item: item,
+                                                   itemIdx: item.originalIndices?.[0] ?? 0,
+                                                   itemIds: item.ids || [item.id],
+                                                   tempCom: item.comision?.desglose
+                                                     ? JSON.parse(JSON.stringify(item.comision))
+                                                     : calculateDefaultCommission(
+                                                         item.price,
+                                                         item.regime,
+                                                         item.qty,
+                                                         item.nights,
+                                                         item.type,
+                                                         hotelForPricing,
+                                                         itemPax,
+                                                       ),
+                                                 });
+                                               }}
+                                               className="p-1 hover:bg-blue-100 text-blue-400 hover:text-blue-600 rounded transition-colors"
                                               title="Configurar desglose de comisión"
                                             >
                                               <IconSettings size={12} />
@@ -19399,7 +19370,12 @@
 
             {/* Modal de Comisión Unitario - Inteligencia por Unidad */}
 
-            {commissionModal.isOpen && (
+            {commissionModal.isOpen && (() => {
+                const activeModalItem = commissionModal.item || (selectedGroupFicha?.records?.[0]?.["RoomingList_JSON"] ? parseRoomingListSafe(selectedGroupFicha.records[0]["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx] : null) || {};
+                const modalUnitPrice = parseFloat(activeModalItem.price) || 0;
+                const modalPaxPerRoom = activeModalItem.pax || getPaxByRoomType(activeModalItem.type);
+                const modalRegime = activeModalItem.regime || "HD";
+                return (
 
               <div className="fixed inset-0 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center z-[110] animate-fade-in">
 
@@ -19437,15 +19413,7 @@
 
                       onClick={() =>
 
-                        setCommissionModal({
-
-                          isOpen: false,
-
-                          itemIdx: null,
-
-                          tempCom: null,
-
-                        })
+                        setCommissionModal({ isOpen: false, item: null, itemIdx: null, itemIds: null, tempCom: null })
 
                       }
 
@@ -19485,11 +19453,7 @@
 
                           <span className="text-xs font-black text-slate-700">
 
-                            {parseFloat(
-
-                              parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].price,
-
-                            ).toFixed(2)}{" "}
+                            {modalUnitPrice.toFixed(2)}{" "}
 
                             €
 
@@ -19517,11 +19481,7 @@
 
                           <span className="text-xs font-black text-slate-500">
 
-                            {getPaxByRoomType(
-
-                              parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].type,
-
-                            )}{" "}
+                            {modalPaxPerRoom}{" "}
 
                             pax
 
@@ -19549,7 +19509,7 @@
 
                           <span className="text-xs font-black text-slate-500">
 
-                            {parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].regime || "HD"}
+                            {modalRegime}
 
                           </span>
 
@@ -19764,59 +19724,13 @@
 
 
                                       if (key !== "Alojamiento") {
-
-                                        const item = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx];
-
-                                        const paxPerRoom = getPaxByRoomType(
-
-                                          item.type,
-
+                                        const des = key === "Desayuno" ? val : (newDesglose.Desayuno?.valor || 0);
+                                        const alm = key === "Almuerzo" ? val : (newDesglose.Almuerzo?.valor || 0);
+                                        const cen = key === "Cena" ? val : (newDesglose.Cena?.valor || 0);
+                                        newDesglose.Alojamiento.valor = Math.max(
+                                          0,
+                                          parseFloat((modalUnitPrice - (des + alm + cen)).toFixed(2))
                                         );
-
-                                        const unitPrice =
-
-                                          parseFloat(item.price) || 0;
-
-
-
-                                        const des =
-
-                                          key === "Desayuno"
-
-                                            ? val
-
-                                            : newDesglose.Desayuno.valor;
-
-                                        const alm =
-
-                                          key === "Almuerzo"
-
-                                            ? val
-
-                                            : newDesglose.Almuerzo.valor;
-
-                                        const cen =
-
-                                          key === "Cena"
-
-                                            ? val
-
-                                            : newDesglose.Cena.valor;
-
-
-
-                                        newDesglose.Alojamiento.valor =
-
-                                          Math.max(
-
-                                            0,
-
-                                            unitPrice -
-
-                                            (des + alm + cen) * paxPerRoom,
-
-                                          );
-
                                       }
 
 
@@ -19912,18 +19826,9 @@
                         {(() => {
 
                           const sum = Object.values(
-
                             commissionModal.tempCom.desglose || {},
-
-                          ).reduce((acc, c) => acc + c.valor, 0);
-
-                          const unitPrice = parseFloat(
-
-                            parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx].price,
-
-                          );
-
-                          const diff = Math.abs(sum - unitPrice);
+                          ).reduce((acc, c) => acc + (parseFloat(c.valor) || 0), 0);
+                          const diff = Math.abs(sum - modalUnitPrice);
 
                           if (diff > 0.01) {
 
@@ -20166,51 +20071,29 @@
 
                           <span className="text-lg font-black text-white tabular-nums tracking-tighter">
 
-                            {(() => {
-
-                              const item = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx];
-
-                              const base =
-
+                            {
+(() => {
+const base =
                                 commissionModal.tempCom.modo === "auto"
-
                                   ? Object.values(
-
                                     commissionModal.tempCom.desglose || {},
-
                                   ).reduce(
-
                                     (acc, c) =>
-
                                       acc + (c.comisionable ? c.valor : 0),
-
                                     0,
-
                                   )
-
                                   : commissionModal.tempCom.base_unitaria ||
-
                                   0;
-
                               return (
-
                                 ((base *
-
                                   (commissionModal.tempCom.porcentaje || 0)) /
-
                                   100) *
-
-                                item.qty *
-
-                                item.nights
-
+                                (parseInt(activeModalItem.qty) || 1) *
+                                (parseInt(activeModalItem.nights) || 1)
                               ).toLocaleString("es-ES", {
-
                                 minimumFractionDigits: 2,
-
                               });
-
-                            })()}{" "}
+})()}{" "}
 
                             <span className="text-xs font-normal opacity-40 ml-0.5">
 
@@ -20236,15 +20119,7 @@
 
                       onClick={() =>
 
-                        setCommissionModal({
-
-                          isOpen: false,
-
-                          itemIdx: null,
-
-                          tempCom: null,
-
-                        })
+                        setCommissionModal({ isOpen: false, item: null, itemIdx: null, itemIds: null, tempCom: null })
 
                       }
 
@@ -20259,65 +20134,49 @@
                     <button
 
                       onClick={() => {
-
                         const com = { ...commissionModal.tempCom };
-
-                        const item = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha")[commissionModal.itemIdx];
-
-
+                        const activeItem = activeModalItem;
 
                         if (com.modo === "auto") {
-
                           com.base_unitaria = Object.values(
-
-                            com.desglose,
-
+                            com.desglose || {},
                           ).reduce(
-
                             (acc, c) => acc + (c.comisionable ? c.valor : 0),
-
                             0,
-
                           );
-
                         }
 
                         com.comision_unitaria = Math.round((((com.base_unitaria * com.porcentaje) / 100) + 1e-9) * 100) / 100;
-                        com.total_comision = Math.round((com.comision_unitaria * item.qty * item.nights + 1e-9) * 100) / 100;
+                        com.total_comision = Math.round((com.comision_unitaria * (parseInt(activeItem.qty) || 1) * (parseInt(activeItem.nights) || 1) + 1e-9) * 100) / 100;
 
                         const newRL = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
 
-                        const idSet = new Set(commissionModal.itemIds || [item.id]);
+                        const idSet = new Set(commissionModal.itemIds || (activeItem.id ? [activeItem.id] : []));
+                        if (activeItem.originalMultiNightId) {
+                          idSet.add(activeItem.originalMultiNightId);
+                        }
+
                         newRL.forEach((rlItem) => {
                           if (idSet.has(rlItem.id)) {
                             const itemCom = { ...com };
-                            itemCom.total_comision = Math.round((com.comision_unitaria * rlItem.qty * rlItem.nights + 1e-9) * 100) / 100;
+                            itemCom.total_comision = Math.round((com.comision_unitaria * (parseInt(rlItem.qty) || 1) * (parseInt(rlItem.nights) || 1) + 1e-9) * 100) / 100;
                             rlItem.comision = itemCom;
                           }
                         });
 
                         updateGroupMetadata(
-
                           selectedGroupFicha.id,
-
                           "RoomingList_JSON",
-
                           JSON.stringify(newRL),
-
                         );
 
                         setCommissionModal({
-
                           isOpen: false,
-
+                          item: null,
                           itemIdx: null,
-
                           itemIds: null,
-
                           tempCom: null,
-
                         });
-
                       }}
 
                       className="flex-[2] h-11 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl text-[10px] text-white font-black shadow-lg shadow-blue-600/20 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
@@ -20335,10 +20194,8 @@
                 </div>
 
               </div>
-
-            )}
-
-
+            );
+          })()}
 
             {/* Modal Añadir Grupo - ENFOQUE AI EMAIL PARSER */}
 
