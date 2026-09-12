@@ -1302,9 +1302,21 @@
                 <span className="text-xs font-black uppercase tracking-wider text-slate-700">
                   Seguimiento Mensual {targetYear} — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
                 </span>
-                <span className="text-xs text-slate-500">
-                  Comparador Diferencia (Real - Obj) y % Cumplimiento
-                </span>
+                <div className="flex items-center gap-3">
+                  {scenario === "personalizado" && Object.keys(manualMonthOverrides).length > 0 && (!isOfficial || isUnlocked) && (
+                    <button
+                      type="button"
+                      onClick={handleClearManualOverrides}
+                      className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-bold transition flex items-center gap-1"
+                      title="Restablecer todos los meses a los valores calculados"
+                    >
+                      <span>🔄</span> Restablecer cálculos
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-500">
+                    Comparador Diferencia (Real - Obj) y % Cumplimiento
+                  </span>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
@@ -1349,7 +1361,21 @@
                             {row.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                           </td>
                           <td className="p-3 text-right text-indigo-700 font-semibold">
-                            {row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                            {scenario === "personalizado" && (!isOfficial || isUnlocked) ? (
+                              <div className="inline-flex items-center gap-1 justify-end">
+                                <input
+                                  type="number"
+                                  step="100"
+                                  value={manualMonthOverrides[m]?.targetRevenue !== undefined && manualMonthOverrides[m]?.targetRevenue !== null ? manualMonthOverrides[m].targetRevenue : Math.round(row.target.revenue)}
+                                  onChange={(e) => handleMonthOverrideChange(m, "targetRevenue", e.target.value)}
+                                  className="w-24 bg-indigo-50/70 border border-indigo-200 focus:border-indigo-500 rounded-lg px-2 py-1 text-right text-xs font-bold text-indigo-900 outline-none"
+                                  title="Editar objetivo de ingresos para este mes"
+                                />
+                                <span className="text-[10px] text-slate-400 font-bold">€</span>
+                              </div>
+                            ) : (
+                              <span>{row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                            )}
                           </td>
                           <td className={"p-3 text-right font-bold " + (isPositive ? "text-emerald-600" : "text-red-500")}>
                             {isPositive ? "+" : ""}{diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
@@ -1593,6 +1619,19 @@
                           className="w-20 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold"
                         />
                       </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Redondeo</label>
+                        <select
+                          value={copyRounding}
+                          onChange={(e) => setCopyRounding(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800"
+                        >
+                          <option value="none">Sin redondeo</option>
+                          <option value="0.50">A 0,50 €</option>
+                          <option value="1.00">A 1 € entero</option>
+                          <option value="5.00">A 5 €</option>
+                        </select>
+                      </div>
                       <button
                         onClick={handleApplyCopyTariffs}
                         className="mt-4 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
@@ -1667,19 +1706,48 @@
                 </div>
 
                 {/* Modal Footer */}
-                <div className="p-6 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white">
-                  <button
-                    onClick={() => setShowTariffModal(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSaveTariffs}
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
-                  >
-                    Guardar Tarifas
-                  </button>
+                <div className="p-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 sticky bottom-0 bg-white">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Redondeo rápido:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRoundCurrentTariffs("0.50")}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                      title="Redondear todas las tarifas activas a 0,50 €"
+                    >
+                      a 0,50 €
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRoundCurrentTariffs("1.00")}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                      title="Redondear todas las tarifas activas a 1 € entero"
+                    >
+                      a 1 €
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRoundCurrentTariffs("5.00")}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                      title="Redondear todas las tarifas activas a múltiplos de 5 €"
+                    >
+                      a 5 €
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowTariffModal(false)}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSaveTariffs}
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
+                    >
+                      Guardar Tarifas
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1732,6 +1800,64 @@
                     Entendido
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE CLAVE PIN 1234 (Presupuesto Oficial) */}
+          {showPinModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🔒</span>
+                    <div>
+                      <h3 className="text-base font-black text-slate-900">Desbloquear Presupuesto</h3>
+                      <p className="text-[11px] text-slate-500">Solo modificable con clave 1234</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setShowPinModal(false); setPinError(null); setPinInput(""); }}
+                    className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <form onSubmit={handleVerifyPin} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                      Clave de Autorización
+                    </label>
+                    <input
+                      type="password"
+                      value={pinInput}
+                      onChange={(e) => { setPinInput(e.target.value); setPinError(null); }}
+                      placeholder="••••"
+                      autoFocus
+                      className={"w-full bg-slate-50 border rounded-xl px-4 py-3 text-lg font-black text-center tracking-[0.5em] focus:outline-none focus:ring-2 transition " + (pinError ? "border-red-400 focus:ring-red-200" : "border-slate-200 focus:ring-indigo-200")}
+                    />
+                    {pinError && (
+                      <p className="text-[11px] text-red-600 font-bold mt-1.5 flex items-center gap-1">
+                        <span>⚠️</span> {pinError}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowPinModal(false); setPinError(null); setPinInput(""); }}
+                      className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
+                    >
+                      Desbloquear
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

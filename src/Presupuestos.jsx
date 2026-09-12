@@ -36,6 +36,81 @@
       "Cuádruple": 4,
     };
 
+    // Mapeo entre tipos de habitación y categorías oficiales del catálogo de tarifas
+    const ROOM_CATEGORY_MAP = {
+      "DOBLE DE USO INDIVIDUAL": "individual",
+      "Doble Individual": "individual",
+      "Doble de Uso Individual": "individual",
+      "DOBLE": "doble",
+      "Doble": "doble",
+      "Doble 2 Camas": "doble",
+      "Doble Matrimonial": "doble",
+      "Junior Suite": "doble",
+      "DOBLE + SUPLETORIA": "triple",
+      "Doble + Supletoria": "triple",
+      "Triple": "triple",
+      "CUÁDRUPLE": "cuadruple",
+      "Cuádruple": "cuadruple"
+    };
+
+    // Mapeo de regímenes del presupuesto a códigos oficiales (HA, HD, MP, PC)
+    const BOARD_CODE_MAP = {
+      "SA": "HA",
+      "AD": "HD",
+      "MP": "MP",
+      "PC": "PC"
+    };
+
+    /**
+     * Obtiene la matriz de tarifas oficiales para el hotel y año especificados
+     */
+    const getOfficialTariffsGrid = (hotelName, year) => {
+      const gts = window.GroupTargetsService;
+      const hotelKey = (hotelName || "").toLowerCase().includes("cumbria") ? "cumbria" : "guadiana";
+      const validYear = Number(year) || 2027;
+
+      let catalog = null;
+      try {
+        const saved = localStorage.getItem("nexus_group_tariffs");
+        if (saved) catalog = JSON.parse(saved);
+      } catch(e) {}
+
+      let tariffs = null;
+      if (gts && typeof gts.getTariffsForHotelAndYear === "function") {
+        tariffs = gts.getTariffsForHotelAndYear(catalog, hotelKey, validYear);
+      } else {
+        const defaults = {
+          guadiana: {
+            HA: { individual: 65.0, doble: 65.0, triple: 86.5, cuadruple: 107.0 },
+            HD: { individual: 73.5, doble: 82.0, triple: 112.0, cuadruple: 141.0 },
+            MP: { individual: 93.0, doble: 121.0, triple: 170.5, cuadruple: 219.0 },
+            PC: { individual: 112.5, doble: 160.0, triple: 229.0, cuadruple: 297.0 }
+          },
+          cumbria: {
+            HA: { individual: 63.0, doble: 63.0, triple: 84.5, cuadruple: null },
+            HD: { individual: 71.0, doble: 79.0, triple: 108.5, cuadruple: null },
+            MP: { individual: 90.0, doble: 117.0, triple: 165.5, cuadruple: null },
+            PC: { individual: 109.0, doble: 155.0, triple: 222.5, cuadruple: null }
+          }
+        };
+        tariffs = defaults[hotelKey] || defaults.guadiana;
+      }
+
+      const grid = {};
+      const rooms = ROOM_TYPES[hotelName] || ROOM_TYPES["Sercotel Guadiana"];
+      ["SA", "AD", "MP", "PC"].forEach(bKey => {
+        const gtsCode = BOARD_CODE_MAP[bKey] || bKey;
+        grid[bKey] = {};
+        rooms.forEach(roomType => {
+          const cat = ROOM_CATEGORY_MAP[roomType] || "doble";
+          if (tariffs && tariffs[gtsCode] && tariffs[gtsCode][cat] !== null && tariffs[gtsCode][cat] !== undefined) {
+            grid[bKey][roomType] = Number(tariffs[gtsCode][cat]);
+          }
+        });
+      });
+      return grid;
+    };
+
     // --- UTILS (cargadas desde js/utils.js) ---
     const generateDates = NexusUtils.generateDates;
     const generateSeriesDates = NexusUtils.generateSeriesDates;
@@ -1093,9 +1168,18 @@
       useEffect(() => {
         if (!formData.isRatesOnly) {
           const stayDates = getCurrentStayDates(formData);
-          const grid = formData.ratesOnlyGrid || {};
+          let grid = formData.ratesOnlyGrid || {};
           const newDailyConfig = { ...(formData.dailyConfig || {}) };
           let changed = false;
+
+          // Si ratesOnlyGrid no tiene precios y se han establecido fechas o hotel, precargar tarifas oficiales automáticamente
+          const hasGridPrices = Object.values(grid).some(b => Object.values(b || {}).some(p => p !== '' && p !== 0 && p !== null));
+          if (!hasGridPrices && formData.Hotel_Asignado) {
+            const parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+            const targetY = isNaN(parsedY) ? 2027 : parsedY;
+            grid = getOfficialTariffsGrid(formData.Hotel_Asignado, targetY);
+            changed = true;
+          }
 
           // Compute segment counts if in multi-segment mode
           let segmentCountsByDate = {};
@@ -1372,6 +1456,52 @@
           };
         });
       };
+
+      /**
+       * Carga las tarifas oficiales para el hotel y año del presupuesto actual
+       */
+      const handleLoadOfficialTariffs = () => {
+        const parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+        const validYear = isNaN(parsedY) ? 2027 : parsedY;
+        const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+        const officialGrid = getOfficialTariffsGrid(hotel, validYear);
+
+        const mergedGrid = { ...(formData.ratesOnlyGrid || {}) };
+        Object.keys(officialGrid).forEach(b => {
+          mergedGrid[b] = { ...(mergedGrid[b] || {}), ...officialGrid[b] };
+        });
+
+        const stayDates = getCurrentStayDates(formData);
+        const newDailyConfig = { ...(formData.dailyConfig || {}) };
+        const roomTypes = ROOM_TYPES[hotel] || ROOM_TYPES['Sercotel Guadiana'];
+
+        stayDates.forEach(date => {
+          if (!newDailyConfig[date]) {
+            newDailyConfig[date] = { board: formData['Régimen'] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
+          }
+          const dayConf = newDailyConfig[date];
+          const currentBoard = dayConf.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+          const boardKey = currentBoard.split(' ')[0];
+          const pricesForBoard = mergedGrid[boardKey] || {};
+
+          const updatedPrices = { ...(dayConf.prices || {}) };
+          roomTypes.forEach(rt => {
+            if (pricesForBoard[rt] !== undefined && pricesForBoard[rt] !== null && pricesForBoard[rt] !== '') {
+              updatedPrices[rt] = Number(pricesForBoard[rt]);
+            }
+          });
+          dayConf.prices = updatedPrices;
+        });
+
+        setFormData(prev => ({
+          ...prev,
+          ratesOnlyGrid: mergedGrid,
+          dailyConfig: newDailyConfig
+        }));
+
+        alert('Tarifas oficiales ' + validYear + ' aplicadas correctamente a ' + hotel + ' (' + Object.keys(mergedGrid).length + ' regímenes).');
+      };
+
 
       const handleCopyFirstDay = () => {
         const stayDates = getCurrentStayDates(formData);
@@ -2756,6 +2886,14 @@ ${emailContent}`;
                         <div className="flex items-center gap-2">
                           <button 
                             type="button"
+                            onClick={handleLoadOfficialTariffs}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95"
+                            title="Cargar las tarifas oficiales de grupos para este hotel y año en todas las fechas"
+                          >
+                            <i className="fas fa-tags text-emerald-600"></i> Cargar Tarifas Oficiales
+                          </button>
+                          <button 
+                            type="button"
                             onClick={handleCopyFirstDay}
                             className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-lg border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95"
                             title="Copiar precios y cupos del primer día a todos los siguientes"
@@ -2887,6 +3025,14 @@ ${emailContent}`;
                           <i className="fas fa-undo"></i>
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={handleLoadOfficialTariffs}
+                        className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm whitespace-nowrap focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                        title="Rellenar automáticamente con las tarifas oficiales de grupos"
+                      >
+                        <i className="fas fa-tags text-emerald-600"></i> Cargar Tarifas Oficiales
+                      </button>
                       <button
                         type="button"
                         onClick={() => setPastePreview({ isOpen: true, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] })}
