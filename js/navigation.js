@@ -250,6 +250,12 @@
                         <span class="hidden xl:inline">Proformas</span>
                     </a>
 
+                    <a href="Objetivos-Grupos.html"
+                       class="nexus-nav-btn flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider" title="Objetivos y Tarifas">
+                        <i data-lucide="target" class="w-4 h-4 flex-shrink-0"></i>
+                        <span class="hidden xl:inline">Objetivos</span>
+                    </a>
+
                     <div class="h-6 w-[1px] bg-slate-200 mx-1"></div>
 
                     <a href="https://nataliogc.github.io/menus-eventos/admin.html" target="_blank" rel="noopener noreferrer" 

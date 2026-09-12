@@ -643,6 +643,901 @@
 
 
 
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // NEXUS GROUPS — MÓDULO OBJETIVOS DE GRUPOS Y TARIFAS (Reqs 22-33)
+    // ══════════════════════════════════════════════════════════════════════════
+    const GroupTargetsModule = ({ data, processedData, dailyOccupancyList, boardPricingConfig }) => {
+      const gts = window.GroupTargetsService;
+
+      // Estados de control
+      const [targetHotel, setTargetHotel] = useState("guadiana");
+      const [targetYear, setTargetYear] = useState(2027);
+      const [baseYear, setBaseYear] = useState(2026);
+      const [scenario, setScenario] = useState("base");
+      const [growthPercent, setGrowthPercent] = useState(0); // 0% por defecto (Req 25)
+
+      const [activeSubView, setActiveSubView] = useState("monthly"); // 'monthly' | 'regimen' | 'category'
+      const [showTariffModal, setShowTariffModal] = useState(false);
+      const [tariffModalHotel, setTariffModalHotel] = useState("guadiana");
+      const [tariffModalYear, setTariffModalYear] = useState(2027);
+      const [copySourceYear, setCopySourceYear] = useState(2027);
+      const [copyPercent, setCopyPercent] = useState(0);
+      const [copyFixed, setCopyFixed] = useState(0);
+      const [showCancelledModal, setShowCancelledModal] = useState(false);
+      const [toastMsg, setToastMsg] = useState(null);
+
+      // Catálogo de tarifas local y editable
+      const [tariffsCatalog, setTariffsCatalog] = useState(() => {
+        try {
+          const saved = localStorage.getItem("nexus_group_tariffs");
+          if (saved) return JSON.parse(saved);
+        } catch(e) {}
+        return gts ? JSON.parse(JSON.stringify(gts.DEFAULT_GROUP_TARIFFS_2027)) : {};
+      });
+
+      // Copia editable temporal para el modal de tarifas
+      const [editingTariffs, setEditingTariffs] = useState(null);
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(null), 4000);
+      };
+
+      // 1. Agregación histórica base (Req 23)
+      const histData = useMemo(() => {
+        if (!gts || !dailyOccupancyList) return { monthly: {}, overall: {}, cancelled: { count: 0, pax: 0, lostRevenue: 0 } };
+        return gts.aggregateHistoricalGroupData(dailyOccupancyList, {
+          hotel: targetHotel,
+          year: baseYear
+        });
+      }, [dailyOccupancyList, targetHotel, baseYear]);
+
+      // 2. Tarifas activas para el hotel y año objetivo
+      const currentTariffs = useMemo(() => {
+        if (!gts) return {};
+        return gts.getTariffsForHotelAndYear(tariffsCatalog, targetHotel, targetYear);
+      }, [tariffsCatalog, targetHotel, targetYear]);
+
+      // 3. Generación de objetivo (Req 24, 25, 27)
+      const generatedTarget = useMemo(() => {
+        if (!gts) return null;
+        return gts.generateTargetFromHistorical(histData, {
+          hotel: targetHotel,
+          targetYear: targetYear,
+          baseYear: baseYear,
+          scenario: scenario,
+          growthPercent: Number(growthPercent) || 0,
+          tariffs: currentTariffs
+        });
+      }, [histData, targetHotel, targetYear, baseYear, scenario, growthPercent, currentTariffs]);
+
+      // 4. Datos reales del año objetivo (si existen)
+      const realDataTargetYear = useMemo(() => {
+        if (!gts || !dailyOccupancyList) return { monthly: {}, overall: {}, cancelled: { count: 0, pax: 0, lostRevenue: 0 } };
+        return gts.aggregateHistoricalGroupData(dailyOccupancyList, {
+          hotel: targetHotel,
+          year: targetYear
+        });
+      }, [dailyOccupancyList, targetHotel, targetYear]);
+
+      // 5. Comparativa Real vs Objetivo (Req 30, 31)
+      const comparison = useMemo(() => {
+        if (!gts || !generatedTarget) return null;
+        return gts.compareRealVsTarget(realDataTargetYear, generatedTarget);
+      }, [realDataTargetYear, generatedTarget]);
+
+      // 6. Validaciones de integridad (Req 33)
+      const integrity = useMemo(() => {
+        if (!gts || !generatedTarget) return { valid: true, errors: [], warnings: [] };
+        return gts.validateTargetIntegrity(generatedTarget, currentTariffs);
+      }, [generatedTarget, currentTariffs]);
+
+      // Manejadores de Modal de Tarifas
+      const openTariffModal = (h, y) => {
+        const selH = h || targetHotel;
+        const selY = y || targetYear;
+        setTariffModalHotel(selH);
+        setTariffModalYear(selY);
+        if (gts) {
+          const t = gts.getTariffsForHotelAndYear(tariffsCatalog, selH, selY);
+          setEditingTariffs(JSON.parse(JSON.stringify(t)));
+        }
+        setShowTariffModal(true);
+      };
+
+      const handleCellPriceChange = (reg, cat, val) => {
+        if (!editingTariffs) return;
+        const updated = JSON.parse(JSON.stringify(editingTariffs));
+        if (tariffModalHotel === "cumbria" && cat === "cuadruple") {
+          return; // Bloqueado estrictamente (Req 26 y 33)
+        }
+        if (val === "" || val === null || val === undefined) {
+          updated[reg][cat] = null;
+        } else {
+          const n = parseFloat(val);
+          updated[reg][cat] = isNaN(n) ? 0 : n;
+        }
+        setEditingTariffs(updated);
+      };
+
+      const handleSaveTariffs = () => {
+        if (!editingTariffs) return;
+        const updatedCatalog = JSON.parse(JSON.stringify(tariffsCatalog));
+        const yKey = String(tariffModalYear);
+        const hKey = gts.normalizeHotelKey(tariffModalHotel);
+        if (!updatedCatalog[yKey]) updatedCatalog[yKey] = {};
+        updatedCatalog[yKey][hKey] = editingTariffs;
+        setTariffsCatalog(updatedCatalog);
+        try {
+          localStorage.setItem("nexus_group_tariffs", JSON.stringify(updatedCatalog));
+        } catch(e) {}
+        setShowTariffModal(false);
+        showToast("Tarifas guardadas correctamente para " + (tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria") + " " + tariffModalYear);
+      };
+
+      const handleResetDefault2027 = () => {
+        if (!gts) return;
+        const def = gts.DEFAULT_GROUP_TARIFFS_2027[tariffModalHotel] || gts.DEFAULT_GROUP_TARIFFS_2027.guadiana;
+        setEditingTariffs(JSON.parse(JSON.stringify(def)));
+        showToast("Tarifas restablecidas a los valores oficiales 2027.");
+      };
+
+      const handleApplyCopyTariffs = () => {
+        if (!gts) return;
+        const src = gts.getTariffsForHotelAndYear(tariffsCatalog, tariffModalHotel, copySourceYear);
+        const copied = gts.copyTariffsWithAdjustment(src, {
+          percentIncrease: Number(copyPercent) || 0,
+          fixedIncrease: Number(copyFixed) || 0,
+          targetHotel: tariffModalHotel
+        });
+        setEditingTariffs(copied);
+        showToast("Tarifas copiadas desde " + copySourceYear + " con ajuste aplicado.");
+      };
+
+      const handleSaveTarget = () => {
+        if (!gts || !generatedTarget) return;
+        try {
+          const doc = gts.prepareTargetDocumentForSave(generatedTarget, "Usuario Actual");
+          const key = "nexus_target_" + targetHotel + "_" + targetYear;
+          localStorage.setItem(key, JSON.stringify(doc));
+          if (window.db && typeof window.db.collection === "function") {
+            window.db.collection("groupTargets").doc(targetHotel + "_" + targetYear).set(doc, { merge: true })
+              .catch(err => console.warn("Error guardando en Firestore groupTargets:", err));
+          }
+          showToast("Objetivo de " + (targetHotel === "guadiana" ? "Guadiana" : "Cumbria") + " " + targetYear + " guardado con éxito.");
+        } catch(err) {
+          showToast("Error al guardar el objetivo: " + err.message);
+        }
+      };
+
+      const monthNames = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+      ];
+
+      return (
+        <div className="space-y-6 animate-fade-in text-slate-800 pb-16">
+          {/* TOAST NOTIFICATION */}
+          {toastMsg && (
+            <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-slide-up">
+              <span className="text-emerald-400 text-lg">✓</span>
+              <span className="text-sm font-medium">{toastMsg}</span>
+            </div>
+          )}
+
+          {/* CABECERA Y PANEL DE CONTROL */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-xl font-bold">
+                    🎯
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 font-outfit tracking-tight">
+                      Objetivos de Grupos y Tarifas
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Planificación estratégica anual, tarifas oficiales y seguimiento de cumplimiento por categoría y régimen
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACCIONES PRINCIPALES */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => openTariffModal(targetHotel, targetYear)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-slate-200"
+                >
+                  <span>🏷️</span> Tarifas Grupos {targetYear}
+                </button>
+
+                <button
+                  onClick={() => setShowCancelledModal(true)}
+                  className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-amber-200"
+                >
+                  <span>🚫</span> Anuladas ({histData.cancelled.count})
+                </button>
+
+                <button
+                  onClick={handleSaveTarget}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition flex items-center gap-2"
+                >
+                  <span>💾</span> Guardar Objetivo
+                </button>
+              </div>
+            </div>
+
+            {/* SELECTORES DE CONFIGURACIÓN DEL OBJETIVO */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-6">
+              {/* Hotel */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Hotel
+                </label>
+                <select
+                  value={targetHotel}
+                  onChange={(e) => setTargetHotel(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  <option value="guadiana">Hotel Guadiana</option>
+                  <option value="cumbria">Hotel Cumbria</option>
+                </select>
+              </div>
+
+              {/* Año Objetivo */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Año Objetivo
+                </label>
+                <select
+                  value={targetYear}
+                  onChange={(e) => setTargetYear(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  <option value={2026}>2026</option>
+                  <option value={2027}>2027 (Oficial)</option>
+                  <option value={2028}>2028</option>
+                  <option value={2029}>2029</option>
+                  <option value={2030}>2030</option>
+                </select>
+              </div>
+
+              {/* Año Base Histórico */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Año Base Histórico
+                </label>
+                <select
+                  value={baseYear}
+                  onChange={(e) => setBaseYear(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  <option value={2025}>2025</option>
+                  <option value={2026}>2026</option>
+                  <option value={2027}>2027</option>
+                </select>
+              </div>
+
+              {/* Escenario */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Escenario
+                </label>
+                <select
+                  value={scenario}
+                  onChange={(e) => {
+                    const s = e.target.value;
+                    setScenario(s);
+                    if (s === "conservador" && growthPercent > 0) setGrowthPercent(0);
+                    else if (s === "ambicioso" && growthPercent === 0) setGrowthPercent(5);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                >
+                  <option value="base">Base</option>
+                  <option value="conservador">Conservador (0%)</option>
+                  <option value="ambicioso">Ambicioso (+5%)</option>
+                  <option value="personalizado">Personalizado</option>
+                </select>
+              </div>
+
+              {/* % Incremento propuesto */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  % Incremento Propuesto
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={growthPercent}
+                    onChange={(e) => setGrowthPercent(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                  />
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setGrowthPercent(0)}
+                      className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold"
+                      title="Restablecer a 0%"
+                    >
+                      0%
+                    </button>
+                    <button
+                      onClick={() => setGrowthPercent(p => Number((p + 5).toFixed(1)))}
+                      className="px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold"
+                      title="+5%"
+                    >
+                      +5%
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ALERTAS DE INTEGRIDAD (Req 33) */}
+          {integrity.errors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-start gap-3">
+              <span className="text-xl text-red-600">⚠️</span>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-red-900">Errores de Validación</h4>
+                <ul className="list-disc list-inside text-xs mt-1 space-y-0.5">
+                  {integrity.errors.map((err, idx) => <li key={idx}>{err}</li>)}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {integrity.warnings.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl p-4 flex items-start gap-3">
+              <span className="text-xl text-amber-600">ℹ️</span>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900">Aviso sobre Datos Provisionales</h4>
+                <p className="text-xs mt-0.5">
+                  Parte de los datos del año base contienen propuestas automáticas de habitaciones pendientes de confirmación. El objetivo resultante tiene consideración de <strong>Provisional</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* KPI CARDS RESUMEN */}
+          {generatedTarget && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Ingresos Objetivo */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ingresos Previstos {targetYear}</span>
+                <div className="my-2">
+                  <div className="text-2xl font-black text-slate-900">
+                    {generatedTarget.overall.targetRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Histórico Base: {histData.overall.totalRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg w-fit">
+                  {growthPercent >= 0 ? "+" + growthPercent + "%" : growthPercent + "%"} vs año {baseYear}
+                </div>
+              </div>
+
+              {/* Habitaciones-Noche */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Habitaciones-Noche</span>
+                <div className="my-2">
+                  <div className="text-2xl font-black text-slate-900">
+                    {generatedTarget.overall.targetRoomNights.toLocaleString("es-ES")}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Ind: {generatedTarget.overall.byCategory.individual} · Dbl: {generatedTarget.overall.byCategory.doble} · Tpl: {generatedTarget.overall.byCategory.triple} {targetHotel !== "cumbria" ? "· Cua: " + generatedTarget.overall.byCategory.cuadruple : ""}
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg w-fit">
+                  Base {baseYear}: {histData.overall.totalRoomNights} hab/noche
+                </div>
+              </div>
+
+              {/* Pax Previstos */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Personas (Pax)</span>
+                <div className="my-2">
+                  <div className="text-2xl font-black text-slate-900">
+                    {generatedTarget.overall.targetPax.toLocaleString("es-ES")}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Pernoctaciones: {generatedTarget.overall.targetPernoctaciones.toLocaleString("es-ES")}
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg w-fit">
+                  Base {baseYear}: {histData.overall.totalPax} pax
+                </div>
+              </div>
+
+              {/* Estado del Objetivo */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado del Objetivo</span>
+                <div className="my-2">
+                  <div className={"text-lg font-black " + (generatedTarget.overall.isProvisional ? "text-amber-600" : "text-emerald-600")}>
+                    {generatedTarget.overall.isProvisional ? "Provisional" : "Definitivo"}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {generatedTarget.overall.isProvisional ? "Contiene propuestas estimadas" : "100% distribuciones validadas"}
+                  </div>
+                </div>
+                <div className={"text-[10px] font-bold px-2 py-1 rounded-lg w-fit " + (generatedTarget.overall.isProvisional ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800")}>
+                  {generatedTarget.overall.isProvisional ? "Pendiente Confirmación" : "Validado"}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SELECTOR DE VISTA: MENSUAL / RÉGIMEN / CATEGORÍA */}
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+            <button
+              onClick={() => setActiveSubView("monthly")}
+              className={"px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 " + (activeSubView === "monthly" ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200")}
+            >
+              <span>📅</span> Tabla Mensual Real vs Objetivo
+            </button>
+            <button
+              onClick={() => setActiveSubView("regimen")}
+              className={"px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 " + (activeSubView === "regimen" ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200")}
+            >
+              <span>🍽️</span> Desglose por Régimen
+            </button>
+            <button
+              onClick={() => setActiveSubView("category")}
+              className={"px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 " + (activeSubView === "category" ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200")}
+            >
+              <span>🛏️</span> Desglose por Categoría Ocupación
+            </button>
+          </div>
+
+          {/* VISTA 1: TABLA MENSUAL REAL VS OBJETIVO (Req 30 y 31) */}
+          {activeSubView === "monthly" && comparison && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                  Seguimiento Mensual {targetYear} — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
+                </span>
+                <span className="text-xs text-slate-500">
+                  Comparador Diferencia (Real - Obj) y % Cumplimiento
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/75 text-slate-600 font-bold border-b border-slate-200">
+                      <th className="p-3">Mes</th>
+                      <th className="p-3 text-center">Reservas (R / O)</th>
+                      <th className="p-3 text-center">Hab-Noches (R / O)</th>
+                      <th className="p-3 text-center">Pax (R / O)</th>
+                      <th className="p-3 text-right">Ingresos Real</th>
+                      <th className="p-3 text-right">Ingresos Obj</th>
+                      <th className="p-3 text-right">Diferencia</th>
+                      <th className="p-3 text-center">% Cumplimiento</th>
+                      <th className="p-3 text-center">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                      const row = comparison.monthly[m];
+                      const diff = row.diff.revenue;
+                      const isPositive = diff >= 0;
+                      const cump = row.compliancePercent.revenue;
+                      return (
+                        <tr key={m} className="hover:bg-slate-50/80 transition">
+                          <td className="p-3 font-bold text-slate-900">{monthNames[m - 1]}</td>
+                          <td className="p-3 text-center">
+                            <span className="text-slate-900 font-bold">{row.real.reservas}</span>
+                            <span className="text-slate-400 mx-1">/</span>
+                            <span className="text-indigo-600">{row.target.reservas}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="text-slate-900 font-bold">{row.real.roomNights}</span>
+                            <span className="text-slate-400 mx-1">/</span>
+                            <span className="text-indigo-600">{row.target.roomNights}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="text-slate-900 font-bold">{row.real.pax}</span>
+                            <span className="text-slate-400 mx-1">/</span>
+                            <span className="text-indigo-600">{row.target.pax}</span>
+                          </td>
+                          <td className="p-3 text-right font-bold text-slate-900">
+                            {row.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                          <td className="p-3 text-right text-indigo-700 font-semibold">
+                            {row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                          <td className={"p-3 text-right font-bold " + (isPositive ? "text-emerald-600" : "text-red-500")}>
+                            {isPositive ? "+" : ""}{diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (cump >= 100 ? "bg-emerald-100 text-emerald-800" : cump >= 80 ? "bg-blue-100 text-blue-800" : cump > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                              {cump.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (row.status === "Definitivo" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200")}>
+                              {row.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100/90 font-black border-t-2 border-slate-300 text-slate-900">
+                      <td className="p-3">TOTAL ANUAL</td>
+                      <td className="p-3 text-center">
+                        {comparison.totals.real.reservas} / <span className="text-indigo-600">{comparison.totals.target.reservas}</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        {comparison.totals.real.roomNights} / <span className="text-indigo-600">{comparison.totals.target.roomNights}</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        {comparison.totals.real.pax} / <span className="text-indigo-600">{comparison.totals.target.pax}</span>
+                      </td>
+                      <td className="p-3 text-right">
+                        {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </td>
+                      <td className="p-3 text-right text-indigo-700">
+                        {comparison.totals.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </td>
+                      <td className={"p-3 text-right " + (comparison.totals.diff.revenue >= 0 ? "text-emerald-600" : "text-red-500")}>
+                        {comparison.totals.diff.revenue >= 0 ? "+" : ""}{comparison.totals.diff.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={"px-2.5 py-1 rounded-full text-xs font-black " + (comparison.totals.compliancePercent.revenue >= 100 ? "bg-emerald-200 text-emerald-900" : "bg-indigo-100 text-indigo-800")}>
+                          {comparison.totals.compliancePercent.revenue.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (comparison.totals.status === "Definitivo" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>
+                          {comparison.totals.status}
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* VISTA 2: DESGLOSE POR RÉGIMEN */}
+          {activeSubView === "regimen" && generatedTarget && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+              <div className="p-4 bg-slate-50 border-b border-slate-200">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                  Distribución Prevista por Régimen de Alojamiento ({targetYear})
+                </span>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { code: "HA", label: "Solo Alojamiento", desc: "Sin desayuno ni comida" },
+                  { code: "HD", label: "Alojamiento y Desayuno", desc: "1 desayuno por persona" },
+                  { code: "MP", label: "Media Pensión", desc: "1 desayuno + 1 comida por persona" },
+                  { code: "PC", label: "Pensión Completa", desc: "1 desayuno + 2 comidas por persona" }
+                ].map(item => {
+                  const nights = generatedTarget.overall.byRegimen[item.code] || 0;
+                  const totalNights = generatedTarget.overall.targetRoomNights || 1;
+                  const pct = ((nights / totalNights) * 100).toFixed(1);
+                  return (
+                    <div key={item.code} className="border border-slate-200 rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-black text-indigo-600">{item.code}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{pct}%</span>
+                        </div>
+                        <h4 className="font-bold text-slate-900 text-sm mt-1">{item.label}</h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{item.desc}</p>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-semibold">Hab-Noches:</span>
+                        <span className="text-base font-black text-slate-900">{nights}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* VISTA 3: DESGLOSE POR CATEGORÍA DE OCUPACIÓN REAL (Req 24, 26) */}
+          {activeSubView === "category" && generatedTarget && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+              <div className="p-4 bg-slate-50 border-b border-slate-200">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                  Distribución Prevista por Categoría de Ocupación Real ({targetYear})
+                </span>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { cat: "individual", label: "Individual", pax: "1 persona", color: "sky" },
+                  { cat: "doble", label: "Doble", pax: "2 personas", color: "indigo" },
+                  { cat: "triple", label: "Triple", pax: "3 personas", color: "purple" },
+                  { cat: "cuadruple", label: "Cuádruple", pax: "4 personas", color: "amber" }
+                ].map(item => {
+                  const isCumbriaCuadruple = targetHotel === "cumbria" && item.cat === "cuadruple";
+                  const nights = isCumbriaCuadruple ? 0 : (generatedTarget.overall.byCategory[item.cat] || 0);
+                  const totalNights = generatedTarget.overall.targetRoomNights || 1;
+                  const pct = isCumbriaCuadruple ? "0.0" : ((nights / totalNights) * 100).toFixed(1);
+
+                  return (
+                    <div key={item.cat} className={"border rounded-2xl p-5 flex flex-col justify-between transition " + (isCumbriaCuadruple ? "bg-slate-50 border-slate-200 opacity-60" : "border-slate-200 hover:shadow-md")}>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-black text-slate-900">{item.label}</span>
+                          {isCumbriaCuadruple ? (
+                            <span className="text-[10px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded-full">No disponible</span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{pct}%</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">Ocupantes reales: {item.pax}</p>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-semibold">Hab-Noches:</span>
+                        <span className="text-base font-black text-slate-900">{isCumbriaCuadruple ? "—" : nights}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE EDICIÓN Y CONSULTA DE TARIFAS (Req 26, 28, 29, 33) */}
+          {showTariffModal && editingTariffs && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto border border-slate-200">
+                {/* Modal Header */}
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🏷️</span>
+                      <h3 className="text-lg font-black text-slate-900 font-outfit">
+                        Catálogo de Tarifas de Grupos por Habitación y Persona
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} — Año {tariffModalYear}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowTariffModal(false)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-6">
+                  {/* Selectores de Hotel y Año dentro del Modal */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Hotel</span>
+                        <select
+                          value={tariffModalHotel}
+                          onChange={(e) => openTariffModal(e.target.value, tariffModalYear)}
+                          className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800"
+                        >
+                          <option value="guadiana">Hotel Guadiana</option>
+                          <option value="cumbria">Hotel Cumbria</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Año</span>
+                        <select
+                          value={tariffModalYear}
+                          onChange={(e) => openTariffModal(tariffModalHotel, Number(e.target.value))}
+                          className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800"
+                        >
+                          <option value={2026}>2026</option>
+                          <option value={2027}>2027 (Oficial)</option>
+                          <option value={2028}>2028</option>
+                          <option value={2029}>2029</option>
+                          <option value={2030}>2030</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleResetDefault2027}
+                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition"
+                    >
+                      Restablecer Oficial 2027
+                    </button>
+                  </div>
+
+                  {/* HERRAMIENTA: COPIAR TARIFAS DE OTRO AÑO (Req 28) */}
+                  <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                    <span className="text-xs font-black uppercase tracking-wider text-indigo-900 block mb-2">
+                      📋 Copiar tarifas desde otro año con ajuste
+                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Año Origen</label>
+                        <select
+                          value={copySourceYear}
+                          onChange={(e) => setCopySourceYear(Number(e.target.value))}
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                        >
+                          <option value={2026}>2026</option>
+                          <option value={2027}>2027</option>
+                          <option value={2028}>2028</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Aumento %</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={copyPercent}
+                          onChange={(e) => setCopyPercent(parseFloat(e.target.value) || 0)}
+                          className="w-20 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Aumento Fijo (€)</label>
+                        <input
+                          type="number"
+                          step="1"
+                          value={copyFixed}
+                          onChange={(e) => setCopyFixed(parseFloat(e.target.value) || 0)}
+                          className="w-20 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                        />
+                      </div>
+                      <button
+                        onClick={handleApplyCopyTariffs}
+                        className="mt-4 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                      >
+                        Aplicar Copia
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* TABLA MATRIZ DE TARIFAS CON AUTO-CÁLCULO POR PERSONA (Req 26 y 29) */}
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                          <th className="p-3">Régimen</th>
+                          <th className="p-3">Individual (1 pax)</th>
+                          <th className="p-3">Doble (2 pax)</th>
+                          <th className="p-3">Triple (3 pax)</th>
+                          <th className="p-3">Cuádruple (4 pax)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {["HA", "HD", "MP", "PC"].map(reg => (
+                          <tr key={reg} className="hover:bg-slate-50/70 transition">
+                            <td className="p-3 font-bold text-slate-900">
+                              <span className="text-sm font-black text-indigo-600 mr-2">{reg}</span>
+                              <span className="text-[11px] text-slate-500">
+                                {reg === "HA" ? "Solo Aloj." : reg === "HD" ? "Aloj. y Des." : reg === "MP" ? "Media Pensión" : "Pensión Completa"}
+                              </span>
+                            </td>
+                            {["individual", "doble", "triple", "cuadruple"].map(cat => {
+                              const isCumbriaCua = tariffModalHotel === "cumbria" && cat === "cuadruple";
+                              const rawVal = editingTariffs[reg] ? editingTariffs[reg][cat] : null;
+                              const occupants = cat === "individual" ? 1 : cat === "doble" ? 2 : cat === "triple" ? 3 : 4;
+                              const pricePerPerson = rawVal !== null && rawVal !== undefined ? gts.calculatePricePerPerson(rawVal, occupants) : null;
+
+                              return (
+                                <td key={cat} className="p-3">
+                                  {isCumbriaCua ? (
+                                    <div className="bg-slate-100 text-slate-400 p-2 rounded-xl text-center font-bold text-[11px] border border-dashed border-slate-300">
+                                      No disponible
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <div className="relative flex items-center">
+                                        <input
+                                          type="number"
+                                          step="0.5"
+                                          value={rawVal !== null && rawVal !== undefined ? rawVal : ""}
+                                          onChange={(e) => handleCellPriceChange(reg, cat, e.target.value)}
+                                          className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 pr-6 transition"
+                                        />
+                                        <span className="absolute right-2 text-slate-400 text-xs font-bold">€</span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 font-semibold mt-1">
+                                        {pricePerPerson !== null ? (
+                                          <span className="text-indigo-600 font-bold">{pricePerPerson.toFixed(2)} € / pax</span>
+                                        ) : (
+                                          "—"
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-6 border-t border-slate-100 flex items-center justify-end gap-3 sticky bottom-0 bg-white">
+                  <button
+                    onClick={() => setShowTariffModal(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveTariffs}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
+                  >
+                    Guardar Tarifas
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE RESERVAS ANULADAS (Req 23) */}
+          {showCancelledModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🚫</span>
+                    <h3 className="text-base font-black text-slate-900 font-outfit">
+                      Reservas Anuladas ({baseYear})
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowCancelledModal(false)}
+                    className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-3 text-xs text-slate-600">
+                  <p>
+                    Conforme al <strong>Requisito 23</strong>, las reservas anuladas quedan excluidas del cálculo del objetivo principal, pero se preservan para su análisis:
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-center pt-2">
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+                      <span className="block text-[10px] uppercase font-bold text-red-600">Reservas</span>
+                      <span className="text-lg font-black text-red-900">{histData.cancelled.count}</span>
+                    </div>
+                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                      <span className="block text-[10px] uppercase font-bold text-amber-600">Pax Afectados</span>
+                      <span className="text-lg font-black text-amber-900">{histData.cancelled.pax}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <span className="block text-[10px] uppercase font-bold text-slate-500">Importe Perdido</span>
+                      <span className="text-sm font-black text-slate-900 mt-1 block">
+                        {histData.cancelled.lostRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-2 text-right">
+                  <button
+                    onClick={() => setShowCancelledModal(false)}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
+                  >
+                    Entendido
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+
     const App = () => {
         console.log("[GESTION GRUPOS BUILD] v1.0.8-extra-charges");
 
@@ -1090,7 +1985,16 @@
 
       };
 
-      const [activeTab, setActiveTab] = useState("groups");
+      const [activeTab, setActiveTab] = useState(() => {
+        if (typeof window !== "undefined") {
+          if (window.location.pathname.toLowerCase().includes("objetivo")) return "targets";
+          try {
+            const sp = new URLSearchParams(window.location.search);
+            if (sp.get("tab") === "targets") return "targets";
+          } catch(e) {}
+        }
+        return "groups";
+      });
 
       const [searchTerm, setSearchTerm] = useState("");
 
@@ -8260,6 +9164,13 @@
 
                 </button>
 
+                <button
+                  onClick={() => setActiveTab("targets")}
+                  className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === "targets" ? "border-b-2 border-indigo-600 text-indigo-600 font-bold" : "text-gray-500 hover:text-indigo-600 transition"}`}
+                >
+                  <span className="text-base">🎯</span> Objetivos de Grupos
+                </button>
+
               </div>
 
             </div>
@@ -11934,6 +12845,17 @@
 
               </div>
 
+            )}
+
+            
+            {/* 5. MÓDULO OBJETIVOS DE GRUPOS Y TARIFAS (Reqs 22-33) */}
+            {activeTab === "targets" && (
+              <GroupTargetsModule
+                data={data}
+                processedData={processedData}
+                dailyOccupancyList={dailyOccupancyList}
+                boardPricingConfig={boardPricingConfig}
+              />
             )}
 
             {/* Modal Añadir Columna */}
