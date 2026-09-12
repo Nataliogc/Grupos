@@ -4649,6 +4649,10 @@
           if (roomingThisDate) resolvedRegimen = roomingThisDate.regime;
         }
         if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
+          const anyValidItem = existingRL.find(item => !item.isService && item.regime && item.regime !== "-");
+          if (anyValidItem) resolvedRegimen = anyValidItem.regime;
+        }
+        if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
           resolvedRegimen = "HD";
         }
 
@@ -5078,6 +5082,9 @@
                 DailyDistribution_JSON: jsonStringToSave,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
               };
+              if (editingDistribution.regimen && editingDistribution.regimen !== "-" && editingDistribution.regimen !== "---") {
+                payload["Régimen"] = editingDistribution.regimen;
+              }
               if (roomingJsonToSave) payload.RoomingList_JSON = roomingJsonToSave;
               batch.set(docRef, payload, { merge: true });
             });
@@ -5088,6 +5095,9 @@
           setData((prev) => prev.map((r) => {
             if (normalizeId(r["Reserva"]) === targetResId || docIdsToUpdate.has(r._docId)) {
               const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
+              if (editingDistribution.regimen && editingDistribution.regimen !== "-" && editingDistribution.regimen !== "---") {
+                updated["Régimen"] = editingDistribution.regimen;
+              }
               if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
               return updated;
             }
@@ -5099,6 +5109,9 @@
               if (!prev) return prev;
               const updatedRecords = (prev.records || []).map(r => {
                 const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
+                if (editingDistribution.regimen && editingDistribution.regimen !== "-" && editingDistribution.regimen !== "---") {
+                  updated["Régimen"] = editingDistribution.regimen;
+                }
                 if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
                 return updated;
               });
@@ -9960,13 +9973,19 @@
           }
         });
 
-        updateGroupMetadata(selectedGroupFicha.id, {
+        const firstValidRegime = currentList.find(r => !r.isService && r.regime && r.regime !== "-")?.regime;
+        const updatePayload = {
           RoomingList_JSON: JSON.stringify(currentList),
           DailyDistribution_JSON: JSON.stringify(updatedDailyDistMap),
           "Importe(*)": newTotalSum.toFixed(2),
           "Pax.": newTotalPax.toString(),
           "Cant.": newTotalRooms.toString(),
-        });
+        };
+        if (firstValidRegime) {
+          updatePayload["Régimen"] = firstValidRegime;
+        }
+
+        updateGroupMetadata(selectedGroupFicha.id, updatePayload);
       };
 
       const handleRoomManagerDrop = (sourceIndex, targetIndex) => {
@@ -14271,7 +14290,7 @@
                         <div>
                           <label className="text-slate-400 block font-medium mb-1">Régimen</label>
                           <select
-                            value={editingDistribution.regimen || "PC"}
+                            value={editingDistribution.regimen || "HD"}
                             onChange={(e) => {
                               const newReg = e.target.value;
                               setEditingDistribution((prev) => ({
@@ -20253,21 +20272,54 @@
                             </button>
 
                             <button
-
                               onClick={async () => {
+                                if (selectedGroupFicha && selectedGroupFicha.records && selectedGroupFicha.records[0]) {
+                                  try {
+                                    const currentRec = selectedGroupFicha.records[0];
+                                    let currentRL = [];
+                                    try {
+                                      currentRL = parseRoomingListSafe(currentRec["RoomingList_JSON"], "save-ficha-button");
+                                    } catch(e) {}
 
-                                // La mayoría de los campos ya se autoguardan,
+                                    let distMap = {};
+                                    if (currentRec.DailyDistribution_JSON) {
+                                      try {
+                                        distMap = typeof currentRec.DailyDistribution_JSON === "string"
+                                          ? JSON.parse(currentRec.DailyDistribution_JSON)
+                                          : { ...currentRec.DailyDistribution_JSON };
+                                      } catch(e) {}
+                                    }
 
-                                // pero forzamos un feedback visual y aseguramos persistencia del RoomingList
-
+                                    if (Array.isArray(currentRL) && currentRL.length > 0) {
+                                      const expandedRL = expandRoomListByDays(currentRL);
+                                      expandedRL.forEach((rm) => {
+                                        if (rm.isService) return;
+                                        const f = toInputDate(rm.dateIn || rm.date);
+                                        if (f) {
+                                          if (!distMap[f]) distMap[f] = {};
+                                          if (rm.regime && rm.regime !== "-") {
+                                            distMap[f].regimen = rm.regime;
+                                          }
+                                        }
+                                      });
+                                      const firstValidRegime = currentRL.find(r => !r.isService && r.regime && r.regime !== "-")?.regime;
+                                      const savePayload = {
+                                        RoomingList_JSON: JSON.stringify(currentRL),
+                                        DailyDistribution_JSON: JSON.stringify(distMap)
+                                      };
+                                      if (firstValidRegime) {
+                                        savePayload["Régimen"] = firstValidRegime;
+                                      }
+                                      await updateGroupMetadata(selectedGroupFicha.id, savePayload);
+                                    }
+                                  } catch (err) {
+                                    console.error("Error synchronizing in Grabar Cambios:", err);
+                                  }
+                                }
                                 alert(
-
                                   "✅ Cambios registrados y sincronizados con éxito.",
-
                                 );
-
                                 setShowFichaModal(false);
-
                               }}
 
                               className="px-10 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"

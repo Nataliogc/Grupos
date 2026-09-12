@@ -363,7 +363,33 @@
 
       var noches = parseInt(line["Noches"] || line["Días"] || line["Dias"] || 0, 10);
       var pernoct = parseInt(line["Pernoct."] || line["Pernoctaciones"] || 0, 10);
-      var regimen = String(line["Régimen"] || line["Regimen"] || line["Reg."] || "").trim();
+      var regimen = String(
+        line["Régimen"] ||
+        line["Regimen"] ||
+        line["Reg."] ||
+        line["regimen"] ||
+        line["regime"] ||
+        line["Tipo de Régimen"] ||
+        line["Regimen_Alimenticio"] ||
+        ""
+      ).trim();
+      if ((!regimen || regimen === "-" || regimen === "---") && (line["RoomingList_JSON"] || line["roomingList"])) {
+        try {
+          var rawRl = line["RoomingList_JSON"] || line["roomingList"];
+          var parsedRl = typeof rawRl === "string" ? JSON.parse(rawRl) : rawRl;
+          if (Array.isArray(parsedRl)) {
+            var foundAny = parsedRl.find(function(it) {
+              var r = it.regime || it.regimen || it["Régimen"] || it["Regimen"] || it.reg;
+              return r && r !== "-" && r !== "---";
+            });
+            if (foundAny) {
+              regimen = String(foundAny.regime || foundAny.regimen || foundAny["Régimen"] || foundAny["Regimen"] || foundAny.reg).trim();
+              if (regimen === "AD") regimen = "HD";
+              if (regimen === "SA") regimen = "HA";
+            }
+          }
+        } catch (e) {}
+      }
       var groupName = String(line["Nombre del Grupo"] || line["Grupo"] || line["name"] || "Sin Nombre").trim();
       var estado = String(line["Estado"] || "Confirmada").trim();
       var lineaId = String(line["precios"] || line["_linea"] || line["_rowNum"] || (lineIdx + 1)).trim();
@@ -508,6 +534,7 @@
 
       // Buscar si existen habitaciones en RoomingList_JSON para esta fecha específica
       var foundRoomingReg = null;
+      var anyRoomingReg = null;
       var roomingDaySum = 0;
       var hasRoomingDayLodging = false;
 
@@ -517,13 +544,34 @@
             var rlItems = typeof cl.roomingList === "string" ? JSON.parse(cl.roomingList) : cl.roomingList;
             if (Array.isArray(rlItems)) {
               rlItems.forEach(function (item) {
-                if (item.isService) return;
-                var dIn = normDateIso(item.dateIn || item.date);
+                var itemReg = item.regime || item.regimen || item["Régimen"] || item["Regimen"] || item.reg;
+                if (itemReg && typeof itemReg === "string") {
+                  itemReg = itemReg.trim();
+                  if (itemReg === "AD") itemReg = "HD";
+                  if (itemReg === "SA") itemReg = "HA";
+                }
+                if (!anyRoomingReg && itemReg && itemReg !== "-" && itemReg !== "---") {
+                  anyRoomingReg = itemReg;
+                }
+                if (item.isService && (!itemReg || itemReg === "-" || itemReg === "---")) return;
+
+                var dIn = normDateIso(item.dateIn || item.date || item.fecha || item.fechaCargo);
                 var dOut = normDateIso(item.dateOut);
-                var covers = dOut ? (entry.fecha >= dIn && entry.fecha < dOut) : (entry.fecha === dIn);
+                var itemNights = parseInt(item.nights, 10) || 1;
+                if ((!dOut || dOut <= dIn) && itemNights > 1 && dIn) {
+                  var dInDate = new Date(dIn + "T12:00:00Z");
+                  if (!isNaN(dInDate.getTime())) {
+                    dInDate.setUTCDate(dInDate.getUTCDate() + itemNights);
+                    dOut = dInDate.toISOString().split("T")[0];
+                  }
+                }
+                var covers = (dOut && dOut > dIn)
+                  ? (entry.fecha >= dIn && entry.fecha < dOut)
+                  : (entry.fecha === dIn);
+
                 if (covers) {
-                  if (!foundRoomingReg && item.regime && item.regime !== "-" && item.regime !== "---") {
-                    foundRoomingReg = item.regime;
+                  if (!foundRoomingReg && itemReg && itemReg !== "-" && itemReg !== "---") {
+                    foundRoomingReg = itemReg;
                   }
                   var p = parseFloat(item.price) || 0;
                   var q = parseInt(item.qty, 10) || 1;
@@ -544,8 +592,15 @@
         finalRegimen = dateSaved.regimen;
       } else if (foundRoomingReg) {
         finalRegimen = foundRoomingReg;
-      } else {
+      } else if (entry.regimenSet && entry.regimenSet.size > 0) {
         finalRegimen = Array.from(entry.regimenSet).join(", ") || "---";
+      } else if (anyRoomingReg) {
+        finalRegimen = anyRoomingReg;
+      } else {
+        finalRegimen = "---";
+      }
+      if (dateSaved && (!dateSaved.regimen || dateSaved.regimen === "-" || dateSaved.regimen === "---") && finalRegimen !== "---") {
+        dateSaved.regimen = finalRegimen;
       }
 
       var dayAmount = 0;
