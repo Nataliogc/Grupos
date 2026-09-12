@@ -72,8 +72,11 @@
     let currentStatus = defaultStatus;
 
     const isHeaderRow = (row) => {
-      if (!Array.isArray(row) || row.length < 5) return false;
-      const requiredKeys = ["reserva", "nombre del grupo", "entrada", "salida", "pax.", "noches", "régimen", "regimen", "importe(*)"];
+      if (!Array.isArray(row) || row.length < 3) return false;
+      const requiredKeys = [
+        "reserva", "nombre del grupo", "entrada", "salida", "pax.", "noches", "régimen", "regimen", "importe(*)",
+        "desde", "hasta", "cant.", "cant", "descripción", "descripcion", "reg.", "días", "dias", "precio", "importe", "precios"
+      ];
       let matchCount = 0;
       row.forEach((val) => {
         if (val && typeof val === "string") {
@@ -83,7 +86,7 @@
           }
         }
       });
-      return matchCount >= 4;
+      return matchCount >= 3;
     };
 
     const detectStatusChange = (row, status) => {
@@ -128,10 +131,15 @@
       "AGENCIA": "Empresa/Agencia", "EMPRESA": "Empresa/Agencia",
       "PAX": "Pax.", "PERS.": "Pax.", "PERSONAS": "Pax.",
       "PERNOCTACIONES": "Pernoct.", "PERN.": "Pernoct.",
-      "RÉGIMEN": "Régimen", "REGIMEN": "Régimen",
+      "RÉGIMEN": "Régimen", "REGIMEN": "Régimen", "REG.": "Régimen", "REG": "Régimen",
       "ESTADO": "Estado", "SITUACIÓN": "Estado", "SITUACION": "Estado",
-      "ENTRADA": "Entrada", "LLEGADA": "Entrada",
-      "SALIDA": "Salida",
+      "ENTRADA": "Entrada", "LLEGADA": "Entrada", "DESDE": "Entrada",
+      "SALIDA": "Salida", "HASTA": "Salida",
+      "NOCHES": "Noches", "DÍAS": "Noches", "DIAS": "Noches",
+      "CANT.": "Cant.", "CANT": "Cant.", "CANTIDAD": "Cant.",
+      "DESCRIPCIÓN": "Descripción", "DESCRIPCION": "Descripción",
+      "PRECIO": "Precio", "PRECIOS": "precios",
+      "IMPORTE": "Importe(*)",
       "SEGMENTO": "Segment.", "SEGMENT.": "Segment."
     };
 
@@ -183,6 +191,8 @@
       }
 
       rowObj["Estado"] = currentStatus;
+      rowObj["_rowNum"] = i + 1;
+      rowObj["_linea"] = String(rowObj["precios"] || rowObj["Linea"] || (i + 1)).trim();
 
       if (specificHotelConfigId) {
         rowObj["Hotel_Asignado"] = specificHotelConfigId;
@@ -273,59 +283,28 @@
         return cleanRow;
     });
 
-    const groupedMap = new Map();
-    simpleRows.forEach((row) => {
-        const id = window.NexusUtils.normalizeId(row["Reserva"]);
-        if (!id || id === "-") {
-            groupedMap.set(`TEMP-${Math.random()}`, row);
+    const incomingRows = [];
+    const seenLineKeys = new Set();
+
+    simpleRows.forEach((row, idx) => {
+        const rawResId = row["Reserva"];
+        const resId = window.NexusUtils.normalizeId(rawResId) || `TEMP-${Date.now()}-${idx}`;
+        row["Reserva"] = resId;
+
+        const lineaId = String(row["precios"] || row["_linea"] || row["_rowNum"] || (idx + 1)).trim();
+        row["_linea"] = lineaId;
+        if (row["precios"]) row["precios"] = lineaId;
+
+        const inIso = toIsoDate(row["Entrada"]);
+        const lineKey = `${resId}_${lineaId}_${inIso}`;
+
+        // Deduplicar únicamente si es un duplicado idéntico exacto
+        if (seenLineKeys.has(lineKey)) {
             return;
         }
-        if (!groupedMap.has(id)) {
-            groupedMap.set(id, { ...row });
-        } else {
-            const existing = groupedMap.get(id);
-            const existingPriority = getStatusPriority(existing["Estado"]);
-            const newPriority = getStatusPriority(row["Estado"]);
+        seenLineKeys.add(lineKey);
+        row["_recordKey"] = lineKey;
 
-            const oldPax = toNum(existing["Pax."]);
-            const newPax = toNum(row["Pax."]);
-            existing["Pax."] = (oldPax + newPax).toString();
-
-            const oldPernoct = toNum(existing["Pernoct."]);
-            const newPernoct = toNum(row["Pernoct."]);
-            if (oldPernoct > 0 || newPernoct > 0) existing["Pernoct."] = (oldPernoct + newPernoct).toString();
-
-            const oldImp = toNum(existing["Importe(*)"]);
-            const newImp = toNum(row["Importe(*)"]);
-            existing["Importe(*)"] = (oldImp + newImp).toFixed(2);
-
-            if (newPriority > existingPriority) {
-                existing["Entrada"] = row["Entrada"];
-                existing["Salida"] = row["Salida"];
-                existing["Estado"] = row["Estado"];
-                existing["Hotel_Asignado"] = row["Hotel_Asignado"];
-                existing["Nombre del Grupo"] = row["Nombre del Grupo"] || existing["Nombre del Grupo"];
-                existing["Segment."] = row["Segment."] || existing["Segment."];
-            } else if (newPriority === existingPriority) {
-                const eIn = parseToDateObj(existing["Entrada"]);
-                const rIn = parseToDateObj(row["Entrada"]);
-                if (rIn && eIn && rIn < eIn) existing["Entrada"] = row["Entrada"];
-
-                const eOut = parseToDateObj(existing["Salida"]);
-                const rOut = parseToDateObj(row["Salida"]);
-                if (rOut && eOut && rOut > eOut) existing["Salida"] = row["Salida"];
-            }
-
-            if (row["Régimen"] && existing["Régimen"] !== row["Régimen"]) {
-                if (!existing["Régimen"].includes(row["Régimen"])) {
-                    existing["Régimen"] = `${existing["Régimen"]}, ${row["Régimen"]}`;
-                }
-            }
-        }
-    });
-
-    const incomingRows = Array.from(groupedMap.values());
-    incomingRows.forEach((row) => {
         const eInDate = parseToDateObj(row["Entrada"]);
         const eOutDate = parseToDateObj(row["Salida"]);
 
@@ -343,6 +322,8 @@
                 row["Com_Vencimiento_Rel"] = relDate.toISOString().split("T")[0];
             }
         }
+
+        incomingRows.push(row);
     });
 
     const totalPaxFound = incomingRows.reduce((a, b) => a + toNum(b["Pax."]), 0);
@@ -363,10 +344,31 @@
     incomingRows.forEach((newRow, idx) => {
         if (!newRow["Reserva"]) newRow["Reserva"] = `TEMP-${Date.now()}-${idx}`;
         const resID = window.NexusUtils.normalizeId(newRow["Reserva"]);
+        const targetRecordKey = newRow["_recordKey"];
+        const newInIso = toIsoDate(newRow["Entrada"]);
+        const newLinea = newRow["_linea"];
         
         const existingIdx = mergedData.findIndex((r) => {
-            const existingId = window.NexusUtils.normalizeId(r["Reserva"]);
-            return (existingId === resID || existingId.startsWith(resID + "_") || resID.startsWith(existingId + "_"));
+            const rRes = window.NexusUtils.normalizeId(r["Reserva"]);
+            if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+
+            // 1. Si coincide la clave de registro exacta
+            if (r["_recordKey"] && r["_recordKey"] === targetRecordKey) return true;
+
+            // 2. Si coincide el _docId o id con la línea y entrada
+            if (r["_docId"] && (r["_docId"] === `${resID}_${newLinea}` || r["_docId"] === resID)) {
+                if (toIsoDate(r["Entrada"]) === newInIso) return true;
+            }
+
+            // 3. Si coincide la fecha de entrada y la línea o régimen
+            const rInIso = toIsoDate(r["Entrada"]);
+            if (rInIso === newInIso) {
+                const rLinea = String(r["_linea"] || r["precios"] || "");
+                if (rLinea && rLinea === newLinea) return true;
+                if (r["Régimen"] && newRow["Régimen"] && String(r["Régimen"]).trim().toUpperCase() === String(newRow["Régimen"]).trim().toUpperCase()) return true;
+            }
+
+            return false;
         });
 
         if (existingIdx === -1) {
@@ -564,10 +566,17 @@
       }
   }
 
-  window.ExcelService = {
+  var ExcelService = {
       parseAndMergeFile,
       toIsoDate,
       toInputDate
   };
+
+  if (typeof window !== "undefined") {
+    window.ExcelService = ExcelService;
+  }
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = ExcelService;
+  }
 
 })();

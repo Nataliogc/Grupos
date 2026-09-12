@@ -1094,7 +1094,33 @@
 
       const [searchTerm, setSearchTerm] = useState("");
 
-      
+      // Estados para Desglose Diario de Habitaciones
+      const [groupsSubView, setGroupsSubView] = useState("daily"); // 'daily' | 'groups'
+      const [dailyDateFrom, setDailyDateFrom] = useState("");
+      const [dailyDateTo, setDailyDateTo] = useState("");
+      const [dailyStatusFilter, setDailyStatusFilter] = useState("confirmada"); // 'confirmada' | 'anulada' | 'todos'
+      const [dailyDistributionFilter, setDailyDistributionFilter] = useState("todos"); // 'todos' | 'confirmada_o_modificada' | 'propuesta' | 'pendiente'
+      const [dailyHotelFilter, setDailyHotelFilter] = useState("");
+      const [editingDistribution, setEditingDistribution] = useState(null);
+      // Estados para Configuración y Desglose Económico de Precios por Régimen (Reqs 13-21)
+      const [boardPricingConfig, setBoardPricingConfig] = useState(() => {
+        try {
+          const saved = window.NexusUtils?.safeStorage?.getItem("boardPricingConfig");
+          if (saved) return JSON.parse(saved);
+        } catch (e) {}
+        return {
+          default: { breakfast: 6.0, meal: 16.0, version: "v1.0" }
+        };
+      });
+      const [showBoardPricingModal, setShowBoardPricingModal] = useState(false);
+      const [editingBoardPrices, setEditingBoardPrices] = useState({
+        hotel: "default",
+        breakfast: 6.0,
+        meal: 16.0
+      });
+      const [dailyViewSection, setDailyViewSection] = useState("breakdown"); // 'breakdown' | 'statistics'
+      const [distributionFormError, setDistributionFormError] = useState(null);
+      const [isSavingDistribution, setIsSavingDistribution] = useState(false);
 
       const [newColumnName, setNewColumnName] = useState("");
 
@@ -2280,6 +2306,238 @@
         });
 
       }, [processedData, sortConfig]);
+
+      // --- MAPA DE DISTRIBUCIONES GUARDADAS POR RESERVA ---
+      const savedDistributionsByReserva = useMemo(() => {
+        const map = {};
+        (data || []).forEach((row) => {
+          const resId = normalizeId(row["Reserva"]);
+          if (!resId) return;
+          if (row.DailyDistribution_JSON) {
+            try {
+              const parsed = typeof row.DailyDistribution_JSON === "string" 
+                ? JSON.parse(row.DailyDistribution_JSON) 
+                : row.DailyDistribution_JSON;
+              if (parsed && typeof parsed === "object") {
+                map[resId] = { ...(map[resId] || {}), ...parsed };
+              }
+            } catch (e) {}
+          }
+        });
+        return map;
+      }, [data]);
+
+      // --- MATRIZ DE OCUPACIÓN Y DISTRIBUCIÓN DIARIA ---
+      const dailyOccupancyList = useMemo(() => {
+        if (!window.GroupOccupancyService) return [];
+        return window.GroupOccupancyService.calculateDailyOccupancyMatrix(processedData, savedDistributionsByReserva);
+      }, [processedData, savedDistributionsByReserva]);
+
+      // --- FILTRADO DE LA LISTA DIARIA ---
+      const filteredDailyOccupancy = useMemo(() => {
+        return dailyOccupancyList.filter((item) => {
+          if (dailyHotelFilter && item.hotel !== dailyHotelFilter) return false;
+          
+          const isAnul = String(item.estadoReserva || "").toLowerCase().includes("anul");
+          if (dailyStatusFilter === "confirmada" && isAnul) return false;
+          if (dailyStatusFilter === "anulada" && !isAnul) return false;
+
+          if (dailyDistributionFilter === "confirmada_o_modificada" && !item.isDefinitive) return false;
+          if (dailyDistributionFilter === "validada_sin_cambios" && item.distributionStatus !== "validada_sin_cambios") return false;
+          if (dailyDistributionFilter === "revision_necesaria" && item.distributionStatus !== "revision_necesaria") return false;
+          if (dailyDistributionFilter === "propuesta" && item.distributionStatus !== "propuesta") return false;
+          if (dailyDistributionFilter === "pendiente" && item.distributionStatus !== "pendiente") return false;
+
+          if (dailyDateFrom && item.fecha < dailyDateFrom) return false;
+          if (dailyDateTo && item.fecha > dailyDateTo) return false;
+
+          if (searchTerm && searchTerm.trim() !== "") {
+            const term = searchTerm.toLowerCase().trim();
+            const matchRes = (item.reserva || "").toLowerCase().includes(term);
+            const matchName = (item.nombreGrupo || "").toLowerCase().includes(term);
+            if (!matchRes && !matchName) return false;
+          }
+
+          return true;
+        });
+      }, [dailyOccupancyList, dailyHotelFilter, dailyStatusFilter, dailyDistributionFilter, dailyDateFrom, dailyDateTo, searchTerm]);
+
+      // --- TOTALES DE REPORTE DIARIO ---
+      const dailyReportTotals = useMemo(() => {
+        if (!window.GroupOccupancyService) return {};
+        return window.GroupOccupancyService.aggregateReportTotals(filteredDailyOccupancy);
+      }, [filteredDailyOccupancy]);
+
+      // --- ESTADÍSTICAS ECONÓMICAS POR RÉGIMEN Y CATEGORÍA (Reqs 18-21) ---
+      const dailyEconomicStats = useMemo(() => {
+        if (!window.BoardPricingService) return null;
+        return window.BoardPricingService.calculateEconomicStatistics(filteredDailyOccupancy, boardPricingConfig);
+      }, [filteredDailyOccupancy, boardPricingConfig]);
+
+      const openDistributionModal = (dailyItem) => {
+        const proposal = dailyItem.proposal || window.GroupOccupancyService?.generateDefaultProposal(dailyItem.pax) || {
+          individuales: dailyItem.pax % 2,
+          dobles: Math.floor(dailyItem.pax / 2),
+          triples: 0,
+          cuadruples: 0,
+          totalHabitaciones: Math.floor(dailyItem.pax / 2) + (dailyItem.pax % 2)
+        };
+
+        const currentInd = dailyItem.individuales !== null && dailyItem.individuales !== undefined 
+          ? dailyItem.individuales 
+          : proposal.individuales;
+        const currentDbl = dailyItem.dobles !== null && dailyItem.dobles !== undefined 
+          ? dailyItem.dobles 
+          : proposal.dobles;
+        const currentTpl = dailyItem.triples !== null && dailyItem.triples !== undefined 
+          ? dailyItem.triples 
+          : proposal.triples;
+        const currentCua = dailyItem.cuadruples !== null && dailyItem.cuadruples !== undefined 
+          ? dailyItem.cuadruples 
+          : proposal.cuadruples;
+
+        setDistributionFormError(null);
+        setEditingDistribution({
+          hotel: dailyItem.hotel,
+          reserva: dailyItem.reserva,
+          nombreGrupo: dailyItem.nombreGrupo,
+          fecha: dailyItem.fecha,
+          pax: dailyItem.pax,
+          regimen: dailyItem.regimen,
+          proposal: proposal,
+          individuales: currentInd,
+          dobles: currentDbl,
+          triples: currentTpl,
+          cuadruples: currentCua,
+          observations: dailyItem.observations || "",
+          status: dailyItem.distributionStatus || "propuesta",
+          revisionReasons: dailyItem.revisionReasons || [],
+          previousDistribution: dailyItem.previousDistribution || null,
+          applyToAllHomogeneous: false
+        });
+      };
+
+      const handleSaveDistribution = async (actionType = "guardar") => {
+        if (!editingDistribution) return;
+        setDistributionFormError(null);
+
+        let finalInd = parseInt(editingDistribution.individuales, 10) || 0;
+        let finalDbl = parseInt(editingDistribution.dobles, 10) || 0;
+        let finalTpl = parseInt(editingDistribution.triples, 10) || 0;
+        let finalCua = parseInt(editingDistribution.cuadruples, 10) || 0;
+        let finalStatus = "modificada";
+
+        if (actionType === "confirmar_propuesta") {
+          finalInd = editingDistribution.proposal.individuales;
+          finalDbl = editingDistribution.proposal.dobles;
+          finalTpl = editingDistribution.proposal.triples;
+          finalCua = editingDistribution.proposal.cuadruples;
+          finalStatus = "confirmada";
+        } else if (actionType === "reconfirmar_anterior") {
+          const prevD = editingDistribution.previousDistribution || editingDistribution;
+          finalInd = prevD.individuales !== undefined ? prevD.individuales : editingDistribution.individuales;
+          finalDbl = prevD.dobles !== undefined ? prevD.dobles : editingDistribution.dobles;
+          finalTpl = prevD.triples !== undefined ? prevD.triples : editingDistribution.triples;
+          finalCua = prevD.cuadruples !== undefined ? prevD.cuadruples : editingDistribution.cuadruples;
+          finalStatus = "confirmada";
+        } else if (actionType === "dejar_pendiente") {
+          finalStatus = "pendiente";
+          finalInd = null;
+          finalDbl = null;
+          finalTpl = null;
+          finalCua = null;
+        }
+
+        // Si se confirma o modifica, validar estrictamente la suma de Pax
+        if (finalStatus === "confirmada" || finalStatus === "modificada") {
+          const valRes = window.GroupOccupancyService?.validateOccupancyMatch({
+            individuales: finalInd,
+            dobles: finalDbl,
+            triples: finalTpl,
+            cuadruples: finalCua
+          }, editingDistribution.pax);
+
+          if (valRes && !valRes.isValid) {
+            setDistributionFormError("La distribución no coincide con el número total de personas.");
+            return;
+          }
+        }
+
+        setIsSavingDistribution(true);
+        try {
+          const targetResId = normalizeId(editingDistribution.reserva);
+          const matchingRows = (data || []).filter((r) => normalizeId(r["Reserva"]) === targetResId);
+          
+          const primaryDoc = matchingRows[0];
+          let existingDistMap = {};
+          if (primaryDoc && primaryDoc.DailyDistribution_JSON) {
+            try {
+              existingDistMap = typeof primaryDoc.DailyDistribution_JSON === "string"
+                ? JSON.parse(primaryDoc.DailyDistribution_JSON)
+                : primaryDoc.DailyDistribution_JSON;
+            } catch (e) {}
+          }
+
+          // Generar huella digital y snapshot de validación (Req 12)
+          const matchedDay = dailyOccupancyList.find(d => d.reserva === editingDistribution.reserva && d.fecha === editingDistribution.fecha);
+          const validationSnap = finalStatus !== "pendiente" && window.GroupOccupancyService?.createValidationSnapshot
+            ? window.GroupOccupancyService.createValidationSnapshot({ contributingLines: matchedDay?.contributingLines || [] }, "Usuario")
+            : null;
+
+          const newEntry = {
+            status: finalStatus,
+            individuales: finalInd,
+            dobles: finalDbl,
+            triples: finalTpl,
+            cuadruples: finalCua,
+            totalHabitaciones: finalStatus === "pendiente" ? null : (finalInd + finalDbl + finalTpl + finalCua),
+            pax: editingDistribution.pax,
+            proposed: editingDistribution.proposal,
+            observations: editingDistribution.observations || "",
+            validationSnapshot: validationSnap,
+            reviewedBy: "Usuario",
+            reviewedAt: new Date().toISOString()
+          };
+
+          existingDistMap[editingDistribution.fecha] = newEntry;
+
+          // Si seleccionó aplicar a todo el tramo homogéneo con el mismo pax:
+          if (editingDistribution.applyToAllHomogeneous) {
+            const allDatesOfRes = dailyOccupancyList.filter((d) => d.reserva === editingDistribution.reserva && d.pax === editingDistribution.pax);
+            allDatesOfRes.forEach((d) => {
+              existingDistMap[d.fecha] = { ...newEntry };
+            });
+          }
+
+          const jsonStringToSave = JSON.stringify(existingDistMap);
+
+          // Actualizar en Firestore para todos los documentos de esta reserva
+          if (matchingRows.length > 0) {
+            const batch = db.batch();
+            matchingRows.forEach((r) => {
+              const docId = r._docId || normalizeId(r["Reserva"]);
+              const docRef = db.collection("groups").doc(docId);
+              batch.set(docRef, { DailyDistribution_JSON: jsonStringToSave }, { merge: true });
+            });
+            await batch.commit();
+          }
+
+          // Actualizar estado local inmediatamente
+          setData((prev) => prev.map((r) => {
+            if (normalizeId(r["Reserva"]) === targetResId) {
+              return { ...r, DailyDistribution_JSON: jsonStringToSave };
+            }
+            return r;
+          }));
+
+          setEditingDistribution(null);
+        } catch (err) {
+          console.error("Error al guardar distribución de habitaciones:", err);
+          alert("Error al guardar la distribución: " + err.message);
+        } finally {
+          setIsSavingDistribution(false);
+        }
+      };
 
 
 
@@ -3821,31 +4079,14 @@
       useEffect(() => {
         const unsubscribe = db.collection("groups").onSnapshot(
           (snapshot) => {
-            const dedupedMap = new Map();
+            const docsMap = new Map();
             snapshot.forEach((doc) => {
               const d = doc.data();
               const reserva = d.Reserva || doc.id;
-              const normId = normalizeId(reserva);
               const row = { ...d, _docId: doc.id, Reserva: reserva };
-
-              const existing = dedupedMap.get(normId);
-              if (!existing) {
-                dedupedMap.set(normId, row);
-              } else {
-                const existingIsExact = existing._docId === normId;
-                const newIsExact = row._docId === normId;
-                if (newIsExact && !existingIsExact) {
-                  dedupedMap.set(normId, row);
-                } else if (!newIsExact && existingIsExact) {
-                  // Keep existing
-                } else {
-                  const existingTs = existing.updatedAt?.seconds || 0;
-                  const newTs = row.updatedAt?.seconds || 0;
-                  if (newTs > existingTs) dedupedMap.set(normId, row);
-                }
-              }
+              docsMap.set(doc.id, row);
             });
-            const dedupedRoomData = Array.from(dedupedMap.values());
+            const dedupedRoomData = Array.from(docsMap.values());
 
 
 
@@ -4747,7 +4988,16 @@
 
 
 
-          const docId = normalizeId(resID);
+          const sameResRows = (data || []).filter(r => normalizeId(r["Reserva"]) === normalizeId(resID));
+          let docId = row._docId;
+          if (!docId) {
+            const linea = String(row["_linea"] || row["precios"] || "").trim();
+            if (sameResRows.length > 1 && linea) {
+              docId = `${normalizeId(resID)}_${linea}`;
+            } else {
+              docId = normalizeId(resID);
+            }
+          }
 
           const docRef = db.collection("groups").doc(docId);
 
@@ -9664,710 +9914,1106 @@
               );
             })()}
 
-            {/* 3. GROUP ANALYSIS */}
-
-            {/* 3. GROUP DIRECTORY */}
-
+            
+            {/* 3. GROUP DIRECTORY, OCCUPANCY & ECONOMIC BREAKDOWN (Reqs 12-21) */}
             {activeTab === "groups" && (
-
               <div className="animate-fade-in space-y-4">
-
-                {/* El header antiguo ha sido movido al toolbar superior unificado */}
-
-                {/* Listado de Grupos - VISTA DE TABLA (LINEAS) */}
-
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-
-                  <table className="w-full text-left border-collapse">
-
-                    <thead>
-
-                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-400 uppercase tracking-wider">
-
-                        <th className="px-3 py-3 font-black">Hotel</th>
-
-                        <th className="px-3 py-3 font-black">Grupo / ID</th>
-
-                        <th className="px-3 py-3 font-black">Comercial</th>
-
-                        <th className="px-3 py-3 font-black">Entrada</th>
-
-                        <th className="px-3 py-3 font-black">Salida</th>
-
-                        <th className="px-3 py-3 font-black text-center">
-
-                          Release
-
-                        </th>
-
-                        <th className="px-3 py-3 font-black text-right">
-
-                          Importe
-
-                        </th>
-
-                        <th className="px-3 py-3 font-black text-center">
-
-                          Estado
-
-                        </th>
-
-                      </tr>
-
-                    </thead>
-
-                    <tbody className="divide-y divide-slate-100">
-
-                      {groupedData.map((group, idx) => {
-
-                        // Prioridad: Com_Estado_Interno siempre gana sobre Estado (campo del Excel importado)
-
-                        const internalSt =
-
-                          group.records?.[0]?.["Com_Estado_Interno"];
-
-                        const externalSt = group.records?.[0]?.["Estado"];
-
-                        const effectiveSt =
-
-                          internalSt || group.records?.[0]?.["Segment."];
-
-                        const st = getStatusProps(
-
-                          effectiveSt,
-
-                          group.arrival,
-
-                          internalSt ? null : externalSt,
-
-                        );
-
-                        const statusText = st.label;
-
-                        const statusColor = st.text;
-
-                        // Normalizar nombre hotel para visualización
-
-                        const displayHotel = normalizeHotelNameLocal(
-
-                          group.records[0]?.["Hotel_Asignado"] ||
-
-                          group.records[0]?.["Hotel"],
-
-                          "Sercotel Guadiana"
-
-                        );
-
-                        const isBudget = Boolean(
-                          group.isBudget ||
-                          String(group.id || "").toUpperCase().startsWith("PRES-") ||
-                          group.records?.some((r) => {
-                            const res = String(r["Reserva"] || "").toUpperCase();
-                            const uid = String(r.uid || "").toUpperCase();
-                            const ext = String(r["Estado"] || "").toUpperCase();
-                            const inSt = String(r["Com_Estado_Interno"] || "").toUpperCase();
-                            const seg = String(r["Segment."] || "").toUpperCase();
-                            return (
-                              res.startsWith("PRES-") ||
-                              uid.startsWith("PRES-") ||
-                              ext.includes("PRESUP") ||
-                              inSt.includes("PRESUP") ||
-                              seg.includes("PRESUP")
-                            );
-                          }) ||
-                          statusText === "PRESUPUESTO"
-                        );
-
-                        return (
-
-                          <tr
-
-                            key={idx}
-
-                            className={`transition-colors cursor-pointer group ${
-                              isBudget
-                                ? "bg-indigo-50/70 hover:bg-indigo-100/70"
-                                : "hover:bg-slate-50"
-                            }`}
-
-                            onClick={() => openFicha(group)}
-
-                          >
-
-                            {/* HOTEL */}
-
-                            <td className={`px-3 py-3 ${isBudget ? "border-l-4 border-indigo-500" : "border-l-4 border-transparent"}`}>
-
-                              <div className="flex items-center gap-1.5">
-
-                                <div className="p-1.5 bg-white border border-slate-100 rounded-lg shadow-sm shrink-0">
-
-                                  <IconBuildingSkyscraper
-
-                                    size={14}
-
-                                    className="text-slate-400"
-
-                                  />
-
-                                </div>
-
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight leading-tight">
-
-                                  {displayHotel}
-
-                                </span>
-
-                              </div>
-
-                            </td>
-
-                            {/* GRUPO / ID */}
-
-                            <td className="px-3 py-2">
-
-                              <div className="max-w-[250px]">
-
-                                <div className="flex flex-wrap items-center gap-1.5">
-
-                                  <div className={`text-[13px] font-black text-slate-800 ${isBudget ? "group-hover:text-indigo-600" : "group-hover:text-[#2d5a43]"} transition-colors leading-tight`}>
-
-                                    {group.name}
-
-                                  </div>
-
-                                  {(() => {
-                                       const record = group.records[0] || {};
-                                       const hasRooming = record["Logistica_Rooming"] === true;
-                                       const hasMP = record["Logistica_MenuMP"] === true;
-                                       const hasPC = record["Logistica_MenuPC"] === true;
-                                       const regimen = (record["Régimen"] || "").toUpperCase();
-                                       const needsMP = regimen.includes("MP");
-                                       const needsPC = regimen.includes("PC");
-
-                                       let daysToArrival = 999;
-                                       if (record["Entrada"]) {
-                                           const arrDateStr = String(record["Entrada"]).trim();
-                                           let arrDate = null;
-                                           if (arrDateStr.includes('/')) {
-                                               const [d, m, y] = arrDateStr.split('/');
-                                               arrDate = new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T12:00:00`);
-                                           } else {
-                                               arrDate = new Date(arrDateStr.includes('T') ? arrDateStr : arrDateStr + 'T12:00:00');
-                                           }
-                                           if (arrDate && !isNaN(arrDate.getTime())) {
-                                               daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
-                                           }
-                                       }
-
-                                       const isClose = daysToArrival <= 15 && daysToArrival >= 0;
-                                       const status = (record["Estado"] || "").toUpperCase();
-                                       const isInactive = ["ANULADA", "CANCELADA", "GASTOS DE ANULACION", "BAJA"].includes(status);
-                                       const internalSt = (record["Com_Estado_Interno"] || "").toUpperCase();
-                                       const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(s => internalSt.includes(s));
-                                       const recordStatusProps = getStatusProps(record["Com_Estado_Interno"] || record["Segment."], record["Entrada"], record["Estado"]);
-                                       const isConfirmed = recordStatusProps.label === "CONFIRMADO";
-
-                                       if (!isConfirmed || isInactive || isInternalInactive) return null;
-
-                                       const todayStr = new Date().toISOString().split("T")[0];
-                                       const deadlineInfo = getDeadlineInfo(group, todayStr);
-                                       const netRev = (group.totalRevenue || 0) - (group.totalCommission || 0);
-                                       const paid = group.totalPaid || 0;
-                                       const pending = netRev - paid;
-
-                                       const alerts = [];
-
-                                       // 1. Alert Rooming
-                                       if (isClose && !hasRooming) {
-                                           alerts.push(
-                                               <div key="rooming" className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-[8px] font-black text-rose-600 animate-pulse-slow shadow-sm whitespace-nowrap" title="¡Aviso Operativo! Falta la Rooming List.">
-                                                   <IconAlertTriangle size={10} stroke={3} />
-                                                   <span>FALTA ROOMING</span>
-                                               </div>
-                                           );
-                                       }
-
-                                       // 2. Alert Menú
-                                       const menuMissing = (needsMP && !hasMP) || (needsPC && !hasPC);
-                                       if (isClose && menuMissing) {
-                                           const missingMenus = [needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
-                                           alerts.push(
-                                               <div key="menu" className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black text-indigo-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso Operativo! Falta definir menú: ${missingMenus}`}>
-                                                   <IconAlertTriangle size={10} stroke={3} />
-                                                   <span>FALTA MENÚ</span>
-                                               </div>
-                                           );
-                                       }
-
-                                       // 3. Alert Pago (o Badge Crédito)
-                                       const isGroupCredito = Boolean(
-                                           group?.isCredito ||
-                                           group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
-                                       );
-                                       const paymentOverdue = deadlineInfo.isDeadline && deadlineInfo.diffDays < 0;
-                                       const paymentCritical = isClose || paymentOverdue;
-                                       if (!isGroupCredito && paymentCritical && pending > 0.05) {
-                                           alerts.push(
-                                               <div key="pago" className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[8px] font-black text-amber-600 animate-pulse-slow shadow-sm whitespace-nowrap" title={`¡Aviso de Cobro! Pendiente de cobro final: ${pending.toFixed(2)} €`}>
-                                                   <IconAlertTriangle size={10} stroke={3} />
-                                                   <span>FALTA PAGO</span>
-                                               </div>
-                                           );
-                                       } else if (isGroupCredito) {
-                                           alerts.push(
-                                               <div key="credito" className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black text-indigo-700 shadow-sm whitespace-nowrap" title="Grupo a crédito: no requiere pago anticipado">
-                                                   <IconCreditCard size={10} stroke={2.5} />
-                                                   <span>CRÉDITO</span>
-                                               </div>
-                                           );
-                                       }
-
-                                       if (alerts.length === 0) return null;
-
-                                       return <>{alerts}</>;
-                                   })()}
-
-                                  {group.records[0]?.["Com_Notas"] && (
-
-                                    <div
-
-                                      className="flex items-center gap-1 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded text-[8px] font-bold text-amber-600 max-w-[120px] truncate"
-
-                                      title={group.records[0]["Com_Notas"]}
-
-                                    >
-
-                                      <IconFile size={8} />
-
-                                      <span className="truncate">
-
-                                        {group.records[0]["Com_Notas"]}
-
-                                      </span>
-
-                                    </div>
-
-                                  )}
-
-                                  {group.records[0]?.["Com_Seguimiento"] && (
-
-                                    <div
-
-                                      className={`flex items-center gap-1 px-1 py-0.5 rounded text-[8px] font-bold border ${new Date(group.records[0]["Com_Seguimiento"]) <= new Date() ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-blue-50 border-blue-100 text-blue-600"}`}
-
-                                      title="Próximo Seguimiento"
-
-                                    >
-
-                                      <IconClock size={8} />
-
-                                      {formatDate(
-
-                                        group.records[0]["Com_Seguimiento"],
-
-                                      )}
-
-                                    </div>
-
-                                  )}
-
-                                </div>
-
-                                <div className="text-[9px] font-bold text-slate-400 mt-0.5 flex items-center gap-1.5">
-
-                                  <span className={`shrink-0 ${isBudget ? "text-indigo-600 font-extrabold" : ""}`}>
-
-                                    ID:{" "}
-
-                                    {group.records[0]?.["Reserva"] || "---"}
-
-                                  </span>
-
-                                  {(group.records[0]?.["Fiscal_RazonSocial"] || group.records[0]?.["Empresa/Agencia"]) && (
-
-                                    <>
-
-                                      <span className="opacity-20">•</span>
-
-                                      <span>
-
-                                        {group.records[0]["Fiscal_RazonSocial"] || group.records[0]["Empresa/Agencia"]}
-
-                                      </span>
-
-                                    </>
-
-                                  )}
-
-                                </div>
-
-                              </div>
-
-                            </td>
-
-                            {/* COMERCIAL */}
-
-                            <td className="px-3 py-2">
-
-                              <div className="flex items-center gap-1">
-
-                                <div
-
-                                  className={`w-1.5 h-1.5 rounded-full ${getCommColor(group.records[0]?.["Com_Comercial"])} shrink-0`}
-
-                                ></div>
-
-                                <span className="text-[9px] font-bold text-slate-600 uppercase">
-
-                                  {group.records[0]?.["Com_Comercial"] ||
-
-                                    "S/A"}
-
-                                </span>
-
-                              </div>
-
-                            </td>
-
-                            {/* FECHAS */}
-
-                            <td className="px-3 py-2">
-
-                              <div className="text-[11px] font-bold text-slate-600 tabular-nums">
-
-                                {formatDate(group.arrival)}
-
-                              </div>
-
-                            </td>
-
-                            <td className="px-3 py-2">
-
-                              <div className="text-[11px] font-bold text-slate-600 tabular-nums">
-
-                                {formatDate(group.departure)}
-
-                              </div>
-
-                            </td>
-
-                            <td className="px-3 py-2 text-center">
-
-                              {(() => {
-
-                                const grossRev = group.totalRevenue || 0;
-
-                                const commission = group.totalCommission || 0;
-
-                                const netRev = grossRev - commission;
-
-                                const paid = group.totalPaid || 0;
-
-                                const isFullyPaid = paid > 0 && netRev > 0 && paid >= netRev - 0.05;
-
-                                if (isFullyPaid) {
-
-                                  return (
-
-                                    <div className="flex flex-col items-center">
-
-                                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">
-
-                                        OK
-
-                                      </span>
-
-                                      <span className="text-[8px] text-slate-400 font-bold mt-0.5 tracking-tighter">
-
-                                        Pagado
-
-                                      </span>
-
-                                    </div>
-
-                                  );
-
-                                }
-
-                                const isGroupCredito = Boolean(
-                                  group?.isCredito ||
-                                  group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
-                                );
-
-                                if (isGroupCredito) {
-
-                                  return (
-
-                                    <div className="flex flex-col items-center">
-
-                                      <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 whitespace-nowrap">
-
-                                        <IconCreditCard size={9} stroke={2.5} />
-
-                                        A CRÉDITO
-
-                                      </span>
-
-                                      <span className="text-[8px] text-indigo-500 font-bold mt-0.5 tracking-tighter">
-
-                                        Sin prepago
-
-                                      </span>
-
-                                    </div>
-
-                                  );
-
-                                }
-
-                                const todayStr = new Date().toISOString().split("T")[0];
-
-                                const info = getDeadlineInfo(group, todayStr);
-
-                                if (!info.hasDate) {
-
-                                  return <span className="text-slate-400">-</span>;
-
-                                }
-
-                                let badgeText = "";
-
-                                let badgeClass = "";
-
-                                let labelText = info.isDeadline ? "Límite" : "Entrada";
-
-                                if (info.diffDays < 0) {
-
-                                  badgeText = "PASADO";
-
-                                  badgeClass = "bg-rose-100 text-rose-700 font-bold border border-rose-200";
-
-                                } else if (info.diffDays === 0) {
-
-                                  badgeText = "HOY";
-
-                                  badgeClass = "bg-rose-600 text-white font-black animate-pulse";
-
-                                } else {
-
-                                  badgeText = `${info.diffDays}d`;
-
-                                  if (info.isDeadline) {
-
-                                    if (info.diffDays <= 7) {
-
-                                      badgeClass = "bg-amber-500 text-white font-bold";
-
-                                    } else {
-
-                                      badgeClass = "bg-slate-100 text-slate-700 font-bold border border-slate-200";
-
-                                    }
-
-                                  } else {
-
-                                    if (info.diffDays <= 15) {
-
-                                      badgeClass = "bg-amber-50 text-amber-700 font-bold border border-amber-200";
-
-                                    } else {
-
-                                      badgeClass = "bg-slate-100 text-slate-500 font-bold border border-slate-200";
-
-                                    }
-
-                                  }
-
-                                }
-
-                                return (
-
-                                  <div className="flex flex-col items-center">
-
-                                    <span className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap ${badgeClass}`}>
-
-                                      {badgeText}
-
-                                    </span>
-
-                                    <span className="text-[8px] text-slate-500 font-bold mt-0.5 tracking-tighter">
-
-                                      {labelText}: {formatDate(info.dateStr)}
-
-                                    </span>
-
-                                  </div>
-
-                                );
-
-                              })()}
-
-                            </td>
-
-                            {/* IMPORTE */}
-
-                            <td className="px-3 py-2 text-right">
-
-                              {(() => {
-
-                                const grossRev = group.totalRevenue || 0;
-
-                                const commission = group.totalCommission || 0;
-
-                                const netRev = grossRev - commission;
-
-                                const paid = group.totalPaid || 0;
-
-                                const pending = netRev - paid;
-
-                                const isFullyPaid = paid > 0 && pending <= 0.05;
-
-                                return (
-
-                                  <div className="flex flex-col items-end gap-0.5">
-
-                                    <div className="flex flex-col items-end leading-none">
-
-                                      <span className="text-[12px] font-black text-slate-700 tabular-nums">
-
-                                        {formatNum(grossRev)}
-
-                                      </span>
-
-                                      {commission > 0 && (
-
-                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-
-                                          Neto: {formatNum(netRev)}
-
-                                        </span>
-
-                                      )}
-
-                                    </div>
-
-                                    {(() => {
-                                      const isRowCredito = Boolean(
-                                        group?.isCredito ||
-                                        group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
-                                      );
-
-                                      if (isFullyPaid) {
-                                        return (
-                                          <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                                            <IconCheck size={10} /> OK
-                                          </span>
-                                        );
-                                      }
-
-                                      if (isRowCredito) {
-                                        return (
-                                          <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-2xs">
-                                            <IconCreditCard size={9} stroke={2} />
-                                            {formatNum(pending, true)} crédito
-                                          </span>
-                                        );
-                                      }
-
-                                      if (pending > 0.05) {
-                                        return (
-                                          <span className="text-[10px] font-bold text-rose-600 tabular-nums">
-                                            {formatNum(pending, true)} pdte.
-                                          </span>
-                                        );
-                                      }
-
-                                      return null;
-                                    })()}
-
-                                  </div>
-
-                                );
-
-                              })()}
-
-                            </td>
-
-                            {/* ESTADO */}
-
-                            <td className="px-3 py-2 text-center">
-
-                              <div className="flex items-center justify-center gap-2 group/status">
-
-                                <span
-
-                                  className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${statusColor}`}
-
-                                >
-
-                                  {statusText}
-
-                                </span>
-
-                                <button
-
-                                  onClick={(e) => {
-
-                                    e.stopPropagation();
-
-                                    window.location.href = `Presupuestos.html?id=${group.records[0]?.["Reserva"]}`;
-
-                                  }}
-
-                                  className="p-1 px-1.5 bg-slate-100 text-slate-400 hover:bg-purple-600 hover:text-white rounded-lg transition-all opacity-0 group-hover/status:opacity-100 shadow-sm"
-
-                                  title="Ver Presupuesto"
-
-                                >
-
-                                  <IconFileText size={12} stroke={2.5} />
-
-                                </button>
-
-                              </div>
-
-                            </td>
-
-                          </tr>
-
-                        );
-
-                      })}
-
-                    </tbody>
-
-                    {groupedData.length === 0 && (
-
-                      <tbody>
-
-                        <tr>
-
-                          <td
-
-                            colSpan="7"
-
-                            className="px-6 py-12 text-center text-slate-400 text-sm font-medium opacity-60"
-
-                          >
-
-                            No hay grupos que coincidan con los filtros.
-
-                          </td>
-
-                        </tr>
-
-                      </tbody>
-
+                {/* SUB-VIEW SWITCHER & PRICING CONFIG TOOLBAR */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setGroupsSubView("daily")}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                        groupsSubView === "daily"
+                          ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Distribución Diaria y Económica
+                      <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                        groupsSubView === "daily" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                      }`}>
+                        {filteredDailyOccupancy.length}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGroupsSubView("groups")}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                        groupsSubView === "groups"
+                          ? "bg-blue-600 text-white shadow-sm shadow-blue-200"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      Directorio de Grupos (Listado)
+                      <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                        groupsSubView === "groups" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                      }`}>
+                        {groupedData.length}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {groupsSubView === "daily" && (
+                      <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setDailyViewSection("breakdown")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                            dailyViewSection === "breakdown"
+                              ? "bg-white text-slate-800 shadow-sm"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          📋 Desglose Diario
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDailyViewSection("statistics")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                            dailyViewSection === "statistics"
+                              ? "bg-white text-slate-800 shadow-sm"
+                              : "text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          📊 Estadísticas Económicas (Req 19-21)
+                        </button>
+                      </div>
                     )}
-
-                  </table>
-
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const curDef = boardPricingConfig[dailyHotelFilter] || boardPricingConfig.default || { breakfast: 6.0, meal: 16.0 };
+                        setEditingBoardPrices({
+                          hotel: dailyHotelFilter || "default",
+                          breakfast: curDef.breakfast,
+                          meal: curDef.meal
+                        });
+                        setShowBoardPricingModal(true);
+                      }}
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                      title="Configurar precios de desayuno y comidas por hotel"
+                    >
+                      <span>⚙️</span> Precios Manutención
+                    </button>
+                  </div>
                 </div>
 
-              </div>
+                {/* VISTA 1: DISTRIBUCIÓN DIARIA Y ECONÓMICA */}
+                {groupsSubView === "daily" && (
+                  <div className="space-y-4">
+                    {/* KPI CARDS (HABITACIONES + ECONÓMICOS) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Pax</div>
+                        <div className="text-xl font-black text-slate-800 mt-1">{dailyReportTotals.totalPaxConfirmados || 0}</div>
+                        <div className="text-[10px] text-slate-400">personas/día</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-blue-200 bg-blue-50/20 shadow-sm">
+                        <div className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Hab. Confirmadas</div>
+                        <div className="text-xl font-black text-blue-700 mt-1">{dailyReportTotals.totalHabitacionesConfirmadas || 0}</div>
+                        <div className="text-[10px] text-blue-500">definitivas</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
+                        <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Ingreso Total</div>
+                        <div className="text-lg font-black text-emerald-800 mt-1">
+                          {(dailyEconomicStats?.totalRevenue || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                        </div>
+                        <div className="text-[10px] text-emerald-600">aloj. + manutención</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-blue-200 bg-blue-50/20 shadow-sm">
+                        <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Alojamiento Neto</div>
+                        <div className="text-lg font-black text-blue-800 mt-1">
+                          {(dailyEconomicStats?.totalAccommodationNet || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                        </div>
+                        <div className="text-[10px] text-blue-600">descontada manut.</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Desayunos</div>
+                        <div className="text-lg font-black text-slate-800 mt-1">
+                          {(dailyEconomicStats?.totalBreakfastRevenue || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                        </div>
+                        <div className="text-[10px] text-slate-400">6,00 € / pax</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Comidas</div>
+                        <div className="text-lg font-black text-slate-800 mt-1">
+                          {(dailyEconomicStats?.totalMealsRevenue || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                        </div>
+                        <div className="text-[10px] text-slate-400">16,00 € / comida</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">ADR Medio</div>
+                        <div className="text-lg font-black text-slate-800 mt-1">
+                          {(dailyEconomicStats?.adr || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                        </div>
+                        <div className="text-[10px] text-slate-400">por hab-noche</div>
+                      </div>
+                      <div className={`p-3 rounded-xl border shadow-sm ${
+                        (dailyReportTotals.registrosRevisionNecesaria || 0) > 0 || (dailyEconomicStats?.negativeAlertCount || 0) > 0
+                          ? "bg-rose-50 border-rose-300"
+                          : "bg-slate-50 border-slate-200"
+                      }`}>
+                        <div className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Revisión / Alertas</div>
+                        <div className="text-lg font-black text-rose-800 mt-1">
+                          {(dailyReportTotals.registrosRevisionNecesaria || 0) + (dailyEconomicStats?.negativeAlertCount || 0)}
+                        </div>
+                        <div className="text-[10px] text-rose-600">
+                          {dailyReportTotals.registrosRevisionNecesaria || 0} cambio(s) origen
+                        </div>
+                      </div>
+                    </div>
 
+                    {/* VISTA SUB-SECCIÓN: ESTADÍSTICAS ECONÓMICAS Y POR CATEGORÍA (Req 19 y 21) */}
+                    {dailyViewSection === "statistics" && (
+                      <div className="space-y-4">
+                        {/* REQUISITO 21: CRITERIO PARA ESTADÍSTICAS POR CATEGORÍA */}
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div>
+                              <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                                <span>🛏️</span> Estadísticas de Alojamiento por Categoría de Habitación (Requisito 21)
+                              </h4>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Calculado a partir de las habitaciones-noche y el precio medio de alojamiento neto (ADR = {(dailyEconomicStats?.adr || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}/hab-noche).
+                              </p>
+                            </div>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              Reparto estadístico estimado
+                            </span>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[11px]">
+                                  <th className="px-3 py-2.5">Categoría</th>
+                                  <th className="px-3 py-2.5 text-center">Habitaciones-Noche</th>
+                                  <th className="px-3 py-2.5 text-center">% Ocupación</th>
+                                  <th className="px-3 py-2.5 text-right">Precio Medio / Hab-Noche</th>
+                                  <th className="px-3 py-2.5 text-right">Ingreso Estimado</th>
+                                  <th className="px-3 py-2.5 text-center">Tipo de Reparto</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {(() => {
+                                  const cStats = dailyEconomicStats?.categoryStatsConfirmed;
+                                  const cats = [
+                                    { name: "Individuales (1 pax)", key: "individuales", icon: "👤" },
+                                    { name: "Dobles (2 pax)", key: "dobles", icon: "👥" },
+                                    { name: "Triples (3 pax)", key: "triples", icon: "👨‍👩‍👧" },
+                                    { name: "Cuádruples (4 pax)", key: "cuadruples", icon: "👨‍👩‍👧‍👦" }
+                                  ];
+                                  const totNights = cStats?.totalRoomNights || 1;
+
+                                  return cats.map(cat => {
+                                    const data = cStats?.categories?.[cat.key] || { roomNights: 0, revenue: 0, tag: "Reparto estadístico estimado" };
+                                    const pct = ((data.roomNights / totNights) * 100).toFixed(1);
+                                    return (
+                                      <tr key={cat.key} className="hover:bg-slate-50">
+                                        <td className="px-3 py-2.5 font-bold text-slate-800">
+                                          <span className="mr-1.5">{cat.icon}</span> {cat.name}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-center font-bold text-slate-700">{data.roomNights}</td>
+                                        <td className="px-3 py-2.5 text-center text-slate-500">{pct}%</td>
+                                        <td className="px-3 py-2.5 text-right font-mono text-slate-600">
+                                          {(cStats?.avgRoomPrice || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">
+                                          {(data.revenue || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-center">
+                                          <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                            {data.tag}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  });
+                                })()}
+                                <tr className="bg-slate-50 font-black border-t-2 border-slate-200 text-slate-900">
+                                  <td className="px-3 py-2.5">Total General de Habitaciones</td>
+                                  <td className="px-3 py-2.5 text-center text-blue-700 font-bold">
+                                    {dailyEconomicStats?.categoryStatsConfirmed?.totalRoomNights || 0}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center">100.0%</td>
+                                  <td className="px-3 py-2.5 text-right font-mono">
+                                    {(dailyEconomicStats?.categoryStatsConfirmed?.avgRoomPrice || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right font-mono font-black text-emerald-700">
+                                    {(dailyEconomicStats?.categoryStatsConfirmed?.netAccommodationTotal || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center text-slate-400 text-[10px]">Alojamiento Neto</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* REQUISITO 19: DESGLOSE ECONÓMICO POR RÉGIMEN */}
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                          <div className="border-b border-slate-100 pb-3">
+                            <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                              <span>🍽️</span> Desglose Económico por Régimen de Alojamiento (HA, HD, MP, PC)
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Desglose de ingresos por régimen descontando el coste de manutención según personas reales alojadas.
+                            </p>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[11px]">
+                                  <th className="px-3 py-2.5">Régimen</th>
+                                  <th className="px-3 py-2.5 text-center">Personas (Pax)</th>
+                                  <th className="px-3 py-2.5 text-center">Hab-Noches</th>
+                                  <th className="px-3 py-2.5 text-right">Desayunos</th>
+                                  <th className="px-3 py-2.5 text-right">Comidas</th>
+                                  <th className="px-3 py-2.5 text-right">Alojamiento Neto</th>
+                                  <th className="px-3 py-2.5 text-right">Ingreso Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {["HA", "HD", "MP", "PC"].map(reg => {
+                                  const rData = dailyEconomicStats?.byRegimen?.[reg] || { pax: 0, roomNights: 0, breakfast: 0, meals: 0, netAccommodation: 0, revenue: 0 };
+                                  const labels = {
+                                    HA: "Solo Alojamiento (0 desayunos, 0 comidas)",
+                                    HD: "Alojamiento y Desayuno (1 desayuno)",
+                                    MP: "Media Pensión (1 desayuno, 1 comida)",
+                                    PC: "Pensión Completa (1 desayuno, 2 comidas)"
+                                  };
+                                  return (
+                                    <tr key={reg} className="hover:bg-slate-50">
+                                      <td className="px-3 py-2.5 font-bold text-slate-800">
+                                        <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-xs mr-2 font-bold">{reg}</span>
+                                        <span className="text-slate-500 font-normal text-[11px]">{labels[reg]}</span>
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center font-bold text-slate-700">{rData.pax}</td>
+                                      <td className="px-3 py-2.5 text-center text-slate-600">{rData.roomNights}</td>
+                                      <td className="px-3 py-2.5 text-right font-mono text-slate-600">
+                                        {(rData.breakfast || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right font-mono text-slate-600">
+                                        {(rData.meals || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">
+                                        {(rData.netAccommodation || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-right font-mono font-black text-emerald-700">
+                                        {(rData.revenue || 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* VISTA SUB-SECCIÓN: DESGLOSE DIARIO TABLA (Req 18) */}
+                    {dailyViewSection === "breakdown" && (
+                      <div className="space-y-4">
+                        {/* FILTROS DE LA DISTRIBUCIÓN DIARIA */}
+                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between">
+                          <div className="flex flex-wrap gap-3 items-center text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <label className="font-bold text-slate-500">Hotel:</label>
+                              <select
+                                value={dailyHotelFilter}
+                                onChange={(e) => setDailyHotelFilter(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="">Todos los hoteles</option>
+                                {Array.from(new Set(dailyOccupancyList.map(d => d.hotel).filter(Boolean))).sort().map(h => (
+                                  <option key={h} value={h}>{h}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <label className="font-bold text-slate-500">Reserva:</label>
+                              <select
+                                value={dailyStatusFilter}
+                                onChange={(e) => setDailyStatusFilter(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="confirmada">Confirmadas (no anuladas)</option>
+                                <option value="todos">Todas (incluye anuladas)</option>
+                                <option value="anulada">Solo anuladas</option>
+                              </select>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <label className="font-bold text-slate-500">Distribución:</label>
+                              <select
+                                value={dailyDistributionFilter}
+                                onChange={(e) => setDailyDistributionFilter(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="todos">Todos los estados</option>
+                                <option value="validada_sin_cambios">Validada sin cambios</option>
+                                <option value="revision_necesaria">⚠️ Revisión necesaria</option>
+                                <option value="confirmada_o_modificada">Confirmadas o Modificadas</option>
+                                <option value="propuesta">Propuesta automática</option>
+                                <option value="pendiente">Pendiente de revisión</option>
+                              </select>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <label className="font-bold text-slate-500">Desde:</label>
+                              <input
+                                type="date"
+                                value={dailyDateFrom}
+                                onChange={(e) => setDailyDateFrom(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <label className="font-bold text-slate-500">Hasta:</label>
+                              <input
+                                type="date"
+                                value={dailyDateTo}
+                                onChange={(e) => setDailyDateTo(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+
+                            {(dailyHotelFilter || dailyStatusFilter !== "confirmada" || dailyDistributionFilter !== "todos" || dailyDateFrom || dailyDateTo) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDailyHotelFilter("");
+                                  setDailyStatusFilter("confirmada");
+                                  setDailyDistributionFilter("todos");
+                                  setDailyDateFrom("");
+                                  setDailyDateTo("");
+                                }}
+                                className="text-blue-600 hover:text-blue-800 font-bold underline text-[11px] ml-1"
+                              >
+                                Limpiar filtros
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="text-xs text-slate-500">
+                            Mostrando <strong className="text-slate-800">{filteredDailyOccupancy.length}</strong> registros día/reserva
+                          </div>
+                        </div>
+
+                        {/* TABLA DE DESGLOSE DIARIO Y ECONÓMICO */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                          <div className="overflow-x-auto max-h-[650px]">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead className="sticky top-0 bg-slate-100 z-10 border-b border-slate-200 text-[11px] font-black text-slate-600 uppercase tracking-wider">
+                                <tr>
+                                  <th className="px-3 py-3">Hotel</th>
+                                  <th className="px-3 py-3">Reserva</th>
+                                  <th className="px-3 py-3">Grupo</th>
+                                  <th className="px-3 py-3">Fecha</th>
+                                  <th className="px-2 py-3 text-center">Pax</th>
+                                  <th className="px-2 py-3">Rég.</th>
+                                  <th className="px-2 py-3 text-center">Ind.</th>
+                                  <th className="px-2 py-3 text-center">Dbl.</th>
+                                  <th className="px-2 py-3 text-center">Tpl.</th>
+                                  <th className="px-2 py-3 text-center">Cua.</th>
+                                  <th className="px-2 py-3 text-center">Hab.</th>
+                                  <th className="px-3 py-3 text-right">Imp. Total</th>
+                                  <th className="px-2 py-3 text-right">Desay.</th>
+                                  <th className="px-2 py-3 text-right">Comidas</th>
+                                  <th className="px-3 py-3 text-right">Aloj. Neto</th>
+                                  <th className="px-3 py-3 text-center">Estado Distribución</th>
+                                  <th className="px-3 py-3 text-center">Acción</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {filteredDailyOccupancy.length === 0 ? (
+                                  <tr>
+                                    <td colSpan="17" className="px-6 py-12 text-center text-slate-400 font-medium">
+                                      No hay registros diarios que coincidan con los filtros aplicados.
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  filteredDailyOccupancy.map((item, idx) => {
+                                    const st = item.distributionStatus;
+                                    let badgeClass = "bg-amber-100 text-amber-800 border-amber-200";
+                                    let badgeText = "Propuesta automática";
+
+                                    if (st === "validada_sin_cambios") {
+                                      badgeClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                                      badgeText = "✓ Validada sin cambios";
+                                    } else if (st === "revision_necesaria") {
+                                      badgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-black animate-pulse";
+                                      badgeText = "⚠️ Revisión necesaria";
+                                    } else if (st === "confirmada") {
+                                      badgeClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                                      badgeText = "Confirmada";
+                                    } else if (st === "modificada") {
+                                      badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                                      badgeText = "Modificada";
+                                    } else if (st === "pendiente") {
+                                      badgeClass = "bg-rose-100 text-rose-800 border-rose-200";
+                                      badgeText = "Pendiente de revisión";
+                                    }
+
+                                    // Cálculo de Importe Diario y Desglose Económico
+                                    let dailyImp = 0.0;
+                                    if (item.contributingLines && item.contributingLines.length > 0) {
+                                      item.contributingLines.forEach(l => {
+                                        const nch = parseInt(l.noches, 10) || 1;
+                                        dailyImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
+                                      });
+                                    }
+
+                                    const pricing = window.BoardPricingService
+                                      ? window.BoardPricingService.getPricingForHotelAndDate(item.hotel, item.fecha, boardPricingConfig)
+                                      : { breakfast: 6.0, meal: 16.0 };
+
+                                    const eco = window.BoardPricingService
+                                      ? window.BoardPricingService.calculateDailyEconomicBreakdown({
+                                          pax: item.pax,
+                                          regimen: item.regimen,
+                                          dailyAmount: dailyImp,
+                                          pricingConfig: pricing
+                                        })
+                                      : { breakfastCost: 0, mealCost: 0, netAccommodationPrice: dailyImp, isNegativeAccommodation: false };
+
+                                    return (
+                                      <tr key={`${item.reserva}_${item.fecha}_${idx}`} className="hover:bg-slate-50/80 transition">
+                                        <td className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">{item.hotel}</td>
+                                        <td className="px-3 py-2 font-mono font-bold text-blue-600 whitespace-nowrap">{item.reserva}</td>
+                                        <td className="px-3 py-2 font-semibold text-slate-800 max-w-[170px] truncate" title={item.nombreGrupo}>
+                                          {item.nombreGrupo}
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{item.fecha}</td>
+                                        <td className="px-2 py-2 text-center font-black text-slate-900 bg-slate-50/60">{item.pax}</td>
+                                        <td className="px-2 py-2 text-slate-600 font-mono font-bold whitespace-nowrap">{item.regimen || "-"}</td>
+                                        <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                          {item.individuales !== null && item.individuales !== undefined ? item.individuales : "-"}
+                                        </td>
+                                        <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                          {item.dobles !== null && item.dobles !== undefined ? item.dobles : "-"}
+                                        </td>
+                                        <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                          {item.triples !== null && item.triples !== undefined ? item.triples : "-"}
+                                        </td>
+                                        <td className="px-2 py-2 text-center font-semibold text-slate-700">
+                                          {item.cuadruples !== null && item.cuadruples !== undefined ? item.cuadruples : "-"}
+                                        </td>
+                                        <td className="px-2 py-2 text-center font-black text-blue-700 bg-blue-50/30">
+                                          {item.totalHabitaciones !== null && item.totalHabitaciones !== undefined ? item.totalHabitaciones : "-"}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                          {dailyImp.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                        </td>
+                                        <td className="px-2 py-2 text-right font-mono text-slate-500 whitespace-nowrap">
+                                          {eco.breakfastCost > 0 ? eco.breakfastCost.toFixed(2) + " €" : "-"}
+                                        </td>
+                                        <td className="px-2 py-2 text-right font-mono text-slate-500 whitespace-nowrap">
+                                          {eco.mealCost > 0 ? eco.mealCost.toFixed(2) + " €" : "-"}
+                                        </td>
+                                        <td className={`px-3 py-2 text-right font-mono font-black whitespace-nowrap ${
+                                          eco.isNegativeAccommodation ? "text-rose-600 bg-rose-50" : "text-blue-700"
+                                        }`}>
+                                          {eco.netAccommodationPrice.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                                          {eco.isNegativeAccommodation && (
+                                            <span className="ml-1 text-xs" title="El precio total es inferior al coste configurado de manutención.">⚠️</span>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                                          <span
+                                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}`}
+                                            title={item.revisionReasons && item.revisionReasons.length > 0 ? item.revisionReasons.join(" • ") : badgeText}
+                                          >
+                                            {badgeText}
+                                          </span>
+                                        </td>
+                                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                                          <button
+                                            type="button"
+                                            onClick={() => openDistributionModal(item)}
+                                            className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
+                                              st === "revision_necesaria"
+                                                ? "bg-orange-600 hover:bg-orange-700 text-white"
+                                                : "bg-blue-600 hover:bg-blue-700 text-white"
+                                            }`}
+                                          >
+                                            {st === "revision_necesaria" ? "Revisar Cambio" : "Revisar"}
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* VISTA 2: LISTADO DE GRUPOS CONSOLIDADO */}
+                {groupsSubView === "groups" && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-xs font-black text-slate-400 uppercase tracking-wider">
+                          <th className="px-3 py-3 font-black">Hotel</th>
+                          <th className="px-3 py-3 font-black">Grupo / ID</th>
+                          <th className="px-3 py-3 font-black">Comercial</th>
+                          <th className="px-3 py-3 font-black">Entrada</th>
+                          <th className="px-3 py-3 font-black">Salida</th>
+                          <th className="px-3 py-3 font-black text-center">Release</th>
+                          <th className="px-3 py-3 font-black text-right">Importe</th>
+                          <th className="px-3 py-3 font-black text-center">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {groupedData.map((group, idx) => {
+                          const internalSt = group.records?.[0]?.["Com_Estado_Interno"];
+                          const externalSt = group.records?.[0]?.["Estado"];
+                          const effectiveSt = internalSt || group.records?.[0]?.["Segment."];
+                          const st = getStatusProps(
+                            effectiveSt,
+                            group.arrival,
+                            internalSt ? null : externalSt,
+                          );
+
+                          return (
+                            <tr
+                              key={group.id || idx}
+                              onClick={() => setSelectedGroup(group)}
+                              className="hover:bg-blue-50/50 transition cursor-pointer group"
+                            >
+                              <td className="px-3 py-3 font-bold text-slate-800 text-xs">
+                                {group.hotel}
+                              </td>
+                              <td className="px-3 py-3 font-bold text-slate-900 text-xs">
+                                <div>{group.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  #{group.id}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-slate-600 text-xs">
+                                {group.comercial || "-"}
+                              </td>
+                              <td className="px-3 py-3 text-slate-600 text-xs font-mono">
+                                {formatDate(group.arrival)}
+                              </td>
+                              <td className="px-3 py-3 text-slate-600 text-xs font-mono">
+                                {formatDate(group.departure)}
+                              </td>
+                              <td className="px-3 py-3 text-center text-xs">
+                                {group.releaseDate ? (
+                                  <span className="font-mono text-slate-500">
+                                    {formatDate(group.releaseDate)}
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right font-black text-slate-900 text-xs">
+                                {formatCurrency(group.totalRevenue)}
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${st.bg} ${st.color}`}>
+                                  {st.label}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {groupedData.length === 0 && (
+                          <tr>
+                            <td colSpan="8" className="px-6 py-12 text-center text-slate-400 text-sm font-medium">
+                              No hay grupos que coincidan con los filtros.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
+
+            {/* MODAL DE CONFIGURACIÓN DE PRECIOS DE MANUTENCIÓN (Req 13) */}
+            {showBoardPricingModal && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-fade-in">
+                  <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-sm text-white">⚙️ Precios de Manutención por Persona</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Configuración de costes de desayuno y comida</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowBoardPricingModal(false)}
+                      className="text-slate-400 hover:text-white font-bold text-lg leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-4 text-xs">
+                    <div className="bg-blue-50 border border-blue-200 text-blue-900 p-3 rounded-xl">
+                      <strong className="block font-bold">Sin impacto en habitaciones confirmadas (Req 20)</strong>
+                      <span>
+                        Los cambios de precios actualizan el desglose y las estadísticas económicas, pero no modifican los datos del Excel ni invalidan la distribución de habitaciones validada.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Hotel aplicable:</label>
+                      <select
+                        value={editingBoardPrices.hotel}
+                        onChange={(e) => {
+                          const h = e.target.value;
+                          const cur = boardPricingConfig[h] || boardPricingConfig.default || { breakfast: 6.0, meal: 16.0 };
+                          setEditingBoardPrices({ hotel: h, breakfast: cur.breakfast, meal: cur.meal });
+                        }}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                      >
+                        <option value="default">Predeterminado (Todos los hoteles)</option>
+                        {Array.from(new Set(dailyOccupancyList.map(d => d.hotel).filter(Boolean))).sort().map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Desayuno (€ / pax)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          value={editingBoardPrices.breakfast}
+                          onChange={(e) => setEditingBoardPrices({ ...editingBoardPrices, breakfast: e.target.value })}
+                          className="w-full bg-white border border-slate-300 rounded-lg p-2 font-black text-slate-900 text-right text-sm"
+                        />
+                        <div className="text-[10px] text-slate-400 mt-1">Por defecto: 6,00 €</div>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Comida / Cena (€ / pax)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          value={editingBoardPrices.meal}
+                          onChange={(e) => setEditingBoardPrices({ ...editingBoardPrices, meal: e.target.value })}
+                          className="w-full bg-white border border-slate-300 rounded-lg p-2 font-black text-slate-900 text-right text-sm"
+                        />
+                        <div className="text-[10px] text-slate-400 mt-1">Por defecto: 16,00 €</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowBoardPricingModal(false)}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const hKey = editingBoardPrices.hotel || "default";
+                        const newCfg = {
+                          ...boardPricingConfig,
+                          [hKey]: {
+                            breakfast: parseFloat(editingBoardPrices.breakfast) || 6.0,
+                            meal: parseFloat(editingBoardPrices.meal) || 16.0,
+                            version: "v-" + Date.now().toString(36),
+                            updatedAt: new Date().toISOString()
+                          }
+                        };
+                        setBoardPricingConfig(newCfg);
+                        try {
+                          window.NexusUtils?.safeStorage?.setItem("boardPricingConfig", JSON.stringify(newCfg));
+                          await db.collection("settings").doc("boardPricing").set(newCfg, { merge: true });
+                        } catch (e) {}
+                        setShowBoardPricingModal(false);
+                      }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm"
+                    >
+                      Guardar Precios
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* VENTANA EMERGENTE (MODAL) DE REVISIÓN DE HABITACIONES (Reqs 12-20) */}
+            {editingDistribution && (() => {
+              const curInd = parseInt(editingDistribution.individuales, 10) || 0;
+              const curDbl = parseInt(editingDistribution.dobles, 10) || 0;
+              const curTpl = parseInt(editingDistribution.triples, 10) || 0;
+              const curCua = parseInt(editingDistribution.cuadruples, 10) || 0;
+              const calcPax = (curInd * 1) + (curDbl * 2) + (curTpl * 3) + (curCua * 4);
+              const calcRooms = curInd + curDbl + curTpl + curCua;
+              const isPaxMatch = calcPax === editingDistribution.pax;
+              const hasProposal = Boolean(editingDistribution.proposal);
+              const isRevisionNecesaria = editingDistribution.status === "revision_necesaria";
+
+              // Cálculo económico para este día
+              const pricing = window.BoardPricingService
+                ? window.BoardPricingService.getPricingForHotelAndDate(editingDistribution.hotel, editingDistribution.fecha, boardPricingConfig)
+                : { breakfast: 6.0, meal: 16.0 };
+
+              // Obtener importe diario
+              const matchedDay = dailyOccupancyList.find(d => d.reserva === editingDistribution.reserva && d.fecha === editingDistribution.fecha);
+              let dailyImp = 0.0;
+              if (matchedDay?.contributingLines) {
+                matchedDay.contributingLines.forEach(l => {
+                  const nch = parseInt(l.noches, 10) || 1;
+                  dailyImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
+                });
+              }
+
+              const eco = window.BoardPricingService
+                ? window.BoardPricingService.calculateDailyEconomicBreakdown({
+                    pax: editingDistribution.pax,
+                    regimen: editingDistribution.regimen,
+                    dailyAmount: dailyImp,
+                    pricingConfig: pricing
+                  })
+                : null;
+
+              return (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                  <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+                    {/* Header */}
+                    <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-base text-white">Revisión de Distribución de Habitaciones</h3>
+                        <p className="text-xs text-slate-300 mt-0.5">
+                          {editingDistribution.hotel} • Reserva #{editingDistribution.reserva} • {editingDistribution.fecha}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingDistribution(null)}
+                        className="text-slate-400 hover:text-white text-lg font-bold p-1 leading-none"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                      {/* Booking Summary Card */}
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <span className="text-slate-400 block font-medium">Grupo</span>
+                          <span className="font-bold text-slate-800 truncate block">{editingDistribution.nombreGrupo}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Fecha estancia</span>
+                          <span className="font-bold text-slate-800">{editingDistribution.fecha}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Personas (Pax)</span>
+                          <span className="font-black text-blue-600 text-sm">{editingDistribution.pax} personas</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Régimen</span>
+                          <span className="font-bold text-slate-800 font-mono">{editingDistribution.regimen || "-"}</span>
+                        </div>
+                      </div>
+
+                      {/* ALERTA: REVISIÓN NECESARIA POR CAMBIO EN DATOS DE ORIGEN (Req 12) */}
+                      {isRevisionNecesaria && (
+                        <div className="bg-orange-50 border border-orange-300 text-orange-950 p-4 rounded-xl text-xs space-y-2">
+                          <div className="flex items-center gap-2 font-black text-orange-900 text-sm">
+                            <span>⚠️</span> Revisión necesaria: han cambiado los datos de la reserva
+                          </div>
+                          <p className="text-orange-800">
+                            Se ha detectado una modificación en el archivo Excel respecto a la última validación:
+                          </p>
+                          <ul className="list-disc list-inside space-y-1 font-semibold text-orange-900 bg-white/70 p-2.5 rounded-lg border border-orange-200">
+                            {(editingDistribution.revisionReasons || ["Han cambiado los datos de origen"]).map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                          <p className="text-[11px] text-orange-700">
+                            Se conserva la distribución anterior como referencia abajo. Puede reconfirmarla directamente o adaptarla.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* DESGLOSE ECONÓMICO DIARIO (Reqs 15-18) */}
+                      {eco && (
+                        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                          <div className="flex justify-between font-bold text-slate-700">
+                            <span>Desglose Económico del Día:</span>
+                            <span className="font-mono text-slate-900">{dailyImp.toFixed(2)} € total</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 pt-1 text-[11px]">
+                            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
+                              <span className="text-slate-400 block text-[10px]">Desayunos</span>
+                              <span className="font-bold font-mono text-slate-700">{eco.breakfastCost.toFixed(2)} €</span>
+                            </div>
+                            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
+                              <span className="text-slate-400 block text-[10px]">Comidas</span>
+                              <span className="font-bold font-mono text-slate-700">{eco.mealCost.toFixed(2)} €</span>
+                            </div>
+                            <div className={`p-2 rounded-lg border text-center ${
+                              eco.isNegativeAccommodation ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-white border-slate-200 text-blue-700"
+                            }`}>
+                              <span className="block text-[10px] opacity-75">Aloj. Neto</span>
+                              <span className="font-bold font-mono">{eco.netAccommodationPrice.toFixed(2)} €</span>
+                            </div>
+                          </div>
+                          {eco.isNegativeAccommodation && (
+                            <div className="bg-rose-100 border border-rose-300 text-rose-900 p-2 rounded-lg text-[11px] font-bold flex items-center gap-1.5">
+                              <span>⚠️</span> {eco.warning}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Proposal Notice */}
+                      {editingDistribution.status === "propuesta" && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-xs flex items-start gap-2.5">
+                          <span className="text-base">💡</span>
+                          <div>
+                            <strong className="block font-bold">Propuesta automática, pendiente de confirmación</strong>
+                            <span className="text-amber-700">
+                              Calculada con el criterio estándar: {editingDistribution.proposal?.dobles || 0} dobles y {editingDistribution.proposal?.individuales || 0} individuales (total {editingDistribution.pax} personas). Revise y confirme para darla por válida.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Inputs Grid */}
+                      <div>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+                          Distribución de Habitaciones
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Individuales (1 pax)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingDistribution.individuales}
+                              onChange={(e) => setEditingDistribution({
+                                ...editingDistribution,
+                                individuales: e.target.value
+                              })}
+                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
+                            />
+                            <div className="text-[10px] text-slate-400 text-center mt-1">
+                              {curInd * 1} pax
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Dobles (2 pax)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingDistribution.dobles}
+                              onChange={(e) => setEditingDistribution({
+                                ...editingDistribution,
+                                dobles: e.target.value
+                              })}
+                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
+                            />
+                            <div className="text-[10px] text-slate-400 text-center mt-1">
+                              {curDbl * 2} pax
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Triples (3 pax)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingDistribution.triples}
+                              onChange={(e) => setEditingDistribution({
+                                ...editingDistribution,
+                                triples: e.target.value
+                              })}
+                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
+                            />
+                            <div className="text-[10px] text-slate-400 text-center mt-1">
+                              {curTpl * 3} pax
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Cuádruples (4 pax)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingDistribution.cuadruples}
+                              onChange={(e) => setEditingDistribution({
+                                ...editingDistribution,
+                                cuadruples: e.target.value
+                              })}
+                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
+                            />
+                            <div className="text-[10px] text-slate-400 text-center mt-1">
+                              {curCua * 4} pax
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Real-time Pax / Room Match Validator */}
+                      <div className={`p-4 rounded-xl border flex items-center justify-between ${
+                        isPaxMatch 
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-900" 
+                          : "bg-rose-50 border-rose-300 text-rose-900"
+                      }`}>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-xl">{isPaxMatch ? "✅" : "⚠️"}</span>
+                          <div>
+                            <div className="font-black text-sm">
+                              {isPaxMatch ? "Distribución correcta" : "La distribución no coincide con el número total de personas."}
+                            </div>
+                            <div className="text-[11px] opacity-80 mt-0.5">
+                              Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones) • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-bold uppercase tracking-wider block opacity-70">Habitaciones</span>
+                          <span className="text-lg font-black">{calcRooms}</span>
+                        </div>
+                      </div>
+
+                      {distributionFormError && (
+                        <div className="bg-rose-100 border border-rose-400 text-rose-800 text-xs px-3 py-2 rounded-lg font-bold">
+                          {distributionFormError}
+                        </div>
+                      )}
+
+                      {/* Observations */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Observaciones
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={editingDistribution.observations}
+                          onChange={(e) => setEditingDistribution({ ...editingDistribution, observations: e.target.value })}
+                          placeholder="Notas internas sobre esta distribución..."
+                          className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      {/* Checkbox: Homogeneous Batch Apply */}
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-start gap-2.5">
+                        <input
+                          id="homo-checkbox"
+                          type="checkbox"
+                          checked={editingDistribution.applyToAllHomogeneous}
+                          onChange={(e) => setEditingDistribution({
+                            ...editingDistribution,
+                            applyToAllHomogeneous: e.target.checked
+                          })}
+                          className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="homo-checkbox" className="text-xs text-slate-700 cursor-pointer">
+                          <strong className="block font-semibold">Aplicar a todos los días de la estancia con {editingDistribution.pax} Pax</strong>
+                          <span className="text-slate-500 text-[11px]">
+                            Si la reserva tiene varias noches con la misma ocupación, replicará esta distribución automáticamente en todas ellas.
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Modal Footer / Actions */}
+                    <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingDistribution(null)}
+                          disabled={isSavingDistribution}
+                          className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveDistribution("dejar_pendiente")}
+                          disabled={isSavingDistribution}
+                          className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 transition"
+                        >
+                          Dejar pendiente
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {isRevisionNecesaria && (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveDistribution("reconfirmar_anterior")}
+                            disabled={isSavingDistribution}
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition flex items-center gap-1"
+                          >
+                            <span>✓</span> Reconfirmar distribución anterior
+                          </button>
+                        )}
+                        {hasProposal && !isRevisionNecesaria && (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveDistribution("confirmar_propuesta")}
+                            disabled={isSavingDistribution}
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition"
+                          >
+                            Confirmar sin cambios
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleSaveDistribution("guardar")}
+                          disabled={!isPaxMatch || isSavingDistribution}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                            !isPaxMatch || isSavingDistribution
+                              ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200"
+                          }`}
+                        >
+                          {isSavingDistribution ? "Guardando..." : "Guardar distribución"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
 
             {/* 4. RAW DATA EDITOR */}
 
