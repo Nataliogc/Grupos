@@ -747,6 +747,8 @@
       var dayAmount = 0;
       if (hasRoomingDayLodging && roomingDaySum > 0) {
         dayAmount = Math.round(roomingDaySum * 100) / 100;
+      } else if (dateSaved && typeof dateSaved.dailyAmount === "number" && dateSaved.dailyAmount > 0) {
+        dayAmount = Math.round(dateSaved.dailyAmount * 100) / 100;
       } else {
         (entry.contributingLines || []).forEach(function (cl) {
           var nch = Math.max(1, parseInt(cl.noches, 10) || 1);

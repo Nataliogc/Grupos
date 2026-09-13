@@ -507,6 +507,7 @@
         const dayRooms = byDate[dateStr];
         let ind = 0, dbl = 0, tpl = 0, cua = 0, totalRooms = 0, pax = 0;
         let freeInd = 0, freeDbl = 0, freeTpl = 0, freeCua = 0;
+        let pInd = 0, pDbl = 0, pTpl = 0, pCua = 0;
         let foundReg = null;
 
         dayRooms.forEach((rm) => {
@@ -529,37 +530,57 @@
             ind += qty;
             pax += qty * 1;
             if (isGratuity) freeInd += qty;
+            else if (price > 0) pInd = price;
           } else if (itype.includes("DBL") || itype.includes("DOBLE") || itype.includes("TWIN") || itype.includes("MATRI")) {
             dbl += qty;
             pax += qty * 2;
             if (isGratuity) freeDbl += qty;
+            else if (price > 0) pDbl = price;
           } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
             tpl += qty;
             pax += qty * 3;
             if (isGratuity) freeTpl += qty;
+            else if (price > 0) pTpl = price;
           } else if (itype.includes("CUA") || itype.includes("CUAD")) {
             if (isCumbriaHotel) {
               tpl += qty;
               pax += qty * 3;
               if (isGratuity) freeTpl += qty;
+              else if (price > 0) pTpl = price;
             } else {
               cua += qty;
               pax += qty * 4;
               if (isGratuity) freeCua += qty;
+              else if (price > 0) pCua = price;
             }
           } else if (itype.includes("SUITE")) {
             dbl += qty;
             pax += qty * 2;
             if (isGratuity) freeDbl += qty;
+            else if (price > 0) pDbl = price;
           } else {
             dbl += qty;
             pax += qty * 2;
             if (isGratuity) freeDbl += qty;
+            else if (price > 0) pDbl = price;
           }
         });
 
         if (totalRooms > 0) {
           const prevForDate = result[dateStr] || {};
+          const prevPrices = prevForDate.prices || {};
+          const finalPrices = {
+            individuales: pInd || prevPrices.individuales || 0,
+            dobles: pDbl || prevPrices.dobles || 0,
+            triples: pTpl || prevPrices.triples || 0,
+            cuadruples: pCua || prevPrices.cuadruples || 0
+          };
+          const payingInd = Math.max(0, ind - freeInd);
+          const payingDbl = Math.max(0, dbl - freeDbl);
+          const payingTpl = Math.max(0, tpl - freeTpl);
+          const payingCua = Math.max(0, cua - freeCua);
+          const calcDayAmt = (payingInd * finalPrices.individuales) + (payingDbl * finalPrices.dobles) + (payingTpl * finalPrices.triples) + (payingCua * finalPrices.cuadruples);
+
           result[dateStr] = {
             ...prevForDate,
             individuales: ind,
@@ -574,6 +595,8 @@
             revisionReasons: [],
             previousDistribution: null,
             validationSnapshot: null,
+            prices: finalPrices,
+            dailyAmount: calcDayAmt > 0 ? calcDayAmt : prevForDate.dailyAmount,
             gratuities: prevForDate.gratuities || (freeInd + freeDbl + freeTpl + freeCua > 0 ? {
               individuales: freeInd,
               dobles: freeDbl,
@@ -4834,6 +4857,7 @@
         });
 
         let rlInd = 0, rlDbl = 0, rlTpl = 0, rlCua = 0, rlPax = 0, rlRooms = 0;
+        let rlPriceInd = "", rlPriceDbl = "", rlPriceTpl = "", rlPriceCua = "";
         let rlRegime = null;
         dayRooms.forEach(item => {
           const itype = String(item.type || item.roomType || "").toUpperCase();
@@ -4842,6 +4866,22 @@
           if (isPureService) return;
 
           const qty = parseInt(item.qty, 10) || 1;
+          const price = parseFloat(item.price);
+          const isGrat = itype.includes("GRATUIDAD") || price === 0 || isNaN(price);
+
+          if (!isGrat && price > 0) {
+            if (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI")) {
+              rlPriceInd = price;
+            } else if (itype.includes("DBL") || itype.includes("DOBLE") || itype.includes("TWIN") || itype.includes("MATRI") || itype.includes("SUITE")) {
+              rlPriceDbl = price;
+            } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
+              rlPriceTpl = price;
+            } else if (itype.includes("CUA") || itype.includes("CUAD")) {
+              if (isCumbriaHotel) rlPriceTpl = price;
+              else rlPriceCua = price;
+            }
+          }
+
           if (item.regime && item.regime !== "-" && item.regime !== "---" && !rlRegime) {
             rlRegime = item.regime;
           }
@@ -4873,6 +4913,39 @@
             rlPax += qty * 2;
           }
         });
+
+        // Fallback para precios si no estaban en este día específico: consultar distMap o todo el rooming list
+        let distPrices = {};
+        if (matchRow?.DailyDistribution_JSON) {
+          try {
+            const parsedDMap = typeof matchRow.DailyDistribution_JSON === "string"
+              ? JSON.parse(matchRow.DailyDistribution_JSON)
+              : matchRow.DailyDistribution_JSON;
+            distPrices = parsedDMap?.[dailyItem.fecha]?.prices || {};
+          } catch (e) {}
+        }
+        if (rlPriceInd === "" && distPrices.individuales !== undefined && distPrices.individuales > 0) rlPriceInd = distPrices.individuales;
+        if (rlPriceDbl === "" && distPrices.dobles !== undefined && distPrices.dobles > 0) rlPriceDbl = distPrices.dobles;
+        if (rlPriceTpl === "" && distPrices.triples !== undefined && distPrices.triples > 0) rlPriceTpl = distPrices.triples;
+        if (rlPriceCua === "" && distPrices.cuadruples !== undefined && distPrices.cuadruples > 0) rlPriceCua = distPrices.cuadruples;
+
+        if (rlPriceInd === "" || rlPriceDbl === "" || rlPriceTpl === "" || rlPriceCua === "") {
+          expandedRL.forEach(item => {
+            if (item.isService) return;
+            const itype = String(item.type || item.roomType || "").toUpperCase();
+            const price = parseFloat(item.price);
+            const isGrat = itype.includes("GRATUIDAD") || price === 0 || isNaN(price);
+            if (!isGrat && price > 0) {
+              if (rlPriceInd === "" && (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI"))) rlPriceInd = price;
+              else if (rlPriceDbl === "" && (itype.includes("DBL") || itype.includes("DOBLE") || itype.includes("TWIN") || itype.includes("MATRI") || itype.includes("SUITE"))) rlPriceDbl = price;
+              else if (rlPriceTpl === "" && (itype.includes("TPL") || itype.includes("TRIPLE"))) rlPriceTpl = price;
+              else if (rlPriceCua === "" && (itype.includes("CUA") || itype.includes("CUAD"))) {
+                if (isCumbriaHotel) rlPriceTpl = price;
+                else rlPriceCua = price;
+              }
+            }
+          });
+        }
 
         const hasFichaRooms = rlRooms > 0;
         if (hasFichaRooms) {
@@ -4925,6 +4998,10 @@
           dobles: currentDbl,
           triples: currentTpl,
           cuadruples: currentCua,
+          priceInd: rlPriceInd !== "" ? rlPriceInd : "",
+          priceDbl: rlPriceDbl !== "" ? rlPriceDbl : "",
+          priceTpl: rlPriceTpl !== "" ? rlPriceTpl : "",
+          priceCua: rlPriceCua !== "" ? rlPriceCua : "",
           gratuitiesInd: initialFreeInd,
           gratuitiesDbl: initialFreeDbl,
           gratuitiesTpl: initialFreeTpl,
@@ -5022,6 +5099,17 @@
           const freeTplVal = Math.min(finalTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
           const freeCuaVal = Math.min(finalCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
 
+          const priceIndVal = parseFloat(editingDistribution.priceInd) || 0;
+          const priceDblVal = parseFloat(editingDistribution.priceDbl) || 0;
+          const priceTplVal = parseFloat(editingDistribution.priceTpl) || 0;
+          const priceCuaVal = parseFloat(editingDistribution.priceCua) || 0;
+
+          const payingInd = Math.max(0, finalInd - freeIndVal);
+          const payingDbl = Math.max(0, finalDbl - freeDblVal);
+          const payingTpl = Math.max(0, finalTpl - freeTplVal);
+          const payingCua = Math.max(0, finalCua - freeCuaVal);
+          const calculatedDayTotal = (payingInd * priceIndVal) + (payingDbl * priceDblVal) + (payingTpl * priceTplVal) + (payingCua * priceCuaVal);
+
           const newEntry = {
             status: finalStatus,
             individuales: finalInd,
@@ -5033,6 +5121,13 @@
             regimen: editingDistribution.regimen || "HD",
             proposed: editingDistribution.proposal,
             observations: editingDistribution.observations || "",
+            prices: {
+              individuales: priceIndVal,
+              dobles: priceDblVal,
+              triples: priceTplVal,
+              cuadruples: priceCuaVal
+            },
+            dailyAmount: calculatedDayTotal > 0 ? calculatedDayTotal : undefined,
             gratuities: {
               individuales: freeIndVal,
               dobles: freeDblVal,
@@ -5096,32 +5191,44 @@
 
             if (hasExistingLodging) {
               // ── LA FICHA MANDA: PRESERVAR ÍNTEGRAMENTE PRECIOS Y REGÍMENES DE LA FICHA ──
-              // Si la Ficha ya tiene habitaciones definidas, NO RECALCULAR precios ni regenerar por fórmula.
               const expandedExisting = expandRoomListByDays(existingRooming);
 
-              // Comprobar si las cantidades de habitaciones cambiaron respecto a la Ficha
+              // Comprobar si las cantidades o precios de habitaciones cambiaron respecto a la Ficha
               let quantitiesChanged = false;
+              let pricesChanged = false;
               targetDates.forEach((dStr) => {
                 const dayLodging = expandedExisting.filter((i) => !i.isService && toInputDate(i.dateIn || i.date) === dStr);
                 let indCount = 0, dblCount = 0, tplCount = 0, cuaCount = 0;
                 dayLodging.forEach((it) => {
                   const t = String(it.type || it.roomType || "").toUpperCase();
                   const q = parseInt(it.qty, 10) || 1;
-                  if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) indCount += q;
-                  else if (t.includes("DBL") || t.includes("DOBLE")) dblCount += q;
-                  else if (t.includes("TPL") || t.includes("TRIPLE")) tplCount += q;
-                  else if (t.includes("CUA") || t.includes("CUAD")) cuaCount += q;
+                  const isGrat = t.includes("GRATUIDAD") || parseFloat(it.price) === 0;
+                  const curP = parseFloat(it.price) || 0;
+
+                  if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) {
+                    indCount += q;
+                    if (!isGrat && priceIndVal > 0 && Math.abs(curP - priceIndVal) > 0.001) pricesChanged = true;
+                  } else if (t.includes("DBL") || t.includes("DOBLE")) {
+                    dblCount += q;
+                    if (!isGrat && priceDblVal > 0 && Math.abs(curP - priceDblVal) > 0.001) pricesChanged = true;
+                  } else if (t.includes("TPL") || t.includes("TRIPLE")) {
+                    tplCount += q;
+                    if (!isGrat && priceTplVal > 0 && Math.abs(curP - priceTplVal) > 0.001) pricesChanged = true;
+                  } else if (t.includes("CUA") || t.includes("CUAD")) {
+                    cuaCount += q;
+                    if (!isGrat && priceCuaVal > 0 && Math.abs(curP - priceCuaVal) > 0.001) pricesChanged = true;
+                  }
                 });
                 if (indCount !== finalInd || dblCount !== finalDbl || tplCount !== finalTpl || cuaCount !== finalCua) {
                   quantitiesChanged = true;
                 }
               });
 
-              if (!quantitiesChanged) {
-                // Las cantidades coinciden: no tocar RoomingList_JSON en absoluto. La Ficha queda intacta.
+              if (!quantitiesChanged && !pricesChanged) {
+                // Las cantidades y precios coinciden: no tocar RoomingList_JSON en absoluto.
                 roomingJsonToSave = null;
               } else {
-                // Cantidades cambiadas expresamente en el modal: actualizar 'qty' respetando precios y regímenes de la Ficha
+                // Cantidades o precios cambiados en el modal: actualizar RoomingList_JSON
                 const keptItems = expandedExisting.filter((item) => {
                   if (item.isService) return true;
                   const iDate = toInputDate(item.dateIn || item.date);
@@ -5158,8 +5265,13 @@
                   const pushRoomItem = (typeKeyword, label, payingQty, freeQty, paxPerRoom) => {
                     const prevPay = getExistingItem(typeKeyword, false);
                     const prevFree = getExistingItem(typeKeyword, true);
-                    const dayReg = prevPay?.regime || prevFree?.regime || editingDistribution.regimen || "HD";
-                    const uPrice = prevPay?.price !== undefined ? parseFloat(prevPay.price) : 0;
+                    const dayReg = editingDistribution.regimen || prevPay?.regime || prevFree?.regime || "HD";
+                    
+                    let uPrice = prevPay?.price !== undefined ? parseFloat(prevPay.price) : 0;
+                    if (typeKeyword === "INDIV" && priceIndVal > 0) uPrice = priceIndVal;
+                    else if (typeKeyword === "DBL" && priceDblVal > 0) uPrice = priceDblVal;
+                    else if (typeKeyword === "TPL" && priceTplVal > 0) uPrice = priceTplVal;
+                    else if (typeKeyword === "CUA" && priceCuaVal > 0) uPrice = priceCuaVal;
 
                     if (payingQty > 0) {
                       generatedDayItems.push({
@@ -5207,7 +5319,6 @@
               }
             } else {
               // ── CASO INICIAL: No existían habitaciones en la Ficha ────────
-              // Solo se generan líneas automáticas si la reserva estaba totalmente vacía
               const freeInd = Math.min(finalInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : editingDistribution.gratuitiesCount, 10) || 0);
               const payingInd = Math.max(0, finalInd - freeInd);
               const freeDbl = Math.min(finalDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
@@ -5225,10 +5336,10 @@
                 const dayImp = totImp > 0 ? (totImp / Math.max(1, targetDates.size)) : 0;
                 const dailyPerPax = dayImp > 0 ? (dayImp / payingPaxCount) : 0;
 
-                const indUnitPrice = Math.round(dailyPerPax * 1 * 100) / 100;
-                const dblUnitPrice = Math.round(dailyPerPax * 2 * 100) / 100;
-                const tplUnitPrice = Math.round(dailyPerPax * 3 * 100) / 100;
-                const cuaUnitPrice = Math.round(dailyPerPax * 4 * 100) / 100;
+                const indUnitPrice = priceIndVal > 0 ? priceIndVal : (Math.round(dailyPerPax * 1 * 100) / 100);
+                const dblUnitPrice = priceDblVal > 0 ? priceDblVal : (Math.round(dailyPerPax * 2 * 100) / 100);
+                const tplUnitPrice = priceTplVal > 0 ? priceTplVal : (Math.round(dailyPerPax * 3 * 100) / 100);
+                const cuaUnitPrice = priceCuaVal > 0 ? priceCuaVal : (Math.round(dailyPerPax * 4 * 100) / 100);
 
                 if (payingInd > 0) {
                   generatedDayItems.push({
@@ -5365,6 +5476,15 @@
             }
           }
 
+          let newTotalAmountStr = null;
+          if (roomingJsonToSave) {
+            try {
+              const savedList = JSON.parse(roomingJsonToSave);
+              const sumTot = savedList.reduce((acc, it) => acc + (parseFloat(it.total) || 0), 0);
+              if (sumTot > 0) newTotalAmountStr = sumTot.toFixed(2);
+            } catch (e) {}
+          }
+
           // Recopilar todos los docIds de esta reserva en un Set para no omitir ninguno
           const docIdsToUpdate = new Set();
           if (targetResId) docIdsToUpdate.add(targetResId);
@@ -5383,7 +5503,10 @@
                 DailyDistribution_JSON: jsonStringToSave,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
               };
-              if (roomingJsonToSave) payload.RoomingList_JSON = roomingJsonToSave;
+              if (roomingJsonToSave) {
+                payload.RoomingList_JSON = roomingJsonToSave;
+                if (newTotalAmountStr) payload["Importe(*)"] = newTotalAmountStr;
+              }
               batch.set(docRef, payload, { merge: true });
             });
             await batch.commit();
@@ -5393,7 +5516,10 @@
           setData((prev) => prev.map((r) => {
             if (normalizeId(r["Reserva"]) === targetResId || docIdsToUpdate.has(r._docId)) {
               const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
-              if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
+              if (roomingJsonToSave) {
+                updated.RoomingList_JSON = roomingJsonToSave;
+                if (newTotalAmountStr) updated["Importe(*)"] = newTotalAmountStr;
+              }
               return updated;
             }
             return r;
@@ -5404,14 +5530,18 @@
               if (!prev) return prev;
               const updatedRecords = (prev.records || []).map(r => {
                 const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
-                if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
+                if (roomingJsonToSave) {
+                  updated.RoomingList_JSON = roomingJsonToSave;
+                  if (newTotalAmountStr) updated["Importe(*)"] = newTotalAmountStr;
+                }
                 return updated;
               });
               return {
                 ...prev,
                 records: updatedRecords,
                 DailyDistribution_JSON: jsonStringToSave,
-                ...(roomingJsonToSave ? { RoomingList_JSON: roomingJsonToSave } : {})
+                ...(roomingJsonToSave ? { RoomingList_JSON: roomingJsonToSave } : {}),
+                ...(newTotalAmountStr ? { "Importe(*)": newTotalAmountStr } : {})
               };
             });
           }
@@ -14751,10 +14881,24 @@
                 ? window.BoardPricingService.getPricingForHotelAndDate(editingDistribution.hotel, editingDistribution.fecha, boardPricingConfig)
                 : { breakfast: 6.0, meal: 16.0 };
 
+              const pInd = parseFloat(editingDistribution.priceInd) || 0;
+              const pDbl = parseFloat(editingDistribution.priceDbl) || 0;
+              const pTpl = parseFloat(editingDistribution.priceTpl) || 0;
+              const pCua = parseFloat(editingDistribution.priceCua) || 0;
+
+              const payingIndRooms = Math.max(0, curInd - freeInd);
+              const payingDblRooms = Math.max(0, curDbl - freeDbl);
+              const payingTplRooms = Math.max(0, curTpl - freeTpl);
+              const payingCuaRooms = Math.max(0, curCua - freeCua);
+
+              const sumFromRoomPrices = (payingIndRooms * pInd) + (payingDblRooms * pDbl) + (payingTplRooms * pTpl) + (payingCuaRooms * pCua);
+
               // Obtener importe diario
               const matchedDay = dailyOccupancyList.find(d => d.reserva === editingDistribution.reserva && d.fecha === editingDistribution.fecha);
               let dailyImp = 0.0;
-              if (matchedDay?.dailyAmount !== undefined && matchedDay?.dailyAmount > 0) {
+              if (sumFromRoomPrices > 0) {
+                dailyImp = sumFromRoomPrices;
+              } else if (matchedDay?.dailyAmount !== undefined && matchedDay?.dailyAmount > 0) {
                 dailyImp = matchedDay.dailyAmount;
               } else if (matchedDay?.contributingLines) {
                 matchedDay.contributingLines.forEach(l => {
@@ -14975,6 +15119,29 @@
                                 {Math.max(0, curInd - freeInd)} pago + {freeInd} gratis
                               </div>
                             </div>
+
+                            {/* Campo editable de precio (€/hab) */}
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
+                                💶 Precio (€/hab):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={editingDistribution.priceInd !== undefined ? editingDistribution.priceInd : ""}
+                                onChange={(e) => setEditingDistribution({
+                                  ...editingDistribution,
+                                  priceInd: e.target.value
+                                })}
+                                className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
+                                title="Precio por habitación (€)"
+                              />
+                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                Subtotal: {(payingIndRooms * (parseFloat(editingDistribution.priceInd) || 0)).toFixed(2)} €
+                              </div>
+                            </div>
                           </div>
 
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -15018,6 +15185,29 @@
                               />
                               <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
                                 {Math.max(0, curDbl - freeDbl)} pago + {freeDbl} gratis
+                              </div>
+                            </div>
+
+                            {/* Campo editable de precio (€/hab) */}
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
+                                💶 Precio (€/hab):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={editingDistribution.priceDbl !== undefined ? editingDistribution.priceDbl : ""}
+                                onChange={(e) => setEditingDistribution({
+                                  ...editingDistribution,
+                                  priceDbl: e.target.value
+                                })}
+                                className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
+                                title="Precio por habitación (€)"
+                              />
+                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                Subtotal: {(payingDblRooms * (parseFloat(editingDistribution.priceDbl) || 0)).toFixed(2)} €
                               </div>
                             </div>
                           </div>
@@ -15065,6 +15255,29 @@
                                 {Math.max(0, curTpl - freeTpl)} pago + {freeTpl} gratis
                               </div>
                             </div>
+
+                            {/* Campo editable de precio (€/hab) */}
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
+                                💶 Precio (€/hab):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={editingDistribution.priceTpl !== undefined ? editingDistribution.priceTpl : ""}
+                                onChange={(e) => setEditingDistribution({
+                                  ...editingDistribution,
+                                  priceTpl: e.target.value
+                                })}
+                                className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
+                                title="Precio por habitación (€)"
+                              />
+                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                Subtotal: {(payingTplRooms * (parseFloat(editingDistribution.priceTpl) || 0)).toFixed(2)} €
+                              </div>
+                            </div>
                           </div>
 
                           {!isCumbria && (
@@ -15109,6 +15322,29 @@
                                 />
                                 <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
                                   {Math.max(0, curCua - freeCua)} pago + {freeCua} gratis
+                                </div>
+                              </div>
+
+                              {/* Campo editable de precio (€/hab) */}
+                              <div className="mt-2 pt-2 border-t border-slate-200">
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
+                                  💶 Precio (€/hab):
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  value={editingDistribution.priceCua !== undefined ? editingDistribution.priceCua : ""}
+                                  onChange={(e) => setEditingDistribution({
+                                    ...editingDistribution,
+                                    priceCua: e.target.value
+                                  })}
+                                  className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
+                                  title="Precio por habitación (€)"
+                                />
+                                <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                  Subtotal: {(payingCuaRooms * (parseFloat(editingDistribution.priceCua) || 0)).toFixed(2)} €
                                 </div>
                               </div>
                             </div>
