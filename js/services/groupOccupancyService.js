@@ -186,7 +186,7 @@
       } else if (desc.includes("CUADRUPLE") || desc.includes("CUÁDRUPLE") || desc.includes("CUA")) {
         category = "cuadruple";
         pers = 4;
-      } else if (desc.includes("DOBLE") || desc.includes("DBL") || desc.includes("TWIN") || desc.includes("SUITE")) {
+      } else if (desc.includes("DOBLE") || desc.includes("DBL") || desc.includes("TWIN") || desc.includes("SUITE") || desc.includes("SUI") || desc.includes("S.SUP") || desc.includes("SSUP")) {
         category = "doble";
         pers = 2;
       }

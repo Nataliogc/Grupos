@@ -6,8 +6,9 @@
 
     // --- CONSTANTES ---
     const ROOM_TYPES = {
-      "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE"],
-      "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA"]
+      "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE", "SUITE", "SUITE SUPERIOR"],
+      "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "SUITE"],
+      "Cumbria Spa & Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "SUITE"]
     };
 
     const getRoomTypesForHotel = (hotelName) => {
@@ -30,6 +31,12 @@
       "DOBLE": 2,
       "DOBLE + SUPLETORIA": 3,
       "CUÁDRUPLE": 4,
+      "SUITE": 2,
+      "SUITE SUPERIOR": 2,
+      "SUI": 2,
+      "S.SUP": 2,
+      "SUITE (SUI)": 2,
+      "SUITE SUPERIOR (S.SUP)": 2,
       // Retrocompatibilidad
       "Doble Individual": 1,
       "Doble de Uso Individual": 1,
@@ -39,6 +46,8 @@
       "Doble + Supletoria": 3,
       "Triple": 3,
       "Junior Suite": 2,
+      "Suite": 2,
+      "Suite Superior": 2,
       "Cuádruple": 4,
     };
 
@@ -56,7 +65,15 @@
       "Doble + Supletoria": "triple",
       "Triple": "triple",
       "CUÁDRUPLE": "cuadruple",
-      "Cuádruple": "cuadruple"
+      "Cuádruple": "cuadruple",
+      "SUITE": "doble",
+      "Suite": "doble",
+      "SUI": "doble",
+      "SUITE (SUI)": "doble",
+      "SUITE SUPERIOR": "doble",
+      "Suite Superior": "doble",
+      "S.SUP": "doble",
+      "SUITE SUPERIOR (S.SUP)": "doble"
     };
 
     // Mapeo de regímenes del presupuesto a códigos oficiales (HA, HD, MP, PC)
@@ -411,13 +428,26 @@
     const ROOM_MIGRATION_MAP = {
       "doble individual": "DOBLE DE USO INDIVIDUAL",
       "doble de uso individual": "DOBLE DE USO INDIVIDUAL",
+      "dui": "DOBLE DE USO INDIVIDUAL",
+      "sgl": "DOBLE DE USO INDIVIDUAL",
       "doble 2 camas": "DOBLE",
       "doble matrimonial": "DOBLE",
       "doble": "DOBLE",
+      "dbl": "DOBLE",
       "doble + supletoria": "DOBLE + SUPLETORIA",
       "triple": "DOBLE + SUPLETORIA",
-      "junior suite": "DOBLE",
-      "cuádruple": "CUÁDRUPLE"
+      "tpl": "DOBLE + SUPLETORIA",
+      "junior suite": "SUITE",
+      "cuádruple": "CUÁDRUPLE",
+      "cuadruple": "CUÁDRUPLE",
+      "cua": "CUÁDRUPLE",
+      "suite": "SUITE",
+      "sui": "SUITE",
+      "suite (sui)": "SUITE",
+      "suite superior": "SUITE SUPERIOR",
+      "s.sup": "SUITE SUPERIOR",
+      "ssup": "SUITE SUPERIOR",
+      "suite superior (s.sup)": "SUITE SUPERIOR"
     };
 
     const getAlternateHotel = (hotelName = "") => (
@@ -428,7 +458,8 @@
       const targetRooms = ROOM_TYPES[targetHotel] || ROOM_TYPES["Sercotel Guadiana"];
       const normalized = ROOM_MIGRATION_MAP[String(roomType || "").toLowerCase()] || String(roomType || "").toUpperCase();
       if (targetRooms.includes(normalized)) return normalized;
-      if ((normalized === "CUÃDRUPLE" || normalized === "CUÁDRUPLE") && targetRooms.includes("DOBLE + SUPLETORIA")) return "DOBLE + SUPLETORIA";
+      if (normalized === "SUITE SUPERIOR" && targetRooms.includes("SUITE")) return "SUITE";
+      if ((normalized === "CUÃ DRUPLE" || normalized === "CUÁDRUPLE" || normalized === "CUADRUPLE") && targetRooms.includes("DOBLE + SUPLETORIA")) return "DOBLE + SUPLETORIA";
       if (targetRooms.includes("DOBLE")) return "DOBLE";
       return targetRooms[0] || normalized;
     };
@@ -510,6 +541,8 @@
       if (r === "DOBLE + SUPLETORIA" || r === "DOBLE MAS SUPLETORIA") return "Doble + Supl.";
       if (r === "CUÁDRUPLE" || r === "CUADRUPLE") return "Cuádruple";
       if (r === "DOBLE") return "Doble";
+      if (r === "SUITE SUPERIOR" || r === "S.SUP" || r === "SSUP" || r === "SUITE SUPERIOR (S.SUP)") return "Suite Sup.";
+      if (r === "SUITE" || r === "SUI" || r === "SUITE (SUI)") return "Suite";
       return roomName.charAt(0).toUpperCase() + roomName.slice(1).toLowerCase();
     };
 
@@ -1136,7 +1169,9 @@
           'dui': 'DOBLE DE USO INDIVIDUAL', 'uso individual': 'DOBLE DE USO INDIVIDUAL', 'individual': 'DOBLE DE USO INDIVIDUAL', 'single': 'DOBLE DE USO INDIVIDUAL', 'doble de uso individual': 'DOBLE DE USO INDIVIDUAL',
           'doble': 'DOBLE', 'double': 'DOBLE',
           'doble + supletoria': 'DOBLE + SUPLETORIA', 'triple': 'DOBLE + SUPLETORIA', '3ª pax': 'DOBLE + SUPLETORIA', 'doble con supletoria': 'DOBLE + SUPLETORIA',
-          'cuádruple': 'CUÁDRUPLE', 'cuadruple': 'CUÁDRUPLE', 'quadruple': 'CUÁDRUPLE', '4 pax': 'CUÁDRUPLE'
+          'cuádruple': 'CUÁDRUPLE', 'cuadruple': 'CUÁDRUPLE', 'quadruple': 'CUÁDRUPLE', '4 pax': 'CUÁDRUPLE',
+          'suite': 'SUITE', 'sui': 'SUITE', 'junior suite': 'SUITE',
+          'suite superior': 'SUITE SUPERIOR', 's.sup': 'SUITE SUPERIOR', 'ssup': 'SUITE SUPERIOR'
         };
 
         const parsePrice = (str) => {

@@ -184,8 +184,20 @@ var App = function App() {
           pax: 3,
           isService: false
         }, {
+          label: "Habitación Cuádruple (CUA)",
+          pax: 4,
+          isService: false
+        }, {
           label: "Habitación Individual (IND)",
           pax: 1,
+          isService: false
+        }, {
+          label: "Suite (SUI)",
+          pax: 2,
+          isService: false
+        }, {
+          label: "Suite Superior (S.SUP)",
+          pax: 2,
           isService: false
         }, {
           label: "Junior Suite",

@@ -8210,6 +8210,14 @@
 
         { label: "Habitación Cuádruple (CUA)", pax: 4, placeholder: "4 Pax" },
 
+        { label: "Suite (SUI)", pax: 2, placeholder: "2 Pax" },
+
+        { label: "Suite Superior (S.SUP)", pax: 2, placeholder: "2 Pax" },
+
+        { label: "SUI", pax: 2, placeholder: "2 Pax" },
+
+        { label: "S.SUP", pax: 2, placeholder: "2 Pax" },
+
         { label: "Junior Suite (JS1)", pax: 1, placeholder: "1 Pax" },
 
         { label: "Junior Suite (JS2)", pax: 2, placeholder: "2 Pax" },
