@@ -31,7 +31,7 @@
     if (typeof window !== "undefined" && window.NexusUtils && window.NexusUtils.normalizeId) {
       return window.NexusUtils.normalizeId(id);
     }
-    return String(id || "").trim().toUpperCase();
+    return String(id || "").trim().replace(/^#\s*/, "").replace(/\.0+$/, "").replace(/[\/\\]/g, "-").toUpperCase();
   };
 
   const cleanStr = (v) => String(v || "")
@@ -161,6 +161,7 @@
       const text = row.filter((v) => v !== null && v !== undefined && String(v).trim() !== "").join(" ").toUpperCase();
       if (text.indexOf("CONFIRMADA") !== -1) return "Confirmada";
       if (text.indexOf("ANULADA") !== -1) return "Anulada";
+      if (text.indexOf("PRESUPUESTO") !== -1 || text.indexOf("COTIZACION") !== -1 || text.indexOf("COTIZACIÓN") !== -1) return "Presupuesto";
       return status;
     };
 
@@ -233,6 +234,9 @@
         if (h && h !== "") {
           const upperH = h.toUpperCase();
           const standardKey = HEADER_ALIASES[upperH] || h;
+          if (standardKey === "Estado" && rowData[idx] !== undefined && String(rowData[idx]).trim() !== "") {
+            rowObj._hasExcelEstadoCol = true;
+          }
           rowObj[standardKey] = rowData[idx] !== undefined ? rowData[idx] : "";
         }
       });
@@ -257,7 +261,9 @@
         continue;
       }
 
-      rowObj["Estado"] = currentStatus;
+      if (!rowObj["Estado"] || String(rowObj["Estado"]).trim() === "") {
+        rowObj["Estado"] = currentStatus;
+      }
       rowObj["_rowNum"] = i + 1;
       rowObj["_linea"] = String(rowObj["precios"] || rowObj["Linea"] || (i + 1)).trim();
 
@@ -499,18 +505,25 @@
             });
         }
 
-        // Pase 6: Misma reserva si solo queda una fila libre
+        // Pase 6: Misma reserva si solo queda una fila libre o coincide ID base
         if (existingIdx === -1) {
             const candidates = [];
+            const baseResID = resID.split("_")[0].split("-")[0];
             mergedData.forEach((r, rIdx) => {
                 if (matchedExistingIndices.has(rIdx)) return;
                 const rRes = normalizeId(r["Reserva"]);
-                if (rRes === resID || rRes.startsWith(resID + "_") || resID.startsWith(rRes + "_")) {
+                const rBase = rRes.split("_")[0].split("-")[0];
+                if (rRes === resID || rRes.startsWith(resID + "_") || resID.startsWith(rRes + "_") || (baseResID && rBase === baseResID)) {
                     candidates.push(rIdx);
                 }
             });
             if (candidates.length === 1) {
                 existingIdx = candidates[0];
+            } else if (candidates.length > 1) {
+                const dateMatch = candidates.find((cIdx) => toIsoDate(mergedData[cIdx]["Entrada"]) === newInIso);
+                if (dateMatch !== undefined) {
+                    existingIdx = dateMatch;
+                }
             }
         }
 
@@ -538,6 +551,10 @@
             relevantKeys.forEach((key) => {
                 let rawOld = existingRow[key];
                 let rawNew = newRow[key];
+                if (key === "Cant. Habitaciones") {
+                    if (rawOld === undefined && existingRow["Cant."] !== undefined) rawOld = existingRow["Cant."];
+                    if (rawNew === undefined && newRow["Cant."] !== undefined) rawNew = newRow["Cant."];
+                }
                 if (rawNew === undefined) return;
                 
                 let isEmptyOld = rawOld === null || rawOld === undefined || String(rawOld).trim() === "" || String(rawOld).trim() === "---";
@@ -593,9 +610,14 @@
                     if (dateOld === "" || dateNew === "") return;
                     isDifferent = dateOld !== dateNew;
                 } else if (key === "Estado") {
+                    const hasExcelEstadoCol = newRow._hasExcelEstadoCol;
                     const stOld = normalizeEstado(rawOld || existingRow["Com_Estado_Interno"]);
                     const stNew = normalizeEstado(rawNew);
-                    isDifferent = stOld !== stNew;
+                    if (!hasExcelEstadoCol && (stOld === "PRESUPUESTO" || existingRow["Com_Estado_Interno"] === "PRESUPUESTO")) {
+                        isDifferent = false;
+                    } else {
+                        isDifferent = stOld !== stNew;
+                    }
                 } else if (key === "Hotel_Asignado") {
                     const hOld = normalizeHotel(rawOld || existingRow["Hotel"]);
                     const hNew = normalizeHotel(rawNew);
@@ -611,6 +633,10 @@
                 } else {
                     let cleanOld = isEmptyOld ? "" : cleanStr(rawOld);
                     let cleanNew = isEmptyNew ? "" : cleanStr(rawNew);
+                    if (key === "Empresa/Agencia" || key === "Nombre del Grupo") {
+                        cleanOld = cleanOld.replace(/[.,\-_/\\#()]/g, " ").replace(/\s+/g, " ").trim();
+                        cleanNew = cleanNew.replace(/[.,\-_/\\#()]/g, " ").replace(/\s+/g, " ").trim();
+                    }
                     isDifferent = cleanOld !== cleanNew;
                 }
 

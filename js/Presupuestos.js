@@ -2935,15 +2935,6 @@ function App() {
       }, /*#__PURE__*/React.createElement("div", {
         className: "flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
       }, /*#__PURE__*/React.createElement("button", {
-        onClick: function onClick(e) {
-          e.stopPropagation();
-          _updateStatus(g.uid, 'CONFIRMADO');
-        },
-        className: "w-7 h-7 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all",
-        title: "Confirmar Grupo"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fas fa-check text-xs"
-      })), /*#__PURE__*/React.createElement("button", {
         onClick: function onClick() {
           handleOpenDetail(normalizeGroupData(g));
         },

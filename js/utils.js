@@ -53,13 +53,13 @@
   // ── Normalización de IDs de Firestore ──────────────────
   function normalizeId(id) {
     if (!id) return "";
-    return String(id).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+    return String(id).trim().replace(/^#\s*/, "").replace(/\.0+$/, "").replace(/[\/\\]/g, "-");
   }
 
   // ── Extracción de ID base ──────────────────────────────
   function getBaseId(id) {
     if (!id) return "";
-    return String(id).trim().replace(/\.0$/, "").split("_")[0];
+    return String(id).trim().replace(/^#\s*/, "").replace(/\.0+$/, "").split("_")[0];
   }
 
   // ── Normalización de nombre de hotel ───────────────────

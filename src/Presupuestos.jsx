@@ -2471,11 +2471,6 @@ ${emailContent}`;
                         {/* Acciones */}
                         <td className="px-4 py-4 text-right">
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => { e.stopPropagation(); updateStatus(g.uid, 'CONFIRMADO'); }}
-                              className="w-7 h-7 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all"
-                              title="Confirmar Grupo">
-                              <i className="fas fa-check text-xs"></i>
-                            </button>
                             <button onClick={() => { handleOpenDetail(normalizeGroupData(g)); }}
                               className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
                               title="Ver Ficha">

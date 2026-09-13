@@ -4717,18 +4717,25 @@
           finalCua = null;
         }
 
-        // Si se confirma o modifica, validar estrictamente la suma de Pax
+        // Si se confirma o modifica, validar la suma de Pax considerando gratuidades
         if (finalStatus === "confirmada" || finalStatus === "modificada") {
           const valRes = window.GroupOccupancyService?.validateOccupancyMatch({
             individuales: finalInd,
             dobles: finalDbl,
             triples: finalTpl,
-            cuadruples: finalCua
+            cuadruples: finalCua,
+            gratuitiesInd: editingDistribution.gratuitiesInd,
+            gratuitiesDbl: editingDistribution.gratuitiesDbl,
+            gratuitiesTpl: editingDistribution.gratuitiesTpl,
+            gratuitiesCua: editingDistribution.gratuitiesCua,
+            gratuitiesCount: editingDistribution.gratuitiesCount
           }, editingDistribution.pax);
 
           if (valRes && !valRes.isValid) {
-            setDistributionFormError("La distribución no coincide con el número total de personas.");
-            return;
+            if (!confirm(`La distribución configurada (${valRes.calculatedPax} pax en ${valRes.totalRooms} habitaciones) difiere de las ${editingDistribution.pax} personas registradas.\n\n¿Deseas guardar y confirmar esta distribución de todos modos?`)) {
+              setDistributionFormError("La distribución no coincide con el número total de personas.");
+              return;
+            }
           }
         }
 
@@ -14221,11 +14228,12 @@
               const freeInd = Math.min(curInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : (editingDistribution.gratuitiesCount || 0), 10) || 0);
               const freeDbl = Math.min(curDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
               const freeTpl = Math.min(curTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
-              const freeCua = Math.min(curCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
               const totGratuities = freeInd + freeDbl + freeTpl + freeCua;
+              const freePaxTotal = (freeInd * 1) + (freeDbl * 2) + (freeTpl * 3) + (freeCua * 4);
               const calcPax = (curInd * 1) + (curDbl * 2) + (curTpl * 3) + (curCua * 4);
+              const payingPax = Math.max(0, calcPax - freePaxTotal);
               const calcRooms = curInd + curDbl + curTpl + curCua;
-              const isPaxMatch = calcPax === editingDistribution.pax;
+              const isPaxMatch = (calcPax === editingDistribution.pax) || (freePaxTotal > 0 && payingPax === editingDistribution.pax) || (freePaxTotal > 0 && calcPax === (editingDistribution.pax + freePaxTotal));
               const hasProposal = Boolean(editingDistribution.proposal);
               const isRevisionNecesaria = editingDistribution.status === "revision_necesaria";
 
@@ -14590,7 +14598,7 @@
                               {isPaxMatch ? "Distribución correcta" : "La distribución no coincide con el número total de personas."}
                             </div>
                             <div className="text-[11px] opacity-80 mt-0.5">
-                              Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones){totGratuities > 0 ? ` • ${totGratuities} gratuita${totGratuities > 1 ? "s" : ""}` : ""} • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
+                              Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones){totGratuities > 0 ? ` • ${totGratuities} gratuita${totGratuities > 1 ? "s" : ""} (${payingPax} de pago)` : ""} • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
                             </div>
                           </div>
                         </div>

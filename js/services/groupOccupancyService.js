@@ -105,6 +105,7 @@
 
   // ── 2. Strict Occupancy Validator ───────────────────────────
   // Validación: Ind*1 + Dbl*2 + Tpl*3 + Cua*4 === Personas alojadas
+  // Soporta gratuidades: si hay gratuidades, los pax de pago son (calculatedPax - totalFreePax)
   function validateOccupancyMatch(distribution, targetPax) {
     var p = parseInt(targetPax, 10);
     if (isNaN(p)) p = 0;
@@ -113,15 +114,31 @@
     var tpl = parseInt(distribution.triples, 10) || 0;
     var cua = parseInt(distribution.cuadruples, 10) || 0;
 
+    var freeInd = parseInt(distribution.gratuitiesInd !== undefined ? distribution.gratuitiesInd : (distribution.gratuitiesCount || 0), 10) || 0;
+    var freeDbl = parseInt(distribution.gratuitiesDbl, 10) || 0;
+    var freeTpl = parseInt(distribution.gratuitiesTpl, 10) || 0;
+    var freeCua = parseInt(distribution.gratuitiesCua, 10) || 0;
+    var totalFreePax = (freeInd * 1) + (freeDbl * 2) + (freeTpl * 3) + (freeCua * 4);
+    if (totalFreePax === 0 && distribution.gratuitiesCount) {
+      totalFreePax = parseInt(distribution.gratuitiesCount, 10) || 0;
+    }
+
     var calculatedPax = (ind * 1) + (dbl * 2) + (tpl * 3) + (cua * 4);
+    var payingPax = Math.max(0, calculatedPax - totalFreePax);
     var totalRooms = ind + dbl + tpl + cua;
-    var isValid = calculatedPax === p;
+
+    // Válido si coincide el total físico (calculatedPax === p),
+    // o si coincide el total de pago excluyendo gratuidades (payingPax === p),
+    // o si el targetPax en reserva era el total neto y las gratuitas se sumaron (calculatedPax === p + totalFreePax)
+    var isValid = (calculatedPax === p) || (totalFreePax > 0 && payingPax === p) || (totalFreePax > 0 && calculatedPax === (p + totalFreePax));
 
     return {
       isValid: isValid,
       calculatedPax: calculatedPax,
+      payingPax: payingPax,
+      totalFreePax: totalFreePax,
       targetPax: p,
-      difference: calculatedPax - p,
+      difference: isValid ? 0 : (calculatedPax - p),
       totalRooms: totalRooms,
       errorMessage: isValid ? null : "La distribución no coincide con el número total de personas."
     };
