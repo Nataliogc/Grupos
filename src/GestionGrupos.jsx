@@ -4589,16 +4589,16 @@
           totalHabitaciones: Math.floor(dailyItem.pax / 2) + (dailyItem.pax % 2)
         };
 
-        const currentInd = dailyItem.individuales !== null && dailyItem.individuales !== undefined 
+        let currentInd = dailyItem.individuales !== null && dailyItem.individuales !== undefined 
           ? dailyItem.individuales 
           : proposal.individuales;
-        const currentDbl = dailyItem.dobles !== null && dailyItem.dobles !== undefined 
+        let currentDbl = dailyItem.dobles !== null && dailyItem.dobles !== undefined 
           ? dailyItem.dobles 
           : proposal.dobles;
-        const currentTpl = dailyItem.triples !== null && dailyItem.triples !== undefined 
+        let currentTpl = dailyItem.triples !== null && dailyItem.triples !== undefined 
           ? dailyItem.triples 
           : proposal.triples;
-        const currentCua = dailyItem.cuadruples !== null && dailyItem.cuadruples !== undefined 
+        let currentCua = dailyItem.cuadruples !== null && dailyItem.cuadruples !== undefined 
           ? dailyItem.cuadruples 
           : proposal.cuadruples;
 
