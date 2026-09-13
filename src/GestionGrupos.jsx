@@ -4264,6 +4264,27 @@
             if (bestNotas && !r.Com_Notas) r.Com_Notas = bestNotas;
             if (isCredito) r.Es_Credito = true;
           });
+
+          // Recalcular group.totalPaid deduplicando planes de pago por hotel para evitar duplicidad al tener múltiples líneas
+          const groupUniqueHotels = Array.from(new Set(group.records.map(r => r["Hotel_Asignado"] || r["Hotel"] || "General")));
+          let calculatedGroupPaid = 0;
+          const processedGroupPlans = new Set();
+
+          groupUniqueHotels.forEach(hName => {
+            const hRec = group.records.find(r => (r["Hotel_Asignado"] || r["Hotel"] || "General") === hName) || group.records[0];
+            if (hRec && hRec.PaymentPlan_JSON && hRec.PaymentPlan_JSON !== "[]" && !processedGroupPlans.has(hRec.PaymentPlan_JSON)) {
+              processedGroupPlans.add(hRec.PaymentPlan_JSON);
+              try {
+                const pList = JSON.parse(hRec.PaymentPlan_JSON);
+                if (Array.isArray(pList)) {
+                  calculatedGroupPaid += pList.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
+                }
+              } catch(e) {}
+            }
+          });
+
+          const legacyPaid = parseNum(group.records[0]?.["Com_Pagado"] || 0);
+          group.totalPaid = Math.max(legacyPaid, calculatedGroupPaid);
         });
 
         return Object.values(groups).sort((a, b) => {
@@ -16341,29 +16362,36 @@
                     let netTotal = baseTotal - totalComision;
 
                     let totalPaidFromPlan = 0;
+                    const processedFichaPlans = new Set();
+                    const fichaUniqueHotels = Array.from(
+                      new Set(
+                        (selectedGroupFicha.records || []).map(
+                          (r) => r["Hotel_Asignado"] || r["Hotel"] || "General"
+                        )
+                      )
+                    );
 
-                    (selectedGroupFicha.records || []).forEach((r) => {
+                    fichaUniqueHotels.forEach((hotelName) => {
+                      const hRec = (selectedGroupFicha.records || []).find(
+                        (r) => (r["Hotel_Asignado"] || r["Hotel"] || "General") === hotelName
+                      ) || selectedGroupFicha.records[0];
 
-                      try {
-
-                        const plan = JSON.parse(r.PaymentPlan_JSON || "[]");
-
-                        plan.forEach((p) => {
-
-                          if (p.status === "Cobrado")
-
-                            totalPaidFromPlan += parseFloat(p.amount) || 0;
-
-                        });
-
-                      } catch (e) { }
-
+                      if (hRec && hRec.PaymentPlan_JSON && hRec.PaymentPlan_JSON !== "[]" && !processedFichaPlans.has(hRec.PaymentPlan_JSON)) {
+                        processedFichaPlans.add(hRec.PaymentPlan_JSON);
+                        try {
+                          const plan = JSON.parse(hRec.PaymentPlan_JSON);
+                          if (Array.isArray(plan)) {
+                            plan.forEach((p) => {
+                              if (p.status === "Cobrado")
+                                totalPaidFromPlan += parseFloat(p.amount) || 0;
+                            });
+                          }
+                        } catch (e) { }
+                      }
                     });
 
                     const manualPaid = parseNum(
-
                       selectedGroupFicha.records[0]?.["Com_Pagado"] || "0",
-
                     );
 
                     const totalPaid = Math.max(manualPaid, totalPaidFromPlan);
@@ -16373,55 +16401,39 @@
                     const urgentPayments = [];
 
                     if (!isGroupCredito) {
-
                       const todayForAlert = new Date();
-
                       todayForAlert.setHours(0, 0, 0, 0);
+                      const processedUrgentPlans = new Set();
 
-                      (selectedGroupFicha.records || []).forEach((r) => {
+                      fichaUniqueHotels.forEach((hotelName) => {
+                        const hRec = (selectedGroupFicha.records || []).find(
+                          (r) => (r["Hotel_Asignado"] || r["Hotel"] || "General") === hotelName
+                        ) || selectedGroupFicha.records[0];
 
-                      try {
-
-                        const plan = JSON.parse(r.PaymentPlan_JSON || "[]");
-
-                        plan.forEach((p) => {
-
-                          if (p.status !== "Cobrado") {
-
-                            const d = new Date(toInputDate(p.date));
-
-                            d.setHours(0, 0, 0, 0);
-
-                            const diff = Math.ceil(
-
-                              (d - todayForAlert) / (1000 * 60 * 60 * 24),
-
-                            );
-
-                            if (diff <= 2)
-
-                              urgentPayments.push({
-
-                                ...p,
-
-                                hotel:
-
-                                  r["Hotel_Asignado"] ||
-
-                                  r["Hotel"] ||
-
-                                  "Gral.",
-
+                        if (hRec && hRec.PaymentPlan_JSON && hRec.PaymentPlan_JSON !== "[]" && !processedUrgentPlans.has(hRec.PaymentPlan_JSON)) {
+                          processedUrgentPlans.add(hRec.PaymentPlan_JSON);
+                          try {
+                            const plan = JSON.parse(hRec.PaymentPlan_JSON);
+                            if (Array.isArray(plan)) {
+                              plan.forEach((p) => {
+                                if (p.status !== "Cobrado") {
+                                  const d = new Date(toInputDate(p.date));
+                                  d.setHours(0, 0, 0, 0);
+                                  const diff = Math.ceil(
+                                    (d - todayForAlert) / (1000 * 60 * 60 * 24),
+                                  );
+                                  if (diff <= 2)
+                                    urgentPayments.push({
+                                      ...p,
+                                      hotel: hotelName,
+                                    });
+                                }
                               });
-
-                          }
-
-                        });
-
-                      } catch (e) { }
-
-                    });
-                  }
+                            }
+                          } catch (e) { }
+                        }
+                      });
+                    }
 
                     const hotelAsignado =
 
