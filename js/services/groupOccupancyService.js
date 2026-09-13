@@ -619,6 +619,12 @@
       var anyRoomingReg = null;
       var roomingDaySum = 0;
       var hasRoomingDayLodging = false;
+      var roomingInd = 0;
+      var roomingDbl = 0;
+      var roomingTpl = 0;
+      var roomingCua = 0;
+      var roomingPax = 0;
+      var roomingTotalRooms = 0;
       var seenRoomingLists = new Set();
       var seenItemKeys = new Set();
 
@@ -659,26 +665,68 @@
                   : (entry.fecha === dIn);
 
                 if (covers) {
-                  var itemKey = item.id || (item.roomNo ? (item.roomNo + "_" + (item.type || "") + "_" + dIn) : null) || (item.roomType ? (item.roomType + "_" + dIn + "_" + itemIdx) : null);
+                  var itemKey = item.id || (item.roomNo ? (item.roomNo + "_" + (item.type || "") + "_" + dIn) : null) || ((item.type || item.roomType) + "_" + dIn + "_" + itemIdx);
                   if (itemKey && seenItemKeys.has(itemKey)) return;
                   if (itemKey) seenItemKeys.add(itemKey);
+
+                  var t = String(item.type || item.roomType || "").toUpperCase();
+                  var tClean = t.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, "").trim();
+                  var isPureService = item.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean));
+                  if (isPureService) return;
+
+                  hasRoomingDayLodging = true;
 
                   if (!foundRoomingReg && itemReg && itemReg !== "-" && itemReg !== "---") {
                     foundRoomingReg = itemReg;
                   }
                   var p = parseFloat(item.price) || 0;
                   var q = parseInt(item.qty, 10) || 1;
-                  var t = String(item.type || item.roomType || "").toUpperCase();
                   if (!t.includes("GRATUIDAD")) {
                     roomingDaySum += (p * q);
                   }
-                  hasRoomingDayLodging = true;
+
+                  var roomClass = classifyRoomByOccupancy(tClean, q);
+                  var itemPax = parseInt(item.pax, 10);
+                  var effPax = !isNaN(itemPax) && itemPax > 0 ? itemPax : roomClass.persPerRoom;
+                  roomingPax += (q * effPax);
+                  roomingTotalRooms += q;
+
+                  if (roomClass.category === "individual") {
+                    roomingInd += q;
+                  } else if (roomClass.category === "triple") {
+                    roomingTpl += q;
+                  } else if (roomClass.category === "cuadruple") {
+                    roomingCua += q;
+                  } else {
+                    roomingDbl += q;
+                  }
                 }
               });
             }
           } catch (e) {}
         }
       });
+
+      if (hasRoomingDayLodging && roomingTotalRooms > 0) {
+        if (roomingPax > 0) {
+          entry.pax = roomingPax;
+        }
+        var isCumbriaHotel = entry.hotel && (
+          normalizeHotelName(entry.hotel) === "Cumbria Spa&Hotel" ||
+          entry.hotel.toLowerCase().includes("cumbria")
+        );
+        activeDist = {
+          individuales: roomingInd,
+          dobles: roomingDbl,
+          triples: roomingTpl,
+          cuadruples: isCumbriaHotel ? 0 : roomingCua,
+          totalHabitaciones: roomingTotalRooms
+        };
+        status = "confirmada";
+        isDefinitive = true;
+        revisionReasons = [];
+        previousDistribution = null;
+      }
 
       var finalRegimen = "---";
       if (foundRoomingReg) {
@@ -754,11 +802,58 @@
         hasExcelDiff = true;
         excelDiffReasons.push("Régimen: Ficha (" + (foundRoomingReg || finalRegimen) + ") vs Excel (" + excelRegimen + ")");
       }
+      var totalStayRoomingSum = 0;
+      var totalStayExcelSum = 0;
+      var seenStayRooming = new Set();
+      (entry.contributingLines || []).forEach(function (cl) {
+        var impVal = cl.importe;
+        var imp = 0;
+        if (typeof impVal === "number") {
+          imp = isNaN(impVal) ? 0 : impVal;
+        } else if (impVal) {
+          var s = String(impVal).trim().replace(/€/g, "").replace(/\s/g, "");
+          if (s.includes(",") && s.includes(".")) {
+            s = (s.lastIndexOf(",") > s.lastIndexOf(".")) ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+          } else if (s.includes(",")) {
+            s = s.replace(",", ".");
+          }
+          var n = parseFloat(s);
+          imp = isNaN(n) ? 0 : n;
+        }
+        totalStayExcelSum += imp;
+
+        if (cl.roomingList) {
+          var rk = typeof cl.roomingList === "string" ? cl.roomingList.trim() : JSON.stringify(cl.roomingList);
+          if (rk && rk !== "[]" && rk !== "{}" && !seenStayRooming.has(rk)) {
+            seenStayRooming.add(rk);
+            try {
+              var rArr = typeof cl.roomingList === "string" ? JSON.parse(cl.roomingList) : cl.roomingList;
+              if (Array.isArray(rArr)) {
+                rArr.forEach(function(rm) {
+                  var p = parseFloat(rm.total !== undefined ? rm.total : (parseFloat(rm.price) * (parseInt(rm.qty, 10) || 1) * (parseInt(rm.nights, 10) || 1))) || 0;
+                  totalStayRoomingSum += p;
+                });
+              }
+            } catch(e) {}
+          }
+        }
+      });
+      totalStayExcelSum = Math.round(totalStayExcelSum * 100) / 100;
+      totalStayRoomingSum = Math.round(totalStayRoomingSum * 100) / 100;
+
       if (hasRoomingDayLodging && roomingDaySum > 0 && excelDayAmount > 0) {
-        var diffAmt = Math.abs(roomingDaySum - excelDayAmount);
-        if (diffAmt > 1.0) {
-          hasExcelDiff = true;
-          excelDiffReasons.push("Importe día: Ficha (" + roomingDaySum.toFixed(2) + " €) vs Excel (" + excelDayAmount.toFixed(2) + " €)");
+        if (totalStayRoomingSum > 0 && totalStayExcelSum > 0) {
+          var totalDiff = Math.abs(totalStayRoomingSum - totalStayExcelSum);
+          if (totalDiff > 1.0) {
+            hasExcelDiff = true;
+            excelDiffReasons.push("Importe reserva: Ficha (" + totalStayRoomingSum.toFixed(2) + " €) vs Excel (" + totalStayExcelSum.toFixed(2) + " €)");
+          }
+        } else {
+          var diffAmt = Math.abs(roomingDaySum - excelDayAmount);
+          if (diffAmt > 1.0) {
+            hasExcelDiff = true;
+            excelDiffReasons.push("Importe día: Ficha (" + roomingDaySum.toFixed(2) + " €) vs Excel (" + excelDayAmount.toFixed(2) + " €)");
+          }
         }
       }
 

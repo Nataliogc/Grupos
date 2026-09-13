@@ -469,6 +469,124 @@
       return fallbackHotel || rawValue || "Sercotel Guadiana";
     };
 
+    // Sincroniza y construye el mapa de DailyDistribution_JSON a partir del RoomingList_JSON,
+    // garantizando que las habitaciones, pax, régimen y estado reflejen fielmente la Ficha de Grupo.
+    const buildDailyDistributionFromRoomingList = (list, existingDistMap = {}, hotel = "") => {
+      if (!Array.isArray(list)) return existingDistMap || {};
+      const toDateFn = typeof toInputDate === "function"
+        ? toInputDate
+        : (window.NexusUtils && window.NexusUtils.toInputDate) || ((v) => String(v || "").split("T")[0]);
+
+      let result = {};
+      if (existingDistMap) {
+        try {
+          result = typeof existingDistMap === "string" ? JSON.parse(existingDistMap) : { ...existingDistMap };
+        } catch (e) {
+          result = {};
+        }
+      }
+
+      const isCumbriaHotel = normalizeHotelNameLocal(hotel, "Sercotel Guadiana") === "Cumbria Spa&Hotel" ||
+        String(hotel || "").toLowerCase().includes("cumbria");
+
+      const expanded = expandRoomListByDays(list);
+      const byDate = {};
+
+      expanded.forEach((rm) => {
+        const f = toDateFn(rm.dateIn || rm.date);
+        if (!f) return;
+        if (!byDate[f]) byDate[f] = [];
+        byDate[f].push(rm);
+      });
+
+      if (list.length === 0) {
+        return result;
+      }
+
+      Object.keys(byDate).forEach((dateStr) => {
+        const dayRooms = byDate[dateStr];
+        let ind = 0, dbl = 0, tpl = 0, cua = 0, totalRooms = 0, pax = 0;
+        let freeInd = 0, freeDbl = 0, freeTpl = 0, freeCua = 0;
+        let foundReg = null;
+
+        dayRooms.forEach((rm) => {
+          const itype = String(rm.type || rm.roomType || "").toUpperCase();
+          const tClean = itype.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, "").trim();
+          const isPureService = rm.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean));
+          if (isPureService) return;
+
+          const qty = parseInt(rm.qty, 10) || 1;
+          const price = parseFloat(rm.price) || 0;
+          const isGratuity = itype.includes("GRATUIDAD") || price === 0 || isNaN(price);
+
+          if (!foundReg && rm.regime && rm.regime !== "-" && rm.regime !== "---") {
+            foundReg = rm.regime;
+          }
+
+          totalRooms += qty;
+
+          if (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI")) {
+            ind += qty;
+            pax += qty * 1;
+            if (isGratuity) freeInd += qty;
+          } else if (itype.includes("DBL") || itype.includes("DOBLE") || itype.includes("TWIN") || itype.includes("MATRI")) {
+            dbl += qty;
+            pax += qty * 2;
+            if (isGratuity) freeDbl += qty;
+          } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
+            tpl += qty;
+            pax += qty * 3;
+            if (isGratuity) freeTpl += qty;
+          } else if (itype.includes("CUA") || itype.includes("CUAD")) {
+            if (isCumbriaHotel) {
+              tpl += qty;
+              pax += qty * 3;
+              if (isGratuity) freeTpl += qty;
+            } else {
+              cua += qty;
+              pax += qty * 4;
+              if (isGratuity) freeCua += qty;
+            }
+          } else if (itype.includes("SUITE")) {
+            dbl += qty;
+            pax += qty * 2;
+            if (isGratuity) freeDbl += qty;
+          } else {
+            dbl += qty;
+            pax += qty * 2;
+            if (isGratuity) freeDbl += qty;
+          }
+        });
+
+        if (totalRooms > 0) {
+          const prevForDate = result[dateStr] || {};
+          result[dateStr] = {
+            ...prevForDate,
+            individuales: ind,
+            dobles: dbl,
+            triples: tpl,
+            cuadruples: cua,
+            totalHabitaciones: totalRooms,
+            pax: pax,
+            regimen: foundReg || prevForDate.regimen || "HD",
+            status: "confirmada",
+            isDefinitive: true,
+            revisionReasons: [],
+            previousDistribution: null,
+            validationSnapshot: null,
+            gratuities: prevForDate.gratuities || (freeInd + freeDbl + freeTpl + freeCua > 0 ? {
+              individuales: freeInd,
+              dobles: freeDbl,
+              triples: freeTpl,
+              cuadruples: freeCua
+            } : prevForDate.gratuities)
+          };
+        }
+      });
+
+      return result;
+    };
+
     const BudgetManager = ({ data, openFicha, formatDate }) => {
 
       const [searchTerm, setSearchTerm] = React.useState("");
@@ -4707,29 +4825,91 @@
         const totalInitialFree = initialFreeInd + initialFreeDbl + initialFreeTpl + initialFreeCua;
         // ────────────────────────────────────────────────────────────────────
 
+        // Sincronizar directamente con habitaciones de la Ficha de Grupo (RoomingList_JSON) para esta fecha
+        const expandedRL = expandRoomListByDays(existingRL);
+        const dayRooms = expandedRL.filter(item => {
+          if (item.isService) return false;
+          const iDate = toInputDate(item.dateIn || item.date);
+          return iDate && iDate === dailyItem.fecha;
+        });
+
+        let rlInd = 0, rlDbl = 0, rlTpl = 0, rlCua = 0, rlPax = 0, rlRooms = 0;
+        let rlRegime = null;
+        dayRooms.forEach(item => {
+          const itype = String(item.type || item.roomType || "").toUpperCase();
+          const tClean = itype.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, "").trim();
+          const isPureService = item.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean));
+          if (isPureService) return;
+
+          const qty = parseInt(item.qty, 10) || 1;
+          if (item.regime && item.regime !== "-" && item.regime !== "---" && !rlRegime) {
+            rlRegime = item.regime;
+          }
+
+          rlRooms += qty;
+
+          if (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI")) {
+            rlInd += qty;
+            rlPax += qty * 1;
+          } else if (itype.includes("DBL") || itype.includes("DOBLE") || itype.includes("TWIN") || itype.includes("MATRI")) {
+            rlDbl += qty;
+            rlPax += qty * 2;
+          } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
+            rlTpl += qty;
+            rlPax += qty * 3;
+          } else if (itype.includes("CUA") || itype.includes("CUAD")) {
+            if (isCumbriaHotel) {
+              rlTpl += qty;
+              rlPax += qty * 3;
+            } else {
+              rlCua += qty;
+              rlPax += qty * 4;
+            }
+          } else if (itype.includes("SUITE")) {
+            rlDbl += qty;
+            rlPax += qty * 2;
+          } else {
+            rlDbl += qty;
+            rlPax += qty * 2;
+          }
+        });
+
+        const hasFichaRooms = rlRooms > 0;
+        if (hasFichaRooms) {
+          currentInd = rlInd;
+          currentDbl = rlDbl;
+          currentTpl = rlTpl;
+          currentCua = rlCua;
+          if (rlRegime) resolvedRegimen = rlRegime;
+        }
+
         // Obtener el régimen real de este día: Ficha de Grupo (RoomingList_JSON) tiene máxima prioridad
         let resolvedRegimen = null;
-        const roomingThisDate = existingRL.find(item => !item.isService && toInputDate(item.dateIn || item.date) === dailyItem.fecha && item.regime && item.regime !== "-");
-        if (roomingThisDate) {
-          resolvedRegimen = roomingThisDate.regime;
-        } else if (dailyItem.regimen && dailyItem.regimen !== "---" && dailyItem.regimen !== "-") {
-          resolvedRegimen = dailyItem.regimen;
-        } else if (matchRow?.DailyDistribution_JSON) {
-          try {
-            const distMap = typeof matchRow.DailyDistribution_JSON === "string"
-              ? JSON.parse(matchRow.DailyDistribution_JSON)
-              : matchRow.DailyDistribution_JSON;
-            if (distMap?.[dailyItem.fecha]?.regimen) {
-              resolvedRegimen = distMap[dailyItem.fecha].regimen;
-            }
-          } catch(e) {}
-        }
-        if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
-          const anyValidItem = existingRL.find(item => !item.isService && item.regime && item.regime !== "-");
-          if (anyValidItem) resolvedRegimen = anyValidItem.regime;
-        }
-        if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
-          resolvedRegimen = "HD";
+        if (rlRegime) {
+          resolvedRegimen = rlRegime;
+        } else {
+          const roomingThisDate = existingRL.find(item => !item.isService && toInputDate(item.dateIn || item.date) === dailyItem.fecha && item.regime && item.regime !== "-");
+          if (roomingThisDate) {
+            resolvedRegimen = roomingThisDate.regime;
+          } else if (dailyItem.regimen && dailyItem.regimen !== "---" && dailyItem.regimen !== "-") {
+            resolvedRegimen = dailyItem.regimen;
+          } else if (matchRow?.DailyDistribution_JSON) {
+            try {
+              const distMap = typeof matchRow.DailyDistribution_JSON === "string"
+                ? JSON.parse(matchRow.DailyDistribution_JSON)
+                : matchRow.DailyDistribution_JSON;
+              if (distMap?.[dailyItem.fecha]?.regimen) {
+                resolvedRegimen = distMap[dailyItem.fecha].regimen;
+              }
+            } catch(e) {}
+          }
+          if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
+            const anyValidItem = existingRL.find(item => !item.isService && item.regime && item.regime !== "-");
+            if (anyValidItem) resolvedRegimen = anyValidItem.regime;
+          }
+          if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
+            resolvedRegimen = "HD";
+          }
         }
 
         setDistributionFormError(null);
@@ -4738,7 +4918,7 @@
           reserva: dailyItem.reserva,
           nombreGrupo: dailyItem.nombreGrupo,
           fecha: dailyItem.fecha,
-          pax: dailyItem.pax,
+          pax: hasFichaRooms ? rlPax : dailyItem.pax,
           regimen: resolvedRegimen,
           proposal: proposal,
           individuales: currentInd,
@@ -4751,9 +4931,9 @@
           gratuitiesCua: initialFreeCua,
           gratuitiesCount: totalInitialFree,
           observations: dailyItem.observations || "",
-          status: dailyItem.distributionStatus || "propuesta",
-          revisionReasons: dailyItem.revisionReasons || [],
-          previousDistribution: dailyItem.previousDistribution || null,
+          status: hasFichaRooms ? "confirmada" : (dailyItem.distributionStatus || "propuesta"),
+          revisionReasons: hasFichaRooms ? [] : (dailyItem.revisionReasons || []),
+          previousDistribution: hasFichaRooms ? null : (dailyItem.previousDistribution || null),
           applyToAllHomogeneous: false
         });
       };
@@ -9285,8 +9465,27 @@
 
         }
 
-        // 1. Optimistic UI Update
+        // Sincronizar automáticamente DailyDistribution_JSON cuando se actualiza RoomingList_JSON
+        if (updates.RoomingList_JSON) {
+          try {
+            const parsedRL = parseRoomingListSafe(updates.RoomingList_JSON, "metadata-rooming-sync");
+            if (Array.isArray(parsedRL)) {
+              const firstRow = currentGroupRows[0] || {};
+              const currentDailyDist = updates.DailyDistribution_JSON 
+                ? (typeof updates.DailyDistribution_JSON === "string" ? JSON.parse(updates.DailyDistribution_JSON) : updates.DailyDistribution_JSON)
+                : (firstRow.DailyDistribution_JSON 
+                    ? (typeof firstRow.DailyDistribution_JSON === "string" ? JSON.parse(firstRow.DailyDistribution_JSON) : firstRow.DailyDistribution_JSON)
+                    : {});
+              const hotelTarget = updates.Hotel_Asignado || updates.Hotel || firstRow.Hotel_Asignado || firstRow.Hotel || "";
+              const syncedDist = buildDailyDistributionFromRoomingList(parsedRL, currentDailyDist, hotelTarget);
+              updates.DailyDistribution_JSON = JSON.stringify(syncedDist);
+            }
+          } catch (syncErr) {
+            console.error("Error auto-syncing DailyDistribution_JSON in updateGroupMetadata:", syncErr);
+          }
+        }
 
+        // 1. Optimistic UI Update
         setData((prevData) => {
 
           return prevData.map((row) => {
@@ -10085,7 +10284,7 @@
         const newTotalPax = calculateMaxDailyOccupancy(currentList);
         const newTotalRooms = calculateMaxDailyRooms(currentList);
 
-        // Sincronizar DailyDistribution_JSON con los regímenes de cada día según el rooming list
+        // Sincronizar DailyDistribution_JSON completamente con el rooming list
         let updatedDailyDistMap = null;
         if (currentRecord.DailyDistribution_JSON) {
           try {
@@ -10094,19 +10293,8 @@
               : { ...currentRecord.DailyDistribution_JSON };
           } catch (e) {}
         }
-        if (!updatedDailyDistMap) updatedDailyDistMap = {};
-
-        const expandedRL = expandRoomListByDays(currentList);
-        expandedRL.forEach((rm) => {
-          if (rm.isService) return;
-          const f = toInputDate(rm.dateIn || rm.date);
-          if (f) {
-            if (!updatedDailyDistMap[f]) updatedDailyDistMap[f] = {};
-            if (rm.regime && rm.regime !== "-") {
-              updatedDailyDistMap[f].regimen = rm.regime;
-            }
-          }
-        });
+        const hotelTarget = currentRecord.Hotel_Asignado || currentRecord.Hotel || selectedGroupFicha?.hotel || "";
+        updatedDailyDistMap = buildDailyDistributionFromRoomingList(currentList, updatedDailyDistMap || {}, hotelTarget);
 
         const firstValidRegime = currentList.find(r => !r.isService && r.regime && r.regime !== "-")?.regime;
         const updatePayload = {
@@ -20594,17 +20782,8 @@
                                     }
 
                                     if (Array.isArray(currentRL) && currentRL.length > 0) {
-                                      const expandedRL = expandRoomListByDays(currentRL);
-                                      expandedRL.forEach((rm) => {
-                                        if (rm.isService) return;
-                                        const f = toInputDate(rm.dateIn || rm.date);
-                                        if (f) {
-                                          if (!distMap[f]) distMap[f] = {};
-                                          if (rm.regime && rm.regime !== "-") {
-                                            distMap[f].regimen = rm.regime;
-                                          }
-                                        }
-                                      });
+                                      const hotelTarget = currentRec.Hotel_Asignado || currentRec.Hotel || selectedGroupFicha?.hotel || "";
+                                      distMap = buildDailyDistributionFromRoomingList(currentRL, distMap, hotelTarget);
                                       const firstValidRegime = currentRL.find(r => !r.isService && r.regime && r.regime !== "-")?.regime;
                                       const savePayload = {
                                         RoomingList_JSON: JSON.stringify(currentRL),
