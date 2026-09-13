@@ -5099,10 +5099,10 @@
           const freeTplVal = Math.min(finalTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
           const freeCuaVal = Math.min(finalCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
 
-          const priceIndVal = parseFloat(editingDistribution.priceInd) || 0;
-          const priceDblVal = parseFloat(editingDistribution.priceDbl) || 0;
-          const priceTplVal = parseFloat(editingDistribution.priceTpl) || 0;
-          const priceCuaVal = parseFloat(editingDistribution.priceCua) || 0;
+          const priceIndVal = parseNum(editingDistribution.priceInd) || 0;
+          const priceDblVal = parseNum(editingDistribution.priceDbl) || 0;
+          const priceTplVal = parseNum(editingDistribution.priceTpl) || 0;
+          const priceCuaVal = parseNum(editingDistribution.priceCua) || 0;
 
           const payingInd = Math.max(0, finalInd - freeIndVal);
           const payingDbl = Math.max(0, finalDbl - freeDblVal);
@@ -5142,11 +5142,59 @@
 
           existingDistMap[editingDistribution.fecha] = newEntry;
 
-          // Si seleccionó aplicar a todo el tramo homogéneo con el mismo pax:
+          // 1. Obtener items existentes de la Ficha (desde la ficha activa si está abierta o de primaryDoc)
+          const existingRoomingRaw = (selectedGroupFicha && normalizeId(selectedGroupFicha.id) === targetResId && selectedGroupFicha.RoomingList_JSON)
+            ? selectedGroupFicha.RoomingList_JSON
+            : primaryDoc?.RoomingList_JSON;
+          const existingRooming = existingRoomingRaw ? parseRoomingListSafe(existingRoomingRaw, "dist-save-preserve") : [];
+          const hasExistingLodging = existingRooming.some((i) => !i.isService);
+
+          // Fechas a las que aplica esta distribución
+          const targetDates = new Set();
           if (editingDistribution.applyToAllHomogeneous) {
-            const allDatesOfRes = dailyOccupancyList.filter((d) => d.reserva === editingDistribution.reserva && d.pax === editingDistribution.pax);
-            allDatesOfRes.forEach((d) => {
-              existingDistMap[d.fecha] = { ...newEntry };
+            const normTargetRes = normalizeId(editingDistribution.reserva);
+            const targetPaxNum = parseInt(editingDistribution.pax, 10) || 0;
+
+            // a. Fechas desde dailyOccupancyList que coincidan con la reserva
+            (dailyOccupancyList || []).forEach((d) => {
+              if (normalizeId(d.reserva) === normTargetRes) {
+                const dPaxNum = parseInt(d.pax, 10) || 0;
+                if (targetPaxNum <= 0 || dPaxNum <= 0 || dPaxNum === targetPaxNum) {
+                  targetDates.add(d.fecha);
+                }
+              }
+            });
+
+            // b. Fechas presentes en el RoomingList actual de la reserva
+            existingRooming.forEach((rm) => {
+              const f = toInputDate(rm.dateIn || rm.date);
+              if (f) targetDates.add(f);
+            });
+
+            // c. Fechas desde matchingRows (rango Entrada - Salida)
+            matchingRows.forEach((r) => {
+              const inD = toInputDate(r["Entrada"]);
+              const outD = toInputDate(r["Salida"]);
+              if (inD && outD) {
+                try {
+                  let cur = new Date(inD + "T00:00:00");
+                  const end = new Date(outD + "T00:00:00");
+                  while (cur < end) {
+                    targetDates.add(cur.toISOString().split("T")[0]);
+                    cur.setDate(cur.getDate() + 1);
+                  }
+                } catch (e) {}
+              }
+            });
+          }
+          if (editingDistribution.fecha) {
+            targetDates.add(editingDistribution.fecha);
+          }
+
+          // Replicar en existingDistMap para todas las fechas destino
+          if (editingDistribution.applyToAllHomogeneous) {
+            targetDates.forEach((fStr) => {
+              existingDistMap[fStr] = { ...newEntry };
             });
           }
 
@@ -5158,20 +5206,6 @@
             const firstR = matchingRows[0] || {};
             const hotelName = normalizeHotelNameLocal(firstR["Hotel_Asignado"] || firstR["Hotel"] || editingDistribution.hotel, "Sercotel Guadiana");
             const totImp = parseNum(firstR["Importe(*)"]) || 0;
-
-            // Fechas a las que aplica esta distribución
-            const targetDates = new Set();
-            if (editingDistribution.applyToAllHomogeneous) {
-              const allDatesOfRes = dailyOccupancyList.filter((d) => d.reserva === editingDistribution.reserva && d.pax === editingDistribution.pax);
-              allDatesOfRes.forEach((d) => targetDates.add(d.fecha));
-            } else {
-              targetDates.add(editingDistribution.fecha);
-            }
-
-            // 1. Obtener items existentes de la Ficha
-            const existingRoomingRaw = primaryDoc?.RoomingList_JSON;
-            const existingRooming = existingRoomingRaw ? parseRoomingListSafe(existingRoomingRaw, "dist-save-preserve") : [];
-            const hasExistingLodging = existingRooming.some((i) => !i.isService);
 
             // Función auxiliar para calcular día siguiente
             const getNextDate = (dStr) => {
@@ -10562,6 +10596,162 @@
         });
       };
 
+      const handleReplicatePricesFromDay = (sourceDayKey) => {
+        if (!selectedGroupFicha) return;
+        const currentRecord = selectedGroupFicha?.records?.[0] || {};
+        let currentList = [];
+        try {
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "replicate-prices");
+        } catch (e) {
+          currentList = [];
+        }
+        if (!Array.isArray(currentList) || currentList.length === 0) return;
+
+        // 1. Obtener los precios por tipo de habitación del día de origen (sourceDayKey)
+        const sourceItems = currentList.filter((item) => {
+          const d = toInputDate(item.dateIn || item.date);
+          return d === sourceDayKey;
+        });
+
+        if (sourceItems.length === 0) {
+          if (window.Swal) {
+            window.Swal.fire({
+              icon: "warning",
+              title: "Sin líneas",
+              text: "No hay líneas en este día para copiar precios."
+            });
+          }
+          return;
+        }
+
+        // Mapear precios por categoría (INDIV, DBL, TPL, CUA)
+        const sourcePricesByCategory = {};
+        const sourcePricesByTypeExact = {};
+
+        sourceItems.forEach((it) => {
+          if (it.isService) return;
+          const p = parseNum(it.price) || 0;
+          const t = String(it.type || it.roomType || "").toUpperCase();
+          const isGrat = t.includes("GRATUIDAD") || p === 0;
+          if (!isGrat && p > 0) {
+            sourcePricesByTypeExact[t] = p;
+            if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) {
+              sourcePricesByCategory["INDIV"] = p;
+            } else if (t.includes("DBL") || t.includes("DOBLE")) {
+              sourcePricesByCategory["DBL"] = p;
+            } else if (t.includes("TPL") || t.includes("TRIPLE")) {
+              sourcePricesByCategory["TPL"] = p;
+            } else if (t.includes("CUA") || t.includes("CUAD")) {
+              sourcePricesByCategory["CUA"] = p;
+            }
+          }
+        });
+
+        if (Object.keys(sourcePricesByCategory).length === 0 && Object.keys(sourcePricesByTypeExact).length === 0) {
+          if (window.Swal) {
+            window.Swal.fire({
+              icon: "info",
+              title: "Sin precios",
+              text: "No se encontraron habitaciones con precio superior a 0 € en este día para replicar."
+            });
+          }
+          return;
+        }
+
+        // 2. Replicar a todos los días de la estancia en RoomingList_JSON
+        let updatedCount = 0;
+        const updatedList = currentList.map((item) => {
+          if (item.isService) return item;
+          const itemDay = toInputDate(item.dateIn || item.date);
+          if (itemDay === sourceDayKey) return item;
+
+          const t = String(item.type || item.roomType || "").toUpperCase();
+          const isGrat = t.includes("GRATUIDAD") || (parseNum(item.price) === 0 && item.isGratuity);
+          if (isGrat) return item;
+
+          let targetPrice = null;
+          if (sourcePricesByTypeExact[t] !== undefined) {
+            targetPrice = sourcePricesByTypeExact[t];
+          } else if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) {
+            targetPrice = sourcePricesByCategory["INDIV"];
+          } else if (t.includes("DBL") || t.includes("DOBLE")) {
+            targetPrice = sourcePricesByCategory["DBL"];
+          } else if (t.includes("TPL") || t.includes("TRIPLE")) {
+            targetPrice = sourcePricesByCategory["TPL"];
+          } else if (t.includes("CUA") || t.includes("CUAD")) {
+            targetPrice = sourcePricesByCategory["CUA"];
+          }
+
+          if (targetPrice !== null && targetPrice !== undefined && targetPrice > 0) {
+            const qty = parseFloat(item.qty) || 1;
+            const nights = parseFloat(item.nights) || 1;
+            const newTot = qty * nights * targetPrice;
+            updatedCount++;
+            return {
+              ...item,
+              price: targetPrice.toFixed(2),
+              total: newTot.toFixed(2)
+            };
+          }
+          return item;
+        });
+
+        // 3. Replicar también en DailyDistribution_JSON si existe
+        let updatedDistJson = undefined;
+        try {
+          const rawDist = currentRecord["DailyDistribution_JSON"];
+          if (rawDist) {
+            const distMap = typeof rawDist === "string" ? JSON.parse(rawDist) : { ...rawDist };
+            let distChanged = false;
+            Object.keys(distMap).forEach((k) => {
+              const entry = distMap[k];
+              if (entry && typeof entry === "object") {
+                entry.prices = entry.prices || {};
+                if (sourcePricesByCategory["INDIV"]) entry.prices.individuales = sourcePricesByCategory["INDIV"];
+                if (sourcePricesByCategory["DBL"]) entry.prices.dobles = sourcePricesByCategory["DBL"];
+                if (sourcePricesByCategory["TPL"]) entry.prices.triples = sourcePricesByCategory["TPL"];
+                if (sourcePricesByCategory["CUA"]) entry.prices.cuadruples = sourcePricesByCategory["CUA"];
+
+                const indP = Math.max(0, (entry.individuales || 0) - (entry.gratuities?.individuales || 0));
+                const dblP = Math.max(0, (entry.dobles || 0) - (entry.gratuities?.dobles || 0));
+                const tplP = Math.max(0, (entry.triples || 0) - (entry.gratuities?.triples || 0));
+                const cuaP = Math.max(0, (entry.cuadruples || 0) - (entry.gratuities?.cuadruples || 0));
+                const dTot = (indP * (entry.prices.individuales || 0)) +
+                             (dblP * (entry.prices.dobles || 0)) +
+                             (tplP * (entry.prices.triples || 0)) +
+                             (cuaP * (entry.prices.cuadruples || 0));
+                if (dTot > 0) entry.dailyAmount = dTot;
+                distChanged = true;
+              }
+            });
+            if (distChanged) {
+              updatedDistJson = JSON.stringify(distMap);
+            }
+          }
+        } catch (e) {}
+
+        const newTotalSum = updatedList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+        const updatePayload = {
+          RoomingList_JSON: JSON.stringify(updatedList),
+          "Importe(*)": newTotalSum.toFixed(2)
+        };
+        if (updatedDistJson) {
+          updatePayload["DailyDistribution_JSON"] = updatedDistJson;
+        }
+
+        updateGroupMetadata(selectedGroupFicha.id, updatePayload);
+
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: "success",
+            title: "Precios Replicados",
+            text: `Se aplicaron los precios a ${updatedCount} habitación(es) del resto de la estancia. Nuevo importe total: ${newTotalSum.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+            timer: 2500,
+            showConfirmButton: false
+          });
+        }
+      };
+
       const handleMoveRoomItemWithinBucket = (bucket, fromIdx, toIdx) => {
         if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || !bucket || !bucket.items) return;
         if (fromIdx >= bucket.items.length || toIdx >= bucket.items.length) return;
@@ -14881,10 +15071,10 @@
                 ? window.BoardPricingService.getPricingForHotelAndDate(editingDistribution.hotel, editingDistribution.fecha, boardPricingConfig)
                 : { breakfast: 6.0, meal: 16.0 };
 
-              const pInd = parseFloat(editingDistribution.priceInd) || 0;
-              const pDbl = parseFloat(editingDistribution.priceDbl) || 0;
-              const pTpl = parseFloat(editingDistribution.priceTpl) || 0;
-              const pCua = parseFloat(editingDistribution.priceCua) || 0;
+              const pInd = parseNum(editingDistribution.priceInd) || 0;
+              const pDbl = parseNum(editingDistribution.priceDbl) || 0;
+              const pTpl = parseNum(editingDistribution.priceTpl) || 0;
+              const pCua = parseNum(editingDistribution.priceCua) || 0;
 
               const payingIndRooms = Math.max(0, curInd - freeInd);
               const payingDblRooms = Math.max(0, curDbl - freeDbl);
@@ -15126,10 +15316,9 @@
                                 💶 Precio (€/hab):
                               </label>
                               <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0,00"
                                 value={editingDistribution.priceInd !== undefined ? editingDistribution.priceInd : ""}
                                 onChange={(e) => setEditingDistribution({
                                   ...editingDistribution,
@@ -15139,7 +15328,7 @@
                                 title="Precio por habitación (€)"
                               />
                               <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
-                                Subtotal: {(payingIndRooms * (parseFloat(editingDistribution.priceInd) || 0)).toFixed(2)} €
+                                Subtotal: {(payingIndRooms * (parseNum(editingDistribution.priceInd) || 0)).toFixed(2)} €
                               </div>
                             </div>
                           </div>
@@ -15194,10 +15383,9 @@
                                 💶 Precio (€/hab):
                               </label>
                               <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0,00"
                                 value={editingDistribution.priceDbl !== undefined ? editingDistribution.priceDbl : ""}
                                 onChange={(e) => setEditingDistribution({
                                   ...editingDistribution,
@@ -15207,7 +15395,7 @@
                                 title="Precio por habitación (€)"
                               />
                               <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
-                                Subtotal: {(payingDblRooms * (parseFloat(editingDistribution.priceDbl) || 0)).toFixed(2)} €
+                                Subtotal: {(payingDblRooms * (parseNum(editingDistribution.priceDbl) || 0)).toFixed(2)} €
                               </div>
                             </div>
                           </div>
@@ -15262,10 +15450,9 @@
                                 💶 Precio (€/hab):
                               </label>
                               <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0,00"
                                 value={editingDistribution.priceTpl !== undefined ? editingDistribution.priceTpl : ""}
                                 onChange={(e) => setEditingDistribution({
                                   ...editingDistribution,
@@ -15275,7 +15462,7 @@
                                 title="Precio por habitación (€)"
                               />
                               <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
-                                Subtotal: {(payingTplRooms * (parseFloat(editingDistribution.priceTpl) || 0)).toFixed(2)} €
+                                Subtotal: {(payingTplRooms * (parseNum(editingDistribution.priceTpl) || 0)).toFixed(2)} €
                               </div>
                             </div>
                           </div>
@@ -15331,10 +15518,9 @@
                                   💶 Precio (€/hab):
                                 </label>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="0.00"
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0,00"
                                   value={editingDistribution.priceCua !== undefined ? editingDistribution.priceCua : ""}
                                   onChange={(e) => setEditingDistribution({
                                     ...editingDistribution,
@@ -15344,7 +15530,7 @@
                                   title="Precio por habitación (€)"
                                 />
                                 <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
-                                  Subtotal: {(payingCuaRooms * (parseFloat(editingDistribution.priceCua) || 0)).toFixed(2)} €
+                                  Subtotal: {(payingCuaRooms * (parseNum(editingDistribution.priceCua) || 0)).toFixed(2)} €
                                 </div>
                               </div>
                             </div>
@@ -19367,6 +19553,18 @@
                                                   >
                                                     <span className="text-xs font-bold leading-none">+</span>
                                                     <span>Insertar línea</span>
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleReplicatePricesFromDay(bucket.dayKey);
+                                                    }}
+                                                    className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                                                    title={`Replicar precios de habitaciones de este día (${formatDate(bucket.dayKey)}) a toda la estancia`}
+                                                  >
+                                                    <span className="text-xs font-bold leading-none">⚡</span>
+                                                    <span>Replicar precios</span>
                                                   </button>
                                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
                                                     isCollapsed
