@@ -790,6 +790,15 @@ var GroupsManager = function GroupsManager(_ref4) {
     searchTerm = _React$useState4[0],
     setSearchTerm = _React$useState4[1];
   var filteredData = data.filter(function (group) {
+    var res = String(group["Reserva"] || "").toUpperCase();
+    var uid = String(group.uid || group.id || "").toUpperCase();
+    var inSt = String(group["Com_Estado_Interno"] || "").toUpperCase();
+    var ext = String(group["Estado"] || "").toUpperCase();
+    var seg = String(group["Segment."] || "").toUpperCase();
+    var isBudget = group.isBudget === true || res.startsWith("PRES-") || uid.startsWith("PRES-") || ext.includes("PRESUP") || inSt.includes("PRESUP") || seg.includes("PRESUP");
+    if (isBudget && (inSt.includes("CADUC") || inSt.includes("DESESTIM") || inSt.includes("CANCEL") || inSt.includes("ANUL") || inSt.includes("BAJA") || ext.includes("CADUC") || ext.includes("DESESTIM") || ext.includes("CANCEL") || ext.includes("ANUL") || ext.includes("BAJA"))) {
+      return false;
+    }
     var term = searchTerm.toLowerCase();
     var name = (group["Nombre del Grupo"] || "").toLowerCase();
     var agency = (group["Empresa/Agencia"] || "").toLowerCase();
@@ -798,8 +807,8 @@ var GroupsManager = function GroupsManager(_ref4) {
   });
   var getStatusProps = function getStatusProps(status) {
     var s = (status || "").toUpperCase();
-    if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA") || s.includes("DESESTIMADO")) return {
-      label: "Anulado",
+    if (s.includes("ANUL") || s.includes("CANC") || s.includes("BAJA") || s.includes("DESESTIMADO") || s.includes("CADUC")) return {
+      label: s.includes("CADUC") ? "Caducado" : s.includes("CANC") ? "Cancelado" : "Desestimado",
       text: "text-rose-500 bg-rose-50",
       border: "border-rose-100"
     };

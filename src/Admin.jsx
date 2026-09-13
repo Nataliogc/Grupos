@@ -808,6 +808,16 @@
       const [searchTerm, setSearchTerm] = React.useState("");
 
       const filteredData = data.filter((group) => {
+        const res = String(group["Reserva"] || "").toUpperCase();
+        const uid = String(group.uid || group.id || "").toUpperCase();
+        const inSt = String(group["Com_Estado_Interno"] || "").toUpperCase();
+        const ext = String(group["Estado"] || "").toUpperCase();
+        const seg = String(group["Segment."] || "").toUpperCase();
+        const isBudget = (group.isBudget === true) || res.startsWith("PRES-") || uid.startsWith("PRES-") || ext.includes("PRESUP") || inSt.includes("PRESUP") || seg.includes("PRESUP");
+        if (isBudget && (inSt.includes("CADUC") || inSt.includes("DESESTIM") || inSt.includes("CANCEL") || inSt.includes("ANUL") || inSt.includes("BAJA") || ext.includes("CADUC") || ext.includes("DESESTIM") || ext.includes("CANCEL") || ext.includes("ANUL") || ext.includes("BAJA"))) {
+          return false;
+        }
+
         const term = searchTerm.toLowerCase();
         const name = (group["Nombre del Grupo"] || "").toLowerCase();
         const agency = (group["Empresa/Agencia"] || "").toLowerCase();
@@ -825,10 +835,11 @@
           s.includes("ANUL") ||
           s.includes("CANC") ||
           s.includes("BAJA") ||
-          s.includes("DESESTIMADO")
+          s.includes("DESESTIMADO") ||
+          s.includes("CADUC")
         )
           return {
-            label: "Anulado",
+            label: s.includes("CADUC") ? "Caducado" : (s.includes("CANC") ? "Cancelado" : "Desestimado"),
             text: "text-rose-500 bg-rose-50",
             border: "border-rose-100",
           };

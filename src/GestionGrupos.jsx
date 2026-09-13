@@ -2612,36 +2612,27 @@
 
 
 
-        // 0. CANCELADO / ANULADO / BAJA / DESESTIMADO (PREFERENCIA MÁXIMA)
-
+        // 0. CANCELADO / ANULADO / BAJA / DESESTIMADO / CADUCADO (PREFERENCIA MÁXIMA)
         if (
-
           s.includes("CANC") ||
-
           s.includes("ANUL") ||
-
           s.includes("BAJA") ||
-
           s.includes("DESESTIMADO") ||
-
+          s.includes("CADUC") ||
           e.includes("CANC") ||
-
           e.includes("ANUL") ||
-
           e.includes("BAJA") ||
-
-          e.includes("DESESTIMADO")
-
+          e.includes("DESESTIMADO") ||
+          e.includes("CADUC")
         )
-
           return {
-
             color: "bg-red-500/80",
-
             text: "bg-red-100 text-red-700",
-
-            label: "DESESTIMADO",
-
+            label: (s.includes("CADUC") || e.includes("CADUC"))
+              ? "CADUCADO"
+              : (s.includes("CANC") || e.includes("CANC"))
+              ? "CANCELADO"
+              : "DESESTIMADO",
           };
 
 
@@ -3428,7 +3419,7 @@
           if (!hasReserva) return false;
 
           const stateLabel = (row._stateLabel || "").toLowerCase();
-          if (stateLabel === "desestimado" || stateLabel === "cancelado") {
+          if (stateLabel === "desestimado" || stateLabel === "cancelado" || stateLabel === "caducado") {
             return false;
           }
 
@@ -3474,55 +3465,64 @@
           return true;
         });
 
+        // REGLA: Si un presupuesto está caducado, desestimado o cancelado, no debe aparecer en el directorio de grupos
+        filtered = filtered.filter(row => {
+          const res = String(row["Reserva"] || "").toUpperCase();
+          const uid = String(row.uid || row.id || "").toUpperCase();
+          const inSt = String(row["Com_Estado_Interno"] || "").toUpperCase();
+          const ext = String(row["Estado"] || "").toUpperCase();
+          const seg = String(row["Segment."] || "").toUpperCase();
 
+          const isBudget = (row.isBudget === true) ||
+            res.startsWith("PRES-") ||
+            uid.startsWith("PRES-") ||
+            ext.includes("PRESUP") ||
+            inSt.includes("PRESUP") ||
+            seg.includes("PRESUP");
+
+          if (isBudget) {
+            const isInactive = (
+              inSt.includes("CADUC") ||
+              inSt.includes("DESESTIM") ||
+              inSt.includes("CANCEL") ||
+              inSt.includes("ANUL") ||
+              inSt.includes("BAJA") ||
+              inSt.includes("RECHAZ") ||
+              inSt.includes("DESCART") ||
+              ext.includes("CADUC") ||
+              ext.includes("DESESTIM") ||
+              ext.includes("CANCEL") ||
+              ext.includes("ANUL") ||
+              ext.includes("BAJA")
+            );
+            if (isInactive) return false;
+          }
+          return true;
+        });
 
         // 0. Filtro de Validez (Reserva obligatoria) + Normalización de Segmentos
-
         filtered = filtered
-
           .filter(
-
             (row) =>
-
               (row["Reserva"] &&
-
                row["Reserva"].toString().trim() !== "" &&
-
                row["Reserva"].toString().trim() !== "-") ||
-
               (row["uid"] && row["uid"].toString().startsWith("PRES-"))
-
           )
-
           .map((row) => {
-
             let seg = (row["Segment."] || "").toString().trim().toUpperCase();
-
             if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") {
-
               return { ...row, "Segment.": "GRUPO TANTEO" };
-
             }
-
             return row;
-
           });
-
-
 
         const today = new Date().toISOString().split("T")[0];
 
-
-
         // 0. Filtro de Cambios Recientes (Importación)
-
         if (showOnlyChanges) {
-
           filtered = filtered.filter((row) => row._diff);
-
         }
-
-
 
         // 1. Filtro de Estado
         if (filterStatus !== "all") {
@@ -3531,13 +3531,13 @@
             const arrival = row._normArrival;
             const isPast = arrival && arrival < today;
 
-            if (filterStatus === "activos") return label !== "cancelado" && label !== "desestimado" && !isPast;
+            if (filterStatus === "activos") return label !== "cancelado" && label !== "desestimado" && label !== "caducado" && !isPast;
             if (filterStatus === "activos_y_desestimados") return !isPast;
             if (filterStatus === "confirmada") return label === "confirmado" && !isPast;
             if (filterStatus === "tentativa") return label === "tentativa" && !isPast;
             if (filterStatus === "presupuesto") return label === "presupuesto" && !isPast;
-            if (filterStatus === "desestimada") return label === "cancelado" || label === "desestimado";
-            if (filterStatus === "pasado") return isPast && label !== "cancelado" && label !== "desestimado";
+            if (filterStatus === "desestimada") return label === "cancelado" || label === "desestimado" || label === "caducado";
+            if (filterStatus === "pasado") return isPast && label !== "cancelado" && label !== "desestimado" && label !== "caducado";
             return true;
           });
         }
@@ -13787,6 +13787,19 @@
                             }) ||
                             statusText === "PRESUPUESTO"
                           );
+
+                          // REGLA: Si un presupuesto está caducado, desestimado o cancelado, no debe aparecer en el directorio de grupos
+                          if (isBudget) {
+                            const isDeadBudget = (
+                              statusText === "CADUCADO" ||
+                              statusText === "DESESTIMADO" ||
+                              statusText === "CANCELADO" ||
+                              statusText === "ANULADA" ||
+                              (internalSt && (internalSt.toUpperCase().includes("CADUC") || internalSt.toUpperCase().includes("DESESTIM") || internalSt.toUpperCase().includes("CANCEL") || internalSt.toUpperCase().includes("ANUL") || internalSt.toUpperCase().includes("BAJA"))) ||
+                              (externalSt && (externalSt.toUpperCase().includes("CADUC") || externalSt.toUpperCase().includes("DESESTIM") || externalSt.toUpperCase().includes("CANCEL") || externalSt.toUpperCase().includes("ANUL") || externalSt.toUpperCase().includes("BAJA")))
+                            );
+                            if (isDeadBudget) return null;
+                          }
 
                           const commercialName =
                             group.records?.find((r) => r["Com_Comercial"] || r["Comercial"])?.["Com_Comercial"] ||
