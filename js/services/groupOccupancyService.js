@@ -670,10 +670,10 @@
       });
 
       var finalRegimen = "---";
-      if (dateSaved && dateSaved.regimen && dateSaved.regimen !== "-" && dateSaved.regimen !== "---") {
-        finalRegimen = dateSaved.regimen;
-      } else if (foundRoomingReg) {
+      if (foundRoomingReg) {
         finalRegimen = foundRoomingReg;
+      } else if (dateSaved && dateSaved.regimen && dateSaved.regimen !== "-" && dateSaved.regimen !== "---") {
+        finalRegimen = dateSaved.regimen;
       } else if (entry.regimenSet && entry.regimenSet.size > 0) {
         finalRegimen = Array.from(entry.regimenSet).join(", ") || "---";
       } else if (anyRoomingReg) {
@@ -709,6 +709,57 @@
         });
       }
 
+      // Comparativa de diferencias con el archivo Excel original
+      var excelRegimen = "";
+      if (entry.regimenSet && entry.regimenSet.size > 0) {
+        excelRegimen = Array.from(entry.regimenSet).join(", ") || "";
+      }
+      var excelDayAmount = 0;
+      (entry.contributingLines || []).forEach(function (cl) {
+        var nch = Math.max(1, parseInt(cl.noches, 10) || 1);
+        var impVal = cl.importe;
+        var imp = 0;
+        if (typeof impVal === "number") {
+          imp = isNaN(impVal) ? 0 : impVal;
+        } else if (impVal) {
+          var s = String(impVal).trim().replace(/€/g, "").replace(/\s/g, "");
+          if (s.includes(",") && s.includes(".")) {
+            s = (s.lastIndexOf(",") > s.lastIndexOf(".")) ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+          } else if (s.includes(",")) {
+            s = s.replace(",", ".");
+          }
+          var n = parseFloat(s);
+          imp = isNaN(n) ? 0 : n;
+        }
+        excelDayAmount += (imp / nch);
+      });
+      excelDayAmount = Math.round(excelDayAmount * 100) / 100;
+
+      var hasExcelDiff = false;
+      var excelDiffReasons = [];
+      var normFichaReg = normalizeRegimenLocal(foundRoomingReg || finalRegimen);
+      var normExcelReg = normalizeRegimenLocal(excelRegimen);
+      if (normFichaReg && normExcelReg && normFichaReg !== normExcelReg) {
+        hasExcelDiff = true;
+        excelDiffReasons.push("Régimen: Ficha (" + (foundRoomingReg || finalRegimen) + ") vs Excel (" + excelRegimen + ")");
+      }
+      if (hasRoomingDayLodging && roomingDaySum > 0 && excelDayAmount > 0) {
+        var diffAmt = Math.abs(roomingDaySum - excelDayAmount);
+        if (diffAmt > 1.0) {
+          hasExcelDiff = true;
+          excelDiffReasons.push("Importe día: Ficha (" + roomingDaySum.toFixed(2) + " €) vs Excel (" + excelDayAmount.toFixed(2) + " €)");
+        }
+      }
+
+      var excelDifference = {
+        hasDiff: hasExcelDiff,
+        reasons: excelDiffReasons,
+        excelRegimen: excelRegimen,
+        fichaRegimen: foundRoomingReg || finalRegimen,
+        excelDayAmount: excelDayAmount,
+        fichaDayAmount: hasRoomingDayLodging ? (Math.round(roomingDaySum * 100) / 100) : dayAmount
+      };
+
       result.push({
         hotel: entry.hotel,
         reserva: entry.reserva,
@@ -728,6 +779,7 @@
         triples: activeDist.triples,
         cuadruples: activeDist.cuadruples,
         totalHabitaciones: activeDist.totalHabitaciones,
+        excelDifference: excelDifference,
         proposal: proposal,
         observations: observations,
         reviewedBy: reviewedBy,

@@ -4636,9 +4636,14 @@
         const totalInitialFree = initialFreeInd + initialFreeDbl + initialFreeTpl + initialFreeCua;
         // ────────────────────────────────────────────────────────────────────
 
-        // Obtener el régimen real de este día si existe en DailyDistribution_JSON o RoomingList_JSON
-        let resolvedRegimen = dailyItem.regimen;
-        if (matchRow?.DailyDistribution_JSON) {
+        // Obtener el régimen real de este día: Ficha de Grupo (RoomingList_JSON) tiene máxima prioridad
+        let resolvedRegimen = null;
+        const roomingThisDate = existingRL.find(item => !item.isService && toInputDate(item.dateIn || item.date) === dailyItem.fecha && item.regime && item.regime !== "-");
+        if (roomingThisDate) {
+          resolvedRegimen = roomingThisDate.regime;
+        } else if (dailyItem.regimen && dailyItem.regimen !== "---" && dailyItem.regimen !== "-") {
+          resolvedRegimen = dailyItem.regimen;
+        } else if (matchRow?.DailyDistribution_JSON) {
           try {
             const distMap = typeof matchRow.DailyDistribution_JSON === "string"
               ? JSON.parse(matchRow.DailyDistribution_JSON)
@@ -4647,10 +4652,6 @@
               resolvedRegimen = distMap[dailyItem.fecha].regimen;
             }
           } catch(e) {}
-        }
-        if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
-          const roomingThisDate = existingRL.find(item => !item.isService && toInputDate(item.dateIn || item.date) === dailyItem.fecha && item.regime && item.regime !== "-");
-          if (roomingThisDate) resolvedRegimen = roomingThisDate.regime;
         }
         if (!resolvedRegimen || resolvedRegimen === "---" || resolvedRegimen === "-") {
           const anyValidItem = existingRL.find(item => !item.isService && item.regime && item.regime !== "-");
@@ -4800,25 +4801,12 @@
 
           const jsonStringToSave = JSON.stringify(existingDistMap);
 
-          // Construir RoomingList sincronizado si la distribución está confirmada/modificada
-          let newRoomingItems = [];
+          // ── SINCRONIZACIÓN DE ROOMING LIST (LA FICHA MANDA) ────────────────
+          let roomingJsonToSave = null;
           if (finalStatus !== "pendiente" && (finalInd + finalDbl + finalTpl + finalCua) > 0) {
             const firstR = matchingRows[0] || {};
             const hotelName = normalizeHotelNameLocal(firstR["Hotel_Asignado"] || firstR["Hotel"] || editingDistribution.hotel, "Sercotel Guadiana");
             const totImp = parseNum(firstR["Importe(*)"]) || 0;
-
-            // Cantidades de gratuitas definidas explícitamente en el modal
-            const freeInd = Math.min(finalInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : editingDistribution.gratuitiesCount, 10) || 0);
-            const payingInd = Math.max(0, finalInd - freeInd);
-
-            const freeDbl = Math.min(finalDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
-            const payingDbl = Math.max(0, finalDbl - freeDbl);
-
-            const freeTpl = Math.min(finalTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
-            const payingTpl = Math.max(0, finalTpl - freeTpl);
-
-            const freeCua = Math.min(finalCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
-            const payingCua = Math.max(0, finalCua - freeCua);
 
             // Fechas a las que aplica esta distribución
             const targetDates = new Set();
@@ -4829,17 +4817,10 @@
               targetDates.add(editingDistribution.fecha);
             }
 
-            // 1. Obtener items existentes de la Ficha expandidos por día
+            // 1. Obtener items existentes de la Ficha
             const existingRoomingRaw = primaryDoc?.RoomingList_JSON;
             const existingRooming = existingRoomingRaw ? parseRoomingListSafe(existingRoomingRaw, "dist-save-preserve") : [];
-            const expandedExisting = expandRoomListByDays(existingRooming);
-
-            // 2. Conservar items de fechas NO afectadas (o que sean servicios/extras)
-            const keptItems = expandedExisting.filter((item) => {
-              if (item.isService) return true;
-              const iDate = toInputDate(item.dateIn || item.date);
-              return iDate && !targetDates.has(iDate);
-            });
+            const hasExistingLodging = existingRooming.some((i) => !i.isService);
 
             // Función auxiliar para calcular día siguiente
             const getNextDate = (dStr) => {
@@ -4857,223 +4838,276 @@
               return dStr;
             };
 
-            // 3. Generar líneas para cada fecha afectada preservando su régimen y precio existente
-            const generatedDayItems = [];
-            targetDates.forEach((dStr) => {
-              const nextDStr = getNextDate(dStr);
+            if (hasExistingLodging) {
+              // ── LA FICHA MANDA: PRESERVAR ÍNTEGRAMENTE PRECIOS Y REGÍMENES DE LA FICHA ──
+              // Si la Ficha ya tiene habitaciones definidas, NO RECALCULAR precios ni regenerar por fórmula.
+              const expandedExisting = expandRoomListByDays(existingRooming);
 
-              // Buscar líneas previas de alojamiento en este día específico
-              const prevLodgingThisDay = expandedExisting.filter((item) => {
-                if (item.isService) return false;
-                const iDate = toInputDate(item.dateIn || item.date);
-                return iDate === dStr;
+              // Comprobar si las cantidades de habitaciones cambiaron respecto a la Ficha
+              let quantitiesChanged = false;
+              targetDates.forEach((dStr) => {
+                const dayLodging = expandedExisting.filter((i) => !i.isService && toInputDate(i.dateIn || i.date) === dStr);
+                let indCount = 0, dblCount = 0, tplCount = 0, cuaCount = 0;
+                dayLodging.forEach((it) => {
+                  const t = String(it.type || it.roomType || "").toUpperCase();
+                  const q = parseInt(it.qty, 10) || 1;
+                  if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) indCount += q;
+                  else if (t.includes("DBL") || t.includes("DOBLE")) dblCount += q;
+                  else if (t.includes("TPL") || t.includes("TRIPLE")) tplCount += q;
+                  else if (t.includes("CUA") || t.includes("CUAD")) cuaCount += q;
+                });
+                if (indCount !== finalInd || dblCount !== finalDbl || tplCount !== finalTpl || cuaCount !== finalCua) {
+                  quantitiesChanged = true;
+                }
               });
 
-              // Régimen para este día: si dStr es la fecha que se está editando, usar editingDistribution.regimen
-              let dayReg = (dStr === editingDistribution.fecha)
-                ? (editingDistribution.regimen || "HD")
-                : (existingDistMap[dStr]?.regimen || prevLodgingThisDay.find((i) => i.regime && i.regime !== "-")?.regime || editingDistribution.regimen || "HD");
-
-              // Preservar precios unitarios existentes para cada tipo en este día ajustando por régimen si difiere
-              const getExistingUnitPrice = (typeKeyword) => {
-                const match = prevLodgingThisDay.find((i) => {
-                  const t = String(i.type || i.roomType || "").toUpperCase();
-                  return t.includes(typeKeyword) && !t.includes("GRATUIDAD") && parseFloat(i.price) > 0;
+              if (!quantitiesChanged) {
+                // Las cantidades coinciden: no tocar RoomingList_JSON en absoluto. La Ficha queda intacta.
+                roomingJsonToSave = null;
+              } else {
+                // Cantidades cambiadas expresamente en el modal: actualizar 'qty' respetando precios y regímenes de la Ficha
+                const keptItems = expandedExisting.filter((item) => {
+                  if (item.isService) return true;
+                  const iDate = toInputDate(item.dateIn || item.date);
+                  return iDate && !targetDates.has(iDate);
                 });
-                if (!match) return null;
-                const prevP = parseFloat(match.price);
-                const prevR = match.regime;
-                if (!prevR || prevR === "-" || prevR === dayReg) return prevP;
-                if (window.BoardPricingService) {
-                  const oldCounts = window.BoardPricingService.getMealCounts(prevR);
-                  const newCounts = window.BoardPricingService.getMealCounts(dayReg);
-                  const pConf = window.BoardPricingService.getPricingForHotelAndDate(hotelName, dStr, boardPricingConfig);
-                  const bCost = typeof pConf.breakfast === "number" ? pConf.breakfast : 6.0;
-                  const mCost = typeof pConf.meal === "number" ? pConf.meal : 16.0;
-                  const deltaPerPax = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((newCounts.meals - oldCounts.meals) * mCost);
-                  const pCount = typeKeyword.includes("INDIV") ? 1 : (typeKeyword.includes("DBL") ? 2 : (typeKeyword.includes("TPL") ? 3 : 4));
-                  return Math.max(0, Math.round((prevP + (deltaPerPax * pCount)) * 100) / 100);
+
+                const generatedDayItems = [];
+                targetDates.forEach((dStr) => {
+                  const nextDStr = getNextDate(dStr);
+                  const prevLodgingThisDay = expandedExisting.filter((item) => {
+                    if (item.isService) return false;
+                    const iDate = toInputDate(item.dateIn || item.date);
+                    return iDate === dStr;
+                  });
+
+                  const getExistingItem = (typeKeyword, isGratuity) => {
+                    return prevLodgingThisDay.find((i) => {
+                      const t = String(i.type || i.roomType || "").toUpperCase();
+                      const matchType = t.includes(typeKeyword);
+                      const matchGrat = t.includes("GRATUIDAD") || parseFloat(i.price) === 0;
+                      return matchType && (isGratuity ? matchGrat : !matchGrat);
+                    });
+                  };
+
+                  const freeInd = Math.min(finalInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : editingDistribution.gratuitiesCount, 10) || 0);
+                  const payingInd = Math.max(0, finalInd - freeInd);
+                  const freeDbl = Math.min(finalDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
+                  const payingDbl = Math.max(0, finalDbl - freeDbl);
+                  const freeTpl = Math.min(finalTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
+                  const payingTpl = Math.max(0, finalTpl - freeTpl);
+                  const freeCua = Math.min(finalCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
+                  const payingCua = Math.max(0, finalCua - freeCua);
+
+                  const pushRoomItem = (typeKeyword, label, payingQty, freeQty, paxPerRoom) => {
+                    const prevPay = getExistingItem(typeKeyword, false);
+                    const prevFree = getExistingItem(typeKeyword, true);
+                    const dayReg = prevPay?.regime || prevFree?.regime || editingDistribution.regimen || "HD";
+                    const uPrice = prevPay?.price !== undefined ? parseFloat(prevPay.price) : 0;
+
+                    if (payingQty > 0) {
+                      generatedDayItems.push({
+                        id: prevPay?.id || (Date.now() + Math.random() + 0.01),
+                        hotel: hotelName,
+                        type: label,
+                        dateIn: dStr,
+                        dateOut: nextDStr,
+                        qty: payingQty,
+                        pax: paxPerRoom,
+                        regime: dayReg,
+                        price: uPrice.toFixed(2),
+                        nights: 1,
+                        total: (payingQty * uPrice).toFixed(2),
+                        isService: false
+                      });
+                    }
+                    if (freeQty > 0) {
+                      generatedDayItems.push({
+                        id: prevFree?.id || (Date.now() + Math.random() + 0.02),
+                        hotel: hotelName,
+                        type: `${label} (GRATUIDAD)`,
+                        dateIn: dStr,
+                        dateOut: nextDStr,
+                        qty: freeQty,
+                        pax: paxPerRoom,
+                        regime: dayReg,
+                        price: "0.00",
+                        nights: 1,
+                        total: "0.00",
+                        isService: false
+                      });
+                    }
+                  };
+
+                  pushRoomItem("INDIV", "INDIVIDUAL", payingInd, freeInd, 1);
+                  pushRoomItem("DBL", "DOBLE", payingDbl, freeDbl, 2);
+                  pushRoomItem("TPL", "TRIPLE", payingTpl, freeTpl, 3);
+                  pushRoomItem("CUA", "CUÁDRUPLE", payingCua, freeCua, 4);
+                });
+
+                const newRoomingItems = [...keptItems, ...generatedDayItems];
+                newRoomingItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+                roomingJsonToSave = JSON.stringify(newRoomingItems);
+              }
+            } else {
+              // ── CASO INICIAL: No existían habitaciones en la Ficha ────────
+              // Solo se generan líneas automáticas si la reserva estaba totalmente vacía
+              const freeInd = Math.min(finalInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : editingDistribution.gratuitiesCount, 10) || 0);
+              const payingInd = Math.max(0, finalInd - freeInd);
+              const freeDbl = Math.min(finalDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
+              const payingDbl = Math.max(0, finalDbl - freeDbl);
+              const freeTpl = Math.min(finalTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
+              const payingTpl = Math.max(0, finalTpl - freeTpl);
+              const freeCua = Math.min(finalCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
+              const payingCua = Math.max(0, finalCua - freeCua);
+
+              const generatedDayItems = [];
+              targetDates.forEach((dStr) => {
+                const nextDStr = getNextDate(dStr);
+                const dayReg = editingDistribution.regimen || "HD";
+                const payingPaxCount = Math.max(1, (payingInd * 1) + (payingDbl * 2) + (payingTpl * 3) + (payingCua * 4));
+                const dayImp = totImp > 0 ? (totImp / Math.max(1, targetDates.size)) : 0;
+                const dailyPerPax = dayImp > 0 ? (dayImp / payingPaxCount) : 0;
+
+                const indUnitPrice = Math.round(dailyPerPax * 1 * 100) / 100;
+                const dblUnitPrice = Math.round(dailyPerPax * 2 * 100) / 100;
+                const tplUnitPrice = Math.round(dailyPerPax * 3 * 100) / 100;
+                const cuaUnitPrice = Math.round(dailyPerPax * 4 * 100) / 100;
+
+                if (payingInd > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.01,
+                    hotel: hotelName,
+                    type: "INDIVIDUAL",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: payingInd,
+                    pax: 1,
+                    regime: dayReg,
+                    price: indUnitPrice.toFixed(2),
+                    nights: 1,
+                    total: (payingInd * indUnitPrice).toFixed(2),
+                    isService: false
+                  });
                 }
-                return prevP;
-              };
+                if (freeInd > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.02,
+                    hotel: hotelName,
+                    type: "INDIVIDUAL (GRATUIDAD)",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: freeInd,
+                    pax: 1,
+                    regime: dayReg,
+                    price: "0.00",
+                    nights: 1,
+                    total: "0.00",
+                    isService: false
+                  });
+                }
+                if (payingDbl > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.03,
+                    hotel: hotelName,
+                    type: "DOBLE",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: payingDbl,
+                    pax: 2,
+                    regime: dayReg,
+                    price: dblUnitPrice.toFixed(2),
+                    nights: 1,
+                    total: (payingDbl * dblUnitPrice).toFixed(2),
+                    isService: false
+                  });
+                }
+                if (freeDbl > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.035,
+                    hotel: hotelName,
+                    type: "DOBLE (GRATUIDAD)",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: freeDbl,
+                    pax: 2,
+                    regime: dayReg,
+                    price: "0.00",
+                    nights: 1,
+                    total: "0.00",
+                    isService: false
+                  });
+                }
+                if (payingTpl > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.04,
+                    hotel: hotelName,
+                    type: "TRIPLE",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: payingTpl,
+                    pax: 3,
+                    regime: dayReg,
+                    price: tplUnitPrice.toFixed(2),
+                    nights: 1,
+                    total: (payingTpl * tplUnitPrice).toFixed(2),
+                    isService: false
+                  });
+                }
+                if (freeTpl > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.045,
+                    hotel: hotelName,
+                    type: "TRIPLE (GRATUIDAD)",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: freeTpl,
+                    pax: 3,
+                    regime: dayReg,
+                    price: "0.00",
+                    nights: 1,
+                    total: "0.00",
+                    isService: false
+                  });
+                }
+                if (payingCua > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.05,
+                    hotel: hotelName,
+                    type: "CUÁDRUPLE",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: payingCua,
+                    pax: 4,
+                    regime: dayReg,
+                    price: cuaUnitPrice.toFixed(2),
+                    nights: 1,
+                    total: (payingCua * cuaUnitPrice).toFixed(2),
+                    isService: false
+                  });
+                }
+                if (freeCua > 0) {
+                  generatedDayItems.push({
+                    id: Date.now() + Math.random() + 0.055,
+                    hotel: hotelName,
+                    type: "CUÁDRUPLE (GRATUIDAD)",
+                    dateIn: dStr,
+                    dateOut: nextDStr,
+                    qty: freeCua,
+                    pax: 4,
+                    regime: dayReg,
+                    price: "0.00",
+                    nights: 1,
+                    total: "0.00",
+                    isService: false
+                  });
+                }
+              });
 
-              const oldIndP = getExistingUnitPrice("INDIV");
-              const oldDblP = getExistingUnitPrice("DBL");
-              const oldTplP = getExistingUnitPrice("TPL");
-              const oldCuaP = getExistingUnitPrice("CUA");
-
-              // Si no había precio previo, calcular proporcional a Pax considerando el régimen de este día
-              const dayMatched = dailyOccupancyList.find((d) => d.reserva === editingDistribution.reserva && d.fecha === dStr);
-              let dayImp = 0;
-              if (dayMatched?.contributingLines) {
-                dayMatched.contributingLines.forEach((l) => {
-                  const nch = parseInt(l.noches, 10) || 1;
-                  dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
-                });
-              }
-              if (dayImp <= 0) dayImp = totImp / Math.max(1, targetDates.size);
-
-              const headerReg = String(firstR["Régimen"] || firstR["Regimen"] || "PC").toUpperCase();
-              if (window.BoardPricingService && headerReg && dayReg && headerReg !== dayReg) {
-                const oldCounts = window.BoardPricingService.getMealCounts(headerReg);
-                const newCounts = window.BoardPricingService.getMealCounts(dayReg);
-                const pConf = window.BoardPricingService.getPricingForHotelAndDate(hotelName, dStr, boardPricingConfig);
-                const bCost = typeof pConf.breakfast === "number" ? pConf.breakfast : 6.0;
-                const mCost = typeof pConf.meal === "number" ? pConf.meal : 16.0;
-                const deltaPerPax = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((newCounts.meals - oldCounts.meals) * mCost);
-                const totalPayingPax = (payingInd * 1) + (payingDbl * 2) + (payingTpl * 3) + (payingCua * 4);
-                dayImp = Math.max(0, dayImp + (deltaPerPax * totalPayingPax));
-              }
-
-              const payingPaxCount = Math.max(1, (payingInd * 1) + (payingDbl * 2) + (payingTpl * 3) + (payingCua * 4));
-              const dailyPerPax = dayImp > 0 ? (dayImp / payingPaxCount) : 0;
-
-              const indUnitPrice = oldIndP !== null ? oldIndP : Math.round(dailyPerPax * 1 * 100) / 100;
-              const dblUnitPrice = oldDblP !== null ? oldDblP : Math.round(dailyPerPax * 2 * 100) / 100;
-              const tplUnitPrice = oldTplP !== null ? oldTplP : Math.round(dailyPerPax * 3 * 100) / 100;
-              const cuaUnitPrice = oldCuaP !== null ? oldCuaP : Math.round(dailyPerPax * 4 * 100) / 100;
-
-              if (payingInd > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.01,
-                  hotel: hotelName,
-                  type: "INDIVIDUAL",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: payingInd,
-                  pax: 1,
-                  regime: dayReg,
-                  price: indUnitPrice.toFixed(2),
-                  nights: 1,
-                  total: (payingInd * indUnitPrice).toFixed(2),
-                  isService: false
-                });
-              }
-
-              if (freeInd > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.02,
-                  hotel: hotelName,
-                  type: "INDIVIDUAL (GRATUIDAD)",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: freeInd,
-                  pax: 1,
-                  regime: dayReg,
-                  price: "0.00",
-                  nights: 1,
-                  total: "0.00",
-                  isService: false
-                });
-              }
-
-              if (payingDbl > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.03,
-                  hotel: hotelName,
-                  type: "DOBLE",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: payingDbl,
-                  pax: 2,
-                  regime: dayReg,
-                  price: dblUnitPrice.toFixed(2),
-                  nights: 1,
-                  total: (payingDbl * dblUnitPrice).toFixed(2),
-                  isService: false
-                });
-              }
-
-              if (freeDbl > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.035,
-                  hotel: hotelName,
-                  type: "DOBLE (GRATUIDAD)",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: freeDbl,
-                  pax: 2,
-                  regime: dayReg,
-                  price: "0.00",
-                  nights: 1,
-                  total: "0.00",
-                  isService: false
-                });
-              }
-
-              if (payingTpl > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.04,
-                  hotel: hotelName,
-                  type: "TRIPLE",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: payingTpl,
-                  pax: 3,
-                  regime: dayReg,
-                  price: tplUnitPrice.toFixed(2),
-                  nights: 1,
-                  total: (payingTpl * tplUnitPrice).toFixed(2),
-                  isService: false
-                });
-              }
-
-              if (freeTpl > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.045,
-                  hotel: hotelName,
-                  type: "TRIPLE (GRATUIDAD)",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: freeTpl,
-                  pax: 3,
-                  regime: dayReg,
-                  price: "0.00",
-                  nights: 1,
-                  total: "0.00",
-                  isService: false
-                });
-              }
-
-              if (payingCua > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.05,
-                  hotel: hotelName,
-                  type: "CUÁDRUPLE",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: payingCua,
-                  pax: 4,
-                  regime: dayReg,
-                  price: cuaUnitPrice.toFixed(2),
-                  nights: 1,
-                  total: (payingCua * cuaUnitPrice).toFixed(2),
-                  isService: false
-                });
-              }
-
-              if (freeCua > 0) {
-                generatedDayItems.push({
-                  id: Date.now() + Math.random() + 0.055,
-                  hotel: hotelName,
-                  type: "CUÁDRUPLE (GRATUIDAD)",
-                  dateIn: dStr,
-                  dateOut: nextDStr,
-                  qty: freeCua,
-                  pax: 4,
-                  regime: dayReg,
-                  price: "0.00",
-                  nights: 1,
-                  total: "0.00",
-                  isService: false
-                });
-              }
-            });
-
-            newRoomingItems = [...keptItems, ...generatedDayItems];
+              generatedDayItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+              roomingJsonToSave = generatedDayItems.length > 0 ? JSON.stringify(generatedDayItems) : null;
+            }
           }
-          newRoomingItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
-          const roomingJsonToSave = newRoomingItems.length > 0 ? JSON.stringify(newRoomingItems) : null;
 
           // Recopilar todos los docIds de esta reserva en un Set para no omitir ninguno
           const docIdsToUpdate = new Set();
@@ -5093,9 +5127,6 @@
                 DailyDistribution_JSON: jsonStringToSave,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
               };
-              if (editingDistribution.regimen && editingDistribution.regimen !== "-" && editingDistribution.regimen !== "---") {
-                payload["Régimen"] = editingDistribution.regimen;
-              }
               if (roomingJsonToSave) payload.RoomingList_JSON = roomingJsonToSave;
               batch.set(docRef, payload, { merge: true });
             });
@@ -5106,9 +5137,6 @@
           setData((prev) => prev.map((r) => {
             if (normalizeId(r["Reserva"]) === targetResId || docIdsToUpdate.has(r._docId)) {
               const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
-              if (editingDistribution.regimen && editingDistribution.regimen !== "-" && editingDistribution.regimen !== "---") {
-                updated["Régimen"] = editingDistribution.regimen;
-              }
               if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
               return updated;
             }
@@ -5120,17 +5148,14 @@
               if (!prev) return prev;
               const updatedRecords = (prev.records || []).map(r => {
                 const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
-                if (editingDistribution.regimen && editingDistribution.regimen !== "-" && editingDistribution.regimen !== "---") {
-                  updated["Régimen"] = editingDistribution.regimen;
-                }
                 if (roomingJsonToSave) updated.RoomingList_JSON = roomingJsonToSave;
                 return updated;
               });
               return {
                 ...prev,
-                dailyDistribution: jsonStringToSave,
-                roomingList: roomingJsonToSave || prev.roomingList,
-                records: updatedRecords
+                records: updatedRecords,
+                DailyDistribution_JSON: jsonStringToSave,
+                ...(roomingJsonToSave ? { RoomingList_JSON: roomingJsonToSave } : {})
               };
             });
           }
@@ -13409,98 +13434,125 @@
                                           <td className="px-3 py-2 text-right font-mono font-black whitespace-nowrap text-blue-700">
                                             {item.totalNet.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
                                           </td>
-                                          <td className="px-3 py-2 text-center whitespace-nowrap">
-                                            <span
-                                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}`}
-                                              title={item.revisionReasons && item.revisionReasons.length > 0 ? item.revisionReasons.join(" • ") : badgeText}
-                                            >
-                                              {badgeText}
-                                            </span>
-                                          </td>
-                                          <td className="px-3 py-2 text-center whitespace-nowrap">
-                                            <button
-                                              type="button"
-                                              onClick={() => openDistributionModal(item.representativeDay)}
-                                              className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
-                                                st === "revision_necesaria"
-                                                  ? "bg-orange-600 hover:bg-orange-700 text-white"
-                                                  : "bg-blue-600 hover:bg-blue-700 text-white"
-                                              }`}
-                                            >
-                                              {st === "revision_necesaria" ? "Revisar Cambio" : "Revisar"}
-                                            </button>
-                                          </td>
-                                        </tr>
+                                           <td className="px-3 py-2 text-center whitespace-nowrap">
+                                             <div className="flex flex-col items-center gap-1">
+                                               <span
+                                                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}`}
+                                                 title={item.revisionReasons && item.revisionReasons.length > 0 ? item.revisionReasons.join(" • ") : badgeText}
+                                               >
+                                                 {badgeText}
+                                               </span>
+                                               {item.days && item.days.some(d => d.excelDifference && d.excelDifference.hasDiff) && (() => {
+                                                 const allDiffs = Array.from(new Set(item.days.flatMap(d => d.excelDifference?.reasons || [])));
+                                                 return (
+                                                   <span
+                                                     className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 cursor-help"
+                                                     title={`Diferencias detectadas con Excel original:\n• ${allDiffs.join('\n• ')}`}
+                                                   >
+                                                     ℹ️ Dif. Excel
+                                                   </span>
+                                                 );
+                                               })()}
+                                             </div>
+                                           </td>
+                                           <td className="px-3 py-2 text-center whitespace-nowrap">
+                                             <button
+                                               type="button"
+                                               onClick={() => openDistributionModal(item.representativeDay)}
+                                               className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
+                                                 st === "revision_necesaria"
+                                                   ? "bg-orange-600 hover:bg-orange-700 text-white"
+                                                   : "bg-blue-600 hover:bg-blue-700 text-white"
+                                               }`}
+                                             >
+                                               {st === "revision_necesaria" ? "Revisar Cambio" : "Revisar"}
+                                             </button>
+                                           </td>
+                                         </tr>
 
-                                        {/* Sub-filas desplegables para cada noche si está expandido */}
-                                        {isExpanded && item.days.map((day, dIdx) => {
-                                          const daySt = day.distributionStatus;
-                                          let dayBadgeClass = "bg-amber-100 text-amber-800 border-amber-200";
-                                          let dayBadgeText = "Propuesta automática";
+                                         {/* Sub-filas desplegables para cada noche si está expandido */}
+                                         {isExpanded && item.days.map((day, dIdx) => {
+                                           const daySt = day.distributionStatus;
+                                           let dayBadgeClass = "bg-amber-100 text-amber-800 border-amber-200";
+                                           let dayBadgeText = "Propuesta automática";
 
-                                          if (daySt === "validada_sin_cambios") {
-                                            dayBadgeClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
-                                            dayBadgeText = "✓ Validada";
-                                          } else if (daySt === "revision_necesaria") {
-                                            dayBadgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-bold";
-                                            dayBadgeText = "⚠️ Revisar";
-                                          } else if (daySt === "confirmada") {
-                                            dayBadgeClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
-                                            dayBadgeText = "Confirmada";
-                                          } else if (daySt === "modificada") {
-                                            dayBadgeClass = "bg-blue-100 text-blue-800 border-blue-200";
-                                            dayBadgeText = "Modificada";
-                                          } else if (daySt === "pendiente") {
-                                            dayBadgeClass = "bg-rose-100 text-rose-800 border-rose-200";
-                                            dayBadgeText = "Pendiente";
-                                          }
+                                           if (daySt === "validada_sin_cambios") {
+                                             dayBadgeClass = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                                             dayBadgeText = "✓ Validada";
+                                           } else if (daySt === "revision_necesaria") {
+                                             dayBadgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-bold";
+                                             dayBadgeText = "⚠️ Revisar";
+                                           } else if (daySt === "confirmada") {
+                                             dayBadgeClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                                             dayBadgeText = "Confirmada";
+                                           } else if (daySt === "modificada") {
+                                             dayBadgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                                             dayBadgeText = "Modificada";
+                                           } else if (daySt === "pendiente") {
+                                             dayBadgeClass = "bg-rose-100 text-rose-800 border-rose-200";
+                                             dayBadgeText = "Pendiente";
+                                           }
 
-                                          let dayImp = 0.0;
-                                          if (day.dailyAmount !== undefined && day.dailyAmount > 0) {
-                                            dayImp = day.dailyAmount;
-                                          } else if (day.contributingLines && day.contributingLines.length > 0) {
-                                            day.contributingLines.forEach(l => {
-                                              const nch = parseInt(l.noches, 10) || 1;
-                                              dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
-                                            });
-                                          }
+                                           let dayImp = 0.0;
+                                           if (day.dailyAmount !== undefined && day.dailyAmount > 0) {
+                                             dayImp = day.dailyAmount;
+                                           } else if (day.contributingLines && day.contributingLines.length > 0) {
+                                             day.contributingLines.forEach(l => {
+                                               const nch = parseInt(l.noches, 10) || 1;
+                                               dayImp += ((parseFloat(l.importe) || 0) / Math.max(1, nch));
+                                             });
+                                           }
 
-                                          const pricing = window.BoardPricingService
-                                            ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
-                                            : { breakfast: 6.0, meal: 16.0 };
+                                           const pricing = window.BoardPricingService
+                                             ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
+                                             : { breakfast: 6.0, meal: 16.0 };
 
-                                          const eco = window.BoardPricingService
-                                            ? window.BoardPricingService.calculateDailyEconomicBreakdown({
-                                                pax: day.pax,
-                                                regimen: day.regimen,
-                                                dailyAmount: dayImp,
-                                                pricingConfig: pricing
-                                              })
-                                            : { breakfastCost: 0, mealCost: 0, netAccommodationPrice: dayImp, isNegativeAccommodation: false };
+                                           const eco = window.BoardPricingService
+                                             ? window.BoardPricingService.calculateDailyEconomicBreakdown({
+                                                 pax: day.pax,
+                                                 regimen: day.regimen,
+                                                 dailyAmount: dayImp,
+                                                 pricingConfig: pricing
+                                               })
+                                             : { breakfastCost: 0, mealCost: 0, netAccommodationPrice: dayImp, isNegativeAccommodation: false };
 
-                                          return (
-                                            <tr key={`sub_${item.reservaKey}_${day.fecha}_${dIdx}`} className="bg-slate-50/70 text-[11px] border-l-4 border-blue-400">
-                                              <td className="px-3 py-1.5 text-slate-400 pl-6">↳ Noche {dIdx + 1}</td>
-                                              <td className="px-3 py-1.5 text-slate-400 font-mono text-[10px]">#{item.reserva}</td>
-                                              <td className="px-3 py-1.5 text-slate-500 italic">Desglose {formatDate(day.fecha)}</td>
-                                              <td className="px-3 py-1.5 text-slate-400">-</td>
-                                              <td className="px-3 py-1.5 font-mono font-bold text-slate-700">{formatDate(day.fecha)}</td>
-                                              <td className="px-2 py-1.5 text-center font-bold text-slate-700">{day.pax}</td>
-                                              <td className="px-2 py-1.5 font-mono text-slate-600">{day.regimen || "-"}</td>
-                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.individuales !== null ? day.individuales : "-"}</td>
-                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.dobles !== null ? day.dobles : "-"}</td>
-                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.triples !== null ? day.triples : "-"}</td>
-                                              <td className="px-2 py-1.5 text-center text-slate-600">{day.cuadruples !== null ? day.cuadruples : "-"}</td>
-                                              <td className="px-2 py-1.5 text-center font-bold text-blue-600">{day.totalHabitaciones !== null ? day.totalHabitaciones : "-"}</td>
-                                              <td className="px-3 py-1.5 text-right font-mono text-slate-600">{dayImp.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
-                                              <td className="px-2 py-1.5 text-right font-mono text-slate-400">{eco.breakfastCost > 0 ? eco.breakfastCost.toFixed(2) + " €" : "-"}</td>
-                                              <td className="px-2 py-1.5 text-right font-mono text-slate-400">{eco.mealCost > 0 ? eco.mealCost.toFixed(2) + " €" : "-"}</td>
-                                              <td className="px-3 py-1.5 text-right font-mono text-blue-600">{eco.netAccommodationPrice.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
-                                              <td className="px-3 py-1.5 text-center">
-                                                <span className={`inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold border ${dayBadgeClass}`}>
-                                                  {dayBadgeText}
-                                                </span>
-                                              </td>
+                                           return (
+                                             <tr key={`sub_${item.reservaKey}_${day.fecha}_${dIdx}`} className="bg-slate-50/70 text-[11px] border-l-4 border-blue-400">
+                                               <td className="px-3 py-1.5 text-slate-400 pl-6">↳ Noche {dIdx + 1}</td>
+                                               <td className="px-3 py-1.5 text-slate-400 font-mono text-[10px]">#{item.reserva}</td>
+                                               <td className="px-3 py-1.5 text-slate-500 italic">Desglose {formatDate(day.fecha)}</td>
+                                               <td className="px-3 py-1.5 text-slate-400">-</td>
+                                               <td className="px-3 py-1.5 font-mono font-bold text-slate-700">{formatDate(day.fecha)}</td>
+                                               <td className="px-2 py-1.5 text-center font-bold text-slate-700">{day.pax}</td>
+                                               <td className="px-2 py-1.5 font-mono text-slate-600">
+                                                 <span title={day.excelDifference?.excelRegimen && day.excelDifference.excelRegimen !== day.regimen ? `Régimen Ficha: ${day.regimen} (Excel: ${day.excelDifference.excelRegimen})` : undefined}>
+                                                   {day.regimen || "-"}
+                                                 </span>
+                                               </td>
+                                               <td className="px-2 py-1.5 text-center text-slate-600">{day.individuales !== null ? day.individuales : "-"}</td>
+                                               <td className="px-2 py-1.5 text-center text-slate-600">{day.dobles !== null ? day.dobles : "-"}</td>
+                                               <td className="px-2 py-1.5 text-center text-slate-600">{day.triples !== null ? day.triples : "-"}</td>
+                                               <td className="px-2 py-1.5 text-center text-slate-600">{day.cuadruples !== null ? day.cuadruples : "-"}</td>
+                                               <td className="px-2 py-1.5 text-center font-bold text-blue-600">{day.totalHabitaciones !== null ? day.totalHabitaciones : "-"}</td>
+                                               <td className="px-3 py-1.5 text-right font-mono text-slate-600">{dayImp.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
+                                               <td className="px-2 py-1.5 text-right font-mono text-slate-400">{eco.breakfastCost > 0 ? eco.breakfastCost.toFixed(2) + " €" : "-"}</td>
+                                               <td className="px-2 py-1.5 text-right font-mono text-slate-400">{eco.mealCost > 0 ? eco.mealCost.toFixed(2) + " €" : "-"}</td>
+                                               <td className="px-3 py-1.5 text-right font-mono text-blue-600">{eco.netAccommodationPrice.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
+                                               <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                 <div className="flex flex-col items-center gap-0.5">
+                                                   <span className={`inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold border ${dayBadgeClass}`}>
+                                                     {dayBadgeText}
+                                                   </span>
+                                                   {day.excelDifference?.hasDiff && (
+                                                     <span
+                                                       className="inline-flex items-center px-1 py-0.2 rounded text-[8px] font-bold bg-blue-50 text-blue-700 border border-blue-200 cursor-help"
+                                                       title={`Diferencia con Excel original:\n• ${(day.excelDifference.reasons || []).join('\n• ')}`}
+                                                     >
+                                                       ℹ️ Dif. Excel
+                                                     </span>
+                                                   )}
+                                                 </div>
+                                               </td>
                                               <td className="px-3 py-1.5 text-center">
                                                 <button
                                                   type="button"
@@ -14332,6 +14384,26 @@
                           </select>
                         </div>
                       </div>
+
+                      {/* AVISO INFORMATIVO: DIFERENCIAS RESPECTO AL EXCEL ORIGINAL */}
+                      {matchedDay?.excelDifference?.hasDiff && (
+                        <div className="bg-blue-50 border border-blue-200 text-blue-950 p-3.5 rounded-xl text-xs space-y-1.5">
+                          <div className="flex items-center gap-1.5 font-bold text-blue-900 text-xs">
+                            <span className="text-sm">ℹ️</span> Diferencia con datos originales de Excel
+                          </div>
+                          <p className="text-blue-800 text-[11px]">
+                            La Ficha de Grupo tiene prioridad soberana sobre el Excel. Se han detectado las siguientes particularidades:
+                          </p>
+                          <ul className="list-disc list-inside space-y-0.5 font-semibold text-blue-900 bg-white/70 p-2 rounded-lg border border-blue-100 text-[11px]">
+                            {matchedDay.excelDifference.reasons.map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                          <p className="text-[10px] text-blue-600">
+                            Al guardar o validar, se confirmará esta noche respetando los precios y regímenes fijados en la Ficha de Grupo.
+                          </p>
+                        </div>
+                      )}
 
                       {/* ALERTA: REVISIÓN NECESARIA POR CAMBIO EN DATOS DE ORIGEN (Req 12) */}
                       {isRevisionNecesaria && (
