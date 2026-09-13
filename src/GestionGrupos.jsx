@@ -8263,7 +8263,10 @@
         },
 
         { label: "Habitación Triple (TPL)", pax: 3, placeholder: "3 Pax" },
-
+        { label: "Habitación Triple Niño (TPL Niño)", pax: 3, placeholder: "3 Pax (2 Ad + 1 Ni)" },
+        { label: "Hab. Triple Niño", pax: 3, placeholder: "3 Pax" },
+        { label: "Triple Niño", pax: 3, placeholder: "3 Pax" },
+        { label: "DOBLE + SUPLETORIA NIÑO", pax: 3, placeholder: "3 Pax" },
         { label: "Habitación Cuádruple (CUA)", pax: 4, placeholder: "4 Pax" },
 
         { label: "Suite (SUI)", pax: 2, placeholder: "2 Pax" },

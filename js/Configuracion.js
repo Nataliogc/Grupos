@@ -184,6 +184,10 @@ var App = function App() {
           pax: 3,
           isService: false
         }, {
+          label: "Habitación Triple Niño (TPL Niño)",
+          pax: 3,
+          isService: false
+        }, {
           label: "Habitación Cuádruple (CUA)",
           pax: 4,
           isService: false

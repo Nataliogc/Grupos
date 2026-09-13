@@ -133,6 +133,7 @@
                         { label: "Habitación Doble (DBL)", pax: 2, isService: false },
                         { label: "Hab. Doble Uso Individual (DUI)", pax: 1, isService: false },
                         { label: "Habitación Triple (TPL)", pax: 3, isService: false },
+                        { label: "Habitación Triple Niño (TPL Niño)", pax: 3, isService: false },
                         { label: "Habitación Cuádruple (CUA)", pax: 4, isService: false },
                         { label: "Habitación Individual (IND)", pax: 1, isService: false },
                         { label: "Suite (SUI)", pax: 2, isService: false },

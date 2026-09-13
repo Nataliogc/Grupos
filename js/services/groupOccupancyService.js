@@ -180,7 +180,7 @@
       if (desc.includes("DUI") || desc.includes("USO INDIVIDUAL") || desc.includes("INDIVIDUAL") || desc.includes("SINGLE") || desc.includes("SGL")) {
         category = "individual";
         pers = 1;
-      } else if (desc.includes("TRIPLE") || desc.includes("TPL")) {
+      } else if (desc.includes("TRIPLE") || desc.includes("TPL") || desc.includes("SUPLETORIA")) {
         category = "triple";
         pers = 3;
       } else if (desc.includes("CUADRUPLE") || desc.includes("CUÁDRUPLE") || desc.includes("CUA")) {

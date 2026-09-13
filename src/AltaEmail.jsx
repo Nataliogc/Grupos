@@ -8,9 +8,9 @@
 
         // --- CONSTANTES ---
         const ROOM_TYPES = {
-            "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE", "SUITE", "SUITE SUPERIOR"],
-            "Cumbria Spa & Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "SUITE"],
-            "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "SUITE"]
+            "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "DOBLE + SUPLETORIA NIÑO", "CUÁDRUPLE", "SUITE", "SUITE SUPERIOR"],
+            "Cumbria Spa & Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "DOBLE + SUPLETORIA NIÑO", "SUITE"],
+            "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "DOBLE + SUPLETORIA NIÑO", "SUITE"]
         };
 
         const BOARD_TYPES = [
@@ -310,9 +310,9 @@
                 - "Régimen": (HA, HD, MP, PC).
                 - "Habitaciones": resumen en texto de la distribución solicitada (ej. 10 dobles, 5 triples).
                 - "roomCounts": objeto JSON con el desglose numérico por tipo de habitación. USA ESTOS TIPOS SEGÚN EL HOTEL SI SE IDENTIFICA (si no, usa los de Sercotel Guadiana):
-                  * Sercotel Guadiana: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "CUÁDRUPLE": 0, "SUITE": 0, "SUITE SUPERIOR": 0}
-                  * Cumbria Spa & Hotel: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "SUITE": 0}
-                  Extrae SOLO los números que encuentres.
+                  * Sercotel Guadiana: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "DOBLE + SUPLETORIA NIÑO": 0, "CUÁDRUPLE": 0, "SUITE": 0, "SUITE SUPERIOR": 0}
+                  * Cumbria Spa & Hotel: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "DOBLE + SUPLETORIA NIÑO": 0, "SUITE": 0}
+                  Extrae SOLO los números que encuentres. Si mencionan niños en supletorias o triples con niños, usa "DOBLE + SUPLETORIA NIÑO".
                 - "Importe(*)": precio unitario o total si se menciona, si no 0.
                 - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
                 - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones.

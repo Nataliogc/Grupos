@@ -30,9 +30,9 @@ var db = window.db;
 
 // --- CONSTANTES ---
 var ROOM_TYPES = {
-  "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "CUÁDRUPLE", "SUITE", "SUITE SUPERIOR"],
-  "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "SUITE"],
-  "Cumbria Spa & Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "SUITE"]
+  "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "DOBLE + SUPLETORIA NIÑO", "CUÁDRUPLE", "SUITE", "SUITE SUPERIOR"],
+  "Cumbria Spa&Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "DOBLE + SUPLETORIA NIÑO", "SUITE"],
+  "Cumbria Spa & Hotel": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "DOBLE + SUPLETORIA NIÑO", "SUITE"]
 };
 var getRoomTypesForHotel = function getRoomTypesForHotel(hotelName) {
   var s = String(hotelName || "").toLowerCase();
@@ -47,6 +47,7 @@ var PAX_PER_ROOM = {
   "DOBLE DE USO INDIVIDUAL": 1,
   "DOBLE": 2,
   "DOBLE + SUPLETORIA": 3,
+  "DOBLE + SUPLETORIA NIÑO": 3,
   "CUÁDRUPLE": 4,
   "SUITE": 2,
   "SUITE SUPERIOR": 2,
@@ -61,7 +62,10 @@ var PAX_PER_ROOM = {
   "Doble Matrimonial": 2,
   "Doble": 2,
   "Doble + Supletoria": 3,
+  "Doble + Supletoria Niño": 3,
+  "Doble + Supl. Niño": 3,
   "Triple": 3,
+  "Triple Niño": 3,
   "Junior Suite": 2,
   "Suite": 2,
   "Suite Superior": 2,
@@ -80,7 +84,10 @@ var ROOM_CATEGORY_MAP = {
   "Junior Suite": "doble",
   "DOBLE + SUPLETORIA": "triple",
   "Doble + Supletoria": "triple",
+  "DOBLE + SUPLETORIA NIÑO": "triple_nino",
+  "Doble + Supletoria Niño": "triple_nino",
   "Triple": "triple",
+  "Triple Niño": "triple_nino",
   "CUÁDRUPLE": "cuadruple",
   "Cuádruple": "cuadruple",
   "SUITE": "doble",
@@ -183,8 +190,16 @@ var getOfficialTariffsGrid = function getOfficialTariffsGrid(hotelName, year) {
     grid[bKey] = {};
     rooms.forEach(function (roomType) {
       var cat = ROOM_CATEGORY_MAP[roomType] || "doble";
-      if (tariffs && tariffs[gtsCode] && tariffs[gtsCode][cat] !== null && tariffs[gtsCode][cat] !== undefined) {
-        grid[bKey][roomType] = Number(tariffs[gtsCode][cat]);
+      if (tariffs && tariffs[gtsCode]) {
+        if (tariffs[gtsCode][cat] !== null && tariffs[gtsCode][cat] !== undefined) {
+          grid[bKey][roomType] = Number(tariffs[gtsCode][cat]);
+        } else if (cat === "triple_nino" && tariffs[gtsCode]["triple"] !== null && tariffs[gtsCode]["doble"] !== null) {
+          // 50% de descuento en suplemento de cama supletoria para niño
+          var dbl = Number(tariffs[gtsCode]["doble"]) || 0;
+          var tpl = Number(tariffs[gtsCode]["triple"]) || 0;
+          var supl = Math.max(0, tpl - dbl);
+          grid[bKey][roomType] = Math.round((dbl + supl * 0.5) * 100) / 100;
+        }
       }
     });
   });
@@ -479,6 +494,14 @@ var ROOM_MIGRATION_MAP = {
   "doble + supletoria": "DOBLE + SUPLETORIA",
   "triple": "DOBLE + SUPLETORIA",
   "tpl": "DOBLE + SUPLETORIA",
+  "doble + supletoria niño": "DOBLE + SUPLETORIA NIÑO",
+  "doble + supletoria nino": "DOBLE + SUPLETORIA NIÑO",
+  "triple niño": "DOBLE + SUPLETORIA NIÑO",
+  "triple nino": "DOBLE + SUPLETORIA NIÑO",
+  "tpl niño": "DOBLE + SUPLETORIA NIÑO",
+  "tpl nino": "DOBLE + SUPLETORIA NIÑO",
+  "supletoria niño": "DOBLE + SUPLETORIA NIÑO",
+  "supletoria nino": "DOBLE + SUPLETORIA NIÑO",
   "junior suite": "SUITE",
   "cuádruple": "CUÁDRUPLE",
   "cuadruple": "CUÁDRUPLE",
@@ -592,6 +615,7 @@ var getRoomDisplayName = function getRoomDisplayName(roomName) {
   if (!roomName) return "";
   var r = roomName.toUpperCase().trim();
   if (r === "DOBLE DE USO INDIVIDUAL" || r === "DOBLE INDIVIDUAL" || r === "DUI") return "Doble (DUI)";
+  if (r === "DOBLE + SUPLETORIA NIÑO" || r === "DOBLE MAS SUPLETORIA NIÑO" || r === "TRIPLE NIÑO") return "Doble + Supl. Niño";
   if (r === "DOBLE + SUPLETORIA" || r === "DOBLE MAS SUPLETORIA") return "Doble + Supl.";
   if (r === "CUÁDRUPLE" || r === "CUADRUPLE") return "Cuádruple";
   if (r === "DOBLE") return "Doble";
@@ -1341,6 +1365,14 @@ function App() {
       'triple': 'DOBLE + SUPLETORIA',
       '3ª pax': 'DOBLE + SUPLETORIA',
       'doble con supletoria': 'DOBLE + SUPLETORIA',
+      'doble + supletoria niño': 'DOBLE + SUPLETORIA NIÑO',
+      'doble + supletoria nino': 'DOBLE + SUPLETORIA NIÑO',
+      'triple niño': 'DOBLE + SUPLETORIA NIÑO',
+      'triple nino': 'DOBLE + SUPLETORIA NIÑO',
+      'supletoria niño': 'DOBLE + SUPLETORIA NIÑO',
+      'supletoria nino': 'DOBLE + SUPLETORIA NIÑO',
+      '3ª pax niño': 'DOBLE + SUPLETORIA NIÑO',
+      '3ª pax nino': 'DOBLE + SUPLETORIA NIÑO',
       'cuádruple': 'CUÁDRUPLE',
       'cuadruple': 'CUÁDRUPLE',
       'quadruple': 'CUÁDRUPLE',
