@@ -3040,7 +3040,7 @@
       const [dailyDateFrom, setDailyDateFrom] = useState("");
       const [dailyDateTo, setDailyDateTo] = useState("");
       const [dailyStatusFilter, setDailyStatusFilter] = useState("confirmada"); // 'confirmada' | 'anulada' | 'todos'
-      const [dailyDistributionFilter, setDailyDistributionFilter] = useState("todos"); // 'todos' | 'confirmada_o_modificada' | 'propuesta' | 'pendiente'
+      const [dailyDistributionFilter, setDailyDistributionFilter] = useState("requieren_atencion"); // 'requieren_atencion' | 'todos' | 'confirmada_o_modificada' | 'propuesta' | 'pendiente' | 'revision_necesaria' | 'validada_sin_cambios'
       const [dailyHotelFilter, setDailyHotelFilter] = useState("");
       const [editingDistribution, setEditingDistribution] = useState(null);
       // Estados para Configuración y Desglose Económico de Precios por Régimen (Reqs 13-21)
@@ -4386,6 +4386,7 @@
           if (dailyStatusFilter === "confirmada" && isAnul) return false;
           if (dailyStatusFilter === "anulada" && !isAnul) return false;
 
+          if (dailyDistributionFilter === "requieren_atencion" && item.isDefinitive) return false;
           if (dailyDistributionFilter === "confirmada_o_modificada" && !item.isDefinitive) return false;
           if (dailyDistributionFilter === "validada_sin_cambios" && item.distributionStatus !== "validada_sin_cambios") return false;
           if (dailyDistributionFilter === "revision_necesaria" && item.distributionStatus !== "revision_necesaria") return false;
@@ -13215,12 +13216,13 @@
                                 onChange={(e) => setDailyDistributionFilter(e.target.value)}
                                 className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
                               >
+                                <option value="requieren_atencion">⚠️ Requieren atención</option>
                                 <option value="todos">Todos los estados</option>
-                                <option value="validada_sin_cambios">Validada sin cambios</option>
                                 <option value="revision_necesaria">⚠️ Revisión necesaria</option>
-                                <option value="confirmada_o_modificada">Confirmadas o Modificadas</option>
                                 <option value="propuesta">Propuesta automática</option>
                                 <option value="pendiente">Pendiente de revisión</option>
+                                <option value="confirmada_o_modificada">Confirmadas o Modificadas</option>
+                                <option value="validada_sin_cambios">Validada sin cambios</option>
                               </select>
                             </div>
 
@@ -13243,13 +13245,13 @@
                               />
                             </div>
 
-                            {(dailyHotelFilter || dailyStatusFilter !== "confirmada" || dailyDistributionFilter !== "todos" || dailyDateFrom || dailyDateTo) && (
+                            {(dailyHotelFilter || dailyStatusFilter !== "confirmada" || dailyDistributionFilter !== "requieren_atencion" || dailyDateFrom || dailyDateTo) && (
                               <button
                                 type="button"
                                 onClick={() => {
                                   setDailyHotelFilter("");
                                   setDailyStatusFilter("confirmada");
-                                  setDailyDistributionFilter("todos");
+                                  setDailyDistributionFilter("requieren_atencion");
                                   setDailyDateFrom("");
                                   setDailyDateTo("");
                                 }}
@@ -13331,7 +13333,15 @@
                                 {filteredDailyOccupancy.length === 0 ? (
                                   <tr>
                                     <td colSpan="18" className="px-6 py-12 text-center text-slate-400 font-medium">
-                                      No hay registros que coincidan con los filtros aplicados.
+                                      {dailyDistributionFilter === "requieren_atencion" ? (
+                                        <div className="flex flex-col items-center justify-center gap-1.5 py-4">
+                                          <span className="text-3xl">🎉</span>
+                                          <span className="font-bold text-slate-700 text-sm">¡Todo al día! No hay grupos que requieran atención en este momento.</span>
+                                          <span className="text-xs text-slate-500">Selecciona <strong className="text-slate-700">"Todos los estados"</strong> o <strong className="text-slate-700">"Confirmadas o Modificadas"</strong> para ver el histórico completo.</span>
+                                        </div>
+                                      ) : (
+                                        "No hay registros que coincidan con los filtros aplicados."
+                                      )}
                                     </td>
                                   </tr>
                                 ) : dailyGroupingMode === "reserva" ? (
