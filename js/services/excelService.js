@@ -444,8 +444,12 @@
         const resID = normalizeId(newRow["Reserva"]);
         const targetRecordKey = newRow["_recordKey"];
         const newInIso = toIsoDate(newRow["Entrada"]);
+        const newOutIso = toIsoDate(newRow["Salida"]);
         const newLinea = newRow["_linea"];
         const newRegimen = normalizeRegimen(newRow["Régimen"]);
+        const newImp = toNum(newRow["Importe(*)"]);
+        const newPax = toNum(newRow["Pax."]);
+        const newNoches = toNum(newRow["Noches"]);
 
         // Búsqueda en pases sucesivos asegurando correspondencia unívoca
         let existingIdx = -1;
@@ -465,7 +469,7 @@
                 const rRes = normalizeId(r["Reserva"]);
                 if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
                 if (r["_docId"] && r["_docId"] === `${resID}_${newLinea}`) {
-                    return toIsoDate(r["Entrada"]) === newInIso;
+                    return toIsoDate(r["Entrada"]) === newInIso && (!newOutIso || toIsoDate(r["Salida"]) === newOutIso);
                 }
                 return false;
             });
@@ -478,11 +482,51 @@
                 const rRes = normalizeId(r["Reserva"]);
                 if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
                 const rLinea = String(r["_linea"] || r["precios"] || "").trim();
-                return rLinea === newLinea && toIsoDate(r["Entrada"]) === newInIso;
+                return rLinea === newLinea && toIsoDate(r["Entrada"]) === newInIso && (!newOutIso || toIsoDate(r["Salida"]) === newOutIso);
             });
         }
 
-        // Pase 4: Misma reserva, misma fecha de entrada y mismo régimen
+        // Pase 4: Misma reserva, misma entrada, misma salida y mismo importe (coincidencia perfecta de línea)
+        if (existingIdx === -1 && newInIso && newOutIso) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+                if (toIsoDate(r["Entrada"]) === newInIso && toIsoDate(r["Salida"]) === newOutIso) {
+                    const rImp = toNum(r["Importe(*)"]);
+                    return Math.abs(rImp - newImp) < 0.50;
+                }
+                return false;
+            });
+        }
+
+        // Pase 5: Misma reserva, misma entrada, misma salida y mismas noches/pax
+        if (existingIdx === -1 && newInIso && newOutIso) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+                if (toIsoDate(r["Entrada"]) === newInIso && toIsoDate(r["Salida"]) === newOutIso) {
+                    const rPax = toNum(r["Pax."]);
+                    const rNoches = toNum(r["Noches"]);
+                    if (newNoches > 0 && rNoches > 0 && newNoches === rNoches) return true;
+                    if (newPax > 0 && rPax > 0 && newPax === rPax) return true;
+                }
+                return false;
+            });
+        }
+
+        // Pase 6: Misma reserva, misma entrada y misma salida
+        if (existingIdx === -1 && newInIso && newOutIso) {
+            existingIdx = mergedData.findIndex((r, rIdx) => {
+                if (matchedExistingIndices.has(rIdx)) return false;
+                const rRes = normalizeId(r["Reserva"]);
+                if (rRes !== resID && !rRes.startsWith(resID + "_") && !resID.startsWith(rRes + "_")) return false;
+                return toIsoDate(r["Entrada"]) === newInIso && toIsoDate(r["Salida"]) === newOutIso;
+            });
+        }
+
+        // Pase 7: Misma reserva, misma fecha de entrada y mismo régimen
         if (existingIdx === -1) {
             existingIdx = mergedData.findIndex((r, rIdx) => {
                 if (matchedExistingIndices.has(rIdx)) return false;
@@ -495,7 +539,7 @@
             });
         }
 
-        // Pase 5: Misma reserva y misma fecha de entrada
+        // Pase 8: Misma reserva y misma fecha de entrada
         if (existingIdx === -1) {
             existingIdx = mergedData.findIndex((r, rIdx) => {
                 if (matchedExistingIndices.has(rIdx)) return false;
@@ -505,7 +549,7 @@
             });
         }
 
-        // Pase 6: Misma reserva si solo queda una fila libre o coincide ID base
+        // Pase 9: Misma reserva si solo queda una fila libre o coincide ID base
         if (existingIdx === -1) {
             const candidates = [];
             const baseResID = resID.split("_")[0].split("-")[0];
@@ -520,9 +564,14 @@
             if (candidates.length === 1) {
                 existingIdx = candidates[0];
             } else if (candidates.length > 1) {
-                const dateMatch = candidates.find((cIdx) => toIsoDate(mergedData[cIdx]["Entrada"]) === newInIso);
-                if (dateMatch !== undefined) {
-                    existingIdx = dateMatch;
+                const fullDateMatch = candidates.find((cIdx) => toIsoDate(mergedData[cIdx]["Entrada"]) === newInIso && toIsoDate(mergedData[cIdx]["Salida"]) === newOutIso);
+                if (fullDateMatch !== undefined) {
+                    existingIdx = fullDateMatch;
+                } else {
+                    const inDateMatch = candidates.find((cIdx) => toIsoDate(mergedData[cIdx]["Entrada"]) === newInIso);
+                    if (inDateMatch !== undefined) {
+                        existingIdx = inDateMatch;
+                    }
                 }
             }
         }

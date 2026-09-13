@@ -327,5 +327,70 @@ test("Empty numeric field in Firestore vs 0 in Excel does not trigger false diff
     assert.strictEqual(result.summaryData.modifiedGroupsCount, 0);
 });
 
+// Test 7: Multi-line reservation with same arrival date does not cross-match lines
+test("Multi-line reservation with same Entrada does not cross-match lines on re-import", () => {
+    const currentData = [
+        {
+            _docId: '212348_1',
+            Reserva: '212348',
+            'Nombre del Grupo': 'FERCATUR 2026',
+            Entrada: '10/09/2026',
+            Salida: '11/09/2026',
+            'Pax.': '2',
+            'Importe(*)': '84',
+            Estado: 'Confirmada',
+            Hotel_Asignado: 'Sercotel Guadiana',
+            Segment: 'GRUPO',
+            Noches: '1',
+            'Pernoct.': '2'
+        },
+        {
+            _docId: '212348_2',
+            Reserva: '212348',
+            'Nombre del Grupo': 'FERCATUR 2026',
+            Entrada: '10/09/2026',
+            Salida: '14/09/2026',
+            'Pax.': '2',
+            'Importe(*)': '336',
+            Estado: 'Confirmada',
+            Hotel_Asignado: 'Sercotel Guadiana',
+            Segment: 'GRUPO',
+            Noches: '4',
+            'Pernoct.': '8'
+        }
+    ];
+
+    const incomingExcel = [
+        {
+            Reserva: '212348',
+            'Nombre del Grupo': 'FERCATUR 2026',
+            Entrada: '10/09/2026',
+            Salida: '14/09/2026',
+            'Pax.': '2',
+            'Importe(*)': '336,00',
+            Estado: 'Confirmada',
+            Segment: 'GRUPO',
+            Noches: '4',
+            'Pernoct.': '8'
+        },
+        {
+            Reserva: '212348',
+            'Nombre del Grupo': 'FERCATUR 2026',
+            Entrada: '10/09/2026',
+            Salida: '11/09/2026',
+            'Pax.': '2',
+            'Importe(*)': '84,00',
+            Estado: 'Confirmada',
+            Segment: 'GRUPO',
+            Noches: '1',
+            'Pernoct.': '2'
+        }
+    ];
+
+    const result = ExcelService.sanitizeAndMerge(incomingExcel, [], "Sercotel Guadiana", currentData);
+    assert.strictEqual(result.summaryData.newGroupsCount, 0, "No new groups should be created");
+    assert.strictEqual(result.summaryData.modifiedGroupsCount, 0, "0 modifications expected when re-importing identical lines");
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
