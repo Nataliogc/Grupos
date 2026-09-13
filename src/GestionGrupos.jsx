@@ -5177,11 +5177,16 @@
               const outD = toInputDate(r["Salida"]);
               if (inD && outD) {
                 try {
-                  let cur = new Date(inD + "T00:00:00");
-                  const end = new Date(outD + "T00:00:00");
-                  while (cur < end) {
-                    targetDates.add(cur.toISOString().split("T")[0]);
-                    cur.setDate(cur.getDate() + 1);
+                  const addOneDayStr = (dateStr) => {
+                    const [y, m, d] = dateStr.split("-").map(Number);
+                    const dt = new Date(Date.UTC(y, m - 1, d));
+                    dt.setUTCDate(dt.getUTCDate() + 1);
+                    return dt.toISOString().split("T")[0];
+                  };
+                  let cur = inD;
+                  while (cur < outD) {
+                    targetDates.add(cur);
+                    cur = addOneDayStr(cur);
                   }
                 } catch (e) {}
               }
@@ -10555,6 +10560,17 @@
           }
         });
 
+        // 1b. Días con habitaciones fuera de las fechas de estancia (Entrada → Salida)
+        Object.keys(dayMap).forEach((d) => {
+          if (expectedDays.size > 0 && !expectedDays.has(d)) {
+            issues.push({
+              type: "extra_day_outside_stay",
+              day: d,
+              message: `Habitaciones fuera de estancia: el día ${d} no pertenece al rango contratado (${inD} → ${outD})`
+            });
+          }
+        });
+
         // 2. Habitaciones con precio 0 € que no son gratuidades
         let zeroPriceCount = 0;
         let zeroPriceDays = [];
@@ -10651,11 +10667,16 @@
 
         const stayDays = [];
         try {
-          let cur = new Date(inD + "T00:00:00");
-          const end = new Date(outD + "T00:00:00");
-          while (cur < end) {
-            stayDays.push(cur.toISOString().split("T")[0]);
-            cur.setDate(cur.getDate() + 1);
+          const addOneDayStr = (dateStr) => {
+            const [y, m, d] = dateStr.split("-").map(Number);
+            const dt = new Date(Date.UTC(y, m - 1, d));
+            dt.setUTCDate(dt.getUTCDate() + 1);
+            return dt.toISOString().split("T")[0];
+          };
+          let cur = inD;
+          while (cur < outD) {
+            stayDays.push(cur);
+            cur = addOneDayStr(cur);
           }
         } catch (e) {}
 

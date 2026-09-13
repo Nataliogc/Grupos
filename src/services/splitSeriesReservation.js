@@ -10,14 +10,34 @@
 (function (global) {
   "use strict";
 
-  // Helper: robust date generator for stay nights
+  // Helper: robust date generator for stay nights using pure UTC
   function generateDatesLocal(start, end) {
     var arr = [];
-    var dt = new Date(start);
-    var endDt = new Date(end);
+    if (!start || !end) return arr;
+    var s = String(start).split("T")[0].trim();
+    var e = String(end).split("T")[0].trim();
+    var partsS = s.includes("-") ? s.split("-") : s.split("/");
+    var partsE = e.includes("-") ? e.split("-") : e.split("/");
+    
+    var yS, mS, dS, yE, mE, dE;
+    if (partsS[0].length === 4) {
+      yS = Number(partsS[0]); mS = Number(partsS[1]); dS = Number(partsS[2]);
+    } else {
+      dS = Number(partsS[0]); mS = Number(partsS[1]); yS = Number(partsS[2]);
+    }
+    if (partsE[0].length === 4) {
+      yE = Number(partsE[0]); mE = Number(partsE[1]); dE = Number(partsE[2]);
+    } else {
+      dE = Number(partsE[0]); mE = Number(partsE[1]); yE = Number(partsE[2]);
+    }
+
+    if (isNaN(yS) || isNaN(mS) || isNaN(dS) || isNaN(yE) || isNaN(mE) || isNaN(dE)) return arr;
+
+    var dt = new Date(Date.UTC(yS, mS - 1, dS));
+    var endDt = new Date(Date.UTC(yE, mE - 1, dE));
     while (dt < endDt) {
-      arr.push(new Date(dt).toISOString().split('T')[0]);
-      dt.setDate(dt.getDate() + 1);
+      arr.push(dt.toISOString().split('T')[0]);
+      dt.setUTCDate(dt.getUTCDate() + 1);
     }
     return arr;
   }
