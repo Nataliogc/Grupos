@@ -8558,6 +8558,7 @@
       });
 
       const [editingId, setEditingId] = useState(null);
+      const [newlyInsertedLineId, setNewlyInsertedLineId] = useState(null);
 
 
 
@@ -10161,7 +10162,35 @@
             if (field === "type") {
               const val = String(rawValue || "").toUpperCase().trim();
               r.type = val;
-              r.pax = getPaxByRoomType(val);
+              const cleanVal = val.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, '').trim();
+              const isRoom = /^(IND|DUI|SINGLE|DOB|DBL|TWIN|MATRIMONIAL|TRI|CUA|QUIN|FAMI|SUITE|JUNIOR|ESTUDIO|HAB)/i.test(cleanVal);
+              const isMealOrService = /ALMUERZO|CENA|DESAYUNO|COFFEE|PICNIC|TRASLADO|GUIA|GUÍA|BUS|PARKING|SAL[OÓ]N|EXTRA|SUPLEMENTO|SERVICIO|CONCEPTO/i.test(val);
+              if (isMealOrService) {
+                r.isService = true;
+                if (r.pax === 2 || !r.pax) r.pax = 0;
+              } else if (isRoom) {
+                r.isService = false;
+                r.pax = getPaxByRoomType(val);
+              } else {
+                r.pax = getPaxByRoomType(val);
+              }
+              const nights = parseInt(r.nights, 10) || 1;
+              const qty = parseInt(r.qty, 10) || 1;
+              const price = parseFloat(r.price) || 0;
+              r.comision = calculateDefaultCommission(
+                price,
+                r.isService ? "" : (r.regime || ""),
+                qty,
+                nights,
+                r.type
+              );
+            } else if (field === "isService") {
+              r.isService = !!rawValue;
+              if (r.isService && (r.pax === 2 || !r.pax)) {
+                r.pax = 0;
+              } else if (!r.isService && (!r.pax || r.pax === 0)) {
+                r.pax = getPaxByRoomType(r.type);
+              }
               const nights = parseInt(r.nights, 10) || 1;
               const qty = parseInt(r.qty, 10) || 1;
               const price = parseFloat(r.price) || 0;
@@ -10309,6 +10338,98 @@
         }
 
         updateGroupMetadata(selectedGroupFicha.id, updatePayload);
+      };
+
+      const handleInsertLineForDay = (dayKey) => {
+        if (!selectedGroupFicha) return;
+        const currentRecord = selectedGroupFicha?.records?.[0] || {};
+        let currentList = [];
+        try {
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "insert-day-line");
+        } catch (e) {
+          currentList = [];
+        }
+        if (!Array.isArray(currentList)) currentList = [];
+
+        // Si el día estaba disminuido/colapsado, ampliarlo automáticamente
+        setCollapsedFichaDays((prev) => {
+          if (prev.has(dayKey)) {
+            const next = new Set(prev);
+            next.delete(dayKey);
+            return next;
+          }
+          return prev;
+        });
+
+        // Determinar fecha de salida por defecto (+1 día)
+        let nextDayStr = dayKey;
+        try {
+          const p = dayKey.split("-");
+          if (p.length === 3) {
+            const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+            d.setDate(d.getDate() + 1);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            nextDayStr = `${y}-${m}-${day}`;
+          }
+        } catch (e) {}
+
+        const effectiveMainHotel = normalizeHotelNameLocal(
+          selectedGroupFicha?.hotel || currentRecord["Hotel_Asignado"] || currentRecord["Hotel"],
+          "Sercotel Guadiana"
+        );
+
+        // Buscar items existentes de este día para heredar hotel y régimen
+        const dayItems = currentList.filter(item => {
+          const d = toInputDate(item.dateIn || item.date);
+          return d === dayKey;
+        });
+        const hotelForDay = dayItems[0]?.hotel || effectiveMainHotel;
+        const regimeForDay = dayItems.find(i => !i.isService && i.regime && i.regime !== "-")?.regime || currentRecord["Régimen"] || "HD";
+
+        // Determinar sortOrder para situar la nueva línea al final de ese día
+        let maxSortOrder = -1;
+        dayItems.forEach(it => {
+          if (typeof it.sortOrder === "number" && it.sortOrder > maxSortOrder) {
+            maxSortOrder = it.sortOrder;
+          }
+        });
+        const newSortOrder = maxSortOrder + 1;
+
+        const newId = `item_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        const newItem = {
+          id: newId,
+          hotel: hotelForDay,
+          type: "",
+          dateIn: dayKey,
+          dateOut: nextDayStr,
+          nights: 1,
+          qty: 1,
+          pax: 2,
+          regime: regimeForDay,
+          price: "0.00",
+          iva: 10,
+          total: "0.00",
+          isService: false,
+          sortOrder: newSortOrder
+        };
+
+        const newList = cleanRoomingListIds([...currentList, newItem]);
+        newList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+
+        const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+        const newTotalPax = calculateMaxDailyOccupancy(newList);
+        const newTotalRooms = calculateMaxDailyRooms(newList);
+
+        setNewlyInsertedLineId(newId);
+
+        updateGroupMetadata(selectedGroupFicha.id, {
+          RoomingList_JSON: JSON.stringify(newList),
+          "Importe(*)": newTotalSum.toFixed(2),
+          "Pax.": newTotalPax.toString(),
+          "Cant.": newTotalRooms.toString(),
+        });
       };
 
       const handleMoveRoomItemWithinBucket = (bucket, fromIdx, toIdx) => {
@@ -18957,7 +19078,7 @@
                                             className="bg-slate-100/95 hover:bg-blue-50/90 cursor-pointer select-none transition-colors border-t-2 border-slate-200"
                                             title="Haz clic para ampliar o disminuir este día"
                                           >
-                                            <td colSpan="13" className="py-2 px-3">
+                                            <td colSpan="15" className="py-2 px-3">
                                               <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2.5">
                                                   <span className={`text-[11px] font-black transition-transform duration-200 inline-block ${
@@ -18999,6 +19120,18 @@
                                                       {bucket.totalAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                                     </span>
                                                   </div>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleInsertLineForDay(bucket.dayKey);
+                                                    }}
+                                                    className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                                                    title={`Insertar nueva línea o concepto para el día ${formatDate(bucket.dayKey)}`}
+                                                  >
+                                                    <span className="text-xs font-bold leading-none">+</span>
+                                                    <span>Insertar línea</span>
+                                                  </button>
                                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
                                                     isCollapsed
                                                       ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
@@ -19097,15 +19230,39 @@
                                         </td>
 
                                         {/* PRODUCTO (TIPO) */}
-                                        <td className="py-1.5 px-2 min-w-[140px]">
-                                          <input
-                                            type="text"
-                                            className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1.5 py-0.5 font-bold text-slate-800 outline-none w-full uppercase text-[11px] transition shadow-2xs"
-                                            value={item.type || ""}
-                                            onChange={(e) => handleInlineRoomItemUpdate(item, "type", e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                                            title="Editar nombre de producto o tipo de habitación"
-                                          />
+                                        <td className="py-1.5 px-2 min-w-[160px]">
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleInlineRoomItemUpdate(item, "isService", !item.isService);
+                                              }}
+                                              className={`text-[9px] font-black px-1.5 py-0.5 rounded border transition-colors shrink-0 cursor-pointer ${
+                                                item.isService
+                                                  ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
+                                                  : "bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100"
+                                              }`}
+                                              title={item.isService ? "Servicio / Extra (clic para cambiar a Habitación)" : "Habitación (clic para cambiar a Servicio)"}
+                                            >
+                                              {item.isService ? "🍽️ Serv" : "🏨 Hab"}
+                                            </button>
+                                            <input
+                                              type="text"
+                                              list="room-types-list"
+                                              autoFocus={item.id === newlyInsertedLineId || (Array.isArray(item.ids) && item.ids.includes(newlyInsertedLineId))}
+                                              placeholder="CONCEPTO O HAB."
+                                              className={`border rounded px-1.5 py-0.5 font-bold outline-none w-full uppercase text-[11px] transition shadow-2xs ${
+                                                item.id === newlyInsertedLineId || (Array.isArray(item.ids) && item.ids.includes(newlyInsertedLineId))
+                                                  ? "bg-amber-50 border-amber-400 text-amber-900 ring-2 ring-amber-300"
+                                                  : "bg-white/80 hover:bg-white focus:bg-white border-slate-200 focus:border-blue-400 text-slate-800"
+                                              }`}
+                                              value={item.type || ""}
+                                              onChange={(e) => handleInlineRoomItemUpdate(item, "type", e.target.value)}
+                                              onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                                              title="Editar nombre de producto, concepto o tipo de habitación"
+                                            />
+                                          </div>
                                         </td>
 
                                         {/* FECHA CARGO */}
@@ -19339,6 +19496,22 @@
                                         </td>
                                       </tr>
                                           ))}
+                                          {/* FILA INFERIOR PARA INSERTAR LÍNEA / CONCEPTO EN ESTE DÍA */}
+                                          {!isCollapsed && (
+                                            <tr className="bg-slate-50/50 hover:bg-emerald-50/30 transition-colors border-b border-dashed border-slate-200">
+                                              <td colSpan="15" className="py-1.5 px-3 text-left">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleInsertLineForDay(bucket.dayKey)}
+                                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100/60 px-2.5 py-0.5 rounded transition-all cursor-pointer"
+                                                  title={`Añadir nueva línea o concepto para el día ${formatDate(bucket.dayKey)}`}
+                                                >
+                                                  <span className="text-xs font-black leading-none">+</span>
+                                                  <span>Añadir concepto o línea para el día {formatDate(bucket.dayKey)}</span>
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          )}
                                         </React.Fragment>
                                       );
                                     });
