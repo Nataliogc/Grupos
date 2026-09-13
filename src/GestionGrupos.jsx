@@ -14280,6 +14280,7 @@
               const freeInd = Math.min(curInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : (editingDistribution.gratuitiesCount || 0), 10) || 0);
               const freeDbl = Math.min(curDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
               const freeTpl = Math.min(curTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
+              const freeCua = Math.min(curCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
               const totGratuities = freeInd + freeDbl + freeTpl + freeCua;
               const freePaxTotal = (freeInd * 1) + (freeDbl * 2) + (freeTpl * 3) + (freeCua * 4);
               const calcPax = (curInd * 1) + (curDbl * 2) + (curTpl * 3) + (curCua * 4);
