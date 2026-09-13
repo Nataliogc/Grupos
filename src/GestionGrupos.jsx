@@ -10705,11 +10705,21 @@
 
           // 2. De las líneas contribuyentes originales del Excel (groupedDailyOccupancyByReserva)
           let resEntry = null;
-          if (resId && typeof groupedDailyOccupancyByReserva !== "undefined" && groupedDailyOccupancyByReserva) {
-            for (const [k, v] of groupedDailyOccupancyByReserva.entries()) {
-              if (k.endsWith(`___${resId}`) || normalizeId(v.reserva) === resId) {
-                resEntry = v;
-                break;
+          if (resId && groupedDailyOccupancyByReserva) {
+            if (Array.isArray(groupedDailyOccupancyByReserva)) {
+              resEntry = groupedDailyOccupancyByReserva.find((item) => {
+                const itemRes = normalizeId(item.reserva);
+                const itemKey = String(item.reservaKey || "");
+                return itemRes === resId || itemKey.endsWith(`___${resId}`) || itemKey.includes(resId);
+              }) || null;
+            } else if (typeof groupedDailyOccupancyByReserva.values === "function") {
+              for (const v of groupedDailyOccupancyByReserva.values()) {
+                const itemRes = normalizeId(v.reserva);
+                const itemKey = String(v.reservaKey || "");
+                if (itemRes === resId || itemKey.endsWith(`___${resId}`) || itemKey.includes(resId)) {
+                  resEntry = v;
+                  break;
+                }
               }
             }
           }
