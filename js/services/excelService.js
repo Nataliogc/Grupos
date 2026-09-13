@@ -404,6 +404,14 @@
             }
         }
 
+        row["Excel_Importe"] = toNum(row["Importe(*)"]);
+        row["Excel_Pax"] = toNum(row["Pax."]);
+        row["Excel_Noches"] = toNum(row["Noches"]);
+        row["Excel_Entrada"] = toIsoDate(row["Entrada"]) || row["Entrada"];
+        row["Excel_Salida"] = toIsoDate(row["Salida"]) || row["Salida"];
+        row["Excel_Regimen"] = normalizeRegimen(row["Régimen"]);
+        row["Excel_Estado"] = normalizeEstado(row["Estado"]);
+
         incomingRows.push(row);
     });
 
@@ -718,6 +726,14 @@
             // Preservar clave de registro y número de línea para re-importaciones estables
             if (targetRecordKey) mergedRow["_recordKey"] = targetRecordKey;
             if (newLinea) mergedRow["_linea"] = newLinea;
+
+            mergedRow["Excel_Importe"] = toNum(newRow["Importe(*)"]);
+            mergedRow["Excel_Pax"] = toNum(newRow["Pax."]);
+            mergedRow["Excel_Noches"] = toNum(newRow["Noches"]);
+            mergedRow["Excel_Entrada"] = toIsoDate(newRow["Entrada"]) || newRow["Entrada"];
+            mergedRow["Excel_Salida"] = toIsoDate(newRow["Salida"]) || newRow["Salida"];
+            mergedRow["Excel_Regimen"] = normalizeRegimen(newRow["Régimen"]);
+            mergedRow["Excel_Estado"] = normalizeEstado(newRow["Estado"]);
 
             if (newRow._hasWarning) mergedRow._hasWarning = true;
 

@@ -5535,6 +5535,10 @@
 
           // Actualizar en Firestore para todos los documentos de esta reserva
           if (docIdsToUpdate.size > 0) {
+            const isBudgetRes = Boolean(
+              String(targetResId).toUpperCase().startsWith("PRES-") ||
+              matchingRows.some(mr => mr.isBudget || (mr.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO" || (mr.Estado || "").toUpperCase() === "PRESUPUESTO")
+            );
             const batch = db.batch();
             docIdsToUpdate.forEach((docId) => {
               const docRef = db.collection("groups").doc(docId);
@@ -5546,6 +5550,17 @@
                 payload.RoomingList_JSON = roomingJsonToSave;
                 if (newTotalAmountStr) payload["Importe(*)"] = newTotalAmountStr;
               }
+              // Si el grupo proviene de Excel (no presupuesto) y no tiene grabado Excel_Importe, preservarlo antes de sobreescribir Importe(*)
+              if (!isBudgetRes) {
+                const rowMatch = matchingRows.find(mr => mr._docId === docId || normalizeId(mr["Reserva"]) === docId);
+                if (rowMatch) {
+                  if (rowMatch.Excel_Importe) {
+                    payload.Excel_Importe = parseNum(rowMatch.Excel_Importe);
+                  } else if (rowMatch["Importe(*)"]) {
+                    payload.Excel_Importe = parseNum(rowMatch["Importe(*)"]);
+                  }
+                }
+              }
               batch.set(docRef, payload, { merge: true });
             });
             await batch.commit();
@@ -5554,9 +5569,16 @@
           // Actualizar estado local inmediatamente
           setData((prev) => prev.map((r) => {
             if (normalizeId(r["Reserva"]) === targetResId || docIdsToUpdate.has(r._docId)) {
+              const isBudgetRow = Boolean(
+                String(r["Reserva"] || "").toUpperCase().startsWith("PRES-") ||
+                r.isBudget || (r.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO"
+              );
               const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
               if (roomingJsonToSave) {
                 updated.RoomingList_JSON = roomingJsonToSave;
+                if (!isBudgetRow && !updated.Excel_Importe && r["Importe(*)"]) {
+                  updated.Excel_Importe = parseNum(r["Importe(*)"]);
+                }
                 if (newTotalAmountStr) updated["Importe(*)"] = newTotalAmountStr;
               }
               return updated;
@@ -5567,10 +5589,17 @@
           if (selectedGroupFicha && normalizeId(selectedGroupFicha.id) === targetResId) {
             setSelectedGroupFicha(prev => {
               if (!prev) return prev;
+              const isBudgetGroup = Boolean(
+                prev.isBudget ||
+                String(prev.id || "").toUpperCase().startsWith("PRES-")
+              );
               const updatedRecords = (prev.records || []).map(r => {
                 const updated = { ...r, DailyDistribution_JSON: jsonStringToSave };
                 if (roomingJsonToSave) {
                   updated.RoomingList_JSON = roomingJsonToSave;
+                  if (!isBudgetGroup && !updated.Excel_Importe && r["Importe(*)"]) {
+                    updated.Excel_Importe = parseNum(r["Importe(*)"]);
+                  }
                   if (newTotalAmountStr) updated["Importe(*)"] = newTotalAmountStr;
                 }
                 return updated;
@@ -10514,6 +10543,17 @@
         const issues = [];
         const warnings = [];
         const record = ficha?.records?.[0] || {};
+        const resId = normalizeId(ficha?.id || record["Reserva"]);
+
+        // Detección: si es un presupuesto generado en la aplicación, NO comprobar discrepancias de Excel
+        const isBudget = Boolean(
+          ficha?.isBudget ||
+          String(resId || "").toUpperCase().startsWith("PRES-") ||
+          record.isBudget === true ||
+          (record.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO" ||
+          (record.Estado || "").toUpperCase() === "PRESUPUESTO" ||
+          String(record["Segment."] || "").toUpperCase().includes("PRESUP")
+        );
 
         // Obtener fechas de estancia esperadas (Entrada → Salida)
         const inD = toInputDate(record["Entrada"] || record["Check-In"]);
@@ -10522,7 +10562,6 @@
         if (inD && outD) {
           try {
             // Aritmética UTC pura para evitar el desfase de zona horaria España (UTC+1/+2):
-            // new Date("2027-03-07T00:00:00") en España → "2027-03-06T23:00:00Z" → .toISOString() daría día 6 ❌
             const addOneDayStr = (dateStr) => {
               const [y, m, d] = dateStr.split("-").map(Number);
               const dt = new Date(Date.UTC(y, m - 1, d));
@@ -10612,10 +10651,189 @@
           }
         }
 
-        // 4. Descuadre de importe total vs Rooming List
         const roomingTotal = expanded.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
-        if (contractedImporte > 0 && Math.abs(roomingTotal - contractedImporte) > 0.05) {
-          warnings.push({ type: "amount_mismatch", roomingTotal, contractedImporte, diff: roomingTotal - contractedImporte, message: `Importe contratado (${contractedImporte.toFixed(2)} €) difiere del total de la ficha (${roomingTotal.toFixed(2)} €)` });
+
+        // ─── COMPROBACIONES ESPECÍFICAS SEGÚN ORIGEN: EXCEL vs PRESUPUESTO ───
+        let excelAmount = 0;
+        let excelPax = 0;
+
+        if (isBudget) {
+          // Para presupuestos internos de la aplicación:
+          if (contractedImporte > 0 && Math.abs(roomingTotal - contractedImporte) > 0.05) {
+            warnings.push({
+              type: "amount_mismatch",
+              roomingTotal,
+              contractedImporte,
+              diff: roomingTotal - contractedImporte,
+              message: `Importe del presupuesto (${contractedImporte.toFixed(2)} €) difiere del desglose de habitaciones (${roomingTotal.toFixed(2)} €)`
+            });
+          }
+        } else {
+          // Para grupos importados de Excel / PMS:
+          // Localizar valores originales del Excel
+          let excelIn = "";
+          let excelOut = "";
+          let excelRegimen = "";
+
+          // 1. De los registros del grupo
+          if (ficha?.records?.length > 0) {
+            ficha.records.forEach(r => {
+              const imp = parseNum(r.Excel_Importe || 0);
+              if (imp > 0) excelAmount += imp;
+              const p = parseNum(r.Excel_Pax || 0);
+              if (p > excelPax) excelPax = p;
+              if (!excelIn && r.Excel_Entrada) excelIn = toInputDate(r.Excel_Entrada);
+              if (!excelOut && r.Excel_Salida) excelOut = toInputDate(r.Excel_Salida);
+              if (!excelRegimen && r.Excel_Regimen) excelRegimen = r.Excel_Regimen;
+            });
+          }
+
+          // 2. De las líneas contribuyentes originales del Excel (groupedDailyOccupancyByReserva)
+          let resEntry = null;
+          if (resId && typeof groupedDailyOccupancyByReserva !== "undefined" && groupedDailyOccupancyByReserva) {
+            for (const [k, v] of groupedDailyOccupancyByReserva.entries()) {
+              if (k.endsWith(`___${resId}`) || normalizeId(v.reserva) === resId) {
+                resEntry = v;
+                break;
+              }
+            }
+          }
+
+          if (resEntry && resEntry.contributingLines && resEntry.contributingLines.length > 0) {
+            const seenLineKeys = new Set();
+            let lineSum = 0;
+            let maxLinePax = 0;
+            resEntry.contributingLines.forEach(cl => {
+              const lk = String(cl.linea || `${cl.inDate}_${cl.outDate}_${cl.pax}_${cl.importe}`);
+              if (!seenLineKeys.has(lk)) {
+                seenLineKeys.add(lk);
+                lineSum += parseNum(cl.importe || 0);
+                const p = parseNum(cl.pax || 0);
+                if (p > maxLinePax) maxLinePax = p;
+                if (!excelIn && cl.inDate) excelIn = toInputDate(cl.inDate);
+                if (!excelOut && cl.outDate) excelOut = toInputDate(cl.outDate);
+                if (!excelRegimen && cl.regimen) excelRegimen = cl.regimen;
+              }
+            });
+            if (excelAmount <= 0 && lineSum > 0) excelAmount = lineSum;
+            if (excelPax <= 0 && maxLinePax > 0) excelPax = maxLinePax;
+          }
+
+          // 3. De _changes si existe registro de cambios del importador
+          if (excelAmount <= 0 && record?._changes?.["Importe(*)"]) {
+            const chNew = parseNum(record._changes["Importe(*)"].new);
+            const chOld = parseNum(record._changes["Importe(*)"].old);
+            if (chNew > 0) excelAmount = chNew;
+            else if (chOld > 0) excelAmount = chOld;
+          }
+          if (excelPax <= 0 && record?._changes?.["Pax."]) {
+            const pNew = parseNum(record._changes["Pax."].new);
+            const pOld = parseNum(record._changes["Pax."].old);
+            if (pNew > 0) excelPax = pNew;
+            else if (pOld > 0) excelPax = pOld;
+          }
+
+          // 4. Fallback a contractedImporte / contractedPax
+          if (excelAmount <= 0 && contractedImporte > 0) {
+            excelAmount = contractedImporte;
+          }
+          if (excelPax <= 0 && contractedPax > 0) {
+            excelPax = contractedPax;
+          }
+
+          // Incidencia A: Descuadre de importe total vs Excel original
+          if (excelAmount > 0 && Math.abs(roomingTotal - excelAmount) > 0.50) {
+            const diff = roomingTotal - excelAmount;
+            issues.push({
+              type: "excel_amount_mismatch",
+              excelAmount,
+              roomingTotal,
+              diff,
+              message: `Descuadre con Excel: Total Ficha (${roomingTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) vs Excel (${excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) [Dif: ${diff > 0 ? "+" : ""}${diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €]`
+            });
+          }
+
+          // Incidencia B: Descuadre de Pax con Excel original
+          if (excelPax > 0) {
+            let maxDayPax = 0;
+            Object.values(dayMap).forEach(items => {
+              let dp = 0;
+              items.forEach(it => {
+                const t = String(it.type || "").toUpperCase();
+                const qty = parseInt(it.qty, 10) || 1;
+                if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) dp += qty * 1;
+                else if (t.includes("DBL") || t.includes("DOBLE") || t.includes("TWIN")) dp += qty * 2;
+                else if (t.includes("TPL") || t.includes("TRIPLE")) dp += qty * 3;
+                else if (t.includes("CUA") || t.includes("CUAD")) dp += qty * 4;
+                else dp += qty * 2;
+              });
+              if (dp > maxDayPax) maxDayPax = dp;
+            });
+            if (maxDayPax > 0 && maxDayPax !== excelPax) {
+              warnings.push({
+                type: "excel_pax_mismatch",
+                excelPax,
+                maxDayPax,
+                diff: maxDayPax - excelPax,
+                message: `Descuadre de Pax con Excel: Ficha (${maxDayPax} pax) vs Excel (${excelPax} pax)`
+              });
+            }
+          }
+
+          // Incidencia C: Descuadre de fechas con Excel original
+          if (excelIn && excelOut && inD && outD && (excelIn !== inD || excelOut !== outD)) {
+            issues.push({
+              type: "excel_dates_mismatch",
+              message: `Fechas difieren del Excel: Ficha (${inD} → ${outD}) vs Excel (${excelIn} → ${excelOut})`
+            });
+          }
+
+          // Incidencia D: Descuadre de Régimen con Excel original
+          if (excelRegimen) {
+            const normExcelReg = (excelRegimen === "AD" ? "HD" : excelRegimen === "SA" ? "HA" : excelRegimen).trim().toUpperCase();
+            const foundRoomingReg = (expanded.find(it => !it.isService && it.regime && it.regime !== "-" && it.regime !== "---")?.regime || record["Régimen"] || "").trim().toUpperCase();
+            const normFichaReg = foundRoomingReg === "AD" ? "HD" : foundRoomingReg === "SA" ? "HA" : foundRoomingReg;
+            if (normFichaReg && normExcelReg && normFichaReg !== "-" && normExcelReg !== "-" && normFichaReg !== normExcelReg) {
+              warnings.push({
+                type: "excel_regimen_mismatch",
+                excelRegimen: normExcelReg,
+                fichaRegimen: normFichaReg,
+                message: `Régimen difiere del Excel: Ficha (${normFichaReg}) vs Excel (${normExcelReg})`
+              });
+            }
+          }
+
+          // Incidencia E: Grupo marcado como Anulado o con cambios pendientes de Excel
+          if (record._diff === "cancelled" || (record.Estado || "").toUpperCase().includes("ANUL")) {
+            issues.push({
+              type: "excel_cancelled",
+              message: "El grupo figura como ANULADO en el Excel importado"
+            });
+          } else if (record._diff === "modified" || (record._changes && Object.keys(record._changes).length > 0)) {
+            const changeKeys = Object.keys(record._changes || {});
+            if (changeKeys.length > 0) {
+              warnings.push({
+                type: "excel_pending_changes",
+                changes: record._changes,
+                message: `Cambios pendientes desde el Excel en: ${changeKeys.join(", ")}`
+              });
+            }
+          }
+
+          // Incidencia F: Alertas de discrepancias de GroupOccupancyService
+          if (resEntry?.days && Array.isArray(resEntry.days)) {
+            const occReasons = new Set();
+            resEntry.days.forEach(d => {
+              if (d.excelDifference?.hasDiff && Array.isArray(d.excelDifference.reasons)) {
+                d.excelDifference.reasons.forEach(r => occReasons.add(r));
+              }
+            });
+            occReasons.forEach(r => {
+              if (!issues.some(i => i.message.includes(r)) && !warnings.some(w => w.message.includes(r))) {
+                warnings.push({ type: "excel_diff_reason", message: `Diferencia con Excel: ${r}` });
+              }
+            });
+          }
         }
 
         // Calcular semáforo financiero
@@ -10628,7 +10846,7 @@
           else if (daysToArrival <= 30) financeStatus = "warning";
         }
 
-        return { issues, warnings, contractedImporte, paid, pending, financeStatus, zeroPriceDays, expectedDays: Array.from(expectedDays) };
+        return { issues, warnings, contractedImporte, excelAmount, isBudget, paid, pending, financeStatus, zeroPriceDays, expectedDays: Array.from(expectedDays) };
       };
 
       // ─── SINCRONIZACIÓN AUTOMÁTICA FICHA → DISTRIBUCIÓN DIARIA ───────────────
@@ -18837,7 +19055,7 @@
                           {(() => {
                             const rl = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "health-panel");
                             const health = calculateGroupHealth(selectedGroupFicha, rl);
-                            const { issues, warnings, contractedImporte, paid, pending, financeStatus, zeroPriceDays } = health;
+                            const { issues, warnings, contractedImporte, excelAmount, isBudget, paid, pending, financeStatus, zeroPriceDays } = health;
                             const totalIssues = issues.length + warnings.length;
                             const isHealthy = totalIssues === 0;
 
@@ -18848,7 +19066,7 @@
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-black">{isHealthy ? "✅" : "⚠️"}</span>
                                     <span className={`text-xs font-black ${isHealthy ? "text-emerald-700" : "text-amber-800"}`}>
-                                      {isHealthy ? "Grupo Verificado y Cuadrado — Sin incidencias" : `${totalIssues} Incidencia(s) Detectada(s) — Acción Recomendada`}
+                                      {isHealthy ? (isBudget ? "Presupuesto Verificado y Cuadrado — Sin incidencias" : "Grupo Verificado y Cuadrado con Excel — Sin incidencias") : `${totalIssues} Incidencia(s) Detectada(s) — Acción Recomendada`}
                                     </span>
                                   </div>
                                   {/* Semáforo financiero */}
@@ -18866,8 +19084,19 @@
                                 {/* Barra Financiera */}
                                 <div className="bg-white border-b border-slate-100 px-4 py-2 grid grid-cols-3 gap-2">
                                   <div className="text-center">
-                                    <div className="text-[8px] font-black uppercase text-slate-400">Total Contratado</div>
-                                    <div className="text-sm font-black text-slate-800 tabular-nums">{contractedImporte.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                                    <div className="text-[8px] font-black uppercase text-slate-400">
+                                      {!isBudget && excelAmount > 0 && Math.abs(contractedImporte - excelAmount) > 0.50 ? "Ficha vs Excel" : "Total Contratado"}
+                                    </div>
+                                    <div className="text-sm font-black text-slate-800 tabular-nums">
+                                      {!isBudget && excelAmount > 0 && Math.abs(contractedImporte - excelAmount) > 0.50 ? (
+                                        <div className="flex flex-col items-center leading-tight">
+                                          <span className="text-slate-800">{contractedImporte.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                                          <span className="text-[9px] font-bold text-red-600">(Excel: {excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)</span>
+                                        </div>
+                                      ) : (
+                                        `${contractedImporte.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="text-center border-x border-slate-100">
                                     <div className="text-[8px] font-black uppercase text-emerald-500">Cobrado / Anticipos</div>
@@ -18901,6 +19130,11 @@
                                           <span className="text-red-500 mt-0.5 flex-shrink-0">●</span>
                                           <span className="text-[10px] font-bold text-red-800">{issue.message}</span>
                                         </div>
+                                        {issue.type === "excel_amount_mismatch" && (
+                                          <span className="flex-shrink-0 ml-auto text-[9px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded border border-red-200">
+                                            {issue.diff > 0 ? "+" : ""}{issue.diff.toFixed(2)} €
+                                          </span>
+                                        )}
                                         {issue.type === "zero_price" && zeroPriceDays.length > 0 && (
                                           <button
                                             type="button"
@@ -18921,7 +19155,7 @@
                                       <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
                                         <span className="text-amber-500 mt-0.5 flex-shrink-0">◆</span>
                                         <span className="text-[10px] font-bold text-amber-800">{w.message}</span>
-                                        {w.type === "amount_mismatch" && w.diff && (
+                                        {(w.type === "amount_mismatch" || w.type === "excel_amount_mismatch") && w.diff && (
                                           <span className={`ml-auto text-[9px] font-black ${w.diff > 0 ? "text-emerald-700" : "text-red-700"}`}>
                                             {w.diff > 0 ? "+" : ""}{w.diff.toFixed(2)} €
                                           </span>
