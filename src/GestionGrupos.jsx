@@ -241,15 +241,23 @@
 
     const getRoomTypeHierarchyOrder = (item) => {
       if (!item) return 99;
+      const rawT = (item.type || "").toLowerCase().trim();
+      const cleanT = rawT.replace(/^(hab\.|habitación|habitacion|hab)\s+/i, "").trim();
+      const isRoomType = /^(ind|dui|single|dob|dbl|twin|matrimonial|tri|cua|quin|fami|suite|junior|estudio)/i.test(cleanT);
+      if (item.isService && !isRoomType) return 90;
+
+      if (cleanT.includes("ind") || cleanT.includes("dui") || cleanT.includes("single")) return 10;
+      if (cleanT.includes("dob") || cleanT.includes("dbl") || cleanT.includes("twin") || cleanT.includes("matrimonial")) return 20;
+      if (cleanT.includes("tri")) {
+        if (cleanT.includes("niñ") || cleanT.includes("chd") || cleanT.includes("child") || cleanT.includes("inf")) return 35;
+        return 30;
+      }
+      if (cleanT.includes("cua")) return 40;
+      if (cleanT.includes("quin") || cleanT.includes("fami")) return 50;
+      if (cleanT.includes("suite") || cleanT.includes("junior")) return 60;
+      if (cleanT.includes("estudio") || cleanT.includes("apartamento")) return 65;
+      if (rawT.includes("habitaci") || rawT.includes("hab.")) return 70;
       if (item.isService) return 90;
-      const t = (item.type || "").toLowerCase();
-      if (t.includes("ind") || t.includes("dui") || t.includes("single")) return 10;
-      if (t.includes("dob") || t.includes("dbl") || t.includes("twin") || t.includes("matrimonial")) return 20;
-      if (t.includes("tri")) return 30;
-      if (t.includes("cua")) return 40;
-      if (t.includes("quin") || t.includes("fami")) return 50;
-      if (t.includes("suite") || t.includes("junior")) return 60;
-      if (t.includes("habitaci")) return 70;
       return 80;
     };
 
@@ -259,12 +267,24 @@
       if (dateA !== dateB) {
         return dateA.localeCompare(dateB);
       }
+      const hasOrderA = typeof a.sortOrder === "number" || typeof a.customOrder === "number";
+      const hasOrderB = typeof b.sortOrder === "number" || typeof b.customOrder === "number";
+      if (hasOrderA && hasOrderB) {
+        const oA = a.sortOrder ?? a.customOrder;
+        const oB = b.sortOrder ?? b.customOrder;
+        if (oA !== oB) return oA - oB;
+      }
+      if (hasOrderA && !hasOrderB) return -1;
+      if (!hasOrderA && hasOrderB) return 1;
+
       const orderA = getRoomTypeHierarchyOrder(a);
       const orderB = getRoomTypeHierarchyOrder(b);
       if (orderA !== orderB) {
         return orderA - orderB;
       }
-      return (a.type || "").localeCompare(b.type || "");
+      const cleanA = (a.type || "").replace(/^(hab\.|habitación|habitacion|hab)\s+/i, "").trim();
+      const cleanB = (b.type || "").replace(/^(hab\.|habitación|habitacion|hab)\s+/i, "").trim();
+      return cleanA.localeCompare(cleanB);
     };
 
 
@@ -8353,7 +8373,7 @@
 
         iva: 10,
 
-        isService: true,
+        isService: false,
 
       });
 
@@ -9846,7 +9866,7 @@
 
           price: 0,
 
-          isService: true,
+          isService: false,
 
         }));
 
@@ -10103,23 +10123,61 @@
         updateGroupMetadata(selectedGroupFicha.id, updatePayload);
       };
 
-      const handleRoomManagerDrop = (sourceIndex, targetIndex) => {
+      const handleMoveRoomItemWithinBucket = (bucket, fromIdx, toIdx) => {
+        if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || !bucket || !bucket.items) return;
+        if (fromIdx >= bucket.items.length || toIdx >= bucket.items.length) return;
 
-        if (sourceIndex === targetIndex) return;
-
-        const currentRecord = selectedGroupFicha.records[0] || {};
-
+        const currentRecord = selectedGroupFicha?.records?.[0] || {};
         let currentList = [];
-
         try {
-
           currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "rooming-inventory");
-
         } catch (e) {
-
           return;
-
         }
+        if (!Array.isArray(currentList) || currentList.length === 0) return;
+
+        const newBucketItems = [...bucket.items];
+        const [moved] = newBucketItems.splice(fromIdx, 1);
+        newBucketItems.splice(toIdx, 0, moved);
+
+        // Assign explicit sortOrder to all items in this day
+        newBucketItems.forEach((it, orderIdx) => {
+          const targetIds = new Set(normalizeRoomIds(it.ids || it.id));
+          currentList.forEach((r) => {
+            const rIds = normalizeRoomIds(r.id);
+            const matchesId = rIds.some((id) => targetIds.has(id));
+            const matchesMulti = it.originalMultiNightId && String(r.id) === String(it.originalMultiNightId);
+            if (matchesId || matchesMulti) {
+              r.sortOrder = orderIdx;
+            }
+          });
+        });
+
+        currentList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+
+        const newTotalSum = currentList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+        const newTotalPax = calculateMaxDailyOccupancy(currentList);
+        const newTotalRooms = calculateMaxDailyRooms(currentList);
+
+        updateGroupMetadata(selectedGroupFicha.id, {
+          RoomingList_JSON: JSON.stringify(currentList),
+          "Importe(*)": newTotalSum.toFixed(2),
+          "Pax.": newTotalPax.toString(),
+          "Cant.": newTotalRooms.toString(),
+        });
+      };
+
+      const handleRoomManagerDrop = (sourceIndex, targetIndex) => {
+        if (sourceIndex === targetIndex || isNaN(sourceIndex) || isNaN(targetIndex)) return;
+
+        const currentRecord = selectedGroupFicha?.records?.[0] || {};
+        let currentList = [];
+        try {
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "rooming-inventory");
+        } catch (e) {
+          return;
+        }
+        if (!Array.isArray(currentList) || currentList.length === 0) return;
 
         const grouped = [];
         currentList.forEach((item) => {
@@ -10127,47 +10185,45 @@
           const existing = grouped.find(g => g.key === key);
           if (existing) {
             existing.items.push(item);
+            if (typeof item.sortOrder === "number" && (typeof existing.sortOrder !== "number" || item.sortOrder < existing.sortOrder)) {
+              existing.sortOrder = item.sortOrder;
+            }
           } else {
             grouped.push({
               key,
-              items: [item]
+              items: [item],
+              sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : undefined
             });
           }
         });
 
         grouped.sort((a, b) => compareRoomItemsByDateAndType(a.items[0] || {}, b.items[0] || {}));
+        if (sourceIndex < 0 || sourceIndex >= grouped.length || targetIndex < 0 || targetIndex >= grouped.length) return;
+
         const [moved] = grouped.splice(sourceIndex, 1);
         grouped.splice(targetIndex, 0, moved);
+
+        grouped.forEach((g, gIdx) => {
+          g.items.forEach((item) => {
+            item.sortOrder = gIdx;
+          });
+        });
 
         const newList = [];
         grouped.forEach((g) => {
           newList.push(...g.items);
         });
 
-        const newTotalSum = newList.reduce(
-
-          (acc, i) => acc + (parseFloat(i.total) || 0),
-
-          0,
-
-        );
-
+        const newTotalSum = newList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
         const newTotalPax = calculateMaxDailyOccupancy(newList);
-
         const newTotalRooms = calculateMaxDailyRooms(newList);
 
         updateGroupMetadata(selectedGroupFicha.id, {
-
           RoomingList_JSON: JSON.stringify(newList),
-
           "Importe(*)": newTotalSum.toFixed(2),
-
           "Pax.": newTotalPax.toString(),
-
           "Cant.": newTotalRooms.toString(),
-
         });
-
       };
 
       const calculateDeposits = (
@@ -17912,11 +17968,19 @@
 
                                       } else {
 
+                                        const cleanVal = val.replace(/^(hab\.|habitación|habitacion|hab)\s+/i, '').trim();
+                                        const isRoom = /^(ind|dui|single|dob|dbl|twin|matrimonial|tri|cua|quin|fami|suite|junior|estudio|hab)/i.test(cleanVal);
+                                        const isMealOrService = /almuerzo|cena|desayuno|coffee|picnic|traslado|guia|guía|bus|parking|sal[oó]n|extra|suplemento/i.test(val);
+
                                         setRoomManagerForm({
 
                                           ...roomManagerForm,
 
                                           type: val,
+
+                                          pax: isRoom ? getPaxByRoomType(val) : roomManagerForm.pax,
+
+                                          isService: isMealOrService ? true : (isRoom ? false : roomManagerForm.isService),
 
                                         });
 
@@ -18619,61 +18683,70 @@
                                       }
                                     }
 
-                                    const grouped = [];
-                                    rawRL.forEach((item, index) => {
-                                      const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
-                                      const existing = grouped.find(g => g.key === key);
-                                      if (existing) {
-                                        existing.qty = (existing.qty || 0) + (parseInt(item.qty) || 1);
-                                        existing.total = (parseFloat(existing.total) || 0) + (parseFloat(item.total) || 0);
-                                        existing.ids.push(item.id);
-                                        existing.originalIndices.push(index);
-                                      } else {
-                                        grouped.push({
-                                          ...item,
-                                          key,
-                                          qty: parseInt(item.qty) || 1,
-                                          total: parseFloat(item.total) || 0,
-                                          ids: [item.id],
-                                          originalIndices: [index]
-                                        });
-                                      }
-                                    });
+                                     const grouped = [];
+                                     rawRL.forEach((item, index) => {
+                                       const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
+                                       const existing = grouped.find(g => g.key === key);
+                                       if (existing) {
+                                         existing.qty = (existing.qty || 0) + (parseInt(item.qty) || 1);
+                                         existing.total = (parseFloat(existing.total) || 0) + (parseFloat(item.total) || 0);
+                                         existing.ids.push(item.id);
+                                         existing.originalIndices.push(index);
+                                         if (typeof item.sortOrder === "number" && (typeof existing.sortOrder !== "number" || item.sortOrder < existing.sortOrder)) {
+                                           existing.sortOrder = item.sortOrder;
+                                         }
+                                       } else {
+                                         grouped.push({
+                                           ...item,
+                                           key,
+                                           qty: parseInt(item.qty) || 1,
+                                           total: parseFloat(item.total) || 0,
+                                           ids: [item.id],
+                                           originalIndices: [index],
+                                           sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : undefined
+                                         });
+                                       }
+                                     });
 
-                                    // Ordenar por días (cronológico) y jerarquía de habitación
-                                    grouped.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+                                     // Ordenar por días (cronológico) y jerarquía de habitación o manual sortOrder
+                                     grouped.sort((a, b) => compareRoomItemsByDateAndType(a, b));
 
-                                    // Agrupar en bloques por día para poder ampliar o disminuir por día
-                                    const dayBuckets = [];
-                                    const dayBucketMap = new Map();
+                                     // Agrupar en bloques por día para poder ampliar o disminuir por día
+                                     const dayBuckets = [];
+                                     const dayBucketMap = new Map();
 
-                                    grouped.forEach((item, index) => {
-                                      const dayKey = item.dateIn || item.date || item.fecha || "Varios";
-                                      if (!dayBucketMap.has(dayKey)) {
-                                        const bucket = {
-                                          dayKey,
-                                          items: [],
-                                          totalRooms: 0,
-                                          totalPax: 0,
-                                          totalAmount: 0,
-                                          roomTypes: {}
-                                        };
-                                        dayBucketMap.set(dayKey, bucket);
-                                        dayBuckets.push(bucket);
-                                      }
-                                      const b = dayBucketMap.get(dayKey);
-                                      const qty = parseInt(item.qty, 10) || 1;
-                                      const pax = parseInt(item.pax, 10) || (getPaxByRoomType(item.type));
-                                      const tot = parseFloat(item.total) || 0;
+                                     grouped.forEach((item, index) => {
+                                       const dayKey = item.dateIn || item.date || item.fecha || "Varios";
+                                       if (!dayBucketMap.has(dayKey)) {
+                                         const bucket = {
+                                           dayKey,
+                                           items: [],
+                                           totalRooms: 0,
+                                           totalPax: 0,
+                                           totalAmount: 0,
+                                           roomTypes: {}
+                                         };
+                                         dayBucketMap.set(dayKey, bucket);
+                                         dayBuckets.push(bucket);
+                                       }
+                                       const b = dayBucketMap.get(dayKey);
+                                       const qty = parseInt(item.qty, 10) || 1;
+                                       const pax = parseInt(item.pax, 10) || (getPaxByRoomType(item.type));
+                                       const tot = parseFloat(item.total) || 0;
 
-                                      b.items.push({ ...item, globalIndex: index });
-                                      b.totalRooms += (item.isService ? 0 : qty);
-                                      b.totalPax += (item.isService ? 0 : (qty * pax));
-                                      b.totalAmount += tot;
+                                       const rawT = (item.type || "").toLowerCase().trim();
+                                       const cleanT = rawT.replace(/^(hab\.|habitación|habitacion|hab)\s+/i, "").trim();
+                                       const isRoomTypology = /^(ind|dui|single|dob|dbl|twin|matrimonial|tri|cua|quin|fami|suite|junior|estudio)/i.test(cleanT);
+                                       const isPureService = item.isService && !isRoomTypology;
 
-                                      const tName = item.type || "Habitación";
-                                      b.roomTypes[tName] = (b.roomTypes[tName] || 0) + qty;
-                                    });
+                                       b.items.push({ ...item, globalIndex: index });
+                                       b.totalRooms += (isPureService ? 0 : qty);
+                                       b.totalPax += (isPureService ? 0 : (qty * pax));
+                                       b.totalAmount += tot;
+
+                                       const tName = item.type || "Habitación";
+                                       b.roomTypes[tName] = (b.roomTypes[tName] || 0) + qty;
+                                     });
 
                                     return dayBuckets.map((bucket) => {
                                       const isCollapsed = collapsedFichaDays.has(bucket.dayKey);
@@ -18750,30 +18823,72 @@
                                             </td>
                                           </tr>
 
-                                          {/* FILAS DE PRODUCTOS DE ESTE DÍA (SI NO ESTÁ DISMINUIDO/COLAPSADO) */}
-                                          {!isCollapsed && bucket.items.map((item) => (
-                                            <tr
-                                              key={item.id}
-                                              draggable
-                                              onDragStart={(e) =>
-                                                e.dataTransfer.setData("idx", item.globalIndex)
-                                              }
-                                              onDragOver={(e) => e.preventDefault()}
-                                              onDrop={(e) =>
-                                                handleRoomManagerDrop(
-                                                  parseInt(
-                                                    e.dataTransfer.getData("idx"),
-                                                  ),
-                                                  item.globalIndex,
-                                                )
-                                              }
-                                              className="hover:bg-blue-50/50 transition-colors group cursor-default"
-                                            >
-                                        <td className="py-2 px-3">
-                                          <div className="text-slate-300 group-hover:text-slate-400 cursor-grab active:cursor-grabbing">
-                                            <IconGripVertical size={14} />
-                                          </div>
-                                        </td>
+                                           {/* FILAS DE PRODUCTOS DE ESTE DÍA (SI NO ESTÁ DISMINUIDO/COLAPSADO) */}
+                                           {!isCollapsed && bucket.items.map((item, itemIdxWithinBucket) => (
+                                             <tr
+                                               key={item.id}
+                                               draggable
+                                               onDragStart={(e) => {
+                                                 e.dataTransfer.setData("application/json", JSON.stringify({
+                                                   dayKey: bucket.dayKey,
+                                                   itemIndex: itemIdxWithinBucket,
+                                                   globalIndex: item.globalIndex
+                                                 }));
+                                                 e.dataTransfer.setData("idx", String(item.globalIndex));
+                                               }}
+                                               onDragOver={(e) => e.preventDefault()}
+                                               onDrop={(e) => {
+                                                 e.preventDefault();
+                                                 try {
+                                                   const raw = e.dataTransfer.getData("application/json");
+                                                   if (raw) {
+                                                     const data = JSON.parse(raw);
+                                                     if (data.dayKey === bucket.dayKey) {
+                                                       handleMoveRoomItemWithinBucket(bucket, data.itemIndex, itemIdxWithinBucket);
+                                                       return;
+                                                     }
+                                                   }
+                                                 } catch (err) {}
+                                                 const rawIdx = e.dataTransfer.getData("idx");
+                                                 if (rawIdx !== "") {
+                                                   handleRoomManagerDrop(parseInt(rawIdx, 10), item.globalIndex);
+                                                 }
+                                               }}
+                                               className="hover:bg-blue-50/50 transition-colors group cursor-default"
+                                             >
+                                         <td className="py-2 px-2 whitespace-nowrap">
+                                           <div className="flex items-center gap-1">
+                                             <div className="text-slate-300 group-hover:text-slate-500 cursor-grab active:cursor-grabbing" title="Arrastrar para reordenar habitación">
+                                               <IconGripVertical size={14} />
+                                             </div>
+                                             <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity">
+                                               <button
+                                                 type="button"
+                                                 disabled={itemIdxWithinBucket === 0}
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleMoveRoomItemWithinBucket(bucket, itemIdxWithinBucket, itemIdxWithinBucket - 1);
+                                                 }}
+                                                 className={`text-[8px] leading-none px-0.5 py-0.5 rounded hover:bg-blue-100 ${itemIdxWithinBucket === 0 ? "text-slate-200 cursor-not-allowed" : "text-slate-500 hover:text-blue-600"}`}
+                                                 title="Mover arriba"
+                                               >
+                                                 ▲
+                                               </button>
+                                               <button
+                                                 type="button"
+                                                 disabled={itemIdxWithinBucket === bucket.items.length - 1}
+                                                 onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   handleMoveRoomItemWithinBucket(bucket, itemIdxWithinBucket, itemIdxWithinBucket + 1);
+                                                 }}
+                                                 className={`text-[8px] leading-none px-0.5 py-0.5 rounded hover:bg-blue-100 ${itemIdxWithinBucket === bucket.items.length - 1 ? "text-slate-200 cursor-not-allowed" : "text-slate-500 hover:text-blue-600"}`}
+                                                 title="Mover abajo"
+                                               >
+                                                 ▼
+                                               </button>
+                                             </div>
+                                           </div>
+                                         </td>
                                         {/* HOTEL */}
                                         <td className="py-1.5 px-2">
                                           <div className="flex items-center gap-1">

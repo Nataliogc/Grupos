@@ -323,7 +323,11 @@
     function isAccommodationItem(item) {
         if (!item || typeof item !== 'object') return false;
         if (item.excludeFromOccupancy === true) return false;
-        if (item.isService === true || item.isAccommodation === false) return false;
+        const rawType = item.roomType ?? item.tipoHabitacion ?? item.type ?? item.tipo ??
+            item.product ?? item.producto ?? item.concept ?? item.concepto ?? item.label ?? '';
+        const knownRoom = isKnownRoomType(rawType);
+        if (item.isService === true && !knownRoom) return false;
+        if (item.isAccommodation === false && !knownRoom) return false;
         if (item.isAccommodation === true || item.isManualRoomingItem === true || item.pendienteValoracion === true) return true;
         if (normalizeRoomNumber(item.roomNo ?? item.hab) !== '') return true;
 
@@ -334,9 +338,7 @@
         if (['accommodation', 'alojamiento', 'habitacion', 'room', 'lodging'].includes(category)) return true;
         if (['service', 'servicio', 'food-beverage', 'restauracion', 'sala', 'spa'].includes(category)) return false;
 
-        const rawType = item.roomType ?? item.tipoHabitacion ?? item.type ?? item.tipo ??
-            item.product ?? item.producto ?? item.concept ?? item.concepto ?? item.label ?? '';
-        return isKnownRoomType(rawType);
+        return knownRoom;
     }
 
     function getCanonicalRoomType(room) {
