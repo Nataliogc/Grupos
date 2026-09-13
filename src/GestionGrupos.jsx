@@ -10516,11 +10516,18 @@
         const expectedDays = new Set();
         if (inD && outD) {
           try {
-            let cur = new Date(inD + "T00:00:00");
-            const end = new Date(outD + "T00:00:00");
-            while (cur < end) {
-              expectedDays.add(cur.toISOString().split("T")[0]);
-              cur.setDate(cur.getDate() + 1);
+            // Aritmética UTC pura para evitar el desfase de zona horaria España (UTC+1/+2):
+            // new Date("2027-03-07T00:00:00") en España → "2027-03-06T23:00:00Z" → .toISOString() daría día 6 ❌
+            const addOneDayStr = (dateStr) => {
+              const [y, m, d] = dateStr.split("-").map(Number);
+              const dt = new Date(Date.UTC(y, m - 1, d));
+              dt.setUTCDate(dt.getUTCDate() + 1);
+              return dt.toISOString().split("T")[0];
+            };
+            let cur = inD;
+            while (cur < outD) {
+              expectedDays.add(cur);
+              cur = addOneDayStr(cur);
             }
           } catch (e) {}
         }
