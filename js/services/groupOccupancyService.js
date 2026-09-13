@@ -619,13 +619,20 @@
       var anyRoomingReg = null;
       var roomingDaySum = 0;
       var hasRoomingDayLodging = false;
+      var seenRoomingLists = new Set();
+      var seenItemKeys = new Set();
 
       (entry.contributingLines || []).forEach(function (cl) {
         if (cl.roomingList) {
+          var rlKey = typeof cl.roomingList === "string" ? cl.roomingList.trim() : JSON.stringify(cl.roomingList);
+          if (!rlKey || rlKey === "[]" || rlKey === "{}" || rlKey === "null") return;
+          if (seenRoomingLists.has(rlKey)) return;
+          seenRoomingLists.add(rlKey);
+
           try {
             var rlItems = typeof cl.roomingList === "string" ? JSON.parse(cl.roomingList) : cl.roomingList;
             if (Array.isArray(rlItems)) {
-              rlItems.forEach(function (item) {
+              rlItems.forEach(function (item, itemIdx) {
                 var itemReg = item.regime || item.regimen || item["Régimen"] || item["Regimen"] || item.reg;
                 if (itemReg && typeof itemReg === "string") {
                   itemReg = itemReg.trim();
@@ -652,6 +659,10 @@
                   : (entry.fecha === dIn);
 
                 if (covers) {
+                  var itemKey = item.id || (item.roomNo ? (item.roomNo + "_" + (item.type || "") + "_" + dIn) : null) || (item.roomType ? (item.roomType + "_" + dIn + "_" + itemIdx) : null);
+                  if (itemKey && seenItemKeys.has(itemKey)) return;
+                  if (itemKey) seenItemKeys.add(itemKey);
+
                   if (!foundRoomingReg && itemReg && itemReg !== "-" && itemReg !== "---") {
                     foundRoomingReg = itemReg;
                   }

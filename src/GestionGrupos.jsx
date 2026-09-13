@@ -4528,12 +4528,33 @@
             }
           });
 
-          const repDay = g.days.find(d => d.distributionStatus === highestStatus) || g.days[0];
+          const candidateDays = g.days.filter(d => d.distributionStatus === highestStatus);
+          const repDay = (candidateDays.length > 0 ? candidateDays : g.days).reduce((best, curr) => {
+            return (curr.pax || 0) > (best.pax || 0) ? curr : best;
+          }, g.days[0]);
 
           const minDate = g.dates[0];
           const maxDate = g.dates[g.dates.length - 1];
+          let maxOutDate = "";
+          (g.contributingLines || []).forEach(l => {
+            const outNorm = (l.outDate && typeof l.outDate === "string") ? l.outDate.trim() : "";
+            if (outNorm) {
+              const iso = outNorm.includes("/") 
+                ? (outNorm.split("/").length === 3 ? (outNorm.split("/")[0].length === 4 ? outNorm.split("/")[0] + "-" + outNorm.split("/")[1].padStart(2, "0") + "-" + outNorm.split("/")[2].padStart(2, "0") : outNorm.split("/")[2] + "-" + outNorm.split("/")[1].padStart(2, "0") + "-" + outNorm.split("/")[0].padStart(2, "0")) : outNorm)
+                : outNorm;
+              if (iso > maxOutDate) maxOutDate = iso;
+            }
+          });
+          if (!maxOutDate && maxDate) {
+            const d = new Date(maxDate + "T12:00:00Z");
+            d.setUTCDate(d.getUTCDate() + 1);
+            maxOutDate = d.toISOString().split("T")[0];
+          }
+
           let dateDisplay = formatDate(minDate);
-          if (minDate !== maxDate) {
+          if (maxOutDate && maxOutDate > minDate) {
+            dateDisplay = `${formatDate(minDate)} - ${formatDate(maxOutDate)}`;
+          } else if (minDate !== maxDate) {
             dateDisplay = `${formatDate(minDate)} - ${formatDate(maxDate)}`;
           }
 
