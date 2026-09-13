@@ -4633,6 +4633,14 @@
         initialFreeDbl = Math.min(currentDbl, initialFreeDbl);
         initialFreeTpl = Math.min(currentTpl, initialFreeTpl);
         initialFreeCua = Math.min(currentCua, initialFreeCua);
+
+        const isCumbriaHotel = normalizeHotelNameLocal(dailyItem.hotel, "Sercotel Guadiana") === "Cumbria Spa&Hotel" ||
+          String(dailyItem.hotel || "").toLowerCase().includes("cumbria");
+        if (isCumbriaHotel) {
+          currentCua = 0;
+          initialFreeCua = 0;
+        }
+
         const totalInitialFree = initialFreeInd + initialFreeDbl + initialFreeTpl + initialFreeCua;
         // ────────────────────────────────────────────────────────────────────
 
@@ -4691,24 +4699,29 @@
         if (!editingDistribution) return;
         setDistributionFormError(null);
 
+        const isCumbriaDist = editingDistribution && (
+          normalizeHotelNameLocal(editingDistribution.hotel, "Sercotel Guadiana") === "Cumbria Spa&Hotel" ||
+          String(editingDistribution.hotel || "").toLowerCase().includes("cumbria")
+        );
+
         let finalInd = parseInt(editingDistribution.individuales, 10) || 0;
         let finalDbl = parseInt(editingDistribution.dobles, 10) || 0;
         let finalTpl = parseInt(editingDistribution.triples, 10) || 0;
-        let finalCua = parseInt(editingDistribution.cuadruples, 10) || 0;
+        let finalCua = isCumbriaDist ? 0 : (parseInt(editingDistribution.cuadruples, 10) || 0);
         let finalStatus = "modificada";
 
         if (actionType === "confirmar_propuesta") {
           finalInd = editingDistribution.proposal.individuales;
           finalDbl = editingDistribution.proposal.dobles;
           finalTpl = editingDistribution.proposal.triples;
-          finalCua = editingDistribution.proposal.cuadruples;
+          finalCua = isCumbriaDist ? 0 : editingDistribution.proposal.cuadruples;
           finalStatus = "confirmada";
         } else if (actionType === "reconfirmar_anterior") {
           const prevD = editingDistribution.previousDistribution || editingDistribution;
           finalInd = prevD.individuales !== undefined ? prevD.individuales : editingDistribution.individuales;
           finalDbl = prevD.dobles !== undefined ? prevD.dobles : editingDistribution.dobles;
           finalTpl = prevD.triples !== undefined ? prevD.triples : editingDistribution.triples;
-          finalCua = prevD.cuadruples !== undefined ? prevD.cuadruples : editingDistribution.cuadruples;
+          finalCua = isCumbriaDist ? 0 : (prevD.cuadruples !== undefined ? prevD.cuadruples : editingDistribution.cuadruples);
           finalStatus = "confirmada";
         } else if (actionType === "dejar_pendiente") {
           finalStatus = "pendiente";
@@ -13425,7 +13438,7 @@
                                             {item.triples !== null && item.triples !== undefined ? item.triples : "-"}
                                           </td>
                                           <td className="px-2 py-2 text-center font-semibold text-slate-700">
-                                            {item.cuadruples !== null && item.cuadruples !== undefined ? item.cuadruples : "-"}
+                                            {item.hotel && (item.hotel.toLowerCase().includes("cumbria") || item.hotel.toLowerCase().includes("spa")) ? "-" : (item.cuadruples !== null && item.cuadruples !== undefined ? item.cuadruples : "-")}
                                           </td>
                                           <td className="px-2 py-2 text-center font-black text-blue-700 bg-blue-50/30">
                                             {item.totalHabitaciones !== null && item.totalHabitaciones !== undefined ? item.totalHabitaciones : "-"}
@@ -13540,7 +13553,7 @@
                                                <td className="px-2 py-1.5 text-center text-slate-600">{day.individuales !== null ? day.individuales : "-"}</td>
                                                <td className="px-2 py-1.5 text-center text-slate-600">{day.dobles !== null ? day.dobles : "-"}</td>
                                                <td className="px-2 py-1.5 text-center text-slate-600">{day.triples !== null ? day.triples : "-"}</td>
-                                               <td className="px-2 py-1.5 text-center text-slate-600">{day.cuadruples !== null ? day.cuadruples : "-"}</td>
+                                                <td className="px-2 py-1.5 text-center text-slate-600">{(item.hotel && (item.hotel.toLowerCase().includes("cumbria") || item.hotel.toLowerCase().includes("spa"))) ? "-" : (day.cuadruples !== null ? day.cuadruples : "-")}</td>
                                                <td className="px-2 py-1.5 text-center font-bold text-blue-600">{day.totalHabitaciones !== null ? day.totalHabitaciones : "-"}</td>
                                                <td className="px-3 py-1.5 text-right font-mono text-slate-600">{dayImp.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
                                                <td className="px-2 py-1.5 text-right font-mono text-slate-400">{eco.breakfastCost > 0 ? eco.breakfastCost.toFixed(2) + " €" : "-"}</td>
@@ -14294,14 +14307,16 @@
 
             {/* VENTANA EMERGENTE (MODAL) DE REVISIÓN DE HABITACIONES (Reqs 12-20) */}
             {editingDistribution && (() => {
+              const isCumbria = normalizeHotelNameLocal(editingDistribution.hotel, "Sercotel Guadiana") === "Cumbria Spa&Hotel" ||
+                String(editingDistribution.hotel || "").toLowerCase().includes("cumbria");
               const curInd = parseInt(editingDistribution.individuales, 10) || 0;
               const curDbl = parseInt(editingDistribution.dobles, 10) || 0;
               const curTpl = parseInt(editingDistribution.triples, 10) || 0;
-              const curCua = parseInt(editingDistribution.cuadruples, 10) || 0;
+              const curCua = isCumbria ? 0 : (parseInt(editingDistribution.cuadruples, 10) || 0);
               const freeInd = Math.min(curInd, parseInt(editingDistribution.gratuitiesInd !== undefined ? editingDistribution.gratuitiesInd : (editingDistribution.gratuitiesCount || 0), 10) || 0);
               const freeDbl = Math.min(curDbl, parseInt(editingDistribution.gratuitiesDbl, 10) || 0);
               const freeTpl = Math.min(curTpl, parseInt(editingDistribution.gratuitiesTpl, 10) || 0);
-              const freeCua = Math.min(curCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
+              const freeCua = isCumbria ? 0 : Math.min(curCua, parseInt(editingDistribution.gratuitiesCua, 10) || 0);
               const totGratuities = freeInd + freeDbl + freeTpl + freeCua;
               const freePaxTotal = (freeInd * 1) + (freeDbl * 2) + (freeTpl * 3) + (freeCua * 4);
               const calcPax = (curInd * 1) + (curDbl * 2) + (curTpl * 3) + (curCua * 4);
@@ -14496,7 +14511,7 @@
                         <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
                           Distribución de Habitaciones
                         </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className={`grid grid-cols-2 ${isCumbria ? "sm:grid-cols-3" : "sm:grid-cols-4"} gap-3`}>
                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                             <label className="block text-[11px] font-bold text-slate-600 mb-1">
                               Individuales (1 pax)
@@ -14632,50 +14647,52 @@
                             </div>
                           </div>
 
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                              Cuádruples (4 pax)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editingDistribution.cuadruples}
-                              onChange={(e) => setEditingDistribution({
-                                ...editingDistribution,
-                                cuadruples: e.target.value
-                              })}
-                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
-                            />
-                            <div className="text-[10px] text-slate-400 text-center mt-1">
-                              {curCua * 4} pax
-                            </div>
-
-                            {/* Campo editable de gratuidades para Cuádruples */}
-                            <div className="mt-2 pt-2 border-t border-slate-200">
-                              <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
-                                🎁 Gratuitas (0 €):
+                          {!isCumbria && (
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                                Cuádruples (4 pax)
                               </label>
                               <input
                                 type="number"
                                 min="0"
-                                max={curCua}
-                                value={editingDistribution.gratuitiesCua !== undefined ? editingDistribution.gratuitiesCua : 0}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Math.min(curCua, parseInt(e.target.value, 10) || 0));
-                                  setEditingDistribution({
-                                    ...editingDistribution,
-                                    gratuitiesCua: val,
-                                    gratuitiesCount: freeInd + freeDbl + freeTpl + val
-                                  });
-                                }}
-                                className="w-full bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-xs font-black text-amber-900 text-center focus:outline-none focus:border-amber-500"
-                                title="Número de habitaciones cuádruples sin cargo (0,00 €)"
+                                value={editingDistribution.cuadruples}
+                                onChange={(e) => setEditingDistribution({
+                                  ...editingDistribution,
+                                  cuadruples: e.target.value
+                                })}
+                                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
                               />
-                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
-                                {Math.max(0, curCua - freeCua)} pago + {freeCua} gratis
+                              <div className="text-[10px] text-slate-400 text-center mt-1">
+                                {curCua * 4} pax
+                              </div>
+
+                              {/* Campo editable de gratuidades para Cuádruples */}
+                              <div className="mt-2 pt-2 border-t border-slate-200">
+                                <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
+                                  🎁 Gratuitas (0 €):
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={curCua}
+                                  value={editingDistribution.gratuitiesCua !== undefined ? editingDistribution.gratuitiesCua : 0}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(curCua, parseInt(e.target.value, 10) || 0));
+                                    setEditingDistribution({
+                                      ...editingDistribution,
+                                      gratuitiesCua: val,
+                                      gratuitiesCount: freeInd + freeDbl + freeTpl + val
+                                    });
+                                  }}
+                                  className="w-full bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-xs font-black text-amber-900 text-center focus:outline-none focus:border-amber-500"
+                                  title="Número de habitaciones cuádruples sin cargo (0,00 €)"
+                                />
+                                <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                  {Math.max(0, curCua - freeCua)} pago + {freeCua} gratis
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
 
@@ -17864,13 +17881,20 @@
                                   />
 
                                   <datalist id="room-types-list">
-
-                                    {ROOM_CONFIGURATIONS.map((c) => (
-
-                                      <option key={c.label} value={c.label} />
-
-                                    ))}
-
+                                    {ROOM_CONFIGURATIONS
+                                      .filter((c) => {
+                                        const isCumbriaRoom = roomManagerForm.hotel === "Cumbria Spa&Hotel" || String(roomManagerForm.hotel || "").toLowerCase().includes("cumbria");
+                                        if (isCumbriaRoom) {
+                                          const lbl = c.label.toUpperCase();
+                                          if (lbl.includes("CUADRUPLE") || lbl.includes("CUÁDRUPLE") || lbl.includes("CUA") || lbl.includes("SUITE SUPERIOR") || lbl.includes("S.SUP") || lbl.includes("SS1") || lbl.includes("SS2")) {
+                                            return false;
+                                          }
+                                        }
+                                        return true;
+                                      })
+                                      .map((c) => (
+                                        <option key={c.label} value={c.label} />
+                                      ))}
                                   </datalist>
 
                                 </div>
