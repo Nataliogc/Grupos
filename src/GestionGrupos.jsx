@@ -8519,7 +8519,11 @@
 
           )
 
-          .catch((err) => console.error("Error editando celda:", err));
+          .catch((err) => {
+            console.error("Error editando celda:", err);
+            alert("⚠️ Error al guardar el cambio en la base de datos: " + (err.message || err) + "\nSe restaurará el valor anterior.");
+            setData(data);
+          });
 
       };
 
@@ -9870,6 +9874,17 @@
         } catch (err) {
 
           console.error("❌ Error updating metadata:", err);
+          if (window.Swal) {
+            window.Swal.fire({
+              icon: "error",
+              title: "Error al guardar en la base de datos",
+              text: "No se pudieron guardar los cambios en Firestore: " + (err.message || err) + ". Comprueba tu conexión a internet.",
+              confirmButtonText: "Entendido"
+            });
+          } else {
+            alert("⚠️ Error al guardar en la base de datos:\n" + (err.message || err) + "\n\nComprueba tu conexión a internet.");
+          }
+          throw err;
 
         }
 
