@@ -10504,6 +10504,220 @@
         updateGroupMetadata(selectedGroupFicha.id, updatePayload);
       };
 
+      // ─── DIAGNÓSTICO DE SALUD DEL GRUPO ────────────────────────────────────────
+      const calculateGroupHealth = (ficha, roomingList) => {
+        const issues = [];
+        const warnings = [];
+        const record = ficha?.records?.[0] || {};
+
+        // Obtener fechas de estancia esperadas (Entrada → Salida)
+        const inD = toInputDate(record["Entrada"] || record["Check-In"]);
+        const outD = toInputDate(record["Salida"] || record["Check-Out"]);
+        const expectedDays = new Set();
+        if (inD && outD) {
+          try {
+            let cur = new Date(inD + "T00:00:00");
+            const end = new Date(outD + "T00:00:00");
+            while (cur < end) {
+              expectedDays.add(cur.toISOString().split("T")[0]);
+              cur.setDate(cur.getDate() + 1);
+            }
+          } catch (e) {}
+        }
+
+        const contractedPax = parseNum(record["Pax."] || record["Pax"] || 0);
+        const contractedImporte = parseNum(record["Importe(*)"] || 0);
+        const paid = parseNum(record["Com_Pagado"] || 0);
+        const pending = Math.max(0, contractedImporte - paid);
+
+        // Analizar el Rooming List por día
+        const expanded = expandRoomListByDays(Array.isArray(roomingList) ? roomingList : []);
+        const dayMap = {};
+        expanded.forEach((item) => {
+          if (item.isService && !/IND|DUI|SINGLE|DBL|DOBLE|TWIN|TPL|TRIPLE|CUA|CUAD|HAB/i.test(item.type || "")) return;
+          const d = toInputDate(item.dateIn || item.date);
+          if (!d) return;
+          if (!dayMap[d]) dayMap[d] = [];
+          dayMap[d].push(item);
+        });
+
+        // 1. Días sin inventario de alojamiento
+        expectedDays.forEach((d) => {
+          if (!dayMap[d] || dayMap[d].length === 0) {
+            issues.push({ type: "missing_day", day: d, message: `El día ${d} no tiene habitaciones asignadas` });
+          }
+        });
+
+        // 2. Habitaciones con precio 0 € que no son gratuidades
+        let zeroPriceCount = 0;
+        let zeroPriceDays = [];
+        Object.entries(dayMap).forEach(([d, items]) => {
+          items.forEach((item) => {
+            const t = String(item.type || "").toUpperCase();
+            const isGrat = t.includes("GRATUIDAD");
+            const p = parseFloat(item.price) || 0;
+            if (!isGrat && p === 0) {
+              zeroPriceCount++;
+              if (!zeroPriceDays.includes(d)) zeroPriceDays.push(d);
+            }
+          });
+        });
+        if (zeroPriceCount > 0) {
+          issues.push({ type: "zero_price", days: zeroPriceDays, count: zeroPriceCount, message: `${zeroPriceCount} habitación(es) con precio 0,00 € sin ser gratuidades` });
+        }
+
+        // 3. Descuadre de Pax por día (si tenemos pax contratados)
+        let paxMismatchDays = [];
+        if (contractedPax > 0) {
+          Object.entries(dayMap).forEach(([d, items]) => {
+            let dayPax = 0;
+            items.forEach((item) => {
+              const t = String(item.type || "").toUpperCase();
+              const qty = parseInt(item.qty, 10) || 1;
+              if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) dayPax += qty * 1;
+              else if (t.includes("DBL") || t.includes("DOBLE") || t.includes("TWIN")) dayPax += qty * 2;
+              else if (t.includes("TPL") || t.includes("TRIPLE")) dayPax += qty * 3;
+              else if (t.includes("CUA") || t.includes("CUAD")) dayPax += qty * 4;
+              else dayPax += qty * 2;
+            });
+            if (dayPax > 0 && Math.abs(dayPax - contractedPax) > 0) {
+              paxMismatchDays.push({ day: d, found: dayPax, expected: contractedPax });
+            }
+          });
+          if (paxMismatchDays.length > 0) {
+            warnings.push({ type: "pax_mismatch", days: paxMismatchDays, message: `Descuadre de pax en ${paxMismatchDays.length} día(s)` });
+          }
+        }
+
+        // 4. Descuadre de importe total vs Rooming List
+        const roomingTotal = expanded.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+        if (contractedImporte > 0 && Math.abs(roomingTotal - contractedImporte) > 0.05) {
+          warnings.push({ type: "amount_mismatch", roomingTotal, contractedImporte, diff: roomingTotal - contractedImporte, message: `Importe contratado (${contractedImporte.toFixed(2)} €) difiere del total de la ficha (${roomingTotal.toFixed(2)} €)` });
+        }
+
+        // Calcular semáforo financiero
+        let financeStatus = "ok"; // ok, warning, danger
+        if (pending > 0 && inD) {
+          const today = new Date();
+          const arrival = new Date(inD + "T00:00:00");
+          const daysToArrival = Math.ceil((arrival - today) / (1000 * 60 * 60 * 24));
+          if (daysToArrival <= 7) financeStatus = "danger";
+          else if (daysToArrival <= 30) financeStatus = "warning";
+        }
+
+        return { issues, warnings, contractedImporte, paid, pending, financeStatus, zeroPriceDays, expectedDays: Array.from(expectedDays) };
+      };
+
+      // ─── SINCRONIZACIÓN AUTOMÁTICA FICHA → DISTRIBUCIÓN DIARIA ───────────────
+      const syncDailyDistributionFromRooming = (updatedRoomingList, currentRecord) => {
+        try {
+          const rawDist = currentRecord["DailyDistribution_JSON"];
+          const existingDist = rawDist ? (typeof rawDist === "string" ? JSON.parse(rawDist) : { ...rawDist }) : {};
+          const hotel = currentRecord["Hotel_Asignado"] || currentRecord["Hotel"] || "";
+          const newDist = buildDailyDistributionFromRoomingList(updatedRoomingList, existingDist, hotel);
+          return JSON.stringify(newDist);
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // ─── REPLICAR SERVICIO/EXTRA A TODA LA ESTANCIA ───────────────────────────
+      const handleReplicateServiceAcrossStay = (serviceItemId) => {
+        if (!selectedGroupFicha) return;
+        const currentRecord = selectedGroupFicha?.records?.[0] || {};
+        let currentList = [];
+        try {
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "replicate-service");
+        } catch (e) { currentList = []; }
+        if (!Array.isArray(currentList) || currentList.length === 0) return;
+
+        const sourceItem = currentList.find((i) => String(i.id) === String(serviceItemId));
+        if (!sourceItem) return;
+
+        // Determinar fechas de la estancia
+        const inD = toInputDate(currentRecord["Entrada"] || currentRecord["Check-In"]);
+        const outD = toInputDate(currentRecord["Salida"] || currentRecord["Check-Out"]);
+        if (!inD || !outD) {
+          if (window.Swal) window.Swal.fire({ icon: "warning", title: "Sin fechas", text: "No se encontraron fechas de entrada/salida para replicar el servicio." });
+          return;
+        }
+
+        const stayDays = [];
+        try {
+          let cur = new Date(inD + "T00:00:00");
+          const end = new Date(outD + "T00:00:00");
+          while (cur < end) {
+            stayDays.push(cur.toISOString().split("T")[0]);
+            cur.setDate(cur.getDate() + 1);
+          }
+        } catch (e) {}
+
+        if (stayDays.length === 0) return;
+
+        const sourceDay = toInputDate(sourceItem.dateIn || sourceItem.date || inD);
+        const daysToAdd = stayDays.filter((d) => d !== sourceDay);
+        if (daysToAdd.length === 0) {
+          if (window.Swal) window.Swal.fire({ icon: "info", title: "Un solo día", text: "El servicio ya está en el único día de la estancia." });
+          return;
+        }
+
+        // Verificar si ya existe en esos días (evitar duplicados)
+        const existing = currentList.filter((i) => {
+          const t1 = String(i.type || "").toUpperCase().trim();
+          const t2 = String(sourceItem.type || "").toUpperCase().trim();
+          return t1 === t2 && String(i.id) !== String(serviceItemId);
+        }).map((i) => toInputDate(i.dateIn || i.date));
+
+        const newItems = daysToAdd
+          .filter((d) => !existing.includes(d))
+          .map((d) => {
+            const nextDay = (() => {
+              try {
+                const p = d.split("-");
+                const dt = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+                dt.setDate(dt.getDate() + 1);
+                return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+              } catch (e) { return d; }
+            })();
+            return {
+              ...sourceItem,
+              id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+              dateIn: d,
+              dateOut: sourceItem.nights > 1 ? undefined : nextDay,
+              date: undefined
+            };
+          });
+
+        if (newItems.length === 0) {
+          if (window.Swal) window.Swal.fire({ icon: "info", title: "Ya replicado", text: "El servicio ya existe en todos los días de la estancia." });
+          return;
+        }
+
+        const updatedList = cleanRoomingListIds([...currentList, ...newItems]);
+        updatedList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+
+        const newTotal = updatedList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+        const newDist = syncDailyDistributionFromRooming(updatedList, currentRecord);
+
+        const updatePayload = {
+          RoomingList_JSON: JSON.stringify(updatedList),
+          "Importe(*)": newTotal.toFixed(2),
+        };
+        if (newDist) updatePayload["DailyDistribution_JSON"] = newDist;
+
+        updateGroupMetadata(selectedGroupFicha.id, updatePayload);
+
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: "success",
+            title: "Servicio Replicado",
+            text: `"${sourceItem.type}" añadido a ${newItems.length} día(s) adicional(es). Nuevo total: ${newTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+            timer: 2500,
+            showConfirmButton: false
+          });
+        }
+      };
+
       const handleInsertLineForDay = (dayKey) => {
         if (!selectedGroupFicha) return;
         const currentRecord = selectedGroupFicha?.records?.[0] || {};
@@ -18591,6 +18805,107 @@
 
                           </div>
 
+                          {/* ═══ PANEL DE SALUD DEL GRUPO & TESORERÍA ═══ */}
+                          {(() => {
+                            const rl = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "health-panel");
+                            const health = calculateGroupHealth(selectedGroupFicha, rl);
+                            const { issues, warnings, contractedImporte, paid, pending, financeStatus, zeroPriceDays } = health;
+                            const totalIssues = issues.length + warnings.length;
+                            const isHealthy = totalIssues === 0;
+
+                            return (
+                              <div className="mt-4 rounded-2xl border overflow-hidden shadow-sm">
+                                {/* Cabecera del Panel */}
+                                <div className={`flex items-center justify-between px-4 py-2.5 ${isHealthy ? "bg-emerald-50 border-b border-emerald-100" : "bg-amber-50 border-b border-amber-100"}`}>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-black">{isHealthy ? "✅" : "⚠️"}</span>
+                                    <span className={`text-xs font-black ${isHealthy ? "text-emerald-700" : "text-amber-800"}`}>
+                                      {isHealthy ? "Grupo Verificado y Cuadrado — Sin incidencias" : `${totalIssues} Incidencia(s) Detectada(s) — Acción Recomendada`}
+                                    </span>
+                                  </div>
+                                  {/* Semáforo financiero */}
+                                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black ${
+                                    financeStatus === "danger" ? "bg-red-100 text-red-700 border border-red-200" :
+                                    financeStatus === "warning" ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                    pending > 0 ? "bg-yellow-50 text-yellow-700 border border-yellow-200" :
+                                    "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                  }`}>
+                                    <span>{financeStatus === "danger" ? "🔴" : financeStatus === "warning" ? "🟡" : pending > 0 ? "💛" : "🟢"}</span>
+                                    <span>{pending <= 0 ? "✓ Pagado Íntegramente" : pending > 0 && financeStatus === "danger" ? "¡Cobro Urgente!" : "Cobro Pendiente"}</span>
+                                  </div>
+                                </div>
+
+                                {/* Barra Financiera */}
+                                <div className="bg-white border-b border-slate-100 px-4 py-2 grid grid-cols-3 gap-2">
+                                  <div className="text-center">
+                                    <div className="text-[8px] font-black uppercase text-slate-400">Total Contratado</div>
+                                    <div className="text-sm font-black text-slate-800 tabular-nums">{contractedImporte.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                                  </div>
+                                  <div className="text-center border-x border-slate-100">
+                                    <div className="text-[8px] font-black uppercase text-emerald-500">Cobrado / Anticipos</div>
+                                    <div className="text-sm font-black text-emerald-700 tabular-nums">{paid.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className={`text-[8px] font-black uppercase ${pending > 0 ? "text-red-400" : "text-emerald-400"}`}>Pendiente de Cobro</div>
+                                    <div className={`text-sm font-black tabular-nums ${pending > 0 ? "text-red-700" : "text-emerald-600"}`}>{pending.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                                  </div>
+                                </div>
+
+                                {/* Barra de progreso de cobro */}
+                                {contractedImporte > 0 && (
+                                  <div className="bg-white px-4 pb-2">
+                                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all ${financeStatus === "danger" ? "bg-red-500" : financeStatus === "warning" ? "bg-amber-500" : "bg-emerald-500"}`}
+                                        style={{ width: `${Math.min(100, (paid / contractedImporte) * 100).toFixed(1)}%` }}
+                                      />
+                                    </div>
+                                    <div className="text-[8px] text-slate-400 text-right mt-0.5">{Math.min(100, ((paid / contractedImporte) * 100)).toFixed(0)}% cobrado</div>
+                                  </div>
+                                )}
+
+                                {/* Lista de incidencias */}
+                                {!isHealthy && (
+                                  <div className="bg-white border-t border-slate-100 px-4 py-2 flex flex-col gap-1.5">
+                                    {issues.map((issue, i) => (
+                                      <div key={i} className="flex items-start justify-between gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
+                                        <div className="flex items-start gap-2 min-w-0">
+                                          <span className="text-red-500 mt-0.5 flex-shrink-0">●</span>
+                                          <span className="text-[10px] font-bold text-red-800">{issue.message}</span>
+                                        </div>
+                                        {issue.type === "zero_price" && zeroPriceDays.length > 0 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleReplicatePricesFromDay(zeroPriceDays[0]?.split("-").slice(0, 3).join("-") !== zeroPriceDays[0] ? zeroPriceDays[0] : (() => {
+                                              const rlItems = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "hp-fix");
+                                              const days = Array.from(new Set(expandRoomListByDays(rlItems).filter(it => !it.isService && parseFloat(it.price) > 0).map(it => toInputDate(it.dateIn || it.date)))).filter(Boolean).sort();
+                                              return days[0] || zeroPriceDays[0];
+                                            })())}
+                                            className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                                            title="Replicar precios del primer día con precio válido a toda la estancia"
+                                          >
+                                            ⚡ Corregir
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {warnings.map((w, i) => (
+                                      <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
+                                        <span className="text-amber-500 mt-0.5 flex-shrink-0">◆</span>
+                                        <span className="text-[10px] font-bold text-amber-800">{w.message}</span>
+                                        {w.type === "amount_mismatch" && w.diff && (
+                                          <span className={`ml-auto text-[9px] font-black ${w.diff > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                            {w.diff > 0 ? "+" : ""}{w.diff.toFixed(2)} €
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
                           {/* GESTOR DE HABITACIONES & INVENTARIO (REDISEÑADO) */}
 
                           <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden">
@@ -19918,6 +20233,17 @@
                                           >
                                             <IconEdit size={14} />
                                           </button>
+                                          {item.isService && (
+                                            <button
+                                              onClick={() =>
+                                                handleReplicateServiceAcrossStay(item.id || item.ids?.[0])
+                                              }
+                                              className="p-1 hover:bg-blue-100 text-slate-300 hover:text-blue-600 rounded transition-colors"
+                                              title="Replicar este servicio a todos los días de la estancia"
+                                            >
+                                              <span className="text-[11px] font-black leading-none">⚡</span>
+                                            </button>
+                                          )}
                                           <button
                                             onClick={() =>
                                               removeRoomBlock(item.ids || item.id)
