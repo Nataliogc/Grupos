@@ -4543,13 +4543,31 @@
       // --- MATRIZ DE OCUPACIÓN Y DISTRIBUCIÓN DIARIA ---
       const dailyOccupancyList = useMemo(() => {
         if (!window.GroupOccupancyService) return [];
+        const economicWarnings = new Map();
+        if (window.roomingCore?.getGroupEconomicItems) {
+          groupedData.forEach(group => {
+            const items = window.roomingCore.getGroupEconomicItems(group);
+            if (!items.length) return;
+            const expected = parseNum(group.totalRevenue || group.records?.[0]?.["Importe(*)"] || 0);
+            const actual = Number(items.reduce((sum, item) => sum + (parseFloat(item.total || item.lineTotal || item.importe) || 0), 0).toFixed(2));
+            if (Math.abs(expected - actual) > 0.05) {
+              economicWarnings.set(normalizeId(group.id), `Descuadre económico: presupuesto ${expected.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €; ficha ${actual.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €. Revisa la ficha económica.`);
+            }
+          });
+        }
         return window.GroupOccupancyService
           .calculateDailyOccupancyMatrix(processedData, savedDistributionsByReserva)
-          .map((item) => ({
-            ...item,
-            hotel: normalizeHotelNameLocal(item.hotel, item.hotel || "Sercotel Guadiana"),
-          }));
-      }, [processedData, savedDistributionsByReserva]);
+          .map((item) => {
+            const economicWarning = economicWarnings.get(normalizeId(item.reserva));
+            return {
+              ...item,
+              hotel: normalizeHotelNameLocal(item.hotel, item.hotel || "Sercotel Guadiana"),
+              requiresAttention: !item.isDefinitive || Boolean(economicWarning),
+              distributionStatus: economicWarning ? 'revision_necesaria' : item.distributionStatus,
+              revisionReasons: [...(item.revisionReasons || []), ...(economicWarning ? [economicWarning] : [])],
+            };
+          });
+      }, [processedData, savedDistributionsByReserva, groupedData]);
 
       const dailyHotelOptions = useMemo(() => {
         return Array.from(new Set(
@@ -4568,7 +4586,7 @@
           if (dailyStatusFilter === "confirmada" && isAnul) return false;
           if (dailyStatusFilter === "anulada" && !isAnul) return false;
 
-          if (dailyDistributionFilter === "requieren_atencion" && item.isDefinitive) return false;
+          if (dailyDistributionFilter === "requieren_atencion" && !item.requiresAttention) return false;
           if (dailyDistributionFilter === "confirmada_o_modificada" && !item.isDefinitive) return false;
           if (dailyDistributionFilter === "validada_sin_cambios" && item.distributionStatus !== "validada_sin_cambios") return false;
           if (dailyDistributionFilter === "revision_necesaria" && item.distributionStatus !== "revision_necesaria") return false;
@@ -7131,7 +7149,7 @@
                       }
                   }
 
-                  alert(`No se puede generar la proforma.\n\nPresupuesto confirmado: ${confirmedBudgetTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nFicha económica: ${groupEconomicTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nProforma preparada: ${proformaItemsTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nDiferencia pendiente: ${diff.toLocaleString("es-ES", {minimumFractionDigits: 2})} €${missingStr}\n\nPor favor, usa la acción SINCRONIZAR CARGOS en la ficha económica.`);
+                  alert(`No se puede generar la proforma.\n\nPresupuesto confirmado: ${confirmedBudgetTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nFicha económica: ${groupEconomicTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nProforma preparada: ${proformaItemsTotal.toLocaleString("es-ES", {minimumFractionDigits: 2})} €\nDiferencia pendiente: ${diff.toLocaleString("es-ES", {minimumFractionDigits: 2})} €${missingStr}\n\nAl aceptar, se mostrará la ficha económica. Revisa las habitaciones, precios y cargos frente al presupuesto confirmado. Si aparecen cargos pendientes, usa SINCRONIZAR CARGOS DEL PRESUPUESTO.`);
                   
                   setShowFichaModal(true);
                   setHighlightSyncCharges(true);
@@ -14297,7 +14315,7 @@
                           {(dailyReportTotals.registrosRevisionNecesaria || 0) + (dailyEconomicStats?.negativeAlertCount || 0)}
                         </div>
                         <div className="text-[10px] text-rose-600">
-                          {dailyReportTotals.registrosRevisionNecesaria || 0} cambio(s) origen
+                          {dailyReportTotals.registrosRevisionNecesaria || 0} día(s) con incidencias de origen o económicas
                         </div>
                       </div>
                     </div>
@@ -19281,7 +19299,14 @@
 
                           {/* GESTOR DE HABITACIONES & INVENTARIO (REDISEÑADO) */}
 
-                          <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden">
+                          <div ref={syncChargesRef} tabIndex={-1} className={`bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden ${highlightSyncCharges ? 'ring-2 ring-amber-400' : ''}`}>
+                            <div className="mb-4">
+                              <h3 className="text-sm font-black text-slate-800">Ficha económica</h3>
+                              <p className="text-xs text-slate-500 mt-1">Revisa aquí las habitaciones, precios y cargos del grupo. Si hay cargos del presupuesto pendientes de incorporar, aparecerá la opción de sincronizarlos.</p>
+                              {highlightSyncCharges && (
+                                <p role="status" className="mt-2 text-xs font-bold text-amber-800">Revisa el desglose y compáralo con el presupuesto confirmado antes de generar la proforma.</p>
+                              )}
+                            </div>
 
                             {/* Formulario de Entrada - Diseño Compacto */}
 
@@ -21948,7 +21973,19 @@
 
                         <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center shadow-[0_-4px_20px_rgba(0,0,0,0.03)] shrink-0">
 
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setHighlightSyncCharges(true);
+                                syncChargesRef.current?.focus({ preventScroll: true });
+                                syncChargesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }}
+                              className="px-4 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex items-center gap-2 text-[11px] font-black uppercase tracking-widest"
+                            >
+                              <IconFileInvoice size={18} stroke={2} />
+                              Ficha económica
+                            </button>
 
                             <button
 
