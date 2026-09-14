@@ -4543,30 +4543,28 @@
       // --- MATRIZ DE OCUPACIÓN Y DISTRIBUCIÓN DIARIA ---
       const dailyOccupancyList = useMemo(() => {
         if (!window.GroupOccupancyService) return [];
-        const economicWarnings = new Map();
-        if (window.roomingCore?.getGroupEconomicItems) {
-          groupedData.forEach(group => {
-            const items = window.roomingCore.getGroupEconomicItems(group);
-            if (!items.length) return;
-            const expected = parseNum(group.totalRevenue || group.records?.[0]?.["Importe(*)"] || 0);
-            const actual = Number(items.reduce((sum, item) => sum + (parseFloat(item.total || item.lineTotal || item.importe) || 0), 0).toFixed(2));
-            if (Math.abs(expected - actual) > 0.05) {
-              economicWarnings.set(normalizeId(group.id), `Descuadre económico: presupuesto ${expected.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €; ficha ${actual.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €. Revisa la ficha económica.`);
-            }
-          });
-        }
-        return window.GroupOccupancyService
-          .calculateDailyOccupancyMatrix(processedData, savedDistributionsByReserva)
-          .map((item) => {
-            const economicWarning = economicWarnings.get(normalizeId(item.reserva));
-            return {
-              ...item,
-              hotel: normalizeHotelNameLocal(item.hotel, item.hotel || "Sercotel Guadiana"),
-              requiresAttention: !item.isDefinitive || Boolean(economicWarning),
-              distributionStatus: economicWarning ? 'revision_necesaria' : item.distributionStatus,
-              revisionReasons: [...(item.revisionReasons || []), ...(economicWarning ? [economicWarning] : [])],
-            };
-          });
+        const matrix = window.GroupOccupancyService.calculateDailyOccupancyMatrix(processedData, savedDistributionsByReserva);
+        const healthByReserva = new Map();
+        groupedData.forEach(group => {
+          const days = matrix.filter(item => normalizeId(item.reserva) === normalizeId(group.id));
+          const occupancyEntries = [{ reserva: group.id, days, contributingLines: days.flatMap(day => day.contributingLines || []) }];
+          const items = window.roomingCore?.getGroupEconomicItems
+            ? window.roomingCore.getGroupEconomicItems(group)
+            : parseRoomingListSafe(group.records?.[0]?.RoomingList_JSON, 'health-list');
+          const health = calculateGroupHealth(group, items, occupancyEntries);
+          healthByReserva.set(normalizeId(group.id), [...health.issues, ...health.warnings].map(issue => issue.message));
+        });
+        return matrix.map(item => {
+          const reasons = healthByReserva.get(normalizeId(item.reserva)) || [];
+          return {
+            ...item,
+            hotel: normalizeHotelNameLocal(item.hotel, item.hotel || 'Sercotel Guadiana'),
+            requiresAttention: !item.isDefinitive || reasons.length > 0,
+            hasFichaIssues: reasons.length > 0,
+            distributionStatus: reasons.length ? 'revision_necesaria' : item.distributionStatus,
+            revisionReasons: [...new Set([...(item.revisionReasons || []), ...reasons])],
+          };
+        });
       }, [processedData, savedDistributionsByReserva, groupedData]);
 
       const dailyHotelOptions = useMemo(() => {
@@ -10572,7 +10570,7 @@
       };
 
       // ─── DIAGNÓSTICO DE SALUD DEL GRUPO ────────────────────────────────────────
-      const calculateGroupHealth = (ficha, roomingList) => {
+      function calculateGroupHealth(ficha, roomingList, occupancyEntries = []) {
         const issues = [];
         const warnings = [];
         const record = ficha?.records?.[0] || {};
@@ -10760,17 +10758,17 @@
             });
           }
 
-          // 2. De las líneas contribuyentes originales del Excel (groupedDailyOccupancyByReserva)
+          // 2. De las líneas contribuyentes originales del Excel (occupancyEntries)
           let resEntry = null;
-          if (resId && groupedDailyOccupancyByReserva) {
-            if (Array.isArray(groupedDailyOccupancyByReserva)) {
-              resEntry = groupedDailyOccupancyByReserva.find((item) => {
+          if (resId && occupancyEntries) {
+            if (Array.isArray(occupancyEntries)) {
+              resEntry = occupancyEntries.find((item) => {
                 const itemRes = normalizeId(item.reserva);
                 const itemKey = String(item.reservaKey || "");
                 return itemRes === resId || itemKey.endsWith(`___${resId}`) || itemKey.includes(resId);
               }) || null;
-            } else if (typeof groupedDailyOccupancyByReserva.values === "function") {
-              for (const v of groupedDailyOccupancyByReserva.values()) {
+            } else if (typeof occupancyEntries.values === "function") {
+              for (const v of occupancyEntries.values()) {
                 const itemRes = normalizeId(v.reserva);
                 const itemKey = String(v.reservaKey || "");
                 if (itemRes === resId || itemKey.endsWith(`___${resId}`) || itemKey.includes(resId)) {
@@ -10933,9 +10931,21 @@
           else if (daysToArrival <= 30) financeStatus = "warning";
         }
 
+        let approvals = {};
+        try { approvals = JSON.parse(record.AcceptedDifferences_JSON || '{}'); } catch (e) {}
+        const acceptedDifferences = [];
+        const remaining = entries => entries.filter(entry => {
+          entry.acceptanceKey = JSON.stringify(entry);
+          if (approvals[entry.acceptanceKey]) {
+            acceptedDifferences.push({ ...entry, acceptedAt: approvals[entry.acceptanceKey].acceptedAt });
+            return false;
+          }
+          return true;
+        });
         return {
-          issues,
-          warnings,
+          issues: remaining(issues),
+          warnings: remaining(warnings),
+          acceptedDifferences,
           contractedImporte,
           effectiveTotal,
           roomingTotal,
@@ -10953,6 +10963,15 @@
       };
 
       // ─── SINCRONIZACIÓN AUTOMÁTICA FICHA → DISTRIBUCIÓN DIARIA ───────────────
+      const setDifferenceAccepted = (difference, accepted) => {
+        if (!selectedGroupFicha || !difference.acceptanceKey) return;
+        let approvals = {};
+        try { approvals = JSON.parse(selectedGroupFicha.records[0]?.AcceptedDifferences_JSON || '{}'); } catch (e) {}
+        if (accepted) approvals[difference.acceptanceKey] = { acceptedAt: new Date().toISOString(), message: difference.message };
+        else delete approvals[difference.acceptanceKey];
+        updateGroupMetadata(selectedGroupFicha.id, { AcceptedDifferences_JSON: JSON.stringify(approvals) });
+      };
+
       const syncDailyDistributionFromRooming = (updatedRoomingList, currentRecord) => {
         try {
           const rawDist = currentRecord["DailyDistribution_JSON"];
@@ -14782,7 +14801,11 @@
                                            <td className="px-3 py-2 text-center whitespace-nowrap">
                                              <button
                                                type="button"
-                                               onClick={() => openDistributionModal(item.representativeDay)}
+                                               onClick={() => {
+                                                 const group = groupedData.find(g => normalizeId(g.id) === normalizeId(item.reserva));
+                                                 if (group && item.days.some(day => day.hasFichaIssues)) openFicha(group);
+                                                 else openDistributionModal(item.representativeDay);
+                                               }}
                                                className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
                                                  st === "revision_necesaria"
                                                    ? "bg-orange-600 hover:bg-orange-700 text-white"
@@ -15024,7 +15047,11 @@
                                         <td className="px-3 py-2 text-center whitespace-nowrap">
                                           <button
                                             type="button"
-                                            onClick={() => openDistributionModal(item)}
+                                            onClick={() => {
+                                              const group = groupedData.find(g => normalizeId(g.id) === normalizeId(item.reserva));
+                                              if (group && item.hasFichaIssues) openFicha(group);
+                                              else openDistributionModal(item);
+                                            }}
                                             className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
                                               st === "revision_necesaria"
                                                 ? "bg-orange-600 hover:bg-orange-700 text-white"
@@ -19157,7 +19184,11 @@
                           {/* ═══ PANEL DE SALUD DEL GRUPO & TESORERÍA ═══ */}
                           {(() => {
                             const rl = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "health-panel");
-                            const health = calculateGroupHealth(selectedGroupFicha, rl);
+                            const health = calculateGroupHealth(selectedGroupFicha, rl, [{
+                              reserva: selectedGroupFicha.id,
+                              days: dailyOccupancyList.filter(day => normalizeId(day.reserva) === normalizeId(selectedGroupFicha.id)),
+                              contributingLines: dailyOccupancyList.filter(day => normalizeId(day.reserva) === normalizeId(selectedGroupFicha.id)).flatMap(day => day.contributingLines || [])
+                            }]);
                             const {
                               issues,
                               warnings,
@@ -19259,6 +19290,9 @@
                                           <span className="text-red-500 mt-0.5 flex-shrink-0">●</span>
                                           <span className="text-[10px] font-bold text-red-800">{issue.message}</span>
                                         </div>
+                                        {issue.type.includes('mismatch') && (
+                                          <button type="button" onClick={() => setDifferenceAccepted(issue, true)} className="shrink-0 text-[10px] font-bold px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">Estoy de acuerdo con la diferencia</button>
+                                        )}
                                         {issue.type === "excel_amount_mismatch" && (
                                           <span className="flex-shrink-0 ml-auto text-[9px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded border border-red-200">
                                             {issue.diff > 0 ? "+" : ""}{issue.diff.toFixed(2)} €
@@ -19284,6 +19318,9 @@
                                       <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
                                         <span className="text-amber-500 mt-0.5 flex-shrink-0">◆</span>
                                         <span className="text-[10px] font-bold text-amber-800">{w.message}</span>
+                                        {w.type.includes('mismatch') && (
+                                          <button type="button" onClick={() => setDifferenceAccepted(w, true)} className="shrink-0 text-[10px] font-bold px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">Estoy de acuerdo con la diferencia</button>
+                                        )}
                                         {(w.type === "amount_mismatch" || w.type === "excel_amount_mismatch") && w.diff && (
                                           <span className={`ml-auto text-[9px] font-black ${w.diff > 0 ? "text-emerald-700" : "text-red-700"}`}>
                                             {w.diff > 0 ? "+" : ""}{w.diff.toFixed(2)} €
@@ -19298,6 +19335,19 @@
                           })()}
 
                           {/* GESTOR DE HABITACIONES & INVENTARIO (REDISEÑADO) */}
+                          {(() => {
+                            let approvals = {};
+                            try { approvals = JSON.parse(selectedGroupFicha.records[0]?.AcceptedDifferences_JSON || '{}'); } catch (e) {}
+                            if (!Object.keys(approvals).length) return null;
+                            return <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs">
+                              <h4 className="font-bold">Diferencias aceptadas · Historial</h4>
+                              <p className="mt-1 text-slate-600">Cada aceptación solo se aplica mientras se mantengan los datos de esa diferencia.</p>
+                              {Object.entries(approvals).map(([key, entry]) => <div key={key} className="flex justify-between items-center gap-3 mt-2">
+                                <span>{entry.message} · {new Date(entry.acceptedAt).toLocaleString('es-ES')}</span>
+                                <button type="button" className="font-bold underline" onClick={() => setDifferenceAccepted({ acceptanceKey: key }, false)}>Revocar aceptación</button>
+                              </div>)}
+                            </div>;
+                          })()}
 
                           <div ref={syncChargesRef} tabIndex={-1} className={`bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden ${highlightSyncCharges ? 'ring-2 ring-amber-400' : ''}`}>
                             <div className="mb-4">
