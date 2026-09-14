@@ -10373,11 +10373,11 @@
           matchedIndices.forEach((idx) => {
             const r = currentList[idx];
             if (field === "type") {
-              const val = String(rawValue || "").toUpperCase().trim();
+              const val = String(rawValue || "").toUpperCase();
               r.type = val;
               const cleanVal = val.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, '').trim();
               const isRoom = /^(IND|DUI|SINGLE|DOB|DBL|TWIN|MATRIMONIAL|TRI|CUA|QUIN|FAMI|SUITE|JUNIOR|ESTUDIO|HAB)/i.test(cleanVal);
-              const isMealOrService = /ALMUERZO|CENA|DESAYUNO|COFFEE|PICNIC|TRASLADO|GUIA|GUÍA|BUS|PARKING|SAL[OÓ]N|EXTRA|SUPLEMENTO|SERVICIO|CONCEPTO/i.test(val);
+              const isMealOrService = /ALMUERZO|CENA|DESAYUNO|COFFEE|PICNIC|TRASLADO|GUIA|GUÍA|BUS|PARKING|SAL[OÓ]N|EXTRA|SUPLEMENTO|SERVICIO|CONCEPTO|LATE|EARLY|CHECK/i.test(val);
               if (isMealOrService) {
                 r.isService = true;
                 if (r.pax === 2 || !r.pax) r.pax = 0;
@@ -10593,8 +10593,34 @@
 
         const contractedPax = parseNum(record["Pax."] || record["Pax"] || 0);
         const contractedImporte = parseNum(record["Importe(*)"] || 0);
-        const paid = parseNum(record["Com_Pagado"] || 0);
-        const pending = Math.max(0, contractedImporte - paid);
+
+        // Calcular total pagado a partir de PaymentPlan_JSON y de Com_Pagado (mismo criterio de la cabecera)
+        let paidFromPlan = 0;
+        const processedPlans = new Set();
+        (ficha?.records || []).forEach((r) => {
+          if (r && r.PaymentPlan_JSON && r.PaymentPlan_JSON !== "[]" && !processedPlans.has(r.PaymentPlan_JSON)) {
+            processedPlans.add(r.PaymentPlan_JSON);
+            try {
+              const plan = JSON.parse(r.PaymentPlan_JSON);
+              if (Array.isArray(plan)) {
+                plan.forEach((p) => {
+                  if (p.status === "Cobrado") {
+                    paidFromPlan += parseFloat(p.amount) || 0;
+                  }
+                });
+              }
+            } catch (e) {}
+          }
+        });
+        const manualPaid = parseNum(record["Com_Pagado"] || 0);
+        const paid = Math.max(manualPaid, paidFromPlan);
+
+        const isGroupCredito = Boolean(
+          record["Es_Credito"] === true ||
+          record["Es_Credito"] === "true" ||
+          record["Com_Es_Credito"] === true ||
+          ficha?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+        );
 
         // Analizar el Rooming List por día
         const expanded = expandRoomListByDays(Array.isArray(roomingList) ? roomingList : []);
@@ -10666,7 +10692,20 @@
           }
         }
 
+        let lodgingTotal = 0;
+        let servicesTotal = 0;
+        expanded.forEach((item) => {
+          const tot = parseFloat(item.total) || 0;
+          if (item.isService) {
+            servicesTotal += tot;
+          } else {
+            lodgingTotal += tot;
+          }
+        });
         const roomingTotal = expanded.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+        const effectiveTotal = roomingTotal > 0 ? roomingTotal : contractedImporte;
+        let pending = Math.max(0, effectiveTotal - paid);
+        if (pending <= 0.05) pending = 0;
 
         // ─── COMPROBACIONES ESPECÍFICAS SEGÚN ORIGEN: EXCEL vs PRESUPUESTO ───
         let excelAmount = 0;
@@ -10767,14 +10806,19 @@
           }
 
           // Incidencia A: Descuadre de importe total vs Excel original
-          if (excelAmount > 0 && Math.abs(roomingTotal - excelAmount) > 0.50) {
-            const diff = roomingTotal - excelAmount;
+          const hasTotalMatch = excelAmount > 0 && Math.abs(roomingTotal - excelAmount) <= 0.50;
+          const hasLodgingMatch = excelAmount > 0 && Math.abs(lodgingTotal - excelAmount) <= 0.50;
+
+          if (excelAmount > 0 && !hasTotalMatch && !hasLodgingMatch) {
+            const diff = lodgingTotal > 0 ? (lodgingTotal - excelAmount) : (roomingTotal - excelAmount);
             issues.push({
               type: "excel_amount_mismatch",
               excelAmount,
               roomingTotal,
+              lodgingTotal,
+              servicesTotal,
               diff,
-              message: `Descuadre con Excel: Total Ficha (${roomingTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) vs Excel (${excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) [Dif: ${diff > 0 ? "+" : ""}${diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €]`
+              message: `Descuadre con Excel: Alojamiento (${(lodgingTotal > 0 ? lodgingTotal : roomingTotal).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) vs Excel (${excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) [Dif: ${diff > 0 ? "+" : ""}${diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €]`
             });
           }
 
@@ -10863,7 +10907,7 @@
 
         // Calcular semáforo financiero
         let financeStatus = "ok"; // ok, warning, danger
-        if (pending > 0 && inD) {
+        if (pending > 0.05 && !isGroupCredito && inD) {
           const today = new Date();
           const arrival = new Date(inD + "T00:00:00");
           const daysToArrival = Math.ceil((arrival - today) / (1000 * 60 * 60 * 24));
@@ -10871,7 +10915,23 @@
           else if (daysToArrival <= 30) financeStatus = "warning";
         }
 
-        return { issues, warnings, contractedImporte, excelAmount, isBudget, paid, pending, financeStatus, zeroPriceDays, expectedDays: Array.from(expectedDays) };
+        return {
+          issues,
+          warnings,
+          contractedImporte,
+          effectiveTotal,
+          roomingTotal,
+          lodgingTotal,
+          servicesTotal,
+          excelAmount,
+          isBudget,
+          paid,
+          pending,
+          financeStatus,
+          isGroupCredito,
+          zeroPriceDays,
+          expectedDays: Array.from(expectedDays)
+        };
       };
 
       // ─── SINCRONIZACIÓN AUTOMÁTICA FICHA → DISTRIBUCIÓN DIARIA ───────────────
@@ -19080,9 +19140,25 @@
                           {(() => {
                             const rl = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "health-panel");
                             const health = calculateGroupHealth(selectedGroupFicha, rl);
-                            const { issues, warnings, contractedImporte, excelAmount, isBudget, paid, pending, financeStatus, zeroPriceDays } = health;
+                            const {
+                              issues,
+                              warnings,
+                              contractedImporte,
+                              effectiveTotal,
+                              roomingTotal,
+                              lodgingTotal,
+                              servicesTotal,
+                              excelAmount,
+                              isBudget,
+                              paid,
+                              pending,
+                              financeStatus,
+                              isGroupCredito,
+                              zeroPriceDays
+                            } = health;
                             const totalIssues = issues.length + warnings.length;
                             const isHealthy = totalIssues === 0;
+                            const displayTotal = effectiveTotal || contractedImporte || 0;
 
                             return (
                               <div className="mt-4 rounded-2xl border overflow-hidden shadow-sm">
@@ -19096,13 +19172,14 @@
                                   </div>
                                   {/* Semáforo financiero */}
                                   <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black ${
+                                    pending <= 0 ? "bg-emerald-100 text-emerald-700 border border-emerald-200" :
+                                    isGroupCredito ? "bg-indigo-50 text-indigo-700 border border-indigo-200" :
                                     financeStatus === "danger" ? "bg-red-100 text-red-700 border border-red-200" :
                                     financeStatus === "warning" ? "bg-amber-100 text-amber-700 border border-amber-200" :
-                                    pending > 0 ? "bg-yellow-50 text-yellow-700 border border-yellow-200" :
-                                    "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                    "bg-yellow-50 text-yellow-700 border border-yellow-200"
                                   }`}>
-                                    <span>{financeStatus === "danger" ? "🔴" : financeStatus === "warning" ? "🟡" : pending > 0 ? "💛" : "🟢"}</span>
-                                    <span>{pending <= 0 ? "✓ Pagado Íntegramente" : pending > 0 && financeStatus === "danger" ? "¡Cobro Urgente!" : "Cobro Pendiente"}</span>
+                                    <span>{pending <= 0 ? "🟢" : isGroupCredito ? "💳" : financeStatus === "danger" ? "🔴" : financeStatus === "warning" ? "🟡" : "💛"}</span>
+                                    <span>{pending <= 0 ? "✓ Pagado Íntegramente" : isGroupCredito ? "A Crédito (Sin prepago)" : financeStatus === "danger" ? "¡Cobro Urgente!" : "Cobro Pendiente"}</span>
                                   </div>
                                 </div>
 
@@ -19110,16 +19187,25 @@
                                 <div className="bg-white border-b border-slate-100 px-4 py-2 grid grid-cols-3 gap-2">
                                   <div className="text-center">
                                     <div className="text-[8px] font-black uppercase text-slate-400">
-                                      {!isBudget && excelAmount > 0 && Math.abs(contractedImporte - excelAmount) > 0.50 ? "Ficha vs Excel" : "Total Contratado"}
+                                      {!isBudget && excelAmount > 0 && Math.abs((lodgingTotal || displayTotal) - excelAmount) > 0.50
+                                        ? "Ficha vs Excel"
+                                        : (servicesTotal > 0 && excelAmount > 0)
+                                        ? "Total (con Servicios)"
+                                        : "Total Contratado"}
                                     </div>
                                     <div className="text-sm font-black text-slate-800 tabular-nums">
-                                      {!isBudget && excelAmount > 0 && Math.abs(contractedImporte - excelAmount) > 0.50 ? (
+                                      {!isBudget && excelAmount > 0 && Math.abs((lodgingTotal || displayTotal) - excelAmount) > 0.50 ? (
                                         <div className="flex flex-col items-center leading-tight">
-                                          <span className="text-slate-800">{contractedImporte.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                                          <span className="text-slate-800">{displayTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
                                           <span className="text-[9px] font-bold text-red-600">(Excel: {excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)</span>
                                         </div>
+                                      ) : (servicesTotal > 0 && excelAmount > 0) ? (
+                                        <div className="flex flex-col items-center leading-tight">
+                                          <span className="text-slate-800">{displayTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
+                                          <span className="text-[9px] font-bold text-emerald-600">(Excel Aloj: {excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € + Extras: {servicesTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)</span>
+                                        </div>
                                       ) : (
-                                        `${contractedImporte.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+                                        `${displayTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
                                       )}
                                     </div>
                                   </div>
@@ -19134,15 +19220,15 @@
                                 </div>
 
                                 {/* Barra de progreso de cobro */}
-                                {contractedImporte > 0 && (
+                                {displayTotal > 0 && (
                                   <div className="bg-white px-4 pb-2">
                                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                       <div
                                         className={`h-full rounded-full transition-all ${financeStatus === "danger" ? "bg-red-500" : financeStatus === "warning" ? "bg-amber-500" : "bg-emerald-500"}`}
-                                        style={{ width: `${Math.min(100, (paid / contractedImporte) * 100).toFixed(1)}%` }}
+                                        style={{ width: `${Math.min(100, (paid / displayTotal) * 100).toFixed(1)}%` }}
                                       />
                                     </div>
-                                    <div className="text-[8px] text-slate-400 text-right mt-0.5">{Math.min(100, ((paid / contractedImporte) * 100)).toFixed(0)}% cobrado</div>
+                                    <div className="text-[8px] text-slate-400 text-right mt-0.5">{Math.min(100, ((paid / displayTotal) * 100)).toFixed(0)}% cobrado</div>
                                   </div>
                                 )}
 
@@ -19303,7 +19389,7 @@
 
                                         const cleanVal = val.replace(/^(hab\.|habitación|habitacion|hab)\s+/i, '').trim();
                                         const isRoom = /^(ind|dui|single|dob|dbl|twin|matrimonial|tri|cua|quin|fami|suite|junior|estudio|hab)/i.test(cleanVal);
-                                        const isMealOrService = /almuerzo|cena|desayuno|coffee|picnic|traslado|guia|guía|bus|parking|sal[oó]n|extra|suplemento/i.test(val);
+                                        const isMealOrService = /almuerzo|cena|desayuno|coffee|picnic|traslado|guia|guía|bus|parking|sal[oó]n|extra|suplemento|late|early|check/i.test(val);
 
                                         setRoomManagerForm({
 

@@ -805,6 +805,8 @@
         excelDiffReasons.push("Régimen: Ficha (" + (foundRoomingReg || finalRegimen) + ") vs Excel (" + excelRegimen + ")");
       }
       var totalStayRoomingSum = 0;
+      var totalStayLodgingSum = 0;
+      var totalStayServicesSum = 0;
       var totalStayExcelSum = 0;
       var seenStayRooming = new Set();
       (entry.contributingLines || []).forEach(function (cl) {
@@ -832,7 +834,15 @@
               var rArr = typeof cl.roomingList === "string" ? JSON.parse(cl.roomingList) : cl.roomingList;
               if (Array.isArray(rArr)) {
                 rArr.forEach(function(rm) {
+                  var t = String(rm.type || rm.roomType || "").toUpperCase();
+                  var tClean = t.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, "").trim();
+                  var isPureService = rm.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean));
                   var p = parseFloat(rm.total !== undefined ? rm.total : (parseFloat(rm.price) * (parseInt(rm.qty, 10) || 1) * (parseInt(rm.nights, 10) || 1))) || 0;
+                  if (!isPureService) {
+                    totalStayLodgingSum += p;
+                  } else {
+                    totalStayServicesSum += p;
+                  }
                   totalStayRoomingSum += p;
                 });
               }
@@ -842,13 +852,17 @@
       });
       totalStayExcelSum = Math.round(totalStayExcelSum * 100) / 100;
       totalStayRoomingSum = Math.round(totalStayRoomingSum * 100) / 100;
+      totalStayLodgingSum = Math.round(totalStayLodgingSum * 100) / 100;
+      totalStayServicesSum = Math.round(totalStayServicesSum * 100) / 100;
 
       if (hasRoomingDayLodging && roomingDaySum > 0 && excelDayAmount > 0) {
         if (totalStayRoomingSum > 0 && totalStayExcelSum > 0) {
+          var lodgingDiff = Math.abs(totalStayLodgingSum - totalStayExcelSum);
           var totalDiff = Math.abs(totalStayRoomingSum - totalStayExcelSum);
-          if (totalDiff > 1.0) {
+          // Solo marcar diferencia con Excel si NI el alojamiento NI el total cuadran con Excel
+          if (lodgingDiff > 1.0 && totalDiff > 1.0) {
             hasExcelDiff = true;
-            excelDiffReasons.push("Importe reserva: Ficha (" + totalStayRoomingSum.toFixed(2) + " €) vs Excel (" + totalStayExcelSum.toFixed(2) + " €)");
+            excelDiffReasons.push("Importe reserva: Ficha (" + (totalStayLodgingSum > 0 ? totalStayLodgingSum.toFixed(2) : totalStayRoomingSum.toFixed(2)) + " €) vs Excel (" + totalStayExcelSum.toFixed(2) + " €)");
           }
         } else {
           var diffAmt = Math.abs(roomingDaySum - excelDayAmount);

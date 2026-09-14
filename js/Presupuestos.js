@@ -3783,7 +3783,7 @@ function App() {
     }, "Define los precios por tipolog\xEDa y r\xE9gimen aplicables a todo el presupuesto.")), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("button", {
-      onClick: handlePrefillOfficialTariffs,
+      onClick: handleLoadOfficialTariffs,
       className: "px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95",
       title: "Rellena la tabla con las tarifas oficiales vigentes para este hotel"
     }, /*#__PURE__*/React.createElement("i", {
