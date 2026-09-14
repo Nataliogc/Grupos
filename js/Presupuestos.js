@@ -1321,9 +1321,16 @@ function App() {
     setPastePreview = _useState40[1];
   var parseTarifasString = function parseTarifasString(text) {
     if (!text || typeof text !== 'string') return null;
-    var rowsData = text.split('\n').map(function (r) {
-      return r.split('\t').map(function (c) {
-        return c.trim();
+    var rowsData = text.split(/\r?\n/).filter(function (r) {
+      return r.trim();
+    }).map(function (r) {
+      var cells = r.includes('\t') ? r.split('\t') : r.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+      return cells.map(function (c) {
+        return c.trim().replace(/\s+/g, ' ');
+      });
+    }).filter(function (row) {
+      return !row.every(function (cell) {
+        return /^:?-{3,}:?$/.test(cell);
       });
     });
     if (rowsData.length < 2) return null;
@@ -1400,6 +1407,7 @@ function App() {
     var parsedGrid = {};
     var unrecBoards = new Set();
     var unrecRooms = new Set();
+    var allowedRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
     var colHeaders = rowsData[0].map(function (h) {
       return h.toLowerCase();
     });
@@ -1439,6 +1447,7 @@ function App() {
         var roomKeyRaw = detectedColsAs === 'rooms' ? colHeader : rowHeader;
         var boardNorm = normBoard[boardKeyRaw];
         var roomNorm = normRoom[roomKeyRaw];
+        if (roomNorm && !allowedRooms.includes(roomNorm)) roomNorm = undefined;
         var price = parsePrice(rowsData[i][j]);
         if (price !== null) {
           if (!boardNorm && boardKeyRaw) unrecBoards.add(boardKeyRaw);
@@ -1471,7 +1480,7 @@ function App() {
   var applyPastedTarifas = function applyPastedTarifas() {
     var currentGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
     Object.keys(pastePreview.parsedData).forEach(function (board) {
-      if (!currentGrid[board]) currentGrid[board] = {};
+      currentGrid[board] = _objectSpread({}, currentGrid[board] || {});
       Object.keys(pastePreview.parsedData[board]).forEach(function (room) {
         currentGrid[board][room] = pastePreview.parsedData[board][room];
       });
@@ -3767,7 +3776,7 @@ function App() {
       tabIndex: "0",
       onPaste: function onPaste(e) {
         var text = e.clipboardData.getData('text/plain');
-        if (text) {
+        if (text && /[\t\n|]/.test(text)) {
           e.preventDefault();
           handlePasteTarifas(text);
         }
@@ -3783,6 +3792,19 @@ function App() {
     }, "Define los precios por tipolog\xEDa y r\xE9gimen aplicables a todo el presupuesto.")), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return setPastePreview({
+          isOpen: true,
+          parsedData: {},
+          unrecognizedBoards: [],
+          unrecognizedRooms: []
+        });
+      },
+      className: "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-paste text-[10px]"
+    }), "Pegar desde Excel"), /*#__PURE__*/React.createElement("button", {
       onClick: handleLoadOfficialTariffs,
       className: "px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95",
       title: "Rellena la tabla con las tarifas oficiales vigentes para este hotel"
@@ -5475,7 +5497,7 @@ function App() {
   }), /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-400 uppercase tracking-widest"
   }, "Conectando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, currentView === 'dashboard' && renderDashboard(), currentView === 'create' && renderCreate(), currentView === 'detail' && renderDetail())), pastePreview.isOpen && function () {
-    var previewRooms = ROOM_TYPES[formData.Hotel || formData.Hotel_Asignado] || ROOM_TYPES["Sercotel Guadiana"];
+    var previewRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
     return /*#__PURE__*/React.createElement("div", {
       className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
     }, /*#__PURE__*/React.createElement("div", {
@@ -5616,7 +5638,7 @@ function App() {
       className: "text-[10px] text-amber-800"
     }, pastePreview.unrecognizedBoards.join(", "))), pastePreview.unrecognizedRooms.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] font-bold text-amber-600 uppercase tracking-wider"
-    }, "Habitaciones: "), /*#__PURE__*/React.createElement("span", {
+    }, "Habitaciones no reconocidas o no disponibles en este hotel: "), /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] text-amber-800"
     }, pastePreview.unrecognizedRooms.join(", "))), /*#__PURE__*/React.createElement("p", {
       className: "text-[9px] text-amber-600/70 mt-2 font-medium leading-tight"

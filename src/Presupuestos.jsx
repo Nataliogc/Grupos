@@ -1179,7 +1179,10 @@
 
       const parseTarifasString = (text) => {
         if (!text || typeof text !== 'string') return null;
-        const rowsData = text.split('\n').map(r => r.split('\t').map(c => c.trim()));
+        const rowsData = text.split(/\r?\n/).filter(r => r.trim()).map(r => {
+          const cells = r.includes('\t') ? r.split('\t') : r.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+          return cells.map(c => c.trim().replace(/\s+/g, ' '));
+        }).filter(row => !row.every(cell => /^:?-{3,}:?$/.test(cell)));
         if (rowsData.length < 2) return null;
 
         const normBoard = {
@@ -1216,6 +1219,7 @@
         let parsedGrid = {};
         let unrecBoards = new Set();
         let unrecRooms = new Set();
+        const allowedRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
 
         let colHeaders = rowsData[0].map(h => h.toLowerCase());
         let rowHeaders = rowsData.map(r => r[0] ? r[0].toLowerCase() : '');
@@ -1256,6 +1260,7 @@
 
               let boardNorm = normBoard[boardKeyRaw];
               let roomNorm = normRoom[roomKeyRaw];
+              if (roomNorm && !allowedRooms.includes(roomNorm)) roomNorm = undefined;
 
               let price = parsePrice(rowsData[i][j]);
 
@@ -1295,7 +1300,7 @@
       const applyPastedTarifas = () => {
         const currentGrid = { ...(formData.ratesOnlyGrid || {}) };
         Object.keys(pastePreview.parsedData).forEach(board => {
-           if (!currentGrid[board]) currentGrid[board] = {};
+           currentGrid[board] = { ...(currentGrid[board] || {}) };
            Object.keys(pastePreview.parsedData[board]).forEach(room => {
                currentGrid[board][room] = pastePreview.parsedData[board][room];
            });
@@ -3195,7 +3200,7 @@ ${emailContent}`;
                   tabIndex="0"
                   onPaste={(e) => {
                     const text = e.clipboardData.getData('text/plain');
-                    if (text) {
+                    if (text && /[\t\n|]/.test(text)) {
                       e.preventDefault();
                       handlePasteTarifas(text);
                     }
@@ -3213,6 +3218,14 @@ ${emailContent}`;
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPastePreview({ isOpen: true, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] })}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5"
+                      >
+                        <i className="fas fa-paste text-[10px]"></i>
+                        Pegar desde Excel
+                      </button>
                       <button
                         onClick={handleLoadOfficialTariffs}
                         className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
@@ -4659,7 +4672,7 @@ ${emailContent}`;
 
           {/* Modal Previsualización Paste Tarifas */}
           {pastePreview.isOpen && (() => {
-            const previewRooms = ROOM_TYPES[formData.Hotel || formData.Hotel_Asignado] || ROOM_TYPES["Sercotel Guadiana"];
+            const previewRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
             return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
               <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-slide-up">
@@ -4795,7 +4808,7 @@ ${emailContent}`;
                       )}
                       {pastePreview.unrecognizedRooms.length > 0 && (
                         <div>
-                           <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Habitaciones: </span>
+                           <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Habitaciones no reconocidas o no disponibles en este hotel: </span>
                            <span className="text-[10px] text-amber-800">{pastePreview.unrecognizedRooms.join(", ")}</span>
                         </div>
                       )}
