@@ -9415,6 +9415,32 @@
         }
       };
 
+      const handleChangeLocator = async () => {
+        if (!selectedGroupFicha || isSaving) return;
+        const oldId = selectedGroupFicha.records[0]?.Reserva || selectedGroupFicha.id;
+        const newId = prompt(`Nuevo localizador para ${selectedGroupFicha.name}\nLocalizador actual: ${oldId}`, "");
+        if (newId === null) return;
+        try {
+          setIsSaving(true);
+          const moved = await window.changeReservationId({
+            db, oldId, newId, normalizeId,
+            timestamp: () => firebase.firestore.FieldValue.serverTimestamp()
+          });
+          const updatedGroup = { ...selectedGroupFicha, ...moved };
+          setSelectedGroupFicha(updatedGroup);
+          setData(prev => [...prev.filter(row => normalizeId(row.Reserva) !== normalizeId(oldId) && normalizeId(row.Reserva) !== moved.id), ...moved.records]);
+          try {
+            localStorage.setItem("selectedGroup", JSON.stringify(updatedGroup));
+            localStorage.setItem("nexus_open_ficha", moved.id);
+          } catch (error) { console.warn("No se pudo actualizar la copia local", error); }
+          alert(`Localizador actualizado: ${oldId} → ${moved.id}`);
+        } catch (error) {
+          alert("No se pudo cambiar el localizador: " + error.message);
+        } finally {
+          setIsSaving(false);
+        }
+      };
+
       const handleMergeGroup = async (sourceGroup) => {
         const targetReserva = prompt(
           `Fusionar "${sourceGroup.name}" con otra reserva existente.\n\nIntroduce el ID de Reserva PMS destino (ej: 205249):`,
@@ -18223,7 +18249,6 @@
                                     );
                                   })()}
 
-                                  {(
                                     selectedGroupFicha.records[0]?.[
                                     "Reserva"
                                     ] || ""
@@ -18685,6 +18710,10 @@
                                 <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 ml-1">
 
                                   Hotel Principal
+                                  <button type="button" onClick={handleChangeLocator} disabled={isSaving}
+                                    className="ml-3 text-blue-600 hover:underline disabled:opacity-50">
+                                    Cambiar localizador
+                                  </button>
 
                                 </label>
 
