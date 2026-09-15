@@ -4,6 +4,52 @@
     // --- FIREBASE ---
     const db = window.db;
 
+    const ContactFollowUp = ({ group }) => {
+      const savedDate = group.Contacto_Fecha || "";
+      const savedNote = group.Contacto_Nota || "";
+      const [date, setDate] = useState(savedDate);
+      const [note, setNote] = useState(savedNote);
+      const [saving, setSaving] = useState(false);
+      const [message, setMessage] = useState("");
+      const [dirty, setDirty] = useState(false);
+      useEffect(() => {
+        if (!dirty) { setDate(savedDate); setNote(savedNote); }
+      }, [savedDate, savedNote, dirty]);
+      const save = async () => {
+        if (saving) return;
+        setSaving(true);
+        setMessage("");
+        try {
+          await db.collection("groups").doc(group.uid).update({
+            Contacto_Fecha: date, Contacto_Nota: note.trim()
+          });
+          setDirty(false);
+          setMessage("Guardado");
+        } catch (error) {
+          setMessage("No se pudo guardar. Inténtalo de nuevo.");
+        } finally { setSaving(false); }
+      };
+      return (
+        <div className="mt-2 space-y-1" onClick={e => e.stopPropagation()}>
+          <label className="block text-[9px] font-bold text-slate-500">
+            Próximo contacto
+            <input type="date" value={date} disabled={saving}
+              onChange={e => { setDate(e.target.value); setDirty(true); setMessage(""); }}
+              className="block w-full mt-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700" />
+          </label>
+          <textarea aria-label={`Nota de contacto de ${group["Nombre del Grupo"] || group.Reserva}`}
+            placeholder="Nota breve…" rows={2} maxLength={240} value={note} disabled={saving}
+            onChange={e => { setNote(e.target.value); setDirty(true); setMessage(""); }}
+            className="block w-full rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 resize-y" />
+          {dirty && <button type="button" disabled={saving} onClick={save}
+            className="text-[10px] font-bold text-indigo-600 disabled:opacity-50">
+            {saving ? "Guardando…" : "Guardar contacto"}
+          </button>}
+          {message && <p role="status" className="text-[10px] text-slate-600">{message}</p>}
+        </div>
+      );
+    };
+
     // --- CONSTANTES ---
     const ROOM_TYPES = {
       "Sercotel Guadiana": ["DOBLE DE USO INDIVIDUAL", "DOBLE", "DOBLE + SUPLETORIA", "DOBLE + SUPLETORIA NIÑO", "CUÁDRUPLE", "SUITE", "SUITE SUPERIOR"],
@@ -2508,8 +2554,10 @@ ${emailContent}`;
                               </span>
                             </div>
                           </div>
+                          <ContactFollowUp key={g.uid} group={g} />
                         </td>
 
+                        {/* Contacto comercial */}
                         {/* Estado */}
                         <td className="px-4 py-4 text-center">
                           <div className="relative inline-flex items-center">

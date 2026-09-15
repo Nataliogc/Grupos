@@ -1,9 +1,5 @@
 "use strict";
 
-function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
-function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
-function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
-function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
@@ -14,6 +10,10 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
+function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
@@ -27,6 +27,118 @@ var _React = React,
 
 // --- FIREBASE ---
 var db = window.db;
+var ContactFollowUp = function ContactFollowUp(_ref) {
+  var group = _ref.group;
+  var savedDate = group.Contacto_Fecha || "";
+  var savedNote = group.Contacto_Nota || "";
+  var _useState = useState(savedDate),
+    _useState2 = _slicedToArray(_useState, 2),
+    date = _useState2[0],
+    setDate = _useState2[1];
+  var _useState3 = useState(savedNote),
+    _useState4 = _slicedToArray(_useState3, 2),
+    note = _useState4[0],
+    setNote = _useState4[1];
+  var _useState5 = useState(false),
+    _useState6 = _slicedToArray(_useState5, 2),
+    saving = _useState6[0],
+    setSaving = _useState6[1];
+  var _useState7 = useState(""),
+    _useState8 = _slicedToArray(_useState7, 2),
+    message = _useState8[0],
+    setMessage = _useState8[1];
+  var _useState9 = useState(false),
+    _useState0 = _slicedToArray(_useState9, 2),
+    dirty = _useState0[0],
+    setDirty = _useState0[1];
+  useEffect(function () {
+    if (!dirty) {
+      setDate(savedDate);
+      setNote(savedNote);
+    }
+  }, [savedDate, savedNote, dirty]);
+  var save = /*#__PURE__*/function () {
+    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+      var _t;
+      return _regenerator().w(function (_context) {
+        while (1) switch (_context.p = _context.n) {
+          case 0:
+            if (!saving) {
+              _context.n = 1;
+              break;
+            }
+            return _context.a(2);
+          case 1:
+            setSaving(true);
+            setMessage("");
+            _context.p = 2;
+            _context.n = 3;
+            return db.collection("groups").doc(group.uid).update({
+              Contacto_Fecha: date,
+              Contacto_Nota: note.trim()
+            });
+          case 3:
+            setDirty(false);
+            setMessage("Guardado");
+            _context.n = 5;
+            break;
+          case 4:
+            _context.p = 4;
+            _t = _context.v;
+            setMessage("No se pudo guardar. Inténtalo de nuevo.");
+          case 5:
+            _context.p = 5;
+            setSaving(false);
+            return _context.f(5);
+          case 6:
+            return _context.a(2);
+        }
+      }, _callee, null, [[2, 4, 5, 6]]);
+    }));
+    return function save() {
+      return _ref2.apply(this, arguments);
+    };
+  }();
+  return /*#__PURE__*/React.createElement("div", {
+    className: "mt-2 space-y-1",
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[9px] font-bold text-slate-500"
+  }, "Pr\xF3ximo contacto", /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: date,
+    disabled: saving,
+    onChange: function onChange(e) {
+      setDate(e.target.value);
+      setDirty(true);
+      setMessage("");
+    },
+    className: "block w-full mt-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700"
+  })), /*#__PURE__*/React.createElement("textarea", {
+    "aria-label": "Nota de contacto de ".concat(group["Nombre del Grupo"] || group.Reserva),
+    placeholder: "Nota breve\u2026",
+    rows: 2,
+    maxLength: 240,
+    value: note,
+    disabled: saving,
+    onChange: function onChange(e) {
+      setNote(e.target.value);
+      setDirty(true);
+      setMessage("");
+    },
+    className: "block w-full rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 resize-y"
+  }), dirty && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    disabled: saving,
+    onClick: save,
+    className: "text-[10px] font-bold text-indigo-600 disabled:opacity-50"
+  }, saving ? "Guardando…" : "Guardar contacto"), message && /*#__PURE__*/React.createElement("p", {
+    role: "status",
+    className: "text-[10px] text-slate-600"
+  }, message));
+};
 
 // --- CONSTANTES ---
 var ROOM_TYPES = {
@@ -423,10 +535,10 @@ var getOccupancyPeriods = function getOccupancyPeriods(segments) {
     var counts = segmentCountsByDate[date] || {};
     var roomCountStr = Object.entries(counts).sort(function (a, b) {
       return a[0].localeCompare(b[0]);
-    }).map(function (_ref) {
-      var _ref2 = _slicedToArray(_ref, 2),
-        rt = _ref2[0],
-        cnt = _ref2[1];
+    }).map(function (_ref3) {
+      var _ref4 = _slicedToArray(_ref3, 2),
+        rt = _ref4[0],
+        cnt = _ref4[1];
       return "".concat(cnt, " ").concat(rt);
     }).join(', ') || '0 habitaciones';
     var totalRooms = Object.values(counts).reduce(function (s, c) {
@@ -531,10 +643,10 @@ var remapRoomObjectForHotel = function remapRoomObjectForHotel() {
   var source = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
   var targetHotel = arguments.length > 1 ? arguments[1] : undefined;
   var mode = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : "sum";
-  return Object.entries(source || {}).reduce(function (acc, _ref3) {
-    var _ref4 = _slicedToArray(_ref3, 2),
-      roomType = _ref4[0],
-      value = _ref4[1];
+  return Object.entries(source || {}).reduce(function (acc, _ref5) {
+    var _ref6 = _slicedToArray(_ref5, 2),
+      roomType = _ref6[0],
+      value = _ref6[1];
     var mappedType = mapRoomTypeForHotel(roomType, targetHotel);
     if (mode === "sum") {
       acc[mappedType] = (Number(acc[mappedType]) || 0) + (Number(value) || 0);
@@ -551,17 +663,17 @@ var remapBudgetRoomsForHotel = function remapBudgetRoomsForHotel(budget, targetH
     roomCounts: remapRoomObjectForHotel(budget.roomCounts || {}, targetHotel, "sum"),
     ratesOnlyGrid: {}
   });
-  Object.entries(budget.ratesOnlyGrid || {}).forEach(function (_ref5) {
-    var _ref6 = _slicedToArray(_ref5, 2),
-      board = _ref6[0],
-      prices = _ref6[1];
+  Object.entries(budget.ratesOnlyGrid || {}).forEach(function (_ref7) {
+    var _ref8 = _slicedToArray(_ref7, 2),
+      board = _ref8[0],
+      prices = _ref8[1];
     copy.ratesOnlyGrid[board] = remapRoomObjectForHotel(prices || {}, targetHotel, "first");
   });
   copy.dailyConfig = {};
-  Object.entries(budget.dailyConfig || {}).forEach(function (_ref7) {
-    var _ref8 = _slicedToArray(_ref7, 2),
-      date = _ref8[0],
-      dayConf = _ref8[1];
+  Object.entries(budget.dailyConfig || {}).forEach(function (_ref9) {
+    var _ref0 = _slicedToArray(_ref9, 2),
+      date = _ref0[0],
+      dayConf = _ref0[1];
     copy.dailyConfig[date] = _objectSpread(_objectSpread({}, dayConf), {}, {
       prices: remapRoomObjectForHotel(dayConf.prices || {}, targetHotel, "first"),
       counts: remapRoomObjectForHotel(dayConf.counts || {}, targetHotel, "sum"),
@@ -721,10 +833,10 @@ var buildRoomingList = function buildRoomingList(group) {
   dates.forEach(function (date) {
     var _group$dailyConfig;
     var config = ((_group$dailyConfig = group.dailyConfig) === null || _group$dailyConfig === void 0 ? void 0 : _group$dailyConfig[date]) || {};
-    Object.entries(group.roomCounts || {}).forEach(function (_ref9) {
-      var _ref0 = _slicedToArray(_ref9, 2),
-        type = _ref0[0],
-        globalCount = _ref0[1];
+    Object.entries(group.roomCounts || {}).forEach(function (_ref1) {
+      var _ref10 = _slicedToArray(_ref1, 2),
+        type = _ref10[0],
+        globalCount = _ref10[1];
       var count = globalCount;
       if (config.counts) {
         var countKey = Object.keys(config.counts).find(function (k) {
@@ -861,10 +973,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
     newData.Hotel_Asignado = "Sercotel Guadiana";
   }
   var newRoomCounts = {};
-  Object.entries(newData.roomCounts || {}).forEach(function (_ref1) {
-    var _ref10 = _slicedToArray(_ref1, 2),
-      oldType = _ref10[0],
-      count = _ref10[1];
+  Object.entries(newData.roomCounts || {}).forEach(function (_ref11) {
+    var _ref12 = _slicedToArray(_ref11, 2),
+      oldType = _ref12[0],
+      count = _ref12[1];
     var normOld = oldType.toLowerCase();
     var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
     newRoomCounts[newType] = (newRoomCounts[newType] || 0) + Number(count);
@@ -872,10 +984,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   newData.roomCounts = newRoomCounts;
   if (newData.dailyConfig) {
     newData.dailyConfig = _objectSpread({}, newData.dailyConfig);
-    Object.entries(newData.dailyConfig).forEach(function (_ref11) {
-      var _ref12 = _slicedToArray(_ref11, 2),
-        date = _ref12[0],
-        dayConf = _ref12[1];
+    Object.entries(newData.dailyConfig).forEach(function (_ref13) {
+      var _ref14 = _slicedToArray(_ref13, 2),
+        date = _ref14[0],
+        dayConf = _ref14[1];
       var newDayConf = {
         board: dayConf.board || "AD (Alojamiento y Desayuno)",
         prices: dayConf.prices ? _objectSpread({}, dayConf.prices) : {},
@@ -883,10 +995,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
         gratuities: dayConf.gratuities ? _objectSpread({}, dayConf.gratuities) : {},
         discounts: dayConf.discounts ? _objectSpread({}, dayConf.discounts) : {}
       };
-      Object.entries(dayConf).forEach(function (_ref13) {
-        var _ref14 = _slicedToArray(_ref13, 2),
-          key = _ref14[0],
-          val = _ref14[1];
+      Object.entries(dayConf).forEach(function (_ref15) {
+        var _ref16 = _slicedToArray(_ref15, 2),
+          key = _ref16[0],
+          val = _ref16[1];
         if (key !== 'board' && key !== 'prices' && key !== 'counts' && key !== 'gratuities' && key !== 'discounts') {
           var normOld = key.toLowerCase();
           var newType = ROOM_MIGRATION_MAP[normOld] || key.toUpperCase();
@@ -910,10 +1022,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
       });
       if (newDayConf.prices) {
         var newPrices = {};
-        Object.entries(newDayConf.prices).forEach(function (_ref15) {
-          var _ref16 = _slicedToArray(_ref15, 2),
-            oldType = _ref16[0],
-            price = _ref16[1];
+        Object.entries(newDayConf.prices).forEach(function (_ref17) {
+          var _ref18 = _slicedToArray(_ref17, 2),
+            oldType = _ref18[0],
+            price = _ref18[1];
           var normOld = oldType.toLowerCase();
           var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
           newPrices[newType] = price;
@@ -922,10 +1034,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
       }
       if (newDayConf.counts) {
         var newCounts = {};
-        Object.entries(newDayConf.counts).forEach(function (_ref17) {
-          var _ref18 = _slicedToArray(_ref17, 2),
-            oldType = _ref18[0],
-            cnt = _ref18[1];
+        Object.entries(newDayConf.counts).forEach(function (_ref19) {
+          var _ref20 = _slicedToArray(_ref19, 2),
+            oldType = _ref20[0],
+            cnt = _ref20[1];
           var normOld = oldType.toLowerCase();
           var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
           newCounts[newType] = cnt;
@@ -934,10 +1046,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
       }
       if (newDayConf.gratuities) {
         var newGratuities = {};
-        Object.entries(newDayConf.gratuities).forEach(function (_ref19) {
-          var _ref20 = _slicedToArray(_ref19, 2),
-            oldType = _ref20[0],
-            grat = _ref20[1];
+        Object.entries(newDayConf.gratuities).forEach(function (_ref21) {
+          var _ref22 = _slicedToArray(_ref21, 2),
+            oldType = _ref22[0],
+            grat = _ref22[1];
           var normOld = oldType.toLowerCase();
           var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
           newGratuities[newType] = grat;
@@ -946,10 +1058,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
       }
       if (newDayConf.discounts) {
         var newDiscounts = {};
-        Object.entries(newDayConf.discounts).forEach(function (_ref21) {
-          var _ref22 = _slicedToArray(_ref21, 2),
-            oldType = _ref22[0],
-            disc = _ref22[1];
+        Object.entries(newDayConf.discounts).forEach(function (_ref23) {
+          var _ref24 = _slicedToArray(_ref23, 2),
+            oldType = _ref24[0],
+            disc = _ref24[1];
           var normOld = oldType.toLowerCase();
           var newType = ROOM_MIGRATION_MAP[normOld] || oldType.toUpperCase();
           newDiscounts[newType] = disc;
@@ -973,10 +1085,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
     var stayDates = generateSeriesDates(newData.segments);
     var maxByType = {};
     Object.values(segmentCountsByDate).forEach(function (countsByType) {
-      Object.entries(countsByType).forEach(function (_ref23) {
-        var _ref24 = _slicedToArray(_ref23, 2),
-          rt = _ref24[0],
-          cnt = _ref24[1];
+      Object.entries(countsByType).forEach(function (_ref25) {
+        var _ref26 = _slicedToArray(_ref25, 2),
+          rt = _ref26[0],
+          cnt = _ref26[1];
         if (cnt > (maxByType[rt] || 0)) {
           maxByType[rt] = cnt;
         }
@@ -1006,10 +1118,10 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
         newData.dailyConfig[date].counts[rt] = 0;
       });
       var countsForDate = segmentCountsByDate[date] || {};
-      Object.entries(countsForDate).forEach(function (_ref25) {
-        var _ref26 = _slicedToArray(_ref25, 2),
-          rt = _ref26[0],
-          cnt = _ref26[1];
+      Object.entries(countsForDate).forEach(function (_ref27) {
+        var _ref28 = _slicedToArray(_ref27, 2),
+          rt = _ref28[0],
+          cnt = _ref28[1];
         newData.dailyConfig[date].counts[rt] = cnt;
       });
     });
@@ -1199,82 +1311,82 @@ var normalizePaymentPlan = function normalizePaymentPlan(plan, total, groupData)
   return [advance, remaining];
 };
 function App() {
-  var _useState = useState([]),
-    _useState2 = _slicedToArray(_useState, 2),
-    groups = _useState2[0],
-    setGroups = _useState2[1];
-  var _useState3 = useState(true),
-    _useState4 = _slicedToArray(_useState3, 2),
-    loading = _useState4[0],
-    setLoading = _useState4[1];
-  var _useState5 = useState('dashboard'),
-    _useState6 = _slicedToArray(_useState5, 2),
-    currentView = _useState6[0],
-    setCurrentView = _useState6[1];
-  var _useState7 = useState(null),
-    _useState8 = _slicedToArray(_useState7, 2),
-    selectedGroup = _useState8[0],
-    setSelectedGroup = _useState8[1];
-  var _useState9 = useState(''),
-    _useState0 = _slicedToArray(_useState9, 2),
-    newNote = _useState0[0],
-    setNewNote = _useState0[1];
-  var _useState1 = useState(null),
+  var _useState1 = useState([]),
     _useState10 = _slicedToArray(_useState1, 2),
-    globalConfig = _useState10[0],
-    setGlobalConfig = _useState10[1];
-  var _useState11 = useState(false),
+    groups = _useState10[0],
+    setGroups = _useState10[1];
+  var _useState11 = useState(true),
     _useState12 = _slicedToArray(_useState11, 2),
-    isEditingClauses = _useState12[0],
-    setIsEditingClauses = _useState12[1];
-  var _useState13 = useState([]),
+    loading = _useState12[0],
+    setLoading = _useState12[1];
+  var _useState13 = useState('dashboard'),
     _useState14 = _slicedToArray(_useState13, 2),
-    tempClauses = _useState14[0],
-    setTempClauses = _useState14[1];
-  var _useState15 = useState([]),
+    currentView = _useState14[0],
+    setCurrentView = _useState14[1];
+  var _useState15 = useState(null),
     _useState16 = _slicedToArray(_useState15, 2),
-    tempClausesConf = _useState16[0],
-    setTempClausesConf = _useState16[1];
-  var _useState17 = useState(false),
+    selectedGroup = _useState16[0],
+    setSelectedGroup = _useState16[1];
+  var _useState17 = useState(''),
     _useState18 = _slicedToArray(_useState17, 2),
-    isEditingClausesConf = _useState18[0],
-    setIsEditingClausesConf = _useState18[1];
-  var _useState19 = useState('presupuesto'),
+    newNote = _useState18[0],
+    setNewNote = _useState18[1];
+  var _useState19 = useState(null),
     _useState20 = _slicedToArray(_useState19, 2),
-    docMode = _useState20[0],
-    setDocMode = _useState20[1]; // 'presupuesto' o 'confirmacion'
-  var _useState21 = useState('activos'),
+    globalConfig = _useState20[0],
+    setGlobalConfig = _useState20[1];
+  var _useState21 = useState(false),
     _useState22 = _slicedToArray(_useState21, 2),
-    filterTab = _useState22[0],
-    setFilterTab = _useState22[1]; // 'activos', 'confirmados', 'desestimados'
-  var _useState23 = useState(''),
+    isEditingClauses = _useState22[0],
+    setIsEditingClauses = _useState22[1];
+  var _useState23 = useState([]),
     _useState24 = _slicedToArray(_useState23, 2),
-    searchTerm = _useState24[0],
-    setSearchTerm = _useState24[1];
-  var _useState25 = useState(''),
+    tempClauses = _useState24[0],
+    setTempClauses = _useState24[1];
+  var _useState25 = useState([]),
     _useState26 = _slicedToArray(_useState25, 2),
-    debouncedSearchTerm = _useState26[0],
-    setDebouncedSearchTerm = _useState26[1];
-  var _useState27 = useState(''),
+    tempClausesConf = _useState26[0],
+    setTempClausesConf = _useState26[1];
+  var _useState27 = useState(false),
     _useState28 = _slicedToArray(_useState27, 2),
-    startDate = _useState28[0],
-    setStartDate = _useState28[1];
-  var _useState29 = useState(''),
+    isEditingClausesConf = _useState28[0],
+    setIsEditingClausesConf = _useState28[1];
+  var _useState29 = useState('presupuesto'),
     _useState30 = _slicedToArray(_useState29, 2),
-    endDate = _useState30[0],
-    setEndDate = _useState30[1];
-  var _useState31 = useState(false),
+    docMode = _useState30[0],
+    setDocMode = _useState30[1]; // 'presupuesto' o 'confirmacion'
+  var _useState31 = useState('activos'),
     _useState32 = _slicedToArray(_useState31, 2),
-    showEmailParseModal = _useState32[0],
-    setShowEmailParseModal = _useState32[1];
+    filterTab = _useState32[0],
+    setFilterTab = _useState32[1]; // 'activos', 'confirmados', 'desestimados'
   var _useState33 = useState(''),
     _useState34 = _slicedToArray(_useState33, 2),
-    emailContent = _useState34[0],
-    setEmailContent = _useState34[1];
-  var _useState35 = useState(false),
+    searchTerm = _useState34[0],
+    setSearchTerm = _useState34[1];
+  var _useState35 = useState(''),
     _useState36 = _slicedToArray(_useState35, 2),
-    isParsingEmail = _useState36[0],
-    setIsParsingEmail = _useState36[1];
+    debouncedSearchTerm = _useState36[0],
+    setDebouncedSearchTerm = _useState36[1];
+  var _useState37 = useState(''),
+    _useState38 = _slicedToArray(_useState37, 2),
+    startDate = _useState38[0],
+    setStartDate = _useState38[1];
+  var _useState39 = useState(''),
+    _useState40 = _slicedToArray(_useState39, 2),
+    endDate = _useState40[0],
+    setEndDate = _useState40[1];
+  var _useState41 = useState(false),
+    _useState42 = _slicedToArray(_useState41, 2),
+    showEmailParseModal = _useState42[0],
+    setShowEmailParseModal = _useState42[1];
+  var _useState43 = useState(''),
+    _useState44 = _slicedToArray(_useState43, 2),
+    emailContent = _useState44[0],
+    setEmailContent = _useState44[1];
+  var _useState45 = useState(false),
+    _useState46 = _slicedToArray(_useState45, 2),
+    isParsingEmail = _useState46[0],
+    setIsParsingEmail = _useState46[1];
 
   // Debounce search term
   useEffect(function () {
@@ -1306,19 +1418,19 @@ function App() {
     }
     return generateDates(data.Entrada, data.Salida);
   };
-  var _useState37 = useState(DEFAULT_FORM_DATA),
-    _useState38 = _slicedToArray(_useState37, 2),
-    formData = _useState38[0],
-    setFormData = _useState38[1];
-  var _useState39 = useState({
+  var _useState47 = useState(DEFAULT_FORM_DATA),
+    _useState48 = _slicedToArray(_useState47, 2),
+    formData = _useState48[0],
+    setFormData = _useState48[1];
+  var _useState49 = useState({
       isOpen: false,
       parsedData: {},
       unrecognizedBoards: [],
       unrecognizedRooms: []
     }),
-    _useState40 = _slicedToArray(_useState39, 2),
-    pastePreview = _useState40[0],
-    setPastePreview = _useState40[1];
+    _useState50 = _slicedToArray(_useState49, 2),
+    pastePreview = _useState50[0],
+    setPastePreview = _useState50[1];
   var parseTarifasString = function parseTarifasString(text) {
     if (!text || typeof text !== 'string') return null;
     var rowsData = text.split(/\r?\n/).filter(function (r) {
@@ -1523,10 +1635,10 @@ function App() {
       if (formData.isMultiSegment && Array.isArray(formData.segments) && formData.segments.length > 0) {
         segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
         Object.values(segmentCountsByDate).forEach(function (countsByType) {
-          Object.entries(countsByType).forEach(function (_ref27) {
-            var _ref28 = _slicedToArray(_ref27, 2),
-              rt = _ref28[0],
-              cnt = _ref28[1];
+          Object.entries(countsByType).forEach(function (_ref29) {
+            var _ref30 = _slicedToArray(_ref29, 2),
+              rt = _ref30[0],
+              cnt = _ref30[1];
             if (cnt > (maxByType[rt] || 0)) {
               maxByType[rt] = cnt;
             }
@@ -1554,10 +1666,10 @@ function App() {
           });
           // Set the actual counts for this date
           var countsForDate = segmentCountsByDate[date] || {};
-          Object.entries(countsForDate).forEach(function (_ref29) {
-            var _ref30 = _slicedToArray(_ref29, 2),
-              rt = _ref30[0],
-              cnt = _ref30[1];
+          Object.entries(countsForDate).forEach(function (_ref31) {
+            var _ref32 = _slicedToArray(_ref31, 2),
+              rt = _ref32[0],
+              cnt = _ref32[1];
             newCounts[rt] = cnt;
           });
           if (JSON.stringify(dayConf.counts) !== JSON.stringify(newCounts)) {
@@ -1734,10 +1846,10 @@ function App() {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
     // Auto-calcular PAX total (solo para los tipos válidos del hotel actual)
     var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
-    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref31) {
-      var _ref32 = _slicedToArray(_ref31, 2),
-        roomType = _ref32[0],
-        count = _ref32[1];
+    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref33) {
+      var _ref34 = _slicedToArray(_ref33, 2),
+        roomType = _ref34[0],
+        count = _ref34[1];
       if (currentRooms.includes(roomType)) {
         return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
       }
@@ -1820,10 +1932,10 @@ function App() {
       }
     });
     setFormData(function (prev) {
-      var totalPax = Object.entries(prev.roomCounts || {}).reduce(function (sum, _ref33) {
-        var _ref34 = _slicedToArray(_ref33, 2),
-          roomType = _ref34[0],
-          count = _ref34[1];
+      var totalPax = Object.entries(prev.roomCounts || {}).reduce(function (sum, _ref35) {
+        var _ref36 = _slicedToArray(_ref35, 2),
+          roomType = _ref36[0],
+          count = _ref36[1];
         return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
       }, 0);
       return _objectSpread(_objectSpread({}, prev), {}, {
@@ -1905,10 +2017,10 @@ function App() {
     });
   };
   var _handleSave = /*#__PURE__*/function () {
-    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(e) {
-      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t;
-      return _regenerator().w(function (_context) {
-        while (1) switch (_context.p = _context.n) {
+    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
+      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
+      return _regenerator().w(function (_context2) {
+        while (1) switch (_context2.p = _context2.n) {
           case 0:
             e.preventDefault();
             now = new Date();
@@ -1920,127 +2032,127 @@ function App() {
             // Validation: Mandatory Hotel
             hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
             if (!(!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "")) {
-              _context.n = 1;
+              _context2.n = 1;
               break;
             }
             alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
-            return _context.a(2);
+            return _context2.a(2);
           case 1:
             // Validation: Dates
             entrada = String(normalizedFormData.Entrada || "").trim();
             salida = String(normalizedFormData.Salida || "").trim();
             if (!(!entrada || !salida)) {
-              _context.n = 2;
+              _context2.n = 2;
               break;
             }
             alert("⚠️ Error: Debe especificar las fechas de entrada y salida.");
-            return _context.a(2);
+            return _context2.a(2);
           case 2:
             if (!(new Date(entrada) >= new Date(salida))) {
-              _context.n = 3;
+              _context2.n = 3;
               break;
             }
             alert("⚠️ Error: La fecha de salida debe ser estrictamente posterior a la de entrada (mínimo 1 noche).");
-            return _context.a(2);
+            return _context2.a(2);
           case 3:
             if (!normalizedFormData.isMultiSegment) {
-              _context.n = 16;
+              _context2.n = 16;
               break;
             }
             if (!(!Array.isArray(normalizedFormData.segments) || normalizedFormData.segments.length === 0)) {
-              _context.n = 4;
+              _context2.n = 4;
               break;
             }
             alert("⚠️ Error: En modo multi-estancia debe haber al menos un segmento.");
-            return _context.a(2);
+            return _context2.a(2);
           case 4:
             i = 0;
           case 5:
             if (!(i < normalizedFormData.segments.length)) {
-              _context.n = 15;
+              _context2.n = 15;
               break;
             }
             seg = normalizedFormData.segments[i];
             if (!(!seg.in || !seg.out)) {
-              _context.n = 6;
+              _context2.n = 6;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe especificar las fechas de entrada y salida."));
-            return _context.a(2);
+            return _context2.a(2);
           case 6:
             if (!(seg.in >= seg.out)) {
-              _context.n = 7;
+              _context2.n = 7;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La fecha de salida (").concat(seg.out, ") debe ser posterior a la de entrada (").concat(seg.in, ")."));
-            return _context.a(2);
+            return _context2.a(2);
           case 7:
             if (!(Number(seg.pax || 0) <= 0)) {
-              _context.n = 8;
+              _context2.n = 8;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero de PAX debe ser mayor que 0."));
-            return _context.a(2);
+            return _context2.a(2);
           case 8:
             allocations = seg.roomAllocations || [];
             if (!(allocations.length === 0)) {
-              _context.n = 9;
+              _context2.n = 9;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe tener al menos una asignaci\xF3n de habitaci\xF3n."));
-            return _context.a(2);
+            return _context2.a(2);
           case 9:
             totalRooms = allocations.reduce(function (sum, a) {
               return sum + Number(a.rooms || 0);
             }, 0);
             if (!(totalRooms <= 0)) {
-              _context.n = 10;
+              _context2.n = 10;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero total de habitaciones debe ser mayor que 0."));
-            return _context.a(2);
+            return _context2.a(2);
           case 10:
             j = 0;
           case 11:
             if (!(j < allocations.length)) {
-              _context.n = 14;
+              _context2.n = 14;
               break;
             }
             a = allocations[j];
             if (a.roomType) {
-              _context.n = 12;
+              _context2.n = 12;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Tipo de habitaci\xF3n no especificado."));
-            return _context.a(2);
+            return _context2.a(2);
           case 12:
             if (!(Number(a.rooms || 0) <= 0)) {
-              _context.n = 13;
+              _context2.n = 13;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La asignaci\xF3n para ").concat(a.roomType, " debe ser mayor que 0."));
-            return _context.a(2);
+            return _context2.a(2);
           case 13:
             j++;
-            _context.n = 11;
+            _context2.n = 11;
             break;
           case 14:
             i++;
-            _context.n = 5;
+            _context2.n = 5;
             break;
           case 15:
             // Warnings / Confirmations (non-blocking)
             metrics = buildMultiSegmentMetrics(normalizedFormData.segments, normalizedFormData.declaredPax);
             if (!(metrics.declaredPax > 0 && metrics.segmentPaxTotal > metrics.declaredPax)) {
-              _context.n = 16;
+              _context2.n = 16;
               break;
             }
             confirmSave = window.confirm("\u26A0\uFE0F Advertencia: El n\xFAmero total de PAX en los segmentos (".concat(metrics.segmentPaxTotal, ") supera los PAX declarados por el cliente (").concat(metrics.declaredPax, "). \xBFDesea continuar?"));
             if (confirmSave) {
-              _context.n = 16;
+              _context2.n = 16;
               break;
             }
-            return _context.a(2);
+            return _context2.a(2);
           case 16:
             reservaId = normalizedFormData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
             isNew = !normalizedFormData.uid;
@@ -2089,16 +2201,16 @@ function App() {
                 return newExt;
               });
             }
-            _context.p = 17;
+            _context2.p = 17;
             if (!_handleSave.running) {
-              _context.n = 18;
+              _context2.n = 18;
               break;
             }
-            return _context.a(2);
+            return _context2.a(2);
           case 18:
             _handleSave.running = true;
             if (!isNew) {
-              _context.n = 22;
+              _context2.n = 22;
               break;
             }
             groupData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -2108,14 +2220,14 @@ function App() {
               date: formattedDate,
               text: "Presupuesto registrado (Alta Manual)."
             }];
-            _context.n = 19;
+            _context2.n = 19;
             return db.collection("groups").doc(reservaId).set(groupData);
           case 19:
             if (!(groupData.Com_Estado_Interno === "CONFIRMADO")) {
-              _context.n = 21;
+              _context2.n = 21;
               break;
             }
-            _context.n = 20;
+            _context2.n = 20;
             return window.confirmBudget({
               budgetId: reservaId,
               requestedStatus: "CONFIRMADO",
@@ -2124,12 +2236,12 @@ function App() {
               confirmedBy: "Usuario"
             });
           case 20:
-            res = _context.v;
+            res = _context2.v;
             if (res && res.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(res.childIds.join(', ')));
             }
           case 21:
-            _context.n = 27;
+            _context2.n = 27;
             break;
           case 22:
             uidToUpdate = groupData.uid;
@@ -2146,10 +2258,10 @@ function App() {
               "Empresa/Agencia": "Empresa",
               "Pax.": "Pax"
             };
-            Object.entries(fieldsToTrack).forEach(function (_ref36) {
-              var _ref37 = _slicedToArray(_ref36, 2),
-                field = _ref37[0],
-                label = _ref37[1];
+            Object.entries(fieldsToTrack).forEach(function (_ref38) {
+              var _ref39 = _slicedToArray(_ref38, 2),
+                field = _ref39[0],
+                label = _ref39[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
                 changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
               }
@@ -2183,26 +2295,26 @@ function App() {
             // Usar update en lugar de set({merge: true}) para que mapas
             // enteros (roomCounts, dailyConfig) se REEMPLACEN, no se deep-mergen.
             if (!(Object.keys(validUpdateData).length > 0)) {
-              _context.n = 23;
+              _context2.n = 23;
               break;
             }
-            _context.n = 23;
+            _context2.n = 23;
             return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
           case 23:
             if (!(Object.keys(fallbackData).length > 0)) {
-              _context.n = 24;
+              _context2.n = 24;
               break;
             }
-            _context.n = 24;
+            _context2.n = 24;
             return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
               merge: true
             });
           case 24:
             if (!statusChangedToConfirmed) {
-              _context.n = 26;
+              _context2.n = 26;
               break;
             }
-            _context.n = 25;
+            _context2.n = 25;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: "CONFIRMADO",
@@ -2211,20 +2323,20 @@ function App() {
               confirmedBy: "Usuario"
             });
           case 25:
-            _res = _context.v;
+            _res = _context2.v;
             if (_res && _res.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(_res.childIds.join(', ')));
             } else {
               alert("\u2705 Presupuesto confirmado con \xE9xito.");
             }
-            _context.n = 27;
+            _context2.n = 27;
             break;
           case 26:
             if (!(targetStatus && targetStatus !== oldDoc.Com_Estado_Interno)) {
-              _context.n = 27;
+              _context2.n = 27;
               break;
             }
-            _context.n = 27;
+            _context2.n = 27;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: targetStatus,
@@ -2234,19 +2346,19 @@ function App() {
             });
           case 27:
             setCurrentView('dashboard');
-            _context.n = 29;
+            _context2.n = 29;
             break;
           case 28:
-            _context.p = 28;
-            _t = _context.v;
-            console.error("Error saving budget:", _t);
+            _context2.p = 28;
+            _t2 = _context2.v;
+            console.error("Error saving budget:", _t2);
           case 29:
-            return _context.a(2);
+            return _context2.a(2);
         }
-      }, _callee, null, [[17, 28]]);
+      }, _callee2, null, [[17, 28]]);
     }));
     return function handleSave(_x) {
-      return _ref35.apply(this, arguments);
+      return _ref37.apply(this, arguments);
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
@@ -2261,82 +2373,82 @@ function App() {
     setCurrentView('detail');
   };
   var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx) {
+    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
       var type,
         clauses,
         textToTranslate,
         _prompt,
         aiResult,
-        _args2 = arguments,
-        _t2;
-      return _regenerator().w(function (_context2) {
-        while (1) switch (_context2.p = _context2.n) {
+        _args3 = arguments,
+        _t3;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.p = _context3.n) {
           case 0:
-            type = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : 'budget';
+            type = _args3.length > 1 && _args3[1] !== undefined ? _args3[1] : 'budget';
             clauses = type === 'budget' ? _toConsumableArray(tempClauses) : _toConsumableArray(tempClausesConf);
             textToTranslate = clauses[idx].body.split('[EN]')[0].trim();
             if (textToTranslate) {
-              _context2.n = 1;
+              _context3.n = 1;
               break;
             }
-            return _context2.a(2);
+            return _context3.a(2);
           case 1:
-            _context2.p = 1;
+            _context3.p = 1;
             _prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xE9s. Mant\xE9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
-            _context2.n = 2;
+            _context3.n = 2;
             return window.callGemini(_prompt);
           case 2:
-            aiResult = _context2.v;
+            aiResult = _context3.v;
             if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
               clauses[idx].body = "".concat(textToTranslate, " [EN] ").concat(aiResult.text.trim());
               if (type === 'budget') setTempClauses(clauses);else setTempClausesConf(clauses);
             } else {
               alert("Error en la traducción: " + ((aiResult === null || aiResult === void 0 ? void 0 : aiResult.error) || "Desconocido"));
             }
-            _context2.n = 4;
+            _context3.n = 4;
             break;
           case 3:
-            _context2.p = 3;
-            _t2 = _context2.v;
+            _context3.p = 3;
+            _t3 = _context3.v;
             alert("Error al conectar con la IA.");
           case 4:
-            return _context2.a(2);
+            return _context3.a(2);
         }
-      }, _callee2, null, [[1, 3]]);
+      }, _callee3, null, [[1, 3]]);
     }));
     return function handleTranslateClause(_x2) {
-      return _ref38.apply(this, arguments);
+      return _ref40.apply(this, arguments);
     };
   }();
   var handleParseEmailIA = /*#__PURE__*/function () {
-    var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-      var currentYear, _prompt2, aiResult, cleanJson, parsed, segments, normalizedSegments, stats, _t3;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+      var currentYear, _prompt2, aiResult, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
             if (emailContent.trim()) {
-              _context3.n = 1;
+              _context4.n = 1;
               break;
             }
             alert("Por favor, pega el contenido del email.");
-            return _context3.a(2);
+            return _context4.a(2);
           case 1:
             setIsParsingEmail(true);
-            _context3.p = 2;
+            _context4.p = 2;
             currentYear = new Date().getFullYear();
             _prompt2 = "Analiza el siguiente email de solicitud de habitaciones de hotel.\nExtrae el n\xFAmero total de personas declaradas por el cliente en el email (\"declaredPax\") y TODOS los segmentos de estancia de los subgrupos (cada segmento con su id, travelerGroupId, pax, fechas in y out, y asignaci\xF3n de habitaciones \"roomAllocations\").\nResponde EXCLUSIVAMENTE con JSON v\xE1lido (sin formato markdown ```json ni texto explicativo) con esta estructura exacta:\n{\n  \"groupName\": \"Nombre empresa o grupo\",\n  \"contactName\": \"Nombre contacto\",\n  \"contactEmail\": \"email@ejemplo.com\",\n  \"hotel\": \"nombre del hotel si se menciona\",\n  \"observations\": \"preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales\",\n  \"declaredPax\": 9,\n  \"segments\": [\n    {\n      \"id\": \"A\",\n      \"travelerGroupId\": \"G1\",\n      \"pax\": 3,\n      \"in\": \"YYYY-MM-DD\",\n      \"out\": \"YYYY-MM-DD\",\n      \"roomAllocations\": [\n        { \"pax\": 3, \"roomType\": \"DOBLE DE USO INDIVIDUAL\", \"rooms\": 3 }\n      ],\n      \"notes\": \"\"\n    }\n  ]\n}\nReglas para los segmentos:\n1. Por defecto, asigna 1 habitaci\xF3n por persona (\"rooms\" = \"pax\") y tipo \"DOBLE DE USO INDIVIDUAL\" en el array \"roomAllocations\", a menos que se indique lo contrario.\n2. Si no se especifica el a\xF1o para las fechas, usa ".concat(currentYear, ".\n3. El formato de las fechas \"in\" y \"out\" debe ser estrictamente YYYY-MM-DD.\n\nEmail a analizar:\n").concat(emailContent);
             if (window.callGemini) {
-              _context3.n = 3;
+              _context4.n = 3;
               break;
             }
             throw new Error('La API de Gemini no está disponible.');
           case 3:
-            _context3.n = 4;
+            _context4.n = 4;
             return window.callGemini(_prompt2);
           case 4:
-            aiResult = _context3.v;
+            aiResult = _context4.v;
             if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
-              _context3.n = 5;
+              _context4.n = 5;
               break;
             }
             throw new Error((aiResult === null || aiResult === void 0 ? void 0 : aiResult.error) || "Error al conectar con la IA.");
@@ -2388,24 +2500,24 @@ function App() {
             }));
             setShowEmailParseModal(false);
             setCurrentView('create');
-            _context3.n = 7;
+            _context4.n = 7;
             break;
           case 6:
-            _context3.p = 6;
-            _t3 = _context3.v;
-            console.error("Error al parsear con IA:", _t3);
-            alert("No se pudo analizar el email. Asegúrate de que el contenido es correcto. Error: " + _t3.message);
+            _context4.p = 6;
+            _t4 = _context4.v;
+            console.error("Error al parsear con IA:", _t4);
+            alert("No se pudo analizar el email. Asegúrate de que el contenido es correcto. Error: " + _t4.message);
           case 7:
-            _context3.p = 7;
+            _context4.p = 7;
             setIsParsingEmail(false);
-            return _context3.f(7);
+            return _context4.f(7);
           case 8:
-            return _context3.a(2);
+            return _context4.a(2);
         }
-      }, _callee3, null, [[2, 6, 7, 8]]);
+      }, _callee4, null, [[2, 6, 7, 8]]);
     }));
     return function handleParseEmailIA() {
-      return _ref39.apply(this, arguments);
+      return _ref41.apply(this, arguments);
     };
   }();
   var renderClauseText = function renderClauseText(text) {
@@ -2419,48 +2531,48 @@ function App() {
     return text;
   };
   var handleDelete = /*#__PURE__*/function () {
-    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(uid) {
-      var _t4;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
-          case 0:
-            if (confirm("¿Eliminar este presupuesto?")) {
-              _context4.n = 1;
-              break;
-            }
-            return _context4.a(2);
-          case 1:
-            _context4.p = 1;
-            _context4.n = 2;
-            return db.collection("groups").doc(uid).delete();
-          case 2:
-            _context4.n = 4;
-            break;
-          case 3:
-            _context4.p = 3;
-            _t4 = _context4.v;
-            console.error(_t4);
-          case 4:
-            return _context4.a(2);
-        }
-      }, _callee4, null, [[1, 3]]);
-    }));
-    return function handleDelete(_x3) {
-      return _ref40.apply(this, arguments);
-    };
-  }();
-  var _updateStatus = /*#__PURE__*/function () {
-    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid, newStatus) {
-      var newExt, result, _t5;
+    var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
+      var _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
           case 0:
-            _context5.p = 0;
-            if (!_updateStatus.running) {
+            if (confirm("¿Eliminar este presupuesto?")) {
               _context5.n = 1;
               break;
             }
             return _context5.a(2);
+          case 1:
+            _context5.p = 1;
+            _context5.n = 2;
+            return db.collection("groups").doc(uid).delete();
+          case 2:
+            _context5.n = 4;
+            break;
+          case 3:
+            _context5.p = 3;
+            _t5 = _context5.v;
+            console.error(_t5);
+          case 4:
+            return _context5.a(2);
+        }
+      }, _callee5, null, [[1, 3]]);
+    }));
+    return function handleDelete(_x3) {
+      return _ref42.apply(this, arguments);
+    };
+  }();
+  var _updateStatus = /*#__PURE__*/function () {
+    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
+      var newExt, result, _t6;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
+          case 0:
+            _context6.p = 0;
+            if (!_updateStatus.running) {
+              _context6.n = 1;
+              break;
+            }
+            return _context6.a(2);
           case 1:
             _updateStatus.running = true;
 
@@ -2477,7 +2589,7 @@ function App() {
                 return item;
               });
             });
-            _context5.n = 2;
+            _context6.n = 2;
             return window.confirmBudget({
               budgetId: uid,
               requestedStatus: newStatus,
@@ -2486,52 +2598,52 @@ function App() {
               confirmedBy: "Usuario"
             });
           case 2:
-            result = _context5.v;
+            result = _context6.v;
             if (result && result.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(result.childIds.join(', ')));
             } else {
               alert("\u2705 Estado del presupuesto actualizado a ".concat(newStatus, "."));
             }
-            _context5.n = 4;
+            _context6.n = 4;
             break;
           case 3:
-            _context5.p = 3;
-            _t5 = _context5.v;
-            console.error("Error al actualizar estado:", _t5);
-            alert("Error: " + _t5.message);
+            _context6.p = 3;
+            _t6 = _context6.v;
+            console.error("Error al actualizar estado:", _t6);
+            alert("Error: " + _t6.message);
           case 4:
-            _context5.p = 4;
+            _context6.p = 4;
             _updateStatus.running = false;
-            return _context5.f(4);
+            return _context6.f(4);
           case 5:
-            return _context5.a(2);
+            return _context6.a(2);
         }
-      }, _callee5, null, [[0, 3, 4, 5]]);
+      }, _callee6, null, [[0, 3, 4, 5]]);
     }));
     return function updateStatus(_x4, _x5) {
-      return _ref41.apply(this, arguments);
+      return _ref43.apply(this, arguments);
     };
   }();
   var duplicateBudgetToOtherHotel = /*#__PURE__*/function () {
-    var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(budget) {
-      var source, targetHotel, sourceHotel, now, formattedDate, newReservaId, serializableSource, duplicatedBudget, duplicatedTotal, roomingList, duplicateData, _t6;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+    var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(budget) {
+      var source, targetHotel, sourceHotel, now, formattedDate, newReservaId, serializableSource, duplicatedBudget, duplicatedTotal, roomingList, duplicateData, _t7;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
             source = normalizeGroupData(budget);
             if (source) {
-              _context6.n = 1;
+              _context7.n = 1;
               break;
             }
-            return _context6.a(2);
+            return _context7.a(2);
           case 1:
             targetHotel = getAlternateHotel(source.Hotel_Asignado || source.Hotel);
             sourceHotel = source.Hotel_Asignado || source.Hotel || "hotel actual";
             if (window.confirm("Duplicar este presupuesto para ".concat(targetHotel, "? Se creara una copia independiente para ajustar tarifas antes de enviarla."))) {
-              _context6.n = 2;
+              _context7.n = 2;
               break;
             }
-            return _context6.a(2);
+            return _context7.a(2);
           case 2:
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
@@ -2563,79 +2675,38 @@ function App() {
                 text: "Duplicado desde ".concat(source.Reserva || source.uid || "presupuesto", " (").concat(sourceHotel, ") para ").concat(targetHotel, ".")
               }].concat(_toConsumableArray(Array.isArray(source.tracking) ? source.tracking : []))
             });
-            _context6.p = 3;
-            _context6.n = 4;
+            _context7.p = 3;
+            _context7.n = 4;
             return db.collection("groups").doc(newReservaId).set(duplicateData);
           case 4:
             setFormData(_objectSpread(_objectSpread({}, normalizeGroupData(duplicateData)), {}, {
               uid: newReservaId
             }));
             setCurrentView('create');
-            _context6.n = 6;
+            _context7.n = 6;
             break;
           case 5:
-            _context6.p = 5;
-            _t6 = _context6.v;
-            console.error("Error duplicating budget:", _t6);
+            _context7.p = 5;
+            _t7 = _context7.v;
+            console.error("Error duplicating budget:", _t7);
             alert("Error al duplicar el presupuesto.");
           case 6:
-            return _context6.a(2);
+            return _context7.a(2);
         }
-      }, _callee6, null, [[3, 5]]);
+      }, _callee7, null, [[3, 5]]);
     }));
     return function duplicateBudgetToOtherHotel(_x6) {
-      return _ref42.apply(this, arguments);
+      return _ref44.apply(this, arguments);
     };
   }();
   var addTrackingNote = /*#__PURE__*/function () {
-    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(e) {
-      var now, formattedDate, newTracking, _t7;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
-          case 0:
-            e.preventDefault();
-            if (!(!newNote.trim() || !selectedGroup)) {
-              _context7.n = 1;
-              break;
-            }
-            return _context7.a(2);
-          case 1:
-            _context7.p = 1;
-            now = new Date();
-            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            newTracking = [{
-              id: Date.now(),
-              date: formattedDate,
-              text: newNote
-            }].concat(_toConsumableArray(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : []));
-            _context7.n = 2;
-            return db.collection("groups").doc(selectedGroup.uid).update({
-              tracking: newTracking
-            });
-          case 2:
-            setNewNote('');
-            _context7.n = 4;
-            break;
-          case 3:
-            _context7.p = 3;
-            _t7 = _context7.v;
-            console.error(_t7);
-          case 4:
-            return _context7.a(2);
-        }
-      }, _callee7, null, [[1, 3]]);
-    }));
-    return function addTrackingNote(_x7) {
-      return _ref43.apply(this, arguments);
-    };
-  }();
-  var addQuickNote = /*#__PURE__*/function () {
-    var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(uid, note) {
-      var now, formattedDate, budget, newTracking, _t8;
+    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(e) {
+      var now, formattedDate, newTracking, _t8;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.p = _context8.n) {
           case 0:
-            if (note.trim()) {
+            e.preventDefault();
+            if (!(!newNote.trim() || !selectedGroup)) {
               _context8.n = 1;
               break;
             }
@@ -2644,19 +2715,17 @@ function App() {
             _context8.p = 1;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
-            budget = groups.find(function (g) {
-              return g.uid === uid;
-            });
             newTracking = [{
               id: Date.now(),
               date: formattedDate,
-              text: note
-            }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
+              text: newNote
+            }].concat(_toConsumableArray(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : []));
             _context8.n = 2;
-            return db.collection("groups").doc(uid).update({
+            return db.collection("groups").doc(selectedGroup.uid).update({
               tracking: newTracking
             });
           case 2:
+            setNewNote('');
             _context8.n = 4;
             break;
           case 3:
@@ -2668,8 +2737,51 @@ function App() {
         }
       }, _callee8, null, [[1, 3]]);
     }));
+    return function addTrackingNote(_x7) {
+      return _ref45.apply(this, arguments);
+    };
+  }();
+  var addQuickNote = /*#__PURE__*/function () {
+    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(uid, note) {
+      var now, formattedDate, budget, newTracking, _t9;
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
+          case 0:
+            if (note.trim()) {
+              _context9.n = 1;
+              break;
+            }
+            return _context9.a(2);
+          case 1:
+            _context9.p = 1;
+            now = new Date();
+            formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
+            budget = groups.find(function (g) {
+              return g.uid === uid;
+            });
+            newTracking = [{
+              id: Date.now(),
+              date: formattedDate,
+              text: note
+            }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
+            _context9.n = 2;
+            return db.collection("groups").doc(uid).update({
+              tracking: newTracking
+            });
+          case 2:
+            _context9.n = 4;
+            break;
+          case 3:
+            _context9.p = 3;
+            _t9 = _context9.v;
+            console.error(_t9);
+          case 4:
+            return _context9.a(2);
+        }
+      }, _callee9, null, [[1, 3]]);
+    }));
     return function addQuickNote(_x8, _x9) {
-      return _ref44.apply(this, arguments);
+      return _ref46.apply(this, arguments);
     };
   }();
 
@@ -2840,10 +2952,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref45) {
-        var _ref46 = _slicedToArray(_ref45, 2),
-          t = _ref46[0],
-          c = _ref46[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref47) {
+        var _ref48 = _slicedToArray(_ref47, 2),
+          t = _ref48[0],
+          c = _ref48[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -2950,10 +3062,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref47) {
-          var _ref48 = _slicedToArray(_ref47, 2),
-            _ = _ref48[0],
-            b = _ref48[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref49) {
+          var _ref50 = _slicedToArray(_ref49, 2),
+            _ = _ref50[0],
+            b = _ref50[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -2977,7 +3089,10 @@ function App() {
       }), /*#__PURE__*/React.createElement("span", {
         className: "text-[9px] font-bold uppercase truncate max-w-[150px]",
         title: "Comercial Asignado"
-      }, g["Com_Comercial"] && g["Com_Comercial"].trim() !== "" ? g["Com_Comercial"] : "SIN ASIGNAR")))), /*#__PURE__*/React.createElement("td", {
+      }, g["Com_Comercial"] && g["Com_Comercial"].trim() !== "" ? g["Com_Comercial"] : "SIN ASIGNAR"))), /*#__PURE__*/React.createElement(ContactFollowUp, {
+        key: g.uid,
+        group: g
+      })), /*#__PURE__*/React.createElement("td", {
         className: "px-4 py-4 text-center"
       }, /*#__PURE__*/React.createElement("div", {
         className: "relative inline-flex items-center"
@@ -3566,10 +3681,10 @@ function App() {
           updated["Pax."] = stats.totalPax;
         } else {
           if (!formData.isRatesOnly) {
-            var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref49) {
-              var _ref50 = _slicedToArray(_ref49, 2),
-                roomType = _ref50[0],
-                count = _ref50[1];
+            var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref51) {
+              var _ref52 = _slicedToArray(_ref51, 2),
+                roomType = _ref52[0],
+                count = _ref52[1];
               return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
             }, 0);
             if (totalPax > 0) updated["Pax."] = totalPax;
@@ -4496,10 +4611,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref51) {
-      var _ref52 = _slicedToArray(_ref51, 2),
-        type = _ref52[0],
-        count = _ref52[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref53) {
+      var _ref54 = _slicedToArray(_ref53, 2),
+        type = _ref54[0],
+        count = _ref54[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -4515,10 +4630,10 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref53) {
-      var _ref54 = _slicedToArray(_ref53, 2),
-        type = _ref54[0],
-        c = _ref54[1];
+    activeRooms.forEach(function (_ref55) {
+      var _ref56 = _slicedToArray(_ref55, 2),
+        type = _ref56[0],
+        c = _ref56[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
@@ -5028,10 +5143,10 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
-      var roomListItems = activeRooms.map(function (_ref55) {
-        var _ref56 = _slicedToArray(_ref55, 2),
-          type = _ref56[0],
-          count = _ref56[1];
+      var roomListItems = activeRooms.map(function (_ref57) {
+        var _ref58 = _slicedToArray(_ref57, 2),
+          type = _ref58[0],
+          count = _ref58[1];
         var typeKey = type.toUpperCase();
         var currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== '' ? Number(config.counts[typeKey]) : count;
         if (currentCount <= 0) return null;
