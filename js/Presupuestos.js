@@ -51,6 +51,10 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
     _useState0 = _slicedToArray(_useState9, 2),
     dirty = _useState0[0],
     setDirty = _useState0[1];
+  var _useState1 = useState(false),
+    _useState10 = _slicedToArray(_useState1, 2),
+    editing = _useState10[0],
+    setEditing = _useState10[1];
   useEffect(function () {
     if (!dirty) {
       setDate(savedDate);
@@ -80,6 +84,7 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
           case 3:
             setDirty(false);
             setMessage("Guardado");
+            setEditing(false);
             _context.n = 5;
             break;
           case 4:
@@ -99,6 +104,20 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
       return _ref2.apply(this, arguments);
     };
   }();
+  if (!editing) return /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setEditing(true);
+      setMessage("");
+    },
+    title: savedNote || "Editar próximo contacto",
+    className: "mt-1 block w-full text-left text-[10px] leading-tight text-slate-500 hover:text-indigo-600"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-bold"
+  }, savedDate ? "Contacto: ".concat(savedDate.split('-').reverse().join('/')) : "+ Programar contacto"), savedNote && /*#__PURE__*/React.createElement("span", {
+    className: "block truncate mt-0.5"
+  }, savedNote));
   return /*#__PURE__*/React.createElement("div", {
     className: "mt-2 space-y-1",
     onClick: function onClick(e) {
@@ -134,7 +153,18 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
     disabled: saving,
     onClick: save,
     className: "text-[10px] font-bold text-indigo-600 disabled:opacity-50"
-  }, saving ? "Guardando…" : "Guardar contacto"), message && /*#__PURE__*/React.createElement("p", {
+  }, saving ? "Guardando…" : "Guardar contacto"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    disabled: saving,
+    onClick: function onClick() {
+      setDate(savedDate);
+      setNote(savedNote);
+      setDirty(false);
+      setEditing(false);
+      setMessage("");
+    },
+    className: "ml-2 text-[10px] text-slate-500 hover:text-slate-800"
+  }, "Cancelar"), message && /*#__PURE__*/React.createElement("p", {
     role: "status",
     className: "text-[10px] text-slate-600"
   }, message));
@@ -1311,82 +1341,82 @@ var normalizePaymentPlan = function normalizePaymentPlan(plan, total, groupData)
   return [advance, remaining];
 };
 function App() {
-  var _useState1 = useState([]),
-    _useState10 = _slicedToArray(_useState1, 2),
-    groups = _useState10[0],
-    setGroups = _useState10[1];
-  var _useState11 = useState(true),
+  var _useState11 = useState([]),
     _useState12 = _slicedToArray(_useState11, 2),
-    loading = _useState12[0],
-    setLoading = _useState12[1];
-  var _useState13 = useState('dashboard'),
+    groups = _useState12[0],
+    setGroups = _useState12[1];
+  var _useState13 = useState(true),
     _useState14 = _slicedToArray(_useState13, 2),
-    currentView = _useState14[0],
-    setCurrentView = _useState14[1];
-  var _useState15 = useState(null),
+    loading = _useState14[0],
+    setLoading = _useState14[1];
+  var _useState15 = useState('dashboard'),
     _useState16 = _slicedToArray(_useState15, 2),
-    selectedGroup = _useState16[0],
-    setSelectedGroup = _useState16[1];
-  var _useState17 = useState(''),
+    currentView = _useState16[0],
+    setCurrentView = _useState16[1];
+  var _useState17 = useState(null),
     _useState18 = _slicedToArray(_useState17, 2),
-    newNote = _useState18[0],
-    setNewNote = _useState18[1];
-  var _useState19 = useState(null),
+    selectedGroup = _useState18[0],
+    setSelectedGroup = _useState18[1];
+  var _useState19 = useState(''),
     _useState20 = _slicedToArray(_useState19, 2),
-    globalConfig = _useState20[0],
-    setGlobalConfig = _useState20[1];
-  var _useState21 = useState(false),
+    newNote = _useState20[0],
+    setNewNote = _useState20[1];
+  var _useState21 = useState(null),
     _useState22 = _slicedToArray(_useState21, 2),
-    isEditingClauses = _useState22[0],
-    setIsEditingClauses = _useState22[1];
-  var _useState23 = useState([]),
+    globalConfig = _useState22[0],
+    setGlobalConfig = _useState22[1];
+  var _useState23 = useState(false),
     _useState24 = _slicedToArray(_useState23, 2),
-    tempClauses = _useState24[0],
-    setTempClauses = _useState24[1];
+    isEditingClauses = _useState24[0],
+    setIsEditingClauses = _useState24[1];
   var _useState25 = useState([]),
     _useState26 = _slicedToArray(_useState25, 2),
-    tempClausesConf = _useState26[0],
-    setTempClausesConf = _useState26[1];
-  var _useState27 = useState(false),
+    tempClauses = _useState26[0],
+    setTempClauses = _useState26[1];
+  var _useState27 = useState([]),
     _useState28 = _slicedToArray(_useState27, 2),
-    isEditingClausesConf = _useState28[0],
-    setIsEditingClausesConf = _useState28[1];
-  var _useState29 = useState('presupuesto'),
+    tempClausesConf = _useState28[0],
+    setTempClausesConf = _useState28[1];
+  var _useState29 = useState(false),
     _useState30 = _slicedToArray(_useState29, 2),
-    docMode = _useState30[0],
-    setDocMode = _useState30[1]; // 'presupuesto' o 'confirmacion'
-  var _useState31 = useState('activos'),
+    isEditingClausesConf = _useState30[0],
+    setIsEditingClausesConf = _useState30[1];
+  var _useState31 = useState('presupuesto'),
     _useState32 = _slicedToArray(_useState31, 2),
-    filterTab = _useState32[0],
-    setFilterTab = _useState32[1]; // 'activos', 'confirmados', 'desestimados'
-  var _useState33 = useState(''),
+    docMode = _useState32[0],
+    setDocMode = _useState32[1]; // 'presupuesto' o 'confirmacion'
+  var _useState33 = useState('activos'),
     _useState34 = _slicedToArray(_useState33, 2),
-    searchTerm = _useState34[0],
-    setSearchTerm = _useState34[1];
+    filterTab = _useState34[0],
+    setFilterTab = _useState34[1]; // 'activos', 'confirmados', 'desestimados'
   var _useState35 = useState(''),
     _useState36 = _slicedToArray(_useState35, 2),
-    debouncedSearchTerm = _useState36[0],
-    setDebouncedSearchTerm = _useState36[1];
+    searchTerm = _useState36[0],
+    setSearchTerm = _useState36[1];
   var _useState37 = useState(''),
     _useState38 = _slicedToArray(_useState37, 2),
-    startDate = _useState38[0],
-    setStartDate = _useState38[1];
+    debouncedSearchTerm = _useState38[0],
+    setDebouncedSearchTerm = _useState38[1];
   var _useState39 = useState(''),
     _useState40 = _slicedToArray(_useState39, 2),
-    endDate = _useState40[0],
-    setEndDate = _useState40[1];
-  var _useState41 = useState(false),
+    startDate = _useState40[0],
+    setStartDate = _useState40[1];
+  var _useState41 = useState(''),
     _useState42 = _slicedToArray(_useState41, 2),
-    showEmailParseModal = _useState42[0],
-    setShowEmailParseModal = _useState42[1];
-  var _useState43 = useState(''),
+    endDate = _useState42[0],
+    setEndDate = _useState42[1];
+  var _useState43 = useState(false),
     _useState44 = _slicedToArray(_useState43, 2),
-    emailContent = _useState44[0],
-    setEmailContent = _useState44[1];
-  var _useState45 = useState(false),
+    showEmailParseModal = _useState44[0],
+    setShowEmailParseModal = _useState44[1];
+  var _useState45 = useState(''),
     _useState46 = _slicedToArray(_useState45, 2),
-    isParsingEmail = _useState46[0],
-    setIsParsingEmail = _useState46[1];
+    emailContent = _useState46[0],
+    setEmailContent = _useState46[1];
+  var _useState47 = useState(false),
+    _useState48 = _slicedToArray(_useState47, 2),
+    isParsingEmail = _useState48[0],
+    setIsParsingEmail = _useState48[1];
 
   // Debounce search term
   useEffect(function () {
@@ -1418,19 +1448,19 @@ function App() {
     }
     return generateDates(data.Entrada, data.Salida);
   };
-  var _useState47 = useState(DEFAULT_FORM_DATA),
-    _useState48 = _slicedToArray(_useState47, 2),
-    formData = _useState48[0],
-    setFormData = _useState48[1];
-  var _useState49 = useState({
+  var _useState49 = useState(DEFAULT_FORM_DATA),
+    _useState50 = _slicedToArray(_useState49, 2),
+    formData = _useState50[0],
+    setFormData = _useState50[1];
+  var _useState51 = useState({
       isOpen: false,
       parsedData: {},
       unrecognizedBoards: [],
       unrecognizedRooms: []
     }),
-    _useState50 = _slicedToArray(_useState49, 2),
-    pastePreview = _useState50[0],
-    setPastePreview = _useState50[1];
+    _useState52 = _slicedToArray(_useState51, 2),
+    pastePreview = _useState52[0],
+    setPastePreview = _useState52[1];
   var parseTarifasString = function parseTarifasString(text) {
     if (!text || typeof text !== 'string') return null;
     var rowsData = text.split(/\r?\n/).filter(function (r) {
@@ -2898,9 +2928,9 @@ function App() {
     })))), /*#__PURE__*/React.createElement("div", {
       className: "overflow-x-auto"
     }, /*#__PURE__*/React.createElement("table", {
-      className: "w-full text-left border-collapse min-w-[1280px] xl:min-w-full table-fixed"
+      className: "w-full text-left border-collapse min-w-[1080px] table-fixed"
     }, /*#__PURE__*/React.createElement("colgroup", null, /*#__PURE__*/React.createElement("col", {
-      className: "w-[25%]"
+      className: "w-[22%]"
     }), /*#__PURE__*/React.createElement("col", {
       className: "w-[9%]"
     }), /*#__PURE__*/React.createElement("col", {
@@ -2909,16 +2939,16 @@ function App() {
       className: "w-[9%]"
     }), /*#__PURE__*/React.createElement("col", {
       className: "w-[7%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[21%]"
     }), /*#__PURE__*/React.createElement("col", {
       className: "w-[13%]"
     }), /*#__PURE__*/React.createElement("col", {
-      className: "w-[14%]"
-    }), /*#__PURE__*/React.createElement("col", {
-      className: "w-[16%]"
+      className: "w-[12%]"
     })), /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
       className: "bg-slate-50/50 border-b border-slate-100"
     }, /*#__PURE__*/React.createElement("th", {
-      className: "w-[25%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+      className: "w-[22%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Grupo / Hotel"), /*#__PURE__*/React.createElement("th", {
       className: "w-[9%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {

@@ -12,6 +12,7 @@
       const [saving, setSaving] = useState(false);
       const [message, setMessage] = useState("");
       const [dirty, setDirty] = useState(false);
+      const [editing, setEditing] = useState(false);
       useEffect(() => {
         if (!dirty) { setDate(savedDate); setNote(savedNote); }
       }, [savedDate, savedNote, dirty]);
@@ -25,10 +26,19 @@
           });
           setDirty(false);
           setMessage("Guardado");
+          setEditing(false);
         } catch (error) {
           setMessage("No se pudo guardar. Inténtalo de nuevo.");
         } finally { setSaving(false); }
       };
+      if (!editing) return (
+        <button type="button" onClick={e => { e.stopPropagation(); setEditing(true); setMessage(""); }}
+          title={savedNote || "Editar próximo contacto"}
+          className="mt-1 block w-full text-left text-[10px] leading-tight text-slate-500 hover:text-indigo-600">
+          <span className="font-bold">{savedDate ? `Contacto: ${savedDate.split('-').reverse().join('/')}` : "+ Programar contacto"}</span>
+          {savedNote && <span className="block truncate mt-0.5">{savedNote}</span>}
+        </button>
+      );
       return (
         <div className="mt-2 space-y-1" onClick={e => e.stopPropagation()}>
           <label className="block text-[9px] font-bold text-slate-500">
@@ -45,6 +55,9 @@
             className="text-[10px] font-bold text-indigo-600 disabled:opacity-50">
             {saving ? "Guardando…" : "Guardar contacto"}
           </button>}
+          <button type="button" disabled={saving} onClick={() => {
+            setDate(savedDate); setNote(savedNote); setDirty(false); setEditing(false); setMessage("");
+          }} className="ml-2 text-[10px] text-slate-500 hover:text-slate-800">Cancelar</button>
           {message && <p role="status" className="text-[10px] text-slate-600">{message}</p>}
         </div>
       );
@@ -2378,20 +2391,20 @@ ${emailContent}`;
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[1280px] xl:min-w-full table-fixed">
+              <table className="w-full text-left border-collapse min-w-[1080px] table-fixed">
                 <colgroup>
-                  <col className="w-[25%]" />
+                  <col className="w-[22%]" />
                   <col className="w-[9%]" />
                   <col className="w-[7%]" />
                   <col className="w-[9%]" />
                   <col className="w-[7%]" />
+                  <col className="w-[21%]" />
                   <col className="w-[13%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[16%]" />
+                  <col className="w-[12%]" />
                 </colgroup>
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="w-[25%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Grupo / Hotel</th>
+                    <th className="w-[22%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Grupo / Hotel</th>
                     <th className="w-[9%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Límite 7d</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Importe</th>
