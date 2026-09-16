@@ -21577,12 +21577,12 @@
 
                                             })()}
 
-                                            {totalPercent < 100 && (
+                                            {true && (
                                                 <button
                                                   onClick={addPlanRow}
                                                   className={`w-full py-2 border border-dashed rounded transition-all text-[9px] font-black uppercase flex items-center justify-center gap-2 bg-white ${isGroupCredito ? "border-indigo-200 text-indigo-400 hover:border-indigo-400 hover:text-indigo-600" : "border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-500"}`}
                                                 >
-                                                  <IconPlus size={12} /> {isGroupCredito ? "Añadir Tramo Opcional" : "Añadir Tramo"} ({100 - totalPercent}%)
+                                                  <IconPlus size={12} /> {isGroupCredito ? "Añadir Tramo Opcional" : "Añadir Tramo"} ({Math.max(0, 100 - totalPercent)}%)
                                                 </button>
                                               )}
                                             </div>

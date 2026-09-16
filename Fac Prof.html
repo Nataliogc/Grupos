@@ -2203,7 +2203,7 @@
                                     <p class="text-[8px] text-indigo-900/60 font-medium mt-0.5">Esta reserva cuenta con crédito concedido (sin requerimiento de pago anticipado). Facturación según condiciones comerciales acordadas.</p>
                                 </div>
                                 ` : `
-                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div class="grid gap-4 mb-4" style="grid-template-columns: repeat(${paymentPlan.length}, minmax(0, 1fr));">
                                     ${paymentPlan.map((dep, idx) => {
                                         const isPaid = dep.status === "Cobrado";
                                         const amountNum = parseFloat(dep.amount) || 0;
