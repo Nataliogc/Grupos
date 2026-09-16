@@ -451,8 +451,8 @@
                 icon: "clock",
                 label: isOverdue ? "Release Vencido" : "Próximo Release",
                 detail: isOverdue 
-                  ? `Venció hace ${Math.abs(diffDays)} días (${formatDate(dRel)})`
-                  : `Vence en ${diffDays} días (${formatDate(dRel)})`,
+                  ? `Venció hace ${Math.abs(diffDays)} días (${formatDate(dRel)}) - Pend: ${pending.toFixed(2)}€ - Est: ${status}`
+                  : `Vence en ${diffDays} días (${formatDate(dRel)}) - Pend: ${pending.toFixed(2)}€`,
                 type: isOverdue ? "danger" : "warning"
               });
             }

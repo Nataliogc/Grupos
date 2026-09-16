@@ -447,7 +447,7 @@ var Dashboard = function Dashboard(_ref2) {
             group: g,
             icon: "clock",
             label: isOverdue ? "Release Vencido" : "Próximo Release",
-            detail: isOverdue ? "Venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ")") : "Vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ")"),
+            detail: isOverdue ? "Venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ") - Pend: ").concat(pending.toFixed(2), "\u20AC - Est: ").concat(status) : "Vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ") - Pend: ").concat(pending.toFixed(2), "\u20AC"),
             type: isOverdue ? "danger" : "warning"
           });
         }
