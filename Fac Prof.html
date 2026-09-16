@@ -1150,6 +1150,8 @@
             const roomNightsProforma = getProformaItemsRoomNights();
             const totalMismatch = Math.abs(sourceTotal - totalProforma) > 0.01;
             const roomNightsMismatch = sourceRoomNights > 0 && Math.abs(sourceRoomNights - roomNightsProforma) > 0.01;
+            
+            if (items.length === 0 && !block) return true;
 
             if (totalMismatch || roomNightsMismatch) {
                 console.warn("[PROFORMA] Total mismatch", {
