@@ -5702,11 +5702,11 @@
 
         if (!group) {
           // Si existe en data pero no en groupedData, es que los filtros actuales lo bloquean.
-          // Abrimos filtros y esperamos al siguiente render.
-          if (filterStatus !== "all" || filterTime !== "all" || searchTerm !== "") {
+          // Abrimos filtros y filtramos específicamente por el ID para no colapsar la memoria y esperamos al siguiente render.
+          if (filterStatus !== "all" || filterTime !== "all" || searchTerm !== normId) {
             setFilterStatus("all");
             setFilterTime("all");
-            setSearchTerm("");
+            setSearchTerm(normId);
             setKpiFilter(null);
           }
           return; 
