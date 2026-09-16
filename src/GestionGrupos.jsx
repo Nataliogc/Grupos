@@ -3155,7 +3155,7 @@
         }
 
         // 3. Clean up tiny leftover pending rows if difference is zero or negative
-        if (diff <= 0.01) {
+        if (diff <= 0.01 && !options.preserveZeroRows) {
           for (let i = planCopy.length - 1; i >= 0; i--) {
             const p = planCopy[i];
             if (p.status !== "Cobrado" && (parseFloat(p.amount) || 0) <= 0.01) {
@@ -20920,7 +20920,7 @@
                                       } catch (e) {
                                         plan = [];
                                       }
-                                      plan = reconcileReactPaymentPlan(plan, hotelTotal, arrivalDate);
+                                      plan = reconcileReactPaymentPlan(plan, hotelTotal, arrivalDate, { preserveZeroRows: true });
                                       if (plan && plan.length > 1) {
                                         plan = plan.map((p, idx) => {
                                           if (idx === 0 && (p.label === "Pago Único" || p.label === "Primer Pago" || !p.label)) {
@@ -21135,6 +21135,7 @@
 
                                         const reconciled = reconcileReactPaymentPlan(newPlan, hotelTotal, arrivalDate, {
                                           lockedIndex: field === "percent" || field === "amount" ? idx : -1,
+                                          preserveZeroRows: true
                                         });
 
                                         updatePaymentPlan(
@@ -21235,7 +21236,7 @@
 
                                         };
 
-                                        const reconciled = reconcileReactPaymentPlan([...plan, newRow], hotelTotal, arrivalDate);
+                                        const reconciled = reconcileReactPaymentPlan([...plan, newRow], hotelTotal, arrivalDate, { preserveZeroRows: true });
 
                                         updatePaymentPlan(
 
@@ -21255,7 +21256,7 @@
 
                                         const filtered = plan.filter((_, i) => i !== idx);
 
-                                        const reconciled = reconcileReactPaymentPlan(filtered, hotelTotal, arrivalDate);
+                                        const reconciled = reconcileReactPaymentPlan(filtered, hotelTotal, arrivalDate, { preserveZeroRows: true });
 
                                         updatePaymentPlan(
 
