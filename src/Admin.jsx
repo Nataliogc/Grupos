@@ -396,18 +396,20 @@
 
           if (isCancelled || isPast) return;
 
-          const isConfirmed = status.includes("CONFIRM") || status.includes("GARANT") || status.includes("RESERVA");
-          const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT");
+          const isConfirmed = status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
+          const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
           const entryDate = parseDate(g.Entrada);
 
           const total = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
-          let paid = parseFloat(g.Com_Pagado) || 0;
+          let manualPaid = parseFloat(g.Com_Pagado) || 0;
+          let planPaid = 0;
           try {
             const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
             plan.forEach(p => {
-              if (p.status === "Cobrado") paid += parseFloat(p.amount) || 0;
+              if (p.status === "Cobrado" || p.status === "Pagado") planPaid += parseFloat(p.amount) || 0;
             });
           } catch (e) {}
+          let paid = Math.max(manualPaid, planPaid);
           const pending = Math.max(0, total - paid);
 
           const isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);

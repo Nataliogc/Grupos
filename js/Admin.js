@@ -396,17 +396,19 @@ var Dashboard = function Dashboard(_ref2) {
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;
-      var isConfirmed = status.includes("CONFIRM") || status.includes("GARANT") || status.includes("RESERVA");
-      var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT");
+      var isConfirmed = status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
+      var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
       var entryDate = parseDate(g.Entrada);
       var total = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
-      var paid = parseFloat(g.Com_Pagado) || 0;
+      var manualPaid = parseFloat(g.Com_Pagado) || 0;
+      var planPaid = 0;
       try {
         var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
         plan.forEach(function (p) {
-          if (p.status === "Cobrado") paid += parseFloat(p.amount) || 0;
+          if (p.status === "Cobrado" || p.status === "Pagado") planPaid += parseFloat(p.amount) || 0;
         });
       } catch (e) {}
+      var paid = Math.max(manualPaid, planPaid);
       var pending = Math.max(0, total - paid);
       var isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
 
