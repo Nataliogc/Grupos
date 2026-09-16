@@ -19319,7 +19319,7 @@
                                           <span className="text-red-500 mt-0.5 flex-shrink-0">●</span>
                                           <span className="text-[10px] font-bold text-red-800">{issue.message}</span>
                                         </div>
-                                        {issue.type.includes('mismatch') && (
+                                        {(issue.type.includes('mismatch') || issue.type === 'excel_diff_reason') && (
                                           <button type="button" onClick={() => setDifferenceAccepted(issue, true)} className="shrink-0 text-[10px] font-bold px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">Estoy de acuerdo con la diferencia</button>
                                         )}
                                         {issue.type === "excel_amount_mismatch" && (
@@ -19347,7 +19347,7 @@
                                       <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
                                         <span className="text-amber-500 mt-0.5 flex-shrink-0">◆</span>
                                         <span className="text-[10px] font-bold text-amber-800">{w.message}</span>
-                                        {w.type.includes('mismatch') && (
+                                        {(w.type.includes('mismatch') || w.type === 'excel_diff_reason') && (
                                           <button type="button" onClick={() => setDifferenceAccepted(w, true)} className="shrink-0 text-[10px] font-bold px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">Estoy de acuerdo con la diferencia</button>
                                         )}
                                         {(w.type === "amount_mismatch" || w.type === "excel_amount_mismatch") && w.diff && (
