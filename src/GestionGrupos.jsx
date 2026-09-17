@@ -4791,6 +4791,20 @@
         return window.BoardPricingService.calculateEconomicStatistics(filteredDailyOccupancy, boardPricingConfig);
       }, [filteredDailyOccupancy, boardPricingConfig]);
 
+      // --- MAPA DE DÍAS POR RESERVA PARA ESTADO OPERATIVO / REVISIÓN ---
+      const dailyOccupancyByReservaMap = useMemo(() => {
+        const map = new Map();
+        (dailyOccupancyList || []).forEach((item) => {
+          const norm = normalizeId(item.reserva);
+          if (!norm) return;
+          if (!map.has(norm)) {
+            map.set(norm, []);
+          }
+          map.get(norm).push(item);
+        });
+        return map;
+      }, [dailyOccupancyList]);
+
       const openDistributionModal = (dailyItem) => {
         const proposal = dailyItem.proposal || window.GroupOccupancyService?.generateDefaultProposal(dailyItem.pax) || {
           individuales: dailyItem.pax % 2,
@@ -15422,6 +15436,7 @@
                           <th className="px-3 py-3 font-black text-center">Release</th>
                           <th className="px-3 py-3 font-black text-right">Importe</th>
                           <th className="px-3 py-3 font-black text-center">Estado</th>
+                          <th className="px-3 py-3 font-black text-center">Revisión</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -15485,6 +15500,90 @@
                             group.records?.[0]?.["Comercial"] ||
                             group.comercial ||
                             "";
+
+                          // Cálculo de alertas operativas y estado de revisión
+                          const firstRecord = group.records?.[0] || {};
+                          const hasRooming = firstRecord["Logistica_Rooming"] === true || group.records?.some((r) => r["Logistica_Rooming"] === true);
+                          const hasMP = firstRecord["Logistica_MenuMP"] === true || group.records?.some((r) => r["Logistica_MenuMP"] === true);
+                          const hasPC = firstRecord["Logistica_MenuPC"] === true || group.records?.some((r) => r["Logistica_MenuPC"] === true);
+                          const regimen = (firstRecord["Régimen"] || "").toUpperCase();
+                          const needsMP = regimen.includes("MP");
+                          const needsPC = regimen.includes("PC");
+
+                          let daysToArrival = 999;
+                          if (firstRecord["Entrada"]) {
+                            const arrDateStr = String(firstRecord["Entrada"]).trim();
+                            let arrDate = null;
+                            if (arrDateStr.includes("/")) {
+                              const [d, m, y] = arrDateStr.split("/");
+                              arrDate = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T12:00:00`);
+                            } else {
+                              arrDate = new Date(arrDateStr.includes("T") ? arrDateStr : arrDateStr + "T12:00:00");
+                            }
+                            if (arrDate && !isNaN(arrDate.getTime())) {
+                              daysToArrival = Math.ceil((arrDate - new Date()) / (1000 * 60 * 60 * 24));
+                            }
+                          }
+
+                          const isClose = daysToArrival <= 15 && daysToArrival >= 0;
+                          const recordStatus = (firstRecord["Estado"] || "").toUpperCase();
+                          const isInactive = ["ANULADA", "CANCELADA", "GASTOS DE ANULACION", "BAJA"].includes(recordStatus);
+                          const internalStUpper = (firstRecord["Com_Estado_Interno"] || "").toUpperCase();
+                          const isInternalInactive = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some((s) => internalStUpper.includes(s));
+                          const recordStatusProps = getStatusProps(firstRecord["Com_Estado_Interno"] || firstRecord["Segment."], firstRecord["Entrada"], firstRecord["Estado"]);
+                          const isConfirmed = recordStatusProps.label === "CONFIRMADO";
+
+                          const todayStr = new Date().toISOString().split("T")[0];
+                          const deadlineInfo = getDeadlineInfo(group, todayStr);
+                          const netRev = (group.totalRevenue || 0) - (group.totalCommission || 0);
+                          const paid = group.totalPaid || 0;
+                          const pending = netRev - paid;
+                          const isGroupCredito = Boolean(
+                            group?.isCredito ||
+                            group?.records?.some((r) => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
+                          );
+
+                          // Determinar razones de revisión
+                          const reviewReasons = [];
+                          if (!isInactive && !isInternalInactive) {
+                            if (isConfirmed && isClose && !hasRooming) {
+                              reviewReasons.push("Falta Rooming List (entrada próxima)");
+                            }
+                            const menuMissing = (needsMP && !hasMP) || (needsPC && !hasPC);
+                            if (isConfirmed && isClose && menuMissing) {
+                              const missingMenus = [needsMP && !hasMP && "Menú MP", needsPC && !hasPC && "Menú PC"].filter(Boolean).join(", ");
+                              reviewReasons.push(`Falta definir menú: ${missingMenus}`);
+                            }
+                            if (!isGroupCredito && pending > 0.05) {
+                              if (deadlineInfo.isDeadline && deadlineInfo.diffDays < 0) {
+                                reviewReasons.push(`Plazo límite vencido con ${formatCurrency(pending)} pendiente`);
+                              } else if (isClose) {
+                                reviewReasons.push(`Entrada próxima con ${formatCurrency(pending)} pendiente de pago`);
+                              }
+                            }
+                            if (effectiveSt?.toUpperCase() === "TENTATIVA" || statusText === "TENTATIVA") {
+                              if (deadlineInfo.isDeadline && deadlineInfo.diffDays < 0) {
+                                reviewReasons.push(`Release vencido (${Math.abs(deadlineInfo.diffDays)}d) en estado Tentativa`);
+                              }
+                            }
+                            const groupDays = dailyOccupancyByReservaMap.get(normalizeId(group.id)) || [];
+                            if (groupDays.length > 0) {
+                              const needsDistReview = groupDays.some(d => d.distributionStatus === "revision_necesaria");
+                              const distReasons = Array.from(new Set(groupDays.flatMap(d => d.revisionReasons || []))).filter(Boolean);
+                              if (needsDistReview || distReasons.length > 0) {
+                                if (distReasons.length > 0) {
+                                  distReasons.forEach(r => {
+                                    if (!reviewReasons.includes(r)) reviewReasons.push(r);
+                                  });
+                                } else {
+                                  reviewReasons.push("Distribución de habitaciones requiere revisión");
+                                }
+                              } else if (isClose && groupDays.some(d => !d.isDefinitive)) {
+                                reviewReasons.push("Distribución pendiente de validar (entrada próxima)");
+                              }
+                            }
+                          }
+                          const isNeedsReview = reviewReasons.length > 0;
 
                           return (
                             <tr
@@ -15839,12 +15938,35 @@
                                   </button>
                                 </div>
                               </td>
+
+                              {/* REVISIÓN */}
+                              <td className="px-3 py-2 text-center whitespace-nowrap">
+                                {isInactive || isInternalInactive ? (
+                                  <span className="text-slate-300 text-xs font-bold">-</span>
+                                ) : isNeedsReview ? (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs cursor-help"
+                                    title={`Requiere revisión:\n• ${reviewReasons.join("\n• ")}`}
+                                  >
+                                    <IconAlertTriangle size={11} stroke={2.5} className="text-amber-500 shrink-0" />
+                                    <span>Revisar</span>
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs"
+                                    title="Todo en orden: operativa, pagos y distribución sin incidencias"
+                                  >
+                                    <IconCheck size={11} stroke={3} className="text-emerald-500 shrink-0" />
+                                    <span>Todo OK</span>
+                                  </span>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
                         {groupedData.length === 0 && (
                           <tr>
-                            <td colSpan="8" className="px-6 py-12 text-center text-slate-400 text-sm font-medium">
+                            <td colSpan="9" className="px-6 py-12 text-center text-slate-400 text-sm font-medium">
                               No hay grupos que coincidan con los filtros.
                             </td>
                           </tr>
