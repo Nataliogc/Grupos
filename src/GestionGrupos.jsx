@@ -8710,6 +8710,8 @@
       const [ROOM_CONFIGURATIONS, setRoomConfigurations] = useState([
 
         { label: "Habitación Doble (DBL)", pax: 2, placeholder: "2 Pax" },
+        { label: "Habitación Doble (GRATUIDAD)", pax: 2, placeholder: "2 Pax (Gratis)" },
+        { label: "Habitación Individual (GRATUIDAD)", pax: 1, placeholder: "1 Pax (Gratis)" },
 
         {
 
@@ -10733,7 +10735,7 @@
         Object.entries(dayMap).forEach(([d, items]) => {
           items.forEach((item) => {
             const t = String(item.type || "").toUpperCase();
-            const isGrat = t.includes("GRATUIDAD");
+            const isGrat = t.includes("GRATUIDAD") || t.includes("GRATUITA") || t.includes("GRATUITO") || t.includes("GRATIS") || t.includes("SIN CARGO") || t.includes("SIN COSTE") || t.includes("CORTES") || t.includes("INVITAC") || t.includes("FREE") || Boolean(item.isGratuity);
             const p = parseFloat(item.price) || 0;
             if (!isGrat && p === 0) {
               zeroPriceCount++;
@@ -10759,7 +10761,26 @@
               else if (t.includes("CUA") || t.includes("CUAD")) dayPax += qty * 4;
               else dayPax += qty * 2;
             });
-            if (dayPax > 0 && Math.abs(dayPax - contractedPax) > 0) {
+            const isGratPax = (it) => {
+              const itUpper = String(it.type || "").toUpperCase();
+              return itUpper.includes("GRATUIDAD") || itUpper.includes("GRATUITA") || itUpper.includes("GRATIS") || itUpper.includes("SIN CARGO") || itUpper.includes("SIN COSTE") || itUpper.includes("CORTES") || itUpper.includes("INVITAC") || Boolean(it.isGratuity) || parseFloat(it.price) === 0;
+            };
+            let dayFreePax = 0;
+            items.forEach((item) => {
+              if (isGratPax(item)) {
+                const itUpper = String(item.type || "").toUpperCase();
+                const qty = parseInt(item.qty, 10) || 1;
+                let pPerRoom = 2;
+                if (itUpper.includes("INDIV") || itUpper.includes("SINGLE") || itUpper.includes("DUI")) pPerRoom = 1;
+                else if (itUpper.includes("DBL") || itUpper.includes("DOBLE") || itUpper.includes("TWIN")) pPerRoom = 2;
+                else if (itUpper.includes("TPL") || itUpper.includes("TRIPLE")) pPerRoom = 3;
+                else if (itUpper.includes("CUA") || itUpper.includes("CUAD")) pPerRoom = 4;
+                dayFreePax += qty * pPerRoom;
+              }
+            });
+            const payingPax = Math.max(0, dayPax - dayFreePax);
+            const matchesPax = (dayPax === contractedPax) || (dayFreePax > 0 && payingPax === contractedPax) || (dayFreePax > 0 && dayPax === (contractedPax + dayFreePax));
+            if (dayPax > 0 && !matchesPax) {
               paxMismatchDays.push({ day: d, found: dayPax, expected: contractedPax });
             }
           });
@@ -11476,7 +11497,7 @@
           if (itemDay === sourceDayKey) return item;
 
           const t = String(item.type || item.roomType || "").toUpperCase();
-          const isGrat = t.includes("GRATUIDAD") || (parseNum(item.price) === 0 && item.isGratuity);
+          const isGrat = t.includes("GRATUIDAD") || t.includes("GRATUITA") || t.includes("GRATUITO") || t.includes("GRATIS") || t.includes("SIN CARGO") || t.includes("SIN COSTE") || t.includes("CORTES") || t.includes("INVITAC") || t.includes("FREE") || (parseNum(item.price) === 0 && item.isGratuity);
           if (isGrat) return item;
 
           let targetPrice = null;
@@ -11559,6 +11580,73 @@
             timer: 2500,
             showConfirmButton: false
           });
+        }
+      };
+
+      const handleMarkZeroPriceAsGratuities = (days = []) => {
+        if (!selectedGroupFicha || !selectedGroupFicha.records || !selectedGroupFicha.records[0]) return;
+        const currentRecord = selectedGroupFicha.records[0] || {};
+        let currentList = [];
+        try {
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "mark-zero-as-grat");
+        } catch(e) { return; }
+        if (!Array.isArray(currentList) || currentList.length === 0) return;
+
+        const targetDaysSet = new Set(days || []);
+        let changed = false;
+        currentList = currentList.map(item => {
+          if (item.isService) return item;
+          const itemDay = toInputDate(item.dateIn || item.date);
+          const p = parseFloat(item.price) || 0;
+          if (p === 0 && (targetDaysSet.size === 0 || targetDaysSet.has(itemDay))) {
+            const curType = String(item.type || item.roomType || "HABITACIÓN").trim();
+            const upper = curType.toUpperCase();
+            if (!upper.includes("GRATUIDAD") && !upper.includes("SIN CARGO")) {
+              changed = true;
+              return {
+                ...item,
+                type: `${curType} (GRATUIDAD)`,
+                isGratuity: true
+              };
+            }
+          }
+          return item;
+        });
+
+        if (changed) {
+          currentList = cleanRoomingListIds(currentList);
+          currentList.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+          const newTotalSum = currentList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+          const newTotalPax = calculateMaxDailyOccupancy(currentList);
+          const newTotalRooms = calculateMaxDailyRooms(currentList);
+          let updatedDailyDistMap = null;
+          if (currentRecord.DailyDistribution_JSON) {
+            try {
+              updatedDailyDistMap = typeof currentRecord.DailyDistribution_JSON === "string"
+                ? JSON.parse(currentRecord.DailyDistribution_JSON)
+                : { ...currentRecord.DailyDistribution_JSON };
+            } catch (e) {}
+          }
+          const hotelTarget = currentRecord.Hotel_Asignado || currentRecord.Hotel || selectedGroupFicha?.hotel || "";
+          updatedDailyDistMap = buildDailyDistributionFromRoomingList(currentList, updatedDailyDistMap || {}, hotelTarget);
+
+          const updatePayload = {
+            RoomingList_JSON: JSON.stringify(currentList),
+            DailyDistribution_JSON: JSON.stringify(updatedDailyDistMap),
+            "Importe(*)": newTotalSum.toFixed(2),
+            "Pax.": newTotalPax.toString(),
+            "Cant.": newTotalRooms.toString(),
+          };
+          updateGroupMetadata(selectedGroupFicha.id, updatePayload);
+          if (window.Swal) {
+            window.Swal.fire({
+              icon: "success",
+              title: "Gratuidades confirmadas",
+              text: "Las habitaciones con importe 0,00 € han sido confirmadas como gratuidades oficiales.",
+              timer: 2000,
+              showConfirmButton: false
+            });
+          }
         }
       };
 
@@ -19538,7 +19626,7 @@
                                           <span className="text-red-500 mt-0.5 flex-shrink-0">●</span>
                                           <span className="text-[10px] font-bold text-red-800">{issue.message}</span>
                                         </div>
-                                        {(issue.type.includes('mismatch') || issue.type === 'excel_diff_reason') && (
+                                        {(issue.type.includes('mismatch') || issue.type === 'excel_diff_reason' || issue.type === 'zero_price') && (
                                           <button type="button" onClick={() => setDifferenceAccepted(issue, true)} className="shrink-0 text-[10px] font-bold px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">Estoy de acuerdo con la diferencia</button>
                                         )}
                                         {issue.type === "excel_amount_mismatch" && (
@@ -19556,19 +19644,31 @@
                                             ⚡ Eliminar día fuera de estancia
                                           </button>
                                         )}
-                                        {issue.type === "zero_price" && zeroPriceDays.length > 0 && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleReplicatePricesFromDay(zeroPriceDays[0]?.split("-").slice(0, 3).join("-") !== zeroPriceDays[0] ? zeroPriceDays[0] : (() => {
-                                              const rlItems = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "hp-fix");
-                                              const days = Array.from(new Set(expandRoomListByDays(rlItems).filter(it => !it.isService && parseFloat(it.price) > 0).map(it => toInputDate(it.dateIn || it.date)))).filter(Boolean).sort();
-                                              return days[0] || zeroPriceDays[0];
-                                            })())}
-                                            className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                                            title="Replicar precios del primer día con precio válido a toda la estancia"
-                                          >
-                                            ⚡ Corregir
-                                          </button>
+                                        {issue.type === "zero_price" && (
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleMarkZeroPriceAsGratuities(zeroPriceDays)}
+                                              className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md shadow-sm transition flex items-center gap-1"
+                                              title="Confirmar estas habitaciones con precio 0,00 € como gratuidades oficiales"
+                                            >
+                                              🎁 Es gratuidad
+                                            </button>
+                                            {zeroPriceDays.length > 0 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => handleReplicatePricesFromDay(zeroPriceDays[0]?.split("-").slice(0, 3).join("-") !== zeroPriceDays[0] ? zeroPriceDays[0] : (() => {
+                                                  const rlItems = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "hp-fix");
+                                                  const days = Array.from(new Set(expandRoomListByDays(rlItems).filter(it => !it.isService && parseFloat(it.price) > 0).map(it => toInputDate(it.dateIn || it.date)))).filter(Boolean).sort();
+                                                  return days[0] || zeroPriceDays[0];
+                                                })())}
+                                                className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                                                title="Replicar precios del primer día con precio válido a toda la estancia"
+                                              >
+                                                ⚡ Replicar precios
+                                              </button>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
                                     ))}
