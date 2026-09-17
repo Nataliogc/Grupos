@@ -1127,14 +1127,30 @@
     };
 
     const buildPaymentPlan = (percent, total, groupData) => {
-      const advancePercent = Math.max(0, Math.min(100, parseFloat(percent) || 0));
-      const advanceAmount = cents(total * (advancePercent / 100));
+      const p = Math.max(0, Math.min(100, parseFloat(percent) || 0));
+      if (p >= 100) {
+        return [
+          {
+            id: Date.now(),
+            label: "Anticipo / depósito para confirmar la reserva",
+            percent: 100,
+            amount: cents(total).toFixed(2),
+            date: new Date().toISOString().split("T")[0],
+            status: "Pendiente",
+            releaseDays: 0,
+            observations: "Al confirmar la reserva",
+            manual: false
+          }
+        ];
+      }
+      const advanceAmount = cents(total * (p / 100));
+      const remainingPercent = cents(100 - p);
       const remainingAmount = cents(total - advanceAmount);
       return [
         {
           id: Date.now(),
           label: "Anticipo / depósito para confirmar la reserva",
-          percent: advancePercent,
+          percent: p,
           amount: advanceAmount.toFixed(2),
           date: new Date().toISOString().split("T")[0],
           status: "Pendiente",
@@ -1145,7 +1161,7 @@
         {
           id: Date.now() + 1,
           label: "Resto pendiente",
-          percent: total > 0 ? cents((remainingAmount / total) * 100) : 0,
+          percent: remainingPercent,
           amount: remainingAmount.toFixed(2),
           date: getPaymentLimitDate(groupData, 7),
           status: "Pendiente",
@@ -1157,40 +1173,74 @@
     };
 
     const normalizePaymentPlan = (plan, total, groupData) => {
-      const rows = parsePaymentPlan(plan).slice(0, 2);
-      if (rows.length === 0) return [];
-      const baseRows = rows.length === 1
-        ? [...rows, { label: "Resto pendiente", percent: 0, amount: 0, date: getPaymentLimitDate(groupData, 7), status: "Pendiente", releaseDays: 7, observations: "" }]
-        : rows;
-      const [advanceSource, remainingSource] = baseRows;
-      const advance = { ...advanceSource, label: advanceSource.label || "Anticipo / depósito para confirmar la reserva" };
-      const remaining = { ...remainingSource, label: remainingSource.label || "Resto pendiente" };
+      const rawRows = parsePaymentPlan(plan);
+      if (!Array.isArray(rawRows) || rawRows.length === 0) return [];
 
-      if (advance.manual && !remaining.manual) {
-        advance.amount = cents(advance.amount).toFixed(2);
-        advance.percent = total > 0 ? cents((parseFloat(advance.amount) / total) * 100) : 0;
-        remaining.amount = cents(total - parseFloat(advance.amount)).toFixed(2);
-        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
-      } else if (remaining.manual && !advance.manual) {
-        remaining.amount = cents(remaining.amount).toFixed(2);
-        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
-        advance.amount = cents(total - parseFloat(remaining.amount)).toFixed(2);
-        advance.percent = total > 0 ? cents((parseFloat(advance.amount) / total) * 100) : 0;
-      } else {
-        const advancePercent = Math.max(0, Math.min(100, parseFloat(advance.percent) || 0));
-        advance.percent = advancePercent;
-        advance.amount = cents(total * (advancePercent / 100)).toFixed(2);
-        remaining.amount = cents(total - parseFloat(advance.amount)).toFixed(2);
-        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
+      // Si viene de versiones anteriores donde al seleccionar 100% se creaba una 2da fila vacía con 0% y 0€:
+      if (rawRows.length === 2 && parseFloat(rawRows[0].percent || 0) >= 100 && parseFloat(rawRows[1].percent || 0) <= 0 && parseFloat(rawRows[1].amount || 0) <= 0) {
+        const row = { ...rawRows[0] };
+        row.percent = 100;
+        row.amount = cents(total).toFixed(2);
+        return [row];
       }
 
-      const diff = cents(total - (parseFloat(advance.amount) || 0) - (parseFloat(remaining.amount) || 0));
-      if (Math.abs(diff) >= 0.01) {
-        remaining.amount = cents((parseFloat(remaining.amount) || 0) + diff).toFixed(2);
-        remaining.percent = total > 0 ? cents((parseFloat(remaining.amount) / total) * 100) : 0;
+      // Si hay una sola fila:
+      if (rawRows.length === 1) {
+        const row = { ...rawRows[0] };
+        row.label = row.label || "Anticipo / depósito para confirmar la reserva";
+        if (row.manual) {
+          row.amount = cents(row.amount).toFixed(2);
+          row.percent = total > 0 ? cents((parseFloat(row.amount) / total) * 100) : 100;
+        } else {
+          const p = row.percent !== undefined && row.percent !== null ? parseFloat(row.percent) : 100;
+          row.percent = p;
+          row.amount = cents(total * (p / 100)).toFixed(2);
+        }
+        return [row];
       }
 
-      return [advance, remaining];
+      // Para 2, 3 o más filas:
+      const rows = rawRows.map((r, i) => {
+        const item = { ...r };
+        if (!item.id) item.id = Date.now() + i;
+        if (!item.label) {
+          if (i === 0) item.label = "Anticipo / depósito para confirmar la reserva";
+          else if (i === rawRows.length - 1) item.label = "Resto pendiente";
+          else item.label = `Plazo ${i + 1}`;
+        }
+        if (!item.status) item.status = "Pendiente";
+        if (item.releaseDays === undefined) item.releaseDays = i === 0 ? 0 : 7;
+        if (!item.date) item.date = i === 0 ? new Date().toISOString().split("T")[0] : getPaymentLimitDate(groupData, 7);
+        return item;
+      });
+
+      let assignedAmount = 0;
+      let lastNonManualIdx = -1;
+
+      rows.forEach((r, idx) => {
+        if (r.manual) {
+          r.amount = cents(r.amount).toFixed(2);
+          r.percent = total > 0 ? cents((parseFloat(r.amount) / total) * 100) : 0;
+          assignedAmount = cents(assignedAmount + parseFloat(r.amount));
+        } else {
+          lastNonManualIdx = idx;
+          const p = parseFloat(r.percent) || 0;
+          r.percent = p;
+          r.amount = cents(total * (p / 100)).toFixed(2);
+          assignedAmount = cents(assignedAmount + parseFloat(r.amount));
+        }
+      });
+
+      // Si hay ligera diferencia de céntimos por redondeo con el total, ajustar en la última fila no manual
+      const diff = cents(total - assignedAmount);
+      if (Math.abs(diff) >= 0.01 && rows.length > 0) {
+        const adjustIdx = lastNonManualIdx >= 0 ? lastNonManualIdx : rows.length - 1;
+        const newAmt = cents(parseFloat(rows[adjustIdx].amount) + diff);
+        rows[adjustIdx].amount = newAmt.toFixed(2);
+        rows[adjustIdx].percent = total > 0 ? cents((newAmt / total) * 100) : 0;
+      }
+
+      return rows;
     };
 
     function App() {
@@ -3445,20 +3495,62 @@ ${emailContent}`;
                   const setQuickPercent = (percent) => {
                     setFormData({ ...formData, PaymentPlan_JSON: JSON.stringify(buildPaymentPlan(percent, total, formData)) });
                   };
+                  const addRow = () => {
+                    const currentPlan = plan.length > 0 ? [...plan] : [];
+                    const currentPctSum = currentPlan.reduce((acc, r) => acc + (parseFloat(r.percent) || 0), 0);
+                    const remainingPct = Math.max(0, cents(100 - currentPctSum));
+                    const remainingAmt = cents(total * (remainingPct / 100));
+
+                    const newRow = {
+                      id: Date.now(),
+                      label: currentPlan.length === 0
+                        ? "Anticipo / depósito para confirmar la reserva"
+                        : currentPlan.length === 1
+                          ? "Resto pendiente"
+                          : `Plazo ${currentPlan.length + 1}`,
+                      percent: remainingPct,
+                      amount: remainingAmt.toFixed(2),
+                      date: getPaymentLimitDate(formData, 7),
+                      status: "Pendiente",
+                      releaseDays: 7,
+                      observations: currentPlan.length === 0 ? "" : "Antes de la llegada",
+                      manual: false
+                    };
+                    updatePlan([...currentPlan, newRow]);
+                  };
+                  const removeRow = (idxToRemove) => {
+                    const nextPlan = plan.filter((_, idx) => idx !== idxToRemove);
+                    updatePlan(nextPlan);
+                  };
                   const updateRow = (idx, field, value) => {
                     const nextPlan = plan.length > 0 ? [...plan] : buildPaymentPlan(30, total, formData);
+                    if (!nextPlan[idx]) return;
                     nextPlan[idx] = { ...nextPlan[idx], [field]: value };
                     if (field === "amount") {
                       nextPlan[idx].manual = true;
-                      nextPlan[idx].amount = cents(value).toFixed(2);
-                      nextPlan[idx].percent = total > 0 ? cents((parseFloat(nextPlan[idx].amount) / total) * 100) : 0;
+                      const valNum = parseFloat(value) || 0;
+                      nextPlan[idx].amount = valNum.toFixed(2);
+                      nextPlan[idx].percent = total > 0 ? cents((valNum / total) * 100) : 0;
                     }
                     if (field === "percent") {
                       nextPlan[idx].manual = false;
-                      nextPlan[idx].percent = parseFloat(value) || 0;
+                      const pctNum = parseFloat(value) || 0;
+                      nextPlan[idx].percent = pctNum;
+                      nextPlan[idx].amount = cents(total * (pctNum / 100)).toFixed(2);
+
+                      // Si hay exactamente 2 filas y modificamos la primera fila, ajustar la segunda automáticamente si no es manual
+                      if (nextPlan.length === 2 && idx === 0 && !nextPlan[1].manual) {
+                        const restPct = Math.max(0, cents(100 - pctNum));
+                        nextPlan[1].percent = restPct;
+                        nextPlan[1].amount = cents(total - parseFloat(nextPlan[0].amount)).toFixed(2);
+                      }
                     }
                     updatePlan(nextPlan);
                   };
+
+                  const totalPlanPercent = cents(plan.reduce((acc, r) => acc + (parseFloat(r.percent) || 0), 0));
+                  const totalPlanAmount = cents(plan.reduce((acc, r) => acc + (parseFloat(r.amount) || 0), 0));
+                  const is100Covered = Math.abs(100 - totalPlanPercent) < 0.1 || (total > 0 && Math.abs(total - totalPlanAmount) < 0.5);
 
                   return (
                     <>
@@ -3471,7 +3563,7 @@ ${emailContent}`;
                             <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4.1 Condiciones de pago</h3>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {[20, 30, 50, 100].map(percent => (
                             <button key={percent} type="button" onClick={() => {
                               setFormData({ ...formData, Es_Credito: false });
@@ -3497,6 +3589,16 @@ ${emailContent}`;
                           >
                             <i className="fas fa-credit-card text-[8px]"></i> {formData.Es_Credito ? "A Crédito" : "Crédito"}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, Es_Credito: false });
+                              addRow();
+                            }}
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-2 rounded-xl border border-indigo-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+                          >
+                            <i className="fas fa-plus text-[8px]"></i> Añadir Plazo
+                          </button>
                         </div>
                       </div>
 
@@ -3512,7 +3614,7 @@ ${emailContent}`;
                       ) : (
                         <div className="space-y-3">
                           {plan.map((row, idx) => (
-                            <div key={row.id || idx} className="grid grid-cols-1 md:grid-cols-[1.5fr_90px_120px_150px_1.2fr_80px] gap-2 items-end bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div key={row.id || idx} className="grid grid-cols-1 md:grid-cols-[1.5fr_80px_110px_140px_1.2fr_75px_36px] gap-2 items-end bg-slate-50 p-3 rounded-xl border border-slate-100">
                               <div className="space-y-1">
                                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Concepto</label>
                                 <input type="text" value={row.label || ""} onChange={e => updateRow(idx, "label", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400" />
@@ -3533,12 +3635,43 @@ ${emailContent}`;
                                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Observaciones</label>
                                 <input type="text" value={row.observations || ""} onChange={e => updateRow(idx, "observations", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-[10px] font-bold text-slate-700 outline-none focus:border-indigo-400" />
                               </div>
-                              <label className="flex items-center justify-center gap-1.5 h-9 bg-white border border-slate-200 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-400">
+                              <label className="flex items-center justify-center gap-1.5 h-9 bg-white border border-slate-200 rounded-lg text-[8px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:border-slate-300">
                                 <input type="checkbox" checked={!!row.manual} onChange={e => updateRow(idx, "manual", e.target.checked)} />
                                 Manual
                               </label>
+                              <button
+                                type="button"
+                                onClick={() => removeRow(idx)}
+                                title="Eliminar condición"
+                                className="h-9 w-9 flex items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700 transition-all shadow-sm"
+                              >
+                                <i className="fas fa-trash-alt text-[10px]"></i>
+                              </button>
                             </div>
                           ))}
+
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, Es_Credito: false });
+                                addRow();
+                              }}
+                              className="text-[9px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 py-1.5 px-3 rounded-lg hover:bg-indigo-50 transition-all"
+                            >
+                              <i className="fas fa-plus-circle"></i> Añadir otra condición ({plan.length + 1}º plazo)
+                            </button>
+                            <div className="flex items-center gap-3 text-[10px]">
+                              <span className="font-bold text-slate-400">Total planificado:</span>
+                              <span className={`px-2.5 py-1 rounded-lg font-black text-[9px] uppercase tracking-wider border ${
+                                is100Covered
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}>
+                                {totalPlanPercent}% · {formatNum(totalPlanAmount)} € {is100Covered ? "✓" : `(de ${formatNum(total)} €)`}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </>
