@@ -4682,9 +4682,13 @@
               ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
               : { breakfast: 6.0, meal: 16.0 };
 
+            const effPax = (day.payingPax !== undefined && day.payingPax > 0)
+              ? day.payingPax
+              : Math.max(1, (day.pax || 0) - (day.gratuitiesCount || 0));
+
             const eco = window.BoardPricingService
               ? window.BoardPricingService.calculateDailyEconomicBreakdown({
-                  pax: day.pax,
+                  pax: effPax,
                   regimen: day.regimen,
                   dailyAmount: dayImp,
                   pricingConfig: pricing
@@ -4827,42 +4831,15 @@
           initialFreeDbl = parseInt(distGratuities.dobles, 10) || 0;
           initialFreeTpl = parseInt(distGratuities.triples, 10) || 0;
           initialFreeCua = parseInt(distGratuities.cuadruples, 10) || 0;
-        } else {
-          existingRL.forEach((item) => {
-            const itype = String(item.type || item.roomType || "").toUpperCase();
-            const iprice = parseFloat(item.price);
-            const isGratuity = itype.includes("GRATUIDAD") || iprice === 0 || isNaN(iprice);
-            if (!isGratuity) return;
-            const iDate = toInputDate(item.dateIn || item.date);
-            if (iDate && dailyItem.fecha && iDate !== dailyItem.fecha) return;
-            const qty = parseInt(item.qty, 10) || 1;
-            if (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI")) {
-              initialFreeInd += qty;
-            } else if (itype.includes("DBL") || itype.includes("DOBLE")) {
-              initialFreeDbl += qty;
-            } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
-              initialFreeTpl += qty;
-            } else if (itype.includes("CUA") || itype.includes("CUAD")) {
-              initialFreeCua += qty;
-            }
-          });
+        } else if (dailyItem.gratuities) {
+          initialFreeInd = parseInt(dailyItem.gratuities.individuales, 10) || 0;
+          initialFreeDbl = parseInt(dailyItem.gratuities.dobles, 10) || 0;
+          initialFreeTpl = parseInt(dailyItem.gratuities.triples, 10) || 0;
+          initialFreeCua = parseInt(dailyItem.gratuities.cuadruples, 10) || 0;
         }
-
-        // Acotar para no exceder las habitaciones de cada tipo
-        initialFreeInd = Math.min(currentInd, initialFreeInd);
-        initialFreeDbl = Math.min(currentDbl, initialFreeDbl);
-        initialFreeTpl = Math.min(currentTpl, initialFreeTpl);
-        initialFreeCua = Math.min(currentCua, initialFreeCua);
 
         const isCumbriaHotel = normalizeHotelNameLocal(dailyItem.hotel, "Sercotel Guadiana") === "Cumbria Spa&Hotel" ||
           String(dailyItem.hotel || "").toLowerCase().includes("cumbria");
-        if (isCumbriaHotel) {
-          currentCua = 0;
-          initialFreeCua = 0;
-        }
-
-        const totalInitialFree = initialFreeInd + initialFreeDbl + initialFreeTpl + initialFreeCua;
-        // ────────────────────────────────────────────────────────────────────
 
         // Sincronizar directamente con habitaciones de la Ficha de Grupo (RoomingList_JSON) para esta fecha
         const expandedRL = expandRoomListByDays(existingRL);
@@ -4873,6 +4850,7 @@
         });
 
         let rlInd = 0, rlDbl = 0, rlTpl = 0, rlCua = 0, rlPax = 0, rlRooms = 0;
+        let rlFreeInd = 0, rlFreeDbl = 0, rlFreeTpl = 0, rlFreeCua = 0;
         let rlPriceInd = "", rlPriceDbl = "", rlPriceTpl = "", rlPriceCua = "";
         let rlRegime = null;
         dayRooms.forEach(item => {
@@ -4907,28 +4885,43 @@
           if (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI")) {
             rlInd += qty;
             rlPax += qty * 1;
+            if (isGrat) rlFreeInd += qty;
           } else if (itype.includes("DBL") || itype.includes("DOBLE") || itype.includes("TWIN") || itype.includes("MATRI")) {
             rlDbl += qty;
             rlPax += qty * 2;
+            if (isGrat) rlFreeDbl += qty;
           } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
             rlTpl += qty;
             rlPax += qty * 3;
+            if (isGrat) rlFreeTpl += qty;
           } else if (itype.includes("CUA") || itype.includes("CUAD")) {
             if (isCumbriaHotel) {
               rlTpl += qty;
               rlPax += qty * 3;
+              if (isGrat) rlFreeTpl += qty;
             } else {
               rlCua += qty;
               rlPax += qty * 4;
+              if (isGrat) rlFreeCua += qty;
             }
           } else if (itype.includes("SUITE")) {
             rlDbl += qty;
             rlPax += qty * 2;
+            if (isGrat) rlFreeDbl += qty;
           } else {
             rlDbl += qty;
             rlPax += qty * 2;
+            if (isGrat) rlFreeDbl += qty;
           }
         });
+
+        // Si no había gratuidades en DailyDistribution_JSON pero sí en dayRooms, tomarlas de dayRooms
+        if (!distGratuities && (rlFreeInd > 0 || rlFreeDbl > 0 || rlFreeTpl > 0 || rlFreeCua > 0)) {
+          initialFreeInd = rlFreeInd;
+          initialFreeDbl = rlFreeDbl;
+          initialFreeTpl = rlFreeTpl;
+          initialFreeCua = rlFreeCua;
+        }
 
         // Fallback para precios si no estaban en este día específico: consultar distMap o todo el rooming list
         let distPrices = {};
@@ -4971,6 +4964,18 @@
           currentCua = rlCua;
           if (rlRegime) resolvedRegimen = rlRegime;
         }
+
+        if (isCumbriaHotel) {
+          currentCua = 0;
+          initialFreeCua = 0;
+        }
+
+        // Acotar para no exceder las habitaciones de cada tipo (DESPUÉS de asignar habitaciones reales)
+        initialFreeInd = Math.min(currentInd, initialFreeInd);
+        initialFreeDbl = Math.min(currentDbl, initialFreeDbl);
+        initialFreeTpl = Math.min(currentTpl, initialFreeTpl);
+        initialFreeCua = Math.min(currentCua, initialFreeCua);
+        const totalInitialFree = initialFreeInd + initialFreeDbl + initialFreeTpl + initialFreeCua;
 
         // Obtener el régimen real de este día: Ficha de Grupo (RoomingList_JSON) tiene máxima prioridad
         let resolvedRegimen = null;
@@ -5266,12 +5271,17 @@
               // ── LA FICHA MANDA: PRESERVAR ÍNTEGRAMENTE PRECIOS Y REGÍMENES DE LA FICHA ──
               const expandedExisting = expandRoomListByDays(existingRooming);
 
-              // Comprobar si las cantidades o precios de habitaciones cambiaron respecto a la Ficha
+              // Comprobar si las cantidades, precios, gratuidades o régimen de habitaciones cambiaron respecto a la Ficha
               let quantitiesChanged = false;
               let pricesChanged = false;
+              let gratuitiesChanged = false;
+              let regimenChanged = false;
+
               targetDates.forEach((dStr) => {
                 const dayLodging = expandedExisting.filter((i) => !i.isService && toInputDate(i.dateIn || i.date) === dStr);
                 let indCount = 0, dblCount = 0, tplCount = 0, cuaCount = 0;
+                let freeIndCount = 0, freeDblCount = 0, freeTplCount = 0, freeCuaCount = 0;
+
                 dayLodging.forEach((it) => {
                   const t = String(it.type || it.roomType || "").toUpperCase();
                   const q = parseInt(it.qty, 10) || 1;
@@ -5280,25 +5290,37 @@
 
                   if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) {
                     indCount += q;
-                    if (!isGrat && priceIndVal > 0 && Math.abs(curP - priceIndVal) > 0.001) pricesChanged = true;
+                    if (isGrat) freeIndCount += q;
+                    else if (priceIndVal > 0 && Math.abs(curP - priceIndVal) > 0.001) pricesChanged = true;
                   } else if (t.includes("DBL") || t.includes("DOBLE")) {
                     dblCount += q;
-                    if (!isGrat && priceDblVal > 0 && Math.abs(curP - priceDblVal) > 0.001) pricesChanged = true;
+                    if (isGrat) freeDblCount += q;
+                    else if (priceDblVal > 0 && Math.abs(curP - priceDblVal) > 0.001) pricesChanged = true;
                   } else if (t.includes("TPL") || t.includes("TRIPLE")) {
                     tplCount += q;
-                    if (!isGrat && priceTplVal > 0 && Math.abs(curP - priceTplVal) > 0.001) pricesChanged = true;
+                    if (isGrat) freeTplCount += q;
+                    else if (priceTplVal > 0 && Math.abs(curP - priceTplVal) > 0.001) pricesChanged = true;
                   } else if (t.includes("CUA") || t.includes("CUAD")) {
                     cuaCount += q;
-                    if (!isGrat && priceCuaVal > 0 && Math.abs(curP - priceCuaVal) > 0.001) pricesChanged = true;
+                    if (isGrat) freeCuaCount += q;
+                    else if (priceCuaVal > 0 && Math.abs(curP - priceCuaVal) > 0.001) pricesChanged = true;
+                  }
+
+                  if (editingDistribution.regimen && it.regime && it.regime !== "-" && it.regime !== editingDistribution.regimen) {
+                    regimenChanged = true;
                   }
                 });
+
                 if (indCount !== finalInd || dblCount !== finalDbl || tplCount !== finalTpl || cuaCount !== finalCua) {
                   quantitiesChanged = true;
                 }
+                if (freeIndCount !== freeIndVal || freeDblCount !== freeDblVal || freeTplCount !== freeTplVal || freeCuaCount !== freeCuaVal) {
+                  gratuitiesChanged = true;
+                }
               });
 
-              if (!quantitiesChanged && !pricesChanged) {
-                // Las cantidades y precios coinciden: no tocar RoomingList_JSON en absoluto.
+              if (!quantitiesChanged && !pricesChanged && !gratuitiesChanged && !regimenChanged) {
+                // Las cantidades, precios, gratuidades y régimen coinciden: no tocar RoomingList_JSON en absoluto.
                 roomingJsonToSave = null;
               } else {
                 // Cantidades o precios cambiados en el modal: actualizar RoomingList_JSON
@@ -15060,14 +15082,18 @@
                                              ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
                                              : { breakfast: 6.0, meal: 16.0 };
 
-                                           const eco = window.BoardPricingService
-                                             ? window.BoardPricingService.calculateDailyEconomicBreakdown({
-                                                 pax: day.pax,
-                                                 regimen: day.regimen,
-                                                 dailyAmount: dayImp,
-                                                 pricingConfig: pricing
-                                               })
-                                             : { breakfastCost: 0, mealCost: 0, netAccommodationPrice: dayImp, isNegativeAccommodation: false };
+                                            const effDayPax = (day.payingPax !== undefined && day.payingPax > 0)
+                                              ? day.payingPax
+                                              : Math.max(1, (day.pax || 0) - (day.gratuitiesCount || 0));
+
+                                            const eco = window.BoardPricingService
+                                              ? window.BoardPricingService.calculateDailyEconomicBreakdown({
+                                                  pax: effDayPax,
+                                                  regimen: day.regimen,
+                                                  dailyAmount: dayImp,
+                                                  pricingConfig: pricing
+                                                })
+                                              : { breakfastCost: 0, mealCost: 0, netAccommodationPrice: dayImp, isNegativeAccommodation: false };
 
                                            return (
                                              <tr key={`sub_${item.reservaKey}_${day.fecha}_${dIdx}`} className="bg-slate-50/70 text-[11px] border-l-4 border-blue-400">
@@ -15163,9 +15189,13 @@
                                       ? window.BoardPricingService.getPricingForHotelAndDate(item.hotel, item.fecha, boardPricingConfig)
                                       : { breakfast: 6.0, meal: 16.0 };
 
+                                    const effItemPax = (item.payingPax !== undefined && item.payingPax > 0)
+                                      ? item.payingPax
+                                      : Math.max(1, (item.pax || 0) - (item.gratuitiesCount || 0));
+
                                     const eco = window.BoardPricingService
                                       ? window.BoardPricingService.calculateDailyEconomicBreakdown({
-                                          pax: item.pax,
+                                          pax: effItemPax,
                                           regimen: item.regimen,
                                           dailyAmount: dailyImp,
                                           pricingConfig: pricing
@@ -15893,6 +15923,11 @@
                 });
               }
 
+              const boardPax = (freePaxTotal > 0 && payingPax > 0)
+                ? payingPax
+                : Math.max(0, editingDistribution.pax - (freePaxTotal || totGratuities || 0));
+              const effectiveEcoPax = boardPax > 0 ? boardPax : editingDistribution.pax;
+
               // Si el usuario cambia el régimen en el modal respecto al régimen del día original, ajustar dailyImp por la diferencia de comidas
               const origDayReg = matchedDay?.regimen || "PC";
               const currentModalReg = editingDistribution.regimen || origDayReg;
@@ -15902,12 +15937,12 @@
                 const bCost = typeof pricing.breakfast === "number" ? pricing.breakfast : 6.0;
                 const mCost = typeof pricing.meal === "number" ? pricing.meal : 16.0;
                 const deltaPerPerson = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((newCounts.meals - oldCounts.meals) * mCost);
-                dailyImp = Math.max(0, dailyImp + (deltaPerPerson * editingDistribution.pax));
+                dailyImp = Math.max(0, dailyImp + (deltaPerPerson * effectiveEcoPax));
               }
 
               const eco = window.BoardPricingService
                 ? window.BoardPricingService.calculateDailyEconomicBreakdown({
-                    pax: editingDistribution.pax,
+                    pax: effectiveEcoPax,
                     regimen: editingDistribution.regimen,
                     dailyAmount: dailyImp,
                     pricingConfig: pricing

@@ -626,6 +626,10 @@
       var roomingCua = 0;
       var roomingPax = 0;
       var roomingTotalRooms = 0;
+      var roomingFreeInd = 0;
+      var roomingFreeDbl = 0;
+      var roomingFreeTpl = 0;
+      var roomingFreeCua = 0;
       var seenRoomingLists = new Set();
       var seenItemKeys = new Set();
 
@@ -682,7 +686,8 @@
                   }
                   var p = parseFloat(item.price) || 0;
                   var q = parseInt(item.qty, 10) || 1;
-                  if (!t.includes("GRATUIDAD")) {
+                  var isGratItem = t.includes("GRATUIDAD") || p === 0;
+                  if (!isGratItem) {
                     roomingDaySum += (p * q);
                   }
 
@@ -694,12 +699,16 @@
 
                   if (roomClass.category === "individual") {
                     roomingInd += q;
+                    if (isGratItem) roomingFreeInd += q;
                   } else if (roomClass.category === "triple") {
                     roomingTpl += q;
+                    if (isGratItem) roomingFreeTpl += q;
                   } else if (roomClass.category === "cuadruple") {
                     roomingCua += q;
+                    if (isGratItem) roomingFreeCua += q;
                   } else {
                     roomingDbl += q;
+                    if (isGratItem) roomingFreeDbl += q;
                   }
                 }
               });
@@ -909,6 +918,28 @@
         fichaDayAmount: hasRoomingDayLodging ? (Math.round(roomingDaySum * 100) / 100) : dayAmount
       };
 
+      var freeIndVal = roomingFreeInd;
+      var freeDblVal = roomingFreeDbl;
+      var freeTplVal = roomingFreeTpl;
+      var freeCuaVal = roomingFreeCua;
+      var totalFreeRooms = roomingFreeInd + roomingFreeDbl + roomingFreeTpl + roomingFreeCua;
+
+      if (dateSaved && dateSaved.gratuities) {
+        freeIndVal = parseInt(dateSaved.gratuities.individuales, 10) || 0;
+        freeDblVal = parseInt(dateSaved.gratuities.dobles, 10) || 0;
+        freeTplVal = parseInt(dateSaved.gratuities.triples, 10) || 0;
+        freeCuaVal = parseInt(dateSaved.gratuities.cuadruples, 10) || 0;
+        totalFreeRooms = dateSaved.gratuitiesCount !== undefined ? dateSaved.gratuitiesCount : (freeIndVal + freeDblVal + freeTplVal + freeCuaVal);
+      } else if (dateSaved && dateSaved.gratuitiesCount) {
+        totalFreeRooms = dateSaved.gratuitiesCount;
+      }
+
+      var freePaxAmount = (freeIndVal * 1) + (freeDblVal * 2) + (freeTplVal * 3) + (freeCuaVal * 4);
+      if (freePaxAmount === 0 && totalFreeRooms > 0) {
+        freePaxAmount = totalFreeRooms;
+      }
+      var effPayingPax = Math.max(0, (entry.pax || roomingPax) - freePaxAmount);
+
       result.push({
         hotel: entry.hotel,
         reserva: entry.reserva,
@@ -928,6 +959,16 @@
         triples: activeDist.triples,
         cuadruples: activeDist.cuadruples,
         totalHabitaciones: activeDist.totalHabitaciones,
+        gratuities: {
+          individuales: freeIndVal,
+          dobles: freeDblVal,
+          triples: freeTplVal,
+          cuadruples: freeCuaVal
+        },
+        gratuitiesCount: totalFreeRooms,
+        freePaxTotal: freePaxAmount,
+        payingPax: effPayingPax,
+        prices: dateSaved?.prices || null,
         excelDifference: excelDifference,
         proposal: proposal,
         observations: observations,
