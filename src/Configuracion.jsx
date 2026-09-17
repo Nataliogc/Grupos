@@ -666,10 +666,6 @@
                                                                     </div>
                                                                     <div className="flex items-center gap-3 text-xs text-slate-400">
                                                                         <span className="truncate">{u.email}</span>
-                                                                        <span className="text-slate-300">•</span>
-                                                                        <span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
-                                                                            Clave actual: <span className="font-bold text-slate-800">{u.pass || '1234'}</span>
-                                                                        </span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1138,18 +1134,10 @@
                                                                 <span className="text-[11px] text-slate-400 block truncate">{u.email}</span>
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Clave:</span>
-                                                            <input
-                                                                type="text"
-                                                                value={u.pass || "1234"}
-                                                                onChange={(e) => {
-                                                                    const nextUsers = [...(config.system.users || [])];
-                                                                    nextUsers[uIdx] = { ...u, pass: e.target.value };
-                                                                    handleChange('system', 'users', nextUsers);
-                                                                }}
-                                                                className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 text-center focus:border-[#2d5a43] outline-none"
-                                                            />
+                                                         <div className="flex items-center gap-2 shrink-0">
+                                                            <span className="text-[10px] text-slate-400 font-mono tracking-widest bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 select-none">
+                                                                ••••••••
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -1467,7 +1455,7 @@
                                                 Contraseña Inicial
                                             </label>
                                             <input
-                                                type="text"
+                                                type="password"
                                                 value={newUserData.pass}
                                                 onChange={(e) => setNewUserData({ ...newUserData, pass: e.target.value })}
                                                 placeholder="Mín. 4 caracteres"

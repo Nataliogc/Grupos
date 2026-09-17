@@ -967,13 +967,7 @@ var App = function App() {
         className: "flex items-center gap-3 text-xs text-slate-400"
       }, /*#__PURE__*/React.createElement("span", {
         className: "truncate"
-      }, u.email), /*#__PURE__*/React.createElement("span", {
-        className: "text-slate-300"
-      }, "\u2022"), /*#__PURE__*/React.createElement("span", {
-        className: "font-mono text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60"
-      }, "Clave actual: ", /*#__PURE__*/React.createElement("span", {
-        className: "font-bold text-slate-800"
-      }, u.pass || '1234'))))), /*#__PURE__*/React.createElement("div", {
+      }, u.email)))), /*#__PURE__*/React.createElement("div", {
         className: "flex items-center gap-2 shrink-0 self-end md:self-center"
       }, /*#__PURE__*/React.createElement("button", {
         type: "button",
@@ -1516,19 +1510,8 @@ var App = function App() {
     }, u.email))), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2 shrink-0"
     }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[10px] font-bold text-slate-400 uppercase tracking-widest"
-    }, "Clave:"), /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      value: u.pass || "1234",
-      onChange: function onChange(e) {
-        var nextUsers = _toConsumableArray(config.system.users || []);
-        nextUsers[uIdx] = _objectSpread(_objectSpread({}, u), {}, {
-          pass: e.target.value
-        });
-        handleChange('system', 'users', nextUsers);
-      },
-      className: "w-20 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 text-center focus:border-[#2d5a43] outline-none"
-    })));
+      className: "text-[10px] text-slate-400 font-mono tracking-widest bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 select-none"
+    }, "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022")));
   })))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-8"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1931,7 +1914,7 @@ var App = function App() {
   }, "Recepci\xF3n"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
   }, "Contrase\xF1a Inicial"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
+    type: "password",
     value: newUserData.pass,
     onChange: function onChange(e) {
       return setNewUserData(_objectSpread(_objectSpread({}, newUserData), {}, {
