@@ -3908,6 +3908,15 @@
 
             if (kpiFilter === "release") {
 
+              const isCreditoRow = Boolean(
+                row.isCredito ||
+                row["Es_Credito"] === true || row["Es_Credito"] === "true" ||
+                row["Com_Es_Credito"] === true || row["Com_Es_Credito"] === "true" ||
+                (row.Forma_Pago && String(row.Forma_Pago).toUpperCase().includes("CREDIT")) ||
+                (row.Com_Forma_Pago && String(row.Com_Forma_Pago).toUpperCase().includes("CREDIT"))
+              );
+              if (isCreditoRow) return false;
+
               let isReleaseUrgent = false;
 
               const manualPaidVal = parseNum(row["Com_Pagado"] || "0");
@@ -7767,8 +7776,15 @@
 
 
             // 2. Release Alerts
-
             let isReleaseUrgent = false;
+
+            const isCreditoRow = Boolean(
+              row.isCredito ||
+              row["Es_Credito"] === true || row["Es_Credito"] === "true" ||
+              row["Com_Es_Credito"] === true || row["Com_Es_Credito"] === "true" ||
+              (row.Forma_Pago && String(row.Forma_Pago).toUpperCase().includes("CREDIT")) ||
+              (row.Com_Forma_Pago && String(row.Com_Forma_Pago).toUpperCase().includes("CREDIT"))
+            );
 
             const manualPaidVal = parseNum(row["Com_Pagado"] || "0");
 
@@ -7778,7 +7794,7 @@
 
 
 
-            if (!isFullyPaid) {
+            if (!isFullyPaid && !isCreditoRow) {
 
               const roomListStr = row.RoomingList_JSON;
 

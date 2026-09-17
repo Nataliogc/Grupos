@@ -26,7 +26,30 @@
     // --- UTILIDADES ---
     const safeParseAmount = NexusUtils.parseNum;
     const fmt = NexusUtils.formatCurrency;
-    const formatDate = NexusUtils.formatDate;
+    const formatDate = (val) => {
+      if (!val) return "";
+      if (val instanceof Date) {
+        if (isNaN(val.getTime())) return "";
+        const d = String(val.getDate()).padStart(2, "0");
+        const m = String(val.getMonth() + 1).padStart(2, "0");
+        const y = val.getFullYear();
+        return `${d}/${m}/${y}`;
+      }
+      return NexusUtils.formatDate ? NexusUtils.formatDate(val) : String(val);
+    };
+
+    const isCreditoGroup = (g) => {
+      if (!g) return false;
+      if (g.isCredito === true || g.isCredito === "true") return true;
+      if (g.Es_Credito === true || g.Es_Credito === "true" || g["Es_Credito"] === true || g["Es_Credito"] === "true") return true;
+      if (g.Com_Es_Credito === true || g.Com_Es_Credito === "true" || g["Com_Es_Credito"] === true || g["Com_Es_Credito"] === "true") return true;
+      const fp = String(g.Forma_Pago || g["Forma de Pago"] || g.Com_Forma_Pago || "").toUpperCase();
+      if (fp.includes("CREDIT") || fp.includes("CRÉDIT")) return true;
+      if (Array.isArray(g.records)) {
+        return g.records.some(r => isCreditoGroup(r));
+      }
+      return false;
+    };
 
 
     // --- MÓDULO IA (CONEXIÓN SEGURA) ---
@@ -312,7 +335,7 @@
 
           let hasAlert = false;
 
-          const isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+          const isCredito = isCreditoGroup(g);
 
           // 1. Financial (ignorar si es crédito)
           if (!isCredito && (isConfirmed || isTentative) && pending > 0.1) {
@@ -326,9 +349,9 @@
             } catch (e) {}
           }
 
-          // 2. Release
+          // 2. Release (ignorar si está confirmado y es crédito)
           const dRel = parseDate(g.Com_Vencimiento_Rel);
-          if (!hasAlert && (!isConfirmed || pending > 0.1) && dRel && dRel <= fiveDaysFromNow) {
+          if (!hasAlert && (!isConfirmed || (!isCredito && pending > 0.1)) && dRel && dRel <= fiveDaysFromNow) {
             hasAlert = true;
           }
 
@@ -412,7 +435,7 @@
           let paid = Math.max(manualPaid, planPaid);
           const pending = Math.max(0, total - paid);
 
-          const isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+          const isCredito = isCreditoGroup(g);
 
           // 1. Column 1: Financial Alerts (ignorar si es crédito)
           if (!isCredito && (isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
@@ -437,8 +460,8 @@
             } catch (e) {}
           }
 
-          // 2. Column 2: Releases y Plazos
-          if ((!isConfirmed || pending > 0.1) && !seenRelease.has(resId)) {
+          // 2. Column 2: Releases y Plazos (ignorar si está confirmado y es crédito)
+          if ((!isConfirmed || (!isCredito && pending > 0.1)) && !seenRelease.has(resId)) {
             const dRel = parseDate(g.Com_Vencimiento_Rel);
             if (dRel && dRel <= fiveDaysFromNow) {
               seenRelease.add(resId);
@@ -1539,31 +1562,40 @@
 
           if (isCancelled || isPast) return;
 
+          const isCredito = isCreditoGroup(g);
+          const isConfirmed = ["CONFIRM", "OK", "GARANT", "RESERVA", "GRUPO"].some(s => status.includes(s));
+          const totalAmt = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
+          const paidAmt = parseFloat(g.Com_Pagado) || 0;
+          const pendingAmt = Math.max(0, totalAmt - paidAmt);
+          const needsReleaseCheck = !isConfirmed || (!isCredito && pendingAmt > 0.1);
+
           // Alert 1: Release Urgente (< 7 días)
-          let dRel = null;
-          if (g["Com_Vencimiento_Rel"]) {
-            const val = g["Com_Vencimiento_Rel"];
-            const num = parseFloat(val);
-            if (!isNaN(num) && num > 40000 && num < 60000)
-              dRel = new Date(Math.round((num - 25569) * 86400 * 1000));
-            else dRel = new Date(val);
-          }
-          if (dRel && !isNaN(dRel.getTime())) {
-            const diff = dRel - now;
-            if (diff > 0 && diff < fortyEightHours) {
-              list.push({
-                label: `Release 48h: ${groupName}`,
-                icon: "Clock",
-                type: "danger",
-                group: g,
-              });
-            } else if (dRel <= sevenDaysFromNow) {
-              list.push({
-                label: `Vence Release: ${groupName}`,
-                icon: "Clock",
-                type: "warning",
-                group: g,
-              });
+          if (needsReleaseCheck) {
+            let dRel = null;
+            if (g["Com_Vencimiento_Rel"]) {
+              const val = g["Com_Vencimiento_Rel"];
+              const num = parseFloat(val);
+              if (!isNaN(num) && num > 40000 && num < 60000)
+                dRel = new Date(Math.round((num - 25569) * 86400 * 1000));
+              else dRel = new Date(val);
+            }
+            if (dRel && !isNaN(dRel.getTime())) {
+              const diff = dRel - now;
+              if (diff > 0 && diff < fortyEightHours) {
+                list.push({
+                  label: `Release 48h: ${groupName}`,
+                  icon: "Clock",
+                  type: "danger",
+                  group: g,
+                });
+              } else if (dRel <= sevenDaysFromNow) {
+                list.push({
+                  label: `Vence Release: ${groupName}`,
+                  icon: "Clock",
+                  type: "warning",
+                  group: g,
+                });
+              }
             }
           }
 
@@ -1586,8 +1618,7 @@
           }
 
           // Alert 3: Pagos Pendientes (ignorar si es crédito)
-          const isCreditoAlert = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
-          if (!isCreditoAlert) {
+          if (!isCredito) {
             try {
               const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
               const hasPending = plan.some((p) => {
@@ -1758,20 +1789,29 @@
 
               if (isCancelled || isPast) return;
 
+              const isCredito = isCreditoGroup(g);
+              const isConfirmed = ["CONFIRM", "OK", "GARANT", "RESERVA", "GRUPO"].some(s => status.includes(s));
+              const totalAmt = safeParseAmount(val);
+              const paidAmt = parseFloat(g.Com_Pagado) || 0;
+              const pendingAmt = Math.max(0, totalAmt - paidAmt);
+              const needsReleaseCheck = !isConfirmed || (!isCredito && pendingAmt > 0.1);
+
               // Alert 1: Release Urgente (< 7 días)
-              const comRel = g.Com_Vencimiento_Rel
-                ? parseDate(g.Com_Vencimiento_Rel)
-                : null;
-              if (
-                comRel &&
-                !isNaN(comRel.getTime()) &&
-                comRel <= sevenDaysFromNow
-              ) {
-                realAlerts.push({
-                  label: `Vence Release: ${groupName}`,
-                  icon: "Clock",
-                  type: "warning",
-                });
+              if (needsReleaseCheck) {
+                const comRel = g.Com_Vencimiento_Rel
+                  ? parseDate(g.Com_Vencimiento_Rel)
+                  : null;
+                if (
+                  comRel &&
+                  !isNaN(comRel.getTime()) &&
+                  comRel <= sevenDaysFromNow
+                ) {
+                  realAlerts.push({
+                    label: `Vence Release: ${groupName}`,
+                    icon: "Clock",
+                    type: "warning",
+                  });
+                }
               }
 
               // Alert 2: Seguimiento Pendiente
@@ -1786,22 +1826,24 @@
                 });
               }
 
-              // Alert 3: Pagos Pendientes
-              try {
-                const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-                const hasPending = plan.some((p) => {
-                  const pDate = parseDate(p.date);
-                  return p.status !== "Cobrado" && pDate <= now;
-                });
-                if (hasPending) {
-                  realAlerts.push({
-                    label: `Pago Atrasado: ${groupName}`,
-                    icon: "AlertTriangle",
-                    type: "danger",
-                    group: g,
+              // Alert 3: Pagos Pendientes (ignorar si es crédito)
+              if (!isCredito) {
+                try {
+                  const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+                  const hasPending = plan.some((p) => {
+                    const pDate = parseDate(p.date);
+                    return p.status !== "Cobrado" && pDate <= now;
                   });
-                }
-              } catch (e) { }
+                  if (hasPending) {
+                    realAlerts.push({
+                      label: `Pago Atrasado: ${groupName}`,
+                      icon: "AlertTriangle",
+                      type: "danger",
+                      group: g,
+                    });
+                  }
+                } catch (e) { }
+              }
 
               // Alert 4: Tentativa próxima a llegada
               const isTentative =

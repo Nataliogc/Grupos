@@ -74,7 +74,15 @@
   // ── Formateo de fecha (YYYY-MM-DD → DD/MM/YYYY) ───────
   function formatDate(dateStr) {
     if (!dateStr) return "";
+    if (dateStr instanceof Date) {
+      if (isNaN(dateStr.getTime())) return "";
+      var day = String(dateStr.getDate()).padStart(2, "0");
+      var month = String(dateStr.getMonth() + 1).padStart(2, "0");
+      var year = dateStr.getFullYear();
+      return day + "/" + month + "/" + year;
+    }
     var s = String(dateStr).trim();
+    if (s.includes("T")) s = s.split("T")[0];
 
     var num = parseFloat(s);
     if (!isNaN(num) && num > 40000 && num < 60000) {

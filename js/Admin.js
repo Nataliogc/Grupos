@@ -40,7 +40,31 @@ var db = window.db;
 // --- UTILIDADES ---
 var safeParseAmount = NexusUtils.parseNum;
 var fmt = NexusUtils.formatCurrency;
-var formatDate = NexusUtils.formatDate;
+var formatDate = function formatDate(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return "";
+    var d = String(val.getDate()).padStart(2, "0");
+    var m = String(val.getMonth() + 1).padStart(2, "0");
+    var y = val.getFullYear();
+    return "".concat(d, "/").concat(m, "/").concat(y);
+  }
+  return NexusUtils.formatDate ? NexusUtils.formatDate(val) : String(val);
+};
+var _isCreditoGroup = function isCreditoGroup(g) {
+  if (!g) return false;
+  if (g.isCredito === true || g.isCredito === "true") return true;
+  if (g.Es_Credito === true || g.Es_Credito === "true" || g["Es_Credito"] === true || g["Es_Credito"] === "true") return true;
+  if (g.Com_Es_Credito === true || g.Com_Es_Credito === "true" || g["Com_Es_Credito"] === true || g["Com_Es_Credito"] === "true") return true;
+  var fp = String(g.Forma_Pago || g["Forma de Pago"] || g.Com_Forma_Pago || "").toUpperCase();
+  if (fp.includes("CREDIT") || fp.includes("CRÉDIT")) return true;
+  if (Array.isArray(g.records)) {
+    return g.records.some(function (r) {
+      return _isCreditoGroup(r);
+    });
+  }
+  return false;
+};
 
 // --- MÓDULO IA (CONEXIÓN SEGURA) ---
 // --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
@@ -315,7 +339,7 @@ var Dashboard = function Dashboard(_ref2) {
       } catch (e) {}
       var pending = Math.max(0, totalAmt - paid);
       var hasAlert = false;
-      var isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+      var isCredito = _isCreditoGroup(g);
 
       // 1. Financial (ignorar si es crédito)
       if (!isCredito && (isConfirmed || isTentative) && pending > 0.1) {
@@ -329,9 +353,9 @@ var Dashboard = function Dashboard(_ref2) {
         } catch (e) {}
       }
 
-      // 2. Release
+      // 2. Release (ignorar si está confirmado y es crédito)
       var dRel = parseDate(g.Com_Vencimiento_Rel);
-      if (!hasAlert && (!isConfirmed || pending > 0.1) && dRel && dRel <= fiveDaysFromNow) {
+      if (!hasAlert && (!isConfirmed || !isCredito && pending > 0.1) && dRel && dRel <= fiveDaysFromNow) {
         hasAlert = true;
       }
 
@@ -410,7 +434,7 @@ var Dashboard = function Dashboard(_ref2) {
       } catch (e) {}
       var paid = Math.max(manualPaid, planPaid);
       var pending = Math.max(0, total - paid);
-      var isCredito = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
+      var isCredito = _isCreditoGroup(g);
 
       // 1. Column 1: Financial Alerts (ignorar si es crédito)
       if (!isCredito && (isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
@@ -435,8 +459,8 @@ var Dashboard = function Dashboard(_ref2) {
         } catch (e) {}
       }
 
-      // 2. Column 2: Releases y Plazos
-      if ((!isConfirmed || pending > 0.1) && !seenRelease.has(resId)) {
+      // 2. Column 2: Releases y Plazos (ignorar si está confirmado y es crédito)
+      if ((!isConfirmed || !isCredito && pending > 0.1) && !seenRelease.has(resId)) {
         var dRel = parseDate(g.Com_Vencimiento_Rel);
         if (dRel && dRel <= fiveDaysFromNow) {
           seenRelease.add(resId);
@@ -1419,30 +1443,40 @@ var App = function App() {
       var todayStr = new Date().toISOString().split("T")[0];
       var isPast = departureStr && departureStr < todayStr;
       if (isCancelled || isPast) return;
+      var isCredito = _isCreditoGroup(g);
+      var isConfirmed = ["CONFIRM", "OK", "GARANT", "RESERVA", "GRUPO"].some(function (s) {
+        return status.includes(s);
+      });
+      var totalAmt = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
+      var paidAmt = parseFloat(g.Com_Pagado) || 0;
+      var pendingAmt = Math.max(0, totalAmt - paidAmt);
+      var needsReleaseCheck = !isConfirmed || !isCredito && pendingAmt > 0.1;
 
       // Alert 1: Release Urgente (< 7 días)
-      var dRel = null;
-      if (g["Com_Vencimiento_Rel"]) {
-        var val = g["Com_Vencimiento_Rel"];
-        var num = parseFloat(val);
-        if (!isNaN(num) && num > 40000 && num < 60000) dRel = new Date(Math.round((num - 25569) * 86400 * 1000));else dRel = new Date(val);
-      }
-      if (dRel && !isNaN(dRel.getTime())) {
-        var diff = dRel - now;
-        if (diff > 0 && diff < fortyEightHours) {
-          list.push({
-            label: "Release 48h: ".concat(groupName),
-            icon: "Clock",
-            type: "danger",
-            group: g
-          });
-        } else if (dRel <= sevenDaysFromNow) {
-          list.push({
-            label: "Vence Release: ".concat(groupName),
-            icon: "Clock",
-            type: "warning",
-            group: g
-          });
+      if (needsReleaseCheck) {
+        var dRel = null;
+        if (g["Com_Vencimiento_Rel"]) {
+          var val = g["Com_Vencimiento_Rel"];
+          var num = parseFloat(val);
+          if (!isNaN(num) && num > 40000 && num < 60000) dRel = new Date(Math.round((num - 25569) * 86400 * 1000));else dRel = new Date(val);
+        }
+        if (dRel && !isNaN(dRel.getTime())) {
+          var diff = dRel - now;
+          if (diff > 0 && diff < fortyEightHours) {
+            list.push({
+              label: "Release 48h: ".concat(groupName),
+              icon: "Clock",
+              type: "danger",
+              group: g
+            });
+          } else if (dRel <= sevenDaysFromNow) {
+            list.push({
+              label: "Vence Release: ".concat(groupName),
+              icon: "Clock",
+              type: "warning",
+              group: g
+            });
+          }
         }
       }
 
@@ -1463,8 +1497,7 @@ var App = function App() {
       }
 
       // Alert 3: Pagos Pendientes (ignorar si es crédito)
-      var isCreditoAlert = Boolean(g.Es_Credito === true || g.Es_Credito === "true" || g.Com_Es_Credito === true);
-      if (!isCreditoAlert) {
+      if (!isCredito) {
         try {
           var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
           var hasPending = plan.some(function (p) {
@@ -1629,15 +1662,25 @@ var App = function App() {
           var todayStr = now.toISOString().split("T")[0];
           var isPast = departureStr && departureStr < todayStr;
           if (isCancelled || isPast) return;
+          var isCredito = _isCreditoGroup(g);
+          var isConfirmed = ["CONFIRM", "OK", "GARANT", "RESERVA", "GRUPO"].some(function (s) {
+            return status.includes(s);
+          });
+          var totalAmt = safeParseAmount(val);
+          var paidAmt = parseFloat(g.Com_Pagado) || 0;
+          var pendingAmt = Math.max(0, totalAmt - paidAmt);
+          var needsReleaseCheck = !isConfirmed || !isCredito && pendingAmt > 0.1;
 
           // Alert 1: Release Urgente (< 7 días)
-          var comRel = g.Com_Vencimiento_Rel ? parseDate(g.Com_Vencimiento_Rel) : null;
-          if (comRel && !isNaN(comRel.getTime()) && comRel <= sevenDaysFromNow) {
-            realAlerts.push({
-              label: "Vence Release: ".concat(groupName),
-              icon: "Clock",
-              type: "warning"
-            });
+          if (needsReleaseCheck) {
+            var comRel = g.Com_Vencimiento_Rel ? parseDate(g.Com_Vencimiento_Rel) : null;
+            if (comRel && !isNaN(comRel.getTime()) && comRel <= sevenDaysFromNow) {
+              realAlerts.push({
+                label: "Vence Release: ".concat(groupName),
+                icon: "Clock",
+                type: "warning"
+              });
+            }
           }
 
           // Alert 2: Seguimiento Pendiente
@@ -1650,22 +1693,24 @@ var App = function App() {
             });
           }
 
-          // Alert 3: Pagos Pendientes
-          try {
-            var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-            var hasPending = plan.some(function (p) {
-              var pDate = parseDate(p.date);
-              return p.status !== "Cobrado" && pDate <= now;
-            });
-            if (hasPending) {
-              realAlerts.push({
-                label: "Pago Atrasado: ".concat(groupName),
-                icon: "AlertTriangle",
-                type: "danger",
-                group: g
+          // Alert 3: Pagos Pendientes (ignorar si es crédito)
+          if (!isCredito) {
+            try {
+              var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+              var hasPending = plan.some(function (p) {
+                var pDate = parseDate(p.date);
+                return p.status !== "Cobrado" && pDate <= now;
               });
-            }
-          } catch (e) {}
+              if (hasPending) {
+                realAlerts.push({
+                  label: "Pago Atrasado: ".concat(groupName),
+                  icon: "AlertTriangle",
+                  type: "danger",
+                  group: g
+                });
+              }
+            } catch (e) {}
+          }
 
           // Alert 4: Tentativa próxima a llegada
           var isTentative = (g["Estado"] || "").toLowerCase().includes("tentat") || (g["Com_Estado_Interno"] || "").toLowerCase().includes("tentat");
