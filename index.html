@@ -416,6 +416,77 @@
             });
         }
 
+        // Sincronizar chips con usuarios actualizados en Firestore (altas y revocaciones)
+        async function syncCloudUserChips() {
+            if (!window.db || typeof window.db.collection !== "function") return;
+            try {
+                const doc = await window.db.collection("settings").doc("main").get();
+                if (!doc || !doc.exists) return;
+                const data = doc.data();
+                if (!data || !data.system || !Array.isArray(data.system.users)) return;
+
+                const container = document.getElementById('userChipsContainer');
+                if (!container) return;
+
+                const cloudUsers = data.system.users;
+
+                // Actualizar chips existentes (marcar tachados los revocados)
+                container.querySelectorAll('.user-chip').forEach(chip => {
+                    const userKey = (chip.getAttribute('data-user') || '').toLowerCase();
+                    const emailKey = (chip.getAttribute('data-email') || '').toLowerCase();
+                    const found = cloudUsers.find(cu => 
+                        (cu.name && cu.name.toLowerCase() === userKey) ||
+                        (cu.email && cu.email.toLowerCase() === emailKey) ||
+                        (cu.id && cu.id.toLowerCase() === userKey)
+                    );
+                    if (found) {
+                        if (found.revoked === true || found.active === false) {
+                            chip.classList.add('opacity-40', 'line-through');
+                            chip.title = "Acceso revocado por el administrador";
+                        } else {
+                            chip.classList.remove('opacity-40', 'line-through');
+                            chip.removeAttribute('title');
+                        }
+                    }
+                });
+
+                // Añadir chips para nuevos usuarios si no existen ya
+                cloudUsers.forEach(cu => {
+                    if (!cu.name) return;
+                    const cuNameLow = cu.name.toLowerCase();
+                    const cuEmailLow = (cu.email || '').toLowerCase();
+                    const exists = Array.from(container.querySelectorAll('.user-chip')).some(chip => {
+                        const u = (chip.getAttribute('data-user') || '').toLowerCase();
+                        const em = (chip.getAttribute('data-email') || '').toLowerCase();
+                        return u === cuNameLow || (cuEmailLow && em === cuEmailLow);
+                    });
+                    if (!exists) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'user-chip';
+                        btn.setAttribute('data-user', cu.name);
+                        if (cu.email) btn.setAttribute('data-email', cu.email);
+                        btn.textContent = cu.name;
+                        if (cu.revoked === true || cu.active === false) {
+                            btn.classList.add('opacity-40', 'line-through');
+                            btn.title = "Acceso revocado por el administrador";
+                        }
+                        btn.addEventListener('click', function() {
+                            usernameInput.value = this.getAttribute('data-user');
+                            container.querySelectorAll('.user-chip').forEach(c => c.classList.remove('active'));
+                            this.classList.add('active');
+                            showError(false);
+                            passwordInput.focus();
+                        });
+                        container.appendChild(btn);
+                    }
+                });
+            } catch(e) {
+                console.warn("[Login] Error sincronizando chips con la nube:", e);
+            }
+        }
+        syncCloudUserChips();
+
         function setLoading(loading) {
             submitBtn.classList.toggle('btn-loading', loading);
             submitBtn.disabled = loading;
@@ -466,10 +537,14 @@
                         if (doc && doc.exists) {
                             const data = doc.data();
                             if (data && data.system && Array.isArray(data.system.users) && data.system.users.length > 0) {
-                                // Combinar usuarios de la nube sin duplicar emails
+                                // Combinar usuarios de la nube sin duplicar emails o nombres
                                 data.system.users.forEach(cloudUser => {
-                                    if (cloudUser && cloudUser.email) {
-                                        const idx = validUsers.findIndex(u => u.email.toLowerCase() === cloudUser.email.toLowerCase());
+                                    if (cloudUser && (cloudUser.email || cloudUser.name)) {
+                                        const idx = validUsers.findIndex(u => 
+                                            (cloudUser.email && u.email && u.email.toLowerCase() === cloudUser.email.toLowerCase()) ||
+                                            (cloudUser.name && u.name && u.name.toLowerCase() === cloudUser.name.toLowerCase()) ||
+                                            (cloudUser.id && u.id && u.id.toLowerCase() === cloudUser.id.toLowerCase())
+                                        );
                                         if (idx >= 0) {
                                             validUsers[idx] = { ...validUsers[idx], ...cloudUser };
                                         } else {
@@ -492,31 +567,40 @@
                     return email === usernameVal || name === usernameVal || id === usernameVal;
                 });
 
-                if (matchedUser && String(matchedUser.pass) === passwordVal) {
-                    // Login correcto: Guardar sesión
-                    const sessionData = {
-                        id: matchedUser.id || matchedUser.name.toLowerCase(),
-                        email: matchedUser.email,
-                        name: matchedUser.name,
-                        role: matchedUser.role || "Usuario",
-                        avatar: (matchedUser.name || 'U').charAt(0).toUpperCase(),
-                        loginTime: Date.now()
-                    };
-
-                    try {
-                        localStorage.setItem('nexus_user', JSON.stringify(sessionData));
-                        sessionStorage.setItem('nexus_session', JSON.stringify(sessionData));
-                        if (rememberMeCheckbox.checked) {
-                            localStorage.setItem('nexus_saved_username', usernameInput.value.trim());
-                        } else {
-                            localStorage.removeItem('nexus_saved_username');
-                        }
-                    } catch(storageErr) {
-                        console.warn("[Login] Error de almacenamiento de sesión:", storageErr);
+                if (matchedUser) {
+                    // Comprobar si el acceso ha sido revocado
+                    if (matchedUser.revoked === true || matchedUser.active === false) {
+                        setLoading(false);
+                        showError(true, "Acceso revocado para esta cuenta. Contacta con el Administrador.");
+                        return;
                     }
 
-                    window.location.href = REDIRECT_URL;
-                    return;
+                    if (String(matchedUser.pass) === passwordVal) {
+                        // Login correcto: Guardar sesión
+                        const sessionData = {
+                            id: matchedUser.id || (matchedUser.name ? matchedUser.name.toLowerCase() : "user"),
+                            email: matchedUser.email,
+                            name: matchedUser.name,
+                            role: matchedUser.role || "Usuario",
+                            avatar: (matchedUser.name || 'U').charAt(0).toUpperCase(),
+                            loginTime: Date.now()
+                        };
+
+                        try {
+                            localStorage.setItem('nexus_user', JSON.stringify(sessionData));
+                            sessionStorage.setItem('nexus_session', JSON.stringify(sessionData));
+                            if (rememberMeCheckbox.checked) {
+                                localStorage.setItem('nexus_saved_username', usernameInput.value.trim());
+                            } else {
+                                localStorage.removeItem('nexus_saved_username');
+                            }
+                        } catch(storageErr) {
+                            console.warn("[Login] Error de almacenamiento de sesión:", storageErr);
+                        }
+
+                        window.location.href = REDIRECT_URL;
+                        return;
+                    }
                 }
 
                 // Si no coincide

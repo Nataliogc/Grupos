@@ -10,11 +10,18 @@
         const db = window.db;
 
         const App = () => {
-            const [activeHotel, setActiveHotel] = useState('guadiana');
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialTab = urlParams.get('tab') || 'guadiana';
+            const [activeHotel, setActiveHotel] = useState(initialTab);
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState(null);
             const [editingCommercialIdx, setEditingCommercialIdx] = useState(null);
             const [editingCommercialName, setEditingCommercialName] = useState('');
+            // Estados para Administración de Usuarios
+            const [userSearch, setUserSearch] = useState('');
+            const [showAddUserModal, setShowAddUserModal] = useState(false);
+            const [newUserData, setNewUserData] = useState({ name: '', email: '', role: 'Comercial', pass: '1234' });
+            const [resetPassUser, setResetPassUser] = useState(null);
             const [config, setConfig] = useState({
                 guadiana: {
                     name: "Hotel",
@@ -238,6 +245,188 @@
                 }));
             };
 
+            const handleCreateUser = async () => {
+                const name = (newUserData.name || '').trim();
+                const email = (newUserData.email || '').trim();
+                const role = newUserData.role || "Comercial";
+                const pass = (newUserData.pass || '').trim();
+
+                if (!name) {
+                    alert("Por favor, introduce el nombre del usuario.");
+                    return;
+                }
+                if (!email) {
+                    alert("Por favor, introduce el correo electrónico del usuario.");
+                    return;
+                }
+                if (!pass || pass.length < 4) {
+                    alert("La contraseña debe tener al menos 4 caracteres.");
+                    return;
+                }
+
+                const currentUsers = [...(config.system?.users || [])];
+                const emailLower = email.toLowerCase();
+                if (currentUsers.some(u => (u.email || '').toLowerCase() === emailLower)) {
+                    alert("Ya existe un usuario registrado con este correo electrónico.");
+                    return;
+                }
+
+                const newUser = {
+                    id: name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                    name: name,
+                    email: email,
+                    role: role,
+                    pass: pass,
+                    active: true,
+                    revoked: false
+                };
+
+                const updatedUsers = [...currentUsers, newUser];
+                const updatedConfig = {
+                    ...config,
+                    system: {
+                        ...(config.system || {}),
+                        users: updatedUsers
+                    }
+                };
+
+                setConfig(updatedConfig);
+                setLoading(true);
+                try {
+                    await db.collection("settings").doc("main").set(updatedConfig);
+                    setMessage({ type: 'success', text: `Usuario "${name}" creado correctamente en el sistema.` });
+                    setShowAddUserModal(false);
+                    setNewUserData({ name: '', email: '', role: 'Comercial', pass: '1234' });
+                } catch(e) {
+                    setMessage({ type: 'error', text: 'Error al persistir el nuevo usuario en Firestore.' });
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(null), 3500);
+            };
+
+            const handleToggleRevokeUser = async (idx) => {
+                const users = [...(config.system?.users || [])];
+                const target = users[idx];
+                if (!target) return;
+
+                const isNatalio = (target.name && target.name.toLowerCase() === 'natalio') || 
+                                  (target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es'));
+                if (isNatalio) {
+                    alert("Por seguridad, no es posible revocar el acceso a la cuenta principal del Administrador (Natalio).");
+                    return;
+                }
+
+                const currentlyRevoked = target.revoked === true || target.active === false;
+                const nextRevoked = !currentlyRevoked;
+
+                if (nextRevoked) {
+                    const ok = window.confirm(`¿Confirmas que deseas REVOCAR el acceso a "${target.name}"? El usuario no podrá iniciar sesión en Nexus Groups.`);
+                    if (!ok) return;
+                }
+
+                users[idx] = {
+                    ...target,
+                    revoked: nextRevoked,
+                    active: !nextRevoked
+                };
+
+                const updatedConfig = {
+                    ...config,
+                    system: {
+                        ...(config.system || {}),
+                        users: users
+                    }
+                };
+
+                setConfig(updatedConfig);
+                setLoading(true);
+                try {
+                    await db.collection("settings").doc("main").set(updatedConfig);
+                    setMessage({
+                        type: 'success',
+                        text: nextRevoked ? `Acceso de "${target.name}" revocado correctamente.` : `Acceso de "${target.name}" reactivado correctamente.`
+                    });
+                } catch(e) {
+                    setMessage({ type: 'error', text: 'Error al actualizar el estado del usuario.' });
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(null), 3500);
+            };
+
+            const handleResetUserPass = async (idx, newPass) => {
+                const trimmed = (newPass || '').trim();
+                if (!trimmed || trimmed.length < 4) {
+                    alert("La contraseña debe contener al menos 4 caracteres.");
+                    return;
+                }
+
+                const users = [...(config.system?.users || [])];
+                const target = users[idx];
+                if (!target) return;
+
+                users[idx] = {
+                    ...target,
+                    pass: trimmed
+                };
+
+                const updatedConfig = {
+                    ...config,
+                    system: {
+                        ...(config.system || {}),
+                        users: users
+                    }
+                };
+
+                setConfig(updatedConfig);
+                setLoading(true);
+                try {
+                    await db.collection("settings").doc("main").set(updatedConfig);
+                    setMessage({ type: 'success', text: `Contraseña de "${target.name}" restablecida con éxito a "${trimmed}".` });
+                    setResetPassUser(null);
+                } catch(e) {
+                    setMessage({ type: 'error', text: 'Error al actualizar la contraseña en Firestore.' });
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(null), 3500);
+            };
+
+            const handleDeleteUser = async (idx) => {
+                const users = [...(config.system?.users || [])];
+                const target = users[idx];
+                if (!target) return;
+
+                const isNatalio = (target.name && target.name.toLowerCase() === 'natalio') || 
+                                  (target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es'));
+                if (isNatalio) {
+                    alert("No es posible eliminar la cuenta principal del Administrador (Natalio).");
+                    return;
+                }
+
+                const ok = window.confirm(`¿Estás seguro de que deseas ELIMINAR permanentemente a "${target.name}" (${target.email})? Esta acción no se puede deshacer.`);
+                if (!ok) return;
+
+                users.splice(idx, 1);
+
+                const updatedConfig = {
+                    ...config,
+                    system: {
+                        ...(config.system || {}),
+                        users: users
+                    }
+                };
+
+                setConfig(updatedConfig);
+                setLoading(true);
+                try {
+                    await db.collection("settings").doc("main").set(updatedConfig);
+                    setMessage({ type: 'success', text: `Usuario "${target.name}" eliminado de la plataforma.` });
+                } catch(e) {
+                    setMessage({ type: 'error', text: 'Error al eliminar el usuario en Firestore.' });
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(null), 3500);
+            };
+
             return (
                 <div className="flex min-h-screen">
                     {/* Sidebar duplicado para consistencia */}
@@ -264,6 +453,10 @@
                             <button onClick={() => setActiveHotel('system')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'system' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
                                 <LucideIcon name="cpu" className="w-5 h-5" />
                                 Sistema e IA
+                            </button>
+                            <button onClick={() => setActiveHotel('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'users' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                <LucideIcon name="shield-check" className="w-5 h-5" />
+                                Usuarios y Accesos
                             </button>
                             <button onClick={() => setActiveHotel('commercials')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'commercials' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
                                 <LucideIcon name="users" className="w-5 h-5" />
@@ -315,9 +508,14 @@
                         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
                             <div className="bg-slate-50 p-8 border-b border-slate-100 flex items-center gap-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-sm">
-                                    <LucideIcon name={activeHotel === 'system' ? 'settings-2' : activeHotel === 'commercials' ? 'users' : activeHotel === 'services' ? 'box' : 'building-2'} className="w-6 h-6 text-[#2d5a43]" />
+                                    <LucideIcon name={activeHotel === 'users' ? 'shield-check' : activeHotel === 'system' ? 'settings-2' : activeHotel === 'commercials' ? 'users' : activeHotel === 'services' ? 'box' : 'building-2'} className="w-6 h-6 text-[#2d5a43]" />
                                 </div>
-                                {activeHotel === 'commercials' ? (
+                                {activeHotel === 'users' ? (
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-900 uppercase">Gestión de Usuarios y Accesos</h3>
+                                        <p className="text-xs text-slate-400">Control centralizado de cuentas autorizadas, contraseñas y permisos de acceso.</p>
+                                    </div>
+                                ) : activeHotel === 'commercials' ? (
                                     <div>
                                         <h3 className="text-xl font-bold text-slate-900 uppercase">Base de Datos de Personal</h3>
                                         <p className="text-xs text-slate-400">Gestiona los agentes comerciales autorizados en el sistema.</p>
@@ -338,7 +536,193 @@
                             </div>
 
                             <div className="p-10">
-                                {activeHotel === 'services' ? (
+                                {activeHotel === 'users' ? (
+                                    <div className="space-y-6 animate-fade-in">
+                                        {/* Banner superior de control */}
+                                        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-[#1e3a2c] rounded-3xl p-7 text-white flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+                                            <div className="relative z-10 space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                                        Seguridad Cloud
+                                                    </span>
+                                                    <span className="text-slate-300 text-xs font-semibold">• Panel de Administración</span>
+                                                </div>
+                                                <h4 className="text-xl font-bold text-white tracking-tight">Directorio de Usuarios y Credenciales</h4>
+                                                <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                                                    Gestiona las altas de nuevos colaboradores, restablece contraseñas al instante o revoca temporalmente el acceso sin perder el historial.
+                                                </p>
+                                                <div className="flex items-center gap-4 pt-2 text-xs">
+                                                    <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-xl">
+                                                        <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                                        <span className="font-bold">{(config.system?.users || []).filter(u => u.active !== false && !u.revoked).length} Activos</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-xl">
+                                                        <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                                                        <span className="font-bold">{(config.system?.users || []).filter(u => u.revoked === true || u.active === false).length} Revocados</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="relative z-10 flex items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAddUserModal(true)}
+                                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-2xl font-bold text-xs shadow-lg hover:shadow-emerald-900/30 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                                                >
+                                                    <LucideIcon name="user-plus" className="w-4 h-4" />
+                                                    Nuevo Usuario
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Buscador de usuarios */}
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                            <div className="relative flex-1 max-w-md">
+                                                <input
+                                                    type="text"
+                                                    value={userSearch}
+                                                    onChange={(e) => setUserSearch(e.target.value)}
+                                                    placeholder="Buscar por nombre, correo o rol..."
+                                                    className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-8 py-2.5 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-[#2d5a43] transition-all shadow-xs"
+                                                />
+                                                <div className="absolute left-3.5 top-3 text-slate-400 pointer-events-none">
+                                                    <LucideIcon name="search" className="w-3.5 h-3.5" />
+                                                </div>
+                                                {userSearch && (
+                                                    <button type="button" onClick={() => setUserSearch('')} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                                                        <LucideIcon name="x" className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="text-[11px] font-bold text-slate-400 text-right">
+                                                {(config.system?.users || []).length} usuarios configurados en el sistema
+                                            </div>
+                                        </div>
+
+                                        {/* Tabla / Tarjetas de Usuarios */}
+                                        <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs divide-y divide-slate-100">
+                                            {(() => {
+                                                const rawUsers = config.system?.users || [];
+                                                const searchLow = (userSearch || '').toLowerCase().trim();
+                                                const filtered = searchLow
+                                                    ? rawUsers.filter(u => 
+                                                        (u.name && u.name.toLowerCase().includes(searchLow)) ||
+                                                        (u.email && u.email.toLowerCase().includes(searchLow)) ||
+                                                        (u.role && u.role.toLowerCase().includes(searchLow))
+                                                      )
+                                                    : rawUsers;
+
+                                                if (filtered.length === 0) {
+                                                    return (
+                                                        <div className="p-12 text-center text-slate-400 space-y-2">
+                                                            <LucideIcon name="users" className="w-8 h-8 mx-auto text-slate-300" />
+                                                            <p className="text-xs font-bold">No se encontraron usuarios coincidentes.</p>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return filtered.map((u, fIdx) => {
+                                                    const originalIdx = rawUsers.indexOf(u);
+                                                    const isRevoked = u.revoked === true || u.active === false;
+                                                    const isNatalio = (u.name && u.name.toLowerCase() === 'natalio') || 
+                                                                      (u.email && u.email.toLowerCase().includes('comunicaciones@hotelguadiana.es'));
+
+                                                    const roleBadgeClass = 
+                                                        u.role === 'Administrador' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                        u.role === 'Dirección' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                        u.role === 'Recepción' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                        'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+                                                    const avatarBg =
+                                                        u.role === 'Administrador' ? 'from-purple-700 to-indigo-600' :
+                                                        u.role === 'Dirección' ? 'from-indigo-700 to-teal-600' :
+                                                        'from-[#2d5a43] to-emerald-500';
+
+                                                    return (
+                                                        <div key={fIdx} className={`p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${isRevoked ? 'bg-rose-50/20' : 'hover:bg-slate-50/60'}`}>
+                                                            {/* Datos del usuario */}
+                                                            <div className="flex items-center gap-3.5 min-w-0">
+                                                                <div className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${avatarBg} text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0 select-none`}>
+                                                                    {(u.name || 'U').charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                        <span className={`text-sm font-bold ${isRevoked ? 'line-through text-slate-500' : 'text-slate-800'}`}>
+                                                                            {u.name}
+                                                                        </span>
+                                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${roleBadgeClass}`}>
+                                                                            {u.role || 'Comercial'}
+                                                                        </span>
+                                                                        {isRevoked ? (
+                                                                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 uppercase tracking-wider flex items-center gap-1">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                                                Acceso Revocado
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider flex items-center gap-1">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                                                Activo
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                                                                        <span className="truncate">{u.email}</span>
+                                                                        <span className="text-slate-300">•</span>
+                                                                        <span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                                                            Clave actual: <span className="font-bold text-slate-800">{u.pass || '1234'}</span>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Botones de acción */}
+                                                            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                                                                {/* Resetear Clave */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setResetPassUser({ idx: originalIdx, user: u, newPass: '' })}
+                                                                    className="px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 hover:border-amber-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                                                    title={`Resetear contraseña de ${u.name}`}
+                                                                >
+                                                                    <LucideIcon name="key" className="w-3.5 h-3.5 text-amber-500" />
+                                                                    <span>Resetear Clave</span>
+                                                                </button>
+
+                                                                {/* Revocar / Reactivar */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleToggleRevokeUser(originalIdx)}
+                                                                    disabled={isNatalio}
+                                                                    className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+                                                                        isNatalio
+                                                                            ? 'opacity-30 cursor-not-allowed border-slate-200 text-slate-400'
+                                                                            : isRevoked
+                                                                                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                                                                                : 'bg-white hover:bg-rose-50 text-rose-600 border-slate-200 hover:border-rose-200'
+                                                                    }`}
+                                                                    title={isNatalio ? 'La cuenta del Administrador principal no puede ser revocada' : isRevoked ? 'Reactivar acceso' : 'Revocar acceso'}
+                                                                >
+                                                                    <LucideIcon name={isRevoked ? 'user-check' : 'user-x'} className="w-3.5 h-3.5" />
+                                                                    <span>{isRevoked ? 'Reactivar Acceso' : 'Revocar Acceso'}</span>
+                                                                </button>
+
+                                                                {/* Eliminar */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteUser(originalIdx)}
+                                                                    disabled={isNatalio}
+                                                                    className={`p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-xl transition-all cursor-pointer ${isNatalio ? 'opacity-20 cursor-not-allowed' : ''}`}
+                                                                    title={isNatalio ? 'No se puede eliminar al Administrador' : `Eliminar a ${u.name}`}
+                                                                >
+                                                                    <LucideIcon name="trash-2" className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+                                    </div>
+                                ) : activeHotel === 'services' ? (
                                     <div className="max-w-3xl space-y-8 animate-fade-in">
                                         <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
                                             <div className="flex justify-between items-center mb-6">
@@ -729,9 +1113,14 @@
                                                     </h4>
                                                     <p className="text-[11px] text-slate-400">Cuentas con acceso a la plataforma.</p>
                                                 </div>
-                                                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                                    {(config.system.users || []).length} Usuarios
-                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveHotel('users')}
+                                                    className="text-[10px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold px-3 py-1.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                                                >
+                                                    <LucideIcon name="shield-check" size={13} />
+                                                    Administrar Accesos
+                                                </button>
                                             </div>
 
                                             <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
@@ -1005,6 +1394,188 @@
                             <img src="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png" className="h-8 w-8 grayscale" />
                         </footer>
                     </main >
+
+                    {/* Modal Alta Nuevo Usuario */}
+                    {showAddUserModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+                            <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden">
+                                <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                                            <LucideIcon name="user-plus" className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-base text-white tracking-tight">Alta de Nuevo Usuario</h3>
+                                            <p className="text-[11px] text-slate-300">Crea una cuenta de acceso para Nexus Groups</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddUserModal(false)}
+                                        className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                        <LucideIcon name="x" className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-4">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                            Nombre Completo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newUserData.name}
+                                            onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
+                                            placeholder="Ej: Marta Gómez"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                            Correo Electrónico
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={newUserData.email}
+                                            onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                                            placeholder="Ej: mgomez@hotelguadiana.es"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                                Rol / Permisos
+                                            </label>
+                                            <select
+                                                value={newUserData.role}
+                                                onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+                                            >
+                                                <option value="Comercial">Comercial</option>
+                                                <option value="Dirección">Dirección</option>
+                                                <option value="Administrador">Administrador</option>
+                                                <option value="Recepción">Recepción</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                                Contraseña Inicial
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={newUserData.pass}
+                                                onChange={(e) => setNewUserData({ ...newUserData, pass: e.target.value })}
+                                                placeholder="Mín. 4 caracteres"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all text-center"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-3 flex items-center justify-end gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAddUserModal(false)}
+                                            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleCreateUser}
+                                            className="bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                                        >
+                                            <LucideIcon name="check" className="w-3.5 h-3.5" />
+                                            Crear y Activar Usuario
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal Resetear Contraseña */}
+                    {resetPassUser && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+                            <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden">
+                                <div className="bg-gradient-to-r from-amber-600 to-amber-700 p-6 text-white flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center">
+                                            <LucideIcon name="key" className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-base text-white tracking-tight">Restablecer Contraseña</h3>
+                                            <p className="text-[11px] text-amber-100">Asigna una nueva clave para el usuario</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setResetPassUser(null)}
+                                        className="text-white/80 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                        <LucideIcon name="x" className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-4">
+                                    <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-xl bg-[#2d5a43] text-white font-black text-xs flex items-center justify-center">
+                                            {(resetPassUser.user?.name || 'U').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-bold text-slate-800 block">{resetPassUser.user?.name}</span>
+                                            <span className="text-[10px] text-slate-400 block">{resetPassUser.user?.email}</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                            Nueva Contraseña
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                value={resetPassUser.newPass}
+                                                onChange={(e) => setResetPassUser({ ...resetPassUser, newPass: e.target.value })}
+                                                placeholder="Introduce la nueva clave (mín. 4 caracteres)"
+                                                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all font-mono"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setResetPassUser({ ...resetPassUser, newPass: "1234" })}
+                                                className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
+                                                title="Usar clave por defecto"
+                                            >
+                                                1234
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2 flex items-center justify-end gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setResetPassUser(null)}
+                                            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleResetUserPass(resetPassUser.idx, resetPassUser.newPass)}
+                                            className="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                                        >
+                                            <LucideIcon name="check" className="w-3.5 h-3.5" />
+                                            Guardar Nueva Clave
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div >
             );
         };
