@@ -115,6 +115,32 @@
         } catch (e) {}
     }
 
+    // ─── Helpers de sesión y autenticación ──────────────────────────────────
+    function getCurrentUser() {
+        try {
+            var raw = localStorage.getItem('nexus_user') || sessionStorage.getItem('nexus_session');
+            if (raw) {
+                var u = JSON.parse(raw);
+                if (u && (u.name || u.email)) return u;
+            }
+        } catch(e) {}
+        return null;
+    }
+
+    window.getNexusCurrentUser = getCurrentUser;
+
+    window.nexusLogout = function () {
+        var user = getCurrentUser();
+        var confirmMsg = user && user.name ? "¿Deseas cerrar la sesión de " + user.name + "?" : "¿Deseas cerrar la sesión?";
+        if (window.confirm(confirmMsg)) {
+            try {
+                localStorage.removeItem('nexus_user');
+                sessionStorage.removeItem('nexus_session');
+            } catch(e) {}
+            window.location.href = "index.html?logout=true";
+        }
+    };
+
     function initHeader() {
         // Evitar duplicación
         if (document.getElementById("nexus-global-header")) return;
@@ -131,6 +157,25 @@
         currentPage = currentPage.split('?')[0].split('#')[0];
         if (!currentPage) {
             currentPage = "index.html";
+        }
+
+        // Control de acceso unificado: Redirigir a index.html si no hay sesión activa
+        var lowerPage = currentPage.toLowerCase();
+        var isPublicPage = (
+            lowerPage === "index.html" ||
+            lowerPage === "fac prof.html" ||
+            lowerPage === "orden servicio.html" ||
+            lowerPage === "rooming-servicios.html"
+        );
+
+        var currentUser = getCurrentUser();
+
+        if (!isPublicPage && !currentUser) {
+            var urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.get('bypass_auth')) {
+                window.location.replace("index.html");
+                return;
+            }
         }
 
         // No inyectar la cabecera global en plantillas de impresión/generación
@@ -205,6 +250,30 @@
                         <i data-lucide="chevron-left" class="w-5 h-5"></i>
                     </a>
         ` : '';
+
+        var userWidgetHtml = '';
+        if (currentUser) {
+            var userName = currentUser.name || "Usuario";
+            var userRole = currentUser.role || "Nexus";
+            var userInitial = (currentUser.name || "U").charAt(0).toUpperCase();
+            var userEmail = currentUser.email || "";
+
+            userWidgetHtml = `
+                <div class="h-6 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+                <div id="nexus-header-user-widget" class="flex items-center gap-2 pl-1">
+                    <div class="hidden md:flex flex-col text-right leading-tight select-none">
+                        <span class="text-[11px] font-bold text-slate-800 leading-none">${userName}</span>
+                        <span class="text-[9px] font-semibold text-emerald-700 leading-none mt-0.5 uppercase tracking-wider">${userRole}</span>
+                    </div>
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2d5a43] to-emerald-500 text-white font-black text-xs flex items-center justify-center shadow-xs select-none border border-emerald-600/30 shrink-0" title="${userName} (${userEmail})">
+                        ${userInitial}
+                    </div>
+                    <button id="nexus-logout-btn" class="nexus-nav-btn p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Cerrar sesión (${userName})">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `;
+        }
 
         header.innerHTML = `
             <div class="container mx-auto px-4 flex items-center justify-between gap-4">
@@ -285,12 +354,12 @@
                     </a>
                 </div>
 
-                <!-- Derecha: Acciones de Importación y Exportación -->
+                <!-- Derecha: Acciones de Importación, Exportación y Sesión -->
                 <div class="flex items-center gap-2">
                     <span id="nexus-header-export-badge" class="hidden sm:inline-block"></span>
                     <div class="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
-                    <div class="flex gap-1 md:gap-2">
+                    <div class="flex gap-1 md:gap-2 items-center">
                         <label class="nexus-nav-btn p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer flex items-center justify-center" title="Importar">
                             <i data-lucide="upload" class="w-5 h-5"></i>
                             <input type="file" id="nexus-header-upload-input" class="hidden" accept=".csv, .xlsx, .xls" />
@@ -300,6 +369,8 @@
                             <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
                         </button>
                     </div>
+
+                    ${userWidgetHtml}
                 </div>
             </div>
         `;
@@ -401,6 +472,15 @@
                         window.updateNexusHeaderExportDate(dateStr);
                     }
                 }
+            });
+        }
+
+        // Clic en el botón Cerrar Sesión
+        var logoutBtn = document.getElementById("nexus-logout-btn");
+        if (logoutBtn) {
+            logoutBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                window.nexusLogout();
             });
         }
 

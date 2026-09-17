@@ -126,7 +126,13 @@
                     pin: "1234",
                     geminiModel: "gemini-2.4-flash",
                     iaStatus: "Online",
-                    commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"]
+                    commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"],
+                    users: [
+                        { email: "dianahotelguadiana@gmail.com", pass: "1234", name: "Diana", role: "Comercial" },
+                        { email: "ssanchez@hotelguadiana.es", pass: "1234", name: "Sergio", role: "Dirección" },
+                        { email: "osanchez@hotelguadiana.es", pass: "1234", name: "Oscar", role: "Dirección" },
+                        { email: "comunicaciones@hotelguadiana.es", pass: "1234", name: "Natalio", role: "Administrador" }
+                    ]
                 },
                 common: {
                     services: [
@@ -172,14 +178,20 @@
                 db.collection("settings").doc("main").get().then(doc => {
                     if (doc.exists) {
                         const data = doc.data();
-                        setConfig(prev => ({
-                            ...prev,
-                            ...data,
-                            system: {
-                                ...prev.system,
-                                ...(data.system || {})
-                            }
-                        }));
+                        setConfig(prev => {
+                            const cloudUsers = (data.system && Array.isArray(data.system.users) && data.system.users.length > 0)
+                                ? data.system.users
+                                : prev.system.users;
+                            return {
+                                ...prev,
+                                ...data,
+                                system: {
+                                    ...prev.system,
+                                    ...(data.system || {}),
+                                    users: cloudUsers
+                                }
+                            };
+                        });
                     }
                 });
                 // Lucide se maneja ahora a través del componente LucideIcon
@@ -704,6 +716,54 @@
                                             <div className="p-6 bg-slate-900 rounded-3xl text-white flex flex-col justify-center">
                                                 <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Backup Cloud</p>
                                                 <p className="text-xs opacity-70 leading-relaxed">Los cambios se guardan automáticamente en tu servidor Firestore de nivel industrial.</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Usuarios Autorizados NexusGroups */}
+                                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                                        <LucideIcon name="users" size={16} className="text-[#2d5a43]" />
+                                                        Usuarios Autorizados NexusGroups
+                                                    </h4>
+                                                    <p className="text-[11px] text-slate-400">Cuentas con acceso a la plataforma.</p>
+                                                </div>
+                                                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                                    {(config.system.users || []).length} Usuarios
+                                                </span>
+                                            </div>
+
+                                            <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
+                                                {(config.system.users || []).map((u, uIdx) => (
+                                                    <div key={uIdx} className="p-3.5 bg-white hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2d5a43] to-emerald-500 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                                                                {(u.name || 'U').charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span className="text-xs font-bold text-slate-800">{u.name}</span>
+                                                                    <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{u.role}</span>
+                                                                </div>
+                                                                <span className="text-[11px] text-slate-400 block truncate">{u.email}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Clave:</span>
+                                                            <input
+                                                                type="text"
+                                                                value={u.pass || "1234"}
+                                                                onChange={(e) => {
+                                                                    const nextUsers = [...(config.system.users || [])];
+                                                                    nextUsers[uIdx] = { ...u, pass: e.target.value };
+                                                                    handleChange('system', 'users', nextUsers);
+                                                                }}
+                                                                className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 text-center focus:border-[#2d5a43] outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>

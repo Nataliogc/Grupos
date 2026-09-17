@@ -168,7 +168,28 @@ var App = function App() {
         pin: "1234",
         geminiModel: "gemini-2.4-flash",
         iaStatus: "Online",
-        commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"]
+        commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"],
+        users: [{
+          email: "dianahotelguadiana@gmail.com",
+          pass: "1234",
+          name: "Diana",
+          role: "Comercial"
+        }, {
+          email: "ssanchez@hotelguadiana.es",
+          pass: "1234",
+          name: "Sergio",
+          role: "Dirección"
+        }, {
+          email: "osanchez@hotelguadiana.es",
+          pass: "1234",
+          name: "Oscar",
+          role: "Dirección"
+        }, {
+          email: "comunicaciones@hotelguadiana.es",
+          pass: "1234",
+          name: "Natalio",
+          role: "Administrador"
+        }]
       },
       common: {
         services: [{
@@ -249,8 +270,11 @@ var App = function App() {
       if (doc.exists) {
         var data = doc.data();
         setConfig(function (prev) {
+          var cloudUsers = data.system && Array.isArray(data.system.users) && data.system.users.length > 0 ? data.system.users : prev.system.users;
           return _objectSpread(_objectSpread(_objectSpread({}, prev), data), {}, {
-            system: _objectSpread(_objectSpread({}, prev.system), data.system || {})
+            system: _objectSpread(_objectSpread(_objectSpread({}, prev.system), data.system || {}), {}, {
+              users: cloudUsers
+            })
           });
         });
       }
@@ -932,7 +956,57 @@ var App = function App() {
     className: "text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1"
   }, "Backup Cloud"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs opacity-70 leading-relaxed"
-  }, "Los cambios se guardan autom\xE1ticamente en tu servidor Firestore de nivel industrial.")))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "Los cambios se guardan autom\xE1ticamente en tu servidor Firestore de nivel industrial."))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+    className: "font-bold text-slate-800 text-sm flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "users",
+    size: 16,
+    className: "text-[#2d5a43]"
+  }), "Usuarios Autorizados NexusGroups"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-400"
+  }, "Cuentas con acceso a la plataforma.")), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200"
+  }, (config.system.users || []).length, " Usuarios")), /*#__PURE__*/React.createElement("div", {
+    className: "divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden"
+  }, (config.system.users || []).map(function (u, uIdx) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: uIdx,
+      className: "p-3.5 bg-white hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3 min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2d5a43] to-emerald-500 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0"
+    }, (u.name || 'U').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 flex-wrap"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs font-bold text-slate-800"
+    }, u.name), /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
+    }, u.role)), /*#__PURE__*/React.createElement("span", {
+      className: "text-[11px] text-slate-400 block truncate"
+    }, u.email))), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-2 shrink-0"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] font-bold text-slate-400 uppercase tracking-widest"
+    }, "Clave:"), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: u.pass || "1234",
+      onChange: function onChange(e) {
+        var nextUsers = _toConsumableArray(config.system.users || []);
+        nextUsers[uIdx] = _objectSpread(_objectSpread({}, u), {}, {
+          pass: e.target.value
+        });
+        handleChange('system', 'users', nextUsers);
+      },
+      className: "w-20 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 text-center focus:border-[#2d5a43] outline-none"
+    })));
+  })))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "space-y-6"
