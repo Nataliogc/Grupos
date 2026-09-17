@@ -8808,30 +8808,18 @@
 
 
 
-      // State for Room Manager Form
-
       const [roomManagerForm, setRoomManagerForm] = useState({
-
         hotel: "",
-
         type: "Habitación Doble (DBL)",
-
         dateIn: "",
-
         dateOut: "",
-
         qty: 1,
-
         pax: 2,
-
         regime: "HD",
-
         price: 0,
-
         iva: 10,
-
         isService: false,
-
+        isGratuity: false,
       });
 
       const [editingId, setEditingId] = useState(null);
@@ -10132,6 +10120,10 @@
 
         // --- Generación de Items (Desglosados o Únicos) ---
         let itemsToAdd = [];
+        const isGrat = Boolean(roomManagerForm.isGratuity);
+        const formPrice = isGrat ? 0 : parseNum(roomManagerForm.price);
+        const formPriceStr = formPrice.toFixed(2);
+
         if (!roomManagerForm.isService && nights > 1) {
           // Desglose diario
           for (let i = 0; i < nights; i++) {
@@ -10166,7 +10158,7 @@
 
               regime: roomManagerForm.regime,
 
-              price: parseNum(roomManagerForm.price),
+              price: formPrice,
 
               iva: parseInt(roomManagerForm.iva || 10),
 
@@ -10174,21 +10166,23 @@
 
               isService: false,
 
+              isGratuity: isGrat,
+
               itemCategory: "accommodation",
 
               isAccommodation: true,
 
               total: (
 
-                parseNum(roomManagerForm.price) *
+                formPrice *
 
                 parseInt(roomManagerForm.qty)
 
               ).toFixed(2),
 
-              comision: calculateDefaultCommission(
+              comision: isGrat ? "0.00" : calculateDefaultCommission(
 
-                roomManagerForm.price,
+                formPrice,
 
                 roomManagerForm.regime,
 
@@ -10230,13 +10224,15 @@
 
             regime: roomManagerForm.isService ? "" : roomManagerForm.regime,
 
-            price: parseNum(roomManagerForm.price),
+            price: formPrice,
 
             iva: parseInt(roomManagerForm.iva || 10),
 
             nights: nights,
 
             isService: roomManagerForm.isService,
+
+            isGratuity: isGrat,
 
             itemCategory: roomManagerForm.isService ? "service" : "accommodation",
 
@@ -10247,47 +10243,17 @@
               : undefined,
 
             total: (
-
-              parseNum(roomManagerForm.price) *
-
+              formPrice *
               parseInt(roomManagerForm.qty) *
-
               nights
-
             ).toFixed(2),
-
-            comision: (editingId && !Array.isArray(editingId))
-
-              ? currentList.find((i) => String(i.id) === String(editingId))?.comision ||
-
-              calculateDefaultCommission(
-
-                roomManagerForm.price,
-
-                roomManagerForm.isService ? "" : roomManagerForm.regime,
-
-                roomManagerForm.qty,
-
-                nights,
-
-                roomManagerForm.type,
-
-              )
-
-              : calculateDefaultCommission(
-
-                roomManagerForm.price,
-
-                roomManagerForm.isService ? "" : roomManagerForm.regime,
-
-                roomManagerForm.qty,
-
-                nights,
-
-                roomManagerForm.type,
-
-              ),
-
+            comision: isGrat ? "0.00" : calculateDefaultCommission(
+              formPrice,
+              roomManagerForm.isService ? "" : roomManagerForm.regime,
+              roomManagerForm.qty,
+              nights,
+              roomManagerForm.type,
+            ),
           });
 
         }
@@ -10508,6 +10474,26 @@
                 nights,
                 r.type
               );
+            } else if (field === "isGratuity") {
+              const shouldBeGrat = Boolean(rawValue);
+              r.isGratuity = shouldBeGrat;
+              if (shouldBeGrat) {
+                r.price = "0.00";
+                r.total = "0.00";
+                r.comision = "0.00";
+                const curType = String(r.type || r.roomType || "HABITACIÓN").trim();
+                const upper = curType.toUpperCase();
+                if (!upper.includes("GRATUIDAD") && !upper.includes("SIN CARGO") && !upper.includes("GRATIS")) {
+                  r.type = `${curType} (GRATUIDAD)`;
+                }
+              } else {
+                let curType = String(r.type || r.roomType || "HABITACIÓN").trim();
+                curType = curType
+                  .replace(/\s*\((GRATUIDAD|GRATIS|SIN CARGO|CORTESÍA|CORTESIA)\)/gi, '')
+                  .replace(/\s*\/\s*(GRATUIDAD|GRATIS|SIN CARGO|CORTESÍA|CORTESIA)/gi, '')
+                  .trim();
+                r.type = curType;
+              }
             } else if (field === "hotel") {
               r.hotel = rawValue;
             } else if (field === "dateIn") {
@@ -10750,8 +10736,10 @@
         let zeroPriceDays = [];
         Object.entries(dayMap).forEach(([d, items]) => {
           items.forEach((item) => {
-            const t = String(item.type || "").toUpperCase();
-            const isGrat = t.includes("GRATUIDAD") || t.includes("GRATUITA") || t.includes("GRATUITO") || t.includes("GRATIS") || t.includes("SIN CARGO") || t.includes("SIN COSTE") || t.includes("CORTES") || t.includes("INVITAC") || t.includes("FREE") || Boolean(item.isGratuity);
+            const t = String(item.type || item.roomType || item.product || item.concept || "").toUpperCase();
+            const isGrat = Boolean(item.isGratuity) || item.isGratuity === "true" || item.isFree === true || item.esGratuidad === true ||
+              t.includes("GRATUIDAD") || t.includes("GRATUITA") || t.includes("GRATUITO") || t.includes("GRATIS") ||
+              t.includes("SIN CARGO") || t.includes("SIN COSTE") || t.includes("CORTES") || t.includes("INVITAC") || t.includes("FREE");
             const p = parseFloat(item.price) || 0;
             if (!isGrat && p === 0) {
               zeroPriceCount++;
@@ -10769,7 +10757,7 @@
           Object.entries(dayMap).forEach(([d, items]) => {
             let dayPax = 0;
             items.forEach((item) => {
-              const t = String(item.type || "").toUpperCase();
+              const t = String(item.type || item.roomType || item.product || item.concept || "").toUpperCase();
               const qty = parseInt(item.qty, 10) || 1;
               if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) dayPax += qty * 1;
               else if (t.includes("DBL") || t.includes("DOBLE") || t.includes("TWIN")) dayPax += qty * 2;
@@ -10778,8 +10766,11 @@
               else dayPax += qty * 2;
             });
             const isGratPax = (it) => {
-              const itUpper = String(it.type || "").toUpperCase();
-              return itUpper.includes("GRATUIDAD") || itUpper.includes("GRATUITA") || itUpper.includes("GRATIS") || itUpper.includes("SIN CARGO") || itUpper.includes("SIN COSTE") || itUpper.includes("CORTES") || itUpper.includes("INVITAC") || Boolean(it.isGratuity) || parseFloat(it.price) === 0;
+              const itUpper = String(it.type || it.roomType || it.product || it.concept || "").toUpperCase();
+              return Boolean(it.isGratuity) || it.isGratuity === "true" || it.isFree === true || it.esGratuidad === true ||
+                itUpper.includes("GRATUIDAD") || itUpper.includes("GRATUITA") || itUpper.includes("GRATUITO") || itUpper.includes("GRATIS") ||
+                itUpper.includes("SIN CARGO") || itUpper.includes("SIN COSTE") || itUpper.includes("CORTES") || itUpper.includes("INVITAC") ||
+                itUpper.includes("FREE") || parseFloat(it.price) === 0;
             };
             let dayFreePax = 0;
             items.forEach((item) => {
@@ -19925,9 +19916,9 @@
 
                                 <div className="w-14">
 
-                                  <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center">
+                                  <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center" title="Marcar si es un servicio adicional en lugar de alojamiento">
 
-                                    IA
+                                    Servicio
 
                                   </label>
 
@@ -19957,6 +19948,28 @@
 
                                   </div>
 
+                                </div>
+
+                                {/* Gratuity Toggle */}
+                                <div className="w-16">
+                                  <label className="block text-[9px] font-black text-slate-400 uppercase mb-1 ml-1 text-center" title="Marcar como habitación o servicio gratuito (0,00 €)">
+                                    🎁 Gratis
+                                  </label>
+                                  <div className="flex h-9 items-center justify-center bg-slate-50 border border-slate-200 rounded-lg">
+                                    <input
+                                      type="checkbox"
+                                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                      checked={!!roomManagerForm.isGratuity}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setRoomManagerForm((prev) => ({
+                                          ...prev,
+                                          isGratuity: checked,
+                                          price: checked ? 0 : prev.price,
+                                        }));
+                                      }}
+                                    />
+                                  </div>
                                 </div>
 
                                 {!roomManagerForm.isService && (
@@ -20824,6 +20837,30 @@
                                             >
                                               {item.isService ? "🍽️ Serv" : "🏨 Hab"}
                                             </button>
+                                             {(() => {
+                                               const t = String(item.type || item.roomType || "").toUpperCase();
+                                               const isItemGrat = Boolean(item.isGratuity) || item.isGratuity === "true" || item.isFree === true ||
+                                                 t.includes("GRATUIDAD") || t.includes("GRATUITA") || t.includes("GRATUITO") || t.includes("GRATIS") ||
+                                                 t.includes("SIN CARGO") || t.includes("SIN COSTE") || t.includes("CORTES") || t.includes("INVITAC") || t.includes("FREE");
+                                               return (
+                                                 <button
+                                                   type="button"
+                                                   onClick={(e) => {
+                                                     e.stopPropagation();
+                                                     handleInlineRoomItemUpdate(item, "isGratuity", !isItemGrat);
+                                                   }}
+                                                   className={`text-[9px] font-black px-1.5 py-0.5 rounded border transition-all shrink-0 cursor-pointer flex items-center gap-0.5 ${
+                                                     isItemGrat
+                                                       ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-2xs font-bold"
+                                                       : "bg-slate-50 text-slate-400 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+                                                   }`}
+                                                   title={isItemGrat ? "Es gratuidad oficial (clic para cambiar a habitación de pago)" : "Clic para marcar como gratuidad (sin cargo, 0,00 €)"}
+                                                 >
+                                                   <span>🎁</span>
+                                                   <span>{isItemGrat ? "Gratis" : "Pago"}</span>
+                                                 </button>
+                                               );
+                                             })()}
                                             <input
                                               type="text"
                                               list="room-types-list"
