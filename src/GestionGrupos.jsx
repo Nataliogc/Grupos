@@ -19420,7 +19420,8 @@
                             const displayTotal = effectiveTotal || contractedImporte || 0;
 
                             return (
-                              <div className="mt-4 rounded-2xl border overflow-hidden shadow-sm">
+                              <React.Fragment>
+                                <div className="mt-4 rounded-2xl border overflow-hidden shadow-sm">
                                 {/* Cabecera del Panel */}
                                 <div className={`flex items-center justify-between px-4 py-2.5 ${isHealthy ? "bg-emerald-50 border-b border-emerald-100" : "bg-amber-50 border-b border-amber-100"}`}>
                                   <div className="flex items-center gap-2">
@@ -19551,29 +19552,30 @@
                                       </div>
                                     ))}
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })()}
+                                  )}
+                                </div>
 
-                          {/* GESTOR DE HABITACIONES & INVENTARIO (REDISEÑADO) */}
-                          {(() => {
-                            if (!health.acceptedDifferences || !health.acceptedDifferences.length) return null;
-                            return <details className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-xs group transition-all">
-                              <summary className="font-bold cursor-pointer hover:text-blue-700 outline-none list-none flex items-center justify-between">
-                                <span>Diferencias aceptadas · Historial ({health.acceptedDifferences.length})</span>
-                                <svg className="w-4 h-4 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                </svg>
-                              </summary>
-                              <div className="mt-2 border-t border-blue-200/50 pt-2">
-                                <p className="text-slate-600 mb-2">Cada aceptación solo se aplica mientras se mantengan los datos de esa diferencia.</p>
-                                {health.acceptedDifferences.map((entry, idx) => <div key={entry.acceptanceKey || idx} className="flex justify-between items-center gap-3 mt-2">
-                                  <span>{entry.message} · {new Date(entry.acceptedAt).toLocaleString('es-ES')}</span>
-                                  <button type="button" className="font-bold underline text-blue-600 hover:text-blue-800" onClick={() => setDifferenceAccepted(entry, false)}>Revocar aceptación</button>
-                                </div>)}
-                              </div>
-                            </details>;
+                                {health.acceptedDifferences && health.acceptedDifferences.length > 0 && (
+                                  <details className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-xs group transition-all">
+                                    <summary className="font-bold cursor-pointer hover:text-blue-700 outline-none list-none flex items-center justify-between">
+                                      <span>Diferencias aceptadas · Historial ({health.acceptedDifferences.length})</span>
+                                      <svg className="w-4 h-4 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      </svg>
+                                    </summary>
+                                    <div className="mt-2 border-t border-blue-200/50 pt-2">
+                                      <p className="text-slate-600 mb-2">Cada aceptación solo se aplica mientras se mantengan los datos de esa diferencia.</p>
+                                      {health.acceptedDifferences.map((entry, idx) => (
+                                        <div key={entry.acceptanceKey || idx} className="flex justify-between items-center gap-3 mt-2">
+                                          <span>{entry.message} · {new Date(entry.acceptedAt).toLocaleString('es-ES')}</span>
+                                          <button type="button" className="font-bold underline text-blue-600 hover:text-blue-800" onClick={() => setDifferenceAccepted(entry, false)}>Revocar aceptación</button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                )}
+                              </React.Fragment>
+                            );
                           })()}
 
                           <div ref={syncChargesRef} tabIndex={-1} className={`bg-slate-50/80 p-4 rounded-xl border border-slate-200 shadow-sm mt-4 backdrop-blur-sm relative overflow-hidden ${highlightSyncCharges ? 'ring-2 ring-amber-400' : ''}`}>
