@@ -10940,6 +10940,17 @@
               }
             });
             occReasons.forEach(r => {
+              const isAmountReason = /importe/i.test(r) || /precio/i.test(r) || /€/.test(r);
+              const isRegimenReason = /régimen|regimen/i.test(r);
+              const isPaxReason = /pax/i.test(r);
+              const isDatesReason = /fecha/i.test(r);
+
+              // Si ya no existe la diferencia (o coincide), o si ya está cubierta por incidencias A/B/C/D, no duplicar ni generar falso error
+              if (isAmountReason && (hasTotalMatch || hasLodgingMatch || issues.some(i => i.type === "excel_amount_mismatch"))) return;
+              if (isRegimenReason && (!normExcelReg || normFichaReg === normExcelReg || warnings.some(w => w.type === "excel_regimen_mismatch"))) return;
+              if (isPaxReason && (excelPax <= 0 || issues.some(i => i.type === "excel_pax_mismatch") || warnings.some(w => w.type === "excel_pax_mismatch"))) return;
+              if (isDatesReason && (!excelIn || !excelOut || (excelIn === inD && excelOut === outD) || issues.some(i => i.type === "excel_dates_mismatch"))) return;
+
               if (!issues.some(i => i.message.includes(r)) && !warnings.some(w => w.message.includes(r))) {
                 warnings.push({ type: "excel_diff_reason", message: `Diferencia con Excel: ${r}` });
               }
@@ -10959,19 +10970,58 @@
 
         let approvals = {};
         try { approvals = JSON.parse(record.AcceptedDifferences_JSON || '{}'); } catch (e) {}
+
+        const getDifferenceCategory = (entry) => {
+          const t = entry?.type || "";
+          const msg = entry?.message || "";
+          if (t === "excel_amount_mismatch" || t === "amount_mismatch" || /importe/i.test(msg) || /descuadre.*excel.*alojamiento/i.test(msg)) {
+            return "excel_amount_mismatch";
+          }
+          if (t === "excel_regimen_mismatch" || /régimen|regimen/i.test(msg)) {
+            return "excel_regimen_mismatch";
+          }
+          if (t === "excel_pax_mismatch" || t === "pax_mismatch" || /pax/i.test(msg)) {
+            return "excel_pax_mismatch";
+          }
+          if (t === "excel_dates_mismatch" || t === "dates_mismatch" || /fecha/i.test(msg)) {
+            return "excel_dates_mismatch";
+          }
+          return t || msg;
+        };
+
+        const isDifferenceApproved = (entry) => {
+          const cat = getDifferenceCategory(entry);
+          if (approvals[cat]) return approvals[cat];
+          if (entry.acceptanceKey && approvals[entry.acceptanceKey]) return approvals[entry.acceptanceKey];
+          for (const [k, v] of Object.entries(approvals)) {
+            if (k === cat || k === entry.type || v?.category === cat || v?.type === entry.type) return v;
+            try {
+              const p = JSON.parse(k);
+              if (p.type === entry.type || getDifferenceCategory(p) === cat) return v;
+            } catch (e) {}
+          }
+          return null;
+        };
+
         const acceptedDifferences = [];
         const remaining = entries => entries.filter(entry => {
-          entry.acceptanceKey = JSON.stringify(entry);
-          if (approvals[entry.acceptanceKey]) {
-            acceptedDifferences.push({ ...entry, acceptedAt: approvals[entry.acceptanceKey].acceptedAt });
+          const cat = getDifferenceCategory(entry);
+          entry.acceptanceKey = cat;
+          const approval = isDifferenceApproved(entry);
+          if (approval) {
+            acceptedDifferences.push({ ...entry, acceptedAt: approval.acceptedAt || new Date().toISOString() });
             return false;
           }
           return true;
         });
+
+        const isAmountAccepted = Boolean(approvals["excel_amount_mismatch"] || isDifferenceApproved({ type: "excel_amount_mismatch" }));
+
         return {
           issues: remaining(issues),
           warnings: remaining(warnings),
           acceptedDifferences,
+          isAmountAccepted,
           contractedImporte,
           effectiveTotal,
           roomingTotal,
@@ -10990,11 +11040,56 @@
 
       // ─── SINCRONIZACIÓN AUTOMÁTICA FICHA → DISTRIBUCIÓN DIARIA ───────────────
       const setDifferenceAccepted = (difference, accepted) => {
-        if (!selectedGroupFicha || !difference.acceptanceKey) return;
+        if (!selectedGroupFicha) return;
         let approvals = {};
         try { approvals = JSON.parse(selectedGroupFicha.records[0]?.AcceptedDifferences_JSON || '{}'); } catch (e) {}
-        if (accepted) approvals[difference.acceptanceKey] = { acceptedAt: new Date().toISOString(), message: difference.message };
-        else delete approvals[difference.acceptanceKey];
+
+        const getDifferenceCategory = (entry) => {
+          const t = entry?.type || "";
+          const msg = entry?.message || "";
+          if (t === "excel_amount_mismatch" || t === "amount_mismatch" || /importe/i.test(msg) || /descuadre.*excel.*alojamiento/i.test(msg)) {
+            return "excel_amount_mismatch";
+          }
+          if (t === "excel_regimen_mismatch" || /régimen|regimen/i.test(msg)) {
+            return "excel_regimen_mismatch";
+          }
+          if (t === "excel_pax_mismatch" || t === "pax_mismatch" || /pax/i.test(msg)) {
+            return "excel_pax_mismatch";
+          }
+          if (t === "excel_dates_mismatch" || t === "dates_mismatch" || /fecha/i.test(msg)) {
+            return "excel_dates_mismatch";
+          }
+          return t || msg;
+        };
+
+        const cat = difference.acceptanceKey || getDifferenceCategory(difference);
+
+        if (accepted) {
+          approvals[cat] = {
+            acceptedAt: new Date().toISOString(),
+            message: difference.message,
+            type: difference.type,
+            category: cat
+          };
+          if (difference.acceptanceKey && difference.acceptanceKey !== cat) {
+            approvals[difference.acceptanceKey] = approvals[cat];
+          }
+        } else {
+          delete approvals[cat];
+          if (difference.acceptanceKey) delete approvals[difference.acceptanceKey];
+          Object.keys(approvals).forEach(k => {
+            if (k === cat || approvals[k]?.category === cat || approvals[k]?.type === difference.type) {
+              delete approvals[k];
+            } else {
+              try {
+                const parsed = JSON.parse(k);
+                if (parsed.type === difference.type || getDifferenceCategory(parsed) === cat) {
+                  delete approvals[k];
+                }
+              } catch (e) {}
+            }
+          });
+        }
         updateGroupMetadata(selectedGroupFicha.id, { AcceptedDifferences_JSON: JSON.stringify(approvals) });
       };
 
@@ -19275,7 +19370,9 @@
                                       {!isBudget && excelAmount > 0 && Math.abs((lodgingTotal || displayTotal) - excelAmount) > 0.50 ? (
                                         <div className="flex flex-col items-center leading-tight">
                                           <span className="text-slate-800">{displayTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
-                                          <span className="text-[9px] font-bold text-red-600">(Excel: {excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)</span>
+                                          <span className={`text-[9px] font-bold ${health.isAmountAccepted ? "text-emerald-600" : "text-red-600"}`}>
+                                            (Excel: {excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €{health.isAmountAccepted ? " · Aceptado" : ""})
+                                          </span>
                                         </div>
                                       ) : (servicesTotal > 0 && excelAmount > 0) ? (
                                         <div className="flex flex-col items-center leading-tight">
@@ -19365,21 +19462,19 @@
 
                           {/* GESTOR DE HABITACIONES & INVENTARIO (REDISEÑADO) */}
                           {(() => {
-                            let approvals = {};
-                            try { approvals = JSON.parse(selectedGroupFicha.records[0]?.AcceptedDifferences_JSON || '{}'); } catch (e) {}
-                            if (!Object.keys(approvals).length) return null;
+                            if (!health.acceptedDifferences || !health.acceptedDifferences.length) return null;
                             return <details className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-xs group transition-all">
                               <summary className="font-bold cursor-pointer hover:text-blue-700 outline-none list-none flex items-center justify-between">
-                                <span>Diferencias aceptadas · Historial ({Object.keys(approvals).length})</span>
+                                <span>Diferencias aceptadas · Historial ({health.acceptedDifferences.length})</span>
                                 <svg className="w-4 h-4 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                                 </svg>
                               </summary>
                               <div className="mt-2 border-t border-blue-200/50 pt-2">
                                 <p className="text-slate-600 mb-2">Cada aceptación solo se aplica mientras se mantengan los datos de esa diferencia.</p>
-                                {Object.entries(approvals).map(([key, entry]) => <div key={key} className="flex justify-between items-center gap-3 mt-2">
+                                {health.acceptedDifferences.map((entry, idx) => <div key={entry.acceptanceKey || idx} className="flex justify-between items-center gap-3 mt-2">
                                   <span>{entry.message} · {new Date(entry.acceptedAt).toLocaleString('es-ES')}</span>
-                                  <button type="button" className="font-bold underline text-blue-600 hover:text-blue-800" onClick={() => setDifferenceAccepted({ acceptanceKey: key }, false)}>Revocar aceptación</button>
+                                  <button type="button" className="font-bold underline text-blue-600 hover:text-blue-800" onClick={() => setDifferenceAccepted(entry, false)}>Revocar aceptación</button>
                                 </div>)}
                               </div>
                             </details>;

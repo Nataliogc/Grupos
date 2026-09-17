@@ -505,7 +505,8 @@
           importe: line["Importe"] || line["Importe(*)"] || line["importe"] || line["importeTotal"] || line["ImporteTotal"] || 0,
           descripcion: line["Descripción"] || line["Descripcion"],
           cant: line["Cant."] || line["Cant"],
-          roomingList: line["RoomingList_JSON"] || line["roomingList"] || null
+          roomingList: line["RoomingList_JSON"] || line["roomingList"] || null,
+          acceptedDifferences: line["AcceptedDifferences_JSON"] || line["acceptedDifferences"] || null
         });
       });
     });
@@ -798,9 +799,35 @@
 
       var hasExcelDiff = false;
       var excelDiffReasons = [];
+
+      // Comprobar si el grupo tiene aceptadas las diferencias en su registro
+      var acceptedApprovals = {};
+      (entry.contributingLines || []).forEach(function (cl) {
+        if (cl.acceptedDifferences) {
+          try {
+            var parsedAcc = typeof cl.acceptedDifferences === "string" ? JSON.parse(cl.acceptedDifferences) : cl.acceptedDifferences;
+            if (parsedAcc && typeof parsedAcc === "object") {
+              Object.assign(acceptedApprovals, parsedAcc);
+            }
+          } catch(e) {}
+        }
+      });
+      var isRegimenAccepted = Boolean(
+        acceptedApprovals["excel_regimen_mismatch"] ||
+        Object.values(acceptedApprovals).some(function(v){
+          return v && (v.category === "excel_regimen_mismatch" || v.type === "excel_regimen_mismatch");
+        })
+      );
+      var isAmountAccepted = Boolean(
+        acceptedApprovals["excel_amount_mismatch"] ||
+        Object.values(acceptedApprovals).some(function(v){
+          return v && (v.category === "excel_amount_mismatch" || v.type === "excel_amount_mismatch");
+        })
+      );
+
       var normFichaReg = normalizeRegimenLocal(foundRoomingReg || finalRegimen);
       var normExcelReg = normalizeRegimenLocal(excelRegimen);
-      if (normFichaReg && normExcelReg && normFichaReg !== normExcelReg) {
+      if (normFichaReg && normExcelReg && normFichaReg !== normExcelReg && !isRegimenAccepted) {
         hasExcelDiff = true;
         excelDiffReasons.push("Régimen: Ficha (" + (foundRoomingReg || finalRegimen) + ") vs Excel (" + excelRegimen + ")");
       }
@@ -860,13 +887,13 @@
           var lodgingDiff = Math.abs(totalStayLodgingSum - totalStayExcelSum);
           var totalDiff = Math.abs(totalStayRoomingSum - totalStayExcelSum);
           // Solo marcar diferencia con Excel si NI el alojamiento NI el total cuadran con Excel
-          if (lodgingDiff > 1.0 && totalDiff > 1.0) {
+          if (lodgingDiff > 1.0 && totalDiff > 1.0 && !isAmountAccepted) {
             hasExcelDiff = true;
             excelDiffReasons.push("Importe reserva: Ficha (" + (totalStayLodgingSum > 0 ? totalStayLodgingSum.toFixed(2) : totalStayRoomingSum.toFixed(2)) + " €) vs Excel (" + totalStayExcelSum.toFixed(2) + " €)");
           }
         } else {
           var diffAmt = Math.abs(roomingDaySum - excelDayAmount);
-          if (diffAmt > 1.0) {
+          if (diffAmt > 1.0 && !isAmountAccepted) {
             hasExcelDiff = true;
             excelDiffReasons.push("Importe día: Ficha (" + roomingDaySum.toFixed(2) + " €) vs Excel (" + excelDayAmount.toFixed(2) + " €)");
           }
