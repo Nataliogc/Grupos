@@ -5167,24 +5167,31 @@
 
           // Fechas a las que aplica esta distribución
           const targetDates = new Set();
+          const contractIn = matchingRows.map(r => toInputDate(r["Entrada"])).filter(Boolean).sort()[0];
+          const contractOut = matchingRows.map(r => toInputDate(r["Salida"])).filter(Boolean).sort().reverse()[0];
+
           if (editingDistribution.applyToAllHomogeneous) {
             const normTargetRes = normalizeId(editingDistribution.reserva);
             const targetPaxNum = parseInt(editingDistribution.pax, 10) || 0;
 
-            // a. Fechas desde dailyOccupancyList que coincidan con la reserva
+            // a. Fechas desde dailyOccupancyList que coincidan con la reserva (solo dentro de estancia)
             (dailyOccupancyList || []).forEach((d) => {
               if (normalizeId(d.reserva) === normTargetRes) {
                 const dPaxNum = parseInt(d.pax, 10) || 0;
                 if (targetPaxNum <= 0 || dPaxNum <= 0 || dPaxNum === targetPaxNum) {
-                  targetDates.add(d.fecha);
+                  if (!contractIn || !contractOut || (d.fecha >= contractIn && d.fecha < contractOut)) {
+                    targetDates.add(d.fecha);
+                  }
                 }
               }
             });
 
-            // b. Fechas presentes en el RoomingList actual de la reserva
+            // b. Fechas presentes en el RoomingList actual de la reserva (solo dentro de estancia)
             existingRooming.forEach((rm) => {
               const f = toInputDate(rm.dateIn || rm.date);
-              if (f) targetDates.add(f);
+              if (f && (!contractIn || !contractOut || (f >= contractIn && f < contractOut))) {
+                targetDates.add(f);
+              }
             });
 
             // c. Fechas desde matchingRows (rango Entrada - Salida)
@@ -5209,7 +5216,18 @@
             });
           }
           if (editingDistribution.fecha) {
-            targetDates.add(editingDistribution.fecha);
+            if (!contractIn || !contractOut || (editingDistribution.fecha >= contractIn && editingDistribution.fecha < contractOut)) {
+              targetDates.add(editingDistribution.fecha);
+            }
+          }
+
+          // Limpiar de existingDistMap cualquier clave huérfana fuera de estancia
+          if (contractIn && contractOut) {
+            Object.keys(existingDistMap).forEach((k) => {
+              if (k < contractIn || k >= contractOut) {
+                delete existingDistMap[k];
+              }
+            });
           }
 
           // Replicar en existingDistMap para todas las fechas destino
@@ -5287,6 +5305,7 @@
                 const keptItems = expandedExisting.filter((item) => {
                   if (item.isService) return true;
                   const iDate = toInputDate(item.dateIn || item.date);
+                  if (contractIn && contractOut && (iDate < contractIn || iDate >= contractOut)) return false;
                   return iDate && !targetDates.has(iDate);
                 });
 
@@ -9029,10 +9048,17 @@
               
               const startDate = dates[0];
               const endDate = dates[dates.length - 1];
-              const dStart = new Date(startDate);
-              const dEnd = new Date(endDate);
-              dEnd.setDate(dEnd.getDate() + 1);
-              const nextDateStr = !isNaN(dEnd.getTime()) ? dEnd.toISOString().split("T")[0] : startDate;
+              const addDaysSafe = (dateStr, days) => {
+                try {
+                  const [y, m, d] = (dateStr || "").split("-").map(Number);
+                  if (y && m && d) {
+                    const dt = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
+                    return dt.toISOString().split("T")[0];
+                  }
+                } catch (e) {}
+                return dateStr;
+              };
+              const nextDateStr = addDaysSafe(endDate, 1);
               const totalDays = dates.length;
 
               const config = group.dailyConfig[startDate];
@@ -9266,8 +9292,12 @@
                   if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
                     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
                     const segHotel = normalizeHotelNameLocal(seg.hotel, "Sercotel Guadiana");
-                    const dateInIso = start.toISOString().split("T")[0];
-                    const dateOutIso = end.toISOString().split("T")[0];
+                    const toIsoSafe = (dObj) => {
+                      if (!dObj || isNaN(dObj.getTime())) return "";
+                      return `${dObj.getUTCFullYear()}-${String(dObj.getUTCMonth() + 1).padStart(2, "0")}-${String(dObj.getUTCDate()).padStart(2, "0")}`;
+                    };
+                    const dateInIso = toIsoSafe(start);
+                    const dateOutIso = toIsoSafe(end);
 
                     if (foundDistribution) {
                       // Usar la distribución real validada (ej. 5 Ind, 17 Dbl, 1 Tpl = 23 Hab)
@@ -9286,17 +9316,16 @@
                         { type: "CUÁDRUPLE", count: cua, paxPerRoom: 4 }
                       ].filter(c => c.count > 0);
 
+                      const addDaysIso = (baseIso, offset) => {
+                        const [y, m, d] = baseIso.split("-").map(Number);
+                        const dt = new Date(Date.UTC(y, m - 1, d + offset, 12, 0, 0));
+                        return dt.toISOString().split("T")[0];
+                      };
+
                       let runningTotal = 0;
                       for (let dayIdx = 0; dayIdx < totalDays; dayIdx++) {
-                        let curIn = dateInIso;
-                        let curOut = dateOutIso;
-                        try {
-                          const d = new Date(start);
-                          d.setDate(start.getDate() + dayIdx);
-                          curIn = d.toISOString().split("T")[0];
-                          d.setDate(d.getDate() + 1);
-                          curOut = d.toISOString().split("T")[0];
-                        } catch (e) {}
+                        const curIn = addDaysIso(dateInIso, dayIdx);
+                        const curOut = addDaysIso(dateInIso, dayIdx + 1);
 
                         categories.forEach((cat) => {
                           const catPricePerRoom = Math.round(dailyPerPax * cat.paxPerRoom * 100) / 100;
@@ -10047,44 +10076,27 @@
         }
 
         let nights = parseInt(roomManagerForm.nights) || 1;
-
-        let dIn = new Date();
-
-        if (roomManagerForm.dateIn) {
-
-          dIn = new Date(toInputDate(roomManagerForm.dateIn));
-
-        }
-
         if (nights < 1) nights = 1;
 
-        // Calcular dateOut para propósitos informativos si es necesario (1 noche por defecto en dOut si no se especifica)
-
-        let dOut = new Date(dIn);
-
-        dOut.setDate(dIn.getDate() + nights);
+        const baseDateInStr = toInputDate(roomManagerForm.dateIn || currentRecord["Entrada"]);
+        const addDaysIso = (baseIso, offset) => {
+          try {
+            const [y, m, d] = (baseIso || "").split("-").map(Number);
+            if (y && m && d) {
+              const dt = new Date(Date.UTC(y, m - 1, d + offset, 12, 0, 0));
+              return dt.toISOString().split("T")[0];
+            }
+          } catch (e) {}
+          return baseIso || "";
+        };
 
         // --- Generación de Items (Desglosados o Únicos) ---
-
         let itemsToAdd = [];
-
         if (!roomManagerForm.isService && nights > 1) {
-
           // Desglose diario
-
           for (let i = 0; i < nights; i++) {
-
-            const currentDay = new Date(dIn);
-
-            currentDay.setDate(dIn.getDate() + i);
-
-            const nextDay = new Date(currentDay);
-
-            nextDay.setDate(currentDay.getDate() + 1);
-
-            const checkinStr = currentDay.toISOString().split("T")[0];
-
-            const checkoutStr = nextDay.toISOString().split("T")[0];
+            const checkinStr = addDaysIso(baseDateInStr, i);
+            const checkoutStr = addDaysIso(baseDateInStr, i + 1);
 
             itemsToAdd.push({
 
@@ -11203,6 +11215,77 @@
             text: `"${sourceItem.type}" añadido a ${newItems.length} día(s) adicional(es). Nuevo total: ${newTotal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
             timer: 2500,
             showConfirmButton: false
+          });
+        }
+      };
+
+      // ─── ELIMINAR HABITACIONES/DÍA FUERA DE ESTANCIA ─────────────────────────────
+      const handleRemoveExtraDay = async (dayToRemove) => {
+        if (!selectedGroupFicha) return;
+        const currentRecord = selectedGroupFicha?.records?.[0] || {};
+        let currentList = [];
+        try {
+          currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "remove-extra-day");
+        } catch (e) {
+          currentList = [];
+        }
+
+        // Filtrar fuera los items que pertenezcan al día fuera de estancia
+        const updatedList = currentList.filter((item) => {
+          const itemDay = toInputDate(item.dateIn || item.date);
+          return itemDay !== dayToRemove;
+        });
+
+        const newTotal = updatedList.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+
+        // Limpiar también de DailyDistribution_JSON si existe
+        let updatedDistJson = undefined;
+        try {
+          const rawDist = currentRecord["DailyDistribution_JSON"];
+          if (rawDist) {
+            const distMap = typeof rawDist === "string" ? JSON.parse(rawDist) : { ...rawDist };
+            if (distMap[dayToRemove]) {
+              delete distMap[dayToRemove];
+              updatedDistJson = JSON.stringify(distMap);
+            }
+          }
+        } catch (e) {}
+
+        const updatePayload = {
+          RoomingList_JSON: JSON.stringify(updatedList),
+          "Importe(*)": newTotal.toFixed(2),
+        };
+        if (updatedDistJson !== undefined) {
+          updatePayload["DailyDistribution_JSON"] = updatedDistJson;
+        }
+
+        // Actualizar en memoria selectedGroupFicha
+        if (selectedGroupFicha.records) {
+          selectedGroupFicha.records.forEach((r) => {
+            r["RoomingList_JSON"] = updatePayload.RoomingList_JSON;
+            if (updatedDistJson !== undefined) r["DailyDistribution_JSON"] = updatedDistJson;
+            r["Importe(*)"] = updatePayload["Importe(*)"];
+          });
+        }
+        setSelectedGroupFicha({ ...selectedGroupFicha });
+
+        await updateGroupMetadata(selectedGroupFicha.id, updatePayload);
+        setData((prev) =>
+          prev.map((row) => {
+            if (normalizeId(row["Reserva"]) === normalizeId(selectedGroupFicha.id)) {
+              return { ...row, ...updatePayload };
+            }
+            return row;
+          })
+        );
+
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: "success",
+            title: "Día eliminado",
+            text: `Se han eliminado las habitaciones del día ${dayToRemove} fuera de estancia. El importe ha sido recalculado.`,
+            timer: 2500,
+            showConfirmButton: false,
           });
         }
       };
@@ -18344,12 +18427,13 @@
                                     );
                                   })()}
 
+                                  {((
                                     selectedGroupFicha.records[0]?.[
-                                    "Reserva"
+                                      "Reserva"
                                     ] || ""
                                   )
                                     .toString()
-                                    .startsWith("PRES") && (
+                                    .startsWith("PRES")) && (
 
                                       <>
 
@@ -19423,6 +19507,16 @@
                                           <span className="flex-shrink-0 ml-auto text-[9px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded border border-red-200">
                                             {issue.diff > 0 ? "+" : ""}{issue.diff.toFixed(2)} €
                                           </span>
+                                        )}
+                                        {issue.type === "extra_day_outside_stay" && issue.day && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveExtraDay(issue.day)}
+                                            className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm transition flex items-center gap-1"
+                                            title={`Eliminar habitaciones y cargos del día ${issue.day} que no pertenece a la estancia contratada`}
+                                          >
+                                            ⚡ Eliminar día fuera de estancia
+                                          </button>
                                         )}
                                         {issue.type === "zero_price" && zeroPriceDays.length > 0 && (
                                           <button
