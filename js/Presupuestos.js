@@ -403,6 +403,8 @@ var DEFAULT_FORM_DATA = {
   Com_Estado_Interno: 'PRESUPUESTO',
   clauses: [],
   clauses_conf: [],
+  hasCustomClauses: false,
+  hasCustomClausesConf: false,
   isRatesOnly: false,
   ratesOnlyGrid: {},
   hiddenGridRows: [],
@@ -1159,6 +1161,8 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
   newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
   newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["Teléfono"] || "";
+  newData.hasCustomClauses = groupData.hasCustomClauses !== undefined ? !!groupData.hasCustomClauses : Array.isArray(groupData.clauses) && groupData.clauses.length > 0;
+  newData.hasCustomClausesConf = groupData.hasCustomClausesConf !== undefined ? !!groupData.hasCustomClausesConf : Array.isArray(groupData.clauses_conf) && groupData.clauses_conf.length > 0;
   return newData;
 };
 var calculateTotal = function calculateTotal(rawGroupData) {
@@ -1784,6 +1788,14 @@ function App() {
       });
       setGroups(docs);
       setLoading(false);
+      setSelectedGroup(function (prev) {
+        if (!prev) return null;
+        var targetId = prev.uid || prev.Reserva || prev.id;
+        var matched = docs.find(function (g) {
+          return g.uid && String(g.uid) === String(targetId) || g.Reserva && String(g.Reserva) === String(targetId);
+        });
+        return matched ? normalizeGroupData(matched) : prev;
+      });
 
       // Lógica de Deep-link (?id=XXXX)
       var urlParams = new URLSearchParams(window.location.search);
@@ -4377,137 +4389,206 @@ function App() {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
     }, "5. Cl\xE1usulas de Documentos"), /*#__PURE__*/React.createElement("p", {
       className: "text-[8px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5"
-    }, "Define las condiciones legales para este grupo"))), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-2 gap-8"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "space-y-4"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center justify-between"
-    }, /*#__PURE__*/React.createElement("h4", {
-      className: "text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-file-invoice text-indigo-400"
-    }), " Presupuesto"), /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: function onClick() {
-        var current = Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES;
-        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-          clauses: [].concat(_toConsumableArray(current), [{
-            title: "Nueva Cláusula",
-            body: ""
-          }])
-        }));
-      },
-      className: "text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
-    }, "+ A\xF1adir")), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-3"
-    }, (Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES).map(function (c, i) {
+    }, "Define las condiciones legales para este grupo"))), function () {
+      var fHotel = formData.Hotel_Asignado || formData.Hotel || "";
+      var fIsCumbria = fHotel.toLowerCase().includes("cumbria");
+      var fHotelKey = fIsCumbria ? 'cumbria' : 'guadiana';
+      var defaultBudget = globalConfig && globalConfig[fHotelKey] && Array.isArray(globalConfig[fHotelKey].clauses) && globalConfig[fHotelKey].clauses.length > 0 ? globalConfig[fHotelKey].clauses : globalConfig && globalConfig.common && Array.isArray(globalConfig.common.clauses) && globalConfig.common.clauses.length > 0 ? globalConfig.common.clauses : BUDGET_DEFAULT_CLAUSES;
+      var defaultConf = globalConfig && globalConfig[fHotelKey] && Array.isArray(globalConfig[fHotelKey].confirmationClauses) && globalConfig[fHotelKey].confirmationClauses.length > 0 ? globalConfig[fHotelKey].confirmationClauses : globalConfig && globalConfig.common && Array.isArray(globalConfig.common.confirmationClauses) && globalConfig.common.confirmationClauses.length > 0 ? globalConfig.common.confirmationClauses : CONF_DEFAULT_CLAUSES;
+      var budgetClausesList = formData.hasCustomClauses || Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses || [] : defaultBudget;
+      var confClausesList = formData.hasCustomClausesConf || Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf || [] : defaultConf;
       return /*#__PURE__*/React.createElement("div", {
-        key: i,
-        className: "bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 relative group"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "text",
-        value: c.title,
-        onChange: function onChange(e) {
-          var n = _toConsumableArray(Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES);
-          n[i].title = e.target.value;
-          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            clauses: n
-          }));
-        },
-        className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-indigo-400",
-        placeholder: "T\xEDtulo de la cl\xE1usula"
-      }), /*#__PURE__*/React.createElement("textarea", {
-        value: c.body,
-        onChange: function onChange(e) {
-          var n = _toConsumableArray(Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES);
-          n[i].body = e.target.value;
-          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            clauses: n
-          }));
-        },
-        rows: "2",
-        className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-indigo-400 resize-none font-medium",
-        placeholder: "Contenido..."
-      }), /*#__PURE__*/React.createElement("button", {
+        className: "grid grid-cols-1 md:grid-cols-2 gap-8"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "space-y-4"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-between"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("h4", {
+        className: "text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-file-invoice text-indigo-400"
+      }), " Presupuesto"), formData.hasCustomClauses ? /*#__PURE__*/React.createElement("span", {
+        className: "text-[7px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
+      }, "Personalizadas") : /*#__PURE__*/React.createElement("span", {
+        className: "text-[7px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded"
+      }, "Generales")), /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("button", {
         type: "button",
         onClick: function onClick() {
-          var n = (Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES).filter(function (_, idx) {
-            return idx !== i;
-          });
-          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            clauses: n
-          }));
+          if (window.confirm("¿Restablecer las cláusulas de presupuesto a las condiciones generales del hotel?")) {
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses: JSON.parse(JSON.stringify(defaultBudget)),
+              hasCustomClauses: false
+            }));
+          }
         },
-        className: "absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-      }, /*#__PURE__*/React.createElement("i", {
-        className: "fas fa-times text-[8px]"
-      })));
-    }))), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-4"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center justify-between"
-    }, /*#__PURE__*/React.createElement("h4", {
-      className: "text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-file-check text-emerald-500"
-    }), " Confirmaci\xF3n"), /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: function onClick() {
-        var current = Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES;
-        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-          clauses_conf: [].concat(_toConsumableArray(current), [{
-            title: "Nueva Cláusula Conf.",
-            body: ""
-          }])
-        }));
-      },
-      className: "text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
-    }, "+ A\xF1adir")), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-3"
-    }, (Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES).map(function (c, i) {
-      return /*#__PURE__*/React.createElement("div", {
-        key: i,
-        className: "bg-emerald-50/30 p-3 rounded-xl border border-emerald-100/50 space-y-2 relative group"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "text",
-        value: c.title,
-        onChange: function onChange(e) {
-          var n = _toConsumableArray(Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES);
-          n[i].title = e.target.value;
-          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            clauses_conf: n
-          }));
-        },
-        className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-emerald-400",
-        placeholder: "T\xEDtulo de la cl\xE1usula"
-      }), /*#__PURE__*/React.createElement("textarea", {
-        value: c.body,
-        onChange: function onChange(e) {
-          var n = _toConsumableArray(formData.clauses_conf && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES);
-          n[i].body = e.target.value;
-          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            clauses_conf: n
-          }));
-        },
-        rows: "2",
-        className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-emerald-400 resize-none font-medium",
-        placeholder: "Contenido..."
-      }), /*#__PURE__*/React.createElement("button", {
+        className: "text-[8px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider",
+        title: "Cargar condiciones generales del hotel"
+      }, "Cargar Generales"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         onClick: function onClick() {
-          var n = (formData.clauses_conf && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES).filter(function (_, idx) {
-            return idx !== i;
-          });
+          var current = _toConsumableArray(budgetClausesList);
           setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-            clauses_conf: n
+            clauses: [].concat(_toConsumableArray(current), [{
+              title: "Nueva Cláusula",
+              body: ""
+            }]),
+            hasCustomClauses: true
           }));
         },
-        className: "absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+        className: "text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+      }, "+ A\xF1adir"))), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-3"
+      }, budgetClausesList.length === 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "p-4 text-center border border-dashed border-slate-200 rounded-xl text-slate-400 text-[9px] font-bold"
+      }, "Sin cl\xE1usulas de presupuesto para este grupo.") : budgetClausesList.map(function (c, i) {
+        return /*#__PURE__*/React.createElement("div", {
+          key: i,
+          className: "bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 relative group"
+        }, /*#__PURE__*/React.createElement("input", {
+          type: "text",
+          value: c.title,
+          onChange: function onChange(e) {
+            var n = _toConsumableArray(budgetClausesList);
+            n[i] = _objectSpread(_objectSpread({}, n[i]), {}, {
+              title: e.target.value
+            });
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses: n,
+              hasCustomClauses: true
+            }));
+          },
+          className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-indigo-400",
+          placeholder: "T\xEDtulo de la cl\xE1usula"
+        }), /*#__PURE__*/React.createElement("textarea", {
+          value: c.body,
+          onChange: function onChange(e) {
+            var n = _toConsumableArray(budgetClausesList);
+            n[i] = _objectSpread(_objectSpread({}, n[i]), {}, {
+              body: e.target.value
+            });
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses: n,
+              hasCustomClauses: true
+            }));
+          },
+          rows: "2",
+          className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-indigo-400 resize-none font-medium",
+          placeholder: "Contenido..."
+        }), /*#__PURE__*/React.createElement("button", {
+          type: "button",
+          onClick: function onClick() {
+            var n = budgetClausesList.filter(function (_, idx) {
+              return idx !== i;
+            });
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses: n,
+              hasCustomClauses: true
+            }));
+          },
+          className: "absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fas fa-times text-[8px]"
+        })));
+      }))), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-4"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-between"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("h4", {
+        className: "text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"
       }, /*#__PURE__*/React.createElement("i", {
-        className: "fas fa-times text-[8px]"
-      })));
-    }))))), /*#__PURE__*/React.createElement("div", {
+        className: "fas fa-file-check text-emerald-500"
+      }), " Confirmaci\xF3n"), formData.hasCustomClausesConf ? /*#__PURE__*/React.createElement("span", {
+        className: "text-[7px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded"
+      }, "Personalizadas") : /*#__PURE__*/React.createElement("span", {
+        className: "text-[7px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded"
+      }, "Generales")), /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          if (window.confirm("¿Restablecer las cláusulas de confirmación a las condiciones generales del hotel?")) {
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses_conf: JSON.parse(JSON.stringify(defaultConf)),
+              hasCustomClausesConf: false
+            }));
+          }
+        },
+        className: "text-[8px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider",
+        title: "Cargar condiciones generales del hotel"
+      }, "Cargar Generales"), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          var current = _toConsumableArray(confClausesList);
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            clauses_conf: [].concat(_toConsumableArray(current), [{
+              title: "Nueva Cláusula Conf.",
+              body: ""
+            }]),
+            hasCustomClausesConf: true
+          }));
+        },
+        className: "text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
+      }, "+ A\xF1adir"))), /*#__PURE__*/React.createElement("div", {
+        className: "space-y-3"
+      }, confClausesList.length === 0 ? /*#__PURE__*/React.createElement("div", {
+        className: "p-4 text-center border border-dashed border-slate-200 rounded-xl text-slate-400 text-[9px] font-bold"
+      }, "Sin cl\xE1usulas de confirmaci\xF3n para este grupo.") : confClausesList.map(function (c, i) {
+        return /*#__PURE__*/React.createElement("div", {
+          key: i,
+          className: "bg-emerald-50/30 p-3 rounded-xl border border-emerald-100/50 space-y-2 relative group"
+        }, /*#__PURE__*/React.createElement("input", {
+          type: "text",
+          value: c.title,
+          onChange: function onChange(e) {
+            var n = _toConsumableArray(confClausesList);
+            n[i] = _objectSpread(_objectSpread({}, n[i]), {}, {
+              title: e.target.value
+            });
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses_conf: n,
+              hasCustomClausesConf: true
+            }));
+          },
+          className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-emerald-400",
+          placeholder: "T\xEDtulo de la cl\xE1usula"
+        }), /*#__PURE__*/React.createElement("textarea", {
+          value: c.body,
+          onChange: function onChange(e) {
+            var n = _toConsumableArray(confClausesList);
+            n[i] = _objectSpread(_objectSpread({}, n[i]), {}, {
+              body: e.target.value
+            });
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses_conf: n,
+              hasCustomClausesConf: true
+            }));
+          },
+          rows: "2",
+          className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-emerald-400 resize-none font-medium",
+          placeholder: "Contenido..."
+        }), /*#__PURE__*/React.createElement("button", {
+          type: "button",
+          onClick: function onClick() {
+            var n = confClausesList.filter(function (_, idx) {
+              return idx !== i;
+            });
+            setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+              clauses_conf: n,
+              hasCustomClausesConf: true
+            }));
+          },
+          className: "absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fas fa-times text-[8px]"
+        })));
+      }))));
+    }()), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
@@ -4566,15 +4647,104 @@ function App() {
     var modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
     var groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
     var documentPaymentPlan = normalizePaymentPlan(g.PaymentPlan_JSON, calculatedTotal, g);
+    var isCustomBudget = !!(g.hasCustomClauses || Array.isArray(g.clauses) && g.clauses.length > 0);
+    var isCustomConf = !!(g.hasCustomClausesConf || Array.isArray(g.clauses_conf) && g.clauses_conf.length > 0);
+    var getGeneralClauses = function getGeneralClauses() {
+      var mode = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : docMode;
+      var mKey = mode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
+      if (globalConfig && globalConfig[hotelKey] && Array.isArray(globalConfig[hotelKey][mKey]) && globalConfig[hotelKey][mKey].length > 0) return globalConfig[hotelKey][mKey];
+      if (globalConfig && globalConfig.common && Array.isArray(globalConfig.common[mKey]) && globalConfig.common[mKey].length > 0) return globalConfig.common[mKey];
+      return mode === 'confirmacion' ? CONF_DEFAULT_CLAUSES : BUDGET_DEFAULT_CLAUSES;
+    };
 
     // Lógica de Fallback Multinivel para Cláusulas
     var getEffectiveClauses = function getEffectiveClauses() {
-      if (Array.isArray(g[groupKey]) && g[groupKey].length > 0) return g[groupKey];
-      if (globalConfig && globalConfig[hotelKey] && Array.isArray(globalConfig[hotelKey][modeKey]) && globalConfig[hotelKey][modeKey].length > 0) return globalConfig[hotelKey][modeKey];
-      if (globalConfig && globalConfig.common && Array.isArray(globalConfig.common[modeKey]) && globalConfig.common[modeKey].length > 0) return globalConfig.common[modeKey];
-      return docMode === 'confirmacion' ? CONF_DEFAULT_CLAUSES : BUDGET_DEFAULT_CLAUSES;
+      var isCustom = docMode === 'confirmacion' ? isCustomConf : isCustomBudget;
+      if (isCustom && Array.isArray(g[groupKey])) {
+        return g[groupKey];
+      }
+      return getGeneralClauses(docMode);
     };
     var effectiveClauses = getEffectiveClauses();
+    var handleSaveDocClauses = /*#__PURE__*/function () {
+      var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+        var mode,
+          isBudget,
+          targetDocId,
+          clausesToSave,
+          fieldKey,
+          flagKey,
+          _args0 = arguments,
+          _t0;
+        return _regenerator().w(function (_context0) {
+          while (1) switch (_context0.p = _context0.n) {
+            case 0:
+              mode = _args0.length > 0 && _args0[0] !== undefined ? _args0[0] : 'presupuesto';
+              isBudget = mode === 'presupuesto';
+              targetDocId = g.uid || g.Reserva || g.id;
+              clausesToSave = isBudget ? tempClauses : tempClausesConf;
+              fieldKey = isBudget ? 'clauses' : 'clauses_conf';
+              flagKey = isBudget ? 'hasCustomClauses' : 'hasCustomClausesConf'; // 1. Inmediatamente actualizar selectedGroup en el estado
+              setSelectedGroup(function (prev) {
+                if (!prev) return prev;
+                return _objectSpread(_objectSpread({}, prev), {}, _defineProperty(_defineProperty({}, fieldKey, clausesToSave), flagKey, true));
+              });
+
+              // 2. Inmediatamente actualizar groups en memoria
+              setGroups(function (prevGroups) {
+                return prevGroups.map(function (item) {
+                  if (item.uid && item.uid === targetDocId || item.Reserva && item.Reserva === targetDocId) {
+                    return _objectSpread(_objectSpread({}, item), {}, _defineProperty(_defineProperty({}, fieldKey, clausesToSave), flagKey, true));
+                  }
+                  return item;
+                });
+              });
+
+              // 3. Salir del modo edición
+              if (isBudget) {
+                setIsEditingClauses(false);
+              } else {
+                setIsEditingClausesConf(false);
+              }
+
+              // 4. Guardar en Firestore SOLO para este grupo
+              if (!targetDocId) {
+                _context0.n = 4;
+                break;
+              }
+              _context0.p = 1;
+              _context0.n = 2;
+              return db.collection("groups").doc(targetDocId).set(_defineProperty(_defineProperty(_defineProperty({}, fieldKey, clausesToSave), flagKey, true), "updatedAt", firebase.firestore.FieldValue.serverTimestamp()), {
+                merge: true
+              });
+            case 2:
+              _context0.n = 4;
+              break;
+            case 3:
+              _context0.p = 3;
+              _t0 = _context0.v;
+              console.error("Error al guardar cláusulas para el grupo:", _t0);
+              alert("Error al guardar cláusulas en el servidor: " + (_t0.message || _t0));
+            case 4:
+              return _context0.a(2);
+          }
+        }, _callee0, null, [[1, 3]]);
+      }));
+      return function handleSaveDocClauses() {
+        return _ref53.apply(this, arguments);
+      };
+    }();
+    var handleResetToGeneral = function handleResetToGeneral() {
+      var mode = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'presupuesto';
+      if (window.confirm("¿Desea restablecer las cláusulas a las condiciones generales del hotel para este grupo?")) {
+        var general = getGeneralClauses(mode);
+        if (mode === 'presupuesto') {
+          setTempClauses(JSON.parse(JSON.stringify(general)));
+        } else {
+          setTempClausesConf(JSON.parse(JSON.stringify(general)));
+        }
+      }
+    };
 
     // Función auxiliar para reemplazo de variables
     var parseClauseVariables = function parseClauseVariables(text) {
@@ -4641,10 +4811,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref53) {
-      var _ref54 = _slicedToArray(_ref53, 2),
-        type = _ref54[0],
-        count = _ref54[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref54) {
+      var _ref55 = _slicedToArray(_ref54, 2),
+        type = _ref55[0],
+        count = _ref55[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -4660,10 +4830,10 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref55) {
-      var _ref56 = _slicedToArray(_ref55, 2),
-        type = _ref56[0],
-        c = _ref56[1];
+    activeRooms.forEach(function (_ref56) {
+      var _ref57 = _slicedToArray(_ref56, 2),
+        type = _ref57[0],
+        c = _ref57[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
@@ -5173,10 +5343,10 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
-      var roomListItems = activeRooms.map(function (_ref57) {
-        var _ref58 = _slicedToArray(_ref57, 2),
-          type = _ref58[0],
-          count = _ref58[1];
+      var roomListItems = activeRooms.map(function (_ref58) {
+        var _ref59 = _slicedToArray(_ref58, 2),
+          type = _ref59[0],
+          count = _ref59[1];
         var typeKey = type.toUpperCase();
         var currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== '' ? Number(config.counts[typeKey]) : count;
         if (currentCount <= 0) return null;
@@ -5367,25 +5537,57 @@ function App() {
       className: "h-4 w-1 rounded-full ".concat(isCumbria ? 'bg-blue-800' : 'bg-orange-600')
     }), /*#__PURE__*/React.createElement("h4", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]"
-    }, "Cl\xE1usulas de Presupuesto")), /*#__PURE__*/React.createElement("button", {
+    }, "Cl\xE1usulas de Presupuesto"), /*#__PURE__*/React.createElement("div", {
+      className: "no-print"
+    }, isCustomBudget ? /*#__PURE__*/React.createElement("span", {
+      className: "text-[8px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-bookmark text-[7px]"
+    }), " Espec\xEDficas de este grupo") : /*#__PURE__*/React.createElement("span", {
+      className: "text-[8px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-hotel text-[7px]"
+    }), " Condiciones generales (", isCumbria ? 'Cumbria' : 'Guadiana', ")"))), /*#__PURE__*/React.createElement("div", {
+      className: "no-print flex items-center gap-2"
+    }, isEditingClauses ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        if (!isEditingClauses) {
-          var current = effectiveClauses;
-          setTempClauses(JSON.parse(JSON.stringify(current)));
-        } else {
-          db.collection("groups").doc(g.uid).update({
-            clauses: tempClauses
-          }).then(function () {
-            return alert("Cláusulas presupuesto guardadas.");
-          });
-        }
-        setIsEditingClauses(!isEditingClauses);
+        return handleResetToGeneral('presupuesto');
       },
-      className: "no-print px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ".concat(isEditingClauses ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200')
-    }, isEditingClauses ? 'Guardar' : 'Editar')), /*#__PURE__*/React.createElement("div", {
+      className: "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all flex items-center gap-1.5",
+      title: "Recargar condiciones generales del hotel"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-undo text-[9px]"
+    }), " Cargar Generales"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return setIsEditingClauses(false);
+      },
+      className: "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+    }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return handleSaveDocClauses('presupuesto');
+      },
+      className: "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-check text-[9px]"
+    }), " Guardar")) : /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        setTempClauses(JSON.parse(JSON.stringify(effectiveClauses)));
+        setIsEditingClauses(true);
+      },
+      className: "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-pen text-[9px]"
+    }), " Editar"))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2"
     }, function () {
       var cls = isEditingClauses ? tempClauses : effectiveClauses;
+      if ((!cls || cls.length === 0) && !isEditingClauses) {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "col-span-full py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50"
+        }, /*#__PURE__*/React.createElement("p", {
+          className: "text-xs font-bold text-slate-400"
+        }, "No hay cl\xE1usulas definidas para este presupuesto."));
+      }
       return cls.map(function (c, i) {
         if (isEditingClauses) {
           return /*#__PURE__*/React.createElement("div", {
@@ -5401,11 +5603,13 @@ function App() {
               n[i].title = e.target.value;
               setTempClauses(n);
             },
-            className: "flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800"
+            className: "flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800",
+            placeholder: "T\xEDtulo de cl\xE1usula"
           }), /*#__PURE__*/React.createElement("button", {
             onClick: function onClick() {
               return handleTranslateClause(i, 'budget');
             },
+            title: "Traducir al ingl\xE9s",
             className: "px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black hover:bg-indigo-600 hover:text-white"
           }, /*#__PURE__*/React.createElement("i", {
             className: "fas fa-language"
@@ -5415,7 +5619,8 @@ function App() {
                 return idx !== i;
               }));
             },
-            className: "text-rose-500"
+            title: "Eliminar cl\xE1usula",
+            className: "text-rose-500 hover:text-rose-700 px-1"
           }, /*#__PURE__*/React.createElement("i", {
             className: "fas fa-trash-alt text-[10px]"
           }))), /*#__PURE__*/React.createElement("textarea", {
@@ -5426,7 +5631,8 @@ function App() {
               setTempClauses(n);
             },
             rows: "3",
-            className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium"
+            className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium",
+            placeholder: "Texto de la cl\xE1usula..."
           }));
         }
         return /*#__PURE__*/React.createElement("div", {
@@ -5460,25 +5666,57 @@ function App() {
       className: "h-4 w-1 rounded-full bg-emerald-500"
     }), /*#__PURE__*/React.createElement("h4", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]"
-    }, "Cl\xE1usulas de Confirmaci\xF3n")), /*#__PURE__*/React.createElement("button", {
+    }, "Cl\xE1usulas de Confirmaci\xF3n"), /*#__PURE__*/React.createElement("div", {
+      className: "no-print"
+    }, isCustomConf ? /*#__PURE__*/React.createElement("span", {
+      className: "text-[8px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-bookmark text-[7px]"
+    }), " Espec\xEDficas de este grupo") : /*#__PURE__*/React.createElement("span", {
+      className: "text-[8px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-hotel text-[7px]"
+    }), " Condiciones generales (", isCumbria ? 'Cumbria' : 'Guadiana', ")"))), /*#__PURE__*/React.createElement("div", {
+      className: "no-print flex items-center gap-2"
+    }, isEditingClausesConf ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        if (!isEditingClausesConf) {
-          var current = effectiveClauses;
-          setTempClausesConf(JSON.parse(JSON.stringify(current)));
-        } else {
-          db.collection("groups").doc(g.uid).update({
-            clauses_conf: tempClausesConf
-          }).then(function () {
-            return alert("Cláusulas confirmación guardadas.");
-          });
-        }
-        setIsEditingClausesConf(!isEditingClausesConf);
+        return handleResetToGeneral('confirmacion');
       },
-      className: "no-print px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ".concat(isEditingClausesConf ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200')
-    }, isEditingClausesConf ? 'Guardar' : 'Editar')), /*#__PURE__*/React.createElement("div", {
+      className: "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all flex items-center gap-1.5",
+      title: "Recargar condiciones generales del hotel"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-undo text-[9px]"
+    }), " Cargar Generales"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return setIsEditingClausesConf(false);
+      },
+      className: "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+    }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return handleSaveDocClauses('confirmacion');
+      },
+      className: "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-check text-[9px]"
+    }), " Guardar")) : /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        setTempClausesConf(JSON.parse(JSON.stringify(effectiveClauses)));
+        setIsEditingClausesConf(true);
+      },
+      className: "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-400 hover:bg-slate-200 flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-pen text-[9px]"
+    }), " Editar"))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2"
     }, function () {
       var cls = isEditingClausesConf ? tempClausesConf : effectiveClauses;
+      if ((!cls || cls.length === 0) && !isEditingClausesConf) {
+        return /*#__PURE__*/React.createElement("div", {
+          className: "col-span-full py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50"
+        }, /*#__PURE__*/React.createElement("p", {
+          className: "text-xs font-bold text-slate-400"
+        }, "No hay cl\xE1usulas de confirmaci\xF3n definidas para este grupo."));
+      }
       return cls.map(function (c, i) {
         if (isEditingClausesConf) {
           return /*#__PURE__*/React.createElement("div", {
@@ -5494,11 +5732,13 @@ function App() {
               n[i].title = e.target.value;
               setTempClausesConf(n);
             },
-            className: "flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800"
+            className: "flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800",
+            placeholder: "T\xEDtulo de cl\xE1usula"
           }), /*#__PURE__*/React.createElement("button", {
             onClick: function onClick() {
               return handleTranslateClause(i, 'confirmation');
             },
+            title: "Traducir al ingl\xE9s",
             className: "px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black hover:bg-emerald-600 hover:text-white"
           }, /*#__PURE__*/React.createElement("i", {
             className: "fas fa-language"
@@ -5508,7 +5748,8 @@ function App() {
                 return idx !== i;
               }));
             },
-            className: "text-rose-500"
+            title: "Eliminar cl\xE1usula",
+            className: "text-rose-500 hover:text-rose-700 px-1"
           }, /*#__PURE__*/React.createElement("i", {
             className: "fas fa-trash-alt text-[10px]"
           }))), /*#__PURE__*/React.createElement("textarea", {
@@ -5519,7 +5760,8 @@ function App() {
               setTempClausesConf(n);
             },
             rows: "3",
-            className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium"
+            className: "w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium",
+            placeholder: "Texto de la cl\xE1usula..."
           }));
         }
         return /*#__PURE__*/React.createElement("div", {

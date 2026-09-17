@@ -268,6 +268,8 @@
       Com_Estado_Interno: 'PRESUPUESTO',
       clauses: [],
       clauses_conf: [],
+      hasCustomClauses: false,
+      hasCustomClausesConf: false,
       isRatesOnly: false,
       ratesOnlyGrid: {},
       hiddenGridRows: [],
@@ -1010,6 +1012,13 @@
       newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
       newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\u00c3\u00a9fono"] || groupData["Teléfono"] || "";
 
+      newData.hasCustomClauses = groupData.hasCustomClauses !== undefined 
+        ? !!groupData.hasCustomClauses 
+        : (Array.isArray(groupData.clauses) && groupData.clauses.length > 0);
+      newData.hasCustomClausesConf = groupData.hasCustomClausesConf !== undefined 
+        ? !!groupData.hasCustomClausesConf 
+        : (Array.isArray(groupData.clauses_conf) && groupData.clauses_conf.length > 0);
+
       return newData;
     };
 
@@ -1516,6 +1525,13 @@
             });
             setGroups(docs);
             setLoading(false);
+
+            setSelectedGroup(prev => {
+              if (!prev) return null;
+              const targetId = prev.uid || prev.Reserva || prev.id;
+              const matched = docs.find(g => (g.uid && String(g.uid) === String(targetId)) || (g.Reserva && String(g.Reserva) === String(targetId)));
+              return matched ? normalizeGroupData(matched) : prev;
+            });
 
             // Lógica de Deep-link (?id=XXXX)
             const urlParams = new URLSearchParams(window.location.search);
@@ -3652,121 +3668,203 @@ ${emailContent}`;
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Columna Presupuesto */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                       <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                         <i className="fas fa-file-invoice text-indigo-400"></i> Presupuesto
-                       </h4>
-                       <button 
-                         type="button"
-                         onClick={() => {
-                           const current = (Array.isArray(formData.clauses) && formData.clauses.length > 0) ? formData.clauses : BUDGET_DEFAULT_CLAUSES;
-                           setFormData({ ...formData, clauses: [...current, { title: "Nueva Cláusula", body: "" }] });
-                         }}
-                         className="text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
-                       >
-                         + Añadir
-                       </button>
-                    </div>
-                    <div className="space-y-3">
-                      {(Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses : BUDGET_DEFAULT_CLAUSES).map((c, i) => (
-                        <div key={i} className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 relative group">
-                          <input 
-                            type="text" 
-                            value={c.title} 
-                            onChange={e => {
-                               const n = [...((Array.isArray(formData.clauses) && formData.clauses.length > 0) ? formData.clauses : BUDGET_DEFAULT_CLAUSES)];
-                               n[i].title = e.target.value;
-                               setFormData({ ...formData, clauses: n });
-                            }}
-                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-indigo-400"
-                            placeholder="Título de la cláusula"
-                          />
-                          <textarea 
-                            value={c.body} 
-                            onChange={e => {
-                               const n = [...((Array.isArray(formData.clauses) && formData.clauses.length > 0) ? formData.clauses : BUDGET_DEFAULT_CLAUSES)];
-                               n[i].body = e.target.value;
-                               setFormData({ ...formData, clauses: n });
-                            }}
-                            rows="2" 
-                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-indigo-400 resize-none font-medium"
-                            placeholder="Contenido..."
-                          />
-                          <button 
-                            type="button"
-                            onClick={() => {
-                               const n = ((Array.isArray(formData.clauses) && formData.clauses.length > 0) ? formData.clauses : BUDGET_DEFAULT_CLAUSES).filter((_, idx) => idx !== i);
-                               setFormData({ ...formData, clauses: n });
-                            }}
-                            className="absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <i className="fas fa-times text-[8px]"></i>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                {(() => {
+                  const fHotel = formData.Hotel_Asignado || formData.Hotel || "";
+                  const fIsCumbria = fHotel.toLowerCase().includes("cumbria");
+                  const fHotelKey = fIsCumbria ? 'cumbria' : 'guadiana';
 
-                  {/* Columna Confirmación */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                       <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                         <i className="fas fa-file-check text-emerald-500"></i> Confirmación
-                       </h4>
-                       <button 
-                         type="button"
-                         onClick={() => {
-                           const current = (Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0) ? formData.clauses_conf : CONF_DEFAULT_CLAUSES;
-                           setFormData({ ...formData, clauses_conf: [...current, { title: "Nueva Cláusula Conf.", body: "" }] });
-                         }}
-                         className="text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
-                       >
-                         + Añadir
-                       </button>
-                    </div>
-                    <div className="space-y-3">
-                      {(Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf : CONF_DEFAULT_CLAUSES).map((c, i) => (
-                        <div key={i} className="bg-emerald-50/30 p-3 rounded-xl border border-emerald-100/50 space-y-2 relative group">
-                          <input 
-                            type="text" 
-                            value={c.title} 
-                            onChange={e => {
-                               const n = [...((Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0) ? formData.clauses_conf : CONF_DEFAULT_CLAUSES)];
-                               n[i].title = e.target.value;
-                               setFormData({ ...formData, clauses_conf: n });
-                            }}
-                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-emerald-400"
-                            placeholder="Título de la cláusula"
-                          />
-                          <textarea 
-                            value={c.body} 
-                            onChange={e => {
-                               const n = [...((formData.clauses_conf && formData.clauses_conf.length > 0) ? formData.clauses_conf : CONF_DEFAULT_CLAUSES)];
-                               n[i].body = e.target.value;
-                               setFormData({ ...formData, clauses_conf: n });
-                            }}
-                            rows="2" 
-                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-emerald-400 resize-none font-medium"
-                            placeholder="Contenido..."
-                          />
-                          <button 
-                            type="button"
-                            onClick={() => {
-                               const n = ((formData.clauses_conf && formData.clauses_conf.length > 0) ? formData.clauses_conf : CONF_DEFAULT_CLAUSES).filter((_, idx) => idx !== i);
-                               setFormData({ ...formData, clauses_conf: n });
-                            }}
-                            className="absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <i className="fas fa-times text-[8px]"></i>
-                          </button>
+                  const defaultBudget = (globalConfig && globalConfig[fHotelKey] && Array.isArray(globalConfig[fHotelKey].clauses) && globalConfig[fHotelKey].clauses.length > 0)
+                    ? globalConfig[fHotelKey].clauses
+                    : ((globalConfig && globalConfig.common && Array.isArray(globalConfig.common.clauses) && globalConfig.common.clauses.length > 0)
+                        ? globalConfig.common.clauses
+                        : BUDGET_DEFAULT_CLAUSES);
+
+                  const defaultConf = (globalConfig && globalConfig[fHotelKey] && Array.isArray(globalConfig[fHotelKey].confirmationClauses) && globalConfig[fHotelKey].confirmationClauses.length > 0)
+                    ? globalConfig[fHotelKey].confirmationClauses
+                    : ((globalConfig && globalConfig.common && Array.isArray(globalConfig.common.confirmationClauses) && globalConfig.common.confirmationClauses.length > 0)
+                        ? globalConfig.common.confirmationClauses
+                        : CONF_DEFAULT_CLAUSES);
+
+                  const budgetClausesList = (formData.hasCustomClauses || (Array.isArray(formData.clauses) && formData.clauses.length > 0))
+                    ? (formData.clauses || [])
+                    : defaultBudget;
+
+                  const confClausesList = (formData.hasCustomClausesConf || (Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0))
+                    ? (formData.clauses_conf || [])
+                    : defaultConf;
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Columna Presupuesto */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-2">
+                             <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                               <i className="fas fa-file-invoice text-indigo-400"></i> Presupuesto
+                             </h4>
+                             {formData.hasCustomClauses ? (
+                               <span className="text-[7px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">Personalizadas</span>
+                             ) : (
+                               <span className="text-[7px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">Generales</span>
+                             )}
+                           </div>
+                           <div className="flex items-center gap-2">
+                             <button 
+                               type="button"
+                               onClick={() => {
+                                 if (window.confirm("¿Restablecer las cláusulas de presupuesto a las condiciones generales del hotel?")) {
+                                   setFormData({ ...formData, clauses: JSON.parse(JSON.stringify(defaultBudget)), hasCustomClauses: false });
+                                 }
+                               }}
+                               className="text-[8px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider"
+                               title="Cargar condiciones generales del hotel"
+                             >
+                               Cargar Generales
+                             </button>
+                             <button 
+                               type="button"
+                               onClick={() => {
+                                 const current = [...budgetClausesList];
+                                 setFormData({ ...formData, clauses: [...current, { title: "Nueva Cláusula", body: "" }], hasCustomClauses: true });
+                               }}
+                               className="text-[8px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                             >
+                               + Añadir
+                             </button>
+                           </div>
                         </div>
-                      ))}
+                        <div className="space-y-3">
+                          {budgetClausesList.length === 0 ? (
+                            <div className="p-4 text-center border border-dashed border-slate-200 rounded-xl text-slate-400 text-[9px] font-bold">
+                              Sin cláusulas de presupuesto para este grupo.
+                            </div>
+                          ) : (
+                            budgetClausesList.map((c, i) => (
+                              <div key={i} className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 relative group">
+                                <input 
+                                  type="text" 
+                                  value={c.title} 
+                                  onChange={e => {
+                                     const n = [...budgetClausesList];
+                                     n[i] = { ...n[i], title: e.target.value };
+                                     setFormData({ ...formData, clauses: n, hasCustomClauses: true });
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-indigo-400"
+                                  placeholder="Título de la cláusula"
+                                />
+                                <textarea 
+                                  value={c.body} 
+                                  onChange={e => {
+                                     const n = [...budgetClausesList];
+                                     n[i] = { ...n[i], body: e.target.value };
+                                     setFormData({ ...formData, clauses: n, hasCustomClauses: true });
+                                  }}
+                                  rows="2" 
+                                  className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-indigo-400 resize-none font-medium"
+                                  placeholder="Contenido..."
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                     const n = budgetClausesList.filter((_, idx) => idx !== i);
+                                     setFormData({ ...formData, clauses: n, hasCustomClauses: true });
+                                  }}
+                                  className="absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <i className="fas fa-times text-[8px]"></i>
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Columna Confirmación */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-2">
+                             <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                               <i className="fas fa-file-check text-emerald-500"></i> Confirmación
+                             </h4>
+                             {formData.hasCustomClausesConf ? (
+                               <span className="text-[7px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Personalizadas</span>
+                             ) : (
+                               <span className="text-[7px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">Generales</span>
+                             )}
+                           </div>
+                           <div className="flex items-center gap-2">
+                             <button 
+                               type="button"
+                               onClick={() => {
+                                 if (window.confirm("¿Restablecer las cláusulas de confirmación a las condiciones generales del hotel?")) {
+                                   setFormData({ ...formData, clauses_conf: JSON.parse(JSON.stringify(defaultConf)), hasCustomClausesConf: false });
+                                 }
+                               }}
+                               className="text-[8px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-wider"
+                               title="Cargar condiciones generales del hotel"
+                             >
+                               Cargar Generales
+                             </button>
+                             <button 
+                               type="button"
+                               onClick={() => {
+                                 const current = [...confClausesList];
+                                 setFormData({ ...formData, clauses_conf: [...current, { title: "Nueva Cláusula Conf.", body: "" }], hasCustomClausesConf: true });
+                               }}
+                               className="text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
+                             >
+                               + Añadir
+                             </button>
+                           </div>
+                        </div>
+                        <div className="space-y-3">
+                          {confClausesList.length === 0 ? (
+                            <div className="p-4 text-center border border-dashed border-slate-200 rounded-xl text-slate-400 text-[9px] font-bold">
+                              Sin cláusulas de confirmación para este grupo.
+                            </div>
+                          ) : (
+                            confClausesList.map((c, i) => (
+                              <div key={i} className="bg-emerald-50/30 p-3 rounded-xl border border-emerald-100/50 space-y-2 relative group">
+                                <input 
+                                  type="text" 
+                                  value={c.title} 
+                                  onChange={e => {
+                                     const n = [...confClausesList];
+                                     n[i] = { ...n[i], title: e.target.value };
+                                     setFormData({ ...formData, clauses_conf: n, hasCustomClausesConf: true });
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-black text-slate-800 outline-none focus:border-emerald-400"
+                                  placeholder="Título de la cláusula"
+                                />
+                                <textarea 
+                                  value={c.body} 
+                                  onChange={e => {
+                                     const n = [...confClausesList];
+                                     n[i] = { ...n[i], body: e.target.value };
+                                     setFormData({ ...formData, clauses_conf: n, hasCustomClausesConf: true });
+                                  }}
+                                  rows="2" 
+                                  className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] text-slate-600 outline-none focus:border-emerald-400 resize-none font-medium"
+                                  placeholder="Contenido..."
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                     const n = confClausesList.filter((_, idx) => idx !== i);
+                                     setFormData({ ...formData, clauses_conf: n, hasCustomClausesConf: true });
+                                  }}
+                                  className="absolute -top-2 -right-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-rose-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <i className="fas fa-times text-[8px]"></i>
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
 
               {/* Bloque 6: Notas Internas */}
@@ -3837,14 +3935,87 @@ ${emailContent}`;
         const groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
         const documentPaymentPlan = normalizePaymentPlan(g.PaymentPlan_JSON, calculatedTotal, g);
 
+        const isCustomBudget = !!(g.hasCustomClauses || (Array.isArray(g.clauses) && g.clauses.length > 0));
+        const isCustomConf = !!(g.hasCustomClausesConf || (Array.isArray(g.clauses_conf) && g.clauses_conf.length > 0));
+
+        const getGeneralClauses = (mode = docMode) => {
+          const mKey = mode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
+          if (globalConfig && globalConfig[hotelKey] && Array.isArray(globalConfig[hotelKey][mKey]) && globalConfig[hotelKey][mKey].length > 0) return globalConfig[hotelKey][mKey];
+          if (globalConfig && globalConfig.common && Array.isArray(globalConfig.common[mKey]) && globalConfig.common[mKey].length > 0) return globalConfig.common[mKey];
+          return mode === 'confirmacion' ? CONF_DEFAULT_CLAUSES : BUDGET_DEFAULT_CLAUSES;
+        };
+
         // Lógica de Fallback Multinivel para Cláusulas
         const getEffectiveClauses = () => {
-          if (Array.isArray(g[groupKey]) && g[groupKey].length > 0) return g[groupKey];
-          if (globalConfig && globalConfig[hotelKey] && Array.isArray(globalConfig[hotelKey][modeKey]) && globalConfig[hotelKey][modeKey].length > 0) return globalConfig[hotelKey][modeKey];
-          if (globalConfig && globalConfig.common && Array.isArray(globalConfig.common[modeKey]) && globalConfig.common[modeKey].length > 0) return globalConfig.common[modeKey];
-          return docMode === 'confirmacion' ? CONF_DEFAULT_CLAUSES : BUDGET_DEFAULT_CLAUSES;
+          const isCustom = docMode === 'confirmacion' ? isCustomConf : isCustomBudget;
+          if (isCustom && Array.isArray(g[groupKey])) {
+            return g[groupKey];
+          }
+          return getGeneralClauses(docMode);
         };
         const effectiveClauses = getEffectiveClauses();
+
+        const handleSaveDocClauses = async (mode = 'presupuesto') => {
+          const isBudget = mode === 'presupuesto';
+          const targetDocId = g.uid || g.Reserva || g.id;
+          const clausesToSave = isBudget ? tempClauses : tempClausesConf;
+          const fieldKey = isBudget ? 'clauses' : 'clauses_conf';
+          const flagKey = isBudget ? 'hasCustomClauses' : 'hasCustomClausesConf';
+
+          // 1. Inmediatamente actualizar selectedGroup en el estado
+          setSelectedGroup(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              [fieldKey]: clausesToSave,
+              [flagKey]: true
+            };
+          });
+
+          // 2. Inmediatamente actualizar groups en memoria
+          setGroups(prevGroups => prevGroups.map(item => {
+            if ((item.uid && item.uid === targetDocId) || (item.Reserva && item.Reserva === targetDocId)) {
+              return {
+                ...item,
+                [fieldKey]: clausesToSave,
+                [flagKey]: true
+              };
+            }
+            return item;
+          }));
+
+          // 3. Salir del modo edición
+          if (isBudget) {
+            setIsEditingClauses(false);
+          } else {
+            setIsEditingClausesConf(false);
+          }
+
+          // 4. Guardar en Firestore SOLO para este grupo
+          if (targetDocId) {
+            try {
+              await db.collection("groups").doc(targetDocId).set({
+                [fieldKey]: clausesToSave,
+                [flagKey]: true,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+            } catch (err) {
+              console.error("Error al guardar cláusulas para el grupo:", err);
+              alert("Error al guardar cláusulas en el servidor: " + (err.message || err));
+            }
+          }
+        };
+
+        const handleResetToGeneral = (mode = 'presupuesto') => {
+          if (window.confirm("¿Desea restablecer las cláusulas a las condiciones generales del hotel para este grupo?")) {
+            const general = getGeneralClauses(mode);
+            if (mode === 'presupuesto') {
+              setTempClauses(JSON.parse(JSON.stringify(general)));
+            } else {
+              setTempClausesConf(JSON.parse(JSON.stringify(general)));
+            }
+          }
+        };
 
         // Función auxiliar para reemplazo de variables
         const parseClauseVariables = (text, title = "") => {
@@ -4543,33 +4714,75 @@ ${emailContent}`;
                                 <div className="flex items-center gap-3">
                                   <div className={`h-4 w-1 rounded-full ${isCumbria ? 'bg-blue-800' : 'bg-orange-600'}`}></div>
                                   <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Cláusulas de Presupuesto</h4>
+                                  <div className="no-print">
+                                    {isCustomBudget ? (
+                                      <span className="text-[8px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <i className="fas fa-bookmark text-[7px]"></i> Específicas de este grupo
+                                      </span>
+                                    ) : (
+                                      <span className="text-[8px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <i className="fas fa-hotel text-[7px]"></i> Condiciones generales ({isCumbria ? 'Cumbria' : 'Guadiana'})
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <button onClick={() => {
-                                    if (!isEditingClauses) {
-                                      const current = effectiveClauses;
-                                      setTempClauses(JSON.parse(JSON.stringify(current)));
-                                  } else {
-                                    db.collection("groups").doc(g.uid).update({ clauses: tempClauses }).then(() => alert("Cláusulas presupuesto guardadas."));
-                                  }
-                                  setIsEditingClauses(!isEditingClauses);
-                                }} className={`no-print px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClauses ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
-                                  {isEditingClauses ? 'Guardar' : 'Editar'}
-                                </button>
+                                <div className="no-print flex items-center gap-2">
+                                  {isEditingClauses ? (
+                                    <>
+                                      <button 
+                                        onClick={() => handleResetToGeneral('presupuesto')}
+                                        className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all flex items-center gap-1.5"
+                                        title="Recargar condiciones generales del hotel"
+                                      >
+                                        <i className="fas fa-undo text-[9px]"></i> Cargar Generales
+                                      </button>
+                                      <button 
+                                        onClick={() => setIsEditingClauses(false)}
+                                        className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                                      >
+                                        Cancelar
+                                      </button>
+                                      <button 
+                                        onClick={() => handleSaveDocClauses('presupuesto')}
+                                        className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"
+                                      >
+                                        <i className="fas fa-check text-[9px]"></i> Guardar
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button 
+                                      onClick={() => {
+                                        setTempClauses(JSON.parse(JSON.stringify(effectiveClauses)));
+                                        setIsEditingClauses(true);
+                                      }}
+                                      className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center gap-1.5"
+                                    >
+                                      <i className="fas fa-pen text-[9px]"></i> Editar
+                                    </button>
+                                  )}
+                                </div>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2">
                                 {(() => {
                                   const cls = isEditingClauses ? tempClauses : effectiveClauses;
+                                  if ((!cls || cls.length === 0) && !isEditingClauses) {
+                                    return (
+                                      <div className="col-span-full py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                                        <p className="text-xs font-bold text-slate-400">No hay cláusulas definidas para este presupuesto.</p>
+                                      </div>
+                                    );
+                                  }
                                   return cls.map((c, i) => {
                                     if (isEditingClauses) {
                                       return (
                                         <div key={i} className="border-l-2 border-slate-200 pl-3 py-1 bg-slate-50/50 rounded-r-xl">
                                           <div className="flex justify-between mb-2 gap-2">
-                                            <input type="text" value={c.title} onChange={e => { const n = [...tempClauses]; n[i].title = e.target.value; setTempClauses(n); }} className="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800" />
-                                            <button onClick={() => handleTranslateClause(i, 'budget')} className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black hover:bg-indigo-600 hover:text-white"><i className="fas fa-language"></i></button>
-                                            <button onClick={() => setTempClauses(tempClauses.filter((_, idx) => idx !== i))} className="text-rose-500"><i className="fas fa-trash-alt text-[10px]"></i></button>
+                                            <input type="text" value={c.title} onChange={e => { const n = [...tempClauses]; n[i].title = e.target.value; setTempClauses(n); }} className="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800" placeholder="Título de cláusula" />
+                                            <button onClick={() => handleTranslateClause(i, 'budget')} title="Traducir al inglés" className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black hover:bg-indigo-600 hover:text-white"><i className="fas fa-language"></i></button>
+                                            <button onClick={() => setTempClauses(tempClauses.filter((_, idx) => idx !== i))} title="Eliminar cláusula" className="text-rose-500 hover:text-rose-700 px-1"><i className="fas fa-trash-alt text-[10px]"></i></button>
                                           </div>
-                                          <textarea value={c.body} onChange={e => { const n = [...tempClauses]; n[i].body = e.target.value; setTempClauses(n); }} rows="3" className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium"></textarea>
+                                          <textarea value={c.body} onChange={e => { const n = [...tempClauses]; n[i].body = e.target.value; setTempClauses(n); }} rows="3" className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium" placeholder="Texto de la cláusula..."></textarea>
                                         </div>
                                       );
                                     }
@@ -4598,33 +4811,75 @@ ${emailContent}`;
                                 <div className="flex items-center gap-3">
                                   <div className="h-4 w-1 rounded-full bg-emerald-500"></div>
                                   <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Cláusulas de Confirmación</h4>
+                                  <div className="no-print">
+                                    {isCustomConf ? (
+                                      <span className="text-[8px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <i className="fas fa-bookmark text-[7px]"></i> Específicas de este grupo
+                                      </span>
+                                    ) : (
+                                      <span className="text-[8px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                        <i className="fas fa-hotel text-[7px]"></i> Condiciones generales ({isCumbria ? 'Cumbria' : 'Guadiana'})
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <button onClick={() => {
-                                  if (!isEditingClausesConf) {
-                                    const current = effectiveClauses;
-                                    setTempClausesConf(JSON.parse(JSON.stringify(current)));
-                                  } else {
-                                    db.collection("groups").doc(g.uid).update({ clauses_conf: tempClausesConf }).then(() => alert("Cláusulas confirmación guardadas."));
-                                  }
-                                  setIsEditingClausesConf(!isEditingClausesConf);
-                                }} className={`no-print px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isEditingClausesConf ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
-                                  {isEditingClausesConf ? 'Guardar' : 'Editar'}
-                                </button>
+                                <div className="no-print flex items-center gap-2">
+                                  {isEditingClausesConf ? (
+                                    <>
+                                      <button 
+                                        onClick={() => handleResetToGeneral('confirmacion')}
+                                        className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all flex items-center gap-1.5"
+                                        title="Recargar condiciones generales del hotel"
+                                      >
+                                        <i className="fas fa-undo text-[9px]"></i> Cargar Generales
+                                      </button>
+                                      <button 
+                                        onClick={() => setIsEditingClausesConf(false)}
+                                        className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+                                      >
+                                        Cancelar
+                                      </button>
+                                      <button 
+                                        onClick={() => handleSaveDocClauses('confirmacion')}
+                                        className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm flex items-center gap-1.5"
+                                      >
+                                        <i className="fas fa-check text-[9px]"></i> Guardar
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button 
+                                      onClick={() => {
+                                        setTempClausesConf(JSON.parse(JSON.stringify(effectiveClauses)));
+                                        setIsEditingClausesConf(true);
+                                      }}
+                                      className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-400 hover:bg-slate-200 flex items-center gap-1.5"
+                                    >
+                                      <i className="fas fa-pen text-[9px]"></i> Editar
+                                    </button>
+                                  )}
+                                </div>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2">
                                 {(() => {
                                   const cls = isEditingClausesConf ? tempClausesConf : effectiveClauses;
+                                  if ((!cls || cls.length === 0) && !isEditingClausesConf) {
+                                    return (
+                                      <div className="col-span-full py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                                        <p className="text-xs font-bold text-slate-400">No hay cláusulas de confirmación definidas para este grupo.</p>
+                                      </div>
+                                    );
+                                  }
                                   return cls.map((c, i) => {
                                     if (isEditingClausesConf) {
                                       return (
                                         <div key={i} className="border-l-2 border-emerald-100 pl-3 py-1 bg-slate-50/50 rounded-r-xl">
                                           <div className="flex justify-between mb-2 gap-2">
-                                            <input type="text" value={c.title} onChange={e => { const n = [...tempClausesConf]; n[i].title = e.target.value; setTempClausesConf(n); }} className="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800" />
-                                            <button onClick={() => handleTranslateClause(i, 'confirmation')} className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black hover:bg-emerald-600 hover:text-white"><i className="fas fa-language"></i></button>
-                                            <button onClick={() => setTempClausesConf(tempClausesConf.filter((_, idx) => idx !== i))} className="text-rose-500"><i className="fas fa-trash-alt text-[10px]"></i></button>
+                                            <input type="text" value={c.title} onChange={e => { const n = [...tempClausesConf]; n[i].title = e.target.value; setTempClausesConf(n); }} className="flex-1 bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-black text-slate-800" placeholder="Título de cláusula" />
+                                            <button onClick={() => handleTranslateClause(i, 'confirmation')} title="Traducir al inglés" className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black hover:bg-emerald-600 hover:text-white"><i className="fas fa-language"></i></button>
+                                            <button onClick={() => setTempClausesConf(tempClausesConf.filter((_, idx) => idx !== i))} title="Eliminar cláusula" className="text-rose-500 hover:text-rose-700 px-1"><i className="fas fa-trash-alt text-[10px]"></i></button>
                                           </div>
-                                          <textarea value={c.body} onChange={e => { const n = [...tempClausesConf]; n[i].body = e.target.value; setTempClausesConf(n); }} rows="3" className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium"></textarea>
+                                          <textarea value={c.body} onChange={e => { const n = [...tempClausesConf]; n[i].body = e.target.value; setTempClausesConf(n); }} rows="3" className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-600 resize-none font-medium" placeholder="Texto de la cláusula..."></textarea>
                                         </div>
                                       );
                                     }
