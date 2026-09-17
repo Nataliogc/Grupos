@@ -10912,10 +10912,12 @@
           }
 
           // Incidencia D: Descuadre de Régimen con Excel original
+          let normExcelReg = "";
+          let normFichaReg = "";
           if (excelRegimen) {
-            const normExcelReg = (excelRegimen === "AD" ? "HD" : excelRegimen === "SA" ? "HA" : excelRegimen).trim().toUpperCase();
+            normExcelReg = (excelRegimen === "AD" ? "HD" : excelRegimen === "SA" ? "HA" : excelRegimen).trim().toUpperCase();
             const foundRoomingReg = (expanded.find(it => !it.isService && it.regime && it.regime !== "-" && it.regime !== "---")?.regime || record["Régimen"] || "").trim().toUpperCase();
-            const normFichaReg = foundRoomingReg === "AD" ? "HD" : foundRoomingReg === "SA" ? "HA" : foundRoomingReg;
+            normFichaReg = foundRoomingReg === "AD" ? "HD" : foundRoomingReg === "SA" ? "HA" : foundRoomingReg;
             if (normFichaReg && normExcelReg && normFichaReg !== "-" && normExcelReg !== "-" && normFichaReg !== normExcelReg) {
               warnings.push({
                 type: "excel_regimen_mismatch",
