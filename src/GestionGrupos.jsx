@@ -15012,7 +15012,7 @@
                                           <td className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap">{item.hotel}</td>
                                           <td className="px-3 py-2 whitespace-nowrap">
                                             <div className="flex items-center gap-1.5">
-                                              {item.days.length > 1 && (
+                                              {item.days && item.days.length > 0 && (
                                                 <button
                                                   type="button"
                                                   onClick={() => {
@@ -15024,7 +15024,7 @@
                                                     });
                                                   }}
                                                   className="text-slate-400 hover:text-slate-700 text-[10px] w-4 h-4 rounded flex items-center justify-center hover:bg-slate-200 transition"
-                                                  title={isExpanded ? "Ocultar noches" : `Ver ${item.days.length} noches`}
+                                                  title={isExpanded ? "Ocultar noche(s)" : `Ver ${item.days.length} noche(s)`}
                                                 >
                                                   {isExpanded ? "▼" : "▶"}
                                                 </button>
@@ -15064,7 +15064,7 @@
                                           <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">
                                             <div className="flex items-center gap-1.5">
                                               <span>{item.dateDisplay}</span>
-                                              {item.nightCount > 1 && (
+                                              {item.nightCount > 0 && (
                                                 <span className="text-[10px] font-black px-1.5 py-0.2 bg-blue-50 text-blue-600 rounded border border-blue-100">
                                                   {item.nightCount}n
                                                 </span>
@@ -15125,15 +15125,20 @@
                                              <button
                                                type="button"
                                                onClick={() => {
-                                                 const group = groupedData.find(g => normalizeId(g.id) === normalizeId(item.reserva));
-                                                 if (group && item.days.some(day => day.hasFichaIssues)) openFicha(group);
-                                                 else openDistributionModal(item.representativeDay);
+                                                 const targetDay = item.representativeDay || (item.days && item.days[0]);
+                                                 if (targetDay) {
+                                                   openDistributionModal(targetDay);
+                                                 } else {
+                                                   const group = groupedData.find(g => normalizeId(g.id) === normalizeId(item.reserva));
+                                                   if (group) openFicha(group);
+                                                 }
                                                }}
-                                               className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
+                                               className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition cursor-pointer ${
                                                  st === "revision_necesaria"
                                                    ? "bg-orange-600 hover:bg-orange-700 text-white"
                                                    : "bg-blue-600 hover:bg-blue-700 text-white"
                                                }`}
+                                               title="Revisar y editar distribución de habitaciones"
                                              >
                                                {st === "revision_necesaria" ? "Revisar Cambio" : "Revisar"}
                                              </button>
@@ -15379,15 +15384,14 @@
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const group = groupedData.find(g => normalizeId(g.id) === normalizeId(item.reserva));
-                                              if (group && item.hasFichaIssues) openFicha(group);
-                                              else openDistributionModal(item);
+                                              openDistributionModal(item);
                                             }}
-                                            className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition ${
+                                            className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-sm transition cursor-pointer ${
                                               st === "revision_necesaria"
                                                 ? "bg-orange-600 hover:bg-orange-700 text-white"
                                                 : "bg-blue-600 hover:bg-blue-700 text-white"
                                             }`}
+                                            title="Revisar y editar distribución de habitaciones"
                                           >
                                             {st === "revision_necesaria" ? "Revisar Cambio" : "Revisar"}
                                           </button>
