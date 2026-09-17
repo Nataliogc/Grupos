@@ -75,7 +75,9 @@
 
     function _subscribe() {
         try {
+            updateDbStatus(true, "BD Online");
             window.db.collection('settings').doc('main').onSnapshot(function (doc) {
+                updateDbStatus(true, "BD Online");
                 if (!doc.exists) {
                     _loadFromLocalStorage();
                     return;
@@ -90,10 +92,12 @@
                 window.updateNexusHeaderImportDate(gDate, cDate);
             }, function (err) {
                 console.warn('[Navigation] Firestore settings/main onSnapshot error:', err);
+                updateDbStatus(false, "BD Offline");
                 _loadFromLocalStorage();
             });
         } catch (e) {
             console.warn('[Navigation] _subscribe error:', e);
+            updateDbStatus(false, "BD Offline");
             _loadFromLocalStorage();
         }
     }
@@ -115,7 +119,40 @@
         } catch (e) {}
     }
 
-    // ─── Helpers de sesión y autenticación ──────────────────────────────────
+    // ─── Control de estado de conexión con la Base de Datos ──────────────────
+    function updateDbStatus(isOnline, text) {
+        var badge = document.getElementById("nexus-db-status-badge");
+        if (!badge) return;
+
+        if (isOnline) {
+            badge.className = "flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-lg text-[10px] font-bold tracking-wider select-none shadow-xs";
+            badge.setAttribute("title", "Base de datos Firestore conectada y sincronizada en tiempo real");
+            badge.innerHTML = `
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>${text || 'BD Online'}</span>
+            `;
+        } else {
+            badge.className = "flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-bold tracking-wider select-none shadow-xs";
+            badge.setAttribute("title", "Sin conexión en tiempo real con la base de datos");
+            badge.innerHTML = `
+                <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                <span>${text || 'BD Reconectando'}</span>
+            `;
+        }
+    }
+    window.updateNexusDbStatus = updateDbStatus;
+
+    // ─── Perfiles autorizados y Helpers de sesión ───────────────────────────
+    var AUTHORIZED_PROFILES = [
+        { id: "diana", name: "Diana", role: "Comercial", email: "dianahotelguadiana@gmail.com" },
+        { id: "sergio", name: "Sergio", role: "Dirección", email: "ssanchez@hotelguadiana.es" },
+        { id: "oscar", name: "Oscar", role: "Dirección", email: "osanchez@hotelguadiana.es" },
+        { id: "natalio", name: "Natalio", role: "Administrador", email: "comunicaciones@hotelguadiana.es" }
+    ];
+
     function getCurrentUser() {
         try {
             var raw = localStorage.getItem('nexus_user') || sessionStorage.getItem('nexus_session');
@@ -124,10 +161,40 @@
                 if (u && (u.name || u.email)) return u;
             }
         } catch(e) {}
-        return null;
+
+        // Si hay usuario recordado previamente, asociarlo
+        try {
+            var saved = localStorage.getItem('nexus_saved_username');
+            if (saved) {
+                var sLow = saved.trim().toLowerCase();
+                var found = AUTHORIZED_PROFILES.find(function(p) {
+                    return p.id === sLow || p.name.toLowerCase() === sLow || p.email.toLowerCase() === sLow;
+                });
+                if (found) {
+                    localStorage.setItem('nexus_user', JSON.stringify(found));
+                    return found;
+                }
+            }
+        } catch(e) {}
+
+        // Fallback por defecto garantizado: Diana (o Natalio) para que nunca salga vacío
+        var defaultUser = AUTHORIZED_PROFILES[0];
+        try {
+            localStorage.setItem('nexus_user', JSON.stringify(defaultUser));
+        } catch(e) {}
+        return defaultUser;
     }
 
     window.getNexusCurrentUser = getCurrentUser;
+
+    window.switchNexusUser = function (userId) {
+        var found = AUTHORIZED_PROFILES.find(function(p) { return p.id === userId; });
+        if (found) {
+            localStorage.setItem('nexus_user', JSON.stringify(found));
+            sessionStorage.setItem('nexus_session', JSON.stringify(found));
+            window.location.reload();
+        }
+    };
 
     window.nexusLogout = function () {
         var user = getCurrentUser();
@@ -251,29 +318,60 @@
                     </a>
         ` : '';
 
-        var userWidgetHtml = '';
-        if (currentUser) {
-            var userName = currentUser.name || "Usuario";
-            var userRole = currentUser.role || "Nexus";
-            var userInitial = (currentUser.name || "U").charAt(0).toUpperCase();
-            var userEmail = currentUser.email || "";
+        var userName = (currentUser && currentUser.name) || "Diana";
+        var userRole = (currentUser && currentUser.role) || "Comercial";
+        var userInitial = userName.charAt(0).toUpperCase();
+        var userEmail = (currentUser && currentUser.email) || "dianahotelguadiana@gmail.com";
 
-            userWidgetHtml = `
-                <div class="h-6 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-                <div id="nexus-header-user-widget" class="flex items-center gap-2 pl-1">
-                    <div class="hidden md:flex flex-col text-right leading-tight select-none">
+        var userWidgetHtml = `
+            <div class="h-6 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
+            <div class="relative" id="nexus-user-menu-wrapper">
+                <button id="nexus-user-pill-btn" type="button" class="nexus-nav-btn flex items-center gap-2 pl-2.5 pr-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-full transition-all cursor-pointer select-none shadow-xs" title="Usuario activo. Clic para cambiar o cerrar sesión">
+                    <div class="hidden sm:flex flex-col text-right leading-tight">
                         <span class="text-[11px] font-bold text-slate-800 leading-none">${userName}</span>
-                        <span class="text-[9px] font-semibold text-emerald-700 leading-none mt-0.5 uppercase tracking-wider">${userRole}</span>
+                        <span class="text-[9px] font-bold text-emerald-700 leading-none mt-0.5 uppercase tracking-wider">${userRole}</span>
                     </div>
-                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2d5a43] to-emerald-500 text-white font-black text-xs flex items-center justify-center shadow-xs select-none border border-emerald-600/30 shrink-0" title="${userName} (${userEmail})">
+                    <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-[#2d5a43] to-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs select-none shrink-0">
                         ${userInitial}
                     </div>
-                    <button id="nexus-logout-btn" class="nexus-nav-btn p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Cerrar sesión (${userName})">
-                        <i data-lucide="log-out" class="w-4 h-4"></i>
-                    </button>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                </button>
+
+                <!-- Menú desplegable flotante de usuario -->
+                <div id="nexus-user-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[99999]">
+                    <div class="px-4 py-2 border-b border-slate-100">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Usuario Conectado</p>
+                        <p class="text-xs font-bold text-slate-800 truncate">${userName} <span class="text-[10px] font-semibold text-emerald-600">(${userRole})</span></p>
+                        <p class="text-[10px] text-slate-500 truncate mt-0.5">${userEmail}</p>
+                    </div>
+                    <div class="py-1.5">
+                        <p class="px-4 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Cambiar a otro usuario</p>
+                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="diana">
+                            <span>Diana (Comercial)</span>
+                            ${userName.toLowerCase() === 'diana' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
+                        </button>
+                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="sergio">
+                            <span>Sergio (Dirección)</span>
+                            ${userName.toLowerCase() === 'sergio' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
+                        </button>
+                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="oscar">
+                            <span>Oscar (Dirección)</span>
+                            ${userName.toLowerCase() === 'oscar' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
+                        </button>
+                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="natalio">
+                            <span>Natalio (Administrador)</span>
+                            ${userName.toLowerCase() === 'natalio' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
+                        </button>
+                    </div>
+                    <div class="border-t border-slate-100 pt-1.5 px-2">
+                        <button id="nexus-logout-btn" type="button" class="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer transition-colors">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                            <span>Cerrar Sesión</span>
+                        </button>
+                    </div>
                 </div>
-            `;
-        }
+            </div>
+        `;
 
         header.innerHTML = `
             <div class="container mx-auto px-4 flex items-center justify-between gap-4">
@@ -354,10 +452,19 @@
                     </a>
                 </div>
 
-                <!-- Derecha: Acciones de Importación, Exportación y Sesión -->
+                <!-- Derecha: Estado BD + Acciones de Importación, Exportación y Sesión -->
                 <div class="flex items-center gap-2">
+                    <!-- Estado de la Base de Datos -->
+                    <div id="nexus-db-status-badge" class="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-lg text-[10px] font-bold tracking-wider select-none shadow-xs" title="Base de Datos Firestore conectada en tiempo real">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span>BD Online</span>
+                    </div>
+
                     <span id="nexus-header-export-badge" class="hidden sm:inline-block"></span>
-                    <div class="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
+                    <div class="h-8 w-[1px] bg-slate-200 mx-0.5 hidden md:block"></div>
 
                     <div class="flex gap-1 md:gap-2 items-center">
                         <label class="nexus-nav-btn p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer flex items-center justify-center" title="Importar">
@@ -474,6 +581,33 @@
                 }
             });
         }
+
+        // Dropdown interactivo de usuario
+        var userPillBtn = document.getElementById("nexus-user-pill-btn");
+        var userDropdown = document.getElementById("nexus-user-dropdown-menu");
+        if (userPillBtn && userDropdown) {
+            userPillBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                userDropdown.classList.toggle("hidden");
+            });
+
+            document.addEventListener("click", function (e) {
+                if (!userDropdown.contains(e.target) && !userPillBtn.contains(e.target)) {
+                    userDropdown.classList.add("hidden");
+                }
+            });
+        }
+
+        // Cambio rápido de usuario desde el dropdown
+        document.querySelectorAll(".nexus-switch-user-btn").forEach(function(btn) {
+            btn.addEventListener("click", function(e) {
+                e.preventDefault();
+                var uid = this.getAttribute("data-user-id");
+                if (window.switchNexusUser) {
+                    window.switchNexusUser(uid);
+                }
+            });
+        });
 
         // Clic en el botón Cerrar Sesión
         var logoutBtn = document.getElementById("nexus-logout-btn");
