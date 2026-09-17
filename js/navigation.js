@@ -27,7 +27,7 @@
         // Acepta también el formato antiguo de string unificado para compatibilidad
         if (typeof gDate === 'string' && cDate === undefined) {
             badge.innerHTML = gDate
-                ? '<span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[8px] font-bold uppercase tracking-wider">' +
+                ? '<span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[8px] font-bold uppercase tracking-wider whitespace-nowrap">' +
                   gDate + '</span>'
                 : '';
             return;
@@ -37,10 +37,10 @@
         var cStr = cDate ? formatImportDate(cDate) : null;
 
         var html = '';
-        html += '<span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1">' +
+        html += '<span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">' +
                 '<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>' +
                 'Guadiana: ' + (gStr || 'Sin actualización') + '</span>';
-        html += '<span class="px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1">' +
+        html += '<span class="px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">' +
                 '<span class="inline-block w-1.5 h-1.5 rounded-full bg-sky-500"></span>' +
                 'Cumbria: ' + (cStr || 'Sin actualización') + '</span>';
 
@@ -177,24 +177,10 @@
             }
         } catch(e) {}
 
-        // Fallback por defecto garantizado: Diana (o Natalio) para que nunca salga vacío
-        var defaultUser = AUTHORIZED_PROFILES[0];
-        try {
-            localStorage.setItem('nexus_user', JSON.stringify(defaultUser));
-        } catch(e) {}
-        return defaultUser;
+        return null;
     }
 
     window.getNexusCurrentUser = getCurrentUser;
-
-    window.switchNexusUser = function (userId) {
-        var found = AUTHORIZED_PROFILES.find(function(p) { return p.id === userId; });
-        if (found) {
-            localStorage.setItem('nexus_user', JSON.stringify(found));
-            sessionStorage.setItem('nexus_session', JSON.stringify(found));
-            window.location.reload();
-        }
-    };
 
     window.nexusLogout = function () {
         var user = getCurrentUser();
@@ -261,9 +247,9 @@
         var style = document.createElement("style");
         style.id = "nexus-header-styles";
         style.innerHTML = `
-            /* Compensar la altura del header fijo */
+            /* Compensar la altura de la cabecera compacta */
             body {
-                padding-top: 72px !important;
+                padding-top: 50px !important;
             }
             @media print {
                 body {
@@ -278,8 +264,8 @@
             div.fixed.left-0.top-0,
             aside[class*="fixed left-0 top-0"],
             div[class*="fixed left-0 top-0"] {
-                top: 72px !important;
-                height: calc(100vh - 72px) !important;
+                top: 50px !important;
+                height: calc(100vh - 50px) !important;
                 z-index: 40 !important;
             }
             /* Ocultar cabecera cuando la ficha está abierta */
@@ -289,15 +275,15 @@
             body.nexus-ficha-open #nexus-global-header {
                 display: none !important;
             }
-            /* Efectos hover premium */
+            /* Efectos hover sutiles */
             .nexus-nav-btn {
-                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             }
             .nexus-nav-btn:hover {
-                transform: translateY(-1.5px);
+                transform: translateY(-1px);
             }
             .nexus-nav-btn:active {
-                transform: scale(0.95);
+                transform: scale(0.97);
             }
         `;
         document.head.appendChild(style);
@@ -305,7 +291,7 @@
         // 2. Crear el elemento header
         var header = document.createElement("header");
         header.id = "nexus-global-header";
-        header.className = "bg-white/85 backdrop-blur-md border-b border-slate-200/80 py-3 shadow-sm fixed top-0 left-0 right-0 z-[9999] no-print";
+        header.className = "bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-1.5 shadow-xs fixed top-0 left-0 right-0 z-[9999] no-print";
         
         // Si el body ya tiene la clase nexus-ficha-open, ocultarla inmediatamente
         if (document.body.classList.contains("nexus-ficha-open")) {
@@ -313,149 +299,118 @@
         }
 
         var backBtnHtml = showBackBtn ? `
-                    <a href="${backUrl}" class="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 border border-slate-200/60 bg-white shadow-sm flex items-center justify-center" title="Volver">
-                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    <a href="${backUrl}" class="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 border border-slate-200/60 bg-white shadow-xs flex items-center justify-center shrink-0" title="Volver">
+                        <i data-lucide="chevron-left" class="w-4 h-4"></i>
                     </a>
         ` : '';
 
-        var userName = (currentUser && currentUser.name) || "Diana";
-        var userRole = (currentUser && currentUser.role) || "Comercial";
-        var userInitial = userName.charAt(0).toUpperCase();
-        var userEmail = (currentUser && currentUser.email) || "dianahotelguadiana@gmail.com";
+        var userWidgetHtml = '';
+        if (currentUser) {
+            var userName = currentUser.name || "Usuario";
+            var userRole = currentUser.role || "Comercial";
+            var userInitial = userName.charAt(0).toUpperCase();
+            var userEmail = currentUser.email || "";
 
-        var userWidgetHtml = `
-            <div class="h-6 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-            <div class="relative" id="nexus-user-menu-wrapper">
-                <button id="nexus-user-pill-btn" type="button" class="nexus-nav-btn flex items-center gap-2 pl-2.5 pr-2 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-full transition-all cursor-pointer select-none shadow-xs" title="Usuario activo. Clic para cambiar o cerrar sesión">
-                    <div class="hidden sm:flex flex-col text-right leading-tight">
-                        <span class="text-[11px] font-bold text-slate-800 leading-none">${userName}</span>
-                        <span class="text-[9px] font-bold text-emerald-700 leading-none mt-0.5 uppercase tracking-wider">${userRole}</span>
-                    </div>
-                    <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-[#2d5a43] to-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs select-none shrink-0">
+            userWidgetHtml = `
+                <div class="h-4 w-[1px] bg-slate-200 mx-0.5 hidden sm:block"></div>
+                <div class="flex items-center gap-1.5 pl-2 pr-1 py-0.5 bg-slate-50 border border-slate-200/80 rounded-full shadow-xs whitespace-nowrap select-none" title="Usuario conectado: ${userName} (${userEmail})">
+                    <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-[#2d5a43] to-emerald-600 text-white font-black text-[10px] flex items-center justify-center shadow-xs shrink-0 select-none">
                         ${userInitial}
                     </div>
-                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
-                </button>
-
-                <!-- Menú desplegable flotante de usuario -->
-                <div id="nexus-user-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[99999]">
-                    <div class="px-4 py-2 border-b border-slate-100">
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Usuario Conectado</p>
-                        <p class="text-xs font-bold text-slate-800 truncate">${userName} <span class="text-[10px] font-semibold text-emerald-600">(${userRole})</span></p>
-                        <p class="text-[10px] text-slate-500 truncate mt-0.5">${userEmail}</p>
+                    <div class="hidden sm:flex flex-col text-left leading-tight pr-0.5">
+                        <span class="text-[11px] font-bold text-slate-800 leading-none">${userName}</span>
+                        <span class="text-[8px] font-bold text-emerald-700 leading-none uppercase tracking-wider">${userRole}</span>
                     </div>
-                    <div class="py-1.5">
-                        <p class="px-4 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Cambiar a otro usuario</p>
-                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="diana">
-                            <span>Diana (Comercial)</span>
-                            ${userName.toLowerCase() === 'diana' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
-                        </button>
-                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="sergio">
-                            <span>Sergio (Dirección)</span>
-                            ${userName.toLowerCase() === 'sergio' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
-                        </button>
-                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="oscar">
-                            <span>Oscar (Dirección)</span>
-                            ${userName.toLowerCase() === 'oscar' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
-                        </button>
-                        <button type="button" class="nexus-switch-user-btn w-full px-4 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer" data-user-id="natalio">
-                            <span>Natalio (Administrador)</span>
-                            ${userName.toLowerCase() === 'natalio' ? '<span class="text-emerald-600 font-black">✓</span>' : ''}
-                        </button>
-                    </div>
-                    <div class="border-t border-slate-100 pt-1.5 px-2">
-                        <button id="nexus-logout-btn" type="button" class="w-full px-3 py-2 rounded-xl text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer transition-colors">
-                            <i data-lucide="log-out" class="w-4 h-4"></i>
-                            <span>Cerrar Sesión</span>
-                        </button>
-                    </div>
+                    <button id="nexus-logout-btn" type="button" class="nexus-nav-btn p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0" title="Cerrar sesión (${userName})">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    </button>
                 </div>
-            </div>
-        `;
+            `;
+        }
 
         header.innerHTML = `
-            <div class="container mx-auto px-4 flex items-center justify-between gap-4">
-                <!-- Izquierda: Botón volver, Logo y Título -->
-                <div class="flex items-center gap-4 flex-1">
+            <div class="w-full px-3 sm:px-6 flex items-center justify-between gap-2 lg:gap-4">
+                <!-- Izquierda: Botón volver, Logo y Fechas de importación -->
+                <div class="flex items-center gap-2 sm:gap-3 shrink-0">
                     ${backBtnHtml}
-                    <div class="flex items-center gap-3">
-                        <div class="bg-slate-50 rounded-xl p-1.5 shadow-inner border border-slate-100 flex items-center justify-center">
-                            <img src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png" class="h-8 w-auto object-contain" alt="Nexus Logo" />
+                    <div class="flex items-center gap-2">
+                        <div class="bg-slate-50 rounded-lg p-1 shadow-inner border border-slate-100 flex items-center justify-center shrink-0">
+                            <img src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png" class="h-6 w-auto object-contain" alt="Nexus Logo" />
                         </div>
-                        <div>
-                            <h1 class="text-lg font-black text-slate-800 leading-none font-outfit">
+                        <div class="flex flex-col justify-center">
+                            <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                 Nexus <span class="text-emerald-600">Groups</span>
                             </h1>
-                            <div id="nexus-header-import-badge" class="flex items-center gap-1.5 flex-wrap mt-0.5"></div>
+                            <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Centro: Módulos internos + menús externos y AI Hub (oculto en móviles) -->
-                <div class="hidden lg:flex items-center gap-1">
+                <!-- Centro: Módulos internos + menús externos y AI Hub (oculto en pantallas pequeñas) -->
+                <div class="hidden lg:flex items-center gap-1 shrink-0">
                     <a href="Admin.html"
-                       class="nexus-nav-btn flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider" title="Panel de Control">
-                        <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0"></i>
+                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Panel de Control">
+                        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 flex-shrink-0"></i>
                         <span class="hidden xl:inline">Panel</span>
                     </a>
 
                     <a href="Gestion-de-Grupos.html"
-                       class="nexus-nav-btn flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider" title="Directorio Grupos">
-                        <i data-lucide="users" class="w-4 h-4 flex-shrink-0"></i>
+                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Directorio Grupos">
+                        <i data-lucide="users" class="w-3.5 h-3.5 flex-shrink-0"></i>
                         <span class="hidden xl:inline">Grupos</span>
                     </a>
 
                     <a href="Presupuestos.html"
-                       class="nexus-nav-btn flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider" title="Seguimiento Presupuestos">
-                        <i data-lucide="clipboard-list" class="w-4 h-4 flex-shrink-0"></i>
+                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Seguimiento Presupuestos">
+                        <i data-lucide="clipboard-list" class="w-3.5 h-3.5 flex-shrink-0"></i>
                         <span class="hidden xl:inline">Presupuestos</span>
                     </a>
 
                     <a href="Proformas.html"
-                       class="nexus-nav-btn flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider" title="Facturas Proforma">
-                        <i data-lucide="file-text" class="w-4 h-4 flex-shrink-0"></i>
+                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Facturas Proforma">
+                        <i data-lucide="file-text" class="w-3.5 h-3.5 flex-shrink-0"></i>
                         <span class="hidden xl:inline">Proformas</span>
                     </a>
 
                     <a href="Objetivos-Grupos.html"
-                       class="nexus-nav-btn flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider" title="Objetivos y Tarifas">
-                        <i data-lucide="target" class="w-4 h-4 flex-shrink-0"></i>
+                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Objetivos y Tarifas">
+                        <i data-lucide="target" class="w-3.5 h-3.5 flex-shrink-0"></i>
                         <span class="hidden xl:inline">Objetivos</span>
                     </a>
 
-                    <div class="h-6 w-[1px] bg-slate-200 mx-1"></div>
+                    <div class="h-4 w-[1px] bg-slate-200 mx-1"></div>
 
                     <a href="https://nataliogc.github.io/menus-eventos/admin.html" target="_blank" rel="noopener noreferrer" 
-                       class="nexus-nav-btn p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="Menús Eventos">
-                        <i data-lucide="utensils" class="w-5 h-5"></i>
+                       class="nexus-nav-btn p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="Menús Eventos">
+                        <i data-lucide="utensils" class="w-4 h-4"></i>
                     </a>
 
                     <a href="https://nataliogc.github.io/Menus-Turisticos/" target="_blank" rel="noopener noreferrer" 
-                       class="nexus-nav-btn p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="Menús Turísticos">
-                        <i data-lucide="map" class="w-5 h-5"></i>
+                       class="nexus-nav-btn p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="Menús Turísticos">
+                        <i data-lucide="map" class="w-4 h-4"></i>
                     </a>
 
                     <a href="https://nataliogc.github.io/menus-cocteles/" target="_blank" rel="noopener noreferrer" 
-                       class="nexus-nav-btn p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="Menús Cócteles">
-                        <i data-lucide="martini" class="w-5 h-5"></i>
+                       class="nexus-nav-btn p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="Menús Cócteles">
+                        <i data-lucide="martini" class="w-4 h-4"></i>
                     </a>
 
                     <button id="nexus-header-brain-btn" 
-                            class="nexus-nav-btn p-2 text-slate-400 hover:text-[#2d5a43] hover:bg-emerald-50 rounded-full transition-all group relative" title="Nexus AI Hub - Análisis de Estrategia">
-                        <i data-lucide="brain" class="w-[22px] h-[22px] transition-transform group-hover:scale-110"></i>
-                        <span class="absolute top-1 right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                            class="nexus-nav-btn p-1 text-slate-400 hover:text-[#2d5a43] hover:bg-emerald-50 rounded-full transition-all group relative" title="Nexus AI Hub - Análisis de Estrategia">
+                        <i data-lucide="brain" class="w-4 h-4 transition-transform group-hover:scale-110"></i>
+                        <span class="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
                     </button>
 
                     <a href="Configuracion.html"
-                       class="nexus-nav-btn p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all" title="Configuración">
-                        <i data-lucide="settings-2" class="w-5 h-5"></i>
+                       class="nexus-nav-btn p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all" title="Configuración">
+                        <i data-lucide="settings-2" class="w-4 h-4"></i>
                     </a>
                 </div>
 
-                <!-- Derecha: Estado BD + Acciones de Importación, Exportación y Sesión -->
-                <div class="flex items-center gap-2">
+                <!-- Derecha: Estado BD + Acciones de Importación/Exportación + Perfil Usuario Registrado -->
+                <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <!-- Estado de la Base de Datos -->
-                    <div id="nexus-db-status-badge" class="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-lg text-[10px] font-bold tracking-wider select-none shadow-xs" title="Base de Datos Firestore conectada en tiempo real">
+                    <div id="nexus-db-status-badge" class="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-md text-[10px] font-bold tracking-wider select-none shadow-xs whitespace-nowrap" title="Base de Datos Firestore conectada en tiempo real">
                         <span class="relative flex h-2 w-2">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -463,17 +418,16 @@
                         <span>BD Online</span>
                     </div>
 
-                    <span id="nexus-header-export-badge" class="hidden sm:inline-block"></span>
-                    <div class="h-8 w-[1px] bg-slate-200 mx-0.5 hidden md:block"></div>
+                    <div class="h-4 w-[1px] bg-slate-200 mx-0.5 hidden sm:block"></div>
 
-                    <div class="flex gap-1 md:gap-2 items-center">
-                        <label class="nexus-nav-btn p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer flex items-center justify-center" title="Importar">
-                            <i data-lucide="upload" class="w-5 h-5"></i>
+                    <div class="flex gap-0.5 items-center">
+                        <label class="nexus-nav-btn p-1.5 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer flex items-center justify-center rounded-lg hover:bg-slate-100" title="Importar">
+                            <i data-lucide="upload" class="w-4 h-4"></i>
                             <input type="file" id="nexus-header-upload-input" class="hidden" accept=".csv, .xlsx, .xls" />
                         </label>
 
-                        <button id="nexus-header-excel-btn" class="nexus-nav-btn p-2 text-slate-400 hover:text-emerald-600 transition-colors flex items-center justify-center" title="Exportar Excel">
-                            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                        <button id="nexus-header-excel-btn" class="nexus-nav-btn p-1.5 text-slate-400 hover:text-emerald-600 transition-colors flex items-center justify-center rounded-lg hover:bg-slate-100" title="Exportar Excel">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
                         </button>
                     </div>
 
@@ -582,33 +536,6 @@
             });
         }
 
-        // Dropdown interactivo de usuario
-        var userPillBtn = document.getElementById("nexus-user-pill-btn");
-        var userDropdown = document.getElementById("nexus-user-dropdown-menu");
-        if (userPillBtn && userDropdown) {
-            userPillBtn.addEventListener("click", function (e) {
-                e.stopPropagation();
-                userDropdown.classList.toggle("hidden");
-            });
-
-            document.addEventListener("click", function (e) {
-                if (!userDropdown.contains(e.target) && !userPillBtn.contains(e.target)) {
-                    userDropdown.classList.add("hidden");
-                }
-            });
-        }
-
-        // Cambio rápido de usuario desde el dropdown
-        document.querySelectorAll(".nexus-switch-user-btn").forEach(function(btn) {
-            btn.addEventListener("click", function(e) {
-                e.preventDefault();
-                var uid = this.getAttribute("data-user-id");
-                if (window.switchNexusUser) {
-                    window.switchNexusUser(uid);
-                }
-            });
-        });
-
         // Clic en el botón Cerrar Sesión
         var logoutBtn = document.getElementById("nexus-logout-btn");
         if (logoutBtn) {
@@ -616,12 +543,6 @@
                 e.preventDefault();
                 window.nexusLogout();
             });
-        }
-
-        // Cargar última exportación de Excel al iniciar si existe
-        var savedExportDate = localStorage.getItem("nexus_last_excel_export");
-        if (savedExportDate && typeof window.updateNexusHeaderExportDate === "function") {
-            window.updateNexusHeaderExportDate(savedExportDate);
         }
 
         // Suscribirse a Firestore para importación en tiempo real
@@ -657,21 +578,8 @@
         });
     }
 
-    // Registrar actualización para el badge de última exportación de Excel
-    window.updateNexusHeaderExportDate = function (dateStr) {
-        var badge = document.getElementById("nexus-header-export-badge");
-        if (badge) {
-            if (dateStr) {
-                badge.innerHTML = `
-                    <span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md text-[8px] font-black uppercase tracking-widest">
-                        Exportado: ${dateStr}
-                    </span>
-                `;
-            } else {
-                badge.innerHTML = "";
-            }
-        }
-    };
+    // Compatibilidad: la fecha de exportación se omite para evitar duplicidad con las fechas de hoteles
+    window.updateNexusHeaderExportDate = function () {};
 
     // Ejecutar al cargar la página
     if (document.readyState === "loading") {
