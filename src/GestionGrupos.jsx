@@ -183,6 +183,144 @@
       return parseRoomingListSafe(value, context).filter(isAccommodationItem);
     };
 
+    const findMatchingBudgetsForGroup = (groupRecord, allRows) => {
+      if (!groupRecord || !allRows || !Array.isArray(allRows)) return [];
+      const resId = String(groupRecord["Reserva"] || groupRecord.id || groupRecord._docId || "").trim();
+      const groupName = String(groupRecord["Nombre del Grupo"] || "").trim();
+      const toDate = typeof toInputDate === "function" ? toInputDate : (v) => String(v || "").split("T")[0];
+      const groupIn = toDate(groupRecord["Entrada"] || groupRecord["Check-In"]);
+      const groupOut = toDate(groupRecord["Salida"] || groupRecord["Check-Out"]);
+      const groupPax = parseInt(groupRecord["Pax."] || groupRecord["Pax"] || 0, 10);
+      const groupHotel = String(groupRecord["Hotel_Asignado"] || groupRecord["Hotel"] || "").toLowerCase();
+      const groupObs = String(groupRecord["Observaciones"] || groupRecord["Observac."] || groupRecord["Comentarios"] || "").toLowerCase();
+      const groupAgency = String(groupRecord["Empresa/Agencia"] || groupRecord["Empresa"] || groupRecord["Fiscal_RazonSocial"] || "").toLowerCase();
+
+      const cleanText = (str) =>
+        String(str || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/th/g, "t")
+          .replace(/[^a-z0-9]/g, " ")
+          .trim()
+          .replace(/\s+/g, " ");
+
+      const cleanGroupName = cleanText(groupName);
+
+      const candidates = [];
+      const seenBudgets = new Set();
+
+      allRows.forEach((row) => {
+        if (!row) return;
+        const bId = String(row["Reserva"] || row.id || row._docId || "").trim();
+        if (!bId || bId === resId || seenBudgets.has(bId)) return;
+
+        const isBudgetDoc =
+          bId.toUpperCase().startsWith("PRES-") ||
+          row.isBudget === true ||
+          String(row["Com_Estado_Interno"] || "").toUpperCase().includes("PRESUP") ||
+          String(row["Estado"] || "").toUpperCase().includes("PRESUP") ||
+          String(row["Segment."] || "").toUpperCase().includes("PRESUP");
+
+        if (!isBudgetDoc) return;
+
+        seenBudgets.add(bId);
+
+        let score = 0;
+        const reasons = [];
+
+        // 1. Mención de la referencia del presupuesto en observaciones de la reserva
+        const cleanBId = bId.replace(/^PRES-/i, "");
+        if (groupObs.includes(bId.toLowerCase()) || (cleanBId && cleanBId.length >= 4 && groupObs.includes(cleanBId.toLowerCase()))) {
+          score += 100;
+          reasons.push("Mención en observaciones");
+        }
+
+        // 2. Mención de la reserva PMS en el presupuesto (tracking, notas, etc.)
+        const bTracking = String(row.tracking || "").toLowerCase();
+        const bNotes = String(row.Observaciones || row.Comentarios || "").toLowerCase();
+        if (resId && resId.length >= 3 && (bTracking.includes(resId.toLowerCase()) || bNotes.includes(resId.toLowerCase()))) {
+          score += 90;
+          reasons.push(`Ref. PMS ${resId} en presupuesto`);
+        }
+
+        // 3. Coincidencia de nombre
+        const bName = String(row["Nombre del Grupo"] || "").trim();
+        const cleanBName = cleanText(bName);
+        if (cleanGroupName && cleanBName) {
+          if (cleanGroupName === cleanBName) {
+            score += 85;
+            reasons.push("Nombre idéntico");
+          } else if (
+            (cleanGroupName.length > 4 && cleanBName.includes(cleanGroupName)) ||
+            (cleanBName.length > 4 && cleanGroupName.includes(cleanBName))
+          ) {
+            score += 65;
+            reasons.push("Nombre muy similar");
+          } else {
+            const gWords = cleanGroupName.split(" ").filter(w => w.length > 2);
+            const bWords = cleanBName.split(" ").filter(w => w.length > 2);
+            const common = gWords.filter(w => bWords.includes(w));
+            if (common.length >= 2) {
+              score += 50;
+              reasons.push(`Palabras clave: ${common.join(", ")}`);
+            } else if (common.length === 1 && (cleanGroupName.includes("triatlon") || cleanBName.includes("triatlon") || common[0].length >= 5)) {
+              score += 35;
+              reasons.push(`Coincidencia en "${common[0]}"`);
+            }
+          }
+        }
+
+        // 4. Coincidencia en Fechas
+        const bIn = toDate(row["Entrada"] || row["Check-In"]);
+        const bOut = toDate(row["Salida"] || row["Check-Out"]);
+        if (groupIn && bIn && groupIn === bIn) {
+          score += 25;
+          reasons.push("Misma fecha de entrada");
+        }
+        if (groupOut && bOut && groupOut === bOut) {
+          score += 15;
+          reasons.push("Misma fecha de salida");
+        }
+
+        // 5. Coincidencia en Pax
+        const bPax = parseInt(row["Pax."] || row["Pax"] || 0, 10);
+        if (groupPax > 0 && bPax > 0 && Math.abs(groupPax - bPax) <= 5) {
+          score += 10;
+          reasons.push(`Pax similar (${bPax})`);
+        }
+
+        // 6. Coincidencia en Hotel
+        const bHotel = String(row["Hotel_Asignado"] || row["Hotel"] || "").toLowerCase();
+        if (groupHotel && bHotel && (groupHotel.includes(bHotel) || bHotel.includes(groupHotel))) {
+          score += 10;
+        }
+
+        // 7. Coincidencia en Agencia / Empresa
+        const bAgency = String(row["Empresa/Agencia"] || row["Empresa"] || row["Fiscal_RazonSocial"] || "").toLowerCase();
+        if (groupAgency && bAgency && (groupAgency.includes(bAgency) || bAgency.includes(groupAgency))) {
+          score += 15;
+          reasons.push("Misma agencia/empresa");
+        }
+
+        if (score >= 35) {
+          candidates.push({
+            id: bId,
+            record: row,
+            score,
+            reasons,
+            name: bName,
+            in: bIn,
+            out: bOut,
+            pax: bPax,
+            importe: row["Importe(*)"] || row["Excel_Importe"] || 0
+          });
+        }
+      });
+
+      return candidates.sort((a, b) => b.score - a.score);
+    };
+
     const calculateLodgingRevenue = (row) => {
       const totalImporte = parseNum(row["Importe(*)"]);
       if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]") {
@@ -8684,10 +8822,43 @@
       const [tempGroupName, setTempGroupName] = useState("");
 
       const [showClientData, setShowClientData] = useState(false);
-
       const [tempClientData, setTempClientData] = useState({});
-
+      const [showBudgetLinkModal, setShowBudgetLinkModal] = useState(false);
+      const [budgetSearchTerm, setBudgetSearchTerm] = useState("");
+      const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [isSaving, setIsSaving] = useState(false); // Spinner mientras acceptChanges guarda
+
+      // Auto-detección y vinculación de presupuesto previo si no está vinculado
+      useEffect(() => {
+        if (!selectedGroupFicha || !selectedGroupFicha.records || !data || data.length === 0) return;
+        const rec0 = selectedGroupFicha.records[0];
+        if (!rec0) return;
+        const curPto = rec0["Presupuesto_Origen"] || rec0["sourceQuoteId"];
+        const resId = String(selectedGroupFicha.id || rec0["Reserva"] || "").trim();
+
+        // Si no tiene presupuesto vinculado y no es él mismo un presupuesto
+        if ((!curPto || String(curPto).trim() === resId) && !resId.toUpperCase().startsWith("PRES-")) {
+          const candidates = findMatchingBudgetsForGroup(rec0, data);
+          if (candidates.length > 0 && candidates[0].score >= 70) {
+            const bestMatch = candidates[0];
+            console.log(`✨ [AutoLink] Vinculando automáticamente ${resId} (${selectedGroupFicha.name}) con presupuesto previo: ${bestMatch.id} (Score: ${bestMatch.score}, Motivo: ${bestMatch.reasons.join(', ')})`);
+            updateGroupMetadata(selectedGroupFicha.id, {
+              Presupuesto_Origen: bestMatch.id,
+              sourceQuoteId: bestMatch.id
+            }).catch(console.error);
+
+            setSelectedGroupFicha(prev => {
+              if (!prev || prev.id !== selectedGroupFicha.id) return prev;
+              const updatedRecs = (prev.records || []).map(r => ({
+                ...r,
+                Presupuesto_Origen: bestMatch.id,
+                sourceQuoteId: bestMatch.id
+              }));
+              return { ...prev, records: updatedRecs };
+            });
+          }
+        }
+      }, [selectedGroupFicha?.id, data]);
 
       // Ref con la última lista de inventario guardada (para PROFORMA, evita desincronía con el estado)
 
@@ -9498,6 +9669,30 @@
           }
         } catch (e) {}
 
+        // Detección y vinculación automática de Presupuesto Origen si no está vinculado
+        try {
+          const rec0 = group.records && group.records[0];
+          const curPto = rec0 && (rec0["Presupuesto_Origen"] || rec0["sourceQuoteId"]);
+          const resId = String(group.id || rec0?.["Reserva"] || "").trim();
+          if (rec0 && (!curPto || String(curPto).trim() === resId) && !resId.toUpperCase().startsWith("PRES-") && data && data.length > 0) {
+            const matches = findMatchingBudgetsForGroup(rec0, data);
+            if (matches.length > 0 && matches[0].score >= 70) {
+              const bestMatch = matches[0];
+              console.log(`✨ [AutoLink openFicha] Presupuesto origen detectado para ${resId} (${group.name}): ${bestMatch.id}`);
+              group.records.forEach(r => {
+                r["Presupuesto_Origen"] = bestMatch.id;
+                r["sourceQuoteId"] = bestMatch.id;
+              });
+              updateGroupMetadata(group.id, {
+                Presupuesto_Origen: bestMatch.id,
+                sourceQuoteId: bestMatch.id
+              }).catch(console.error);
+            }
+          }
+        } catch (autoLinkErr) {
+          console.error("Error en detección automática de presupuesto en openFicha:", autoLinkErr);
+        }
+
         setSelectedGroupFicha(group);
         setCollapsedFichaDays(new Set());
         setShowFichaModal(true);
@@ -9624,28 +9819,40 @@
         }
       };
 
-      const handleEditPresupuestoOrigen = async () => {
+      const handleEditPresupuestoOrigen = () => {
+        setShowBudgetLinkModal(true);
+      };
+
+      const handleLinkBudget = async (budgetId) => {
         if (!selectedGroupFicha) return;
-        const currentPto = selectedGroupFicha.records?.[0]?.["Presupuesto_Origen"] || selectedGroupFicha.records?.[0]?.["sourceQuoteId"] || "";
-        const newPto = prompt(
-          `Indica el número de presupuesto previo del que viene este grupo:\n(Ej: PRES-77140 o déjalo en blanco para desvincular)`,
-          currentPto
-        );
-        if (newPto === null) return;
-        const trimmed = newPto.trim();
-        await updateGroupMetadata(selectedGroupFicha.id, {
-          Presupuesto_Origen: trimmed || null,
-          sourceQuoteId: trimmed || null
-        });
-        setSelectedGroupFicha(prev => {
-          if (!prev) return prev;
-          const updatedRecs = (prev.records || []).map(r => ({
-            ...r,
+        const trimmed = budgetId ? String(budgetId).trim() : null;
+        try {
+          setIsSaving(true);
+          await updateGroupMetadata(selectedGroupFicha.id, {
             Presupuesto_Origen: trimmed || null,
             sourceQuoteId: trimmed || null
-          }));
-          return { ...prev, records: updatedRecs };
-        });
+          });
+          setSelectedGroupFicha(prev => {
+            if (!prev) return prev;
+            const updatedRecs = (prev.records || []).map(r => ({
+              ...r,
+              Presupuesto_Origen: trimmed || null,
+              sourceQuoteId: trimmed || null
+            }));
+            return { ...prev, records: updatedRecs };
+          });
+          setShowBudgetLinkModal(false);
+          if (trimmed) {
+            alert(`✅ Presupuesto ${trimmed} vinculado con éxito al grupo ${selectedGroupFicha.name || selectedGroupFicha.id}`);
+          } else {
+            alert(`ℹ️ Presupuesto desvinculado.`);
+          }
+        } catch (e) {
+          console.error("Error al vincular presupuesto:", e);
+          alert("❌ Error al vincular presupuesto: " + e.message);
+        } finally {
+          setIsSaving(false);
+        }
       };
 
       const handleEditStayDates = async () => {
@@ -18855,18 +19062,44 @@
                                       );
                                     }
                                     if (!resId.startsWith("PRES-")) {
+                                      const candidates = findMatchingBudgetsForGroup(rec, data);
+                                      const topMatch = candidates[0];
+
                                       return (
                                         <>
                                           <span className="opacity-30">•</span>
-                                          <button
-                                            type="button"
-                                            onClick={handleEditPresupuestoOrigen}
-                                            className="inline-flex items-center gap-1 text-[9px] font-bold text-white/40 hover:text-purple-300 hover:bg-white/5 px-1.5 py-0.5 rounded transition-all"
-                                            title="Vincular este grupo con un presupuesto previo"
-                                          >
-                                            <IconPlus size={10} />
-                                            <span>Vincular Presupuesto</span>
-                                          </button>
+                                          {topMatch ? (
+                                            <div className="inline-flex items-center gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleLinkBudget(topMatch.id)}
+                                                className="inline-flex items-center gap-1.5 text-[9px] font-black text-purple-200 bg-purple-500/25 hover:bg-purple-500/35 border border-purple-400/40 hover:border-purple-400/60 px-2 py-0.5 rounded-lg transition-all shadow-sm group/autolink"
+                                                title={`Detectado presupuesto coincidente: ${topMatch.id} (${topMatch.name}) con coincidencia por ${topMatch.reasons.join(", ")}. Clic para vincular.`}
+                                              >
+                                                <IconSparkles size={11} className="text-purple-300 animate-pulse" />
+                                                <span>Vincular a {topMatch.id}</span>
+                                                <span className="opacity-60 text-[8px]">({topMatch.reasons[0]})</span>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => setShowBudgetLinkModal(true)}
+                                                className="opacity-40 hover:opacity-100 text-white p-1 hover:bg-white/10 rounded transition"
+                                                title="Buscar otro presupuesto o introducir código manualmente"
+                                              >
+                                                <IconSearch size={10} />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => setShowBudgetLinkModal(true)}
+                                              className="inline-flex items-center gap-1 text-[9px] font-bold text-white/40 hover:text-purple-300 hover:bg-white/5 px-1.5 py-0.5 rounded transition-all"
+                                              title="Vincular este grupo con un presupuesto previo"
+                                            >
+                                              <IconPlus size={10} />
+                                              <span>Vincular Presupuesto</span>
+                                            </button>
+                                          )}
                                         </>
                                       );
                                     }
@@ -24725,6 +24958,227 @@ const base =
 
               </div>
 
+            )}
+
+            {/* Modal de Vinculación de Presupuesto de Origen */}
+            {showBudgetLinkModal && selectedGroupFicha && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+                  <div className="bg-[#0f172a] p-6 text-white flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-purple-500/20 p-2 rounded-2xl border border-purple-500/30">
+                        <IconSparkles size={24} className="text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black uppercase tracking-widest leading-none">
+                          Vincular Presupuesto Previo
+                        </h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mt-1.5 tracking-tighter">
+                          Grupo: {selectedGroupFicha.name} · Ref PMS: {selectedGroupFicha.records[0]?.["Reserva"] || selectedGroupFicha.id}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowBudgetLinkModal(false)}
+                      className="text-slate-400 hover:text-white p-2 hover:bg-white/10 rounded-xl transition-all"
+                    >
+                      <IconX size={20} />
+                    </button>
+                  </div>
+
+                  <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                    {/* Presupuesto actual si existe */}
+                    {(() => {
+                      const cur = selectedGroupFicha.records[0]?.["Presupuesto_Origen"] || selectedGroupFicha.records[0]?.["sourceQuoteId"];
+                      if (!cur || String(cur).trim() === String(selectedGroupFicha.records[0]?.["Reserva"]).trim()) return null;
+                      return (
+                        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest block mb-0.5">
+                              Presupuesto actualmente vinculado
+                            </span>
+                            <span className="text-sm font-black text-purple-900">
+                              {cur}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleLinkBudget(null)}
+                            className="text-[10px] font-bold px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl transition"
+                          >
+                            Desvincular
+                          </button>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Presupuestos Sugeridos / Detectados Automáticamente */}
+                    {(() => {
+                      const candidates = findMatchingBudgetsForGroup(selectedGroupFicha.records[0], data);
+                      if (candidates.length === 0) return null;
+                      return (
+                        <div>
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-1.5">
+                            <IconSparkles size={13} className="text-amber-500" />
+                            Presupuestos Sugeridos Automáticamente ({candidates.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {candidates.map((cand) => (
+                              <div
+                                key={cand.id}
+                                className="bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300 rounded-2xl p-3.5 flex items-center justify-between gap-4 transition-all"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                                    <span className="font-black text-xs text-purple-700 bg-purple-100 px-2 py-0.5 rounded-lg border border-purple-200">
+                                      {cand.id}
+                                    </span>
+                                    <span className="font-bold text-xs text-slate-800 truncate">
+                                      {cand.name || "Sin nombre"}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 flex items-center gap-2 flex-wrap">
+                                    {cand.in && cand.out && (
+                                      <span>📅 {cand.in} → {cand.out}</span>
+                                    )}
+                                    {cand.pax > 0 && <span>• 👥 {cand.pax} pax</span>}
+                                    {cand.importe > 0 && (
+                                      <span>• 💰 {parseFloat(cand.importe).toLocaleString("es-ES", { minimumFractionDigits: 2 })} €</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                                    {cand.reasons.map((r, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="text-[8px] font-bold uppercase bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded"
+                                      >
+                                        ✓ {r}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleLinkBudget(cand.id)}
+                                  className="shrink-0 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-sm"
+                                >
+                                  Vincular
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Buscador en todos los presupuestos */}
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">
+                        Buscar en todos los presupuestos
+                      </h4>
+                      <div className="relative mb-3">
+                        <IconSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={budgetSearchTerm}
+                          onChange={(e) => setBudgetSearchTerm(e.target.value)}
+                          placeholder="Buscar por código (PRES-...), nombre del grupo, cliente..."
+                          className="w-full h-10 pl-9 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all shadow-sm"
+                        />
+                      </div>
+
+                      {budgetSearchTerm.trim().length > 1 && (
+                        <div className="max-h-48 overflow-y-auto space-y-1.5 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+                          {(() => {
+                            const term = budgetSearchTerm.trim().toLowerCase();
+                            const results = (data || []).filter((r) => {
+                              const rId = String(r.Reserva || r.id || "").toLowerCase();
+                              const isBudget =
+                                rId.startsWith("pres-") ||
+                                r.isBudget === true ||
+                                String(r.Com_Estado_Interno || "").toLowerCase().includes("presup") ||
+                                String(r.Estado || "").toLowerCase().includes("presup");
+                              if (!isBudget) return false;
+                              const rName = String(r["Nombre del Grupo"] || "").toLowerCase();
+                              const rEmp = String(r["Empresa/Agencia"] || r["Empresa"] || r["Fiscal_RazonSocial"] || "").toLowerCase();
+                              return rId.includes(term) || rName.includes(term) || rEmp.includes(term);
+                            });
+
+                            if (results.length === 0) {
+                              return (
+                                <p className="text-xs text-slate-400 p-2 text-center">
+                                  No se encontraron presupuestos que coincidan con "{budgetSearchTerm}"
+                                </p>
+                              );
+                            }
+
+                            return results.slice(0, 10).map((b, idx) => {
+                              const bId = b.Reserva || b.id;
+                              return (
+                                <div
+                                  key={b._docId || bId || idx}
+                                  className="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between text-xs hover:border-purple-300 transition"
+                                >
+                                  <div>
+                                    <span className="font-bold text-purple-700 mr-2">{bId}</span>
+                                    <span className="font-medium text-slate-700">{b["Nombre del Grupo"] || "Sin nombre"}</span>
+                                    <span className="text-slate-400 ml-2 text-[10px]">{b["Entrada"]} → {b["Salida"]}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleLinkBudget(bId)}
+                                    className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-bold"
+                                  >
+                                    Vincular
+                                  </button>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Introducción manual */}
+                    <div className="pt-2 border-t border-slate-100">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">
+                        O introduce la referencia manualmente
+                      </h4>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customBudgetIdInput}
+                          onChange={(e) => setCustomBudgetIdInput(e.target.value)}
+                          placeholder="Ej: PRES-77140"
+                          className="flex-1 h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none uppercase shadow-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (customBudgetIdInput.trim()) {
+                              handleLinkBudget(customBudgetIdInput.trim());
+                            }
+                          }}
+                          className="px-4 h-10 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition"
+                        >
+                          Vincular
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowBudgetLinkModal(false)}
+                      className="px-6 py-2.5 text-xs font-black uppercase text-slate-500 hover:text-slate-700 transition"
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Modal de Revisión IA - Confirmación de Datos Parseados */}
