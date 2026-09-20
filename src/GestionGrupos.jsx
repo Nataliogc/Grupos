@@ -19888,45 +19888,89 @@
                               <div className={`grid grid-cols-1 gap-2 ${(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO" || Boolean(selectedGroupFicha.records[0]?.["Presupuesto_Origen"]) || Boolean(selectedGroupFicha.records[0]?.["sourceQuoteId"])) ? "md:col-span-1" : "md:col-span-2"}`}>
 
                                 <div>
+                                  <div className="flex items-center justify-between mb-1.5 ml-1 mr-0.5">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase">
+                                      Próx. Seg.
+                                    </label>
+                                    {selectedGroupFicha.records[0]?.["Com_Seguimiento"] && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          updateGroupMetadata(
+                                            selectedGroupFicha.id,
+                                            "Com_Seguimiento",
+                                            ""
+                                          );
+                                          setSelectedGroupFicha((prev) => {
+                                            if (!prev) return prev;
+                                            const updatedRecs = (prev.records || []).map((r) => ({
+                                              ...r,
+                                              Com_Seguimiento: ""
+                                            }));
+                                            return { ...prev, records: updatedRecs };
+                                          });
+                                        }}
+                                        className="text-[9px] font-bold text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 transition-all"
+                                        title="Anular / quitar fecha de seguimiento"
+                                      >
+                                        <IconX size={10} stroke={2.5} />
+                                        <span>Quitar</span>
+                                      </button>
+                                    )}
+                                  </div>
 
-                                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 ml-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="date"
+                                      className={`flex-1 min-w-0 h-9 px-2 text-[10px] font-black rounded-xl border ${selectedGroupFicha.records[0]?.["Com_Seguimiento"] && new Date(selectedGroupFicha.records[0]?.["Com_Seguimiento"]) <= new Date() ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600"} outline-none focus:border-blue-500 transition-all`}
+                                      value={
+                                        selectedGroupFicha.records[0]?.[
+                                        "Com_Seguimiento"
+                                        ] || ""
+                                      }
+                                      onChange={(e) => {
+                                        const newVal = e.target.value;
+                                        updateGroupMetadata(
+                                          selectedGroupFicha.id,
+                                          "Com_Seguimiento",
+                                          newVal,
+                                        );
+                                        setSelectedGroupFicha((prev) => {
+                                          if (!prev) return prev;
+                                          const updatedRecs = (prev.records || []).map((r) => ({
+                                            ...r,
+                                            Com_Seguimiento: newVal
+                                          }));
+                                          return { ...prev, records: updatedRecs };
+                                        });
+                                      }}
+                                    />
 
-                                    Próx. Seg.
-
-                                  </label>
-
-                                  <input
-
-                                    type="date"
-
-                                    className={`w-full h-9 px-2 text-[10px] font-black rounded-xl border ${selectedGroupFicha.records[0]?.["Com_Seguimiento"] && new Date(selectedGroupFicha.records[0]?.["Com_Seguimiento"]) <= new Date() ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600"} outline-none focus:border-blue-500 transition-all`}
-
-                                    value={
-
-                                      selectedGroupFicha.records[0]?.[
-
-                                      "Com_Seguimiento"
-
-                                      ] || ""
-
-                                    }
-
-                                    onChange={(e) =>
-
-                                      updateGroupMetadata(
-
-                                        selectedGroupFicha.id,
-
-                                        "Com_Seguimiento",
-
-                                        e.target.value,
-
-                                      )
-
-                                    }
-
-                                  />
-
+                                    {selectedGroupFicha.records[0]?.["Com_Seguimiento"] && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          updateGroupMetadata(
+                                            selectedGroupFicha.id,
+                                            "Com_Seguimiento",
+                                            ""
+                                          );
+                                          setSelectedGroupFicha((prev) => {
+                                            if (!prev) return prev;
+                                            const updatedRecs = (prev.records || []).map((r) => ({
+                                              ...r,
+                                              Com_Seguimiento: ""
+                                            }));
+                                            return { ...prev, records: updatedRecs };
+                                          });
+                                        }}
+                                        className="h-9 w-9 shrink-0 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-500 hover:text-rose-700 border border-rose-200 rounded-xl flex items-center justify-center transition-all shadow-xs group/btn"
+                                        title="Anular seguimiento (borrar fecha con una X)"
+                                      >
+                                        <IconX size={15} stroke={3} className="group-hover/btn:scale-110 transition-transform" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
 
                               </div>
