@@ -65,6 +65,88 @@ var _isCreditoGroup = function isCreditoGroup(g) {
   }
   return false;
 };
+var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
+  if (!g) return {
+    total: 0,
+    paid: 0,
+    pending: 0,
+    planPaid: 0,
+    planTotal: 0,
+    allMilestonesCobrado: false
+  };
+  var records = Array.isArray(g.records) && g.records.length > 0 ? g.records : [g];
+  var roomingTotal = 0;
+  records.forEach(function (rec) {
+    if (rec.RoomingList_JSON) {
+      try {
+        var rList = typeof rec.RoomingList_JSON === "string" ? JSON.parse(rec.RoomingList_JSON) : rec.RoomingList_JSON;
+        if (Array.isArray(rList)) {
+          rList.forEach(function (item) {
+            roomingTotal += parseFloat(item.total) || 0;
+          });
+        }
+      } catch (e) {}
+    }
+  });
+  var planTotal = 0;
+  var planPaid = 0;
+  var hasMilestones = false;
+  var allMilestonesCobrado = true;
+  var processedPlans = new Set();
+  records.forEach(function (rec) {
+    if (rec.PaymentPlan_JSON && rec.PaymentPlan_JSON !== "[]" && !processedPlans.has(rec.PaymentPlan_JSON)) {
+      processedPlans.add(rec.PaymentPlan_JSON);
+      try {
+        var plan = JSON.parse(rec.PaymentPlan_JSON);
+        if (Array.isArray(plan) && plan.length > 0) {
+          hasMilestones = true;
+          plan.forEach(function (p) {
+            var amt = parseFloat(p.amount) || 0;
+            planTotal += amt;
+            if (p.status === "Cobrado" || p.status === "Pagado") {
+              planPaid += amt;
+            } else {
+              allMilestonesCobrado = false;
+            }
+          });
+        }
+      } catch (e) {}
+    }
+  });
+  var manualPaid = records.reduce(function (max, r) {
+    return Math.max(max, safeParseAmount(r.Com_Pagado || 0));
+  }, 0);
+  var paid = Math.max(manualPaid, planPaid);
+  var total = 0;
+  if (roomingTotal > 0) {
+    total = roomingTotal;
+  } else {
+    var facturable = records.reduce(function (sum, r) {
+      return sum + safeParseAmount(r.Total_Importe_Facturable || 0);
+    }, 0);
+    if (facturable > 0) {
+      total = facturable;
+    } else if (planTotal > 0) {
+      total = planTotal;
+    } else {
+      total = records.reduce(function (sum, r) {
+        return sum + safeParseAmount(r["Importe(*)"] || r["Importe"] || 0);
+      }, 0);
+    }
+  }
+  var pending = Math.max(0, total - paid);
+  if (hasMilestones && allMilestonesCobrado && planPaid > 0 || planTotal > 0 && paid >= planTotal - 0.05 || total > 0 && paid >= total - 0.05) {
+    pending = 0;
+  }
+  return {
+    total: total,
+    paid: paid,
+    pending: pending,
+    planPaid: planPaid,
+    planTotal: planTotal,
+    allMilestonesCobrado: allMilestonesCobrado
+  };
+};
 
 // --- MÓDULO IA (CONEXIÓN SEGURA) ---
 // --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
@@ -326,26 +408,21 @@ var Dashboard = function Dashboard(_ref2) {
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;
-      var isConfirmed = status.includes("CONFIRM") || status.includes("GARANT") || status.includes("RESERVA");
-      var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT");
+      var isConfirmed = status.includes("CONFIRM") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
+      var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
       var entryDate = parseDate(g.Entrada);
-      var totalAmt = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
-      var paid = parseFloat(g.Com_Pagado) || 0;
-      try {
-        var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-        plan.forEach(function (p) {
-          if (p.status === "Cobrado") paid += parseFloat(p.amount) || 0;
-        });
-      } catch (e) {}
-      var pending = Math.max(0, totalAmt - paid);
+      var fin = getGroupFinancialInfo(g);
+      var totalAmt = fin.total;
+      var paid = fin.paid;
+      var pending = fin.pending;
       var hasAlert = false;
       var isCredito = _isCreditoGroup(g);
 
       // 1. Financial (ignorar si es crédito)
       if (!isCredito && (isConfirmed || isTentative) && pending > 0.1) {
         try {
-          var _plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-          var pastDueMilestones = _plan.filter(function (p) {
+          var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+          var pastDueMilestones = plan.filter(function (p) {
             var pDate = parseDate(p.date);
             return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
           });
@@ -353,9 +430,9 @@ var Dashboard = function Dashboard(_ref2) {
         } catch (e) {}
       }
 
-      // 2. Release (ignorar si está confirmado y es crédito)
+      // 2. Release (sólo para reservas NO confirmadas y que no sean crédito)
       var dRel = parseDate(g.Com_Vencimiento_Rel);
-      if (!hasAlert && (!isConfirmed || !isCredito && pending > 0.1) && dRel && dRel <= fiveDaysFromNow) {
+      if (!hasAlert && !isConfirmed && !isCredito && pending > 0.1 && dRel && dRel <= fiveDaysFromNow) {
         hasAlert = true;
       }
 
@@ -423,24 +500,17 @@ var Dashboard = function Dashboard(_ref2) {
       var isConfirmed = status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
       var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
       var entryDate = parseDate(g.Entrada);
-      var total = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
-      var manualPaid = parseFloat(g.Com_Pagado) || 0;
-      var planPaid = 0;
-      try {
-        var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-        plan.forEach(function (p) {
-          if (p.status === "Cobrado" || p.status === "Pagado") planPaid += parseFloat(p.amount) || 0;
-        });
-      } catch (e) {}
-      var paid = Math.max(manualPaid, planPaid);
-      var pending = Math.max(0, total - paid);
+      var fin = getGroupFinancialInfo(g);
+      var total = fin.total;
+      var paid = fin.paid;
+      var pending = fin.pending;
       var isCredito = _isCreditoGroup(g);
 
       // 1. Column 1: Financial Alerts (ignorar si es crédito)
       if (!isCredito && (isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
         try {
-          var _plan2 = JSON.parse(g.PaymentPlan_JSON || "[]");
-          var pastDueMilestones = _plan2.filter(function (p) {
+          var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+          var pastDueMilestones = plan.filter(function (p) {
             var pDate = parseDate(p.date);
             return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
           });
@@ -459,8 +529,8 @@ var Dashboard = function Dashboard(_ref2) {
         } catch (e) {}
       }
 
-      // 2. Column 2: Releases y Plazos (ignorar si está confirmado y es crédito)
-      if ((!isConfirmed || !isCredito && pending > 0.1) && !seenRelease.has(resId)) {
+      // 2. Column 2: Releases y Plazos (sólo aplica a reservas NO confirmadas)
+      if (!isConfirmed && !isCredito && pending > 0.1 && !seenRelease.has(resId)) {
         var dRel = parseDate(g.Com_Vencimiento_Rel);
         if (dRel && dRel <= fiveDaysFromNow) {
           seenRelease.add(resId);
@@ -1447,10 +1517,11 @@ var App = function App() {
       var isConfirmed = ["CONFIRM", "OK", "GARANT", "RESERVA", "GRUPO"].some(function (s) {
         return status.includes(s);
       });
-      var totalAmt = safeParseAmount(g.Total_Importe_Facturable || g["Importe(*)"] || 0);
-      var paidAmt = parseFloat(g.Com_Pagado) || 0;
-      var pendingAmt = Math.max(0, totalAmt - paidAmt);
-      var needsReleaseCheck = !isConfirmed || !isCredito && pendingAmt > 0.1;
+      var fin = getGroupFinancialInfo(g);
+      var totalAmt = fin.total;
+      var paidAmt = fin.paid;
+      var pendingAmt = fin.pending;
+      var needsReleaseCheck = !isConfirmed && !isCredito && pendingAmt > 0.1;
 
       // Alert 1: Release Urgente (< 7 días)
       if (needsReleaseCheck) {
@@ -1666,10 +1737,11 @@ var App = function App() {
           var isConfirmed = ["CONFIRM", "OK", "GARANT", "RESERVA", "GRUPO"].some(function (s) {
             return status.includes(s);
           });
-          var totalAmt = safeParseAmount(val);
-          var paidAmt = parseFloat(g.Com_Pagado) || 0;
-          var pendingAmt = Math.max(0, totalAmt - paidAmt);
-          var needsReleaseCheck = !isConfirmed || !isCredito && pendingAmt > 0.1;
+          var fin = getGroupFinancialInfo(g);
+          var totalAmt = fin.total;
+          var paidAmt = fin.paid;
+          var pendingAmt = fin.pending;
+          var needsReleaseCheck = !isConfirmed && !isCredito && pendingAmt > 0.1;
 
           // Alert 1: Release Urgente (< 7 días)
           if (needsReleaseCheck) {
