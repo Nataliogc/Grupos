@@ -3174,6 +3174,14 @@
           group?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
         );
 
+        const firstRec = group?.records?.[0] || {};
+        const stProps = getStatusProps(
+          firstRec["Com_Estado_Interno"] || firstRec["Segment."],
+          firstRec["Entrada"] || group?.arrival,
+          firstRec["Estado"]
+        );
+        const isConfirmedGroup = stProps.label === "CONFIRMADO";
+
         // 1. Search in payment plan (solo si no es a crédito)
         if (!isCredito) {
           (group.records || []).forEach((r) => {
@@ -3194,8 +3202,9 @@
           });
         }
 
-        // 2. Search in Com_Vencimiento_Rel manual field (solo si no es crédito)
-        if (!isCredito) {
+        // 2. Search in Com_Vencimiento_Rel manual field (solo si no es crédito Y no está confirmado)
+        // En reservas confirmadas, Com_Vencimiento_Rel es un release preliminar caducado/irrelevante
+        if (!isCredito && !isConfirmedGroup) {
           const manualRel = group.records?.[0]?.["Com_Vencimiento_Rel"];
           if (manualRel) {
             const dStr = toInputDate(manualRel);
@@ -3238,7 +3247,8 @@
           dateStr: refDateStr,
           isDeadline,
           isPaymentPlanDeadline,
-          diffDays
+          diffDays,
+          isConfirmedGroup
         };
       };
 
@@ -4084,6 +4094,48 @@
             }
 
             if (kpiFilter === "release") {
+              const stProps = getStatusProps(
+                row["Com_Estado_Interno"] || row["Segment."],
+                row["Entrada"],
+                row["Estado"]
+              );
+              const isConfirmed = stProps.label === "CONFIRMADO";
+              const isCancelled = ["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(stProps.label);
+
+              // Un Release sólo aplica a reservas NO confirmadas y NO canceladas (tentativas, presupuestos, opciones, bloqueos)
+              if (isConfirmed || isCancelled) return false;
+
+              const sUpper = (row["Com_Estado_Interno"] || row["Segment."] || row["Estado"] || "").toUpperCase();
+              const extUpper = (row["Estado"] || "").toUpperCase();
+              if (
+                sUpper.includes("CONF") ||
+                sUpper.includes("OK") ||
+                sUpper.includes("CERR") ||
+                sUpper.includes("DEFINITIVO") ||
+                extUpper.includes("CONF") ||
+                extUpper.includes("OK")
+              ) {
+                return false;
+              }
+
+              if (
+                sUpper.includes("ANUL") ||
+                sUpper.includes("CANC") ||
+                sUpper.includes("BAJA") ||
+                sUpper.includes("DESEST") ||
+                sUpper.includes("CADUC") ||
+                sUpper.includes("DESCART") ||
+                sUpper.includes("RECHAZ") ||
+                extUpper.includes("ANUL") ||
+                extUpper.includes("CANC") ||
+                extUpper.includes("BAJA") ||
+                extUpper.includes("DESEST") ||
+                extUpper.includes("CADUC") ||
+                extUpper.includes("DESCART") ||
+                extUpper.includes("RECHAZ")
+              ) {
+                return false;
+              }
 
               const isCreditoRow = Boolean(
                 row.isCredito ||
@@ -4094,64 +4146,77 @@
               );
               if (isCreditoRow) return false;
 
+              const manualPaidVal = parseNum(row["Com_Pagado"] || "0");
+              let paidFromPlan = 0;
+              if (row.PaymentPlan_JSON) {
+                try {
+                  const plan = JSON.parse(row.PaymentPlan_JSON);
+                  if (Array.isArray(plan)) {
+                    paidFromPlan = plan
+                      .filter((p) => p.status === "Cobrado")
+                      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                  }
+                } catch (e) {}
+              }
+              const totalPaid = Math.max(manualPaidVal, paidFromPlan);
+              const currentForecast = parseNum(row["Importe(*)"]);
+              const isFullyPaid = currentForecast > 0 && totalPaid >= currentForecast - 0.05;
+              if (isFullyPaid) return false;
+
               let isReleaseUrgent = false;
 
-              const manualPaidVal = parseNum(row["Com_Pagado"] || "0");
+              const comRelease = row.Com_Vencimiento_Rel
+                ? new Date(toInputDate(row.Com_Vencimiento_Rel))
+                : null;
 
-              const currentForecast = parseNum(row["Importe(*)"]);
+              if (comRelease && !isNaN(comRelease.getTime())) {
+                if (comRelease <= sevenDaysFromNow) isReleaseUrgent = true;
+              }
 
-              const isFullyPaid = manualPaidVal >= currentForecast - 0.01;
-
-
-
-              if (!isFullyPaid) {
-
-                const roomListStr = row.RoomingList_JSON;
-
-                if (roomListStr) {
-
-                  try {
-
-                    const roomList = parseRoomingListSafe(roomListStr, "release-check");
-
-                    roomList.forEach((item) => {
-
-                      const dIn = new Date(toInputDate(item.dateIn));
-
-                      if (!isNaN(dIn.getTime())) {
-
-                        const diff = Math.ceil(
-
-                          (dIn - now) / (1000 * 60 * 60 * 24),
-
-                        );
-
-                        if (diff <= 7) isReleaseUrgent = true;
-
+              if (!isReleaseUrgent && row.PaymentPlan_JSON) {
+                try {
+                  const plan = JSON.parse(row.PaymentPlan_JSON);
+                  if (Array.isArray(plan)) {
+                    plan.forEach((p) => {
+                      if (p.status !== "Cobrado" && p.date) {
+                        const pDate = new Date(toInputDate(p.date));
+                        if (!isNaN(pDate.getTime()) && pDate <= sevenDaysFromNow) {
+                          isReleaseUrgent = true;
+                        }
                       }
-
                     });
+                  }
+                } catch (e) {}
+              }
 
-                  } catch (e) { }
-
+              if (!isReleaseUrgent) {
+                const roomListStr = row.RoomingList_JSON;
+                if (roomListStr) {
+                  try {
+                    const roomList = parseRoomingListSafe(roomListStr, "release-check");
+                    roomList.forEach((item) => {
+                      const dIn = new Date(toInputDate(item.dateIn));
+                      if (!isNaN(dIn.getTime())) {
+                        const diff = Math.ceil(
+                          (dIn - now) / (1000 * 60 * 60 * 24),
+                        );
+                        if (diff <= 7) isReleaseUrgent = true;
+                      }
+                    });
+                  } catch (e) {}
                 }
-
-                const comRelease = row.Com_Vencimiento_Rel
-
-                  ? new Date(row.Com_Vencimiento_Rel)
-
-                  : null;
-
-                if (comRelease && !isNaN(comRelease.getTime())) {
-
-                  if (comRelease <= sevenDaysFromNow) isReleaseUrgent = true;
-
+                if (!isReleaseUrgent && row["Entrada"]) {
+                  const dIn = new Date(toInputDate(row["Entrada"]));
+                  if (!isNaN(dIn.getTime())) {
+                    const diff = Math.ceil(
+                      (dIn - now) / (1000 * 60 * 60 * 24),
+                    );
+                    if (diff <= 7) isReleaseUrgent = true;
+                  }
                 }
-
               }
 
               return isReleaseUrgent;
-
             }
 
             if (kpiFilter === "followup") {
@@ -7733,6 +7798,7 @@
         const uniquePendingGroups = new Set();
 
         let releaseAlerts = 0;
+        const uniqueReleaseGroups = new Set();
 
         let followUpAlerts = 0;
 
@@ -7969,69 +8035,132 @@
             // 2. Release Alerts
             let isReleaseUrgent = false;
 
-            const isCreditoRow = Boolean(
-              row.isCredito ||
-              row["Es_Credito"] === true || row["Es_Credito"] === "true" ||
-              row["Com_Es_Credito"] === true || row["Com_Es_Credito"] === "true" ||
-              (row.Forma_Pago && String(row.Forma_Pago).toUpperCase().includes("CREDIT")) ||
-              (row.Com_Forma_Pago && String(row.Com_Forma_Pago).toUpperCase().includes("CREDIT"))
+            const stProps = getStatusProps(
+              row["Com_Estado_Interno"] || row["Segment."],
+              row["Entrada"],
+              row["Estado"]
             );
+            const isConfirmedRow = stProps.label === "CONFIRMADO";
+            const isCancelledRow = isCancelled || ["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(stProps.label);
 
-            const manualPaidVal = parseNum(row["Com_Pagado"] || "0");
+            const sUpper = status;
+            const extUpper = (row["Estado"] || "").toUpperCase();
+            const isExplicitConfirmed =
+              isConfirmedRow ||
+              sUpper.includes("CONF") ||
+              sUpper.includes("OK") ||
+              sUpper.includes("CERR") ||
+              sUpper.includes("DEFINITIVO") ||
+              extUpper.includes("CONF") ||
+              extUpper.includes("OK");
 
-            const currentForecast = parseNum(row["Importe(*)"]);
+            const isExplicitCancelled =
+              isCancelledRow ||
+              sUpper.includes("ANUL") ||
+              sUpper.includes("CANC") ||
+              sUpper.includes("BAJA") ||
+              sUpper.includes("DESEST") ||
+              sUpper.includes("CADUC") ||
+              sUpper.includes("DESCART") ||
+              sUpper.includes("RECHAZ") ||
+              extUpper.includes("ANUL") ||
+              extUpper.includes("CANC") ||
+              extUpper.includes("BAJA") ||
+              extUpper.includes("DESEST") ||
+              extUpper.includes("CADUC") ||
+              extUpper.includes("DESCART") ||
+              extUpper.includes("RECHAZ");
 
-            const isFullyPaid = manualPaidVal >= currentForecast - 0.01;
+            if (!isExplicitConfirmed && !isExplicitCancelled) {
+              const isCreditoRow = Boolean(
+                row.isCredito ||
+                row["Es_Credito"] === true || row["Es_Credito"] === "true" ||
+                row["Com_Es_Credito"] === true || row["Com_Es_Credito"] === "true" ||
+                (row.Forma_Pago && String(row.Forma_Pago).toUpperCase().includes("CREDIT")) ||
+                (row.Com_Forma_Pago && String(row.Com_Forma_Pago).toUpperCase().includes("CREDIT"))
+              );
 
-
-
-            if (!isFullyPaid && !isCreditoRow) {
-
-              const roomListStr = row.RoomingList_JSON;
-
-              if (roomListStr) {
-
-                try {
-
-                  const roomList = parseRoomingListSafe(roomListStr, "release-check");
-
-                  roomList.forEach((item) => {
-
-                    const dIn = new Date(toInputDate(item.dateIn));
-
-                    if (!isNaN(dIn.getTime())) {
-
-                      const diff = Math.ceil(
-
-                        (dIn - now) / (1000 * 60 * 60 * 24),
-
-                      );
-
-                      if (diff <= 7) isReleaseUrgent = true;
-
+              if (!isCreditoRow) {
+                const manualPaidVal = parseNum(row["Com_Pagado"] || "0");
+                let paidFromPlan = 0;
+                if (row.PaymentPlan_JSON) {
+                  try {
+                    const plan = JSON.parse(row.PaymentPlan_JSON);
+                    if (Array.isArray(plan)) {
+                      paidFromPlan = plan
+                        .filter((p) => p.status === "Cobrado")
+                        .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
                     }
+                  } catch (e) {}
+                }
+                const totalPaid = Math.max(manualPaidVal, paidFromPlan);
+                const currentForecast = parseNum(row["Importe(*)"]);
+                const isFullyPaid = currentForecast > 0 && totalPaid >= currentForecast - 0.05;
 
-                  });
+                if (!isFullyPaid) {
+                  const comRelease = row.Com_Vencimiento_Rel
+                    ? new Date(toInputDate(row.Com_Vencimiento_Rel))
+                    : null;
 
-                } catch (e) { }
+                  if (comRelease && !isNaN(comRelease.getTime())) {
+                    if (comRelease <= sevenDaysFromNow) isReleaseUrgent = true;
+                  }
 
+                  if (!isReleaseUrgent && row.PaymentPlan_JSON) {
+                    try {
+                      const plan = JSON.parse(row.PaymentPlan_JSON);
+                      if (Array.isArray(plan)) {
+                        plan.forEach((p) => {
+                          if (p.status !== "Cobrado" && p.date) {
+                            const pDate = new Date(toInputDate(p.date));
+                            if (!isNaN(pDate.getTime()) && pDate <= sevenDaysFromNow) {
+                              isReleaseUrgent = true;
+                            }
+                          }
+                        });
+                      }
+                    } catch (e) {}
+                  }
+
+                  if (!isReleaseUrgent) {
+                    const roomListStr = row.RoomingList_JSON;
+                    if (roomListStr) {
+                      try {
+                        const roomList = parseRoomingListSafe(roomListStr, "release-check");
+                        roomList.forEach((item) => {
+                          const dIn = new Date(toInputDate(item.dateIn));
+                          if (!isNaN(dIn.getTime())) {
+                            const diff = Math.ceil(
+                              (dIn - now) / (1000 * 60 * 60 * 24),
+                            );
+                            if (diff <= 7) isReleaseUrgent = true;
+                          }
+                        });
+                      } catch (e) {}
+                    }
+                    if (!isReleaseUrgent && row["Entrada"]) {
+                      const dIn = new Date(toInputDate(row["Entrada"]));
+                      if (!isNaN(dIn.getTime())) {
+                        const diff = Math.ceil(
+                          (dIn - now) / (1000 * 60 * 60 * 24),
+                        );
+                        if (diff <= 7) isReleaseUrgent = true;
+                      }
+                    }
+                  }
+                }
               }
-
-              const comRelease = row.Com_Vencimiento_Rel
-
-                ? new Date(row.Com_Vencimiento_Rel)
-
-                : null;
-
-              if (comRelease && !isNaN(comRelease.getTime())) {
-
-                if (comRelease <= sevenDaysFromNow) isReleaseUrgent = true;
-
-              }
-
             }
 
-            if (isReleaseUrgent) releaseAlerts++;
+            if (isReleaseUrgent) {
+              const resId = normalizeId(row["Reserva"]) || normalizeId(row["Nombre del Grupo"]) || row.id;
+              if (resId && !uniqueReleaseGroups.has(resId)) {
+                uniqueReleaseGroups.add(resId);
+                releaseAlerts++;
+              } else if (!resId) {
+                releaseAlerts++;
+              }
+            }
 
 
 
@@ -16228,6 +16357,51 @@
                                   const info = getDeadlineInfo(group, todayStr);
                                   if (!info.hasDate) {
                                     return <span className="text-slate-400">-</span>;
+                                  }
+
+                                  // Si la reserva está confirmada, NO es un release de habitaciones.
+                                  if (isConfirmed || info.isConfirmedGroup) {
+                                    if (info.isPaymentPlanDeadline && info.isDeadline) {
+                                      let badgeText = "";
+                                      let badgeClass = "";
+                                      if (info.diffDays < 0) {
+                                        badgeText = "VTO. VENCIDO";
+                                        badgeClass = "bg-rose-100 text-rose-700 font-bold border border-rose-200";
+                                      } else if (info.diffDays === 0) {
+                                        badgeText = "VTO. HOY";
+                                        badgeClass = "bg-rose-600 text-white font-black animate-pulse";
+                                      } else {
+                                        badgeText = `Vto. ${info.diffDays}d`;
+                                        badgeClass = info.diffDays <= 7 ? "bg-amber-500 text-white font-bold" : "bg-slate-100 text-slate-700 font-bold border border-slate-200";
+                                      }
+                                      return (
+                                        <div className="flex flex-col items-center">
+                                          <span className={`text-[9px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap ${badgeClass}`}>
+                                            {badgeText}
+                                          </span>
+                                          <span className="text-[8px] text-slate-500 font-bold mt-0.5 tracking-tighter">
+                                            Vto. Pago: {formatDate(info.dateStr)}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+
+                                    // Confirmada sin vencimiento de pago pendiente
+                                    const isStayPast = info.diffDays < 0;
+                                    return (
+                                      <div className="flex flex-col items-center">
+                                        <span className={`text-[9px] px-2 py-0.5 rounded shadow-xs whitespace-nowrap font-bold ${
+                                          isStayPast
+                                            ? "bg-slate-100 text-slate-600 border border-slate-200"
+                                            : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        }`}>
+                                          {isStayPast ? "EN CURSO" : "CONFIRMADO"}
+                                        </span>
+                                        <span className="text-[8px] text-slate-400 font-medium mt-0.5 tracking-tighter">
+                                          Entrada: {formatDate(info.dateStr)}
+                                        </span>
+                                      </div>
+                                    );
                                   }
 
                                   let badgeText = "";
