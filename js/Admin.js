@@ -730,6 +730,14 @@ var Dashboard = function Dashboard(_ref2) {
     }, alerts.map(function (alert, idx) {
       var g = alert.group;
       var isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
+      var entryDate = parseDate(g.Entrada);
+      var daysToArrival = null;
+      if (entryDate && !isNaN(entryDate.getTime())) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var entryDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+        daysToArrival = Math.round((entryDay - today) / (1000 * 60 * 60 * 24));
+      }
       return /*#__PURE__*/React.createElement("div", {
         key: idx,
         onClick: function onClick() {
@@ -738,14 +746,20 @@ var Dashboard = function Dashboard(_ref2) {
         },
         className: "bg-white p-4 rounded-[1.5rem] border border-slate-100/80 cursor-pointer shadow-sm hover:-translate-y-1 hover:scale-[1.01] transition-all duration-300 ".concat(theme.cardHover, " flex flex-col gap-2 relative group")
       }, /*#__PURE__*/React.createElement("div", {
-        className: "flex justify-between items-center"
+        className: "flex justify-between items-start gap-2"
       }, /*#__PURE__*/React.createElement("img", {
         src: isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg",
         alt: "Hotel Logo",
-        className: "h-4 max-w-[80px] object-contain opacity-70 group-hover:opacity-100 transition-opacity"
-      }), /*#__PURE__*/React.createElement("span", {
-        className: "text-[9px] font-bold text-slate-400 uppercase tracking-widest"
-      }, formatDate(g.Entrada))), /*#__PURE__*/React.createElement("div", {
+        className: "h-4 max-w-[80px] object-contain opacity-70 group-hover:opacity-100 transition-opacity mt-0.5"
+      }), /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-col items-end gap-1 shrink-0"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-1.5"
+      }, daysToArrival !== null && /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap leading-none ".concat(daysToArrival < 0 ? "bg-slate-100 text-slate-500 border border-slate-200" : daysToArrival === 0 ? "bg-rose-600 text-white font-black animate-pulse" : daysToArrival === 1 ? "bg-rose-500 text-white font-black" : daysToArrival <= 3 ? "bg-rose-50 text-rose-700 border border-rose-200 font-black" : daysToArrival <= 7 ? "bg-amber-50 text-amber-700 border border-amber-200 font-bold" : "bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold")
+      }, daysToArrival < 0 ? "Lleg\xF3 hace ".concat(Math.abs(daysToArrival), "d") : daysToArrival === 0 ? "¡Llega hoy!" : daysToArrival === 1 ? "Falta 1 día" : "Faltan ".concat(daysToArrival, " d\xEDas")), /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none"
+      }, formatDate(g.Entrada))))), /*#__PURE__*/React.createElement("div", {
         className: "mt-1"
       }, /*#__PURE__*/React.createElement("h4", {
         className: "font-bold text-slate-800 text-xs leading-snug group-hover:text-emerald-700 transition-colors uppercase line-clamp-2",

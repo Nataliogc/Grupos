@@ -16302,9 +16302,42 @@
 
                               {/* ENTRADA & SALIDA */}
                               <td className="px-3 py-2">
-                                <div className="text-[11px] font-bold text-slate-600 tabular-nums font-mono">
+                                <div className="text-[11px] font-bold text-slate-700 tabular-nums font-mono leading-tight">
                                   {formatDate(group.arrival)}
                                 </div>
+                                {(() => {
+                                  if (!group.arrival) return null;
+                                  const arrDate = toInputDate(group.arrival);
+                                  if (!arrDate) return null;
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  const arrD = new Date(arrDate + "T00:00:00");
+                                  if (isNaN(arrD.getTime())) return null;
+                                  const diff = Math.round((arrD - today) / (1000 * 60 * 60 * 24));
+                                  return (
+                                    <span className={`text-[8.5px] font-black tracking-tight block ${
+                                      diff < 0
+                                        ? "text-slate-400"
+                                        : diff === 0
+                                        ? "text-rose-600 font-black animate-pulse"
+                                        : diff === 1
+                                        ? "text-rose-500 font-black"
+                                        : diff <= 3
+                                        ? "text-rose-600 font-black"
+                                        : diff <= 7
+                                        ? "text-amber-600 font-bold"
+                                        : "text-slate-400 font-medium"
+                                    }`}>
+                                      {diff < 0
+                                        ? `Hace ${Math.abs(diff)}d`
+                                        : diff === 0
+                                        ? "¡Llega hoy!"
+                                        : diff === 1
+                                        ? "Falta 1 día"
+                                        : `Faltan ${diff} días`}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="px-3 py-2">
                                 <div className="text-[11px] font-bold text-slate-600 tabular-nums font-mono">
@@ -19311,6 +19344,23 @@
                                           {noches && (
                                             <span className="opacity-60 ml-0.5">({noches}n)</span>
                                           )}
+                                          {(() => {
+                                            if (!entrada) return null;
+                                            const arrStr = toInputDate(entrada);
+                                            if (!arrStr) return null;
+                                            const today = new Date();
+                                            today.setHours(0, 0, 0, 0);
+                                            const dArr = new Date(arrStr + "T00:00:00");
+                                            if (isNaN(dArr.getTime())) return null;
+                                            const diff = Math.round((dArr - today) / (1000 * 60 * 60 * 24));
+                                            return (
+                                              <span className={`ml-1 px-1.5 py-0.2 rounded text-[9px] font-black ${
+                                                diff < 0 ? "bg-white/10 text-white/60" : diff === 0 ? "bg-rose-500 text-white animate-pulse" : diff <= 3 ? "bg-rose-500/80 text-white" : diff <= 7 ? "bg-amber-400/30 text-amber-200" : "bg-white/15 text-white"
+                                              }`}>
+                                                {diff < 0 ? `Hace ${Math.abs(diff)}d` : diff === 0 ? "¡Llega hoy!" : diff === 1 ? "Falta 1 día" : `Faltan ${diff} días`}
+                                              </span>
+                                            );
+                                          })()}
                                           <IconEdit size={10} className="opacity-50 group-hover/dates:opacity-100 ml-0.5 transition-opacity" />
                                         </span>
                                       </>
