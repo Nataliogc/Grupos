@@ -161,6 +161,21 @@
       return /^(hab\.?|habitaci[oÃ³]n|doble|dbl|dui|twin|individual|triple|cu[aÃ¡]druple|suite|apartamento|familiar)\b/i.test(String(item.roomType || item.type || item.product || ''));
     };
 
+    const isPureServiceItem = (item) => {
+      if (!item) return false;
+      if (item.isService === true || item.isService === "true") return true;
+      if (item.isAccommodation === false) return true;
+      if (item.excludeFromOccupancy === true) return true;
+      if (item.itemCategory === "service" || item.category === "service") return true;
+      const t = String(item.type || item.roomType || item.product || item.concept || "").trim().toLowerCase();
+      if (/^(servicio|extra|suplemento):/i.test(t)) return true;
+      if (/almuerzo|cena|desayuno|buffet|coffee|sal[oó]n|coctel|men[uú]|traslado|transfer|gu[ií]a|audiovisual|parking|garaje|spa|masaje|tasa/i.test(t)) {
+        const isExplicitRoom = /^(hab\.?|habitaci[oó]n|doble|dbl|dui|twin|individual|single|triple|tpl|cu[aá]druple|cuad|suite|junior|apartamento|familiar)\b/i.test(t);
+        if (!isExplicitRoom) return true;
+      }
+      return false;
+    };
+
     const getAccommodationItems = (value, context = "") => {
       if (window.RoomingCore && window.RoomingCore.getAccommodationItems) {
         return window.RoomingCore.getAccommodationItems(value, context);
@@ -344,7 +359,7 @@
       const result = [];
       list.forEach((item) => {
         const nights = parseInt(item.nights, 10) || 1;
-        if (!item.isService && nights > 1 && (item.dateIn || item.date)) {
+        if (!isPureServiceItem(item) && !item.isService && nights > 1 && (item.dateIn || item.date)) {
           const cleanDateIn = toDateFn(item.dateIn || item.date);
           const unitP = parseNum(item.price);
           const q = parseInt(item.qty, 10) || 1;
@@ -513,7 +528,7 @@
         dayRooms.forEach((rm) => {
           const itype = String(rm.type || rm.roomType || "").toUpperCase();
           const tClean = itype.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, "").trim();
-          const isPureService = rm.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean));
+          const isPureService = isPureServiceItem(rm) || (rm.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean)));
           if (isPureService) return;
 
           const qty = parseInt(rm.qty, 10) || 1;
@@ -4891,7 +4906,7 @@
         // Sincronizar directamente con habitaciones de la Ficha de Grupo (RoomingList_JSON) para esta fecha
         const expandedRL = expandRoomListByDays(existingRL);
         const dayRooms = expandedRL.filter(item => {
-          if (item.isService) return false;
+          if (isPureServiceItem(item) || item.isService) return false;
           const iDate = toInputDate(item.dateIn || item.date);
           return iDate && iDate === dailyItem.fecha;
         });
@@ -4903,7 +4918,7 @@
         dayRooms.forEach(item => {
           const itype = String(item.type || item.roomType || "").toUpperCase();
           const tClean = itype.replace(/^(HAB\.|HABITACIÓN|HABITACION|HAB)\s+/i, "").trim();
-          const isPureService = item.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean));
+          const isPureService = isPureServiceItem(item) || (item.isService === true && !(/IND|DUI|SINGLE|DOB|DBL|TWIN|TRI|TPL|CUA|SUI|HAB/i.test(tClean)));
           if (isPureService) return;
 
           const qty = parseInt(item.qty, 10) || 1;
@@ -9633,6 +9648,132 @@
         });
       };
 
+      const handleEditStayDates = async () => {
+        if (!selectedGroupFicha || !selectedGroupFicha.records) return;
+        const currentRec = selectedGroupFicha.records[0] || {};
+        const curIn = toInputDate(currentRec["Entrada"] || currentRec["Check-In"]) || "";
+        const curOut = toInputDate(currentRec["Salida"] || currentRec["Check-Out"]) || "";
+
+        const parseDateInput = (val) => {
+          if (!val) return null;
+          const s = String(val).trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          const match = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+          if (match) {
+            const dd = match[1].padStart(2, "0");
+            const mm = match[2].padStart(2, "0");
+            const yyyy = match[3];
+            return `${yyyy}-${mm}-${dd}`;
+          }
+          return null;
+        };
+
+        const newIn = prompt(
+          `Fecha de Entrada (formato DD/MM/AAAA o AAAA-MM-DD):`,
+          curIn ? curIn.split("-").reverse().join("/") : ""
+        );
+        if (newIn === null) return;
+        const parsedIn = parseDateInput(newIn);
+        if (!parsedIn) {
+          alert("⚠️ Fecha de entrada no válida. Usa el formato DD/MM/AAAA (ej: 27/11/2026) o AAAA-MM-DD.");
+          return;
+        }
+
+        const newOut = prompt(
+          `Fecha de Salida (formato DD/MM/AAAA o AAAA-MM-DD):`,
+          curOut ? curOut.split("-").reverse().join("/") : ""
+        );
+        if (newOut === null) return;
+        const parsedOut = parseDateInput(newOut);
+        if (!parsedOut) {
+          alert("⚠️ Fecha de salida no válida. Usa el formato DD/MM/AAAA (ej: 29/11/2026) o AAAA-MM-DD.");
+          return;
+        }
+
+        if (parsedOut <= parsedIn) {
+          alert("⚠️ La fecha de salida debe ser posterior a la fecha de entrada.");
+          return;
+        }
+
+        const dIn = new Date(parsedIn + "T00:00:00Z");
+        const dOut = new Date(parsedOut + "T00:00:00Z");
+        const numNights = Math.max(1, Math.round((dOut - dIn) / (1000 * 60 * 60 * 24)));
+
+        try {
+          setIsSaving(true);
+          const updates = {
+            Entrada: parsedIn,
+            "Check-In": parsedIn,
+            Salida: parsedOut,
+            "Check-Out": parsedOut,
+            Noches: numNights,
+            noches: numNights
+          };
+          await updateGroupMetadata(selectedGroupFicha.id, updates);
+          setSelectedGroupFicha(prev => {
+            if (!prev) return prev;
+            const updatedRecs = (prev.records || []).map(r => ({
+              ...r,
+              ...updates
+            }));
+            return { ...prev, records: updatedRecs };
+          });
+          alert(`✅ Fechas de estancia actualizadas:\nEntrada: ${parsedIn}\nSalida: ${parsedOut}\nNoches: ${numNights}`);
+        } catch (error) {
+          console.error("Error al actualizar fechas de estancia:", error);
+          alert("❌ Error al guardar las fechas: " + error.message);
+        } finally {
+          setIsSaving(false);
+        }
+      };
+
+      const handleExpandStayToIncludeDay = async (extraDay) => {
+        if (!selectedGroupFicha || !selectedGroupFicha.records) return;
+        const currentRec = selectedGroupFicha.records[0] || {};
+        let inD = toInputDate(currentRec["Entrada"] || currentRec["Check-In"]) || extraDay;
+        let outD = toInputDate(currentRec["Salida"] || currentRec["Check-Out"]) || extraDay;
+
+        if (extraDay < inD) {
+          inD = extraDay;
+        }
+        if (extraDay >= outD) {
+          const [y, m, d] = extraDay.split("-").map(Number);
+          const nextDayDt = new Date(Date.UTC(y, m - 1, d + 1));
+          outD = nextDayDt.toISOString().split("T")[0];
+        }
+
+        const dIn = new Date(inD + "T00:00:00Z");
+        const dOut = new Date(outD + "T00:00:00Z");
+        const numNights = Math.max(1, Math.round((dOut - dIn) / (1000 * 60 * 60 * 24)));
+
+        try {
+          setIsSaving(true);
+          const updates = {
+            Entrada: inD,
+            "Check-In": inD,
+            Salida: outD,
+            "Check-Out": outD,
+            Noches: numNights,
+            noches: numNights
+          };
+          await updateGroupMetadata(selectedGroupFicha.id, updates);
+          setSelectedGroupFicha(prev => {
+            if (!prev) return prev;
+            const updatedRecs = (prev.records || []).map(r => ({
+              ...r,
+              ...updates
+            }));
+            return { ...prev, records: updatedRecs };
+          });
+          alert(`✅ Estancia ajustada:\nEntrada: ${inD}\nSalida: ${outD}\nNoches: ${numNights}`);
+        } catch (err) {
+          console.error("Error al ampliar fechas de estancia:", err);
+          alert("❌ Error al ajustar fechas: " + err.message);
+        } finally {
+          setIsSaving(false);
+        }
+      };
+
       const openClientDataModal = () => {
         if (!selectedGroupFicha || !selectedGroupFicha.records) return;
         const baseRecord = selectedGroupFicha.records[0] || {};
@@ -10770,11 +10911,11 @@
           ficha?.records?.some(r => r["Es_Credito"] === true || r["Es_Credito"] === "true" || r["Com_Es_Credito"] === true)
         );
 
-        // Analizar el Rooming List por día
+        // Analizar el Rooming List por día (excluyendo servicios, que legítimamente pueden estar fuera del rango de alojamiento, ej. desayuno en día de salida)
         const expanded = expandRoomListByDays(Array.isArray(roomingList) ? roomingList : []);
         const dayMap = {};
         expanded.forEach((item) => {
-          if (item.isService && !/IND|DUI|SINGLE|DBL|DOBLE|TWIN|TPL|TRIPLE|CUA|CUAD|HAB/i.test(item.type || "")) return;
+          if (isPureServiceItem(item) || (item.isService && !/IND|DUI|SINGLE|DBL|DOBLE|TWIN|TPL|TRIPLE|CUA|CUAD|HAB/i.test(item.type || ""))) return;
           const d = toInputDate(item.dateIn || item.date);
           if (!d) return;
           if (!dayMap[d]) dayMap[d] = [];
@@ -10868,7 +11009,7 @@
         let servicesTotal = 0;
         expanded.forEach((item) => {
           const tot = parseFloat(item.total) || 0;
-          if (item.isService) {
+          if (isPureServiceItem(item) || item.isService) {
             servicesTotal += tot;
           } else {
             lodgingTotal += tot;
@@ -18751,7 +18892,11 @@
                                     return (
                                       <>
                                         <span className="opacity-30">•</span>
-                                        <span className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded text-emerald-200 font-black text-[10px]">
+                                        <span
+                                          onClick={handleEditStayDates}
+                                          className="flex items-center gap-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 hover:border-emerald-400/50 px-2 py-0.5 rounded text-emerald-200 font-black text-[10px] cursor-pointer transition-all group/dates shadow-sm"
+                                          title="Clic para modificar las fechas de estancia (Entrada, Salida y Noches)"
+                                        >
                                           <IconCalendar size={11} className="opacity-70 shrink-0" />
                                           {fmtDate(entrada)}
                                           <span className="opacity-50 mx-0.5">→</span>
@@ -18759,6 +18904,7 @@
                                           {noches && (
                                             <span className="opacity-60 ml-0.5">({noches}n)</span>
                                           )}
+                                          <IconEdit size={10} className="opacity-50 group-hover/dates:opacity-100 ml-0.5 transition-opacity" />
                                         </span>
                                       </>
                                     );
@@ -19881,14 +20027,24 @@
                                           </span>
                                         )}
                                         {issue.type === "extra_day_outside_stay" && issue.day && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRemoveExtraDay(issue.day)}
-                                            className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm transition flex items-center gap-1"
-                                            title={`Eliminar habitaciones y cargos del día ${issue.day} que no pertenece a la estancia contratada`}
-                                          >
-                                            ⚡ Eliminar día fuera de estancia
-                                          </button>
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleExpandStayToIncludeDay(issue.day)}
+                                              className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm transition flex items-center gap-1"
+                                              title={`Ajustar las fechas de la estancia para incluir la noche del ${issue.day}`}
+                                            >
+                                              📅 Ajustar estancia
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveExtraDay(issue.day)}
+                                              className="flex-shrink-0 text-[9px] font-black px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm transition flex items-center gap-1"
+                                              title={`Eliminar habitaciones y cargos del día ${issue.day} que no pertenece a la estancia contratada`}
+                                            >
+                                              ⚡ Eliminar día
+                                            </button>
+                                          </div>
                                         )}
                                         {issue.type === "zero_price" && (
                                           <div className="flex items-center gap-1.5 shrink-0">
