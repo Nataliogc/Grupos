@@ -3183,6 +3183,28 @@
 
       };
 
+      const formatDateWithWeekday = (val) => {
+
+        if (!val) return "-";
+
+        const iso = toInputDate(val);
+
+        if (!iso || typeof iso !== "string" || !iso.includes("-")) return val;
+
+        const [y, m, d] = iso.split("-");
+
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+
+        if (isNaN(dateObj.getTime())) return `${d}/${m}/${y}`;
+
+        const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+        const dayName = dayNames[dateObj.getDay()];
+
+        return `${dayName}, ${d}/${m}/${y}`;
+
+      };
+
       const [activeTab, setActiveTab] = useState(() => {
         if (typeof window !== "undefined") {
           if (window.location.pathname.toLowerCase().includes("objetivo")) return "targets";
@@ -20883,7 +20905,7 @@
                                                   </span>
                                                   <div className="flex items-center gap-2">
                                                     <span className="font-mono font-black text-xs text-slate-800 bg-white px-2.5 py-0.5 rounded border border-slate-300 shadow-2xs">
-                                                      📅 {formatDate(bucket.dayKey)}
+                                                      📅 {formatDateWithWeekday(bucket.dayKey)}
                                                     </span>
                                                     <span className="text-[11px] font-bold text-slate-600">
                                                       {bucket.items.length} {bucket.items.length === 1 ? "línea" : "líneas"}
@@ -20922,7 +20944,7 @@
                                                       handleInsertLineForDay(bucket.dayKey);
                                                     }}
                                                     className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                                                    title={`Insertar nueva línea o concepto para el día ${formatDate(bucket.dayKey)}`}
+                                                    title={`Insertar nueva línea o concepto para el día ${formatDateWithWeekday(bucket.dayKey)}`}
                                                   >
                                                     <span className="text-xs font-bold leading-none">+</span>
                                                     <span>Insertar línea</span>
@@ -20934,7 +20956,7 @@
                                                       handleReplicatePricesFromDay(bucket.dayKey);
                                                     }}
                                                     className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                                                    title={`Replicar precios de habitaciones de este día (${formatDate(bucket.dayKey)}) a toda la estancia`}
+                                                    title={`Replicar precios de habitaciones de este día (${formatDateWithWeekday(bucket.dayKey)}) a toda la estancia`}
                                                   >
                                                     <span className="text-xs font-bold leading-none">⚡</span>
                                                     <span>Replicar precios</span>
@@ -21346,10 +21368,10 @@
                                                   type="button"
                                                   onClick={() => handleInsertLineForDay(bucket.dayKey)}
                                                   className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100/60 px-2.5 py-0.5 rounded transition-all cursor-pointer"
-                                                  title={`Añadir nueva línea o concepto para el día ${formatDate(bucket.dayKey)}`}
+                                                  title={`Añadir nueva línea o concepto para el día ${formatDateWithWeekday(bucket.dayKey)}`}
                                                 >
                                                   <span className="text-xs font-black leading-none">+</span>
-                                                  <span>Añadir concepto o línea para el día {formatDate(bucket.dayKey)}</span>
+                                                  <span>Añadir concepto o línea para el día {formatDateWithWeekday(bucket.dayKey)}</span>
                                                 </button>
                                               </td>
                                             </tr>
