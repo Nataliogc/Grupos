@@ -338,6 +338,7 @@
           // Traceability
           parentSeriesId: budgetId,
           sourceQuoteId: budgetId,
+          Presupuesto_Origen: budgetId,
           isSeriesSegment: true,
           segmentIndex: index,
           confirmedAt: serverTimestampVal,

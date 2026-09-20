@@ -39,5 +39,26 @@ function fixture(initial) {
     assert.deepEqual(conflict.data.get('123'), original);
     assert.equal(conflict.data.size, 2);
   }
-  console.log('OK: preserves records, payments, rooming and series links; rejects empty, unchanged and occupied IDs.');
+  // Test Presupuesto_Origen preservation
+  const budgetData = new Map([['PRES-123', { Reserva: 'PRES-123', tracking: '[]' }]]);
+  const budgetDb = {
+    collection: () => ({ doc: id => ({ id }), get: async () => ({ docs: [...budgetData.keys()].map(id => ({ id, ref: { id }, exists: budgetData.has(id), data: () => budgetData.get(id) })) }) }),
+    runTransaction: async fn => {
+      const writes = [];
+      const result = await fn({
+        get: async ref => ({ id: ref.id, ref, exists: budgetData.has(ref.id), data: () => budgetData.get(ref.id) }),
+        set: (ref, value) => writes.push(() => budgetData.set(ref.id, value)),
+        delete: ref => writes.push(() => budgetData.delete(ref.id)),
+        update: (ref, value) => writes.push(() => budgetData.set(ref.id, { ...budgetData.get(ref.id), ...value }))
+      });
+      writes.forEach(write => write());
+      return result;
+    }
+  };
+  await changeReservationId({ db: budgetDb, oldId: 'PRES-123', newId: '77140', normalizeId, timestamp: () => 'now' });
+  assert.equal(budgetData.get('77140').Reserva, '77140');
+  assert.equal(budgetData.get('77140').Presupuesto_Origen, 'PRES-123');
+  assert.equal(budgetData.get('77140').sourceQuoteId, 'PRES-123');
+
+  console.log('OK: preserves records, payments, rooming and series links; rejects empty, unchanged and occupied IDs; preserves Presupuesto_Origen.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

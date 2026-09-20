@@ -124,12 +124,18 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                       throw new Error("La reserva ha cambiado. Actualiza la página e inténtalo de nuevo.");
                     case 5:
                       records = current.map(function (doc, index) {
-                        var payload = _objectSpread(_objectSpread({}, doc.data()), {}, {
+                        var docData = doc.data();
+                        var payload = _objectSpread(_objectSpread({}, docData), {}, {
                           Reserva: next,
                           updatedAt: timestamp()
                         });
                         delete payload._docId;
                         if (normalizeId(payload.uid) === previous || payload.uid === doc.id) payload.uid = destinations[index].id;
+                        var isPrevBudget = String(previous).toUpperCase().startsWith("PRES-") || String(docData.Estado || "").toUpperCase().includes("PRESUP") || String(docData.Com_Estado_Interno || "").toUpperCase().includes("PRESUP");
+                        if (isPrevBudget && !String(next).toUpperCase().startsWith("PRES-")) {
+                          payload.Presupuesto_Origen = payload.Presupuesto_Origen || docData.Presupuesto_Origen || docData.Reserva || previous;
+                          payload.sourceQuoteId = payload.sourceQuoteId || docData.sourceQuoteId || docData.Reserva || previous;
+                        }
                         var tracking = payload.tracking || [];
                         if (typeof tracking === "string") {
                           try {

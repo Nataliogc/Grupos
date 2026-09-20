@@ -3743,6 +3743,8 @@
 
             return (
               idMatch ||
+              (row["Presupuesto_Origen"] || "").toLowerCase().includes(lowerTerm) ||
+              (row["sourceQuoteId"] || "").toLowerCase().includes(lowerTerm) ||
               (row["Nombre del Grupo"] || "").toLowerCase().includes(lowerTerm) ||
               (row["Empresa/Agencia"] || "").toLowerCase().includes(lowerTerm) ||
               (row["Com_Comercial"] || "").toLowerCase().includes(lowerTerm) ||
@@ -9555,10 +9557,16 @@
             const oldRef = db.collection("groups").doc(oldId);
             const newRef = db.collection("groups").doc(newId);
 
+            const isOldBudget = String(oldId).toUpperCase().startsWith("PRES-") ||
+                                String(row["Estado"] || "").toUpperCase().includes("PRESUP") ||
+                                String(row["Com_Estado_Interno"] || "").toUpperCase().includes("PRESUP");
+            const origBudget = row["Presupuesto_Origen"] || row["sourceQuoteId"] || (isOldBudget ? (row["Reserva"] || oldId) : null);
+
             const payload = {
               ...row,
               Reserva: targetReserva,
               "Nombre del Grupo": targetName,
+              ...(origBudget ? { Presupuesto_Origen: origBudget, sourceQuoteId: origBudget } : {}),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
 
@@ -9577,6 +9585,30 @@
           console.error("Error en fusión:", err);
           alert("❌ Error al fusionar: " + err.message);
         }
+      };
+
+      const handleEditPresupuestoOrigen = async () => {
+        if (!selectedGroupFicha) return;
+        const currentPto = selectedGroupFicha.records?.[0]?.["Presupuesto_Origen"] || selectedGroupFicha.records?.[0]?.["sourceQuoteId"] || "";
+        const newPto = prompt(
+          `Indica el número de presupuesto previo del que viene este grupo:\n(Ej: PRES-77140 o déjalo en blanco para desvincular)`,
+          currentPto
+        );
+        if (newPto === null) return;
+        const trimmed = newPto.trim();
+        await updateGroupMetadata(selectedGroupFicha.id, {
+          Presupuesto_Origen: trimmed || null,
+          sourceQuoteId: trimmed || null
+        });
+        setSelectedGroupFicha(prev => {
+          if (!prev) return prev;
+          const updatedRecs = (prev.records || []).map(r => ({
+            ...r,
+            Presupuesto_Origen: trimmed || null,
+            sourceQuoteId: trimmed || null
+          }));
+          return { ...prev, records: updatedRecs };
+        });
       };
 
       const openClientDataModal = () => {
@@ -15736,6 +15768,15 @@
                                     <span className={`shrink-0 ${isBudget ? "text-indigo-600 font-extrabold" : ""}`}>
                                       ID: {group.records?.[0]?.["Reserva"] || group.id || "---"}
                                     </span>
+                                    {(() => {
+                                      const pto = group.records?.[0]?.["Presupuesto_Origen"] || group.records?.[0]?.["sourceQuoteId"];
+                                      if (!pto || String(pto).trim() === String(group.records?.[0]?.["Reserva"] || group.id).trim()) return null;
+                                      return (
+                                        <span className="shrink-0 text-purple-700 bg-purple-100/80 px-1.5 py-0.5 rounded font-black text-[8px] border border-purple-200/80" title={`Viene del presupuesto previo ${pto}`}>
+                                          PTO: {pto}
+                                        </span>
+                                      );
+                                    })()}
                                     {(group.records?.[0]?.["Fiscal_RazonSocial"] || group.records?.[0]?.["Empresa/Agencia"] || group.agency) && (
                                       <>
                                         <span className="opacity-20">•</span>
@@ -15929,7 +15970,8 @@
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      window.location.href = `Presupuestos.html?id=${group.records?.[0]?.["Reserva"] || group.id}`;
+                                      const ptoTarget = group.records?.[0]?.["Presupuesto_Origen"] || group.records?.[0]?.["sourceQuoteId"] || group.records?.[0]?.["Reserva"] || group.id;
+                                      window.location.href = `Presupuestos.html?id=${ptoTarget}`;
                                     }}
                                     className="p-1 px-1.5 bg-slate-100 text-slate-400 hover:bg-purple-600 hover:text-white rounded-lg transition-all opacity-0 group-hover/status:opacity-100 shadow-sm"
                                     title="Ver Presupuesto"
@@ -18619,6 +18661,56 @@
                                   </span>
 
                                   {(() => {
+                                    const rec = selectedGroupFicha.records[0] || {};
+                                    const ptoOrigen = rec["Presupuesto_Origen"] || rec["sourceQuoteId"];
+                                    const resId = String(rec["Reserva"] || "").trim();
+                                    const hasPto = ptoOrigen && String(ptoOrigen).trim() !== resId;
+                                    if (hasPto) {
+                                      return (
+                                        <>
+                                          <span className="opacity-30">•</span>
+                                          <span
+                                            onClick={() => window.open(`Presupuestos.html?id=${ptoOrigen}`, "_blank")}
+                                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-purple-500/25 hover:bg-purple-500/40 border border-purple-400/40 text-purple-200 font-black text-[10px] cursor-pointer transition-all shadow-sm group/pto"
+                                            title={`Procede del Presupuesto previo: ${ptoOrigen}. Clic para abrirlo.`}
+                                          >
+                                            <IconFileSpreadsheet size={11} className="text-purple-300 shrink-0" />
+                                            <span>PTO: {ptoOrigen}</span>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditPresupuestoOrigen();
+                                              }}
+                                              className="opacity-50 hover:opacity-100 text-purple-200 ml-0.5 p-0.5 hover:bg-purple-400/30 rounded transition-all"
+                                              title="Modificar número de presupuesto previo de origen"
+                                            >
+                                              <IconEdit size={10} />
+                                            </button>
+                                          </span>
+                                        </>
+                                      );
+                                    }
+                                    if (!resId.startsWith("PRES-")) {
+                                      return (
+                                        <>
+                                          <span className="opacity-30">•</span>
+                                          <button
+                                            type="button"
+                                            onClick={handleEditPresupuestoOrigen}
+                                            className="inline-flex items-center gap-1 text-[9px] font-bold text-white/40 hover:text-purple-300 hover:bg-white/5 px-1.5 py-0.5 rounded transition-all"
+                                            title="Vincular este grupo con un presupuesto previo"
+                                          >
+                                            <IconPlus size={10} />
+                                            <span>Vincular Presupuesto</span>
+                                          </button>
+                                        </>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+
+                                  {(() => {
                                     const r = selectedGroupFicha.records[0] || {};
                                     const entrada = r["Entrada"];
                                     const salida = r["Salida"];
@@ -19359,17 +19451,16 @@
 
                               {/* Nexus Presupuestos Link */}
 
-                              {(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO") && (
+                              {(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO" || Boolean(selectedGroupFicha.records[0]?.["Presupuesto_Origen"]) || Boolean(selectedGroupFicha.records[0]?.["sourceQuoteId"])) && (
 
                                 <div className="md:col-span-1 flex items-end pb-0.5">
 
                                   <button
 
-                                    onClick={() =>
-
-                                      (window.location.href = `Presupuestos.html?id=${selectedGroupFicha.records[0]?.["Reserva"]}`)
-
-                                    }
+                                    onClick={() => {
+                                      const ptoTarget = selectedGroupFicha.records[0]?.["Presupuesto_Origen"] || selectedGroupFicha.records[0]?.["sourceQuoteId"] || selectedGroupFicha.records[0]?.["Reserva"];
+                                      window.location.href = `Presupuestos.html?id=${ptoTarget}`;
+                                    }}
 
                                     className="w-full h-9 flex items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl shadow-lg shadow-purple-200 transition-all hover:scale-[1.05] active:scale-[0.95]"
 
@@ -19393,7 +19484,7 @@
 
                               {/* Fechas de Gestión */}
 
-                              <div className={`grid grid-cols-1 gap-2 ${(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO") ? "md:col-span-1" : "md:col-span-2"}`}>
+                              <div className={`grid grid-cols-1 gap-2 ${(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO" || Boolean(selectedGroupFicha.records[0]?.["Presupuesto_Origen"]) || Boolean(selectedGroupFicha.records[0]?.["sourceQuoteId"])) ? "md:col-span-1" : "md:col-span-2"}`}>
 
                                 <div>
 

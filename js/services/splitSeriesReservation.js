@@ -391,6 +391,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                           // Traceability
                           parentSeriesId: budgetId,
                           sourceQuoteId: budgetId,
+                          Presupuesto_Origen: budgetId,
                           isSeriesSegment: true,
                           segmentIndex: index,
                           confirmedAt: serverTimestampVal,

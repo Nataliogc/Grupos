@@ -1813,7 +1813,7 @@ function App() {
       }).filter(function (g) {
         var est = (g.Estado || "").toUpperCase();
         var intEst = (g.Com_Estado_Interno || "").toUpperCase();
-        var isBudget = String(g.Reserva || "").startsWith("PRES-") || est.includes("PRESUPUESTO") || intEst.includes("PRESUPUESTO") || intEst.includes("ENVIADO") || intEst.includes("SEGUIMIENTO") || intEst.includes("PENDIENTE");
+        var isBudget = String(g.Reserva || "").startsWith("PRES-") || Boolean(g.Presupuesto_Origen) || Boolean(g.sourceQuoteId) || est.includes("PRESUPUESTO") || intEst.includes("PRESUPUESTO") || intEst.includes("ENVIADO") || intEst.includes("SEGUIMIENTO") || intEst.includes("PENDIENTE");
         if (!isBudget) return false;
 
         // En el cargador general de Presupuestos, permitimos todos los estados
@@ -1826,7 +1826,7 @@ function App() {
         if (!prev) return null;
         var targetId = prev.uid || prev.Reserva || prev.id;
         var matched = docs.find(function (g) {
-          return g.uid && String(g.uid) === String(targetId) || g.Reserva && String(g.Reserva) === String(targetId);
+          return g.uid && String(g.uid) === String(targetId) || g.Reserva && String(g.Reserva) === String(targetId) || g.Presupuesto_Origen && String(g.Presupuesto_Origen) === String(targetId) || g.sourceQuoteId && String(g.sourceQuoteId) === String(targetId);
         });
         return matched ? normalizeGroupData(matched) : prev;
       });
@@ -1837,7 +1837,7 @@ function App() {
       var shouldEdit = urlParams.get('edit') === '1';
       if (budgetId && docs.length > 0) {
         var matched = docs.find(function (g) {
-          return String(g.Reserva) === String(budgetId) || String(g.uid) === String(budgetId);
+          return String(g.Reserva) === String(budgetId) || String(g.uid) === String(budgetId) || String(g.Presupuesto_Origen || '') === String(budgetId) || String(g.sourceQuoteId || '') === String(budgetId);
         });
         if (matched) {
           var normMatched = normalizeGroupData(matched);
@@ -5186,7 +5186,9 @@ function App() {
       className: "text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ".concat(isCumbria ? 'text-blue-900' : 'text-orange-800')
     }, docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1"
-    }, "Ref: ", g.Reserva))), g.isMultiSegment && g.segments && g.segments.length > 0 ? /*#__PURE__*/React.createElement("div", {
+    }, "Ref: ", g.Reserva, (g.Presupuesto_Origen || g.sourceQuoteId) && String(g.Presupuesto_Origen || g.sourceQuoteId).trim() !== String(g.Reserva).trim() && /*#__PURE__*/React.createElement("span", {
+      className: "ml-2 text-indigo-600 font-bold"
+    }, "(Pto: ", g.Presupuesto_Origen || g.sourceQuoteId, ")")))), g.isMultiSegment && g.segments && g.segments.length > 0 ? /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-2 md:grid-cols-6 gap-4 mb-8 print:mb-6 bg-slate-50/50 p-4 rounded-2xl border border-slate-100",
       style: {
         WebkitPrintColorAdjust: 'exact',

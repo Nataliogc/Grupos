@@ -1561,6 +1561,8 @@
 
               const isBudget =
                 String(g.Reserva || "").startsWith("PRES-") ||
+                Boolean(g.Presupuesto_Origen) ||
+                Boolean(g.sourceQuoteId) ||
                 est.includes("PRESUPUESTO") ||
                 intEst.includes("PRESUPUESTO") ||
                 intEst.includes("ENVIADO") ||
@@ -1579,7 +1581,12 @@
             setSelectedGroup(prev => {
               if (!prev) return null;
               const targetId = prev.uid || prev.Reserva || prev.id;
-              const matched = docs.find(g => (g.uid && String(g.uid) === String(targetId)) || (g.Reserva && String(g.Reserva) === String(targetId)));
+              const matched = docs.find(g =>
+                (g.uid && String(g.uid) === String(targetId)) ||
+                (g.Reserva && String(g.Reserva) === String(targetId)) ||
+                (g.Presupuesto_Origen && String(g.Presupuesto_Origen) === String(targetId)) ||
+                (g.sourceQuoteId && String(g.sourceQuoteId) === String(targetId))
+              );
               return matched ? normalizeGroupData(matched) : prev;
             });
 
@@ -1589,7 +1596,12 @@
             const shouldEdit = urlParams.get('edit') === '1';
 
             if (budgetId && docs.length > 0) {
-              const matched = docs.find(g => String(g.Reserva) === String(budgetId) || String(g.uid) === String(budgetId));
+              const matched = docs.find(g =>
+                String(g.Reserva) === String(budgetId) ||
+                String(g.uid) === String(budgetId) ||
+                String(g.Presupuesto_Origen || '') === String(budgetId) ||
+                String(g.sourceQuoteId || '') === String(budgetId)
+              );
               if (matched) {
                 const normMatched = normalizeGroupData(matched);
                 if (shouldEdit) {
@@ -4453,7 +4465,14 @@ ${emailContent}`;
                         <h1 className={`text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ${isCumbria ? 'text-blue-900' : 'text-orange-800'}`}>
                           {docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'}
                         </h1>
-                        <p className="text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Ref: {g.Reserva}</p>
+                        <p className="text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
+                          Ref: {g.Reserva}
+                          {(g.Presupuesto_Origen || g.sourceQuoteId) && String(g.Presupuesto_Origen || g.sourceQuoteId).trim() !== String(g.Reserva).trim() && (
+                            <span className="ml-2 text-indigo-600 font-bold">
+                              (Pto: {g.Presupuesto_Origen || g.sourceQuoteId})
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </div>
 
