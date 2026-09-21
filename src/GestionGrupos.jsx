@@ -3256,17 +3256,20 @@
         if (!paymentPlan || paymentPlan.length === 0) return paymentPlan || [];
         const planCopy = paymentPlan.map(p => ({ ...p }));
         const lockedIndex = options && typeof options.lockedIndex === "number" ? options.lockedIndex : -1;
+        const lockedField = options && options.lockedField ? options.lockedField : null;
 
         // 1. Recalculate percent/amount for each row
-        planCopy.forEach((p) => {
-          if (p.status === "Cobrado") {
-            // IMPORTANTE: Para filas cobradas, preservar el importe EXACTO tal como fue guardado.
+        planCopy.forEach((p, pIdx) => {
+          const isManualAmount = p.manual === true || p.manual === "true" || (lockedIndex === pIdx && lockedField === "amount");
+          if (p.status === "Cobrado" || isManualAmount) {
+            // IMPORTANTE: Para filas cobradas o con importe fijado manualmente, preservar el importe EXACTO tal como fue guardado.
             // No recalcular desde el porcentaje para evitar el bucle de redondeo:
-            // ej. 2000,00€ → 12.35% guardado → 12.35% × 16200 = 2000,70€ (error)
+            // ej. 1000,00€ → 23.89% guardado → 23.89% × 4185.50 = 999,92€ (error)
             const amount = parseFloat(p.amount) || 0;
             p.amount = amount.toFixed(2); // preservar importe exacto
-            // El porcentaje es solo informativo para filas cobradas, se calcula con más precisión
-            p.percent = netTotal > 0 ? parseFloat(((amount / netTotal) * 100).toFixed(4)) : 0;
+            if (isManualAmount) p.manual = true;
+            // El porcentaje es informativo para filas manuales/cobradas, se calcula con precisión
+            p.percent = netTotal > 0 ? parseFloat(((amount / netTotal) * 100).toFixed(2)) : 0;
           } else {
             const percent = parseFloat(p.percent) || 0;
             p.amount = ((netTotal * percent) / 100).toFixed(2);
@@ -22297,6 +22300,10 @@
 
                                           ).toFixed(2);
 
+                                          if (field === "percent") {
+                                            newPlan[idx].manual = false;
+                                          }
+
                                           let d;
 
                                           const sDate = arrivalDate;
@@ -22347,9 +22354,13 @@
 
                                         } else if (field === "amount") {
 
-                                          const amt = parseFloat(val) || 0;
+                                          const parseFn = typeof parseNum === "function" ? parseNum : (window.NexusUtils ? window.NexusUtils.parseNum : parseFloat);
+
+                                          const amt = parseFn(val) || 0;
 
                                           newPlan[idx].amount = amt.toFixed(2);
+
+                                          newPlan[idx].manual = true;
 
                                           const pct = hotelTotal > 0 ? (amt / hotelTotal) * 100 : 0;
 
@@ -22419,6 +22430,7 @@
 
                                         const reconciled = reconcileReactPaymentPlan(newPlan, hotelTotal, arrivalDate, {
                                           lockedIndex: field === "percent" || field === "amount" ? idx : -1,
+                                          lockedField: field,
                                           preserveZeroRows: true
                                         });
 

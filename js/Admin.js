@@ -2,6 +2,11 @@
 
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -351,6 +356,34 @@ var Dashboard = function Dashboard(_ref2) {
     _React$useState2 = _slicedToArray(_React$useState, 2),
     selectedHotel = _React$useState2[0],
     setSelectedHotel = _React$useState2[1];
+  var _React$useState3 = React.useState(null),
+    _React$useState4 = _slicedToArray(_React$useState3, 2),
+    selectedEmailAlert = _React$useState4[0],
+    setSelectedEmailAlert = _React$useState4[1];
+  var _React$useState5 = React.useState(null),
+    _React$useState6 = _slicedToArray(_React$useState5, 2),
+    toastInfo = _React$useState6[0],
+    setToastInfo = _React$useState6[1];
+  var _React$useState7 = React.useState(function () {
+      try {
+        return JSON.parse(localStorage.getItem("nexus_notified_alerts") || "{}");
+      } catch (e) {
+        return {};
+      }
+    }),
+    _React$useState8 = _slicedToArray(_React$useState7, 2),
+    notifiedAlerts = _React$useState8[0],
+    setNotifiedAlerts = _React$useState8[1];
+  React.useEffect(function () {
+    if (toastInfo) {
+      var t = setTimeout(function () {
+        return setToastInfo(null);
+      }, 4500);
+      return function () {
+        return clearTimeout(t);
+      };
+    }
+  }, [toastInfo]);
 
   // Helper robusto para parsear fechas de diversas fuentes
   var parseDate = function parseDate(val) {
@@ -662,6 +695,100 @@ var Dashboard = function Dashboard(_ref2) {
       tentativeAlerts: tentativeAlerts
     };
   }, [filteredGroups]);
+  var handleOpenEmailModal = function handleOpenEmailModal(alert, columnTitle) {
+    var g = alert.group || {};
+    var resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
+    var grupoName = g["Nombre del Grupo"] || "Grupo sin nombre";
+    var hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+    var isCumbria = hotel.includes("cumb");
+    var hotelOfficial = isCumbria ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+    var hotelBank = isCumbria ? "Caja Rural de Castilla-La Mancha" : "Globalcaja";
+    var hotelIban = isCumbria ? "ES19 3081 0601 0850 0004 8966" : "ES30 3190 3953 1851 8526 3521";
+    var hotelLogo = isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg";
+    var fin = getGroupFinancialInfo(g);
+    var entrada = formatDate(g.Entrada);
+    var salida = formatDate(g.Salida);
+    var pax = g["Pax."] || g.Pax || 0;
+    var comercial = g.Com_Comercial || "Departamento de Reservas y Grupos";
+
+    // Detección inteligente de email
+    var emailTo = g.Com_Email_Contacto || g.Email || g.Fiscal_Email || "";
+    if (!emailTo) {
+      var textToSearch = "".concat(grupoName, " ").concat(g["Empresa/Agencia"] || "");
+      var match = textToSearch.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      if (match) emailTo = match[0];
+    }
+    var isFinanciera = columnTitle.toLowerCase().includes("financ");
+    var isRelease = columnTitle.toLowerCase().includes("release");
+    var isDatos = columnTitle.toLowerCase().includes("dato");
+    var isCrm = columnTitle.toLowerCase().includes("crm") || columnTitle.toLowerCase().includes("seguimiento");
+    var defaultSubject = "";
+    var defaultBody = "";
+    if (isFinanciera) {
+      defaultSubject = "Recordatorio de Pago Pendiente - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      defaultBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ".concat(hotelOfficial, " en relaci\xF3n a la reserva del grupo \"").concat(grupoName, "\" (Localizador: #").concat(resId, "), con fecha de entrada el ").concat(entrada || "prevista", " y salida el ").concat(salida || "prevista", ".\n\nLe informamos del estado econ\xF3mico actual de su reserva:\n\u2022 Importe Total Contratado: ").concat(fmt(fin.total), "\n\u2022 Importe Abonado y Confirmado: ").concat(fmt(fin.paid), "\n\u2022 Importe Pendiente de Pago: ").concat(fmt(fin.pending), "\n\nDetalle del vencimiento pendiente:\n").concat(alert.detail || "Hito de pago pendiente según las condiciones pactadas.", "\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularizaci\xF3n del importe pendiente a la mayor brevedad posible.\n\nDatos para realizar la transferencia bancaria:\n\u2022 Entidad Bancaria: ").concat(hotelBank, "\n\u2022 IBAN: ").concat(hotelIban, "\n\u2022 Beneficiario: ").concat(hotelOfficial, "\n\u2022 Concepto imprescindible: Reserva #").concat(resId, " - ").concat(grupoName, "\n\nUna vez realizada la transferencia, le agradecer\xEDamos que nos remita el correspondiente justificante bancario respondiendo a este correo. Si ya ha efectuado el pago recientemente, por favor ignore este aviso y facil\xEDtenos el comprobante.\n\nQuedamos a su entera disposici\xF3n para cualquier aclaraci\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas y Grupos\n").concat(hotelOfficial);
+    } else if (isRelease) {
+      defaultSubject = "Aviso de Plazo / Release - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      defaultBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " con respecto a la reserva del grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), cuya fecha de entrada est\xE1 fijada para el ").concat(entrada || "próximamente", ".\n\nLe recordamos que se aproxima la fecha l\xEDmite de release y garant\xEDa de plazas fijada para este grupo:\n\u2022 Estado del plazo: ").concat(alert.detail, "\n\u2022 Importe total: ").concat(fmt(fin.total), "\n\u2022 Importe pendiente: ").concat(fmt(fin.pending), "\n\nA fin de mantener el bloqueo de habitaciones solicitado y no liberar autom\xE1ticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al tr\xE1mite de garant\xEDa antes de la fecha l\xEDmite.\n\nQuedamos a la espera de sus gratas noticias.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas y Grupos\n").concat(hotelOfficial);
+    } else if (isDatos) {
+      var missingItems = alert.details ? alert.details.map(function (d) {
+        return "\u2022 ".concat(d.text);
+      }).join("\n") : "\u2022 ".concat(alert.detail);
+      defaultSubject = "Solicitud de Documentaci\xF3n Operativa - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      defaultBody = "Estimado/a cliente,\n\nEsperamos que se encuentre bien. Nos ponemos en contacto desde el Departamento de Reservas de ".concat(hotelOfficial, " para ultimar los preparativos de la llegada del grupo \"").concat(grupoName, "\" (Localizador #").concat(resId, "), con fecha de entrada el ").concat(entrada || "próximamente", ".\n\nPara poder coordinar adecuadamente la operativa y ofrecer la mejor atenci\xF3n a sus clientes, necesitamos que nos remita la siguiente informaci\xF3n pendiente:\n").concat(missingItems, "\n\nLe rogamos nos haga llegar estos datos a la mayor brevedad posible para formalizar la asignaci\xF3n de habitaciones y preparaci\xF3n del servicio.\n\nAgradecemos de antemano su colaboraci\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas\n").concat(hotelOfficial);
+    } else if (isCrm) {
+      defaultSubject = "Seguimiento de Propuesta para Grupo - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      defaultBody = "Estimado/a cliente,\n\nEsperamos que se encuentre bien. Le escribimos desde ".concat(hotelOfficial, " para dar seguimiento a la cotizaci\xF3n y propuesta para el grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\nNos gustar\xEDa conocer si han tenido ocasi\xF3n de valorar las condiciones o si necesitan que realicemos alguna modificaci\xF3n en las fechas, distribuci\xF3n de habitaciones o servicios.\n\nEstamos a su total disposici\xF3n para facilitarles cualquier gesti\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento Comercial y Reservas\n").concat(hotelOfficial);
+    } else {
+      defaultSubject = "Gesti\xF3n Urgente: Pr\xF3xima Llegada - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      defaultBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " en relaci\xF3n a la reserva tentativa para el grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), con fecha de entrada muy pr\xF3xima (").concat(entrada || "en los próximos días", ").\n\n\u2022 Situaci\xF3n actual: ").concat(alert.detail, "\n\u2022 N\xFAmero de personas: ").concat(pax, " pax\n\nDada la cercan\xEDa de la fecha de llegada y la alta demanda de ocupaci\xF3n, le rogamos nos confirme en firme si continuar\xE1n con la reserva para asegurar la disponibilidad de las habitaciones antes de liberar el bloqueo.\n\nA la espera de su pronta confirmaci\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas\n").concat(hotelOfficial);
+    }
+    setSelectedEmailAlert({
+      alert: alert,
+      columnTitle: columnTitle,
+      group: g,
+      resId: resId,
+      grupoName: grupoName,
+      hotelOfficial: hotelOfficial,
+      hotelLogo: hotelLogo,
+      hotelBank: hotelBank,
+      hotelIban: hotelIban,
+      fin: fin,
+      entrada: entrada,
+      salida: salida,
+      pax: pax,
+      comercial: comercial,
+      emailTo: emailTo,
+      subject: defaultSubject,
+      body: defaultBody
+    });
+  };
+  var handleExecuteOpenEmail = function handleExecuteOpenEmail(data) {
+    if (!data) return;
+    var mailtoUrl = "mailto:".concat(encodeURIComponent(data.emailTo || ""), "?subject=").concat(encodeURIComponent(data.subject || ""), "&body=").concat(encodeURIComponent(data.body || ""));
+    var updated = _objectSpread(_objectSpread({}, notifiedAlerts), {}, _defineProperty({}, data.resId, new Date().toISOString()));
+    setNotifiedAlerts(updated);
+    try {
+      localStorage.setItem("nexus_notified_alerts", JSON.stringify(updated));
+    } catch (e) {}
+    window.location.href = mailtoUrl;
+    setToastInfo("\u2705 Gestor de correo abierto para #".concat(data.resId, " (").concat(data.grupoName, "). Notificaci\xF3n confirmada."));
+    setSelectedEmailAlert(null);
+  };
+  var handleCopyEmailText = function handleCopyEmailText(data) {
+    if (!data) return;
+    var fullText = "Para: ".concat(data.emailTo || "(No especificado)", "\nAsunto: ").concat(data.subject, "\n\n").concat(data.body);
+    navigator.clipboard.writeText(fullText).then(function () {
+      var updated = _objectSpread(_objectSpread({}, notifiedAlerts), {}, _defineProperty({}, data.resId, new Date().toISOString()));
+      setNotifiedAlerts(updated);
+      try {
+        localStorage.setItem("nexus_notified_alerts", JSON.stringify(updated));
+      } catch (e) {}
+      setToastInfo("\uD83D\uDCCB Texto copiado al portapapeles y registrado para #".concat(data.resId, "."));
+    }).catch(function () {
+      setToastInfo("❌ No se pudo copiar al portapapeles automáticamente.");
+    });
+  };
   var AlertColumn = function AlertColumn(_ref3) {
     var title = _ref3.title,
       icon = _ref3.icon,
@@ -794,7 +921,23 @@ var Dashboard = function Dashboard(_ref2) {
       }), /*#__PURE__*/React.createElement("span", {
         className: "line-clamp-2",
         title: alert.detail
-      }, alert.detail))));
+      }, alert.detail))), /*#__PURE__*/React.createElement("div", {
+        className: "mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2"
+      }, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick(e) {
+          e.stopPropagation();
+          handleOpenEmailModal(alert, title);
+        },
+        className: "flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-wider border transition-all duration-200 shadow-2xs group/btn cursor-pointer ".concat(notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")] ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" : "bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-700 border-slate-200/80 hover:border-slate-900 hover:shadow-xs"),
+        title: "Redactar y abrir email con detalles confirmados y pagos"
+      }, /*#__PURE__*/React.createElement(LucideIcon, {
+        name: notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")] ? "check-circle" : "mail",
+        size: 12,
+        className: notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")] ? "text-emerald-600" : "text-slate-500 group-hover/btn:text-white transition-colors"
+      }), /*#__PURE__*/React.createElement("span", null, notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")] ? "Notificado" : "Enviar Email")), /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] font-bold text-slate-400 group-hover:text-slate-600 transition-colors"
+      }, "#", g.Reserva)));
     }), alerts.length === 0 && /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col items-center justify-center py-16 px-4 bg-white/50 border border-dashed border-slate-200 rounded-[1.5rem] opacity-70"
     }, /*#__PURE__*/React.createElement("div", {
@@ -885,7 +1028,176 @@ var Dashboard = function Dashboard(_ref2) {
     icon: "calendar-clock",
     colorClass: "violet",
     alerts: columnsData.tentativeAlerts
-  })), /*#__PURE__*/React.createElement("footer", {
+  })), toastInfo && /*#__PURE__*/React.createElement("div", {
+    className: "fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-fade-in max-w-md"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "check-circle",
+    size: 18,
+    className: "text-emerald-400 shrink-0"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-bold text-slate-100 leading-snug"
+  }, toastInfo), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setToastInfo(null);
+    },
+    className: "text-slate-400 hover:text-white ml-auto text-xs p-1 cursor-pointer"
+  }, "\u2715")), selectedEmailAlert && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in",
+    onClick: function onClick() {
+      return setSelectedEmailAlert(null);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-[2rem] border border-slate-100 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col my-auto max-h-[92vh] animate-slide-up",
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: selectedEmailAlert.hotelLogo,
+    alt: "Hotel Logo",
+    className: "h-6 object-contain bg-white/90 px-2 py-0.5 rounded-lg"
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 tracking-wider"
+  }, selectedEmailAlert.columnTitle), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-mono text-slate-400"
+  }, "#", selectedEmailAlert.resId)), /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-black tracking-tight text-white mt-0.5 truncate max-w-md"
+  }, selectedEmailAlert.grupoName))), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setSelectedEmailAlert(null);
+    },
+    className: "w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 bg-slate-50 border-b border-slate-200/60 flex flex-col gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-3 gap-2.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black text-slate-400 uppercase tracking-wider block"
+  }, "Total Presupuesto"), /*#__PURE__*/React.createElement("span", {
+    className: "text-base font-black text-slate-800"
+  }, fmt(selectedEmailAlert.fin.total)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[8px] font-bold text-slate-400 block mt-0.5"
+  }, selectedEmailAlert.pax, " pax \u2022 ", selectedEmailAlert.entrada)), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white p-3 rounded-2xl border border-emerald-200 shadow-2xs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black text-emerald-600 uppercase tracking-wider block"
+  }, "Confirmado / Pagado"), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "check-circle",
+    size: 12,
+    className: "text-emerald-500"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-base font-black text-emerald-700"
+  }, fmt(selectedEmailAlert.fin.paid)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[8px] font-bold text-emerald-600/70 block mt-0.5"
+  }, "Importe ya garantizado")), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white p-3 rounded-2xl border border-rose-200 shadow-2xs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black text-rose-600 uppercase tracking-wider block"
+  }, "Pendiente de Cobro"), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "alert-triangle",
+    size: 12,
+    className: "text-rose-500"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-base font-black text-rose-700"
+  }, fmt(selectedEmailAlert.fin.pending)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[8px] font-bold text-rose-600/70 block mt-0.5"
+  }, "Reclamaci\xF3n activa"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-rose-50/70 border border-rose-100 rounded-xl px-3 py-2 flex items-center gap-2 text-[10px] font-bold text-rose-800"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "alert-circle",
+    size: 14,
+    className: "text-rose-600 shrink-0"
+  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", null, "Situaci\xF3n:"), " ", selectedEmailAlert.alert.detail))), /*#__PURE__*/React.createElement("div", {
+    className: "p-5 overflow-y-auto space-y-3.5 flex-1 custom-scrollbar text-xs"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1"
+  }, "Destinatario (Para):"), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    value: selectedEmailAlert.emailTo,
+    onChange: function onChange(e) {
+      return setSelectedEmailAlert(_objectSpread(_objectSpread({}, selectedEmailAlert), {}, {
+        emailTo: e.target.value
+      }));
+    },
+    placeholder: "ejemplo@agencia.com",
+    className: "w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+  }), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "mail",
+    size: 14,
+    className: "absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+  })), !selectedEmailAlert.emailTo && /*#__PURE__*/React.createElement("p", {
+    className: "text-[9px] text-amber-600 font-bold mt-1"
+  }, "\u26A0\uFE0F No se encontr\xF3 email en la ficha; introduce el correo destinatario antes de abrir.")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1"
+  }, "Asunto del Correo:"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: selectedEmailAlert.subject,
+    onChange: function onChange(e) {
+      return setSelectedEmailAlert(_objectSpread(_objectSpread({}, selectedEmailAlert), {}, {
+        subject: e.target.value
+      }));
+    },
+    className: "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-1"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[9px] font-black uppercase text-slate-400 tracking-wider"
+  }, "Cuerpo del Mensaje (Editable):"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-bold text-slate-400"
+  }, "Incluye desglose y datos bancarios oficiales")), /*#__PURE__*/React.createElement("textarea", {
+    rows: 9,
+    value: selectedEmailAlert.body,
+    onChange: function onChange(e) {
+      return setSelectedEmailAlert(_objectSpread(_objectSpread({}, selectedEmailAlert), {}, {
+        body: e.target.value
+      }));
+    },
+    className: "w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] leading-relaxed text-slate-700 font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return handleCopyEmailText(selectedEmailAlert);
+    },
+    className: "flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "copy",
+    size: 14,
+    className: "text-slate-500"
+  }), /*#__PURE__*/React.createElement("span", null, "Copiar Texto"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 w-full sm:w-auto justify-end"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setSelectedEmailAlert(null);
+    },
+    className: "px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+  }, "Cerrar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return handleExecuteOpenEmail(selectedEmailAlert);
+    },
+    className: "flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "send",
+    size: 14
+  }), /*#__PURE__*/React.createElement("span", null, "Abrir en Gestor de Correo")))))), /*#__PURE__*/React.createElement("footer", {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
@@ -895,10 +1207,10 @@ var GroupsManager = function GroupsManager(_ref4) {
   var data = _ref4.data,
     onUpdateStatus = _ref4.onUpdateStatus,
     onDeleteGroup = _ref4.onDeleteGroup;
-  var _React$useState3 = React.useState(""),
-    _React$useState4 = _slicedToArray(_React$useState3, 2),
-    searchTerm = _React$useState4[0],
-    setSearchTerm = _React$useState4[1];
+  var _React$useState9 = React.useState(""),
+    _React$useState0 = _slicedToArray(_React$useState9, 2),
+    searchTerm = _React$useState0[0],
+    setSearchTerm = _React$useState0[1];
   var filteredData = data.filter(function (group) {
     var res = String(group["Reserva"] || "").toUpperCase();
     var uid = String(group.uid || group.id || "").toUpperCase();
@@ -1118,14 +1430,14 @@ var BudgetManager = function BudgetManager(_ref5) {
   var data = _ref5.data,
     onUpdateStatus = _ref5.onUpdateStatus,
     onDeleteGroup = _ref5.onDeleteGroup;
-  var _React$useState5 = React.useState(""),
-    _React$useState6 = _slicedToArray(_React$useState5, 2),
-    searchTerm = _React$useState6[0],
-    setSearchTerm = _React$useState6[1];
-  var _React$useState7 = React.useState("TODOS"),
-    _React$useState8 = _slicedToArray(_React$useState7, 2),
-    statusFilter = _React$useState8[0],
-    setStatusFilter = _React$useState8[1];
+  var _React$useState1 = React.useState(""),
+    _React$useState10 = _slicedToArray(_React$useState1, 2),
+    searchTerm = _React$useState10[0],
+    setSearchTerm = _React$useState10[1];
+  var _React$useState11 = React.useState("TODOS"),
+    _React$useState12 = _slicedToArray(_React$useState11, 2),
+    statusFilter = _React$useState12[0],
+    setStatusFilter = _React$useState12[1];
   var budgetData = data.filter(function (g) {
     var isBudget = String(g.Reserva || "").startsWith("PRES-") || (g.Estado || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("ENVIADO") || (g.Com_Estado_Interno || "").toUpperCase().includes("SEGUIMIENTO");
     if (!isBudget) return false;

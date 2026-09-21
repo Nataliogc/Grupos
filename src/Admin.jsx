@@ -330,6 +330,22 @@
       data,
     }) => {
       const [selectedHotel, setSelectedHotel] = React.useState("todos");
+      const [selectedEmailAlert, setSelectedEmailAlert] = React.useState(null);
+      const [toastInfo, setToastInfo] = React.useState(null);
+      const [notifiedAlerts, setNotifiedAlerts] = React.useState(() => {
+        try {
+          return JSON.parse(localStorage.getItem("nexus_notified_alerts") || "{}");
+        } catch (e) {
+          return {};
+        }
+      });
+
+      React.useEffect(() => {
+        if (toastInfo) {
+          const t = setTimeout(() => setToastInfo(null), 4500);
+          return () => clearTimeout(t);
+        }
+      }, [toastInfo]);
 
       // Helper robusto para parsear fechas de diversas fuentes
       const parseDate = (val) => {
@@ -656,6 +672,192 @@
         };
       }, [filteredGroups]);
 
+      const handleOpenEmailModal = (alert, columnTitle) => {
+        const g = alert.group || {};
+        const resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
+        const grupoName = g["Nombre del Grupo"] || "Grupo sin nombre";
+        const hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+        const isCumbria = hotel.includes("cumb");
+        const hotelOfficial = isCumbria ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+        const hotelBank = isCumbria ? "Caja Rural de Castilla-La Mancha" : "Globalcaja";
+        const hotelIban = isCumbria ? "ES19 3081 0601 0850 0004 8966" : "ES30 3190 3953 1851 8526 3521";
+        const hotelLogo = isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg";
+
+        const fin = getGroupFinancialInfo(g);
+        const entrada = formatDate(g.Entrada);
+        const salida = formatDate(g.Salida);
+        const pax = g["Pax."] || g.Pax || 0;
+        const comercial = g.Com_Comercial || "Departamento de Reservas y Grupos";
+
+        // Detección inteligente de email
+        let emailTo = g.Com_Email_Contacto || g.Email || g.Fiscal_Email || "";
+        if (!emailTo) {
+          const textToSearch = `${grupoName} ${g["Empresa/Agencia"] || ""}`;
+          const match = textToSearch.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          if (match) emailTo = match[0];
+        }
+
+        const isFinanciera = columnTitle.toLowerCase().includes("financ");
+        const isRelease = columnTitle.toLowerCase().includes("release");
+        const isDatos = columnTitle.toLowerCase().includes("dato");
+        const isCrm = columnTitle.toLowerCase().includes("crm") || columnTitle.toLowerCase().includes("seguimiento");
+
+        let defaultSubject = "";
+        let defaultBody = "";
+
+        if (isFinanciera) {
+          defaultSubject = `Recordatorio de Pago Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          defaultBody = `Estimado/a cliente,
+
+Nos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} en relación a la reserva del grupo "${grupoName}" (Localizador: #${resId}), con fecha de entrada el ${entrada || "prevista"} y salida el ${salida || "prevista"}.
+
+Le informamos del estado económico actual de su reserva:
+• Importe Total Contratado: ${fmt(fin.total)}
+• Importe Abonado y Confirmado: ${fmt(fin.paid)}
+• Importe Pendiente de Pago: ${fmt(fin.pending)}
+
+Detalle del vencimiento pendiente:
+${alert.detail || "Hito de pago pendiente según las condiciones pactadas."}
+
+Con el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularización del importe pendiente a la mayor brevedad posible.
+
+Datos para realizar la transferencia bancaria:
+• Entidad Bancaria: ${hotelBank}
+• IBAN: ${hotelIban}
+• Beneficiario: ${hotelOfficial}
+• Concepto imprescindible: Reserva #${resId} - ${grupoName}
+
+Una vez realizada la transferencia, le agradeceríamos que nos remita el correspondiente justificante bancario respondiendo a este correo. Si ya ha efectuado el pago recientemente, por favor ignore este aviso y facilítenos el comprobante.
+
+Quedamos a su entera disposición para cualquier aclaración.
+
+Atentamente,
+${comercial}
+Departamento de Reservas y Grupos
+${hotelOfficial}`;
+        } else if (isRelease) {
+          defaultSubject = `Aviso de Plazo / Release - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          defaultBody = `Estimado/a cliente,
+
+Nos ponemos en contacto desde ${hotelOfficial} con respecto a la reserva del grupo "${grupoName}" (Ref: #${resId}), cuya fecha de entrada está fijada para el ${entrada || "próximamente"}.
+
+Le recordamos que se aproxima la fecha límite de release y garantía de plazas fijada para este grupo:
+• Estado del plazo: ${alert.detail}
+• Importe total: ${fmt(fin.total)}
+• Importe pendiente: ${fmt(fin.pending)}
+
+A fin de mantener el bloqueo de habitaciones solicitado y no liberar automáticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al trámite de garantía antes de la fecha límite.
+
+Quedamos a la espera de sus gratas noticias.
+
+Atentamente,
+${comercial}
+Departamento de Reservas y Grupos
+${hotelOfficial}`;
+        } else if (isDatos) {
+          const missingItems = alert.details ? alert.details.map(d => `• ${d.text}`).join("\n") : `• ${alert.detail}`;
+          defaultSubject = `Solicitud de Documentación Operativa - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          defaultBody = `Estimado/a cliente,
+
+Esperamos que se encuentre bien. Nos ponemos en contacto desde el Departamento de Reservas de ${hotelOfficial} para ultimar los preparativos de la llegada del grupo "${grupoName}" (Localizador #${resId}), con fecha de entrada el ${entrada || "próximamente"}.
+
+Para poder coordinar adecuadamente la operativa y ofrecer la mejor atención a sus clientes, necesitamos que nos remita la siguiente información pendiente:
+${missingItems}
+
+Le rogamos nos haga llegar estos datos a la mayor brevedad posible para formalizar la asignación de habitaciones y preparación del servicio.
+
+Agradecemos de antemano su colaboración.
+
+Atentamente,
+${comercial}
+Departamento de Reservas
+${hotelOfficial}`;
+        } else if (isCrm) {
+          defaultSubject = `Seguimiento de Propuesta para Grupo - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          defaultBody = `Estimado/a cliente,
+
+Esperamos que se encuentre bien. Le escribimos desde ${hotelOfficial} para dar seguimiento a la cotización y propuesta para el grupo "${grupoName}" (Ref: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.
+
+Nos gustaría conocer si han tenido ocasión de valorar las condiciones o si necesitan que realicemos alguna modificación en las fechas, distribución de habitaciones o servicios.
+
+Estamos a su total disposición para facilitarles cualquier gestión.
+
+Atentamente,
+${comercial}
+Departamento Comercial y Reservas
+${hotelOfficial}`;
+        } else {
+          defaultSubject = `Gestión Urgente: Próxima Llegada - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          defaultBody = `Estimado/a cliente,
+
+Nos ponemos en contacto desde ${hotelOfficial} en relación a la reserva tentativa para el grupo "${grupoName}" (Ref: #${resId}), con fecha de entrada muy próxima (${entrada || "en los próximos días"}).
+
+• Situación actual: ${alert.detail}
+• Número de personas: ${pax} pax
+
+Dada la cercanía de la fecha de llegada y la alta demanda de ocupación, le rogamos nos confirme en firme si continuarán con la reserva para asegurar la disponibilidad de las habitaciones antes de liberar el bloqueo.
+
+A la espera de su pronta confirmación.
+
+Atentamente,
+${comercial}
+Departamento de Reservas
+${hotelOfficial}`;
+        }
+
+        setSelectedEmailAlert({
+          alert,
+          columnTitle,
+          group: g,
+          resId,
+          grupoName,
+          hotelOfficial,
+          hotelLogo,
+          hotelBank,
+          hotelIban,
+          fin,
+          entrada,
+          salida,
+          pax,
+          comercial,
+          emailTo,
+          subject: defaultSubject,
+          body: defaultBody
+        });
+      };
+
+      const handleExecuteOpenEmail = (data) => {
+        if (!data) return;
+        const mailtoUrl = `mailto:${encodeURIComponent(data.emailTo || "")}?subject=${encodeURIComponent(data.subject || "")}&body=${encodeURIComponent(data.body || "")}`;
+        
+        const updated = { ...notifiedAlerts, [data.resId]: new Date().toISOString() };
+        setNotifiedAlerts(updated);
+        try {
+          localStorage.setItem("nexus_notified_alerts", JSON.stringify(updated));
+        } catch (e) {}
+
+        window.location.href = mailtoUrl;
+
+        setToastInfo(`✅ Gestor de correo abierto para #${data.resId} (${data.grupoName}). Notificación confirmada.`);
+        setSelectedEmailAlert(null);
+      };
+
+      const handleCopyEmailText = (data) => {
+        if (!data) return;
+        const fullText = `Para: ${data.emailTo || "(No especificado)"}\nAsunto: ${data.subject}\n\n${data.body}`;
+        navigator.clipboard.writeText(fullText).then(() => {
+          const updated = { ...notifiedAlerts, [data.resId]: new Date().toISOString() };
+          setNotifiedAlerts(updated);
+          try {
+            localStorage.setItem("nexus_notified_alerts", JSON.stringify(updated));
+          } catch (e) {}
+
+          setToastInfo(`📋 Texto copiado al portapapeles y registrado para #${data.resId}.`);
+        }).catch(() => {
+          setToastInfo("❌ No se pudo copiar al portapapeles automáticamente.");
+        });
+      };
+
       const AlertColumn = ({ title, icon, colorClass, alerts }) => {
         const theme = {
           rose: {
@@ -812,6 +1014,33 @@
                         </div>
                       )}
                     </div>
+
+                    {/* Botón para Enviar Notificación por Email */}
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEmailModal(alert, title);
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-wider border transition-all duration-200 shadow-2xs group/btn cursor-pointer ${
+                          notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")]
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                            : "bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-700 border-slate-200/80 hover:border-slate-900 hover:shadow-xs"
+                        }`}
+                        title="Redactar y abrir email con detalles confirmados y pagos"
+                      >
+                        <LucideIcon
+                          name={notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")] ? "check-circle" : "mail"}
+                          size={12}
+                          className={notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")] ? "text-emerald-600" : "text-slate-500 group-hover/btn:text-white transition-colors"}
+                        />
+                        <span>{notifiedAlerts[String(g.Reserva || g.Com_Id || "").replace(/^#/, "")] ? "Notificado" : "Enviar Email"}</span>
+                      </button>
+                      <span className="text-[9px] font-bold text-slate-400 group-hover:text-slate-600 transition-colors">
+                        #{g.Reserva}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
@@ -915,6 +1144,187 @@
               alerts={columnsData.tentativeAlerts}
             />
           </div>
+
+          {/* Toast Notification Flotante */}
+          {toastInfo && (
+            <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-fade-in max-w-md">
+              <LucideIcon name="check-circle" size={18} className="text-emerald-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-100 leading-snug">{toastInfo}</span>
+              <button
+                onClick={() => setToastInfo(null)}
+                className="text-slate-400 hover:text-white ml-auto text-xs p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Modal de Notificación de Alerta por Email */}
+          {selectedEmailAlert && (
+            <div
+              className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+              onClick={() => setSelectedEmailAlert(null)}
+            >
+              <div
+                className="bg-white rounded-[2rem] border border-slate-100 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col my-auto max-h-[92vh] animate-slide-up"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Cabecera del Modal */}
+                <div className="px-6 py-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={selectedEmailAlert.hotelLogo}
+                      alt="Hotel Logo"
+                      className="h-6 object-contain bg-white/90 px-2 py-0.5 rounded-lg"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 tracking-wider">
+                          {selectedEmailAlert.columnTitle}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          #{selectedEmailAlert.resId}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-black tracking-tight text-white mt-0.5 truncate max-w-md">
+                        {selectedEmailAlert.grupoName}
+                      </h3>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedEmailAlert(null)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Resumen Financiero y de Confirmación */}
+                <div className="p-4 bg-slate-50 border-b border-slate-200/60 flex flex-col gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Presupuesto</span>
+                      <span className="text-base font-black text-slate-800">{fmt(selectedEmailAlert.fin.total)}</span>
+                      <span className="text-[8px] font-bold text-slate-400 block mt-0.5">
+                        {selectedEmailAlert.pax} pax • {selectedEmailAlert.entrada}
+                      </span>
+                    </div>
+                    <div className="bg-white p-3 rounded-2xl border border-emerald-200 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider block">Confirmado / Pagado</span>
+                        <LucideIcon name="check-circle" size={12} className="text-emerald-500" />
+                      </div>
+                      <span className="text-base font-black text-emerald-700">{fmt(selectedEmailAlert.fin.paid)}</span>
+                      <span className="text-[8px] font-bold text-emerald-600/70 block mt-0.5">
+                        Importe ya garantizado
+                      </span>
+                    </div>
+                    <div className="bg-white p-3 rounded-2xl border border-rose-200 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black text-rose-600 uppercase tracking-wider block">Pendiente de Cobro</span>
+                        <LucideIcon name="alert-triangle" size={12} className="text-rose-500" />
+                      </div>
+                      <span className="text-base font-black text-rose-700">{fmt(selectedEmailAlert.fin.pending)}</span>
+                      <span className="text-[8px] font-bold text-rose-600/70 block mt-0.5">
+                        Reclamación activa
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Detalle específico de la alerta */}
+                  <div className="bg-rose-50/70 border border-rose-100 rounded-xl px-3 py-2 flex items-center gap-2 text-[10px] font-bold text-rose-800">
+                    <LucideIcon name="alert-circle" size={14} className="text-rose-600 shrink-0" />
+                    <span><strong>Situación:</strong> {selectedEmailAlert.alert.detail}</span>
+                  </div>
+                </div>
+
+                {/* Formulario de Email */}
+                <div className="p-5 overflow-y-auto space-y-3.5 flex-1 custom-scrollbar text-xs">
+                  <div>
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Destinatario (Para):
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={selectedEmailAlert.emailTo}
+                        onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, emailTo: e.target.value })}
+                        placeholder="ejemplo@agencia.com"
+                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                      />
+                      <LucideIcon name="mail" size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    </div>
+                    {!selectedEmailAlert.emailTo && (
+                      <p className="text-[9px] text-amber-600 font-bold mt-1">
+                        ⚠️ No se encontró email en la ficha; introduce el correo destinatario antes de abrir.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Asunto del Correo:
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedEmailAlert.subject}
+                      onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, subject: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                        Cuerpo del Mensaje (Editable):
+                      </label>
+                      <span className="text-[9px] font-bold text-slate-400">
+                        Incluye desglose y datos bancarios oficiales
+                      </span>
+                    </div>
+                    <textarea
+                      rows={9}
+                      value={selectedEmailAlert.body}
+                      onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, body: e.target.value })}
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] leading-relaxed text-slate-700 font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar"
+                    />
+                  </div>
+                </div>
+
+                {/* Acciones del Footer */}
+                <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyEmailText(selectedEmailAlert)}
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <LucideIcon name="copy" size={14} className="text-slate-500" />
+                      <span>Copiar Texto</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEmailAlert(null)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                    >
+                      Cerrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteOpenEmail(selectedEmailAlert)}
+                      className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto"
+                    >
+                      <LucideIcon name="send" size={14} />
+                      <span>Abrir en Gestor de Correo</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
