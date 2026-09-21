@@ -331,6 +331,9 @@
     }) => {
       const [selectedHotel, setSelectedHotel] = React.useState("todos");
       const [selectedEmailAlert, setSelectedEmailAlert] = React.useState(null);
+      const [emailModalTab, setEmailModalTab] = React.useState("preview");
+      const [internalReportModal, setInternalReportModal] = React.useState(null);
+      const [internalReportTab, setInternalReportTab] = React.useState("preview");
       const [toastInfo, setToastInfo] = React.useState(null);
       const [notifiedAlerts, setNotifiedAlerts] = React.useState(() => {
         try {
@@ -672,7 +675,567 @@
         };
       }, [filteredGroups]);
 
-      const handleOpenEmailModal = (alert, columnTitle) => {
+      const STAFF_PRESETS = [
+        { label: "🏢 Administración", email: "comunicaciones@hotelguadiana.es", desc: "Administración / Control" },
+        { label: "👤 Sergio", email: "ssanchez@hotelguadiana.es", desc: "Dirección / Comercial" },
+        { label: "👤 Natalio", email: "comunicaciones@hotelguadiana.es", desc: "Administración" },
+        { label: "👤 Diana", email: "dianahotelguadiana@gmail.com", desc: "Comercial" },
+        { label: "👥 Todo el Equipo", email: "comunicaciones@hotelguadiana.es, ssanchez@hotelguadiana.es, dianahotelguadiana@gmail.com", desc: "Equipo Completo" }
+      ];
+
+      const getStaffEmail = (name) => {
+        const n = String(name || "").toLowerCase().trim();
+        if (n.includes("sergio")) return "ssanchez@hotelguadiana.es";
+        if (n.includes("natalio")) return "comunicaciones@hotelguadiana.es";
+        if (n.includes("oscar")) return "osanchez@hotelguadiana.es";
+        if (n.includes("diana")) return "dianahotelguadiana@gmail.com";
+        return "";
+      };
+
+      const availableCommercials = React.useMemo(() => {
+        const set = new Set();
+        const allAlerts = [
+          ...(columnsData.financialAlerts || []),
+          ...(columnsData.releaseAlerts || []),
+          ...(columnsData.logisticsAlerts || []),
+          ...(columnsData.crmAlerts || []),
+          ...(columnsData.tentativeAlerts || [])
+        ];
+        allAlerts.forEach(a => {
+          const com = (a.group && a.group.Com_Comercial) ? a.group.Com_Comercial.trim() : "";
+          if (com) set.add(com);
+        });
+        return Array.from(set).sort();
+      }, [columnsData]);
+
+      const handleOpenInternalReportModal = (initialSectionKey = null) => {
+        const defaultSections = {
+          financial: initialSectionKey ? initialSectionKey === "financial" : true,
+          release: initialSectionKey ? initialSectionKey === "release" : true,
+          logistics: initialSectionKey ? initialSectionKey === "logistics" : true,
+          crm: initialSectionKey ? initialSectionKey === "crm" : true,
+          tentative: initialSectionKey ? initialSectionKey === "tentative" : true
+        };
+
+        const hotelLabel = selectedHotel === "guadiana" ? "Sercotel Guadiana" : selectedHotel === "cumbria" ? "Cumbria Spa & Hotel" : "Todos los Hoteles";
+        const todayStr = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+        setInternalReportTab("preview");
+        setInternalReportModal({
+          filterComercial: "todos",
+          sections: defaultSections,
+          emailTo: "comunicaciones@hotelguadiana.es",
+          subject: `[CONTROL INTERNO] Resumen de Alertas Operativas - ${hotelLabel} - ${todayStr}`,
+          customBody: null
+        });
+      };
+
+      const handleOpenSectionReportModal = (title) => {
+        let sectionKey = "financial";
+        const t = (title || "").toLowerCase();
+        if (t.includes("rel")) sectionKey = "release";
+        else if (t.includes("dato") || t.includes("falt") || t.includes("logist")) sectionKey = "logistics";
+        else if (t.includes("crm") || t.includes("seg")) sectionKey = "crm";
+        else if (t.includes("tent")) sectionKey = "tentative";
+
+        handleOpenInternalReportModal(sectionKey);
+      };
+
+      const reportData = React.useMemo(() => {
+        if (!internalReportModal) return null;
+
+        const hotelLabel = selectedHotel === "guadiana"
+          ? "Sercotel Guadiana"
+          : selectedHotel === "cumbria"
+          ? "Cumbria Spa & Hotel"
+          : "Todos los Hoteles";
+
+        const filterCom = (internalReportModal.filterComercial || "todos").toLowerCase();
+
+        const filterAlerts = (list) => {
+          if (!list) return [];
+          if (filterCom === "todos") return list;
+          return list.filter(a => {
+            const com = (a.group?.Com_Comercial || "").toLowerCase();
+            return com.includes(filterCom);
+          });
+        };
+
+        const sectionDefs = [
+          {
+            id: "financial",
+            title: "Alertas Financieras (Pagos y Vencimientos)",
+            shortTitle: "Financieras",
+            icon: "credit-card",
+            colorClass: "rose",
+            badgeColor: "bg-rose-100 text-rose-700 border-rose-200",
+            headerBg: "#ffe4e6",
+            headerColor: "#9f1239",
+            alerts: internalReportModal.sections.financial ? filterAlerts(columnsData.financialAlerts) : []
+          },
+          {
+            id: "release",
+            title: "Releases y Plazos Críticos",
+            shortTitle: "Releases",
+            icon: "clock",
+            colorClass: "amber",
+            badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+            headerBg: "#fef3c7",
+            headerColor: "#92400e",
+            alerts: internalReportModal.sections.release ? filterAlerts(columnsData.releaseAlerts) : []
+          },
+          {
+            id: "logistics",
+            title: "Datos Operativos Faltantes",
+            shortTitle: "Datos Faltantes",
+            icon: "file-warning",
+            colorClass: "orange",
+            badgeColor: "bg-orange-100 text-orange-800 border-orange-200",
+            headerBg: "#ffedd5",
+            headerColor: "#9a3412",
+            alerts: internalReportModal.sections.logistics ? filterAlerts(columnsData.logisticsAlerts) : []
+          },
+          {
+            id: "crm",
+            title: "Seguimientos CRM y Tareas Comerciales",
+            shortTitle: "Seguimientos CRM",
+            icon: "phone-call",
+            colorClass: "indigo",
+            badgeColor: "bg-indigo-100 text-indigo-800 border-indigo-200",
+            headerBg: "#e0e7ff",
+            headerColor: "#3730a3",
+            alerts: internalReportModal.sections.crm ? filterAlerts(columnsData.crmAlerts) : []
+          },
+          {
+            id: "tentative",
+            title: "Tentativas Urgentes (< 25 días a llegada)",
+            shortTitle: "Tentativas Urgentes",
+            icon: "calendar-clock",
+            colorClass: "violet",
+            badgeColor: "bg-violet-100 text-violet-800 border-violet-200",
+            headerBg: "#ede9fe",
+            headerColor: "#5b21b6",
+            alerts: internalReportModal.sections.tentative ? filterAlerts(columnsData.tentativeAlerts) : []
+          }
+        ];
+
+        let totalAlerts = 0;
+        let totalFinancialPending = 0;
+
+        sectionDefs.forEach(s => {
+          totalAlerts += s.alerts.length;
+          if (s.id === "financial") {
+            s.alerts.forEach(a => {
+              const fin = getGroupFinancialInfo(a.group);
+              totalFinancialPending += (fin.pending || 0);
+            });
+          }
+        });
+
+        return {
+          hotelLabel,
+          filterComercial: internalReportModal.filterComercial,
+          sections: sectionDefs,
+          totalAlerts,
+          totalFinancialPending,
+          dateStr: new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }),
+          timeStr: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+        };
+      }, [internalReportModal, columnsData, selectedHotel]);
+
+      const generateInternalReportText = (rep) => {
+        if (!rep) return "";
+        const lines = [];
+        lines.push("================================================================================");
+        lines.push("INFORME INTERNO DE CONTROL OPERATIVO Y ALERTAS");
+        lines.push(`Ámbito: ${rep.hotelLabel} | Fecha: ${rep.dateStr} ${rep.timeStr}`);
+        lines.push(`Filtro Comercial: ${rep.filterComercial === "todos" ? "Todos los Comerciales" : rep.filterComercial}`);
+        lines.push(`Total Alertas Activas: ${rep.totalAlerts}`);
+        if (rep.totalFinancialPending > 0) {
+          lines.push(`Total Importe Pendiente Reclamado: ${fmt(rep.totalFinancialPending)}`);
+        }
+        lines.push("================================================================================\n");
+
+        lines.push("[RESUMEN POR SECCIONES]");
+        rep.sections.forEach((sec, idx) => {
+          lines.push(`  ${idx + 1}. ${sec.title}: ${sec.alerts.length} caso(s)`);
+        });
+        lines.push("");
+
+        rep.sections.forEach((sec, sIdx) => {
+          if (sec.alerts.length === 0) return;
+          lines.push("--------------------------------------------------------------------------------");
+          lines.push(`${sIdx + 1}. ${sec.title.toUpperCase()} (${sec.alerts.length})`);
+          lines.push("--------------------------------------------------------------------------------");
+
+          sec.alerts.forEach((alert) => {
+            const g = alert.group || {};
+            const resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
+            const name = g["Nombre del Grupo"] || "Grupo sin nombre";
+            const hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb") ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+            const com = g.Com_Comercial || "Sin asignar";
+            const pax = g["Pax."] || g.Pax || 0;
+            const entrada = formatDate(g.Entrada) || "---";
+            const salida = formatDate(g.Salida) || "---";
+            const fin = getGroupFinancialInfo(g);
+
+            lines.push(`• [Reserva #${resId}] ${name.toUpperCase()}`);
+            lines.push(`  Hotel: ${hotel} | Comercial: ${com} | Pax: ${pax}`);
+            lines.push(`  Estancia: ${entrada} ➔ ${salida}`);
+
+            if (sec.id === "financial" || sec.id === "release") {
+              lines.push(`  Importes: Total: ${fmt(fin.total)} | Pagado: ${fmt(fin.paid)} | PENDIENTE: ${fmt(fin.pending)}`);
+            }
+
+            if (sec.id === "logistics" && alert.details) {
+              lines.push(`  Faltante: ${alert.details.map(d => d.text).join(", ")}`);
+            } else {
+              lines.push(`  Alerta: ${alert.detail || alert.label}`);
+            }
+            lines.push("");
+          });
+        });
+
+        lines.push("================================================================================");
+        lines.push("Por favor gestionar las actuaciones correspondientes a la mayor brevedad.");
+        lines.push("Dirección de Operaciones & Departamento de Administración");
+        lines.push("================================================================================");
+
+        return lines.join("\n");
+      };
+
+      const generateInternalReportHtml = (rep) => {
+        if (!rep) return "";
+        const sectionsHtml = rep.sections.filter(s => s.alerts.length > 0).map((sec) => {
+          const rowsHtml = sec.alerts.map(alert => {
+            const g = alert.group || {};
+            const resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
+            const name = g["Nombre del Grupo"] || "Grupo sin nombre";
+            const isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
+            const hotelName = isCumbria ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+            const com = g.Com_Comercial || "Sin asignar";
+            const pax = g["Pax."] || g.Pax || 0;
+            const entrada = formatDate(g.Entrada) || "---";
+            const salida = formatDate(g.Salida) || "---";
+            const fin = getGroupFinancialInfo(g);
+
+            const alertDetailText = (sec.id === "logistics" && alert.details)
+              ? alert.details.map(d => d.text).join(" • ")
+              : (alert.detail || alert.label);
+
+            return `
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px 12px; vertical-align: top; width: 85px;">
+                  <span style="display: inline-block; background-color: #0f172a; color: #f8fafc; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 6px;">
+                    #${resId}
+                  </span>
+                  <div style="font-size: 9.5px; color: #64748b; font-weight: 600; margin-top: 4px;">
+                    ${hotelName.includes("Cumbria") ? "🏨 Cumbria" : "🏨 Guadiana"}
+                  </div>
+                </td>
+                <td style="padding: 10px 12px; vertical-align: top;">
+                  <div style="font-size: 12.5px; font-weight: 800; color: #0f172a;">
+                    ${name}
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    <strong>Estancia:</strong> ${entrada} ➔ ${salida} &nbsp;|&nbsp; <strong>Pax:</strong> ${pax}
+                  </div>
+                  <div style="margin-top: 5px; background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 4px 8px; border-radius: 0 4px 4px 0; font-size: 11.5px; font-weight: 600; color: #334155;">
+                    ⚠️ ${alertDetailText}
+                  </div>
+                </td>
+                <td style="padding: 10px 12px; vertical-align: top; width: 110px;">
+                  <span style="display: inline-block; background-color: #f1f5f9; color: #475569; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px;">
+                    👤 ${com}
+                  </span>
+                </td>
+                ${sec.id === "financial" || sec.id === "release" ? `
+                <td style="padding: 10px 12px; vertical-align: top; text-align: right; width: 130px;">
+                  <div style="font-size: 10px; color: #64748b;">Total: ${fmt(fin.total)}</div>
+                  <div style="font-size: 12.5px; font-weight: 800; color: #be123c; margin-top: 2px;">
+                    Pend: ${fmt(fin.pending)}
+                  </div>
+                  <div style="font-size: 9.5px; color: #059669; font-weight: 600;">Abonado: ${fmt(fin.paid)}</div>
+                </td>` : `
+                <td style="padding: 10px 12px; vertical-align: top; text-align: right; width: 110px;">
+                  <span style="font-size: 10.5px; font-weight: 700; color: #0284c7; background-color: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;">
+                    Requiere Acción
+                  </span>
+                </td>`}
+              </tr>
+            `;
+          }).join("");
+
+          return `
+            <div style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;">
+              <div style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 10px 16px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="font-size: 13px; font-weight: 800; color: ${sec.headerColor}; text-transform: uppercase; letter-spacing: 0.5px;">
+                      ${sec.title}
+                    </td>
+                    <td style="text-align: right; font-size: 11px; font-weight: 800; color: ${sec.headerColor};">
+                      ${sec.alerts.length} caso(s)
+                    </td>
+                  </tr>
+                </table>
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-family: inherit;">
+                <thead>
+                  <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">
+                    <th style="padding: 7px 12px;">Localizador</th>
+                    <th style="padding: 7px 12px;">Grupo & Requerimiento</th>
+                    <th style="padding: 7px 12px;">Comercial</th>
+                    <th style="padding: 7px 12px; text-align: right;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }).join("");
+
+        return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 760px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
+        <!-- Header Banner -->
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; color: #ffffff;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle;">
+                <div style="display: inline-block; background-color: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.4); color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; margin-bottom: 6px;">
+                  🔒 Control Interno Operativo
+                </div>
+                <div style="font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">
+                  Informe de Alertas Operativas y Actuaciones Críticas
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 3px;">
+                  Establecimiento: <strong style="color: #ffffff;">${rep.hotelLabel}</strong> &nbsp;•&nbsp; Generado: ${rep.dateStr} a las ${rep.timeStr}
+                </div>
+              </td>
+              <td style="vertical-align: middle; text-align: right; width: 140px;">
+                <div style="background-color: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 8px 12px; text-align: center;">
+                  <div style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Total Alertas</div>
+                  <div style="font-size: 22px; font-weight: 900; color: #fbbf24; line-height: 1.1;">${rep.totalAlerts}</div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        ${rep.totalFinancialPending > 0 ? `
+        <!-- Financial Alert Highlight Banner -->
+        <div style="background-color: #fff1f2; border-bottom: 2px solid #fecdd3; padding: 12px 28px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="font-size: 12px; font-weight: 800; color: #be123c;">
+                💰 Total Pendiente de Cobro en Alertas Financieras:
+              </td>
+              <td style="text-align: right; font-size: 16px; font-weight: 900; color: #9f1239;">
+                ${fmt(rep.totalFinancialPending)}
+              </td>
+            </tr>
+          </table>
+        </div>` : ''}
+
+        <!-- Body Content -->
+        <div style="padding: 24px 28px; background-color: #f8fafc;">
+          ${sectionsHtml || `
+            <div style="text-align: center; padding: 30px; color: #64748b; font-size: 13px; font-weight: 700;">
+              ✅ No hay alertas activas en las secciones seleccionadas para este filtro.
+            </div>
+          `}
+        </div>
+
+        <!-- Footer -->
+        <div style="background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 14px 28px; font-size: 11px; color: #64748b; text-align: center;">
+          <strong>Nexus Groups Gold Edition</strong> • Módulo de Control Interno de Operaciones y Seguimiento Comercial
+        </div>
+      </div>
+        `;
+      };
+
+      const handleCopyReportRichEmail = () => {
+        if (!reportData) return;
+        const htmlContent = generateInternalReportHtml(reportData);
+        const plainText = internalReportModal?.customBody || generateInternalReportText(reportData);
+        const fullPlain = `Para: ${internalReportModal?.emailTo || ""}\nAsunto: ${internalReportModal?.subject || ""}\n\n${plainText}`;
+
+        if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+          try {
+            const blobHtml = new Blob([htmlContent], { type: "text/html" });
+            const blobText = new Blob([fullPlain], { type: "text/plain" });
+            navigator.clipboard.write([
+              new ClipboardItem({
+                "text/html": blobHtml,
+                "text/plain": blobText
+              })
+            ]).then(() => {
+              setToastInfo("✨ ¡Informe visual copiado! Pégalo en Outlook o Gmail con formato y tablas.");
+            }).catch(() => {
+              navigator.clipboard.writeText(fullPlain).then(() => {
+                setToastInfo("📋 Informe en texto copiado al portapapeles.");
+              });
+            });
+          } catch (e) {
+            navigator.clipboard.writeText(fullPlain).then(() => {
+              setToastInfo("📋 Informe en texto copiado al portapapeles.");
+            });
+          }
+        } else {
+          navigator.clipboard.writeText(fullPlain).then(() => {
+            setToastInfo("📋 Informe en texto copiado al portapapeles.");
+          });
+        }
+      };
+
+      const handleCopyReportText = () => {
+        if (!reportData) return;
+        const bodyText = internalReportModal?.customBody || generateInternalReportText(reportData);
+        const fullPlain = `Para: ${internalReportModal?.emailTo || ""}\nAsunto: ${internalReportModal?.subject || ""}\n\n${bodyText}`;
+        navigator.clipboard.writeText(fullPlain).then(() => {
+          setToastInfo("📋 Texto del informe copiado al portapapeles.");
+        }).catch(() => {
+          setToastInfo("❌ Error al copiar texto.");
+        });
+      };
+
+      const handleExecuteSendReport = () => {
+        if (!reportData) return;
+        const bodyText = internalReportModal?.customBody || generateInternalReportText(reportData);
+        const to = internalReportModal?.emailTo || "comunicaciones@hotelguadiana.es";
+        const sub = internalReportModal?.subject || `[CONTROL INTERNO] Resumen de Alertas Operativas - ${reportData.hotelLabel}`;
+
+        const mailtoUrl = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(bodyText)}`;
+        window.location.href = mailtoUrl;
+
+        setToastInfo("🚀 Gestor de correo abierto con el informe interno por secciones.");
+        setInternalReportModal(null);
+      };
+
+      const generateRichHtmlEmail = (data) => {
+        if (!data) return "";
+        const fin = data.fin || { total: 0, paid: 0, pending: 0 };
+        const hasFin = (fin.total > 0 || fin.pending > 0);
+        const isInternal = data.mode === "internal";
+        
+        return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06);">
+  <!-- Header Banner -->
+  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px 28px; color: #ffffff;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="vertical-align: middle;">
+          ${isInternal ? `
+          <div style="display: inline-block; background-color: rgba(245,158,11,0.25); border: 1px solid rgba(245,158,11,0.45); color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; margin-bottom: 6px;">
+            🔒 Control Interno Operativo
+          </div>` : ''}
+          <div style="font-size: 19px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; text-transform: uppercase;">
+            ${data.hotelOfficial}
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px;">
+            ${isInternal ? "Aviso a Comercial / Administración" : "Dpto. Reservas y Gestión de Grupos"}
+          </div>
+        </td>
+        <td style="vertical-align: middle; text-align: right;">
+          <span style="display: inline-block; background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #f8fafc;">
+            Ref #${data.resId}
+          </span>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Group Summary Bar -->
+  <div style="background-color: #f8fafc; padding: 14px 28px; border-bottom: 1px solid #e2e8f0;">
+    <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 3px;">
+      ${data.grupoName}
+    </div>
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #64748b;">
+      <tr>
+        <td>
+          <strong>Estancia:</strong> ${data.entrada || "---"} ➔ ${data.salida || "---"}
+        </td>
+        <td style="text-align: right;">
+          <strong>Ocupación:</strong> ${data.pax || 0} pax &nbsp;|&nbsp; <strong>Comercial:</strong> ${data.comercial || "---"}
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Content Container -->
+  <div style="padding: 26px 28px; font-size: 13.5px; line-height: 1.65; color: #334155;">
+    
+    ${hasFin ? `
+    <!-- Financial Metrics Grid -->
+    <table style="width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 22px;">
+      <tr>
+        <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 8px; text-align: center; width: 33%;">
+          <div style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Contratado</div>
+          <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 3px;">${fmt(fin.total)}</div>
+        </td>
+        <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px 8px; text-align: center; width: 33%;">
+          <div style="font-size: 9px; font-weight: 800; color: #059669; text-transform: uppercase;">Abonado / Confirmado</div>
+          <div style="font-size: 15px; font-weight: 800; color: #047857; margin-top: 3px;">${fmt(fin.paid)}</div>
+        </td>
+        <td style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 12px 8px; text-align: center; width: 34%;">
+          <div style="font-size: 9px; font-weight: 800; color: #e11d48; text-transform: uppercase;">Pendiente de Cobro</div>
+          <div style="font-size: 15px; font-weight: 800; color: #be123c; margin-top: 3px;">${fmt(fin.pending)}</div>
+        </td>
+      </tr>
+    </table>` : ''}
+
+    <!-- Callout Box -->
+    <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 0 8px 8px 0; padding: 12px 16px; margin-bottom: 22px;">
+      <div style="font-size: 10px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
+        ${isInternal ? "Actuación Crítica Detectada" : "Situación / Requerimiento"}
+      </div>
+      <div style="font-size: 12.5px; font-weight: 600; color: #7f1d1d;">
+        ${data.alert?.detail || "Revisión operativa de las condiciones acordadas."}
+      </div>
+    </div>
+
+    <!-- Body text -->
+    <div style="white-space: pre-line; margin-bottom: 22px; color: #334155; font-size: 13px; line-height: 1.65;">
+      ${data.body}
+    </div>
+
+    <!-- Bank Details Card (Sólo si no es interno o si procede) -->
+    ${(!isInternal && data.hotelIban) ? `
+    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; padding: 18px 22px; color: #ffffff; margin-top: 22px;">
+      <div style="font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
+        💳 Datos Oficiales para Transferencia Bancaria
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #f8fafc;">
+        <tr>
+          <td style="padding: 3px 0; color: #94a3b8; width: 115px;"><strong>Entidad:</strong></td>
+          <td style="padding: 3px 0; font-weight: 700; color: #ffffff;">${data.hotelBank}</td>
+        </tr>
+        <tr>
+          <td style="padding: 3px 0; color: #94a3b8;"><strong>IBAN:</strong></td>
+          <td style="padding: 3px 0; font-weight: 800; font-family: monospace; font-size: 13.5px; color: #38bdf8; letter-spacing: 1px;">${data.hotelIban}</td>
+        </tr>
+        <tr>
+          <td style="padding: 3px 0; color: #94a3b8;"><strong>Beneficiario:</strong></td>
+          <td style="padding: 3px 0; font-weight: 700; color: #ffffff;">${data.hotelOfficial}</td>
+        </tr>
+        <tr>
+          <td style="padding: 3px 0; color: #94a3b8;"><strong>Concepto:</strong></td>
+          <td style="padding: 3px 0; font-weight: 800; color: #facc15;">Reserva #${data.resId} - ${data.grupoName}</td>
+        </tr>
+      </table>
+    </div>` : ''}
+
+  </div>
+
+  <!-- Footer -->
+  <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 28px; font-size: 11px; color: #64748b; text-align: center;">
+    <strong>${data.hotelOfficial}</strong> • ${isInternal ? "Sistema de Control Interno Operativo" : "Dpto. Reservas y Gestión de Grupos"} • Nexus Groups
+  </div>
+</div>`;
+      };
+
+      const handleOpenEmailModal = (alert, columnTitle, mode = "internal") => {
         const g = alert.group || {};
         const resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
         const grupoName = g["Nombre del Grupo"] || "Grupo sin nombre";
@@ -687,127 +1250,78 @@
         const entrada = formatDate(g.Entrada);
         const salida = formatDate(g.Salida);
         const pax = g["Pax."] || g.Pax || 0;
-        const comercial = g.Com_Comercial || "Departamento de Reservas y Grupos";
+        const comercial = g.Com_Comercial || "Sin asignar";
 
-        // Detección inteligente de email
-        let emailTo = g.Com_Email_Contacto || g.Email || g.Fiscal_Email || "";
-        if (!emailTo) {
+        // Detección inteligente de email del cliente
+        let clientEmail = g.Com_Email_Contacto || g.Email || g.Fiscal_Email || "";
+        if (!clientEmail) {
           const textToSearch = `${grupoName} ${g["Empresa/Agencia"] || ""}`;
           const match = textToSearch.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-          if (match) emailTo = match[0];
+          if (match) clientEmail = match[0];
         }
+
+        // Email del comercial asignado o administración por defecto
+        const staffEmail = getStaffEmail(comercial) || "comunicaciones@hotelguadiana.es";
 
         const isFinanciera = columnTitle.toLowerCase().includes("financ");
         const isRelease = columnTitle.toLowerCase().includes("release");
         const isDatos = columnTitle.toLowerCase().includes("dato");
         const isCrm = columnTitle.toLowerCase().includes("crm") || columnTitle.toLowerCase().includes("seguimiento");
 
-        let defaultSubject = "";
-        let defaultBody = "";
+        let internalSubject = `[CONTROL INTERNO] ${columnTitle} - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+        let internalBody = `PARA: ${comercial} / Administración
+ASUNTO: Control Interno - ${columnTitle}
+ESTABLECIMIENTO: ${hotelOfficial}
+
+DATOS DE LA RESERVA:
+═══════════════════════════════════════════════════════════
+• Localizador:    #${resId}
+• Grupo:          ${grupoName}
+• Estancia:       ${entrada || "---"} ➔ ${salida || "---"}
+• Ocupación:      ${pax} personas
+• Comercial:      ${comercial}
+• Email Cliente:  ${clientEmail || "No especificado"}
+
+ACTUACIÓN REQUERIDA (${columnTitle.toUpperCase()}):
+═══════════════════════════════════════════════════════════
+${alert.detail || "Revisión operativa de la situación acordada."}
+
+ESTADO ECONÓMICO:
+═══════════════════════════════════════════════════════════
+• Total Contratado:  ${fmt(fin.total)}
+• Abonado / Confirm: ${fmt(fin.paid)}
+• PENDIENTE:         ${fmt(fin.pending)}
+
+Por favor revisar con urgencia las actuaciones necesarias para mantener la operativa al día.`;
+
+        let clientSubject = "";
+        let clientBody = "";
 
         if (isFinanciera) {
-          defaultSubject = `Recordatorio de Pago Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          defaultBody = `Estimado/a cliente,
-
-Nos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} en relación a la reserva del grupo "${grupoName}" (Localizador: #${resId}), con fecha de entrada el ${entrada || "prevista"} y salida el ${salida || "prevista"}.
-
-Le informamos del estado económico actual de su reserva:
-• Importe Total Contratado: ${fmt(fin.total)}
-• Importe Abonado y Confirmado: ${fmt(fin.paid)}
-• Importe Pendiente de Pago: ${fmt(fin.pending)}
-
-Detalle del vencimiento pendiente:
-${alert.detail || "Hito de pago pendiente según las condiciones pactadas."}
-
-Con el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularización del importe pendiente a la mayor brevedad posible.
-
-Datos para realizar la transferencia bancaria:
-• Entidad Bancaria: ${hotelBank}
-• IBAN: ${hotelIban}
-• Beneficiario: ${hotelOfficial}
-• Concepto imprescindible: Reserva #${resId} - ${grupoName}
-
-Una vez realizada la transferencia, le agradeceríamos que nos remita el correspondiente justificante bancario respondiendo a este correo. Si ya ha efectuado el pago recientemente, por favor ignore este aviso y facilítenos el comprobante.
-
-Quedamos a su entera disposición para cualquier aclaración.
-
-Atentamente,
-${comercial}
-Departamento de Reservas y Grupos
-${hotelOfficial}`;
+          clientSubject = `Recordatorio de Pago Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} en relación a la reserva del grupo "${grupoName}" (Localizador: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.\n\n═══════════════════════════════════════════════════════════\nESTADO ECONÓMICO DE LA RESERVA\n═══════════════════════════════════════════════════════════\n• Importe Total Contratado:      ${fmt(fin.total)}\n• Importe Abonado y Confirmado:  ${fmt(fin.paid)}\n• Importe Pendiente de Pago:     ${fmt(fin.pending)}\n\nDetalle del vencimiento pendiente:\n${alert.detail || "Hito de pago pendiente según las condiciones pactadas."}\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularización del importe pendiente a la mayor brevedad posible.\n\n═══════════════════════════════════════════════════════════\nDATOS OFICIALES PARA TRANSFERENCIA BANCARIA\n═══════════════════════════════════════════════════════════\n• Entidad Bancaria:        ${hotelBank}\n• IBAN:                    ${hotelIban}\n• Beneficiario:            ${hotelOfficial}\n• Concepto imprescindible: Reserva #${resId} - ${grupoName}\n\nUna vez realizada la transferencia, le agradeceríamos que nos remita el correspondiente justificante bancario respondiendo a este correo.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isRelease) {
-          defaultSubject = `Aviso de Plazo / Release - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          defaultBody = `Estimado/a cliente,
-
-Nos ponemos en contacto desde ${hotelOfficial} con respecto a la reserva del grupo "${grupoName}" (Ref: #${resId}), cuya fecha de entrada está fijada para el ${entrada || "próximamente"}.
-
-Le recordamos que se aproxima la fecha límite de release y garantía de plazas fijada para este grupo:
-• Estado del plazo: ${alert.detail}
-• Importe total: ${fmt(fin.total)}
-• Importe pendiente: ${fmt(fin.pending)}
-
-A fin de mantener el bloqueo de habitaciones solicitado y no liberar automáticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al trámite de garantía antes de la fecha límite.
-
-Quedamos a la espera de sus gratas noticias.
-
-Atentamente,
-${comercial}
-Departamento de Reservas y Grupos
-${hotelOfficial}`;
+          clientSubject = `Aviso de Plazo / Release - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde ${hotelOfficial} con respecto a la reserva del grupo "${grupoName}" (Ref: #${resId}), cuya fecha de entrada está fijada para el ${entrada || "próximamente"}.\n\nSituación del plazo: ${alert.detail}\nImporte pendiente: ${fmt(fin.pending)}\n\nA fin de mantener el bloqueo de habitaciones solicitado y no liberar automáticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al trámite de garantía antes de la fecha límite.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isDatos) {
           const missingItems = alert.details ? alert.details.map(d => `• ${d.text}`).join("\n") : `• ${alert.detail}`;
-          defaultSubject = `Solicitud de Documentación Operativa - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          defaultBody = `Estimado/a cliente,
-
-Esperamos que se encuentre bien. Nos ponemos en contacto desde el Departamento de Reservas de ${hotelOfficial} para ultimar los preparativos de la llegada del grupo "${grupoName}" (Localizador #${resId}), con fecha de entrada el ${entrada || "próximamente"}.
-
-Para poder coordinar adecuadamente la operativa y ofrecer la mejor atención a sus clientes, necesitamos que nos remita la siguiente información pendiente:
-${missingItems}
-
-Le rogamos nos haga llegar estos datos a la mayor brevedad posible para formalizar la asignación de habitaciones y preparación del servicio.
-
-Agradecemos de antemano su colaboración.
-
-Atentamente,
-${comercial}
-Departamento de Reservas
-${hotelOfficial}`;
+          clientSubject = `Solicitud de Documentación Operativa - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ${hotelOfficial} para ultimar los preparativos de la llegada del grupo "${grupoName}" (Localizador #${resId}), con fecha de entrada el ${entrada || "próximamente"}.\n\nINFORMACIÓN PENDIENTE:\n${missingItems}\n\nLe rogamos nos haga llegar estos datos a la mayor brevedad posible.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isCrm) {
-          defaultSubject = `Seguimiento de Propuesta para Grupo - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          defaultBody = `Estimado/a cliente,
-
-Esperamos que se encuentre bien. Le escribimos desde ${hotelOfficial} para dar seguimiento a la cotización y propuesta para el grupo "${grupoName}" (Ref: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.
-
-Nos gustaría conocer si han tenido ocasión de valorar las condiciones o si necesitan que realicemos alguna modificación en las fechas, distribución de habitaciones o servicios.
-
-Estamos a su total disposición para facilitarles cualquier gestión.
-
-Atentamente,
-${comercial}
-Departamento Comercial y Reservas
-${hotelOfficial}`;
+          clientSubject = `Seguimiento de Propuesta para Grupo - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = `Estimado/a cliente,\n\nLe escribimos desde ${hotelOfficial} para dar seguimiento a la propuesta para el grupo "${grupoName}" (Ref: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.\n\nNos gustaría conocer si han tenido ocasión de valorar las condiciones o si necesitan realizar alguna modificación.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else {
-          defaultSubject = `Gestión Urgente: Próxima Llegada - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          defaultBody = `Estimado/a cliente,
-
-Nos ponemos en contacto desde ${hotelOfficial} en relación a la reserva tentativa para el grupo "${grupoName}" (Ref: #${resId}), con fecha de entrada muy próxima (${entrada || "en los próximos días"}).
-
-• Situación actual: ${alert.detail}
-• Número de personas: ${pax} pax
-
-Dada la cercanía de la fecha de llegada y la alta demanda de ocupación, le rogamos nos confirme en firme si continuarán con la reserva para asegurar la disponibilidad de las habitaciones antes de liberar el bloqueo.
-
-A la espera de su pronta confirmación.
-
-Atentamente,
-${comercial}
-Departamento de Reservas
-${hotelOfficial}`;
+          clientSubject = `Gestión Urgente: Próxima Llegada - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde ${hotelOfficial} en relación a la reserva tentativa para el grupo "${grupoName}" (Ref: #${resId}), con fecha de entrada muy próxima (${entrada || "en los próximos días"}).\n\nSituación actual: ${alert.detail}\n\nDada la cercanía de la fecha de llegada, le rogamos nos confirme en firme si continuarán con la reserva antes de liberar el bloqueo de plazas.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         }
 
+        const isInternalMode = mode === "internal";
+
+        setEmailModalTab("preview");
         setSelectedEmailAlert({
           alert,
           columnTitle,
+          mode: isInternalMode ? "internal" : "client",
           group: g,
           resId,
           grupoName,
@@ -820,9 +1334,15 @@ ${hotelOfficial}`;
           salida,
           pax,
           comercial,
-          emailTo,
-          subject: defaultSubject,
-          body: defaultBody
+          clientEmail,
+          staffEmail,
+          emailTo: isInternalMode ? staffEmail : clientEmail,
+          subject: isInternalMode ? internalSubject : clientSubject,
+          body: isInternalMode ? internalBody : clientBody,
+          internalSubject,
+          internalBody,
+          clientSubject,
+          clientBody
         });
       };
 
@@ -842,6 +1362,52 @@ ${hotelOfficial}`;
         setSelectedEmailAlert(null);
       };
 
+      const handleCopyRichEmail = (data) => {
+        if (!data) return;
+        const htmlContent = generateRichHtmlEmail(data);
+        const plainText = `Para: ${data.emailTo || "(No especificado)"}\nAsunto: ${data.subject}\n\n${data.body}`;
+
+        const markAsNotified = () => {
+          const updated = { ...notifiedAlerts, [data.resId]: new Date().toISOString() };
+          setNotifiedAlerts(updated);
+          try {
+            localStorage.setItem("nexus_notified_alerts", JSON.stringify(updated));
+          } catch (e) {}
+        };
+
+        if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+          try {
+            const blobHtml = new Blob([htmlContent], { type: "text/html" });
+            const blobText = new Blob([plainText], { type: "text/plain" });
+            navigator.clipboard.write([
+              new ClipboardItem({
+                "text/html": blobHtml,
+                "text/plain": blobText
+              })
+            ]).then(() => {
+              markAsNotified();
+              setToastInfo(`✨ ¡Plantilla visual copiada! Pégala directamente en Outlook o Gmail con formato y diseño.`);
+            }).catch((err) => {
+              console.warn("ClipboardItem write error, falling back to text:", err);
+              navigator.clipboard.writeText(plainText).then(() => {
+                markAsNotified();
+                setToastInfo(`📋 Texto copiado al portapapeles y registrado para #${data.resId}.`);
+              });
+            });
+          } catch (err) {
+            navigator.clipboard.writeText(plainText).then(() => {
+              markAsNotified();
+              setToastInfo(`📋 Texto copiado al portapapeles y registrado para #${data.resId}.`);
+            });
+          }
+        } else {
+          navigator.clipboard.writeText(plainText).then(() => {
+            markAsNotified();
+            setToastInfo(`📋 Texto copiado al portapapeles y registrado para #${data.resId}.`);
+          });
+        }
+      };
+
       const handleCopyEmailText = (data) => {
         if (!data) return;
         const fullText = `Para: ${data.emailTo || "(No especificado)"}\nAsunto: ${data.subject}\n\n${data.body}`;
@@ -855,6 +1421,16 @@ ${hotelOfficial}`;
           setToastInfo(`📋 Texto copiado al portapapeles y registrado para #${data.resId}.`);
         }).catch(() => {
           setToastInfo("❌ No se pudo copiar al portapapeles automáticamente.");
+        });
+      };
+
+      const handleCopyIban = (iban) => {
+        if (!iban) return;
+        const clean = iban.replace(/\s+/g, "");
+        navigator.clipboard.writeText(clean).then(() => {
+          setToastInfo(`💳 IBAN copiado al portapapeles: ${clean}`);
+        }).catch(() => {
+          setToastInfo(`💳 IBAN: ${iban}`);
         });
       };
 
@@ -914,9 +1490,25 @@ ${hotelOfficial}`;
                   {title}
                 </h3>
               </div>
-              <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${theme.bubble}`}>
-                {alerts.length}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleOpenSectionReportModal(title)}
+                  disabled={alerts.length === 0}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    alerts.length === 0
+                      ? "opacity-30 cursor-not-allowed bg-slate-100 text-slate-400"
+                      : "bg-white/90 hover:bg-white text-slate-700 hover:text-slate-950 shadow-2xs hover:shadow-xs border border-slate-200/80 hover:border-slate-400"
+                  }`}
+                  title={`Generar informe interno de la sección ${title}`}
+                >
+                  <LucideIcon name="mail" size={11} className="text-slate-600" />
+                  <span className="hidden sm:inline">Enviar</span>
+                </button>
+                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${theme.bubble}`}>
+                  {alerts.length}
+                </span>
+              </div>
             </div>
 
             {/* Tarjetas de Alerta */}
@@ -1083,32 +1675,55 @@ ${hotelOfficial}`;
             </div>
           </div>
 
-          {/* Selector de Hotel */}
-          <div className="flex bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/50 w-fit gap-1.5 shadow-sm">
-            {[
-              { id: "todos", label: "Todos los Hoteles", icon: "hotel" },
-              { id: "guadiana", label: "Sercotel Guadiana", logo: "Logos/Sercotel Guadiana.jpg" },
-              { id: "cumbria", label: "Cumbria Spa & Hotel", logo: "Logos/Cumbria Spa&Hotel.jpg" }
-            ].map(hotel => {
-              const active = selectedHotel === hotel.id;
-              return (
-                <button
-                  key={hotel.id}
-                  onClick={() => setSelectedHotel(hotel.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${active ? "bg-white text-slate-900 shadow-md scale-102 border border-slate-100" : "text-slate-500 hover:text-slate-800 hover:bg-white/40"}`}
-                >
-                  {hotel.logo ? (
-                    <img src={hotel.logo} className="h-4 object-contain" alt={hotel.label} />
-                  ) : (
-                    <LucideIcon name={hotel.icon} size={14} />
-                  )}
-                  {hotel.label}
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1.5 ${active ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"}`}>
-                    {hotel.id === "todos" ? counts.total : hotel.id === "guadiana" ? counts.guadiana : counts.cumbria}
-                  </span>
-                </button>
-              );
-            })}
+          {/* Barra de Controles: Selector de Hotel y Botón de Informe Interno */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Selector de Hotel */}
+            <div className="flex bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/50 w-fit gap-1.5 shadow-sm">
+              {[
+                { id: "todos", label: "Todos los Hoteles", icon: "hotel" },
+                { id: "guadiana", label: "Sercotel Guadiana", logo: "Logos/Sercotel Guadiana.jpg" },
+                { id: "cumbria", label: "Cumbria Spa & Hotel", logo: "Logos/Cumbria Spa&Hotel.jpg" }
+              ].map(hotel => {
+                const active = selectedHotel === hotel.id;
+                return (
+                  <button
+                    key={hotel.id}
+                    onClick={() => setSelectedHotel(hotel.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-[1.5rem] text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${active ? "bg-white text-slate-900 shadow-md scale-102 border border-slate-100" : "text-slate-500 hover:text-slate-800 hover:bg-white/40"}`}
+                  >
+                    {hotel.logo ? (
+                      <img src={hotel.logo} className="h-4 object-contain" alt={hotel.label} />
+                    ) : (
+                      <LucideIcon name={hotel.icon} size={14} />
+                    )}
+                    {hotel.label}
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1.5 ${active ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600"}`}>
+                      {hotel.id === "todos" ? counts.total : hotel.id === "guadiana" ? counts.guadiana : counts.cumbria}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Botón Principal: Informe Interno de Alertas para Comerciales / Administración */}
+            <button
+              type="button"
+              onClick={() => handleOpenInternalReportModal()}
+              className="flex items-center gap-2.5 px-5 py-2.5 rounded-[2rem] bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-slate-900/20 hover:shadow-xl hover:scale-102 active:scale-98 transition-all cursor-pointer border border-indigo-500/30"
+              title="Generar informe de control interno con todas las alertas clasificadas por secciones para enviar a los comerciales o administración"
+            >
+              <div className="w-6 h-6 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center">
+                <LucideIcon name="mail" size={13} />
+              </div>
+              <span>Enviar Informe Interno de Alertas</span>
+              <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                {columnsData.financialAlerts.length +
+                  columnsData.releaseAlerts.length +
+                  columnsData.logisticsAlerts.length +
+                  columnsData.crmAlerts.length +
+                  columnsData.tentativeAlerts.length}
+              </span>
+            </button>
           </div>
 
           {/* Grid de Alertas - 5 columnas */}
@@ -1162,142 +1777,392 @@ ${hotelOfficial}`;
           {/* Modal de Notificación de Alerta por Email */}
           {selectedEmailAlert && (
             <div
-              className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+              className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in"
               onClick={() => setSelectedEmailAlert(null)}
             >
               <div
-                className="bg-white rounded-[2rem] border border-slate-100 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col my-auto max-h-[92vh] animate-slide-up"
+                className="bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col my-auto max-h-[94vh] animate-slide-up"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Cabecera del Modal */}
-                <div className="px-6 py-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+                {/* Cabecera del Modal con Selector de Pestañas */}
+                <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={selectedEmailAlert.hotelLogo}
-                      alt="Hotel Logo"
-                      className="h-6 object-contain bg-white/90 px-2 py-0.5 rounded-lg"
-                    />
+                    <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-inner shrink-0">
+                      <LucideIcon name="mail" size={20} className="text-amber-400" />
+                    </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 tracking-wider">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-black tracking-wide uppercase text-white">
+                          Notificación Oficial
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider">
                           {selectedEmailAlert.columnTitle}
                         </span>
-                        <span className="text-[10px] font-mono text-slate-400">
-                          #{selectedEmailAlert.resId}
-                        </span>
                       </div>
-                      <h3 className="text-sm font-black tracking-tight text-white mt-0.5 truncate max-w-md">
-                        {selectedEmailAlert.grupoName}
-                      </h3>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSelectedEmailAlert(null)}
-                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* Resumen Financiero y de Confirmación */}
-                <div className="p-4 bg-slate-50 border-b border-slate-200/60 flex flex-col gap-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Presupuesto</span>
-                      <span className="text-base font-black text-slate-800">{fmt(selectedEmailAlert.fin.total)}</span>
-                      <span className="text-[8px] font-bold text-slate-400 block mt-0.5">
-                        {selectedEmailAlert.pax} pax • {selectedEmailAlert.entrada}
-                      </span>
-                    </div>
-                    <div className="bg-white p-3 rounded-2xl border border-emerald-200 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider block">Confirmado / Pagado</span>
-                        <LucideIcon name="check-circle" size={12} className="text-emerald-500" />
-                      </div>
-                      <span className="text-base font-black text-emerald-700">{fmt(selectedEmailAlert.fin.paid)}</span>
-                      <span className="text-[8px] font-bold text-emerald-600/70 block mt-0.5">
-                        Importe ya garantizado
-                      </span>
-                    </div>
-                    <div className="bg-white p-3 rounded-2xl border border-rose-200 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black text-rose-600 uppercase tracking-wider block">Pendiente de Cobro</span>
-                        <LucideIcon name="alert-triangle" size={12} className="text-rose-500" />
-                      </div>
-                      <span className="text-base font-black text-rose-700">{fmt(selectedEmailAlert.fin.pending)}</span>
-                      <span className="text-[8px] font-bold text-rose-600/70 block mt-0.5">
-                        Reclamación activa
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Detalle específico de la alerta */}
-                  <div className="bg-rose-50/70 border border-rose-100 rounded-xl px-3 py-2 flex items-center gap-2 text-[10px] font-bold text-rose-800">
-                    <LucideIcon name="alert-circle" size={14} className="text-rose-600 shrink-0" />
-                    <span><strong>Situación:</strong> {selectedEmailAlert.alert.detail}</span>
-                  </div>
-                </div>
-
-                {/* Formulario de Email */}
-                <div className="p-5 overflow-y-auto space-y-3.5 flex-1 custom-scrollbar text-xs">
-                  <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">
-                      Destinatario (Para):
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="email"
-                        value={selectedEmailAlert.emailTo}
-                        onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, emailTo: e.target.value })}
-                        placeholder="ejemplo@agencia.com"
-                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                      />
-                      <LucideIcon name="mail" size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    </div>
-                    {!selectedEmailAlert.emailTo && (
-                      <p className="text-[9px] text-amber-600 font-bold mt-1">
-                        ⚠️ No se encontró email en la ficha; introduce el correo destinatario antes de abrir.
+                      <p className="text-[11px] text-slate-300 font-medium">
+                        {selectedEmailAlert.hotelOfficial} • Reserva #{selectedEmailAlert.resId} ({selectedEmailAlert.grupoName})
                       </p>
-                    )}
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1">
-                      Asunto del Correo:
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedEmailAlert.subject}
-                      onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, subject: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
-                    />
+                  <div className="flex items-center gap-2">
+                    {/* Tab Switcher */}
+                    <div className="bg-black/40 p-1 rounded-xl border border-white/10 flex items-center gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setEmailModalTab("preview")}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                          emailModalTab === "preview"
+                            ? "bg-white text-slate-900 shadow-md scale-102"
+                            : "text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <LucideIcon name="eye" size={13} />
+                        <span>Vista Diseñada</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEmailModalTab("edit")}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                          emailModalTab === "edit"
+                            ? "bg-white text-slate-900 shadow-md scale-102"
+                            : "text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <LucideIcon name="edit-3" size={13} />
+                        <span>Modo Editor</span>
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEmailAlert(null)}
+                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
+                      title="Cerrar modal"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Barra de Metadatos: Destinatario, Modo y Asunto */}
+                <div className="bg-slate-50 border-b border-slate-200/80 px-6 py-3 space-y-2.5">
+                  {/* Selector de Modo: Control Interno vs Notificación Cliente */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 bg-slate-200/80 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedEmailAlert({
+                            ...selectedEmailAlert,
+                            mode: "internal",
+                            emailTo: selectedEmailAlert.staffEmail || "comunicaciones@hotelguadiana.es",
+                            subject: selectedEmailAlert.internalSubject,
+                            body: selectedEmailAlert.internalBody
+                          });
+                        }}
+                        className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          selectedEmailAlert.mode === "internal"
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        🔒 Control Interno (Comercial/Admin)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedEmailAlert({
+                            ...selectedEmailAlert,
+                            mode: "client",
+                            emailTo: selectedEmailAlert.clientEmail || "",
+                            subject: selectedEmailAlert.clientSubject,
+                            body: selectedEmailAlert.clientBody
+                          });
+                        }}
+                        className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          selectedEmailAlert.mode === "client"
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        ✉️ Redactar al Cliente
+                      </button>
+                    </div>
+
+                    {/* Chips de Destinatarios Rápidos */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[9px] font-black uppercase text-slate-400">Para:</span>
+                      {[
+                        { label: "🏢 Admin", email: "comunicaciones@hotelguadiana.es" },
+                        { label: "👤 Sergio", email: "ssanchez@hotelguadiana.es" },
+                        { label: "👤 Natalio", email: "comunicaciones@hotelguadiana.es" },
+                        ...(selectedEmailAlert.comercial && selectedEmailAlert.comercial !== "Sin asignar" ? [{ label: `👤 ${selectedEmailAlert.comercial}`, email: selectedEmailAlert.staffEmail }] : []),
+                        ...(selectedEmailAlert.clientEmail ? [{ label: "🏢 Cliente", email: selectedEmailAlert.clientEmail }] : [])
+                      ].map((chip, cIdx) => (
+                        <button
+                          key={cIdx}
+                          type="button"
+                          onClick={() => setSelectedEmailAlert({ ...selectedEmailAlert, emailTo: chip.email })}
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                            selectedEmailAlert.emailTo === chip.email
+                              ? "bg-slate-800 text-white border-slate-800"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">
-                        Cuerpo del Mensaje (Editable):
-                      </label>
-                      <span className="text-[9px] font-bold text-slate-400">
-                        Incluye desglose y datos bancarios oficiales
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    <div className="sm:col-span-5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                          Destinatario (Para):
+                        </span>
+                        {!selectedEmailAlert.emailTo && (
+                          <span className="text-[9px] font-bold text-rose-600 animate-pulse">
+                            ⚠️ Email requerido
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          value={selectedEmailAlert.emailTo}
+                          onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, emailTo: e.target.value })}
+                          placeholder="ejemplo@hotelguadiana.es"
+                          className={`w-full pl-8 pr-3 py-1.5 bg-white border rounded-xl text-xs font-bold outline-none transition-all ${
+                            !selectedEmailAlert.emailTo
+                              ? "border-rose-300 bg-rose-50/50 text-rose-900 focus:border-rose-500 focus:bg-white"
+                              : "border-slate-200 text-slate-800 focus:border-indigo-500"
+                          }`}
+                        />
+                        <LucideIcon name="mail" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-7">
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
+                        Asunto del Correo:
+                      </span>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={selectedEmailAlert.subject}
+                          onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, subject: e.target.value })}
+                          className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+                        />
+                        <LucideIcon name="file-text" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contenido Dinámico según Pestaña */}
+                {emailModalTab === "preview" ? (
+                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70">
+                    {/* Contenedor tipo Carta Ejecutiva */}
+                    <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200/90 overflow-hidden">
+                      
+                      {/* Cabecera Oficial del Documento */}
+                      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-5 sm:p-6 text-white relative">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            {selectedEmailAlert.hotelLogo && (
+                              <img
+                                src={selectedEmailAlert.hotelLogo}
+                                alt="Logo Hotel"
+                                className="h-9 max-w-[120px] object-contain bg-white/95 px-2 py-1 rounded-xl shadow-xs"
+                              />
+                            )}
+                            <div>
+                              <div className="text-base sm:text-lg font-black uppercase tracking-wide text-white">
+                                {selectedEmailAlert.hotelOfficial}
+                              </div>
+                              <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                                Departamento de Reservas y Grupos
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="inline-block bg-white/10 backdrop-blur-xs border border-white/20 px-3 py-1 rounded-full text-xs font-mono font-bold text-white shadow-xs">
+                              Ref #{selectedEmailAlert.resId}
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-1 font-medium">
+                              {new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Franja de Información del Grupo */}
+                      <div className="bg-slate-50 border-b border-slate-100 px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-slate-800 text-sm">{selectedEmailAlert.grupoName}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            {selectedEmailAlert.pax} pax
+                          </span>
+                        </div>
+                        <div className="text-slate-500 font-semibold text-[11px]">
+                          Estancia: <strong className="text-slate-700">{selectedEmailAlert.entrada || "---"}</strong> ➔ <strong className="text-slate-700">{selectedEmailAlert.salida || "---"}</strong>
+                        </div>
+                      </div>
+
+                      {/* Cuerpo de la Carta */}
+                      <div className="p-6 space-y-5">
+                        
+                        {/* Tarjetas KPI Financieras (si aplica) */}
+                        {(selectedEmailAlert.fin.total > 0 || selectedEmailAlert.fin.pending > 0) && (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-center">
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Total Presupuesto</span>
+                              <span className="text-base font-black text-slate-800 block mt-0.5">{fmt(selectedEmailAlert.fin.total)}</span>
+                              <span className="text-[9px] font-medium text-slate-400 block mt-0.5">Contratado</span>
+                            </div>
+                            <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200 shadow-2xs text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-wider">Abonado / Confirmado</span>
+                                <LucideIcon name="check-circle" size={11} className="text-emerald-600" />
+                              </div>
+                              <span className="text-base font-black text-emerald-700 block mt-0.5">{fmt(selectedEmailAlert.fin.paid)}</span>
+                              <span className="text-[9px] font-medium text-emerald-600/80 block mt-0.5">Cobros registrados</span>
+                            </div>
+                            <div className="bg-rose-50/80 p-3.5 rounded-2xl border border-rose-200 shadow-2xs text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="text-[9px] font-black text-rose-700 uppercase tracking-wider">Pendiente de Cobro</span>
+                                <LucideIcon name="alert-triangle" size={11} className="text-rose-600" />
+                              </div>
+                              <span className="text-base font-black text-rose-700 block mt-0.5">{fmt(selectedEmailAlert.fin.pending)}</span>
+                              <span className="text-[9px] font-bold text-rose-600/80 block mt-0.5">Vencimiento pendiente</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Callout de Situación Notificada */}
+                        <div className="bg-rose-50/70 border-l-4 border-rose-500 rounded-r-2xl p-3.5 flex items-start gap-3">
+                          <LucideIcon name="alert-circle" size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="text-[10px] font-black text-rose-800 uppercase tracking-wider block">
+                              Situación Requerida
+                            </span>
+                            <p className="text-xs font-bold text-rose-900 mt-0.5 leading-relaxed">
+                              {selectedEmailAlert.alert.detail}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Previsualización del Texto Redactado */}
+                        <div className="text-xs sm:text-[13px] text-slate-700 leading-relaxed space-y-2 whitespace-pre-line bg-slate-50/50 p-4 rounded-2xl border border-slate-100 font-normal">
+                          {selectedEmailAlert.body}
+                        </div>
+
+                        {/* Tarjeta Ejecutiva de Datos Bancarios */}
+                        {selectedEmailAlert.hotelIban && (
+                          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-slate-700">
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2">
+                                <LucideIcon name="credit-card" size={16} className="text-sky-400" />
+                                <span className="text-[11px] font-black uppercase tracking-wider text-sky-300">
+                                  Datos Oficiales para Transferencia Bancaria
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-200 border border-white/10">
+                                {selectedEmailAlert.hotelBank}
+                              </span>
+                            </div>
+
+                            <div className="space-y-2 text-xs">
+                              <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 flex items-center justify-between gap-3">
+                                <div>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Código IBAN Oficial</span>
+                                  <span className="font-mono font-black text-sm sm:text-base text-sky-400 tracking-wider">
+                                    {selectedEmailAlert.hotelIban}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyIban(selectedEmailAlert.hotelIban)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 hover:text-white font-bold text-[10px] border border-sky-400/30 transition-all cursor-pointer shrink-0"
+                                >
+                                  <LucideIcon name="copy" size={12} />
+                                  <span>Copiar IBAN</span>
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                                <div>
+                                  <span className="text-slate-400 block text-[9px] uppercase font-bold">Beneficiario</span>
+                                  <span className="font-bold text-slate-200">{selectedEmailAlert.hotelOfficial}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block text-[9px] uppercase font-bold">Concepto Imprescindible</span>
+                                  <span className="font-bold text-amber-300">Reserva #{selectedEmailAlert.resId} - {selectedEmailAlert.grupoName}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Pie y Firma Oficial */}
+                        <div className="border-t border-slate-100 pt-4 flex items-center justify-between text-xs text-slate-500">
+                          <div>
+                            <div className="font-bold text-slate-800">{selectedEmailAlert.comercial}</div>
+                            <div className="text-[11px] text-slate-400">Departamento de Reservas y Grupos • {selectedEmailAlert.hotelOfficial}</div>
+                          </div>
+                          <div className="text-right text-[10px] text-slate-400 font-bold">
+                            Nexus Groups Gold Edition
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-3 bg-white">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                          Editor del Cuerpo del Mensaje
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Puedes personalizar o redactar libremente cualquier parte del correo antes de abrirlo o copiarlo.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                        Formato Texto con Separadores
                       </span>
                     </div>
+
                     <textarea
-                      rows={9}
+                      rows={14}
                       value={selectedEmailAlert.body}
                       onChange={(e) => setSelectedEmailAlert({ ...selectedEmailAlert, body: e.target.value })}
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] leading-relaxed text-slate-700 font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar"
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-[12px] leading-relaxed text-slate-800 font-medium font-mono outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar"
+                      placeholder="Redacta el mensaje aquí..."
                     />
                   </div>
-                </div>
+                )}
 
                 {/* Acciones del Footer */}
-                <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyRichEmail(selectedEmailAlert)}
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-800 font-black text-xs transition-all shadow-2xs cursor-pointer"
+                      title="Copia el correo con diseño para pegar en Outlook o Gmail"
+                    >
+                      <LucideIcon name="sparkles" size={14} className="text-indigo-600" />
+                      <span>Copiar Formato Visual</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleCopyEmailText(selectedEmailAlert)}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                      title="Copia el texto plano con separadores"
                     >
                       <LucideIcon name="copy" size={14} className="text-slate-500" />
                       <span>Copiar Texto</span>
@@ -1315,7 +2180,294 @@ ${hotelOfficial}`;
                     <button
                       type="button"
                       onClick={() => handleExecuteOpenEmail(selectedEmailAlert)}
-                      className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto"
+                      className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto"
+                    >
+                      <LucideIcon name="send" size={14} />
+                      <span>Abrir en Gestor de Correo</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Informe Interno de Control de Operaciones por Secciones */}
+          {internalReportModal && (
+            <div
+              className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in"
+              onClick={() => setInternalReportModal(null)}
+            >
+              <div
+                className="bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col my-auto max-h-[95vh] animate-slide-up"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Cabecera del Modal */}
+                <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shadow-inner shrink-0">
+                      <LucideIcon name="mail" size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-black tracking-wide uppercase text-white">
+                          Informe Interno de Control Operativo
+                        </h3>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-wider">
+                          {reportData?.totalAlerts || 0} Alertas
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 font-medium">
+                        {reportData?.hotelLabel} • Destinado a Comerciales y Administración
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Tab Switcher */}
+                    <div className="bg-black/40 p-1 rounded-xl border border-white/10 flex items-center gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setInternalReportTab("preview")}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                          internalReportTab === "preview"
+                            ? "bg-white text-slate-900 shadow-md scale-102"
+                            : "text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <LucideIcon name="eye" size={13} />
+                        <span>Vista Diseñada</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (internalReportModal.customBody === null && reportData) {
+                            setInternalReportModal({
+                              ...internalReportModal,
+                              customBody: generateInternalReportText(reportData)
+                            });
+                          }
+                          setInternalReportTab("edit");
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                          internalReportTab === "edit"
+                            ? "bg-white text-slate-900 shadow-md scale-102"
+                            : "text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <LucideIcon name="edit-3" size={13} />
+                        <span>Modo Editor</span>
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setInternalReportModal(null)}
+                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
+                      title="Cerrar modal"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Barra de Destinatarios y Asunto */}
+                <div className="bg-slate-50 border-b border-slate-200/80 px-6 py-3 space-y-2.5">
+                  {/* Fila 1: Presets rápidos de destinatarios */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1">
+                      Destinatarios Rápidos:
+                    </span>
+                    {STAFF_PRESETS.map((p, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setInternalReportModal({ ...internalReportModal, emailTo: p.email })}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                          internalReportModal.emailTo === p.email
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                        title={p.desc}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Fila 2: Inputs de Para y Asunto */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    <div className="sm:col-span-5">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={internalReportModal.emailTo}
+                          onChange={(e) => setInternalReportModal({ ...internalReportModal, emailTo: e.target.value })}
+                          placeholder="comunicaciones@hotelguadiana.es"
+                          className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+                        />
+                        <LucideIcon name="mail" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-7">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={internalReportModal.subject}
+                          onChange={(e) => setInternalReportModal({ ...internalReportModal, subject: e.target.value })}
+                          className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+                        />
+                        <LucideIcon name="file-text" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fila 3: Filtros de Secciones y Comercial */}
+                  <div className="pt-2 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2.5">
+                    {/* Checkboxes de Secciones */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1">
+                        Secciones a Incluir:
+                      </span>
+                      {[
+                        { key: "financial", label: "💳 Financieras", count: columnsData.financialAlerts.length, color: "text-rose-700 bg-rose-50 border-rose-200" },
+                        { key: "release", label: "⏰ Releases", count: columnsData.releaseAlerts.length, color: "text-amber-700 bg-amber-50 border-amber-200" },
+                        { key: "logistics", label: "📄 Datos Faltantes", count: columnsData.logisticsAlerts.length, color: "text-orange-700 bg-orange-50 border-orange-200" },
+                        { key: "crm", label: "📞 CRM", count: columnsData.crmAlerts.length, color: "text-indigo-700 bg-indigo-50 border-indigo-200" },
+                        { key: "tentative", label: "⏱️ Tentativas", count: columnsData.tentativeAlerts.length, color: "text-violet-700 bg-violet-50 border-violet-200" }
+                      ].map(sec => {
+                        const isChecked = internalReportModal.sections[sec.key];
+                        return (
+                          <button
+                            key={sec.key}
+                            type="button"
+                            onClick={() => setInternalReportModal({
+                              ...internalReportModal,
+                              customBody: null,
+                              sections: {
+                                ...internalReportModal.sections,
+                                [sec.key]: !isChecked
+                              }
+                            })}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              isChecked
+                                ? `${sec.color} font-black shadow-2xs`
+                                : "bg-slate-100 text-slate-400 border-slate-200 opacity-60 hover:opacity-100"
+                            }`}
+                          >
+                            <span>{isChecked ? "☑" : "☐"}</span>
+                            <span>{sec.label}</span>
+                            <span className="text-[9px] px-1 py-0.2 rounded-full bg-white/70">
+                              {sec.count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Filtro de Comercial */}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                        Comercial:
+                      </span>
+                      <select
+                        value={internalReportModal.filterComercial}
+                        onChange={(e) => setInternalReportModal({
+                          ...internalReportModal,
+                          filterComercial: e.target.value,
+                          customBody: null
+                        })}
+                        className="text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        <option value="todos">Todos los Comerciales</option>
+                        {availableCommercials.map((com, cIdx) => (
+                          <option key={cIdx} value={com}>
+                            {com}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contenido Dinámico: Preview o Editor */}
+                {internalReportTab === "preview" ? (
+                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70">
+                    {/* Render visual del HTML del informe */}
+                    <div
+                      className="max-w-3xl mx-auto"
+                      dangerouslySetInnerHTML={{ __html: generateInternalReportHtml(reportData) }}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-3 bg-white">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                          Editor del Informe de Control Interno
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Edita libremente el texto del informe antes de copiarlo o abrirlo en tu gestor de correo.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInternalReportModal({
+                          ...internalReportModal,
+                          customBody: generateInternalReportText(reportData)
+                        })}
+                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                      >
+                        Restablecer Texto Original
+                      </button>
+                    </div>
+
+                    <textarea
+                      rows={16}
+                      value={internalReportModal.customBody !== null ? internalReportModal.customBody : (generateInternalReportText(reportData) || "")}
+                      onChange={(e) => setInternalReportModal({ ...internalReportModal, customBody: e.target.value })}
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-[12px] leading-relaxed text-slate-800 font-medium font-mono outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar"
+                      placeholder="Generando informe..."
+                    />
+                  </div>
+                )}
+
+                {/* Acciones del Footer */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleCopyReportRichEmail}
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-800 font-black text-xs transition-all shadow-2xs cursor-pointer"
+                      title="Copia el informe con diseño y tablas de colores para pegar directamente en Outlook o Gmail"
+                    >
+                      <LucideIcon name="sparkles" size={14} className="text-indigo-600" />
+                      <span>Copiar Formato Visual</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyReportText}
+                      className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                      title="Copia el texto estructurado del informe"
+                    >
+                      <LucideIcon name="copy" size={14} className="text-slate-500" />
+                      <span>Copiar Texto</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setInternalReportModal(null)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                    >
+                      Cerrar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExecuteSendReport}
+                      className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto"
+                      title="Abre tu gestor de correo nativo (Outlook, Thunderbird, etc.) con el informe"
                     >
                       <LucideIcon name="send" size={14} />
                       <span>Abrir en Gestor de Correo</span>

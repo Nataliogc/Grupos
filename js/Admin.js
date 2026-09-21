@@ -7,6 +7,10 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -360,20 +364,32 @@ var Dashboard = function Dashboard(_ref2) {
     _React$useState4 = _slicedToArray(_React$useState3, 2),
     selectedEmailAlert = _React$useState4[0],
     setSelectedEmailAlert = _React$useState4[1];
-  var _React$useState5 = React.useState(null),
+  var _React$useState5 = React.useState("preview"),
     _React$useState6 = _slicedToArray(_React$useState5, 2),
-    toastInfo = _React$useState6[0],
-    setToastInfo = _React$useState6[1];
-  var _React$useState7 = React.useState(function () {
+    emailModalTab = _React$useState6[0],
+    setEmailModalTab = _React$useState6[1];
+  var _React$useState7 = React.useState(null),
+    _React$useState8 = _slicedToArray(_React$useState7, 2),
+    internalReportModal = _React$useState8[0],
+    setInternalReportModal = _React$useState8[1];
+  var _React$useState9 = React.useState("preview"),
+    _React$useState0 = _slicedToArray(_React$useState9, 2),
+    internalReportTab = _React$useState0[0],
+    setInternalReportTab = _React$useState0[1];
+  var _React$useState1 = React.useState(null),
+    _React$useState10 = _slicedToArray(_React$useState1, 2),
+    toastInfo = _React$useState10[0],
+    setToastInfo = _React$useState10[1];
+  var _React$useState11 = React.useState(function () {
       try {
         return JSON.parse(localStorage.getItem("nexus_notified_alerts") || "{}");
       } catch (e) {
         return {};
       }
     }),
-    _React$useState8 = _slicedToArray(_React$useState7, 2),
-    notifiedAlerts = _React$useState8[0],
-    setNotifiedAlerts = _React$useState8[1];
+    _React$useState12 = _slicedToArray(_React$useState11, 2),
+    notifiedAlerts = _React$useState12[0],
+    setNotifiedAlerts = _React$useState12[1];
   React.useEffect(function () {
     if (toastInfo) {
       var t = setTimeout(function () {
@@ -695,7 +711,313 @@ var Dashboard = function Dashboard(_ref2) {
       tentativeAlerts: tentativeAlerts
     };
   }, [filteredGroups]);
+  var STAFF_PRESETS = [{
+    label: "🏢 Administración",
+    email: "comunicaciones@hotelguadiana.es",
+    desc: "Administración / Control"
+  }, {
+    label: "👤 Sergio",
+    email: "ssanchez@hotelguadiana.es",
+    desc: "Dirección / Comercial"
+  }, {
+    label: "👤 Natalio",
+    email: "comunicaciones@hotelguadiana.es",
+    desc: "Administración"
+  }, {
+    label: "👤 Diana",
+    email: "dianahotelguadiana@gmail.com",
+    desc: "Comercial"
+  }, {
+    label: "👥 Todo el Equipo",
+    email: "comunicaciones@hotelguadiana.es, ssanchez@hotelguadiana.es, dianahotelguadiana@gmail.com",
+    desc: "Equipo Completo"
+  }];
+  var getStaffEmail = function getStaffEmail(name) {
+    var n = String(name || "").toLowerCase().trim();
+    if (n.includes("sergio")) return "ssanchez@hotelguadiana.es";
+    if (n.includes("natalio")) return "comunicaciones@hotelguadiana.es";
+    if (n.includes("oscar")) return "osanchez@hotelguadiana.es";
+    if (n.includes("diana")) return "dianahotelguadiana@gmail.com";
+    return "";
+  };
+  var availableCommercials = React.useMemo(function () {
+    var set = new Set();
+    var allAlerts = [].concat(_toConsumableArray(columnsData.financialAlerts || []), _toConsumableArray(columnsData.releaseAlerts || []), _toConsumableArray(columnsData.logisticsAlerts || []), _toConsumableArray(columnsData.crmAlerts || []), _toConsumableArray(columnsData.tentativeAlerts || []));
+    allAlerts.forEach(function (a) {
+      var com = a.group && a.group.Com_Comercial ? a.group.Com_Comercial.trim() : "";
+      if (com) set.add(com);
+    });
+    return Array.from(set).sort();
+  }, [columnsData]);
+  var handleOpenInternalReportModal = function handleOpenInternalReportModal() {
+    var initialSectionKey = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
+    var defaultSections = {
+      financial: initialSectionKey ? initialSectionKey === "financial" : true,
+      release: initialSectionKey ? initialSectionKey === "release" : true,
+      logistics: initialSectionKey ? initialSectionKey === "logistics" : true,
+      crm: initialSectionKey ? initialSectionKey === "crm" : true,
+      tentative: initialSectionKey ? initialSectionKey === "tentative" : true
+    };
+    var hotelLabel = selectedHotel === "guadiana" ? "Sercotel Guadiana" : selectedHotel === "cumbria" ? "Cumbria Spa & Hotel" : "Todos los Hoteles";
+    var todayStr = new Date().toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    });
+    setInternalReportTab("preview");
+    setInternalReportModal({
+      filterComercial: "todos",
+      sections: defaultSections,
+      emailTo: "comunicaciones@hotelguadiana.es",
+      subject: "[CONTROL INTERNO] Resumen de Alertas Operativas - ".concat(hotelLabel, " - ").concat(todayStr),
+      customBody: null
+    });
+  };
+  var handleOpenSectionReportModal = function handleOpenSectionReportModal(title) {
+    var sectionKey = "financial";
+    var t = (title || "").toLowerCase();
+    if (t.includes("rel")) sectionKey = "release";else if (t.includes("dato") || t.includes("falt") || t.includes("logist")) sectionKey = "logistics";else if (t.includes("crm") || t.includes("seg")) sectionKey = "crm";else if (t.includes("tent")) sectionKey = "tentative";
+    handleOpenInternalReportModal(sectionKey);
+  };
+  var reportData = React.useMemo(function () {
+    if (!internalReportModal) return null;
+    var hotelLabel = selectedHotel === "guadiana" ? "Sercotel Guadiana" : selectedHotel === "cumbria" ? "Cumbria Spa & Hotel" : "Todos los Hoteles";
+    var filterCom = (internalReportModal.filterComercial || "todos").toLowerCase();
+    var filterAlerts = function filterAlerts(list) {
+      if (!list) return [];
+      if (filterCom === "todos") return list;
+      return list.filter(function (a) {
+        var _a$group;
+        var com = (((_a$group = a.group) === null || _a$group === void 0 ? void 0 : _a$group.Com_Comercial) || "").toLowerCase();
+        return com.includes(filterCom);
+      });
+    };
+    var sectionDefs = [{
+      id: "financial",
+      title: "Alertas Financieras (Pagos y Vencimientos)",
+      shortTitle: "Financieras",
+      icon: "credit-card",
+      colorClass: "rose",
+      badgeColor: "bg-rose-100 text-rose-700 border-rose-200",
+      headerBg: "#ffe4e6",
+      headerColor: "#9f1239",
+      alerts: internalReportModal.sections.financial ? filterAlerts(columnsData.financialAlerts) : []
+    }, {
+      id: "release",
+      title: "Releases y Plazos Críticos",
+      shortTitle: "Releases",
+      icon: "clock",
+      colorClass: "amber",
+      badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+      headerBg: "#fef3c7",
+      headerColor: "#92400e",
+      alerts: internalReportModal.sections.release ? filterAlerts(columnsData.releaseAlerts) : []
+    }, {
+      id: "logistics",
+      title: "Datos Operativos Faltantes",
+      shortTitle: "Datos Faltantes",
+      icon: "file-warning",
+      colorClass: "orange",
+      badgeColor: "bg-orange-100 text-orange-800 border-orange-200",
+      headerBg: "#ffedd5",
+      headerColor: "#9a3412",
+      alerts: internalReportModal.sections.logistics ? filterAlerts(columnsData.logisticsAlerts) : []
+    }, {
+      id: "crm",
+      title: "Seguimientos CRM y Tareas Comerciales",
+      shortTitle: "Seguimientos CRM",
+      icon: "phone-call",
+      colorClass: "indigo",
+      badgeColor: "bg-indigo-100 text-indigo-800 border-indigo-200",
+      headerBg: "#e0e7ff",
+      headerColor: "#3730a3",
+      alerts: internalReportModal.sections.crm ? filterAlerts(columnsData.crmAlerts) : []
+    }, {
+      id: "tentative",
+      title: "Tentativas Urgentes (< 25 días a llegada)",
+      shortTitle: "Tentativas Urgentes",
+      icon: "calendar-clock",
+      colorClass: "violet",
+      badgeColor: "bg-violet-100 text-violet-800 border-violet-200",
+      headerBg: "#ede9fe",
+      headerColor: "#5b21b6",
+      alerts: internalReportModal.sections.tentative ? filterAlerts(columnsData.tentativeAlerts) : []
+    }];
+    var totalAlerts = 0;
+    var totalFinancialPending = 0;
+    sectionDefs.forEach(function (s) {
+      totalAlerts += s.alerts.length;
+      if (s.id === "financial") {
+        s.alerts.forEach(function (a) {
+          var fin = getGroupFinancialInfo(a.group);
+          totalFinancialPending += fin.pending || 0;
+        });
+      }
+    });
+    return {
+      hotelLabel: hotelLabel,
+      filterComercial: internalReportModal.filterComercial,
+      sections: sectionDefs,
+      totalAlerts: totalAlerts,
+      totalFinancialPending: totalFinancialPending,
+      dateStr: new Date().toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }),
+      timeStr: new Date().toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    };
+  }, [internalReportModal, columnsData, selectedHotel]);
+  var generateInternalReportText = function generateInternalReportText(rep) {
+    if (!rep) return "";
+    var lines = [];
+    lines.push("================================================================================");
+    lines.push("INFORME INTERNO DE CONTROL OPERATIVO Y ALERTAS");
+    lines.push("\xC1mbito: ".concat(rep.hotelLabel, " | Fecha: ").concat(rep.dateStr, " ").concat(rep.timeStr));
+    lines.push("Filtro Comercial: ".concat(rep.filterComercial === "todos" ? "Todos los Comerciales" : rep.filterComercial));
+    lines.push("Total Alertas Activas: ".concat(rep.totalAlerts));
+    if (rep.totalFinancialPending > 0) {
+      lines.push("Total Importe Pendiente Reclamado: ".concat(fmt(rep.totalFinancialPending)));
+    }
+    lines.push("================================================================================\n");
+    lines.push("[RESUMEN POR SECCIONES]");
+    rep.sections.forEach(function (sec, idx) {
+      lines.push("  ".concat(idx + 1, ". ").concat(sec.title, ": ").concat(sec.alerts.length, " caso(s)"));
+    });
+    lines.push("");
+    rep.sections.forEach(function (sec, sIdx) {
+      if (sec.alerts.length === 0) return;
+      lines.push("--------------------------------------------------------------------------------");
+      lines.push("".concat(sIdx + 1, ". ").concat(sec.title.toUpperCase(), " (").concat(sec.alerts.length, ")"));
+      lines.push("--------------------------------------------------------------------------------");
+      sec.alerts.forEach(function (alert) {
+        var g = alert.group || {};
+        var resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
+        var name = g["Nombre del Grupo"] || "Grupo sin nombre";
+        var hotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb") ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+        var com = g.Com_Comercial || "Sin asignar";
+        var pax = g["Pax."] || g.Pax || 0;
+        var entrada = formatDate(g.Entrada) || "---";
+        var salida = formatDate(g.Salida) || "---";
+        var fin = getGroupFinancialInfo(g);
+        lines.push("\u2022 [Reserva #".concat(resId, "] ").concat(name.toUpperCase()));
+        lines.push("  Hotel: ".concat(hotel, " | Comercial: ").concat(com, " | Pax: ").concat(pax));
+        lines.push("  Estancia: ".concat(entrada, " \u2794 ").concat(salida));
+        if (sec.id === "financial" || sec.id === "release") {
+          lines.push("  Importes: Total: ".concat(fmt(fin.total), " | Pagado: ").concat(fmt(fin.paid), " | PENDIENTE: ").concat(fmt(fin.pending)));
+        }
+        if (sec.id === "logistics" && alert.details) {
+          lines.push("  Faltante: ".concat(alert.details.map(function (d) {
+            return d.text;
+          }).join(", ")));
+        } else {
+          lines.push("  Alerta: ".concat(alert.detail || alert.label));
+        }
+        lines.push("");
+      });
+    });
+    lines.push("================================================================================");
+    lines.push("Por favor gestionar las actuaciones correspondientes a la mayor brevedad.");
+    lines.push("Dirección de Operaciones & Departamento de Administración");
+    lines.push("================================================================================");
+    return lines.join("\n");
+  };
+  var generateInternalReportHtml = function generateInternalReportHtml(rep) {
+    if (!rep) return "";
+    var sectionsHtml = rep.sections.filter(function (s) {
+      return s.alerts.length > 0;
+    }).map(function (sec) {
+      var rowsHtml = sec.alerts.map(function (alert) {
+        var g = alert.group || {};
+        var resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
+        var name = g["Nombre del Grupo"] || "Grupo sin nombre";
+        var isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
+        var hotelName = isCumbria ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+        var com = g.Com_Comercial || "Sin asignar";
+        var pax = g["Pax."] || g.Pax || 0;
+        var entrada = formatDate(g.Entrada) || "---";
+        var salida = formatDate(g.Salida) || "---";
+        var fin = getGroupFinancialInfo(g);
+        var alertDetailText = sec.id === "logistics" && alert.details ? alert.details.map(function (d) {
+          return d.text;
+        }).join(" • ") : alert.detail || alert.label;
+        return "\n              <tr style=\"border-bottom: 1px solid #f1f5f9;\">\n                <td style=\"padding: 10px 12px; vertical-align: top; width: 85px;\">\n                  <span style=\"display: inline-block; background-color: #0f172a; color: #f8fafc; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 6px;\">\n                    #".concat(resId, "\n                  </span>\n                  <div style=\"font-size: 9.5px; color: #64748b; font-weight: 600; margin-top: 4px;\">\n                    ").concat(hotelName.includes("Cumbria") ? "🏨 Cumbria" : "🏨 Guadiana", "\n                  </div>\n                </td>\n                <td style=\"padding: 10px 12px; vertical-align: top;\">\n                  <div style=\"font-size: 12.5px; font-weight: 800; color: #0f172a;\">\n                    ").concat(name, "\n                  </div>\n                  <div style=\"font-size: 11px; color: #64748b; margin-top: 2px;\">\n                    <strong>Estancia:</strong> ").concat(entrada, " \u2794 ").concat(salida, " &nbsp;|&nbsp; <strong>Pax:</strong> ").concat(pax, "\n                  </div>\n                  <div style=\"margin-top: 5px; background-color: #f8fafc; border-left: 3px solid ").concat(sec.headerColor, "; padding: 4px 8px; border-radius: 0 4px 4px 0; font-size: 11.5px; font-weight: 600; color: #334155;\">\n                    \u26A0\uFE0F ").concat(alertDetailText, "\n                  </div>\n                </td>\n                <td style=\"padding: 10px 12px; vertical-align: top; width: 110px;\">\n                  <span style=\"display: inline-block; background-color: #f1f5f9; color: #475569; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px;\">\n                    \uD83D\uDC64 ").concat(com, "\n                  </span>\n                </td>\n                ").concat(sec.id === "financial" || sec.id === "release" ? "\n                <td style=\"padding: 10px 12px; vertical-align: top; text-align: right; width: 130px;\">\n                  <div style=\"font-size: 10px; color: #64748b;\">Total: ".concat(fmt(fin.total), "</div>\n                  <div style=\"font-size: 12.5px; font-weight: 800; color: #be123c; margin-top: 2px;\">\n                    Pend: ").concat(fmt(fin.pending), "\n                  </div>\n                  <div style=\"font-size: 9.5px; color: #059669; font-weight: 600;\">Abonado: ").concat(fmt(fin.paid), "</div>\n                </td>") : "\n                <td style=\"padding: 10px 12px; vertical-align: top; text-align: right; width: 110px;\">\n                  <span style=\"font-size: 10.5px; font-weight: 700; color: #0284c7; background-color: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;\">\n                    Requiere Acci\xF3n\n                  </span>\n                </td>", "\n              </tr>\n            ");
+      }).join("");
+      return "\n            <div style=\"margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;\">\n              <div style=\"background-color: ".concat(sec.headerBg, "; border-bottom: 2px solid ").concat(sec.headerColor, "; padding: 10px 16px;\">\n                <table style=\"width: 100%; border-collapse: collapse;\">\n                  <tr>\n                    <td style=\"font-size: 13px; font-weight: 800; color: ").concat(sec.headerColor, "; text-transform: uppercase; letter-spacing: 0.5px;\">\n                      ").concat(sec.title, "\n                    </td>\n                    <td style=\"text-align: right; font-size: 11px; font-weight: 800; color: ").concat(sec.headerColor, ";\">\n                      ").concat(sec.alerts.length, " caso(s)\n                    </td>\n                  </tr>\n                </table>\n              </div>\n              <table style=\"width: 100%; border-collapse: collapse; font-family: inherit;\">\n                <thead>\n                  <tr style=\"background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;\">\n                    <th style=\"padding: 7px 12px;\">Localizador</th>\n                    <th style=\"padding: 7px 12px;\">Grupo & Requerimiento</th>\n                    <th style=\"padding: 7px 12px;\">Comercial</th>\n                    <th style=\"padding: 7px 12px; text-align: right;\">").concat(sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado", "</th>\n                  </tr>\n                </thead>\n                <tbody>\n                  ").concat(rowsHtml, "\n                </tbody>\n              </table>\n            </div>\n          ");
+    }).join("");
+    return "\n      <div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 760px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);\">\n        <!-- Header Banner -->\n        <div style=\"background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; color: #ffffff;\">\n          <table style=\"width: 100%; border-collapse: collapse;\">\n            <tr>\n              <td style=\"vertical-align: middle;\">\n                <div style=\"display: inline-block; background-color: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.4); color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; margin-bottom: 6px;\">\n                  \uD83D\uDD12 Control Interno Operativo\n                </div>\n                <div style=\"font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;\">\n                  Informe de Alertas Operativas y Actuaciones Cr\xEDticas\n                </div>\n                <div style=\"font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 3px;\">\n                  Establecimiento: <strong style=\"color: #ffffff;\">".concat(rep.hotelLabel, "</strong> &nbsp;\u2022&nbsp; Generado: ").concat(rep.dateStr, " a las ").concat(rep.timeStr, "\n                </div>\n              </td>\n              <td style=\"vertical-align: middle; text-align: right; width: 140px;\">\n                <div style=\"background-color: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 8px 12px; text-align: center;\">\n                  <div style=\"font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase;\">Total Alertas</div>\n                  <div style=\"font-size: 22px; font-weight: 900; color: #fbbf24; line-height: 1.1;\">").concat(rep.totalAlerts, "</div>\n                </div>\n              </td>\n            </tr>\n          </table>\n        </div>\n\n        ").concat(rep.totalFinancialPending > 0 ? "\n        <!-- Financial Alert Highlight Banner -->\n        <div style=\"background-color: #fff1f2; border-bottom: 2px solid #fecdd3; padding: 12px 28px;\">\n          <table style=\"width: 100%; border-collapse: collapse;\">\n            <tr>\n              <td style=\"font-size: 12px; font-weight: 800; color: #be123c;\">\n                \uD83D\uDCB0 Total Pendiente de Cobro en Alertas Financieras:\n              </td>\n              <td style=\"text-align: right; font-size: 16px; font-weight: 900; color: #9f1239;\">\n                ".concat(fmt(rep.totalFinancialPending), "\n              </td>\n            </tr>\n          </table>\n        </div>") : '', "\n\n        <!-- Body Content -->\n        <div style=\"padding: 24px 28px; background-color: #f8fafc;\">\n          ").concat(sectionsHtml || "\n            <div style=\"text-align: center; padding: 30px; color: #64748b; font-size: 13px; font-weight: 700;\">\n              \u2705 No hay alertas activas en las secciones seleccionadas para este filtro.\n            </div>\n          ", "\n        </div>\n\n        <!-- Footer -->\n        <div style=\"background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 14px 28px; font-size: 11px; color: #64748b; text-align: center;\">\n          <strong>Nexus Groups Gold Edition</strong> \u2022 M\xF3dulo de Control Interno de Operaciones y Seguimiento Comercial\n        </div>\n      </div>\n        ");
+  };
+  var handleCopyReportRichEmail = function handleCopyReportRichEmail() {
+    if (!reportData) return;
+    var htmlContent = generateInternalReportHtml(reportData);
+    var plainText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || generateInternalReportText(reportData);
+    var fullPlain = "Para: ".concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.emailTo) || "", "\nAsunto: ").concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.subject) || "", "\n\n").concat(plainText);
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      try {
+        var blobHtml = new Blob([htmlContent], {
+          type: "text/html"
+        });
+        var blobText = new Blob([fullPlain], {
+          type: "text/plain"
+        });
+        navigator.clipboard.write([new ClipboardItem({
+          "text/html": blobHtml,
+          "text/plain": blobText
+        })]).then(function () {
+          setToastInfo("✨ ¡Informe visual copiado! Pégalo en Outlook o Gmail con formato y tablas.");
+        }).catch(function () {
+          navigator.clipboard.writeText(fullPlain).then(function () {
+            setToastInfo("📋 Informe en texto copiado al portapapeles.");
+          });
+        });
+      } catch (e) {
+        navigator.clipboard.writeText(fullPlain).then(function () {
+          setToastInfo("📋 Informe en texto copiado al portapapeles.");
+        });
+      }
+    } else {
+      navigator.clipboard.writeText(fullPlain).then(function () {
+        setToastInfo("📋 Informe en texto copiado al portapapeles.");
+      });
+    }
+  };
+  var handleCopyReportText = function handleCopyReportText() {
+    if (!reportData) return;
+    var bodyText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || generateInternalReportText(reportData);
+    var fullPlain = "Para: ".concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.emailTo) || "", "\nAsunto: ").concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.subject) || "", "\n\n").concat(bodyText);
+    navigator.clipboard.writeText(fullPlain).then(function () {
+      setToastInfo("📋 Texto del informe copiado al portapapeles.");
+    }).catch(function () {
+      setToastInfo("❌ Error al copiar texto.");
+    });
+  };
+  var handleExecuteSendReport = function handleExecuteSendReport() {
+    if (!reportData) return;
+    var bodyText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || generateInternalReportText(reportData);
+    var to = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.emailTo) || "comunicaciones@hotelguadiana.es";
+    var sub = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.subject) || "[CONTROL INTERNO] Resumen de Alertas Operativas - ".concat(reportData.hotelLabel);
+    var mailtoUrl = "mailto:".concat(encodeURIComponent(to), "?subject=").concat(encodeURIComponent(sub), "&body=").concat(encodeURIComponent(bodyText));
+    window.location.href = mailtoUrl;
+    setToastInfo("🚀 Gestor de correo abierto con el informe interno por secciones.");
+    setInternalReportModal(null);
+  };
+  var generateRichHtmlEmail = function generateRichHtmlEmail(data) {
+    var _data$alert;
+    if (!data) return "";
+    var fin = data.fin || {
+      total: 0,
+      paid: 0,
+      pending: 0
+    };
+    var hasFin = fin.total > 0 || fin.pending > 0;
+    var isInternal = data.mode === "internal";
+    return "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06);\">\n  <!-- Header Banner -->\n  <div style=\"background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px 28px; color: #ffffff;\">\n    <table style=\"width: 100%; border-collapse: collapse;\">\n      <tr>\n        <td style=\"vertical-align: middle;\">\n          ".concat(isInternal ? "\n          <div style=\"display: inline-block; background-color: rgba(245,158,11,0.25); border: 1px solid rgba(245,158,11,0.45); color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; margin-bottom: 6px;\">\n            \uD83D\uDD12 Control Interno Operativo\n          </div>" : '', "\n          <div style=\"font-size: 19px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; text-transform: uppercase;\">\n            ").concat(data.hotelOfficial, "\n          </div>\n          <div style=\"font-size: 11px; color: #94a3b8; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px;\">\n            ").concat(isInternal ? "Aviso a Comercial / Administración" : "Dpto. Reservas y Gestión de Grupos", "\n          </div>\n        </td>\n        <td style=\"vertical-align: middle; text-align: right;\">\n          <span style=\"display: inline-block; background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #f8fafc;\">\n            Ref #").concat(data.resId, "\n          </span>\n        </td>\n      </tr>\n    </table>\n  </div>\n\n  <!-- Group Summary Bar -->\n  <div style=\"background-color: #f8fafc; padding: 14px 28px; border-bottom: 1px solid #e2e8f0;\">\n    <div style=\"font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 3px;\">\n      ").concat(data.grupoName, "\n    </div>\n    <table style=\"width: 100%; border-collapse: collapse; font-size: 12px; color: #64748b;\">\n      <tr>\n        <td>\n          <strong>Estancia:</strong> ").concat(data.entrada || "---", " \u2794 ").concat(data.salida || "---", "\n        </td>\n        <td style=\"text-align: right;\">\n          <strong>Ocupaci\xF3n:</strong> ").concat(data.pax || 0, " pax &nbsp;|&nbsp; <strong>Comercial:</strong> ").concat(data.comercial || "---", "\n        </td>\n      </tr>\n    </table>\n  </div>\n\n  <!-- Content Container -->\n  <div style=\"padding: 26px 28px; font-size: 13.5px; line-height: 1.65; color: #334155;\">\n    \n    ").concat(hasFin ? "\n    <!-- Financial Metrics Grid -->\n    <table style=\"width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 22px;\">\n      <tr>\n        <td style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 8px; text-align: center; width: 33%;\">\n          <div style=\"font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;\">Total Contratado</div>\n          <div style=\"font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 3px;\">".concat(fmt(fin.total), "</div>\n        </td>\n        <td style=\"background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px 8px; text-align: center; width: 33%;\">\n          <div style=\"font-size: 9px; font-weight: 800; color: #059669; text-transform: uppercase;\">Abonado / Confirmado</div>\n          <div style=\"font-size: 15px; font-weight: 800; color: #047857; margin-top: 3px;\">").concat(fmt(fin.paid), "</div>\n        </td>\n        <td style=\"background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 12px 8px; text-align: center; width: 34%;\">\n          <div style=\"font-size: 9px; font-weight: 800; color: #e11d48; text-transform: uppercase;\">Pendiente de Cobro</div>\n          <div style=\"font-size: 15px; font-weight: 800; color: #be123c; margin-top: 3px;\">").concat(fmt(fin.pending), "</div>\n        </td>\n      </tr>\n    </table>") : '', "\n\n    <!-- Callout Box -->\n    <div style=\"background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 0 8px 8px 0; padding: 12px 16px; margin-bottom: 22px;\">\n      <div style=\"font-size: 10px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;\">\n        ").concat(isInternal ? "Actuación Crítica Detectada" : "Situación / Requerimiento", "\n      </div>\n      <div style=\"font-size: 12.5px; font-weight: 600; color: #7f1d1d;\">\n        ").concat(((_data$alert = data.alert) === null || _data$alert === void 0 ? void 0 : _data$alert.detail) || "Revisión operativa de las condiciones acordadas.", "\n      </div>\n    </div>\n\n    <!-- Body text -->\n    <div style=\"white-space: pre-line; margin-bottom: 22px; color: #334155; font-size: 13px; line-height: 1.65;\">\n      ").concat(data.body, "\n    </div>\n\n    <!-- Bank Details Card (S\xF3lo si no es interno o si procede) -->\n    ").concat(!isInternal && data.hotelIban ? "\n    <div style=\"background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; padding: 18px 22px; color: #ffffff; margin-top: 22px;\">\n      <div style=\"font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;\">\n        \uD83D\uDCB3 Datos Oficiales para Transferencia Bancaria\n      </div>\n      <table style=\"width: 100%; border-collapse: collapse; font-size: 12px; color: #f8fafc;\">\n        <tr>\n          <td style=\"padding: 3px 0; color: #94a3b8; width: 115px;\"><strong>Entidad:</strong></td>\n          <td style=\"padding: 3px 0; font-weight: 700; color: #ffffff;\">".concat(data.hotelBank, "</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 3px 0; color: #94a3b8;\"><strong>IBAN:</strong></td>\n          <td style=\"padding: 3px 0; font-weight: 800; font-family: monospace; font-size: 13.5px; color: #38bdf8; letter-spacing: 1px;\">").concat(data.hotelIban, "</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 3px 0; color: #94a3b8;\"><strong>Beneficiario:</strong></td>\n          <td style=\"padding: 3px 0; font-weight: 700; color: #ffffff;\">").concat(data.hotelOfficial, "</td>\n        </tr>\n        <tr>\n          <td style=\"padding: 3px 0; color: #94a3b8;\"><strong>Concepto:</strong></td>\n          <td style=\"padding: 3px 0; font-weight: 800; color: #facc15;\">Reserva #").concat(data.resId, " - ").concat(data.grupoName, "</td>\n        </tr>\n      </table>\n    </div>") : '', "\n\n  </div>\n\n  <!-- Footer -->\n  <div style=\"background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 28px; font-size: 11px; color: #64748b; text-align: center;\">\n    <strong>").concat(data.hotelOfficial, "</strong> \u2022 ").concat(isInternal ? "Sistema de Control Interno Operativo" : "Dpto. Reservas y Gestión de Grupos", " \u2022 Nexus Groups\n  </div>\n</div>");
+  };
   var handleOpenEmailModal = function handleOpenEmailModal(alert, columnTitle) {
+    var mode = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : "internal";
     var g = alert.group || {};
     var resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
     var grupoName = g["Nombre del Grupo"] || "Grupo sin nombre";
@@ -709,43 +1031,51 @@ var Dashboard = function Dashboard(_ref2) {
     var entrada = formatDate(g.Entrada);
     var salida = formatDate(g.Salida);
     var pax = g["Pax."] || g.Pax || 0;
-    var comercial = g.Com_Comercial || "Departamento de Reservas y Grupos";
+    var comercial = g.Com_Comercial || "Sin asignar";
 
-    // Detección inteligente de email
-    var emailTo = g.Com_Email_Contacto || g.Email || g.Fiscal_Email || "";
-    if (!emailTo) {
+    // Detección inteligente de email del cliente
+    var clientEmail = g.Com_Email_Contacto || g.Email || g.Fiscal_Email || "";
+    if (!clientEmail) {
       var textToSearch = "".concat(grupoName, " ").concat(g["Empresa/Agencia"] || "");
       var match = textToSearch.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-      if (match) emailTo = match[0];
+      if (match) clientEmail = match[0];
     }
+
+    // Email del comercial asignado o administración por defecto
+    var staffEmail = getStaffEmail(comercial) || "comunicaciones@hotelguadiana.es";
     var isFinanciera = columnTitle.toLowerCase().includes("financ");
     var isRelease = columnTitle.toLowerCase().includes("release");
     var isDatos = columnTitle.toLowerCase().includes("dato");
     var isCrm = columnTitle.toLowerCase().includes("crm") || columnTitle.toLowerCase().includes("seguimiento");
-    var defaultSubject = "";
-    var defaultBody = "";
+    var internalSubject = "[CONTROL INTERNO] ".concat(columnTitle, " - Reserva #").concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+    var internalBody = "PARA: ".concat(comercial, " / Administraci\xF3n\nASUNTO: Control Interno - ").concat(columnTitle, "\nESTABLECIMIENTO: ").concat(hotelOfficial, "\n\nDATOS DE LA RESERVA:\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Localizador:    #").concat(resId, "\n\u2022 Grupo:          ").concat(grupoName, "\n\u2022 Estancia:       ").concat(entrada || "---", " \u2794 ").concat(salida || "---", "\n\u2022 Ocupaci\xF3n:      ").concat(pax, " personas\n\u2022 Comercial:      ").concat(comercial, "\n\u2022 Email Cliente:  ").concat(clientEmail || "No especificado", "\n\nACTUACI\xD3N REQUERIDA (").concat(columnTitle.toUpperCase(), "):\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n").concat(alert.detail || "Revisión operativa de la situación acordada.", "\n\nESTADO ECON\xD3MICO:\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Total Contratado:  ").concat(fmt(fin.total), "\n\u2022 Abonado / Confirm: ").concat(fmt(fin.paid), "\n\u2022 PENDIENTE:         ").concat(fmt(fin.pending), "\n\nPor favor revisar con urgencia las actuaciones necesarias para mantener la operativa al d\xEDa.");
+    var clientSubject = "";
+    var clientBody = "";
     if (isFinanciera) {
-      defaultSubject = "Recordatorio de Pago Pendiente - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      defaultBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ".concat(hotelOfficial, " en relaci\xF3n a la reserva del grupo \"").concat(grupoName, "\" (Localizador: #").concat(resId, "), con fecha de entrada el ").concat(entrada || "prevista", " y salida el ").concat(salida || "prevista", ".\n\nLe informamos del estado econ\xF3mico actual de su reserva:\n\u2022 Importe Total Contratado: ").concat(fmt(fin.total), "\n\u2022 Importe Abonado y Confirmado: ").concat(fmt(fin.paid), "\n\u2022 Importe Pendiente de Pago: ").concat(fmt(fin.pending), "\n\nDetalle del vencimiento pendiente:\n").concat(alert.detail || "Hito de pago pendiente según las condiciones pactadas.", "\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularizaci\xF3n del importe pendiente a la mayor brevedad posible.\n\nDatos para realizar la transferencia bancaria:\n\u2022 Entidad Bancaria: ").concat(hotelBank, "\n\u2022 IBAN: ").concat(hotelIban, "\n\u2022 Beneficiario: ").concat(hotelOfficial, "\n\u2022 Concepto imprescindible: Reserva #").concat(resId, " - ").concat(grupoName, "\n\nUna vez realizada la transferencia, le agradecer\xEDamos que nos remita el correspondiente justificante bancario respondiendo a este correo. Si ya ha efectuado el pago recientemente, por favor ignore este aviso y facil\xEDtenos el comprobante.\n\nQuedamos a su entera disposici\xF3n para cualquier aclaraci\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas y Grupos\n").concat(hotelOfficial);
+      clientSubject = "Recordatorio de Pago Pendiente - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ".concat(hotelOfficial, " en relaci\xF3n a la reserva del grupo \"").concat(grupoName, "\" (Localizador: #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nESTADO ECON\xD3MICO DE LA RESERVA\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Importe Total Contratado:      ").concat(fmt(fin.total), "\n\u2022 Importe Abonado y Confirmado:  ").concat(fmt(fin.paid), "\n\u2022 Importe Pendiente de Pago:     ").concat(fmt(fin.pending), "\n\nDetalle del vencimiento pendiente:\n").concat(alert.detail || "Hito de pago pendiente según las condiciones pactadas.", "\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularizaci\xF3n del importe pendiente a la mayor brevedad posible.\n\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nDATOS OFICIALES PARA TRANSFERENCIA BANCARIA\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Entidad Bancaria:        ").concat(hotelBank, "\n\u2022 IBAN:                    ").concat(hotelIban, "\n\u2022 Beneficiario:            ").concat(hotelOfficial, "\n\u2022 Concepto imprescindible: Reserva #").concat(resId, " - ").concat(grupoName, "\n\nUna vez realizada la transferencia, le agradecer\xEDamos que nos remita el correspondiente justificante bancario respondiendo a este correo.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isRelease) {
-      defaultSubject = "Aviso de Plazo / Release - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      defaultBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " con respecto a la reserva del grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), cuya fecha de entrada est\xE1 fijada para el ").concat(entrada || "próximamente", ".\n\nLe recordamos que se aproxima la fecha l\xEDmite de release y garant\xEDa de plazas fijada para este grupo:\n\u2022 Estado del plazo: ").concat(alert.detail, "\n\u2022 Importe total: ").concat(fmt(fin.total), "\n\u2022 Importe pendiente: ").concat(fmt(fin.pending), "\n\nA fin de mantener el bloqueo de habitaciones solicitado y no liberar autom\xE1ticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al tr\xE1mite de garant\xEDa antes de la fecha l\xEDmite.\n\nQuedamos a la espera de sus gratas noticias.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas y Grupos\n").concat(hotelOfficial);
+      clientSubject = "Aviso de Plazo / Release - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " con respecto a la reserva del grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), cuya fecha de entrada est\xE1 fijada para el ").concat(entrada || "próximamente", ".\n\nSituaci\xF3n del plazo: ").concat(alert.detail, "\nImporte pendiente: ").concat(fmt(fin.pending), "\n\nA fin de mantener el bloqueo de habitaciones solicitado y no liberar autom\xE1ticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al tr\xE1mite de garant\xEDa antes de la fecha l\xEDmite.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isDatos) {
       var missingItems = alert.details ? alert.details.map(function (d) {
         return "\u2022 ".concat(d.text);
       }).join("\n") : "\u2022 ".concat(alert.detail);
-      defaultSubject = "Solicitud de Documentaci\xF3n Operativa - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      defaultBody = "Estimado/a cliente,\n\nEsperamos que se encuentre bien. Nos ponemos en contacto desde el Departamento de Reservas de ".concat(hotelOfficial, " para ultimar los preparativos de la llegada del grupo \"").concat(grupoName, "\" (Localizador #").concat(resId, "), con fecha de entrada el ").concat(entrada || "próximamente", ".\n\nPara poder coordinar adecuadamente la operativa y ofrecer la mejor atenci\xF3n a sus clientes, necesitamos que nos remita la siguiente informaci\xF3n pendiente:\n").concat(missingItems, "\n\nLe rogamos nos haga llegar estos datos a la mayor brevedad posible para formalizar la asignaci\xF3n de habitaciones y preparaci\xF3n del servicio.\n\nAgradecemos de antemano su colaboraci\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas\n").concat(hotelOfficial);
+      clientSubject = "Solicitud de Documentaci\xF3n Operativa - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ".concat(hotelOfficial, " para ultimar los preparativos de la llegada del grupo \"").concat(grupoName, "\" (Localizador #").concat(resId, "), con fecha de entrada el ").concat(entrada || "próximamente", ".\n\nINFORMACI\xD3N PENDIENTE:\n").concat(missingItems, "\n\nLe rogamos nos haga llegar estos datos a la mayor brevedad posible.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isCrm) {
-      defaultSubject = "Seguimiento de Propuesta para Grupo - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      defaultBody = "Estimado/a cliente,\n\nEsperamos que se encuentre bien. Le escribimos desde ".concat(hotelOfficial, " para dar seguimiento a la cotizaci\xF3n y propuesta para el grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\nNos gustar\xEDa conocer si han tenido ocasi\xF3n de valorar las condiciones o si necesitan que realicemos alguna modificaci\xF3n en las fechas, distribuci\xF3n de habitaciones o servicios.\n\nEstamos a su total disposici\xF3n para facilitarles cualquier gesti\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento Comercial y Reservas\n").concat(hotelOfficial);
+      clientSubject = "Seguimiento de Propuesta para Grupo - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente,\n\nLe escribimos desde ".concat(hotelOfficial, " para dar seguimiento a la propuesta para el grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\nNos gustar\xEDa conocer si han tenido ocasi\xF3n de valorar las condiciones o si necesitan realizar alguna modificaci\xF3n.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else {
-      defaultSubject = "Gesti\xF3n Urgente: Pr\xF3xima Llegada - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      defaultBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " en relaci\xF3n a la reserva tentativa para el grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), con fecha de entrada muy pr\xF3xima (").concat(entrada || "en los próximos días", ").\n\n\u2022 Situaci\xF3n actual: ").concat(alert.detail, "\n\u2022 N\xFAmero de personas: ").concat(pax, " pax\n\nDada la cercan\xEDa de la fecha de llegada y la alta demanda de ocupaci\xF3n, le rogamos nos confirme en firme si continuar\xE1n con la reserva para asegurar la disponibilidad de las habitaciones antes de liberar el bloqueo.\n\nA la espera de su pronta confirmaci\xF3n.\n\nAtentamente,\n").concat(comercial, "\nDepartamento de Reservas\n").concat(hotelOfficial);
+      clientSubject = "Gesti\xF3n Urgente: Pr\xF3xima Llegada - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " en relaci\xF3n a la reserva tentativa para el grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), con fecha de entrada muy pr\xF3xima (").concat(entrada || "en los próximos días", ").\n\nSituaci\xF3n actual: ").concat(alert.detail, "\n\nDada la cercan\xEDa de la fecha de llegada, le rogamos nos confirme en firme si continuar\xE1n con la reserva antes de liberar el bloqueo de plazas.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     }
+    var isInternalMode = mode === "internal";
+    setEmailModalTab("preview");
     setSelectedEmailAlert({
       alert: alert,
       columnTitle: columnTitle,
+      mode: isInternalMode ? "internal" : "client",
       group: g,
       resId: resId,
       grupoName: grupoName,
@@ -758,9 +1088,15 @@ var Dashboard = function Dashboard(_ref2) {
       salida: salida,
       pax: pax,
       comercial: comercial,
-      emailTo: emailTo,
-      subject: defaultSubject,
-      body: defaultBody
+      clientEmail: clientEmail,
+      staffEmail: staffEmail,
+      emailTo: isInternalMode ? staffEmail : clientEmail,
+      subject: isInternalMode ? internalSubject : clientSubject,
+      body: isInternalMode ? internalBody : clientBody,
+      internalSubject: internalSubject,
+      internalBody: internalBody,
+      clientSubject: clientSubject,
+      clientBody: clientBody
     });
   };
   var handleExecuteOpenEmail = function handleExecuteOpenEmail(data) {
@@ -775,6 +1111,51 @@ var Dashboard = function Dashboard(_ref2) {
     setToastInfo("\u2705 Gestor de correo abierto para #".concat(data.resId, " (").concat(data.grupoName, "). Notificaci\xF3n confirmada."));
     setSelectedEmailAlert(null);
   };
+  var handleCopyRichEmail = function handleCopyRichEmail(data) {
+    if (!data) return;
+    var htmlContent = generateRichHtmlEmail(data);
+    var plainText = "Para: ".concat(data.emailTo || "(No especificado)", "\nAsunto: ").concat(data.subject, "\n\n").concat(data.body);
+    var markAsNotified = function markAsNotified() {
+      var updated = _objectSpread(_objectSpread({}, notifiedAlerts), {}, _defineProperty({}, data.resId, new Date().toISOString()));
+      setNotifiedAlerts(updated);
+      try {
+        localStorage.setItem("nexus_notified_alerts", JSON.stringify(updated));
+      } catch (e) {}
+    };
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      try {
+        var blobHtml = new Blob([htmlContent], {
+          type: "text/html"
+        });
+        var blobText = new Blob([plainText], {
+          type: "text/plain"
+        });
+        navigator.clipboard.write([new ClipboardItem({
+          "text/html": blobHtml,
+          "text/plain": blobText
+        })]).then(function () {
+          markAsNotified();
+          setToastInfo("\u2728 \xA1Plantilla visual copiada! P\xE9gala directamente en Outlook o Gmail con formato y dise\xF1o.");
+        }).catch(function (err) {
+          console.warn("ClipboardItem write error, falling back to text:", err);
+          navigator.clipboard.writeText(plainText).then(function () {
+            markAsNotified();
+            setToastInfo("\uD83D\uDCCB Texto copiado al portapapeles y registrado para #".concat(data.resId, "."));
+          });
+        });
+      } catch (err) {
+        navigator.clipboard.writeText(plainText).then(function () {
+          markAsNotified();
+          setToastInfo("\uD83D\uDCCB Texto copiado al portapapeles y registrado para #".concat(data.resId, "."));
+        });
+      }
+    } else {
+      navigator.clipboard.writeText(plainText).then(function () {
+        markAsNotified();
+        setToastInfo("\uD83D\uDCCB Texto copiado al portapapeles y registrado para #".concat(data.resId, "."));
+      });
+    }
+  };
   var handleCopyEmailText = function handleCopyEmailText(data) {
     if (!data) return;
     var fullText = "Para: ".concat(data.emailTo || "(No especificado)", "\nAsunto: ").concat(data.subject, "\n\n").concat(data.body);
@@ -787,6 +1168,15 @@ var Dashboard = function Dashboard(_ref2) {
       setToastInfo("\uD83D\uDCCB Texto copiado al portapapeles y registrado para #".concat(data.resId, "."));
     }).catch(function () {
       setToastInfo("❌ No se pudo copiar al portapapeles automáticamente.");
+    });
+  };
+  var handleCopyIban = function handleCopyIban(iban) {
+    if (!iban) return;
+    var clean = iban.replace(/\s+/g, "");
+    navigator.clipboard.writeText(clean).then(function () {
+      setToastInfo("\uD83D\uDCB3 IBAN copiado al portapapeles: ".concat(clean));
+    }).catch(function () {
+      setToastInfo("\uD83D\uDCB3 IBAN: ".concat(iban));
     });
   };
   var AlertColumn = function AlertColumn(_ref3) {
@@ -850,9 +1240,25 @@ var Dashboard = function Dashboard(_ref2) {
       strokeWidth: 2.5
     })), /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-800 uppercase tracking-wider"
-    }, title)), /*#__PURE__*/React.createElement("span", {
+    }, title)), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return handleOpenSectionReportModal(title);
+      },
+      disabled: alerts.length === 0,
+      className: "flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(alerts.length === 0 ? "opacity-30 cursor-not-allowed bg-slate-100 text-slate-400" : "bg-white/90 hover:bg-white text-slate-700 hover:text-slate-950 shadow-2xs hover:shadow-xs border border-slate-200/80 hover:border-slate-400"),
+      title: "Generar informe interno de la secci\xF3n ".concat(title)
+    }, /*#__PURE__*/React.createElement(LucideIcon, {
+      name: "mail",
+      size: 11,
+      className: "text-slate-600"
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "hidden sm:inline"
+    }, "Enviar")), /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] font-black px-2.5 py-1 rounded-full ".concat(theme.bubble)
-    }, alerts.length)), /*#__PURE__*/React.createElement("div", {
+    }, alerts.length))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col gap-4 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1"
     }, alerts.map(function (alert, idx) {
       var g = alert.group;
@@ -970,6 +1376,8 @@ var Dashboard = function Dashboard(_ref2) {
   }, "Panel de Alertas y Actuaciones Cr\xEDticas"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-slate-300 font-medium leading-relaxed"
   }, "Supervisa vencimientos financieros, plazos de release, informaci\xF3n log\xEDstica ausente y tareas CRM pendientes. Filtra por establecimiento y abre las fichas correspondientes con un clic."))), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center justify-between gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "flex bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/50 w-fit gap-1.5 shadow-sm"
   }, [{
     id: "todos",
@@ -1001,7 +1409,21 @@ var Dashboard = function Dashboard(_ref2) {
     }), hotel.label, /*#__PURE__*/React.createElement("span", {
       className: "text-[9px] px-1.5 py-0.5 rounded-full font-bold ml-1.5 ".concat(active ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600")
     }, hotel.id === "todos" ? counts.total : hotel.id === "guadiana" ? counts.guadiana : counts.cumbria));
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return handleOpenInternalReportModal();
+    },
+    className: "flex items-center gap-2.5 px-5 py-2.5 rounded-[2rem] bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-slate-900/20 hover:shadow-xl hover:scale-102 active:scale-98 transition-all cursor-pointer border border-indigo-500/30",
+    title: "Generar informe de control interno con todas las alertas clasificadas por secciones para enviar a los comerciales o administraci\xF3n"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-6 h-6 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "mail",
+    size: 13
+  })), /*#__PURE__*/React.createElement("span", null, "Enviar Informe Interno de Alertas"), /*#__PURE__*/React.createElement("span", {
+    className: "bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs"
+  }, columnsData.financialAlerts.length + columnsData.releaseAlerts.length + columnsData.logisticsAlerts.length + columnsData.crmAlerts.length + columnsData.tentativeAlerts.length))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 items-start"
   }, /*#__PURE__*/React.createElement(AlertColumn, {
     title: "Alertas Financieras",
@@ -1042,87 +1464,131 @@ var Dashboard = function Dashboard(_ref2) {
     },
     className: "text-slate-400 hover:text-white ml-auto text-xs p-1 cursor-pointer"
   }, "\u2715")), selectedEmailAlert && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in",
+    className: "fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in",
     onClick: function onClick() {
       return setSelectedEmailAlert(null);
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-[2rem] border border-slate-100 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col my-auto max-h-[92vh] animate-slide-up",
+    className: "bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col my-auto max-h-[94vh] animate-slide-up",
     onClick: function onClick(e) {
       return e.stopPropagation();
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "px-6 py-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between"
+    className: "px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-800"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: selectedEmailAlert.hotelLogo,
-    alt: "Hotel Logo",
-    className: "h-6 object-contain bg-white/90 px-2 py-0.5 rounded-lg"
-  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-inner shrink-0"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "mail",
+    size: 20,
+    className: "text-amber-400"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-black tracking-wide uppercase text-white"
+  }, "Notificaci\xF3n Oficial"), /*#__PURE__*/React.createElement("span", {
+    className: "px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 uppercase tracking-wider"
+  }, selectedEmailAlert.columnTitle)), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-300 font-medium"
+  }, selectedEmailAlert.hotelOfficial, " \u2022 Reserva #", selectedEmailAlert.resId, " (", selectedEmailAlert.grupoName, ")"))), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 tracking-wider"
-  }, selectedEmailAlert.columnTitle), /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px] font-mono text-slate-400"
-  }, "#", selectedEmailAlert.resId)), /*#__PURE__*/React.createElement("h3", {
-    className: "text-sm font-black tracking-tight text-white mt-0.5 truncate max-w-md"
-  }, selectedEmailAlert.grupoName))), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-black/40 p-1 rounded-xl border border-white/10 flex items-center gap-1 text-xs"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setEmailModalTab("preview");
+    },
+    className: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ".concat(emailModalTab === "preview" ? "bg-white text-slate-900 shadow-md scale-102" : "text-slate-300 hover:text-white")
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "eye",
+    size: 13
+  }), /*#__PURE__*/React.createElement("span", null, "Vista Dise\xF1ada")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setEmailModalTab("edit");
+    },
+    className: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ".concat(emailModalTab === "edit" ? "bg-white text-slate-900 shadow-md scale-102" : "text-slate-300 hover:text-white")
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "edit-3",
+    size: 13
+  }), /*#__PURE__*/React.createElement("span", null, "Modo Editor"))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: function onClick() {
       return setSelectedEmailAlert(null);
     },
-    className: "w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
-  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
-    className: "p-4 bg-slate-50 border-b border-slate-200/60 flex flex-col gap-3"
+    className: "w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer",
+    title: "Cerrar modal"
+  }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-slate-50 border-b border-slate-200/80 px-6 py-3 space-y-2.5"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-1 sm:grid-cols-3 gap-2.5"
+    className: "flex items-center justify-between gap-2 flex-wrap"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs"
+    className: "flex items-center gap-1.5 bg-slate-200/80 p-1 rounded-xl"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      setSelectedEmailAlert(_objectSpread(_objectSpread({}, selectedEmailAlert), {}, {
+        mode: "internal",
+        emailTo: selectedEmailAlert.staffEmail || "comunicaciones@hotelguadiana.es",
+        subject: selectedEmailAlert.internalSubject,
+        body: selectedEmailAlert.internalBody
+      }));
+    },
+    className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(selectedEmailAlert.mode === "internal" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:text-slate-900")
+  }, "\uD83D\uDD12 Control Interno (Comercial/Admin)"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      setSelectedEmailAlert(_objectSpread(_objectSpread({}, selectedEmailAlert), {}, {
+        mode: "client",
+        emailTo: selectedEmailAlert.clientEmail || "",
+        subject: selectedEmailAlert.clientSubject,
+        body: selectedEmailAlert.clientBody
+      }));
+    },
+    className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(selectedEmailAlert.mode === "client" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900")
+  }, "\u2709\uFE0F Redactar al Cliente")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 flex-wrap"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-black text-slate-400 uppercase tracking-wider block"
-  }, "Total Presupuesto"), /*#__PURE__*/React.createElement("span", {
-    className: "text-base font-black text-slate-800"
-  }, fmt(selectedEmailAlert.fin.total)), /*#__PURE__*/React.createElement("span", {
-    className: "text-[8px] font-bold text-slate-400 block mt-0.5"
-  }, selectedEmailAlert.pax, " pax \u2022 ", selectedEmailAlert.entrada)), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white p-3 rounded-2xl border border-emerald-200 shadow-2xs"
+    className: "text-[9px] font-black uppercase text-slate-400"
+  }, "Para:"), [{
+    label: "🏢 Admin",
+    email: "comunicaciones@hotelguadiana.es"
+  }, {
+    label: "👤 Sergio",
+    email: "ssanchez@hotelguadiana.es"
+  }, {
+    label: "👤 Natalio",
+    email: "comunicaciones@hotelguadiana.es"
+  }].concat(_toConsumableArray(selectedEmailAlert.comercial && selectedEmailAlert.comercial !== "Sin asignar" ? [{
+    label: "\uD83D\uDC64 ".concat(selectedEmailAlert.comercial),
+    email: selectedEmailAlert.staffEmail
+  }] : []), _toConsumableArray(selectedEmailAlert.clientEmail ? [{
+    label: "🏢 Cliente",
+    email: selectedEmailAlert.clientEmail
+  }] : [])).map(function (chip, cIdx) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: cIdx,
+      type: "button",
+      onClick: function onClick() {
+        return setSelectedEmailAlert(_objectSpread(_objectSpread({}, selectedEmailAlert), {}, {
+          emailTo: chip.email
+        }));
+      },
+      className: "text-[9px] font-bold px-2 py-0.5 rounded border transition-all cursor-pointer ".concat(selectedEmailAlert.emailTo === chip.email ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100")
+    }, chip.label);
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-black text-emerald-600 uppercase tracking-wider block"
-  }, "Confirmado / Pagado"), /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "check-circle",
-    size: 12,
-    className: "text-emerald-500"
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "text-base font-black text-emerald-700"
-  }, fmt(selectedEmailAlert.fin.paid)), /*#__PURE__*/React.createElement("span", {
-    className: "text-[8px] font-bold text-emerald-600/70 block mt-0.5"
-  }, "Importe ya garantizado")), /*#__PURE__*/React.createElement("div", {
-    className: "bg-white p-3 rounded-2xl border border-rose-200 shadow-2xs"
+    className: "sm:col-span-5"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between"
+    className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-black text-rose-600 uppercase tracking-wider block"
-  }, "Pendiente de Cobro"), /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "alert-triangle",
-    size: 12,
-    className: "text-rose-500"
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "text-base font-black text-rose-700"
-  }, fmt(selectedEmailAlert.fin.pending)), /*#__PURE__*/React.createElement("span", {
-    className: "text-[8px] font-bold text-rose-600/70 block mt-0.5"
-  }, "Reclamaci\xF3n activa"))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-rose-50/70 border border-rose-100 rounded-xl px-3 py-2 flex items-center gap-2 text-[10px] font-bold text-rose-800"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "alert-circle",
-    size: 14,
-    className: "text-rose-600 shrink-0"
-  }), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", null, "Situaci\xF3n:"), " ", selectedEmailAlert.alert.detail))), /*#__PURE__*/React.createElement("div", {
-    className: "p-5 overflow-y-auto space-y-3.5 flex-1 custom-scrollbar text-xs"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1"
-  }, "Destinatario (Para):"), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] font-black uppercase text-slate-500 tracking-wider"
+  }, "Destinatario (Para):"), !selectedEmailAlert.emailTo && /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-bold text-rose-600 animate-pulse"
+  }, "\u26A0\uFE0F Email requerido")), /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("input", {
     type: "email",
@@ -1132,17 +1598,19 @@ var Dashboard = function Dashboard(_ref2) {
         emailTo: e.target.value
       }));
     },
-    placeholder: "ejemplo@agencia.com",
-    className: "w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+    placeholder: "ejemplo@hotelguadiana.es",
+    className: "w-full pl-8 pr-3 py-1.5 bg-white border rounded-xl text-xs font-bold outline-none transition-all ".concat(!selectedEmailAlert.emailTo ? "border-rose-300 bg-rose-50/50 text-rose-900 focus:border-rose-500 focus:bg-white" : "border-slate-200 text-slate-800 focus:border-indigo-500")
   }), /*#__PURE__*/React.createElement(LucideIcon, {
     name: "mail",
-    size: 14,
+    size: 13,
     className: "absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-  })), !selectedEmailAlert.emailTo && /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-amber-600 font-bold mt-1"
-  }, "\u26A0\uFE0F No se encontr\xF3 email en la ficha; introduce el correo destinatario antes de abrir.")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[9px] font-black uppercase text-slate-400 tracking-wider mb-1"
-  }, "Asunto del Correo:"), /*#__PURE__*/React.createElement("input", {
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "sm:col-span-7"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1"
+  }, "Asunto del Correo:"), /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: selectedEmailAlert.subject,
     onChange: function onChange(e) {
@@ -1150,32 +1618,196 @@ var Dashboard = function Dashboard(_ref2) {
         subject: e.target.value
       }));
     },
-    className: "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between mb-1"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[9px] font-black uppercase text-slate-400 tracking-wider"
-  }, "Cuerpo del Mensaje (Editable):"), /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px] font-bold text-slate-400"
-  }, "Incluye desglose y datos bancarios oficiales")), /*#__PURE__*/React.createElement("textarea", {
-    rows: 9,
+    className: "w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+  }), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "file-text",
+    size: 13,
+    className: "absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+  }))))), emailModalTab === "preview" ? /*#__PURE__*/React.createElement("div", {
+    className: "p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-2xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200/90 overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-5 sm:p-6 text-white relative"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, selectedEmailAlert.hotelLogo && /*#__PURE__*/React.createElement("img", {
+    src: selectedEmailAlert.hotelLogo,
+    alt: "Logo Hotel",
+    className: "h-9 max-w-[120px] object-contain bg-white/95 px-2 py-1 rounded-xl shadow-xs"
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-base sm:text-lg font-black uppercase tracking-wide text-white"
+  }, selectedEmailAlert.hotelOfficial), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] font-bold text-slate-300 uppercase tracking-wider"
+  }, "Departamento de Reservas y Grupos"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-right shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "inline-block bg-white/10 backdrop-blur-xs border border-white/20 px-3 py-1 rounded-full text-xs font-mono font-bold text-white shadow-xs"
+  }, "Ref #", selectedEmailAlert.resId), /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] text-slate-400 mt-1 font-medium"
+  }, new Date().toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-slate-50 border-b border-slate-100 px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-black text-slate-800 text-sm"
+  }, selectedEmailAlert.grupoName), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100"
+  }, selectedEmailAlert.pax, " pax")), /*#__PURE__*/React.createElement("div", {
+    className: "text-slate-500 font-semibold text-[11px]"
+  }, "Estancia: ", /*#__PURE__*/React.createElement("strong", {
+    className: "text-slate-700"
+  }, selectedEmailAlert.entrada || "---"), " \u2794 ", /*#__PURE__*/React.createElement("strong", {
+    className: "text-slate-700"
+  }, selectedEmailAlert.salida || "---"))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 space-y-5"
+  }, (selectedEmailAlert.fin.total > 0 || selectedEmailAlert.fin.pending > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-3 gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs text-center"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black text-slate-400 uppercase tracking-wider block"
+  }, "Total Presupuesto"), /*#__PURE__*/React.createElement("span", {
+    className: "text-base font-black text-slate-800 block mt-0.5"
+  }, fmt(selectedEmailAlert.fin.total)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-medium text-slate-400 block mt-0.5"
+  }, "Contratado")), /*#__PURE__*/React.createElement("div", {
+    className: "bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200 shadow-2xs text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center gap-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black text-emerald-700 uppercase tracking-wider"
+  }, "Abonado / Confirmado"), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "check-circle",
+    size: 11,
+    className: "text-emerald-600"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-base font-black text-emerald-700 block mt-0.5"
+  }, fmt(selectedEmailAlert.fin.paid)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-medium text-emerald-600/80 block mt-0.5"
+  }, "Cobros registrados")), /*#__PURE__*/React.createElement("div", {
+    className: "bg-rose-50/80 p-3.5 rounded-2xl border border-rose-200 shadow-2xs text-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center gap-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black text-rose-700 uppercase tracking-wider"
+  }, "Pendiente de Cobro"), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "alert-triangle",
+    size: 11,
+    className: "text-rose-600"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-base font-black text-rose-700 block mt-0.5"
+  }, fmt(selectedEmailAlert.fin.pending)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-bold text-rose-600/80 block mt-0.5"
+  }, "Vencimiento pendiente"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-rose-50/70 border-l-4 border-rose-500 rounded-r-2xl p-3.5 flex items-start gap-3"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "alert-circle",
+    size: 16,
+    className: "text-rose-600 shrink-0 mt-0.5"
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-black text-rose-800 uppercase tracking-wider block"
+  }, "Situaci\xF3n Requerida"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-bold text-rose-900 mt-0.5 leading-relaxed"
+  }, selectedEmailAlert.alert.detail))), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs sm:text-[13px] text-slate-700 leading-relaxed space-y-2 whitespace-pre-line bg-slate-50/50 p-4 rounded-2xl border border-slate-100 font-normal"
+  }, selectedEmailAlert.body), selectedEmailAlert.hotelIban && /*#__PURE__*/React.createElement("div", {
+    className: "bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-slate-700"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "credit-card",
+    size: 16,
+    className: "text-sky-400"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] font-black uppercase tracking-wider text-sky-300"
+  }, "Datos Oficiales para Transferencia Bancaria")), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-200 border border-white/10"
+  }, selectedEmailAlert.hotelBank)), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2 text-xs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-black/30 p-2.5 rounded-xl border border-white/10 flex items-center justify-between gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-bold text-slate-400 uppercase tracking-wider block"
+  }, "C\xF3digo IBAN Oficial"), /*#__PURE__*/React.createElement("span", {
+    className: "font-mono font-black text-sm sm:text-base text-sky-400 tracking-wider"
+  }, selectedEmailAlert.hotelIban)), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return handleCopyIban(selectedEmailAlert.hotelIban);
+    },
+    className: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 hover:text-white font-bold text-[10px] border border-sky-400/30 transition-all cursor-pointer shrink-0"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "copy",
+    size: 12
+  }), /*#__PURE__*/React.createElement("span", null, "Copiar IBAN"))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-400 block text-[9px] uppercase font-bold"
+  }, "Beneficiario"), /*#__PURE__*/React.createElement("span", {
+    className: "font-bold text-slate-200"
+  }, selectedEmailAlert.hotelOfficial)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-400 block text-[9px] uppercase font-bold"
+  }, "Concepto Imprescindible"), /*#__PURE__*/React.createElement("span", {
+    className: "font-bold text-amber-300"
+  }, "Reserva #", selectedEmailAlert.resId, " - ", selectedEmailAlert.grupoName))))), /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-slate-100 pt-4 flex items-center justify-between text-xs text-slate-500"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-bold text-slate-800"
+  }, selectedEmailAlert.comercial), /*#__PURE__*/React.createElement("div", {
+    className: "text-[11px] text-slate-400"
+  }, "Departamento de Reservas y Grupos \u2022 ", selectedEmailAlert.hotelOfficial)), /*#__PURE__*/React.createElement("div", {
+    className: "text-right text-[10px] text-slate-400 font-bold"
+  }, "Nexus Groups Gold Edition"))))) : /*#__PURE__*/React.createElement("div", {
+    className: "p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-3 bg-white"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+    className: "text-xs font-black uppercase tracking-wider text-slate-700"
+  }, "Editor del Cuerpo del Mensaje"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-400 mt-0.5"
+  }, "Puedes personalizar o redactar libremente cualquier parte del correo antes de abrirlo o copiarlo.")), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100"
+  }, "Formato Texto con Separadores")), /*#__PURE__*/React.createElement("textarea", {
+    rows: 14,
     value: selectedEmailAlert.body,
     onChange: function onChange(e) {
       return setSelectedEmailAlert(_objectSpread(_objectSpread({}, selectedEmailAlert), {}, {
         body: e.target.value
       }));
     },
-    className: "w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] leading-relaxed text-slate-700 font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3"
+    className: "w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-[12px] leading-relaxed text-slate-800 font-medium font-mono outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar",
+    placeholder: "Redacta el mensaje aqu\xED..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
+    className: "flex items-center gap-2 w-full sm:w-auto flex-wrap"
   }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return handleCopyRichEmail(selectedEmailAlert);
+    },
+    className: "flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-800 font-black text-xs transition-all shadow-2xs cursor-pointer",
+    title: "Copia el correo con dise\xF1o para pegar en Outlook o Gmail"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "sparkles",
+    size: 14,
+    className: "text-indigo-600"
+  }), /*#__PURE__*/React.createElement("span", null, "Copiar Formato Visual")), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: function onClick() {
       return handleCopyEmailText(selectedEmailAlert);
     },
-    className: "flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+    className: "flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer",
+    title: "Copia el texto plano con separadores"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "copy",
     size: 14,
@@ -1193,7 +1825,260 @@ var Dashboard = function Dashboard(_ref2) {
     onClick: function onClick() {
       return handleExecuteOpenEmail(selectedEmailAlert);
     },
-    className: "flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto"
+    className: "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "send",
+    size: 14
+  }), /*#__PURE__*/React.createElement("span", null, "Abrir en Gestor de Correo")))))), internalReportModal && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in",
+    onClick: function onClick() {
+      return setInternalReportModal(null);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col my-auto max-h-[95vh] animate-slide-up",
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-800"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shadow-inner shrink-0"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "mail",
+    size: 20
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-sm font-black tracking-wide uppercase text-white"
+  }, "Informe Interno de Control Operativo"), /*#__PURE__*/React.createElement("span", {
+    className: "px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-wider"
+  }, (reportData === null || reportData === void 0 ? void 0 : reportData.totalAlerts) || 0, " Alertas")), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-300 font-medium"
+  }, reportData === null || reportData === void 0 ? void 0 : reportData.hotelLabel, " \u2022 Destinado a Comerciales y Administraci\xF3n"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-black/40 p-1 rounded-xl border border-white/10 flex items-center gap-1 text-xs"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setInternalReportTab("preview");
+    },
+    className: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ".concat(internalReportTab === "preview" ? "bg-white text-slate-900 shadow-md scale-102" : "text-slate-300 hover:text-white")
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "eye",
+    size: 13
+  }), /*#__PURE__*/React.createElement("span", null, "Vista Dise\xF1ada")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      if (internalReportModal.customBody === null && reportData) {
+        setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+          customBody: generateInternalReportText(reportData)
+        }));
+      }
+      setInternalReportTab("edit");
+    },
+    className: "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ".concat(internalReportTab === "edit" ? "bg-white text-slate-900 shadow-md scale-102" : "text-slate-300 hover:text-white")
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "edit-3",
+    size: 13
+  }), /*#__PURE__*/React.createElement("span", null, "Modo Editor"))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setInternalReportModal(null);
+    },
+    className: "w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer",
+    title: "Cerrar modal"
+  }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-slate-50 border-b border-slate-200/80 px-6 py-3 space-y-2.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1"
+  }, "Destinatarios R\xE1pidos:"), STAFF_PRESETS.map(function (p, idx) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: idx,
+      type: "button",
+      onClick: function onClick() {
+        return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+          emailTo: p.email
+        }));
+      },
+      className: "text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ".concat(internalReportModal.emailTo === p.email ? "bg-indigo-600 text-white border-indigo-600 shadow-xs" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"),
+      title: p.desc
+    }, p.label);
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sm:col-span-5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: internalReportModal.emailTo,
+    onChange: function onChange(e) {
+      return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+        emailTo: e.target.value
+      }));
+    },
+    placeholder: "comunicaciones@hotelguadiana.es",
+    className: "w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+  }), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "mail",
+    size: 13,
+    className: "absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "sm:col-span-7"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: internalReportModal.subject,
+    onChange: function onChange(e) {
+      return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+        subject: e.target.value
+      }));
+    },
+    className: "w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all"
+  }), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "file-text",
+    size: 13,
+    className: "absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "pt-2 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1"
+  }, "Secciones a Incluir:"), [{
+    key: "financial",
+    label: "💳 Financieras",
+    count: columnsData.financialAlerts.length,
+    color: "text-rose-700 bg-rose-50 border-rose-200"
+  }, {
+    key: "release",
+    label: "⏰ Releases",
+    count: columnsData.releaseAlerts.length,
+    color: "text-amber-700 bg-amber-50 border-amber-200"
+  }, {
+    key: "logistics",
+    label: "📄 Datos Faltantes",
+    count: columnsData.logisticsAlerts.length,
+    color: "text-orange-700 bg-orange-50 border-orange-200"
+  }, {
+    key: "crm",
+    label: "📞 CRM",
+    count: columnsData.crmAlerts.length,
+    color: "text-indigo-700 bg-indigo-50 border-indigo-200"
+  }, {
+    key: "tentative",
+    label: "⏱️ Tentativas",
+    count: columnsData.tentativeAlerts.length,
+    color: "text-violet-700 bg-violet-50 border-violet-200"
+  }].map(function (sec) {
+    var isChecked = internalReportModal.sections[sec.key];
+    return /*#__PURE__*/React.createElement("button", {
+      key: sec.key,
+      type: "button",
+      onClick: function onClick() {
+        return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+          customBody: null,
+          sections: _objectSpread(_objectSpread({}, internalReportModal.sections), {}, _defineProperty({}, sec.key, !isChecked))
+        }));
+      },
+      className: "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ".concat(isChecked ? "".concat(sec.color, " font-black shadow-2xs") : "bg-slate-100 text-slate-400 border-slate-200 opacity-60 hover:opacity-100")
+    }, /*#__PURE__*/React.createElement("span", null, isChecked ? "☑" : "☐"), /*#__PURE__*/React.createElement("span", null, sec.label), /*#__PURE__*/React.createElement("span", {
+      className: "text-[9px] px-1 py-0.2 rounded-full bg-white/70"
+    }, sec.count));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 ml-auto"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-black uppercase text-slate-400 tracking-wider"
+  }, "Comercial:"), /*#__PURE__*/React.createElement("select", {
+    value: internalReportModal.filterComercial,
+    onChange: function onChange(e) {
+      return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+        filterComercial: e.target.value,
+        customBody: null
+      }));
+    },
+    className: "text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 outline-none focus:border-indigo-500 cursor-pointer"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "todos"
+  }, "Todos los Comerciales"), availableCommercials.map(function (com, cIdx) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: cIdx,
+      value: com
+    }, com);
+  }))))), internalReportTab === "preview" ? /*#__PURE__*/React.createElement("div", {
+    className: "p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-3xl mx-auto",
+    dangerouslySetInnerHTML: {
+      __html: generateInternalReportHtml(reportData)
+    }
+  })) : /*#__PURE__*/React.createElement("div", {
+    className: "p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-3 bg-white"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+    className: "text-xs font-black uppercase tracking-wider text-slate-700"
+  }, "Editor del Informe de Control Interno"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-400 mt-0.5"
+  }, "Edita libremente el texto del informe antes de copiarlo o abrirlo en tu gestor de correo.")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+        customBody: generateInternalReportText(reportData)
+      }));
+    },
+    className: "text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+  }, "Restablecer Texto Original")), /*#__PURE__*/React.createElement("textarea", {
+    rows: 16,
+    value: internalReportModal.customBody !== null ? internalReportModal.customBody : generateInternalReportText(reportData) || "",
+    onChange: function onChange(e) {
+      return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
+        customBody: e.target.value
+      }));
+    },
+    className: "w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-[12px] leading-relaxed text-slate-800 font-medium font-mono outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar",
+    placeholder: "Generando informe..."
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 w-full sm:w-auto flex-wrap"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleCopyReportRichEmail,
+    className: "flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-800 font-black text-xs transition-all shadow-2xs cursor-pointer",
+    title: "Copia el informe con dise\xF1o y tablas de colores para pegar directamente en Outlook o Gmail"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "sparkles",
+    size: 14,
+    className: "text-indigo-600"
+  }), /*#__PURE__*/React.createElement("span", null, "Copiar Formato Visual")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleCopyReportText,
+    className: "flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors shadow-2xs cursor-pointer",
+    title: "Copia el texto estructurado del informe"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "copy",
+    size: 14,
+    className: "text-slate-500"
+  }), /*#__PURE__*/React.createElement("span", null, "Copiar Texto"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 w-full sm:w-auto justify-end"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setInternalReportModal(null);
+    },
+    className: "px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+  }, "Cerrar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleExecuteSendReport,
+    className: "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 hover:scale-102 active:scale-98 transition-all cursor-pointer w-full sm:w-auto",
+    title: "Abre tu gestor de correo nativo (Outlook, Thunderbird, etc.) con el informe"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "send",
     size: 14
@@ -1207,10 +2092,10 @@ var GroupsManager = function GroupsManager(_ref4) {
   var data = _ref4.data,
     onUpdateStatus = _ref4.onUpdateStatus,
     onDeleteGroup = _ref4.onDeleteGroup;
-  var _React$useState9 = React.useState(""),
-    _React$useState0 = _slicedToArray(_React$useState9, 2),
-    searchTerm = _React$useState0[0],
-    setSearchTerm = _React$useState0[1];
+  var _React$useState13 = React.useState(""),
+    _React$useState14 = _slicedToArray(_React$useState13, 2),
+    searchTerm = _React$useState14[0],
+    setSearchTerm = _React$useState14[1];
   var filteredData = data.filter(function (group) {
     var res = String(group["Reserva"] || "").toUpperCase();
     var uid = String(group.uid || group.id || "").toUpperCase();
@@ -1430,14 +2315,14 @@ var BudgetManager = function BudgetManager(_ref5) {
   var data = _ref5.data,
     onUpdateStatus = _ref5.onUpdateStatus,
     onDeleteGroup = _ref5.onDeleteGroup;
-  var _React$useState1 = React.useState(""),
-    _React$useState10 = _slicedToArray(_React$useState1, 2),
-    searchTerm = _React$useState10[0],
-    setSearchTerm = _React$useState10[1];
-  var _React$useState11 = React.useState("TODOS"),
-    _React$useState12 = _slicedToArray(_React$useState11, 2),
-    statusFilter = _React$useState12[0],
-    setStatusFilter = _React$useState12[1];
+  var _React$useState15 = React.useState(""),
+    _React$useState16 = _slicedToArray(_React$useState15, 2),
+    searchTerm = _React$useState16[0],
+    setSearchTerm = _React$useState16[1];
+  var _React$useState17 = React.useState("TODOS"),
+    _React$useState18 = _slicedToArray(_React$useState17, 2),
+    statusFilter = _React$useState18[0],
+    setStatusFilter = _React$useState18[1];
   var budgetData = data.filter(function (g) {
     var isBudget = String(g.Reserva || "").startsWith("PRES-") || (g.Estado || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("PRESUPUESTO") || (g.Com_Estado_Interno || "").toUpperCase().includes("ENVIADO") || (g.Com_Estado_Interno || "").toUpperCase().includes("SEGUIMIENTO");
     if (!isBudget) return false;

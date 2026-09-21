@@ -3260,67 +3260,60 @@
 
         // 1. Recalculate percent/amount for each row
         planCopy.forEach((p, pIdx) => {
-          const isManualAmount = p.manual === true || p.manual === "true" || (lockedIndex === pIdx && lockedField === "amount");
-          if (p.status === "Cobrado" || isManualAmount) {
-            // IMPORTANTE: Para filas cobradas o con importe fijado manualmente, preservar el importe EXACTO tal como fue guardado.
-            // No recalcular desde el porcentaje para evitar el bucle de redondeo:
-            // ej. 1000,00€ → 23.89% guardado → 23.89% × 4185.50 = 999,92€ (error)
-            const amount = parseFloat(p.amount) || 0;
-            p.amount = amount.toFixed(2); // preservar importe exacto
-            if (isManualAmount) p.manual = true;
-            // El porcentaje es informativo para filas manuales/cobradas, se calcula con precisión
-            p.percent = netTotal > 0 ? parseFloat(((amount / netTotal) * 100).toFixed(2)) : 0;
+          const userEditedPercent = (lockedIndex === pIdx && lockedField === "percent");
+          const userEditedAmount = (lockedIndex === pIdx && lockedField === "amount");
+          const hasExistingAmount = p.amount !== undefined && p.amount !== null && p.amount !== "" && !isNaN(parseFloat(p.amount));
+
+          if (userEditedPercent) {
+            // El usuario cambió explícitamente el %: calcular el importe a partir del porcentaje
+            const pct = parseFloat(p.percent) || 0;
+            p.percent = parseFloat(pct.toFixed(2));
+            p.amount = netTotal > 0 ? ((netTotal * pct) / 100).toFixed(2) : "0.00";
+            p.manual = false;
+          } else if (userEditedAmount || p.manual === true || p.manual === "true" || p.status === "Cobrado" || hasExistingAmount) {
+            // IMPORTANTE: Si la fila tiene importe (o fue fijada manualmente, o está cobrada, o ya existe un importe numérico):
+            // ¡PRESERVAR EL IMPORTE EXACTO! Nunca recalcular desde el % redondeado.
+            // ej. 1000.00€ se mantiene exactamente como 1000.00€ (no cambia a 999.92€).
+            const amt = parseFloat(p.amount) || 0;
+            p.amount = amt.toFixed(2);
+            if (userEditedAmount) p.manual = true;
+            // El porcentaje se calcula de forma informativa a partir del importe exacto:
+            p.percent = netTotal > 0 ? parseFloat(((amt / netTotal) * 100).toFixed(2)) : 0;
           } else {
-            const percent = parseFloat(p.percent) || 0;
-            p.amount = ((netTotal * percent) / 100).toFixed(2);
-            p.percent = parseFloat(percent.toFixed(2));
+            // Fila nueva sin importe previo
+            const pct = parseFloat(p.percent) || 0;
+            p.percent = parseFloat(pct.toFixed(2));
+            p.amount = netTotal > 0 ? ((netTotal * pct) / 100).toFixed(2) : "0.00";
           }
         });
 
-        // 2. Adjust for any rounding difference in the last pending row (or last row)
+        // 2. Ajuste de redondeo: ÚNICAMENTE para diferencias ínfimas de céntimos (<= 0.15€)
+        // y SOLO cuando el plan esté configurado para cubrir el total completo (~100%).
+        // NUNCA alterar importes grandes de cientos o miles de euros arbitrariamente.
         let sumOfAmounts = planCopy.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
         let diff = netTotal - sumOfAmounts;
-        if (Math.abs(diff) > 0.001) {
+        const totalPct = planCopy.reduce((acc, p) => acc + (parseFloat(p.percent) || 0), 0);
+        const isFullPlan = Math.abs(totalPct - 100) <= 0.25;
+
+        if (isFullPlan && Math.abs(diff) > 0.001 && Math.abs(diff) <= 0.20) {
           let targetRow = [...planCopy].reverse().find((p, idxFromEnd) => {
             const idx = planCopy.length - 1 - idxFromEnd;
-            return p.status !== "Cobrado" && idx !== lockedIndex;
+            return p.status !== "Cobrado" && idx !== lockedIndex && !p.manual;
           });
+          if (!targetRow) {
+            targetRow = [...planCopy].reverse().find((p, idxFromEnd) => {
+              const idx = planCopy.length - 1 - idxFromEnd;
+              return p.status !== "Cobrado" && idx !== lockedIndex;
+            });
+          }
           if (targetRow) {
             const currentAmt = parseFloat(targetRow.amount) || 0;
             targetRow.amount = (currentAmt + diff).toFixed(2);
             targetRow.percent = netTotal > 0 ? parseFloat(((parseFloat(targetRow.amount) || 0) / netTotal * 100).toFixed(2)) : 0;
-          } else if (diff > 0.01) {
-            // No pending rows to absorb the positive remainder, add a new pending row
-            let dateStr = new Date().toISOString().split('T')[0];
-            if (arrivalDate) {
-              try {
-                let d;
-                const numDate = parseFloat(arrivalDate);
-                if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
-                  d = new Date(Math.round((numDate - 25569) * 86400 * 1000));
-                } else {
-                  d = new Date(toInputDate(arrivalDate));
-                }
-                if (d && !isNaN(d.getTime())) {
-                  d.setDate(d.getDate() - 30);
-                  dateStr = d.toISOString().split('T')[0];
-                }
-              } catch(e){}
-            }
-            planCopy.push({
-              id: Date.now() + Math.random(),
-              label: planCopy.length === 1 ? "Pago Final" : `Pago ${planCopy.length + 1}`,
-              percent: parseFloat(((diff / netTotal) * 100).toFixed(2)),
-              amount: diff.toFixed(2),
-              date: dateStr,
-              status: "Pendiente",
-              releaseDays: 30,
-              Enlace_TPV: ""
-            });
           }
         }
 
-        // 3. Clean up tiny leftover pending rows if difference is zero or negative
+        // 3. Limpieza de filas vacías accidentales si se solicita
         if (diff <= 0.01 && !options.preserveZeroRows) {
           for (let i = planCopy.length - 1; i >= 0; i--) {
             const p = planCopy[i];
@@ -22268,90 +22261,46 @@
 
 
 
-                                        if (
-
-                                          field === "percent" ||
-
-                                          field === "releaseDays"
-
-                                        ) {
-
+                                        if (field === "percent") {
                                           const pct =
-
                                             parseNum(
-
                                               newPlan[idx].percent,
-
                                             ) || 0;
-
+                                          newPlan[idx].amount = hotelTotal > 0 ? (
+                                            (hotelTotal * (pct / 100))
+                                          ).toFixed(2) : "0.00";
+                                          newPlan[idx].manual = false;
+                                        } else if (field === "releaseDays") {
                                           const days =
-
                                             parseInt(
-
                                               newPlan[idx].releaseDays,
-
                                             ) || 0;
-
-                                          newPlan[idx].amount = (
-
-                                            hotelTotal *
-
-                                            (pct / 100)
-
-                                          ).toFixed(2);
-
-                                          if (field === "percent") {
-                                            newPlan[idx].manual = false;
-                                          }
-
                                           let d;
-
                                           const sDate = arrivalDate;
-
                                           const numDate = parseFloat(sDate);
-
                                           if (
-
                                             !isNaN(numDate) &&
-
                                             numDate > 40000 &&
-
                                             numDate < 60000
-
                                           ) {
-
                                             d = new Date(
-
                                               Math.round(
-
                                                 (numDate - 25569) *
-
                                                 86400 *
-
                                                 1000,
-
                                               ),
-
                                             );
-
                                           } else {
-
                                             const dateStr =
-
                                               toInputDate(sDate);
-
                                             d = new Date(dateStr);
-
                                           }
-
-                                          d.setDate(d.getDate() - days);
-
-                                          newPlan[idx].date = d
-
-                                            .toISOString()
-
-                                            .split("T")[0];
-
+                                          if (d && !isNaN(d.getTime())) {
+                                            d.setDate(d.getDate() - days);
+                                            newPlan[idx].date = d
+                                              .toISOString()
+                                              .split("T")[0];
+                                          }
                                         } else if (field === "amount") {
 
                                           const parseFn = typeof parseNum === "function" ? parseNum : (window.NexusUtils ? window.NexusUtils.parseNum : parseFloat);
@@ -22728,7 +22677,10 @@
                                                       <input
                                                         type="text"
                                                         inputMode="decimal"
-                                                        onKeyDown={handleDotAsComma}
+                                                        onKeyDown={(e) => {
+                                                          handleDotAsComma(e);
+                                                          if (e.key === "Enter") e.target.blur();
+                                                        }}
                                                         key={idx + "-" + dep.percent}
                                                         className="bg-transparent border-none text-[10px] font-black text-slate-600 w-full text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         defaultValue={dep.percent}
@@ -22750,7 +22702,10 @@
                                                       <input
                                                         type="text"
                                                         inputMode="decimal"
-                                                        onKeyDown={handleDotAsComma}
+                                                        onKeyDown={(e) => {
+                                                          handleDotAsComma(e);
+                                                          if (e.key === "Enter") e.target.blur();
+                                                        }}
                                                         key={idx + "-" + dep.amount}
                                                         className={`bg-transparent border-none text-[10px] font-black text-right outline-none w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isPaid ? "text-emerald-700" : isWarning ? "text-rose-700" : "text-slate-700"}`}
                                                         defaultValue={dep.amount}
