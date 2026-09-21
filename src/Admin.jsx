@@ -912,7 +912,7 @@
             const resId = String(g.Reserva || g.Com_Id || "").replace(/^#/, "");
             const name = g["Nombre del Grupo"] || "Grupo sin nombre";
             const isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
-            const hotelName = isCumbria ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+            const hotelName = isCumbria ? "Cumbria" : "Guadiana";
             const com = g.Com_Comercial || "Sin asignar";
             const pax = g["Pax."] || g.Pax || 0;
             const entrada = formatDate(g.Entrada) || "---";
@@ -924,135 +924,174 @@
               : (alert.detail || alert.label);
 
             return `
-              <tr style="border-bottom: 1px solid #f1f5f9;">
-                <td style="padding: 10px 12px; vertical-align: top; width: 85px;">
-                  <span style="display: inline-block; background-color: #0f172a; color: #f8fafc; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 6px;">
-                    #${resId}
-                  </span>
-                  <div style="font-size: 9.5px; color: #64748b; font-weight: 600; margin-top: 4px;">
-                    ${hotelName.includes("Cumbria") ? "🏨 Cumbria" : "🏨 Guadiana"}
+              <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
+                <td width="90" valign="top" style="padding: 10px 8px; vertical-align: top; width: 90px;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 6px; border-radius: 4px; text-align: center;">
+                        #${resId}
+                      </td>
+                    </tr>
+                  </table>
+                  <div style="font-size: 9.5px; color: #64748b; font-weight: 700; margin-top: 4px;">
+                    🏨 ${hotelName}
                   </div>
                 </td>
-                <td style="padding: 10px 12px; vertical-align: top;">
-                  <div style="font-size: 12.5px; font-weight: 800; color: #0f172a;">
+                <td width="280" valign="top" style="padding: 10px 8px; vertical-align: top; width: 280px;">
+                  <div style="font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.3;">
                     ${name}
                   </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                  <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
                     <strong>Estancia:</strong> ${entrada} ➔ ${salida} &nbsp;|&nbsp; <strong>Pax:</strong> ${pax}
                   </div>
-                  <div style="margin-top: 5px; background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 4px 8px; border-radius: 0 4px 4px 0; font-size: 11.5px; font-weight: 600; color: #334155;">
-                    ⚠️ ${alertDetailText}
-                  </div>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 5px;">
+                    <tr>
+                      <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #1e293b;">
+                        ⚠️ ${alertDetailText}
+                      </td>
+                    </tr>
+                  </table>
                 </td>
-                <td style="padding: 10px 12px; vertical-align: top; width: 110px;">
-                  <span style="display: inline-block; background-color: #f1f5f9; color: #475569; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px;">
-                    👤 ${com}
-                  </span>
+                <td width="110" valign="top" style="padding: 10px 8px; vertical-align: top; width: 110px;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
+                        👤 ${com}
+                      </td>
+                    </tr>
+                  </table>
                 </td>
                 ${sec.id === "financial" || sec.id === "release" ? `
-                <td style="padding: 10px 12px; vertical-align: top; text-align: right; width: 130px;">
-                  <div style="font-size: 10px; color: #64748b;">Total: ${fmt(fin.total)}</div>
-                  <div style="font-size: 12.5px; font-weight: 800; color: #be123c; margin-top: 2px;">
+                <td width="140" valign="top" align="right" style="padding: 10px 8px; vertical-align: top; text-align: right; width: 140px;">
+                  <div style="font-size: 9.5px; color: #64748b;">Total: ${fmt(fin.total)}</div>
+                  <div style="font-size: 13px; font-weight: 900; color: #be123c; margin-top: 2px;">
                     Pend: ${fmt(fin.pending)}
                   </div>
-                  <div style="font-size: 9.5px; color: #059669; font-weight: 600;">Abonado: ${fmt(fin.paid)}</div>
+                  <div style="font-size: 9.5px; color: #059669; font-weight: 700;">Abonado: ${fmt(fin.paid)}</div>
                 </td>` : `
-                <td style="padding: 10px 12px; vertical-align: top; text-align: right; width: 110px;">
-                  <span style="font-size: 10.5px; font-weight: 700; color: #0284c7; background-color: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;">
-                    Requiere Acción
-                  </span>
+                <td width="140" valign="top" align="right" style="padding: 10px 8px; vertical-align: top; text-align: right; width: 140px;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
+                    <tr>
+                      <td bgcolor="#f0f9ff" style="background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 4px;">
+                        Requiere Acción
+                      </td>
+                    </tr>
+                  </table>
                 </td>`}
               </tr>
             `;
           }).join("");
 
           return `
-            <div style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;">
-              <div style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 10px 16px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="font-size: 13px; font-weight: 800; color: ${sec.headerColor}; text-transform: uppercase; letter-spacing: 0.5px;">
-                      ${sec.title}
-                    </td>
-                    <td style="text-align: right; font-size: 11px; font-weight: 800; color: ${sec.headerColor};">
-                      ${sec.alerts.length} caso(s)
-                    </td>
-                  </tr>
-                </table>
-              </div>
-              <table style="width: 100%; border-collapse: collapse; font-family: inherit;">
-                <thead>
-                  <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;">
-                    <th style="padding: 7px 12px;">Localizador</th>
-                    <th style="padding: 7px 12px;">Grupo & Requerimiento</th>
-                    <th style="padding: 7px 12px;">Comercial</th>
-                    <th style="padding: 7px 12px; text-align: right;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rowsHtml}
-                </tbody>
-              </table>
-            </div>
+            <table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 600px; max-width: 600px; margin-bottom: 20px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse;">
+              <tr>
+                <td bgcolor="${sec.headerBg}" style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 10px 12px;">
+                  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="font-size: 12px; font-weight: 800; color: ${sec.headerColor}; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ${sec.title}
+                      </td>
+                      <td align="right" style="text-align: right; font-size: 11px; font-weight: 800; color: ${sec.headerColor};">
+                        ${sec.alerts.length} caso(s)
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 9.5px; font-weight: 800; color: #475569; text-transform: uppercase;">
+                <td width="90" style="padding: 6px 8px;">Localizador</td>
+                <td width="280" style="padding: 6px 8px;">Grupo & Requerimiento</td>
+                <td width="110" style="padding: 6px 8px;">Comercial</td>
+                <td width="140" align="right" style="padding: 6px 8px; text-align: right;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</td>
+              </tr>
+              ${rowsHtml}
+            </table>
           `;
         }).join("");
 
         return `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 760px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
-        <!-- Header Banner -->
-        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; color: #ffffff;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="vertical-align: middle;">
-                <div style="display: inline-block; background-color: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.4); color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; margin-bottom: 6px;">
-                  🔒 Control Interno Operativo
-                </div>
-                <div style="font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">
-                  Informe de Alertas Operativas y Actuaciones Críticas
-                </div>
-                <div style="font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 3px;">
-                  Establecimiento: <strong style="color: #ffffff;">${rep.hotelLabel}</strong> &nbsp;•&nbsp; Generado: ${rep.dateStr} a las ${rep.timeStr}
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align: right; width: 140px;">
-                <div style="background-color: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 8px 12px; text-align: center;">
-                  <div style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Total Alertas</div>
-                  <div style="font-size: 22px; font-weight: 900; color: #fbbf24; line-height: 1.1;">${rep.totalAlerts}</div>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </div>
+<center style="width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;">
+  <!--[if mso]>
+  <table role="presentation" width="640" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
+  <![endif]-->
+  <table role="presentation" width="640" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 640px; max-width: 640px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
+    <!-- Header Banner: Fondo solido azul oscuro para compatibilidad total con Outlook -->
+    <tr>
+      <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 20px 24px;">
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td valign="middle" style="vertical-align: middle;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td bgcolor="#d97706" style="background-color: #d97706; color: #ffffff; font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px;">
+                    CONTROL INTERNO OPERATIVO
+                  </td>
+                </tr>
+              </table>
+              <div style="font-size: 17px; font-weight: 800; color: #ffffff; margin-top: 8px; line-height: 1.25;">
+                Informe de Alertas Operativas y Actuaciones Críticas
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 4px;">
+                Establecimiento: <strong style="color: #38bdf8;">${rep.hotelLabel}</strong> &nbsp;|&nbsp; Fecha: ${rep.dateStr} (${rep.timeStr})
+              </div>
+              <div style="font-size: 11px; color: #cbd5e1; margin-top: 2px;">
+                Filtro Comercial: <strong>${rep.filterComercial === "todos" ? "Todos los Comerciales" : rep.filterComercial}</strong>
+              </div>
+            </td>
+            <td valign="middle" align="right" width="105" style="vertical-align: middle; text-align: right;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
+                <tr>
+                  <td bgcolor="#1e293b" style="background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; text-align: center;">
+                    <div style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Total Alertas</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #f59e0b; line-height: 1.1;">${rep.totalAlerts}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
 
-        ${rep.totalFinancialPending > 0 ? `
-        <!-- Financial Alert Highlight Banner -->
-        <div style="background-color: #fff1f2; border-bottom: 2px solid #fecdd3; padding: 12px 28px;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="font-size: 12px; font-weight: 800; color: #be123c;">
-                💰 Total Pendiente de Cobro en Alertas Financieras:
-              </td>
-              <td style="text-align: right; font-size: 16px; font-weight: 900; color: #9f1239;">
-                ${fmt(rep.totalFinancialPending)}
-              </td>
-            </tr>
-          </table>
-        </div>` : ''}
+    <!-- Financial Alert Highlight Banner si procede -->
+    ${rep.totalFinancialPending > 0 ? `
+    <tr>
+      <td bgcolor="#fff1f2" style="background-color: #fff1f2; border-bottom: 2px solid #fecdd3; padding: 12px 24px;">
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="font-size: 11.5px; font-weight: 800; color: #be123c;">
+              💰 TOTAL PENDIENTE DE COBRO EN ALERTAS FINANCIERAS:
+            </td>
+            <td align="right" style="text-align: right; font-size: 16px; font-weight: 900; color: #9f1239;">
+              ${fmt(rep.totalFinancialPending)}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>` : ''}
 
-        <!-- Body Content -->
-        <div style="padding: 24px 28px; background-color: #f8fafc;">
-          ${sectionsHtml || `
-            <div style="text-align: center; padding: 30px; color: #64748b; font-size: 13px; font-weight: 700;">
-              ✅ No hay alertas activas en las secciones seleccionadas para este filtro.
-            </div>
-          `}
-        </div>
+    <!-- Body Content con las tablas de secciones -->
+    <tr>
+      <td bgcolor="#f8fafc" style="background-color: #f8fafc; padding: 20px 10px;">
+        ${sectionsHtml || `
+          <div style="text-align: center; padding: 30px; color: #64748b; font-size: 13px; font-weight: 700;">
+            ✅ No hay alertas activas en las secciones seleccionadas para este filtro.
+          </div>
+        `}
+      </td>
+    </tr>
 
-        <!-- Footer -->
-        <div style="background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 14px 28px; font-size: 11px; color: #64748b; text-align: center;">
-          <strong>Nexus Groups Gold Edition</strong> • Módulo de Control Interno de Operaciones y Seguimiento Comercial
-        </div>
-      </div>
+    <!-- Footer Oficial -->
+    <tr>
+      <td bgcolor="#ffffff" style="background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 12px 24px; font-size: 11px; color: #64748b; text-align: center;">
+        <strong>Nexus Groups Gold Edition</strong> • Módulo de Control Interno de Operaciones y Seguimiento Comercial
+      </td>
+    </tr>
+  </table>
+  <!--[if mso]>
+  </td></tr></table>
+  <![endif]-->
+</center>
         `;
       };
 
@@ -1120,119 +1159,154 @@
         const hasFin = (fin.total > 0 || fin.pending > 0);
         const isInternal = data.mode === "internal";
         
-        return `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06);">
-  <!-- Header Banner -->
-  <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px 28px; color: #ffffff;">
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <td style="vertical-align: middle;">
-          ${isInternal ? `
-          <div style="display: inline-block; background-color: rgba(245,158,11,0.25); border: 1px solid rgba(245,158,11,0.45); color: #fbbf24; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 12px; margin-bottom: 6px;">
-            🔒 Control Interno Operativo
-          </div>` : ''}
-          <div style="font-size: 19px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; text-transform: uppercase;">
-            ${data.hotelOfficial}
-          </div>
-          <div style="font-size: 11px; color: #94a3b8; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px;">
-            ${isInternal ? "Aviso a Comercial / Administración" : "Dpto. Reservas y Gestión de Grupos"}
-          </div>
-        </td>
-        <td style="vertical-align: middle; text-align: right;">
-          <span style="display: inline-block; background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #f8fafc;">
-            Ref #${data.resId}
-          </span>
-        </td>
-      </tr>
-    </table>
-  </div>
+        return `
+<center style="width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;">
+  <!--[if mso]>
+  <table role="presentation" width="620" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
+  <![endif]-->
+  <table role="presentation" width="620" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 620px; max-width: 620px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
+    <!-- Header Banner: Fondo solido azul oscuro para compatibilidad con Outlook -->
+    <tr>
+      <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 20px 24px;">
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td valign="middle" style="vertical-align: middle;">
+              ${isInternal ? `
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td bgcolor="#d97706" style="background-color: #d97706; color: #ffffff; font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 4px;">
+                    CONTROL INTERNO OPERATIVO
+                  </td>
+                </tr>
+              </table>` : ''}
+              <div style="font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; text-transform: uppercase; margin-top: ${isInternal ? '6px' : '0'};">
+                ${data.hotelOfficial}
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px;">
+                ${isInternal ? "Aviso a Comercial / Administración" : "Dpto. Reservas y Gestión de Grupos"}
+              </div>
+            </td>
+            <td valign="middle" align="right" style="vertical-align: middle; text-align: right;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
+                <tr>
+                  <td bgcolor="#1e293b" style="background-color: #1e293b; border: 1px solid #334155; padding: 5px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; color: #f8fafc;">
+                    Ref #${data.resId}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
 
-  <!-- Group Summary Bar -->
-  <div style="background-color: #f8fafc; padding: 14px 28px; border-bottom: 1px solid #e2e8f0;">
-    <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 3px;">
-      ${data.grupoName}
-    </div>
-    <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #64748b;">
-      <tr>
-        <td>
-          <strong>Estancia:</strong> ${data.entrada || "---"} ➔ ${data.salida || "---"}
-        </td>
-        <td style="text-align: right;">
-          <strong>Ocupación:</strong> ${data.pax || 0} pax &nbsp;|&nbsp; <strong>Comercial:</strong> ${data.comercial || "---"}
-        </td>
-      </tr>
-    </table>
-  </div>
+    <!-- Group Summary Bar -->
+    <tr>
+      <td bgcolor="#f8fafc" style="background-color: #f8fafc; padding: 12px 24px; border-bottom: 1px solid #e2e8f0;">
+        <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 3px;">
+          ${data.grupoName}
+        </div>
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 11.5px; color: #64748b;">
+          <tr>
+            <td>
+              <strong>Estancia:</strong> ${data.entrada || "---"} ➔ ${data.salida || "---"}
+            </td>
+            <td align="right" style="text-align: right;">
+              <strong>Ocupación:</strong> ${data.pax || 0} pax &nbsp;|&nbsp; <strong>Comercial:</strong> ${data.comercial || "---"}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
 
-  <!-- Content Container -->
-  <div style="padding: 26px 28px; font-size: 13.5px; line-height: 1.65; color: #334155;">
-    
-    ${hasFin ? `
-    <!-- Financial Metrics Grid -->
-    <table style="width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 22px;">
-      <tr>
-        <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 8px; text-align: center; width: 33%;">
-          <div style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Contratado</div>
-          <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 3px;">${fmt(fin.total)}</div>
-        </td>
-        <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px 8px; text-align: center; width: 33%;">
-          <div style="font-size: 9px; font-weight: 800; color: #059669; text-transform: uppercase;">Abonado / Confirmado</div>
-          <div style="font-size: 15px; font-weight: 800; color: #047857; margin-top: 3px;">${fmt(fin.paid)}</div>
-        </td>
-        <td style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 12px 8px; text-align: center; width: 34%;">
-          <div style="font-size: 9px; font-weight: 800; color: #e11d48; text-transform: uppercase;">Pendiente de Cobro</div>
-          <div style="font-size: 15px; font-weight: 800; color: #be123c; margin-top: 3px;">${fmt(fin.pending)}</div>
-        </td>
-      </tr>
-    </table>` : ''}
+    <!-- Content Container -->
+    <tr>
+      <td bgcolor="#ffffff" style="background-color: #ffffff; padding: 22px 24px; font-size: 13px; line-height: 1.65; color: #334155;">
+        
+        ${hasFin ? `
+        <!-- Financial Metrics Grid -->
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+          <tr>
+            <td bgcolor="#f8fafc" width="31%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 6px; text-align: center;">
+              <div style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Contratado</div>
+              <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">${fmt(fin.total)}</div>
+            </td>
+            <td width="3%">&nbsp;</td>
+            <td bgcolor="#ecfdf5" width="32%" style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 6px; text-align: center;">
+              <div style="font-size: 9px; font-weight: 800; color: #059669; text-transform: uppercase;">Abonado / Confirmado</div>
+              <div style="font-size: 14px; font-weight: 800; color: #047857; margin-top: 3px;">${fmt(fin.paid)}</div>
+            </td>
+            <td width="3%">&nbsp;</td>
+            <td bgcolor="#fff1f2" width="31%" style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 6px; text-align: center;">
+              <div style="font-size: 9px; font-weight: 800; color: #e11d48; text-transform: uppercase;">Pendiente de Cobro</div>
+              <div style="font-size: 14px; font-weight: 800; color: #be123c; margin-top: 3px;">${fmt(fin.pending)}</div>
+            </td>
+          </tr>
+        </table>` : ''}
 
-    <!-- Callout Box -->
-    <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 0 8px 8px 0; padding: 12px 16px; margin-bottom: 22px;">
-      <div style="font-size: 10px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
-        ${isInternal ? "Actuación Crítica Detectada" : "Situación / Requerimiento"}
-      </div>
-      <div style="font-size: 12.5px; font-weight: 600; color: #7f1d1d;">
-        ${data.alert?.detail || "Revisión operativa de las condiciones acordadas."}
-      </div>
-    </div>
+        <!-- Callout Box -->
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+          <tr>
+            <td bgcolor="#fef2f2" style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 10px 14px;">
+              <div style="font-size: 10px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
+                ${isInternal ? "Actuación Crítica Detectada" : "Situación / Requerimiento"}
+              </div>
+              <div style="font-size: 12px; font-weight: 700; color: #7f1d1d;">
+                ${data.alert?.detail || "Revisión operativa de las condiciones acordadas."}
+              </div>
+            </td>
+          </tr>
+        </table>
 
-    <!-- Body text -->
-    <div style="white-space: pre-line; margin-bottom: 22px; color: #334155; font-size: 13px; line-height: 1.65;">
-      ${data.body}
-    </div>
+        <!-- Body text -->
+        <div style="white-space: pre-line; margin-bottom: 20px; color: #334155; font-size: 12.5px; line-height: 1.65;">
+          ${data.body}
+        </div>
 
-    <!-- Bank Details Card (Sólo si no es interno o si procede) -->
-    ${(!isInternal && data.hotelIban) ? `
-    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 12px; padding: 18px 22px; color: #ffffff; margin-top: 22px;">
-      <div style="font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">
-        💳 Datos Oficiales para Transferencia Bancaria
-      </div>
-      <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #f8fafc;">
-        <tr>
-          <td style="padding: 3px 0; color: #94a3b8; width: 115px;"><strong>Entidad:</strong></td>
-          <td style="padding: 3px 0; font-weight: 700; color: #ffffff;">${data.hotelBank}</td>
-        </tr>
-        <tr>
-          <td style="padding: 3px 0; color: #94a3b8;"><strong>IBAN:</strong></td>
-          <td style="padding: 3px 0; font-weight: 800; font-family: monospace; font-size: 13.5px; color: #38bdf8; letter-spacing: 1px;">${data.hotelIban}</td>
-        </tr>
-        <tr>
-          <td style="padding: 3px 0; color: #94a3b8;"><strong>Beneficiario:</strong></td>
-          <td style="padding: 3px 0; font-weight: 700; color: #ffffff;">${data.hotelOfficial}</td>
-        </tr>
-        <tr>
-          <td style="padding: 3px 0; color: #94a3b8;"><strong>Concepto:</strong></td>
-          <td style="padding: 3px 0; font-weight: 800; color: #facc15;">Reserva #${data.resId} - ${data.grupoName}</td>
-        </tr>
-      </table>
-    </div>` : ''}
+        <!-- Bank Details Card si no es interno -->
+        ${(!isInternal && data.hotelIban) ? `
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+          <tr>
+            <td bgcolor="#0f172a" style="background-color: #0f172a; border-radius: 8px; padding: 16px 20px; color: #ffffff;">
+              <div style="font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                💳 Datos Oficiales para Transferencia Bancaria
+              </div>
+              <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 11.5px; color: #f8fafc;">
+                <tr>
+                  <td width="100" style="padding: 2px 0; color: #94a3b8;"><strong>Entidad:</strong></td>
+                  <td style="padding: 2px 0; font-weight: 700; color: #ffffff;">${data.hotelBank}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 2px 0; color: #94a3b8;"><strong>IBAN:</strong></td>
+                  <td style="padding: 2px 0; font-weight: 800; font-family: monospace; font-size: 13px; color: #38bdf8; letter-spacing: 1px;">${data.hotelIban}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 2px 0; color: #94a3b8;"><strong>Beneficiario:</strong></td>
+                  <td style="padding: 2px 0; font-weight: 700; color: #ffffff;">${data.hotelOfficial}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 2px 0; color: #94a3b8;"><strong>Concepto:</strong></td>
+                  <td style="padding: 2px 0; font-weight: 800; color: #facc15;">Reserva #${data.resId} - ${data.grupoName}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>` : ''}
 
-  </div>
+      </td>
+    </tr>
 
-  <!-- Footer -->
-  <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 28px; font-size: 11px; color: #64748b; text-align: center;">
-    <strong>${data.hotelOfficial}</strong> • ${isInternal ? "Sistema de Control Interno Operativo" : "Dpto. Reservas y Gestión de Grupos"} • Nexus Groups
-  </div>
-</div>`;
+    <!-- Footer -->
+    <tr>
+      <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 24px; font-size: 11px; color: #64748b; text-align: center;">
+        <strong>${data.hotelOfficial}</strong> • ${isInternal ? "Sistema de Control Interno Operativo" : "Dpto. Reservas y Gestión de Grupos"} • Nexus Groups
+      </td>
+    </tr>
+  </table>
+  <!--[if mso]>
+  </td></tr></table>
+  <![endif]-->
+</center>`;
       };
 
       const handleOpenEmailModal = (alert, columnTitle, mode = "internal") => {
@@ -2395,7 +2469,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                   <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70">
                     {/* Render visual del HTML del informe */}
                     <div
-                      className="max-w-3xl mx-auto"
+                      className="w-full max-w-[660px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white"
                       dangerouslySetInnerHTML={{ __html: generateInternalReportHtml(reportData) }}
                     />
                   </div>
