@@ -1236,7 +1236,7 @@
 
             try {
                 if (!validateProformaAgainstSource({ block: true })) return;
-                reconcilePaymentPlan(); // Ensure payments are fully reconciled before saving
+                reconcilePaymentPlan(-1, null); // Ensure payments are fully reconciled before saving
                 const normId = String(id).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
                 const isIndep = isIndependentProforma();
                 
@@ -1804,83 +1804,72 @@
             return !!groupData.isIndependentProforma || rawRef.includes('prof-');
         }
 
-        function reconcilePaymentPlan(lockedIndex) {
+        function reconcilePaymentPlan(lockedIndex, lockedField) {
             const netTotal = Math.max(0, getCurrentNetTotal());
             if (paymentPlan.length === 0) return;
 
-            // 1. Recalculate percent/amount for each row (skip locked row — it was just manually edited)
+            // 1. Recalculate each row — NEVER overwrite an existing exact amount
             paymentPlan.forEach((p, i) => {
-                if (i === lockedIndex) return; // preserve manually edited value
-                if (p.status === "Cobrado") {
-                    const amount = parseFloat(p.amount) || 0;
-                    p.percent = netTotal > 0 ? ((amount / netTotal) * 100).toFixed(2) : "0.00";
-                    p.amount = amount.toFixed(2);
+                const userEditedPercent = (i === lockedIndex && lockedField === 'percent');
+                const userEditedAmount  = (i === lockedIndex && lockedField === 'amount');
+                const hasExistingAmount = p.amount !== undefined && p.amount !== null && p.amount !== '' && !isNaN(parseFloat(p.amount)) && Math.abs(parseFloat(p.amount)) > 0.001;
+
+                if (userEditedPercent) {
+                    // El usuario cambió el %: calcular el importe a partir del porcentaje
+                    const pct = parseFloat(p.percent) || 0;
+                    p.percent = pct.toFixed(2);
+                    p.amount  = netTotal > 0 ? ((netTotal * pct) / 100).toFixed(2) : '0.00';
+                    p.manual  = false;
+                } else if (userEditedAmount || p.manual === true || p.manual === 'true' || p.status === 'Cobrado' || hasExistingAmount) {
+                    // PRESERVAR EL IMPORTE EXACTO — nunca recalcular desde % redondeado
+                    // Ej: 1000.00€ permanece como 1000.00€ (no se convierte en 999.92€)
+                    const amt = parseFloat(p.amount) || 0;
+                    p.amount  = amt.toFixed(2);
+                    if (userEditedAmount) p.manual = true;
+                    // El % se calcula de forma informativa a partir del importe exacto
+                    p.percent = netTotal > 0 ? ((amt / netTotal) * 100).toFixed(2) : '0.00';
                 } else {
-                    const percent = parseFloat(p.percent) || 0;
-                    p.amount = ((netTotal * percent) / 100).toFixed(2);
-                    p.percent = percent.toFixed(2);
+                    // Fila nueva sin importe previo — derivar desde %
+                    const pct = parseFloat(p.percent) || 0;
+                    p.percent = pct.toFixed(2);
+                    p.amount  = netTotal > 0 ? ((netTotal * pct) / 100).toFixed(2) : '0.00';
                 }
             });
 
-            // 2. Adjust remainder so total always equals netTotal
+            // 2. Ajuste de redondeo SÓLO para diferencias ínfimas (≤0.20€)
+            //    y SÓLO cuando el plan cubra el total completo (~100%)
             let sumOfAmounts = paymentPlan.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
             let diff = netTotal - sumOfAmounts;
+            const totalPct = paymentPlan.reduce((acc, p) => acc + (parseFloat(p.percent) || 0), 0);
+            const isFullPlan = Math.abs(totalPct - 100) <= 0.25;
 
-            if (Math.abs(diff) > 0.001) {
-                // Find last pending row that is NOT the locked/just-edited row
+            if (isFullPlan && Math.abs(diff) > 0.001 && Math.abs(diff) <= 0.20) {
+                // Absorber en la última fila pendiente que NO sea la bloqueada ni manual
                 let targetRow = [...paymentPlan]
                     .map((p, i) => ({ p, i }))
                     .reverse()
-                    .find(({ p, i }) => p.status !== "Cobrado" && i !== lockedIndex);
-
+                    .find(({ p, i }) => p.status !== 'Cobrado' && i !== lockedIndex && !p.manual);
+                if (!targetRow) {
+                    targetRow = [...paymentPlan]
+                        .map((p, i) => ({ p, i }))
+                        .reverse()
+                        .find(({ p, i }) => p.status !== 'Cobrado' && i !== lockedIndex);
+                }
                 if (targetRow) {
-                    // Absorb the difference into this other pending row
                     const currentAmt = parseFloat(targetRow.p.amount) || 0;
-                    targetRow.p.amount = (currentAmt + diff).toFixed(2);
-                    targetRow.p.percent = netTotal > 0 ? ((parseFloat(targetRow.p.amount) || 0) / netTotal * 100).toFixed(2) : "0.00";
-                } else if (diff > 0.01) {
-                    // No other pending row available — create a new one to hold the remainder
-                    const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
-                    let dateStr = new Date().toISOString().split('T')[0];
-                    const arrivalDate = groupData.Entrada;
-                    if (arrivalDate) {
-                        try {
-                            let d;
-                            const numDate = parseFloat(arrivalDate);
-                            if (!isNaN(numDate) && numDate > 40000 && numDate < 60000) {
-                                d = new Date(Math.round((numDate - 25569) * 86400 * 1000));
-                            } else {
-                                d = new Date(toInputDate(arrivalDate));
-                            }
-                            if (d && !isNaN(d.getTime())) {
-                                d.setDate(d.getDate() - 30);
-                                dateStr = d.toISOString().split('T')[0];
-                            }
-                        } catch(e){}
-                    }
-                    paymentPlan.push({
-                        label: `Pago ${paymentPlan.length + 1}`,
-                        percent: ((diff / netTotal) * 100).toFixed(2),
-                        amount: diff.toFixed(2),
-                        date: dateStr,
-                        status: "Pendiente"
-                    });
-                } else if (diff < -0.01) {
-                    // Sum exceeds total and locked row caused it — only adjust the locked row if no other option
-                    // (nothing to do here; user set an explicit value, leave as-is)
+                    targetRow.p.amount  = (currentAmt + diff).toFixed(2);
+                    targetRow.p.percent = netTotal > 0 ? ((parseFloat(targetRow.p.amount) || 0) / netTotal * 100).toFixed(2) : '0.00';
                 }
             }
 
-            // 3. Recalculate diff after any new row was added
+            // 3. Limpieza de filas vacías accidentales (sólo si cuadra bien)
             sumOfAmounts = paymentPlan.reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
             diff = netTotal - sumOfAmounts;
-
-            // 4. Clean up tiny leftover pending rows (but never the locked row)
             if (diff <= 0.01) {
                 for (let i = paymentPlan.length - 1; i >= 0; i--) {
                     if (i === lockedIndex) continue;
                     const p = paymentPlan[i];
-                    if (p.status !== "Cobrado" && (parseFloat(p.amount) || 0) <= 0.01) {
+                    if (p.status !== 'Cobrado' && (parseFloat(p.amount) || 0) <= 0.01) {
                         paymentPlan.splice(i, 1);
                     }
                 }
@@ -1890,7 +1879,7 @@
         function addPayment() {
             const today = new Date().toISOString().split('T')[0];
             paymentPlan.push({ label: `Pago ${paymentPlan.length + 1}`, percent: 0, amount: 0, date: today, status: "Pendiente" });
-            reconcilePaymentPlan();
+            reconcilePaymentPlan(-1, null);
             renderItems();
         }
 
@@ -1900,20 +1889,18 @@
             if (field === 'percent') {
                 const percent = parseFloat(value) || 0;
                 paymentPlan[index].percent = percent.toFixed(2);
-                const netTotal = getCurrentNetTotal();
-                paymentPlan[index].amount = ((netTotal * percent) / 100).toFixed(2);
-                // Pass the locked index so reconcile doesn't overwrite this row
-                reconcilePaymentPlan(index);
+                paymentPlan[index].manual = false; // % editado a mano → resetear manual
+                reconcilePaymentPlan(index, 'percent');
             } else if (field === 'amount') {
                 const amount = parseFloat(value) || 0;
                 paymentPlan[index].amount = amount.toFixed(2);
+                paymentPlan[index].manual = true; // marcar como importe exacto introducido por el usuario
                 const netTotal = getCurrentNetTotal();
                 paymentPlan[index].percent = netTotal > 0 ? ((amount / netTotal) * 100).toFixed(2) : "0.00";
-                // Pass the locked index so reconcile doesn't overwrite this row
-                reconcilePaymentPlan(index);
+                reconcilePaymentPlan(index, 'amount');
             } else {
                 paymentPlan[index][field] = value;
-                reconcilePaymentPlan();
+                reconcilePaymentPlan(-1, null);
             }
 
             renderItems();
@@ -1922,7 +1909,7 @@
         function removePayment(index) {
             if (confirm("¿Eliminar este pago/anticipo?")) {
                 paymentPlan.splice(index, 1);
-                reconcilePaymentPlan();
+                reconcilePaymentPlan(-1, null);
                 renderItems();
             }
         }
@@ -2114,7 +2101,7 @@
             }
 
             if (currentTemplate === 'confirmacion') {
-                reconcilePaymentPlan(); // Ensure payments are fully reconciled before rendering
+                reconcilePaymentPlan(-1, null); // Ensure payments are fully reconciled before rendering
                 const totalNetoPagar = (total - totalComision) + parseFloat(groupData.Suplementos || 0) - parseFloat(groupData.Descuentos || 0);
                 const totalPaid = paymentPlan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + (parseFloat(p.amount) || 0), 0);
                 const totalPending = totalNetoPagar - totalPaid;

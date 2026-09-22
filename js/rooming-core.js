@@ -317,7 +317,11 @@
         if (!type) return false;
         if (/^(dui|doble-uso-individual|doble-individual|uso-individual|single)$/.test(type)) return true;
         if (/^(dbl|doble|twin|individual|triple|tpl|cuadruple|cua|suite|junior-suite|suite-superior|apartamento|familiar)$/.test(type)) return true;
-        return /^(junior-)?suite(-superior)?(-[12])?$/.test(type);
+        if (/^(junior-)?suite(-superior)?(-[12])?$/.test(type)) return true;
+        // Tipos con suplemento: "DOBLE + SUPLETORIA" -> normalizado a "doble-supletoria"
+        // También: "TRIPLE + CUNA", "INDIVIDUAL + EXTRA", "DOBLE MAS SUPLETORIA", etc.
+        if (/^(doble|dbl|twin|individual|triple|tpl|cuadruple|cua|sencilla|single)(-mas)?-(supletoria|suple|extra|cuna|nino|adulto|pax)(-[0-9a-z]+)?$/.test(type)) return true;
+        return false;
     }
 
     function isAccommodationItem(item) {
@@ -1004,14 +1008,42 @@
         return [...consolidatedStays, ...services];
     }
 
+    function getPaxForRoomType(typeStr) {
+        const t = (typeStr || '').toUpperCase();
+        // Supletoria/extra (3rd person) types — check BEFORE generic DOBLE
+        if (/\bSUPLETORIA\b|\bSUPLE\b/.test(t)) {
+            if (/\bTRIPLE\b|\bTPL\b/.test(t)) return 4;       // TRIPLE + SUPLETORIA
+            if (/\bCUADRUPLE\b|\bCUA\b/.test(t)) return 5;    // CUADRUPLE + SUPLETORIA
+            if (/\bINDIVIDUAL\b|\bDUI\b|\bSGL\b/.test(t)) return 2; // IND + SUPLETORIA
+            return 3; // DOBLE + SUPLETORIA (default)
+        }
+        if (/\bCUNA\b|\bNINO\b/.test(t)) {
+            if (/\bTRIPLE\b|\bTPL\b/.test(t)) return 4;
+            return 3; // DOBLE + CUNA
+        }
+        if (/\bDUI\b|\bUSO\s*INDIVIDUAL\b|\bJS1\b|\bSS1\b|\bINDIV\b|\bSINGLE\b|\bSGL\b/.test(t)) return 1;
+        if (/\bTPL\b|\bTRIPLE\b/.test(t)) return 3;
+        if (/\bCUA\b|\bCUAD\b/.test(t)) return 4;
+        if (/\bQUINTUPLE\b|\bQUIN\b/.test(t)) return 5;
+        if (/\bJS2\b|\bSS2\b|\bDBL\b|\bDOBLE\b|\bTWIN\b/.test(t)) return 2;
+        return 2; // default
+    }
+
     function calculateMaxDailyOccupancy(list) {
         list = parseRoomingListSafe(list, 'calculateMaxDailyOccupancy').filter(isAccommodationItem);
         const dailyPax = {};
         list.forEach(i => {
-            const start = parseDate(i.dateIn || i.checkIn || i.Entrada);
-            const end = parseDate(i.dateOut || i.checkOut || i.Salida);
-            if (!start || !end) return;
-            const paxVal = parseInt(i.pax || i["Pax."] || 0);
+            const start = parseDate(i.dateIn || i.checkIn || i.Entrada || i.date || i.fecha);
+            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
+            if (!start) return;
+            if (!end) {
+                // Infer end from nights field
+                const nights = parseInt(i.nights || i.Noches || i.noches || 1) || 1;
+                end = new Date(start);
+                end.setDate(start.getDate() + nights);
+            }
+            let paxVal = parseInt(i.pax || i["Pax."] || 0);
+            if (!paxVal) paxVal = getPaxForRoomType(i.type || i.roomType || i.tipo || '');
             const qtyVal = parseInt(i.qty || i["Cant. Habitaciones"] || i["Cant."] || i["Hab."] || 1);
             const nights = calculateRoomingNights(start, end) || 1;
             for (let dayOffset = 0; dayOffset < nights; dayOffset++) {
@@ -1030,9 +1062,14 @@
         list = parseRoomingListSafe(list, 'calculateMaxDailyRooms').filter(isAccommodationItem);
         const dailyRooms = {};
         list.forEach(i => {
-            const start = parseDate(i.dateIn || i.checkIn || i.Entrada);
-            const end = parseDate(i.dateOut || i.checkOut || i.Salida);
-            if (!start || !end) return;
+            const start = parseDate(i.dateIn || i.checkIn || i.Entrada || i.date || i.fecha);
+            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
+            if (!start) return;
+            if (!end) {
+                const n = parseInt(i.nights || i.Noches || i.noches || 1) || 1;
+                end = new Date(start);
+                end.setDate(start.getDate() + n);
+            }
             const qtyVal = parseInt(i.qty || i["Cant. Habitaciones"] || i["Cant."] || i["Hab."] || 1);
             const nights = calculateRoomingNights(start, end) || 1;
             for (let dayOffset = 0; dayOffset < nights; dayOffset++) {
@@ -1050,10 +1087,16 @@
     function calculatePersonNights(list) {
         list = parseRoomingListSafe(list, 'calculatePersonNights').filter(isAccommodationItem);
         return list.reduce((sum, i) => {
-            const start = parseDate(i.dateIn || i.checkIn || i.Entrada);
-            const end = parseDate(i.dateOut || i.checkOut || i.Salida);
-            if (!start || !end) return sum;
-            const paxVal = parseInt(i.pax || i["Pax."] || 0);
+            const start = parseDate(i.dateIn || i.checkIn || i.Entrada || i.date || i.fecha);
+            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
+            if (!start) return sum;
+            if (!end) {
+                const n = parseInt(i.nights || i.Noches || i.noches || 1) || 1;
+                end = new Date(start);
+                end.setDate(start.getDate() + n);
+            }
+            let paxVal = parseInt(i.pax || i["Pax."] || 0);
+            if (!paxVal) paxVal = getPaxForRoomType(i.type || i.roomType || i.tipo || '');
             const qtyVal = parseInt(i.qty || i["Cant. Habitaciones"] || i["Cant."] || i["Hab."] || 1);
             const nights = calculateRoomingNights(start, end) || 1;
             return sum + (paxVal * qtyVal * nights);
@@ -1063,9 +1106,14 @@
     function calculateRoomNights(list) {
         list = parseRoomingListSafe(list, 'calculateRoomNights').filter(isAccommodationItem);
         return list.reduce((sum, i) => {
-            const start = parseDate(i.dateIn || i.checkIn || i.Entrada);
-            const end = parseDate(i.dateOut || i.checkOut || i.Salida);
-            if (!start || !end) return sum;
+            const start = parseDate(i.dateIn || i.checkIn || i.Entrada || i.date || i.fecha);
+            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
+            if (!start) return sum;
+            if (!end) {
+                const n = parseInt(i.nights || i.Noches || i.noches || 1) || 1;
+                end = new Date(start);
+                end.setDate(start.getDate() + n);
+            }
             const qtyVal = parseInt(i.qty || i["Cant. Habitaciones"] || i["Cant."] || i["Hab."] || 1);
             const nights = calculateRoomingNights(start, end) || 1;
             return sum + (qtyVal * nights);
@@ -1262,6 +1310,7 @@
         normalizeRoomType,
         isKnownRoomType,
         isAccommodationItem,
+        getPaxForRoomType,
         getCanonicalRoomType,
         getRoomSignature,
         naturalCompare,

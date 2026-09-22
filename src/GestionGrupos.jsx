@@ -9200,6 +9200,18 @@
 
         const t = (type || "").toUpperCase();
 
+        // SUPLETORIA / CUNA / EXTRA añaden 1 pax extra a la base — comprobar ANTES que el tipo base
+        if (t.includes("SUPLETORIA") || t.includes("SUPLE")) {
+          if (t.includes("TRIPLE") || t.includes("TPL")) return 4;
+          if (t.includes("CUAD") || t.includes("CUA")) return 5;
+          if (t.includes("INDIV") || t.includes("DUI") || t.includes("SGL")) return 2;
+          return 3; // DOBLE + SUPLETORIA
+        }
+        if (t.includes("CUNA") || (t.includes("NINO") && !t.includes("TRIPLE"))) {
+          if (t.includes("TRIPLE") || t.includes("TPL")) return 4;
+          return 3; // DOBLE + CUNA / NIÑO
+        }
+
         if (t.includes("DUI") || t.includes("JS1") || t.includes("SS1") ||
             t.includes("INDIV") || t.includes("SINGLE") || t.includes("SGL"))
           return 1;
@@ -9207,6 +9219,8 @@
         if (t.includes("TPL") || t.includes("TRIPLE")) return 3;
 
         if (t.includes("CUA") || t.includes("CUAD")) return 4;
+
+        if (t.includes("QUINTUPLE") || t.includes("QUIN")) return 5;
 
         if (t.includes("JS2") || t.includes("SS2") || t.includes("DBL") || t.includes("DOBLE"))
           return 2;
