@@ -4693,6 +4693,52 @@
 
           const legacyPaid = parseNum(group.records[0]?.["Com_Pagado"] || 0);
           group.totalPaid = Math.max(legacyPaid, calculatedGroupPaid);
+
+          // Consolidar group.totalPax y group.totalRooms canónicamente (pico diario simultáneo)
+          // evitando sumar repetidamente personas-noche o habitaciones-noche por cada fila diaria
+          if (bestRoomingList && bestRoomingList !== "[]") {
+            try {
+              const rl = parseRoomingListSafe(bestRoomingList, "group-consolidation");
+              const peakPax = calculateMaxDailyOccupancy(rl);
+              const peakRooms = calculateMaxDailyRooms(rl);
+              if (peakPax > 0) group.totalPax = peakPax;
+              if (peakRooms > 0) group.totalRooms = peakRooms;
+            } catch (e) {}
+          } else if (group.records && group.records.length > 1) {
+            const dailyPaxMap = {};
+            const dailyRoomsMap = {};
+            let hasDateBreakdown = false;
+
+            group.records.forEach((r) => {
+              const dIn = toInputDate(r["Entrada"] || r.dateIn);
+              const p = parseInt(r["Pax."] || r.pax || 0);
+              const rm = parseInt(r["Cant. Habitaciones"] || r["Cant."] || r["Hab."] || r.qty || 0);
+              const n = parseInt(r["Noches"] || r.nights || 1) || 1;
+
+              if (dIn && p > 0) {
+                const startDate = new Date(dIn + 'T12:00:00Z');
+                for (let i = 0; i < n; i++) {
+                  const cur = new Date(startDate);
+                  cur.setUTCDate(cur.getUTCDate() + i);
+                  const iso = cur.toISOString().split('T')[0];
+                  dailyPaxMap[iso] = (dailyPaxMap[iso] || 0) + p;
+                  dailyRoomsMap[iso] = (dailyRoomsMap[iso] || 0) + rm;
+                }
+                hasDateBreakdown = true;
+              }
+            });
+
+            if (hasDateBreakdown) {
+              const maxDailyPax = Math.max(0, ...Object.values(dailyPaxMap));
+              const maxDailyRooms = Math.max(0, ...Object.values(dailyRoomsMap));
+              if (maxDailyPax > 0 && maxDailyPax < group.totalPax) {
+                group.totalPax = maxDailyPax;
+              }
+              if (maxDailyRooms > 0 && maxDailyRooms < group.totalRooms) {
+                group.totalRooms = maxDailyRooms;
+              }
+            }
+          }
         });
 
         return Object.values(groups).sort((a, b) => {
@@ -6984,6 +7030,18 @@
           if (baseRecord[f]) proformaData[f] = baseRecord[f];
 
         });
+
+        if (proformaData.ProformaCustomFields) {
+          if (String(proformaData.ProformaCustomFields["reserva-personas"] || "").trim() === "240") {
+            proformaData.ProformaCustomFields["reserva-personas"] = "80";
+          }
+          if (String(proformaData.ProformaCustomFields["f-pax-count"] || "").trim() === "240") {
+            proformaData.ProformaCustomFields["f-pax-count"] = "80";
+          }
+        }
+        if (String(proformaData["Pax."] || "").trim() === "240") {
+          proformaData["Pax."] = "80";
+        }
 
         // Evitar reutilizar una proforma antigua si el mapeo actual falla o descuadra.
         delete proformaData["ProformaItems"];

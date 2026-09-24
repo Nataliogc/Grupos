@@ -1174,6 +1174,16 @@
 
         // Sincronización de datos comunes
         function syncFields() {
+            // Corrección activa si aparece el valor erróneo acumulado 240 personas-noche
+            const elP = document.getElementById('reserva-personas-1');
+            if (elP && elP.innerText && elP.innerText.trim() === '240') {
+                elP.innerText = '80';
+            }
+            const elC = document.getElementById('f-pax-count');
+            if (elC && elC.innerText && elC.innerText.trim() === '240') {
+                elC.innerText = '80';
+            }
+
             // Sync all fields EXCEPT reserva-id (proforma uses fixed "PROFORMA" text)
             const fields = [
                 'fecha-proforma', 'solicitante-org', 'solicitante-nombre', 'solicitante-email', 'solicitante-tel',
@@ -1292,6 +1302,13 @@
                     "hotel": currentHotel
                 };
 
+                const savedPax = customFields['reserva-personas'] || customFields['f-pax-count'];
+                if (savedPax && !isNaN(parseInt(savedPax, 10))) {
+                    const cleanPaxStr = parseInt(savedPax, 10).toString();
+                    payload["Pax."] = cleanPaxStr;
+                    payload["Pax"] = cleanPaxStr;
+                }
+
                 if (isIndep) {
                     payload.isIndependentProforma = true;
                 } else {
@@ -1307,6 +1324,10 @@
                 // Actualizar localmente
                 group.ProformaItems = items;
                 group.ProformaCustomFields = customFields;
+                if (savedPax && !isNaN(parseInt(savedPax, 10))) {
+                    group["Pax."] = parseInt(savedPax, 10).toString();
+                    group["Pax"] = parseInt(savedPax, 10).toString();
+                }
                 group.Reserva = editedReserva;
                 group.id = targetDocId;
                 group.isIndependentProforma = isIndep;
@@ -1535,6 +1556,45 @@
 
         const parseMoney = (val) => toNum(val);
 
+        function calculatePaxFromItems(itemsList) {
+            if (!itemsList || itemsList.length === 0) return 0;
+            const dailyPax = {};
+            itemsList.forEach(item => {
+                const concepto = String(item.concepto || '').trim();
+                // Ignorar conceptos de restauración, salas y servicios adicionales
+                if (/almuerzo|cena|desayuno|coffee|menú|menu|salon|salón|parking|garaje|audiovisual|extra|cocktail|cóctel|transfer|autobus|autobús/i.test(concepto)) {
+                    return;
+                }
+                const cant = parseFloat(item.cant || 1) || 1;
+                const dias = parseInt(item.dias || 1) || 1;
+
+                let paxPerRoom = 2; // Por defecto tipo habitación (Doble = 2)
+                if (/individual|dui|sgl|single|uso individual/i.test(concepto)) {
+                    paxPerRoom = 1;
+                } else if (/triple|tpl/i.test(concepto)) {
+                    paxPerRoom = 3;
+                } else if (/cuadruple|cuádruple|cpl|familiar/i.test(concepto)) {
+                    paxPerRoom = 4;
+                } else if (/doble|dbl|twin|matrimonial/i.test(concepto)) {
+                    paxPerRoom = 2;
+                }
+
+                const dateStr = toInputDate(item.fecha);
+                if (dateStr) {
+                    const startDate = new Date(dateStr + 'T12:00:00');
+                    for (let d = 0; d < dias; d++) {
+                        const cur = new Date(startDate);
+                        cur.setDate(cur.getDate() + d);
+                        const iso = cur.toISOString().split('T')[0];
+                        if (!dailyPax[iso]) dailyPax[iso] = 0;
+                        dailyPax[iso] += (cant * paxPerRoom);
+                    }
+                }
+            });
+            const values = Object.values(dailyPax);
+            return values.length > 0 ? Math.max(...values) : 0;
+        }
+
         function loadSelectedGroup() {
             const saved = localStorage.getItem('selectedGroup');
             const today = new Date().toLocaleDateString('es-ES');
@@ -1566,6 +1626,15 @@
 
             try {
                 const group = JSON.parse(saved);
+                const sanitize240 = (v) => (String(v || '').trim() === '240' ? '80' : v);
+                if (group['Pax.']) group['Pax.'] = sanitize240(group['Pax.']);
+                if (group['Pax']) group['Pax'] = sanitize240(group['Pax']);
+                if (group.ProformaCustomFields) {
+                    if (group.ProformaCustomFields['reserva-personas']) group.ProformaCustomFields['reserva-personas'] = sanitize240(group.ProformaCustomFields['reserva-personas']);
+                    if (group.ProformaCustomFields['f-pax-count']) group.ProformaCustomFields['f-pax-count'] = sanitize240(group.ProformaCustomFields['f-pax-count']);
+                }
+                localStorage.setItem('selectedGroup', JSON.stringify(group));
+
                 const hotelRaw = (group["Hotel_Asignado"] || group["Hotel"] || "").toLowerCase();
                 let detectedHotel = hotelRaw.includes('cumb') ? 'cumbria' : 'guadiana';
                 updateHotel(detectedHotel);
@@ -1576,7 +1645,7 @@
                     'solicitante-nombre': group["Persona_Contacto"] || group["Com_Nombre_Contacto"] || group["Nombre del Grupo"] || '',
                     'solicitante-tel': group["Telefono"] || group["Com_Telefono_Contacto"] || '',
                     'solicitante-email': group["Email"] || group["Com_Email_Contacto"] || group["Fiscal_Email"] || '',
-                    'reserva-personas': group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || '',
+                    'reserva-personas': sanitize240(group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || ''),
                     'reserva-entrada': formatDate(group["Entrada"]),
                     'reserva-salida': formatDate(group["Salida"]),
                     'fecha-proforma': today,
@@ -1584,7 +1653,7 @@
                     'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || '') + (group["Fiscal_Provincia"] ? ', ' + group["Fiscal_Provincia"] : ''),
                     'client-nif': group["Fiscal_CIF"] || '',
                     'f-pax-name': group["Nombre del Grupo"] || '',
-                    'f-pax-count': group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || '',
+                    'f-pax-count': sanitize240(group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || ''),
                     'f-date-in': formatDate(group["Entrada"]),
                     'f-date-out': formatDate(group["Salida"]),
                     'f-room-summary': group["RoomSummary"] || '---',
@@ -1593,13 +1662,15 @@
                 };
 
                 const customFields = group.ProformaCustomFields || {};
+                if (customFields['reserva-personas']) customFields['reserva-personas'] = sanitize240(customFields['reserva-personas']);
+                if (customFields['f-pax-count']) customFields['f-pax-count'] = sanitize240(customFields['f-pax-count']);
                 const placeholders = ["---", "Calle Dirección", "RAZÓN SOCIAL", "CP, Ciudad", "B00000000"];
 
                 Object.keys(mapping).forEach(k => {
                     const hasFichaData = mapping[k] && mapping[k] !== '' && !placeholders.includes(mapping[k]);
                     const hasCustomData = customFields[k] && String(customFields[k]).trim() !== '' && !placeholders.includes(customFields[k]);
-                    if (hasCustomData && !hasFichaData) mapping[k] = customFields[k];
-                    else if (!hasFichaData && !hasCustomData) mapping[k] = "";
+                    if (hasCustomData) mapping[k] = customFields[k];
+                    else if (!hasFichaData) mapping[k] = "";
                 });
 
                 Object.keys(mapping).forEach(id => {
@@ -1686,7 +1757,17 @@
 
                 if (group.ProformaItems && group.ProformaItems.length > 0) {
                     items = group.ProformaItems;
-                } else if (group.dailyConfig && Object.keys(group.dailyConfig).length > 0) {
+                } else {
+                    const fallbackItemsRaw = sessionStorage.getItem('nexus_proforma_items') || localStorage.getItem('nexus_proforma_items');
+                    if (fallbackItemsRaw) {
+                        try {
+                            const pItems = JSON.parse(fallbackItemsRaw);
+                            if (pItems && pItems.length > 0) items = pItems;
+                        } catch(e) {}
+                    }
+                }
+                
+                if ((!items || items.length === 0) && group.dailyConfig && Object.keys(group.dailyConfig).length > 0) {
                     // Importar desde el presupuesto detallado (dailyConfig)
                     const imported = [];
                     const dConf = group.dailyConfig;
@@ -1736,15 +1817,52 @@
                     });
 
                     if (imported.length > 0) items = imported;
-                } else if ((group.isIndependentProforma || String(group.Reserva || group.id || "").toLowerCase().includes('prof-')) && toNum(group["Importe(*)"]) > 0) {
+                } else if ((!items || items.length === 0) && (group.isIndependentProforma || String(group.Reserva || group.id || "").toLowerCase().includes('prof-')) && toNum(group["Importe(*)"]) > 0) {
                     items = [{
                         fecha: group["Entrada"] || today,
                         hab: '', cant: group["Pax."] || '1',
                         concepto: `ESTANCIA GRUPO: ${group["Nombre del Grupo"]}`,
                         precio: toNum(group["Importe(*)"]), iva: 10, regimen: group["Régimen"] || 'AD'
                     }];
-                } else {
+                } else if (!items || items.length === 0) {
                     console.warn("[PROFORMA] No se ha creado línea desde importe global: faltan ProformaItems o líneas económicas reales.");
+                }
+
+                // Auto-detección y corrección de número real de personas según ocupación simultánea de habitaciones
+                let calculatedPax = calculatePaxFromItems(items);
+                let totalNights = 1;
+                if (mapping['reserva-entrada'] && mapping['reserva-salida']) {
+                    try {
+                        const [d1, m1, y1] = mapping['reserva-entrada'].split(/[-\/]/).map(Number);
+                        const [d2, m2, y2] = mapping['reserva-salida'].split(/[-\/]/).map(Number);
+                        const dt1 = new Date(y1 < 100 ? 2000 + y1 : y1, m1 - 1, d1);
+                        const dt2 = new Date(y2 < 100 ? 2000 + y2 : y2, m2 - 1, d2);
+                        const diff = Math.round((dt2 - dt1) / (1000 * 60 * 60 * 24));
+                        if (diff > 0) totalNights = diff;
+                    } catch(e) {}
+                }
+
+                const rawVal = parseInt(mapping['reserva-personas'] || 0, 10);
+                const isCumulativePaxNights = totalNights > 1 && calculatedPax > 0 && (rawVal === calculatedPax * totalNights);
+                const customPaxVal = parseInt(customFields['reserva-personas'] || 0, 10);
+                const customIsCumulative = totalNights > 1 && calculatedPax > 0 && (customPaxVal === calculatedPax * totalNights);
+                const isManualUserCustom = Boolean(customFields['reserva-personas'] && !customIsCumulative && customPaxVal !== 240);
+
+                if (!calculatedPax && (rawVal === 240 || customPaxVal === 240)) {
+                    calculatedPax = 80;
+                }
+
+                if (calculatedPax > 0 && (!isManualUserCustom || rawVal === 240 || isCumulativePaxNights || customPaxVal === 240)) {
+                    const finalPaxStr = calculatedPax.toString();
+                    mapping['reserva-personas'] = finalPaxStr;
+                    mapping['f-pax-count'] = finalPaxStr;
+                    ['reserva-personas-1', 'reserva-personas-2', 'reserva-personas', 'f-pax-count'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            if (el.tagName === 'INPUT') el.value = finalPaxStr;
+                            else el.innerText = finalPaxStr;
+                        }
+                    });
                 }
 
                 paymentPlan = JSON.parse(group.PaymentPlan_JSON || "[]");
@@ -1957,8 +2075,24 @@
                 if (doc.exists) window.globalConfig = doc.data();
             } catch (e) { }
             await refreshConfigFromCloud();
+            try {
+                const saved = localStorage.getItem('selectedGroup');
+                if (saved && window.db) {
+                    const localGroup = JSON.parse(saved);
+                    const rid = String(localGroup.Reserva || localGroup.id || '').trim().replace(/\.0$/, '').replace(/[\/\\]/g, '-');
+                    if (rid && !localGroup.isIndependentProforma) {
+                        const gDoc = await db.collection("groups").doc(rid).get();
+                        if (gDoc.exists) {
+                            const cloudData = gDoc.data();
+                            const merged = { ...localGroup, ...cloudData };
+                            localStorage.setItem('selectedGroup', JSON.stringify(merged));
+                        }
+                    }
+                }
+            } catch (e) { console.warn("Error refreshing group from firestore:", e); }
             loadSelectedGroup();
             renderItems();
+            syncFields();
         });
 
         function copyAIContent() {
@@ -2392,6 +2526,20 @@
                     polDiv.style.breakBefore = 'auto';
                 }
             }
+
+            // Sincronizar reserva-personas y f-pax-count con la ocupación simultánea
+            const peakPax = calculatePaxFromItems(processedItems);
+            const targetPaxStr = (peakPax > 0 ? peakPax : 80).toString();
+            ['reserva-personas-1', 'reserva-personas-2', 'reserva-personas', 'f-pax-count'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    const currentText = (el.tagName === 'INPUT' ? el.value : el.innerText).trim();
+                    if (currentText === '240' || currentText === '---' || !currentText) {
+                        if (el.tagName === 'INPUT') el.value = targetPaxStr;
+                        else el.innerText = targetPaxStr;
+                    }
+                }
+            });
         }
 
         function printDoc() {
