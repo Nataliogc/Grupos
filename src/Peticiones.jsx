@@ -46,9 +46,16 @@
         .finally(() => { if (sequence === detailSequence.current) setLoadingDetail(false); });
     }, [selected, demo, events]);
     const item = rows.find(r => r.id === selected);
-    const reply = () => {
+    const reply = (direct = false) => {
       setError(''); setReplyNotice('');
-      try { setReplyNotice(window.NexusOutlookReply.launch(item, detail?.messages?.[detail.messages.length - 1])); }
+      try {
+        const message = detail?.messages?.[detail.messages.length - 1];
+        if (direct) setReplyNotice(window.NexusOutlookReply.launch(item, message));
+        else {
+          window.NexusOutlookReply.download(window.NexusOutlookReply.buildPayload(item, message));
+          setReplyNotice('Abre respuesta.nexusreply desde tus descargas. El enlace instalado preparará el borrador en Outlook clásico con tu firma y el mensaje debajo. No se ha enviado ningún correo.');
+        }
+      }
       catch (e) { setError(e.message); }
     };
     const update = (action, value) => run(async () => {
@@ -100,12 +107,12 @@
             <div className="grid sm:grid-cols-2 gap-3"><label>Responsable<select disabled={busy || user?.role !== 'admin'} className={input} value={item.assignee} onChange={e => update('assign', e.target.value)}><option value="">Sin asignar</option>{members.filter(m => m.mailboxes.includes(item.mailbox)).map(m => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>
               <label>Estado<select disabled={busy || (user?.role !== 'admin' && item.assignee !== user?.uid)} className={input} value={item.status} onChange={e => update('status', e.target.value)}>{states.map(s => <option key={s}>{s}</option>)}</select></label></div>
             {!item.assignee && <button disabled={busy} className={`${button} mt-3`} onClick={() => update('assign', user.uid)}>Asignarme</button>}
-            <div className="flex items-center justify-between gap-3 mt-6 mb-2"><h3 className="font-bold">Conversación</h3><button className={button} disabled={busy || loadingDetail || !detail?.messages?.length} onClick={reply}>Contestar</button></div>
-            <p className="text-sm text-slate-500 mb-3">Abre un borrador en Outlook clásico con tu firma y el mensaje de la agencia debajo.</p>
+            <div className="flex items-center justify-between gap-3 mt-6 mb-2"><h3 className="font-bold">Conversación</h3><button className={button} disabled={busy || loadingDetail || !detail?.messages?.length} onClick={() => reply()}>Contestar</button></div>
+            <p className="text-sm text-slate-500 mb-3">Descarga la respuesta y abre el archivo para prepararla en Outlook clásico con tu firma y el mensaje de la agencia debajo.</p>
             {replyNotice && <p role="status" className="bg-emerald-50 text-emerald-900 p-3 rounded-lg mb-3">{replyNotice}</p>}
             {loadingDetail && <p>Cargando conversación…</p>}
             {detail?.messages.map((m, i) => <article key={i} className="bg-slate-50 rounded-lg p-4 mb-3"><p className="text-sm text-slate-500 break-all">{m.from} · {new Date(m.receivedAt).toLocaleString('es-ES')}</p><p className="whitespace-pre-wrap break-words mt-3">{m.body}</p>{m.truncated && <p className="text-amber-800 text-sm mt-2">Texto abreviado. Consulta el correo completo en Outlook.</p>}{m.attachmentCount > 0 && <div className="border-t mt-3 pt-3 text-sm"><p className="font-bold">{m.attachmentCount} adjuntos · disponibles en Outlook</p>{m.attachments?.map((a, j) => <p key={j} className="break-all">{a.filename} ({Math.ceil(a.size / 1024)} KB)</p>)}</div>}</article>)}
-            <details className="text-sm text-slate-500 my-4"><summary className="cursor-pointer">Configurar Outlook en este ordenador</summary><p className="mt-2">Instala una vez el enlace de Nexus Groups para Outlook clásico. Debes tener configurada tu firma automática en Outlook. Revisa el remitente y pulsa Enviar desde Outlook; abrir el borrador no marca esta petición como contestada.</p><a className="text-emerald-800 underline" href="outlook/Nexus-Outlook.zip" download>Descargar enlace de Outlook</a><p>Descomprime el archivo y ejecuta Instalar-Outlook.ps1. Si tu empresa bloquea los scripts, pide a informática que lo instale.</p></details>
+            <details className="text-sm text-slate-500 my-4"><summary className="cursor-pointer">Configurar Outlook en este ordenador</summary><p className="mt-2">Instala una vez el enlace de Nexus Groups para Outlook clásico. Debes tener configurada tu firma automática en Outlook. Revisa el remitente y pulsa Enviar desde Outlook; abrir el borrador no marca esta petición como contestada.</p><a className="text-emerald-800 underline" href="outlook/Nexus-Outlook.zip" download>Descargar enlace de Outlook</a><p>Descomprime el archivo y ejecuta Instalar-Outlook.ps1. Si tu empresa bloquea los scripts, pide a informática que lo instale.</p><p className="mt-2">La apertura directa requiere que el navegador reconozca el enlace instalado. Si no lo reconoce, usa Contestar y abre el archivo descargado.</p><button type="button" disabled={busy || loadingDetail || !detail?.messages?.length} className="text-emerald-800 underline mt-2 disabled:opacity-50" onClick={() => reply(true)}>Abrir directamente en Outlook</button></details>
             <form onSubmit={e => { e.preventDefault(); update('note', note.trim()); }}><label className="font-bold">Nota interna<textarea maxLength={4000} className={`${input} mt-2 font-normal`} value={note} onChange={e => setNote(e.target.value)} /></label><button disabled={busy || !note.trim() || (user?.role !== 'admin' && item.assignee !== user?.uid)} className={button}>Guardar nota</button></form>
             <h3 className="font-bold mt-6">Actividad</h3>{detail?.events.map((e, i) => <p className="text-sm border-b py-3 whitespace-pre-wrap break-words" key={i}>{e.actor} · {new Date(e.at).toLocaleString('es-ES')}<br />{e.action === 'note' ? e.value : e.action === 'status' ? `Estado: ${e.value}` : `Asignación: ${members.find(m => m.uid === e.value)?.name || e.value || 'Sin asignar'}`}</p>)}
           </>}

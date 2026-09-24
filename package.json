@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build:peticiones": "babel src/Peticiones.jsx --out-file js/Peticiones.js && tailwindcss -c tailwind.peticiones.config.cjs -i styles/peticiones.input.css -o css/peticiones.css --minify",
     "test:outlook": "node --test tests/outlookReply.test.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:js": "npx babel src --out-dir js"

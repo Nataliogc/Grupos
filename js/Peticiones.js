@@ -63,7 +63,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }];
   };
   function App() {
-    var _detail$messages2;
+    var _detail$messages2, _detail$messages3;
     var _useState = useState(true),
       _useState2 = _slicedToArray(_useState, 2),
       demo = _useState2[0],
@@ -261,11 +261,16 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       return r.id === selected;
     });
     var reply = function reply() {
+      var direct = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
       setError('');
       setReplyNotice('');
       try {
         var _detail$messages;
-        setReplyNotice(window.NexusOutlookReply.launch(item, detail === null || detail === void 0 || (_detail$messages = detail.messages) === null || _detail$messages === void 0 ? void 0 : _detail$messages[detail.messages.length - 1]));
+        var message = detail === null || detail === void 0 || (_detail$messages = detail.messages) === null || _detail$messages === void 0 ? void 0 : _detail$messages[detail.messages.length - 1];
+        if (direct) setReplyNotice(window.NexusOutlookReply.launch(item, message));else {
+          window.NexusOutlookReply.download(window.NexusOutlookReply.buildPayload(item, message));
+          setReplyNotice('Abre respuesta.nexusreply desde tus descargas. El enlace instalado preparará el borrador en Outlook clásico con tu firma y el mensaje debajo. No se ha enviado ningún correo.');
+        }
       } catch (e) {
         setError(e.message);
       }
@@ -606,10 +611,12 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }, "Conversaci\xF3n"), /*#__PURE__*/React.createElement("button", {
       className: button,
       disabled: busy || loadingDetail || !(detail !== null && detail !== void 0 && (_detail$messages2 = detail.messages) !== null && _detail$messages2 !== void 0 && _detail$messages2.length),
-      onClick: reply
+      onClick: function onClick() {
+        return reply();
+      }
     }, "Contestar")), /*#__PURE__*/React.createElement("p", {
       className: "text-sm text-slate-500 mb-3"
-    }, "Abre un borrador en Outlook cl\xE1sico con tu firma y el mensaje de la agencia debajo."), replyNotice && /*#__PURE__*/React.createElement("p", {
+    }, "Descarga la respuesta y abre el archivo para prepararla en Outlook cl\xE1sico con tu firma y el mensaje de la agencia debajo."), replyNotice && /*#__PURE__*/React.createElement("p", {
       role: "status",
       className: "bg-emerald-50 text-emerald-900 p-3 rounded-lg mb-3"
     }, replyNotice), loadingDetail && /*#__PURE__*/React.createElement("p", null, "Cargando conversaci\xF3n\u2026"), detail === null || detail === void 0 ? void 0 : detail.messages.map(function (m, i) {
@@ -643,7 +650,16 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       className: "text-emerald-800 underline",
       href: "outlook/Nexus-Outlook.zip",
       download: true
-    }, "Descargar enlace de Outlook"), /*#__PURE__*/React.createElement("p", null, "Descomprime el archivo y ejecuta Instalar-Outlook.ps1. Si tu empresa bloquea los scripts, pide a inform\xE1tica que lo instale.")), /*#__PURE__*/React.createElement("form", {
+    }, "Descargar enlace de Outlook"), /*#__PURE__*/React.createElement("p", null, "Descomprime el archivo y ejecuta Instalar-Outlook.ps1. Si tu empresa bloquea los scripts, pide a inform\xE1tica que lo instale."), /*#__PURE__*/React.createElement("p", {
+      className: "mt-2"
+    }, "La apertura directa requiere que el navegador reconozca el enlace instalado. Si no lo reconoce, usa Contestar y abre el archivo descargado."), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      disabled: busy || loadingDetail || !(detail !== null && detail !== void 0 && (_detail$messages3 = detail.messages) !== null && _detail$messages3 !== void 0 && _detail$messages3.length),
+      className: "text-emerald-800 underline mt-2 disabled:opacity-50",
+      onClick: function onClick() {
+        return reply(true);
+      }
+    }, "Abrir directamente en Outlook")), /*#__PURE__*/React.createElement("form", {
       onSubmit: function onSubmit(e) {
         e.preventDefault();
         update('note', note.trim());
