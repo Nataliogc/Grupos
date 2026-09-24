@@ -216,6 +216,7 @@
         },
         { id: "invoices", icon: "file-text", label: "Facturas Proforma" },
         { id: "analytics", icon: "bar-chart-3", label: "Análisis IA" },
+        { id: "calendario", icon: "calendar", label: "Calendario Operativo" },
         {
           id: "menus",
           icon: "utensils",
@@ -276,6 +277,8 @@
                     window.location.href = "AltaEmail.html";
                   else if (item.id === "invoices") {
                     window.location.href = "Proformas.html";
+                  } else if (item.id === "calendario") {
+                    window.location.href = "Calendario.html";
                   } else if (item.id === "menus")
                     window.open(
                       "https://nataliogc.github.io/menus-eventos/admin.html",
