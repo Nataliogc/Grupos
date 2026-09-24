@@ -454,9 +454,15 @@
       const dailyPax = {};
       getAccommodationItems(list, "occupancy-fallback").forEach(i => {
         const s = i.dateIn || i.checkIn; const e = i.dateOut || i.checkOut;
-        if (!s || !e) return;
-        const dIn = new Date(s); const dOut = new Date(e);
-        const nights = Math.round((dOut - dIn) / 86400000) || 1;
+        if (!s) return;
+        const dIn = new Date(s);
+        const explicitNights = parseInt(i.nights || i.Noches || i.noches || 0);
+        let nights = explicitNights;
+        if (!nights && e) {
+          const dOut = new Date(e);
+          nights = Math.round((dOut - dIn) / 86400000) || 1;
+        }
+        if (!nights) nights = 1;
         for (let d = 0; d < nights; d++) {
           const cur = new Date(dIn); cur.setDate(dIn.getDate() + d);
           const iso = cur.toISOString().split('T')[0];
@@ -474,9 +480,15 @@
       const dailyRooms = {};
       getAccommodationItems(list, "rooms-fallback").forEach(i => {
         const s = i.dateIn || i.checkIn; const e = i.dateOut || i.checkOut;
-        if (!s || !e) return;
-        const dIn = new Date(s); const dOut = new Date(e);
-        const nights = Math.round((dOut - dIn) / 86400000) || 1;
+        if (!s) return;
+        const dIn = new Date(s);
+        const explicitNights = parseInt(i.nights || i.Noches || i.noches || 0);
+        let nights = explicitNights;
+        if (!nights && e) {
+          const dOut = new Date(e);
+          nights = Math.round((dOut - dIn) / 86400000) || 1;
+        }
+        if (!nights) nights = 1;
         for (let d = 0; d < nights; d++) {
           const cur = new Date(dIn); cur.setDate(dIn.getDate() + d);
           const iso = cur.toISOString().split('T')[0];

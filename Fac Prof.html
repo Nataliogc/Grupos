@@ -1267,9 +1267,12 @@
                     
                     if (el) {
                         let val = el.innerText || el.value || "";
-                        // Limpiar prefijo "Prof. " si es el campo de proforma
                         if (fid === 'reserva-id') val = val.replace(/^Prof\.\s*/i, "");
-                        customFields[fid] = val;
+                        if (val && val.trim() !== '' && val.trim() !== '---') {
+                            customFields[fid] = val.trim();
+                        } else if (group.ProformaCustomFields && group.ProformaCustomFields[fid]) {
+                            customFields[fid] = group.ProformaCustomFields[fid];
+                        }
                     }
                 });
 
@@ -1626,6 +1629,7 @@
 
             try {
                 const group = JSON.parse(saved);
+                const rec = (group.records && group.records[0]) || {};
                 const sanitize240 = (v) => (String(v || '').trim() === '240' ? '80' : v);
                 if (group['Pax.']) group['Pax.'] = sanitize240(group['Pax.']);
                 if (group['Pax']) group['Pax'] = sanitize240(group['Pax']);
@@ -1633,31 +1637,30 @@
                     if (group.ProformaCustomFields['reserva-personas']) group.ProformaCustomFields['reserva-personas'] = sanitize240(group.ProformaCustomFields['reserva-personas']);
                     if (group.ProformaCustomFields['f-pax-count']) group.ProformaCustomFields['f-pax-count'] = sanitize240(group.ProformaCustomFields['f-pax-count']);
                 }
-                localStorage.setItem('selectedGroup', JSON.stringify(group));
 
-                const hotelRaw = (group["Hotel_Asignado"] || group["Hotel"] || "").toLowerCase();
+                const hotelRaw = (group["Hotel_Asignado"] || group["Hotel"] || rec["Hotel_Asignado"] || rec["Hotel"] || "").toLowerCase();
                 let detectedHotel = hotelRaw.includes('cumb') ? 'cumbria' : 'guadiana';
                 updateHotel(detectedHotel);
 
                 const mapping = {
-                    'reserva-id': group["Reserva"] || '',
-                    'solicitante-org': group["Fiscal_RazonSocial"] || group["Empresa/Agencia"] || group["Nombre del Grupo"] || '',
-                    'solicitante-nombre': group["Persona_Contacto"] || group["Com_Nombre_Contacto"] || group["Nombre del Grupo"] || '',
-                    'solicitante-tel': group["Telefono"] || group["Com_Telefono_Contacto"] || '',
-                    'solicitante-email': group["Email"] || group["Com_Email_Contacto"] || group["Fiscal_Email"] || '',
-                    'reserva-personas': sanitize240(group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || ''),
-                    'reserva-entrada': formatDate(group["Entrada"]),
-                    'reserva-salida': formatDate(group["Salida"]),
+                    'reserva-id': group["Reserva"] || group["id"] || rec["Reserva"] || '',
+                    'solicitante-org': group["Fiscal_RazonSocial"] || group["solicitante_org"] || rec["Fiscal_RazonSocial"] || group["Empresa/Agencia"] || rec["Empresa/Agencia"] || group["Nombre del Grupo"] || rec["Nombre del Grupo"] || '',
+                    'solicitante-nombre': group["Persona_Contacto"] || group["Com_Nombre_Contacto"] || rec["Persona_Contacto"] || rec["Com_Nombre_Contacto"] || group["solicitante_nombre"] || group["Nombre del Grupo"] || rec["Nombre del Grupo"] || '',
+                    'solicitante-tel': group["Telefono"] || group["Com_Telefono_Contacto"] || rec["Telefono"] || rec["Com_Telefono_Contacto"] || group["solicitante_tel"] || '',
+                    'solicitante-email': group["Email"] || group["Com_Email_Contacto"] || rec["Email"] || rec["Com_Email_Contacto"] || group["Fiscal_Email"] || rec["Fiscal_Email"] || group["solicitante_email"] || '',
+                    'reserva-personas': sanitize240(group["Pax."] || group["Pax"] || rec["Pax."] || rec["Pax"] || group["Personas"] || group["pax"] || ''),
+                    'reserva-entrada': formatDate(group["Entrada"] || rec["Entrada"]),
+                    'reserva-salida': formatDate(group["Salida"] || rec["Salida"]),
                     'fecha-proforma': today,
-                    'client-address': group["Fiscal_Direccion"] || '',
-                    'client-city': (group["Fiscal_CP"] ? group["Fiscal_CP"] + ' ' : '') + (group["Fiscal_Poblacion"] || '') + (group["Fiscal_Provincia"] ? ', ' + group["Fiscal_Provincia"] : ''),
-                    'client-nif': group["Fiscal_CIF"] || '',
-                    'f-pax-name': group["Nombre del Grupo"] || '',
-                    'f-pax-count': sanitize240(group["Pax."] || group["Pax"] || group["Personas"] || group["pax"] || ''),
-                    'f-date-in': formatDate(group["Entrada"]),
-                    'f-date-out': formatDate(group["Salida"]),
-                    'f-room-summary': group["RoomSummary"] || '---',
-                    'programa': group["Nombre del Grupo"] || group["Com_Programa"] || group["name"] || '',
+                    'client-address': group["Fiscal_Direccion"] || rec["Fiscal_Direccion"] || '',
+                    'client-city': (group["Fiscal_CP"] || rec["Fiscal_CP"] ? (group["Fiscal_CP"] || rec["Fiscal_CP"]) + ' ' : '') + (group["Fiscal_Poblacion"] || rec["Fiscal_Poblacion"] || '') + ((group["Fiscal_Provincia"] || rec["Fiscal_Provincia"]) ? ', ' + (group["Fiscal_Provincia"] || rec["Fiscal_Provincia"]) : ''),
+                    'client-nif': group["Fiscal_CIF"] || rec["Fiscal_CIF"] || '',
+                    'f-pax-name': group["Nombre del Grupo"] || rec["Nombre del Grupo"] || '',
+                    'f-pax-count': sanitize240(group["Pax."] || group["Pax"] || rec["Pax."] || rec["Pax"] || group["Personas"] || group["pax"] || ''),
+                    'f-date-in': formatDate(group["Entrada"] || rec["Entrada"]),
+                    'f-date-out': formatDate(group["Salida"] || rec["Salida"]),
+                    'f-room-summary': group["RoomSummary"] || rec["RoomSummary"] || '---',
+                    'programa': group["Nombre del Grupo"] || rec["Nombre del Grupo"] || group["Com_Programa"] || rec["Com_Programa"] || group["name"] || '',
                     'document-notas': ''
                 };
 
@@ -1667,7 +1670,7 @@
                 const placeholders = ["---", "Calle Dirección", "RAZÓN SOCIAL", "CP, Ciudad", "B00000000"];
 
                 Object.keys(mapping).forEach(k => {
-                    const hasFichaData = mapping[k] && mapping[k] !== '' && !placeholders.includes(mapping[k]);
+                    const hasFichaData = mapping[k] && String(mapping[k]).trim() !== '' && !placeholders.includes(mapping[k]);
                     const hasCustomData = customFields[k] && String(customFields[k]).trim() !== '' && !placeholders.includes(customFields[k]);
                     if (hasCustomData) mapping[k] = customFields[k];
                     else if (!hasFichaData) mapping[k] = "";
@@ -1765,6 +1768,25 @@
                             if (pItems && pItems.length > 0) items = pItems;
                         } catch(e) {}
                     }
+                }
+
+                if ((!items || items.length === 0) && (group.RoomingList_JSON || rec.RoomingList_JSON)) {
+                    try {
+                        const rawRLStr = group.RoomingList_JSON || rec.RoomingList_JSON;
+                        const rawRL = typeof rawRLStr === 'string' ? JSON.parse(rawRLStr) : rawRLStr;
+                        if (Array.isArray(rawRL) && rawRL.length > 0) {
+                            items = rawRL.map(r => ({
+                                fecha: r.dateIn || r.fecha || group.Entrada || rec.Entrada || today,
+                                hab: "1",
+                                cant: (r.qty || r.cant || 1).toString(),
+                                concepto: (r.type || r.concepto || 'Habitación') + (r.regime ? ` (${r.regime})` : ''),
+                                precio: parseFloat(r.price || r.precio || 0),
+                                iva: parseInt(r.iva || 10, 10),
+                                regimen: r.regime || r.regimen || 'AD',
+                                dias: (r.nights || r.dias || 1).toString()
+                            }));
+                        }
+                    } catch(e) {}
                 }
                 
                 if ((!items || items.length === 0) && group.dailyConfig && Object.keys(group.dailyConfig).length > 0) {
@@ -1865,6 +1887,20 @@
                     });
                 }
 
+                if ((!mapping['f-room-summary'] || mapping['f-room-summary'] === '---') && items.length > 0) {
+                    const typeCounts = {};
+                    items.forEach(it => {
+                        const c = cleanConcept(it.concepto);
+                        typeCounts[c] = (typeCounts[c] || 0) + (parseInt(it.cant) || 1);
+                    });
+                    const summ = Object.entries(typeCounts).map(([k, v]) => `${v} ${k}`).join(', ');
+                    if (summ) {
+                        mapping['f-room-summary'] = summ;
+                        const elSumm = document.getElementById('f-room-summary');
+                        if (elSumm) elSumm.innerText = summ;
+                    }
+                }
+
                 paymentPlan = JSON.parse(group.PaymentPlan_JSON || "[]");
                 if (paymentPlan && paymentPlan.length > 1) {
                     paymentPlan = paymentPlan.map((p, idx) => {
@@ -1892,6 +1928,71 @@
                         { label: "1er Pago Garantía", percent: 30, amount: 0, date: d1.toISOString().split('T')[0], status: "Pendiente" },
                         { label: "Liquidación Final", percent: 70, amount: 0, date: d2.toISOString().split('T')[0], status: "Pendiente" }
                     ];
+                }
+
+                // Auto-recuperación no destructiva si los ítems o datos principales faltan
+                if (window.db && (!items || items.length === 0 || !mapping['solicitante-org'])) {
+                    const rid = String(group.Reserva || group.id || rec.Reserva || '').trim().replace(/\.0$/, '').replace(/[\/\\]/g, '-');
+                    if (rid) {
+                        db.collection("groups").doc(rid).get().then(snap => {
+                            if (snap.exists) {
+                                const cData = snap.data();
+                                let shouldReRender = false;
+                                if (!items || items.length === 0) {
+                                    if (cData.ProformaItems && cData.ProformaItems.length > 0) {
+                                        items = cData.ProformaItems;
+                                        shouldReRender = true;
+                                    } else if (cData.RoomingList_JSON) {
+                                        try {
+                                            const rList = typeof cData.RoomingList_JSON === 'string' ? JSON.parse(cData.RoomingList_JSON) : cData.RoomingList_JSON;
+                                            if (Array.isArray(rList) && rList.length > 0) {
+                                                items = rList.map(r => ({
+                                                    fecha: r.dateIn || r.fecha || cData.Entrada || today,
+                                                    hab: "1",
+                                                    cant: (r.qty || r.cant || 1).toString(),
+                                                    concepto: (r.type || r.concepto || 'Habitación') + (r.regime ? ` (${r.regime})` : ''),
+                                                    precio: parseFloat(r.price || r.precio || 0),
+                                                    iva: parseInt(r.iva || 10, 10),
+                                                    regimen: r.regime || r.regimen || 'AD',
+                                                    dias: (r.nights || r.dias || 1).toString()
+                                                }));
+                                                shouldReRender = true;
+                                            }
+                                        } catch(e) {}
+                                    }
+                                }
+                                const custom = cData.ProformaCustomFields || {};
+                                const fieldMap = {
+                                    'solicitante-org': custom['solicitante-org'] || cData.Fiscal_RazonSocial || cData.solicitante_org || cData['Nombre del Grupo'],
+                                    'solicitante-nombre': custom['solicitante-nombre'] || cData.Persona_Contacto || cData.Com_Nombre_Contacto || cData['Nombre del Grupo'],
+                                    'solicitante-tel': custom['solicitante-tel'] || cData.Telefono || cData.Com_Telefono_Contacto,
+                                    'solicitante-email': custom['solicitante-email'] || cData.Email || cData.Com_Email_Contacto || cData.Fiscal_Email,
+                                    'reserva-personas': custom['reserva-personas'] || cData['Pax.'] || cData.Pax || '80',
+                                    'reserva-entrada': custom['reserva-entrada'] || formatDate(cData.Entrada),
+                                    'reserva-salida': custom['reserva-salida'] || formatDate(cData.Salida),
+                                    'f-pax-name': custom['f-pax-name'] || cData['Nombre del Grupo'],
+                                    'f-pax-count': custom['f-pax-count'] || cData['Pax.'] || cData.Pax || '80',
+                                    'f-date-in': custom['f-date-in'] || formatDate(cData.Entrada),
+                                    'f-date-out': custom['f-date-out'] || formatDate(cData.Salida),
+                                    'programa': custom['programa'] || cData.programa || cData['Nombre del Grupo']
+                                };
+                                Object.entries(fieldMap).forEach(([fid, val]) => {
+                                    if (val) {
+                                        ['1', '2', 'universal'].forEach(sfx => {
+                                            const el = document.getElementById(`${fid}-${sfx}`) || document.getElementById(fid);
+                                            if (el && (!el.innerText || el.innerText.trim() === '' || el.innerText.trim() === '---' || el.innerText.trim() === '240')) {
+                                                if (el.tagName === 'INPUT') el.value = val;
+                                                else el.innerText = val;
+                                            }
+                                        });
+                                    }
+                                });
+                                if (shouldReRender) {
+                                    renderItems();
+                                }
+                            }
+                        }).catch(e => console.warn("Background auto-healing error:", e));
+                    }
                 }
             } catch (e) { console.error(e); }
             updateIndependentToggleUI();
@@ -2075,21 +2176,6 @@
                 if (doc.exists) window.globalConfig = doc.data();
             } catch (e) { }
             await refreshConfigFromCloud();
-            try {
-                const saved = localStorage.getItem('selectedGroup');
-                if (saved && window.db) {
-                    const localGroup = JSON.parse(saved);
-                    const rid = String(localGroup.Reserva || localGroup.id || '').trim().replace(/\.0$/, '').replace(/[\/\\]/g, '-');
-                    if (rid && !localGroup.isIndependentProforma) {
-                        const gDoc = await db.collection("groups").doc(rid).get();
-                        if (gDoc.exists) {
-                            const cloudData = gDoc.data();
-                            const merged = { ...localGroup, ...cloudData };
-                            localStorage.setItem('selectedGroup', JSON.stringify(merged));
-                        }
-                    }
-                }
-            } catch (e) { console.warn("Error refreshing group from firestore:", e); }
             loadSelectedGroup();
             renderItems();
             syncFields();

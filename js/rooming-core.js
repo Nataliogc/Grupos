@@ -1034,18 +1034,18 @@
         const dailyPax = {};
         list.forEach(i => {
             const start = parseDate(i.dateIn || i.checkIn || i.Entrada || i.date || i.fecha);
-            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
             if (!start) return;
-            if (!end) {
-                // Infer end from nights field
-                const nights = parseInt(i.nights || i.Noches || i.noches || 1) || 1;
+            const explicitNights = parseInt(i.nights || i.Noches || i.noches || 0);
+            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
+            if (!end || (explicitNights > 0 && calculateRoomingNights(start, end) !== explicitNights)) {
+                const n = explicitNights > 0 ? explicitNights : 1;
                 end = new Date(start);
-                end.setDate(start.getDate() + nights);
+                end.setDate(start.getDate() + n);
             }
             let paxVal = parseInt(i.pax || i["Pax."] || 0);
             if (!paxVal) paxVal = getPaxForRoomType(i.type || i.roomType || i.tipo || '');
             const qtyVal = parseInt(i.qty || i["Cant. Habitaciones"] || i["Cant."] || i["Hab."] || 1);
-            const nights = calculateRoomingNights(start, end) || 1;
+            const nights = explicitNights > 0 ? explicitNights : (calculateRoomingNights(start, end) || 1);
             for (let dayOffset = 0; dayOffset < nights; dayOffset++) {
                 const cur = new Date(start);
                 cur.setDate(start.getDate() + dayOffset);
@@ -1063,15 +1063,16 @@
         const dailyRooms = {};
         list.forEach(i => {
             const start = parseDate(i.dateIn || i.checkIn || i.Entrada || i.date || i.fecha);
-            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
             if (!start) return;
-            if (!end) {
-                const n = parseInt(i.nights || i.Noches || i.noches || 1) || 1;
+            const explicitNights = parseInt(i.nights || i.Noches || i.noches || 0);
+            let end = parseDate(i.dateOut || i.checkOut || i.Salida);
+            if (!end || (explicitNights > 0 && calculateRoomingNights(start, end) !== explicitNights)) {
+                const n = explicitNights > 0 ? explicitNights : 1;
                 end = new Date(start);
                 end.setDate(start.getDate() + n);
             }
             const qtyVal = parseInt(i.qty || i["Cant. Habitaciones"] || i["Cant."] || i["Hab."] || 1);
-            const nights = calculateRoomingNights(start, end) || 1;
+            const nights = explicitNights > 0 ? explicitNights : (calculateRoomingNights(start, end) || 1);
             for (let dayOffset = 0; dayOffset < nights; dayOffset++) {
                 const cur = new Date(start);
                 cur.setDate(start.getDate() + dayOffset);
