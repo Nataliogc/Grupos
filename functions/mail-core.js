@@ -14,7 +14,10 @@ function normalizeMessage(input) {
     mailbox, messageKey: hash(`${mailbox}:${input.providerId}`),
     requestKey: hash(`${mailbox}:${input.threadId}`),
     from: input.from.slice(0, 1000), subject: input.subject,
-    body: input.body, receivedAt: new Date(input.receivedAt).toISOString()
+    body: input.body, receivedAt: new Date(input.receivedAt).toISOString(),
+    truncated: input.truncated === true,
+    attachmentCount: Number.isSafeInteger(input.attachmentCount) ? input.attachmentCount : 0,
+    attachments: Array.isArray(input.attachments) ? input.attachments.slice(0, 100).map(a => ({ filename: String(a.filename || '').slice(0, 240), contentType: String(a.contentType || '').slice(0, 100), size: Math.max(0, Number(a.size) || 0) })) : []
   };
 }
-module.exports = { MAILBOXES, STATES, normalizeMessage };
+module.exports = { MAILBOXES, STATES, normalizeMessage, hash };

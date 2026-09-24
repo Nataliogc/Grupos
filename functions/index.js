@@ -10,6 +10,7 @@ const mail = require('./mail');
 exports.mailInbox = mail.mailInbox;
 exports.mailDetail = mail.mailDetail;
 exports.mailUpdate = mail.mailUpdate;
+exports.syncGroupMail = require('./mail-imap').syncGroupMail;
 
 exports.analizarGruposIA = onRequest(
   {

@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { MAILBOXES, STATES, normalizeMessage } = require('./mail-core');
+const { MAILBOXES, STATES, normalizeMessage, hash } = require('./mail-core');
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 const options = { region: 'us-central1' };
@@ -22,11 +22,17 @@ exports.mailInbox = onCall(options, async request => {
   if (!allowed.length) throw new HttpsError('permission-denied', 'No tienes buzones asignados.');
   const batches = await Promise.all(allowed.map(m => db.collection('mailRequests').where('mailbox', '==', m).orderBy('updatedAt', 'desc').limit(100).get()));
   const members = await db.collection('mailMembers').where('active', '==', true).get();
+  const mailboxes = await Promise.all(allowed.map(async address => {
+    const sync = (await db.collection('mailSync').doc(address).get()).data() || {};
+    const issues = await db.collection('mailSync').doc(address).collection('issues').where('resolved', '==', false).limit(20).get();
+    const recent = Date.parse(sync.lastSuccessAt || '') > Date.now() - 15 * 60 * 1000;
+    return { address, status: sync.status || 'pending', connected: sync.status === 'ready' && recent, lastSuccessAt: sync.lastSuccessAt || null, errorCode: sync.errorCode || '', issues: issues.docs.map(d => ({ id: d.id, ...d.data() })) };
+  }));
   return {
     user: { uid: user.uid, name: user.name, role: user.role },
     requests: batches.flatMap(s => s.docs.map(d => ({ ...d.data(), id: d.id }))).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)),
     members: members.docs.filter(d => (d.data().mailboxes || []).some(m => allowed.includes(m))).map(d => ({ uid: d.id, name: d.data().name || d.id, mailboxes: d.data().mailboxes || [] })),
-    mailboxes: allowed.map(address => ({ address, connected: false }))
+    mailboxes
   };
 });
 exports.mailDetail = onCall(options, async request => {
@@ -73,17 +79,30 @@ exports.mailUpdate = onCall(options, async request => {
   return { ok: true };
 });
 // Internal adapter boundary. Never expose ingestion as an unauthenticated HTTP endpoint.
-// A future provider connector must establish threadId using the provider conversation or References headers.
+// References resolve against a private index; subjects never determine conversation identity.
 exports.ingestMessage = async input => {
   const message = normalizeMessage(input);
-  const ref = db.collection('mailRequests').doc(message.requestKey);
-  const messageRef = ref.collection('messages').doc(message.messageKey);
+  const index = db.collection('mailMessageIndex').doc(message.messageKey);
+  const ids = [...new Set([input.messageId, ...(input.references || [])].filter(v => typeof v === 'string' && v.length <= 1000 && v))].slice(0, 41);
+  const links = ids.map(id => db.collection('mailThreadLinks').doc(hash(`${message.mailbox}:${id}`)));
   return db.runTransaction(async tx => {
+    const indexed = await tx.get(index);
+    if (indexed.exists) return { duplicate: true, id: indexed.data().requestKey };
+    const linked = await Promise.all(links.map(link => tx.get(link)));
+    const knownThread = linked.find(doc => doc.exists);
+    if (knownThread) message.requestKey = knownThread.data().requestKey;
+    const ref = db.collection('mailRequests').doc(message.requestKey);
+    const messageRef = ref.collection('messages').doc(message.messageKey);
     const [existing, parent] = await Promise.all([tx.get(messageRef), tx.get(ref)]);
-    if (existing.exists) return { duplicate: true, id: ref.id };
+    if (existing.exists) {
+      tx.create(index, { requestKey: ref.id });
+      return { duplicate: true, id: ref.id };
+    }
     const current = parent.data();
     const at = new Date().toISOString();
     tx.create(messageRef, message);
+    tx.create(index, { requestKey: ref.id });
+    links.forEach((link, i) => { if (!linked[i].exists) tx.create(link, { requestKey: ref.id }); });
     if (current) tx.update(ref, { updatedAt: at, needsReply: true, version: current.version + 1 });
     else tx.create(ref, { mailbox: message.mailbox, subject: message.subject, from: message.from, status: 'Nueva', assignee: '', needsReply: true, createdAt: at, updatedAt: at, version: 1 });
     return { duplicate: false, id: ref.id };
