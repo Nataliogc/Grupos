@@ -11,6 +11,9 @@ npm-debug.log
 # Env
 .env
 .env.local
+.env.*
+.secret.local
+mail-imap.private.json
 
 # OS
 .DS_Store

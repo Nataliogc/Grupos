@@ -131,6 +131,14 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       _useState30 = _slicedToArray(_useState29, 2),
       note = _useState30[0],
       setNote = _useState30[1];
+    var _useState31 = useState([]),
+      _useState32 = _slicedToArray(_useState31, 2),
+      connections = _useState32[0],
+      setConnections = _useState32[1],
+      _useState33 = useState(false),
+      _useState34 = _slicedToArray(_useState33, 2),
+      showSetup = _useState34[0],
+      setShowSetup = _useState34[1];
     var detailSequence = useRef(0);
     var call = /*#__PURE__*/function () {
       var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(name) {
@@ -171,6 +179,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               setRows(result.requests);
               setMembers(result.members);
               setUser(result.user);
+              setConnections(result.mailboxes || []);
             case 2:
               return _context2.a(2);
           }
@@ -310,6 +319,12 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     });
     var input = 'border border-slate-300 rounded-lg p-2 bg-white w-full';
     var button = 'rounded-lg bg-emerald-800 text-white px-4 py-2 disabled:opacity-50';
+    var connectionLabel = function connectionLabel(connection) {
+      if (demo || !connection || connection.status === 'pending') return 'Pendiente de conectar';
+      if (connection.status === 'disabled') return 'Recepción automática desactivada';
+      if (connection.status === 'error') return connection.errorCode === 'authentication-failed' ? 'Revisar el acceso al buzón' : connection.errorCode === 'mailbox-changed' ? 'El servidor ha cambiado: requiere revisión' : 'No se ha podido completar la sincronización';
+      return connection.connected ? 'Recepción activa' : 'Sincronización sin confirmar: revisar conexión';
+    };
     return /*#__PURE__*/React.createElement("main", {
       className: "max-w-7xl mx-auto p-5 pt-24"
     }, /*#__PURE__*/React.createElement("div", {
@@ -338,16 +353,46 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       }
     }, demo ? 'Acceso del equipo' : 'Ver demostración')), /*#__PURE__*/React.createElement("div", {
       className: "rounded-xl p-4 bg-amber-50 border border-amber-200 mb-5"
-    }, demo ? 'Demostración: datos ficticios, cambios temporales y ningún correo enviado.' : 'Los buzones todavía no están conectados. El acceso requiere una cuenta verificada y autorización del administrador.'), /*#__PURE__*/React.createElement("div", {
+    }, demo ? 'Demostración: datos ficticios, cambios temporales y ningún correo enviado.' : 'La bandeja muestra los mensajes incorporados desde la activación de cada buzón. Pulsa Actualizar para consultar los últimos cambios.'), /*#__PURE__*/React.createElement("div", {
       className: "grid md:grid-cols-2 gap-3 mb-5"
-    }, boxes.map(function (address) {
+    }, (demo || !user ? boxes : connections.map(function (c) {
+      return c.address;
+    })).map(function (address) {
+      var _c$issues;
+      var c = !demo && connections.find(function (c) {
+        return c.address === address;
+      });
       return /*#__PURE__*/React.createElement("div", {
         key: address,
         className: "bg-white border rounded-xl p-4"
-      }, /*#__PURE__*/React.createElement("strong", null, address), /*#__PURE__*/React.createElement("p", {
-        className: "text-sm text-amber-700"
-      }, "Pendiente de conectar \xB7 falta identificar el proveedor"));
-    })), error && /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement("strong", {
+        className: "break-all"
+      }, address), /*#__PURE__*/React.createElement("p", {
+        className: "text-sm ".concat(c !== null && c !== void 0 && c.connected ? 'text-emerald-700' : 'text-amber-700')
+      }, connectionLabel(c)), (c === null || c === void 0 ? void 0 : c.lastSuccessAt) && /*#__PURE__*/React.createElement("p", {
+        className: "text-xs text-slate-500"
+      }, "\xDAltima revisi\xF3n: ", new Date(c.lastSuccessAt).toLocaleString('es-ES')), (c === null || c === void 0 || (_c$issues = c.issues) === null || _c$issues === void 0 ? void 0 : _c$issues.length) > 0 && /*#__PURE__*/React.createElement("div", {
+        className: "mt-2 text-sm text-red-800"
+      }, /*#__PURE__*/React.createElement("p", null, c.issues.length >= 20 ? '20 o más' : c.issues.length, " mensajes requieren revisi\xF3n en Outlook."), c.issues.map(function (i) {
+        return /*#__PURE__*/React.createElement("p", {
+          key: i.id
+        }, "Mensaje ", i.uid, ": ", i.code === 'message-too-large' ? 'supera el límite de 10 MB' : 'no se pudo interpretar');
+      })));
+    })), /*#__PURE__*/React.createElement("button", {
+      className: "text-emerald-800 underline mb-4",
+      onClick: function onClick() {
+        return setShowSetup(!showSetup);
+      },
+      "aria-expanded": showSetup
+    }, "Qu\xE9 falta para conectar los correos"), showSetup && /*#__PURE__*/React.createElement("section", {
+      className: "border rounded-xl bg-white p-5 mb-5"
+    }, /*#__PURE__*/React.createElement("h2", {
+      className: "font-bold mb-2"
+    }, "Datos que necesitamos de inform\xE1tica"), /*#__PURE__*/React.createElement("p", null, "Para cada direcci\xF3n: tipo de cuenta en Outlook (IMAP o Microsoft 365/Exchange), servidor de entrada y puerto. No escribas contrase\xF1as en esta p\xE1gina ni en el chat."), /*#__PURE__*/React.createElement("p", {
+      className: "mt-2"
+    }, "La conexi\xF3n IMAP est\xE1 preparada para recepci\xF3n segura por el puerto 993. Si las cuentas son Microsoft 365/Exchange, adaptaremos la conexi\xF3n a ese servicio."), /*#__PURE__*/React.createElement("p", {
+      className: "mt-2"
+    }, "Al activar la recepci\xF3n se tomar\xE1n los mensajes nuevos a partir de ese momento. Los anteriores y los adjuntos seguir\xE1n disponibles en Outlook.")), error && /*#__PURE__*/React.createElement("div", {
       role: "alert",
       className: "bg-red-50 text-red-800 rounded-xl p-4 mb-4"
     }, error), !demo && !user && /*#__PURE__*/React.createElement("form", {
@@ -541,6 +586,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }, "Asignarme"), /*#__PURE__*/React.createElement("h3", {
       className: "font-bold mt-6 mb-2"
     }, "Conversaci\xF3n"), loadingDetail && /*#__PURE__*/React.createElement("p", null, "Cargando conversaci\xF3n\u2026"), detail === null || detail === void 0 ? void 0 : detail.messages.map(function (m, i) {
+      var _m$attachments;
       return /*#__PURE__*/React.createElement("article", {
         key: i,
         className: "bg-slate-50 rounded-lg p-4 mb-3"
@@ -548,7 +594,18 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         className: "text-sm text-slate-500 break-all"
       }, m.from, " \xB7 ", new Date(m.receivedAt).toLocaleString('es-ES')), /*#__PURE__*/React.createElement("p", {
         className: "whitespace-pre-wrap break-words mt-3"
-      }, m.body));
+      }, m.body), m.truncated && /*#__PURE__*/React.createElement("p", {
+        className: "text-amber-800 text-sm mt-2"
+      }, "Texto abreviado. Consulta el correo completo en Outlook."), m.attachmentCount > 0 && /*#__PURE__*/React.createElement("div", {
+        className: "border-t mt-3 pt-3 text-sm"
+      }, /*#__PURE__*/React.createElement("p", {
+        className: "font-bold"
+      }, m.attachmentCount, " adjuntos \xB7 disponibles en Outlook"), (_m$attachments = m.attachments) === null || _m$attachments === void 0 ? void 0 : _m$attachments.map(function (a, j) {
+        return /*#__PURE__*/React.createElement("p", {
+          key: j,
+          className: "break-all"
+        }, a.filename, " (", Math.ceil(a.size / 1024), " KB)");
+      })));
     }), /*#__PURE__*/React.createElement("p", {
       className: "text-sm text-slate-500 my-4"
     }, "El env\xEDo de respuestas, los adjuntos y la conversi\xF3n a presupuesto se incorporar\xE1n en la siguiente fase."), /*#__PURE__*/React.createElement("form", {

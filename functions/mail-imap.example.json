@@ -1,0 +1,20 @@
+[
+  {
+    "enabled": false,
+    "mailbox": "grupos@hotelguadiana.es",
+    "host": "imap.example.com",
+    "port": 993,
+    "secure": true,
+    "user": "grupos@hotelguadiana.es",
+    "password": "CONFIGURAR_SOLO_EN_SECRET_MANAGER"
+  },
+  {
+    "enabled": false,
+    "mailbox": "grupos@encumbria.es",
+    "host": "imap.example.com",
+    "port": 993,
+    "secure": true,
+    "user": "grupos@encumbria.es",
+    "password": "CONFIGURAR_SOLO_EN_SECRET_MANAGER"
+  }
+]

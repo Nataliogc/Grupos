@@ -63,3 +63,11 @@ test('ingestion, deduplication, reply retention and assignment authorization', a
   assert.equal(records.get(key).version, 5);
   assert.equal([...records.keys()].filter(k => k.includes('/events/')).length, 3);
 });
+test('replies with only an immediate parent join the existing conversation', async () => {
+  const first = await mail.ingestMessage({ ...base, providerId: 'thread-root', threadId: '<root@example.com>', messageId: '<root@example.com>' });
+  const reply = await mail.ingestMessage({ ...base, providerId: 'thread-reply', threadId: '<root@example.com>', messageId: '<reply@example.com>', references: ['<root@example.com>'] });
+  const last = await mail.ingestMessage({ ...base, providerId: 'thread-last', threadId: '<reply@example.com>', messageId: '<last@example.com>', references: ['<reply@example.com>'] });
+  assert.equal(first.id, reply.id);
+  assert.equal(first.id, last.id);
+  assert.equal((await mail.ingestMessage({ ...base, providerId: 'thread-last', threadId: 'different-provider-thread' })).duplicate, true);
+});

@@ -15,6 +15,7 @@
     const [hotel, setHotel] = useState(''), [view, setView] = useState('all'), [search, setSearch] = useState('');
     const [error, setError] = useState(''), [busy, setBusy] = useState(false), [loadingDetail, setLoadingDetail] = useState(false);
     const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [note, setNote] = useState('');
+    const [connections, setConnections] = useState([]), [showSetup, setShowSetup] = useState(false);
     const detailSequence = useRef(0);
     const call = async (name, data = {}) => {
       if (!window.firebase?.functions) throw new Error('No se pudo cargar la conexión. Recarga la página.');
@@ -22,7 +23,7 @@
     };
     const refresh = async () => {
       const result = await call('mailInbox');
-      setRows(result.requests); setMembers(result.members); setUser(result.user);
+      setRows(result.requests); setMembers(result.members); setUser(result.user); setConnections(result.mailboxes || []);
     };
     const run = async fn => {
       setBusy(true); setError('');
@@ -59,11 +60,19 @@
     const visible = rows.filter(r => (!hotel || r.mailbox === hotel) && (view === 'all' || (view === 'mine' ? r.assignee === user?.uid : !r.assignee)) && `${r.subject} ${r.from}`.toLowerCase().includes(search.toLowerCase()));
     const input = 'border border-slate-300 rounded-lg p-2 bg-white w-full';
     const button = 'rounded-lg bg-emerald-800 text-white px-4 py-2 disabled:opacity-50';
+    const connectionLabel = connection => {
+      if (demo || !connection || connection.status === 'pending') return 'Pendiente de conectar';
+      if (connection.status === 'disabled') return 'Recepción automática desactivada';
+      if (connection.status === 'error') return connection.errorCode === 'authentication-failed' ? 'Revisar el acceso al buzón' : connection.errorCode === 'mailbox-changed' ? 'El servidor ha cambiado: requiere revisión' : 'No se ha podido completar la sincronización';
+      return connection.connected ? 'Recepción activa' : 'Sincronización sin confirmar: revisar conexión';
+    };
     return <main className="max-w-7xl mx-auto p-5 pt-24">
       <div className="flex flex-wrap justify-between gap-4 mb-5"><div><h1 className="text-3xl font-bold">Peticiones de grupos</h1><p className="text-slate-500">Correos, responsables y seguimiento comercial.</p></div>
         <button disabled={busy} className={button} onClick={() => { ++detailSequence.current; setDemo(!demo); setSelected(''); setError(''); setDetail(null); setEvents({}); setRows(demo ? [] : seed()); setMembers(demo ? [] : demoMembers); setUser(demo ? null : { uid: 'demo', name: 'Dirección de ejemplo', role: 'admin' }); }}>{demo ? 'Acceso del equipo' : 'Ver demostración'}</button></div>
-      <div className="rounded-xl p-4 bg-amber-50 border border-amber-200 mb-5">{demo ? 'Demostración: datos ficticios, cambios temporales y ningún correo enviado.' : 'Los buzones todavía no están conectados. El acceso requiere una cuenta verificada y autorización del administrador.'}</div>
-      <div className="grid md:grid-cols-2 gap-3 mb-5">{boxes.map(address => <div key={address} className="bg-white border rounded-xl p-4"><strong>{address}</strong><p className="text-sm text-amber-700">Pendiente de conectar · falta identificar el proveedor</p></div>)}</div>
+      <div className="rounded-xl p-4 bg-amber-50 border border-amber-200 mb-5">{demo ? 'Demostración: datos ficticios, cambios temporales y ningún correo enviado.' : 'La bandeja muestra los mensajes incorporados desde la activación de cada buzón. Pulsa Actualizar para consultar los últimos cambios.'}</div>
+      <div className="grid md:grid-cols-2 gap-3 mb-5">{(demo || !user ? boxes : connections.map(c => c.address)).map(address => { const c = !demo && connections.find(c => c.address === address); return <div key={address} className="bg-white border rounded-xl p-4"><strong className="break-all">{address}</strong><p className={`text-sm ${c?.connected ? 'text-emerald-700' : 'text-amber-700'}`}>{connectionLabel(c)}</p>{c?.lastSuccessAt && <p className="text-xs text-slate-500">Última revisión: {new Date(c.lastSuccessAt).toLocaleString('es-ES')}</p>}{c?.issues?.length > 0 && <div className="mt-2 text-sm text-red-800"><p>{c.issues.length >= 20 ? '20 o más' : c.issues.length} mensajes requieren revisión en Outlook.</p>{c.issues.map(i => <p key={i.id}>Mensaje {i.uid}: {i.code === 'message-too-large' ? 'supera el límite de 10 MB' : 'no se pudo interpretar'}</p>)}</div>}</div>; })}</div>
+      <button className="text-emerald-800 underline mb-4" onClick={() => setShowSetup(!showSetup)} aria-expanded={showSetup}>Qué falta para conectar los correos</button>
+      {showSetup && <section className="border rounded-xl bg-white p-5 mb-5"><h2 className="font-bold mb-2">Datos que necesitamos de informática</h2><p>Para cada dirección: tipo de cuenta en Outlook (IMAP o Microsoft 365/Exchange), servidor de entrada y puerto. No escribas contraseñas en esta página ni en el chat.</p><p className="mt-2">La conexión IMAP está preparada para recepción segura por el puerto 993. Si las cuentas son Microsoft 365/Exchange, adaptaremos la conexión a ese servicio.</p><p className="mt-2">Al activar la recepción se tomarán los mensajes nuevos a partir de ese momento. Los anteriores y los adjuntos seguirán disponibles en Outlook.</p></section>}
       {error && <div role="alert" className="bg-red-50 text-red-800 rounded-xl p-4 mb-4">{error}</div>}
       {!demo && !user && <form className="bg-white border rounded-xl p-5 max-w-lg space-y-3 mb-5" onSubmit={e => { e.preventDefault(); run(async () => { await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION); await firebase.auth().signInWithEmailAndPassword(email, password); setPassword(''); await refresh(); }); }}>
         <h2 className="font-bold">Acceso seguro a peticiones</h2><p className="text-sm">El administrador debe dar de alta este acceso. La contraseña del correo no se utiliza aquí.</p>
@@ -86,7 +95,7 @@
               <label>Estado<select disabled={busy || (user?.role !== 'admin' && item.assignee !== user?.uid)} className={input} value={item.status} onChange={e => update('status', e.target.value)}>{states.map(s => <option key={s}>{s}</option>)}</select></label></div>
             {!item.assignee && <button disabled={busy} className={`${button} mt-3`} onClick={() => update('assign', user.uid)}>Asignarme</button>}
             <h3 className="font-bold mt-6 mb-2">Conversación</h3>{loadingDetail && <p>Cargando conversación…</p>}
-            {detail?.messages.map((m, i) => <article key={i} className="bg-slate-50 rounded-lg p-4 mb-3"><p className="text-sm text-slate-500 break-all">{m.from} · {new Date(m.receivedAt).toLocaleString('es-ES')}</p><p className="whitespace-pre-wrap break-words mt-3">{m.body}</p></article>)}
+            {detail?.messages.map((m, i) => <article key={i} className="bg-slate-50 rounded-lg p-4 mb-3"><p className="text-sm text-slate-500 break-all">{m.from} · {new Date(m.receivedAt).toLocaleString('es-ES')}</p><p className="whitespace-pre-wrap break-words mt-3">{m.body}</p>{m.truncated && <p className="text-amber-800 text-sm mt-2">Texto abreviado. Consulta el correo completo en Outlook.</p>}{m.attachmentCount > 0 && <div className="border-t mt-3 pt-3 text-sm"><p className="font-bold">{m.attachmentCount} adjuntos · disponibles en Outlook</p>{m.attachments?.map((a, j) => <p key={j} className="break-all">{a.filename} ({Math.ceil(a.size / 1024)} KB)</p>)}</div>}</article>)}
             <p className="text-sm text-slate-500 my-4">El envío de respuestas, los adjuntos y la conversión a presupuesto se incorporarán en la siguiente fase.</p>
             <form onSubmit={e => { e.preventDefault(); update('note', note.trim()); }}><label className="font-bold">Nota interna<textarea maxLength={4000} className={`${input} mt-2 font-normal`} value={note} onChange={e => setNote(e.target.value)} /></label><button disabled={busy || !note.trim() || (user?.role !== 'admin' && item.assignee !== user?.uid)} className={button}>Guardar nota</button></form>
             <h3 className="font-bold mt-6">Actividad</h3>{detail?.events.map((e, i) => <p className="text-sm border-b py-3 whitespace-pre-wrap break-words" key={i}>{e.actor} · {new Date(e.at).toLocaleString('es-ES')}<br />{e.action === 'note' ? e.value : e.action === 'status' ? `Estado: ${e.value}` : `Asignación: ${members.find(m => m.uid === e.value)?.name || e.value || 'Sin asignar'}`}</p>)}

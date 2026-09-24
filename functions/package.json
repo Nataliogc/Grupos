@@ -2,7 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
-    "test:mail": "node --test ../tests/mail.test.js",
+    "test:mail": "node --test ../tests/mail.test.js ../tests/mail-imap.test.js",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
