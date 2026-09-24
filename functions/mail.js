@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { MAILBOXES, STATES, normalizeMessage, hash } = require('./mail-core');
+const commercialDirectory = require('./commercial-directory');
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 const options = { region: 'us-central1' };
@@ -22,6 +23,8 @@ exports.mailInbox = onCall(options, async request => {
   if (!allowed.length) throw new HttpsError('permission-denied', 'No tienes buzones asignados.');
   const batches = await Promise.all(allowed.map(m => db.collection('mailRequests').where('mailbox', '==', m).orderBy('updatedAt', 'desc').limit(100).get()));
   const members = await db.collection('mailMembers').where('active', '==', true).get();
+  const settings = (await db.collection('settings').doc('main').get()).data() || {};
+  const authorizedMembers = members.docs.filter(d => (d.data().mailboxes || []).some(m => allowed.includes(m))).map(d => ({ uid: d.id, name: d.data().name || d.id, commercialName: d.data().commercialName || '', mailboxes: d.data().mailboxes || [] }));
   const mailboxes = await Promise.all(allowed.map(async address => {
     const sync = (await db.collection('mailSync').doc(address).get()).data() || {};
     const issues = await db.collection('mailSync').doc(address).collection('issues').where('resolved', '==', false).limit(20).get();
@@ -31,7 +34,7 @@ exports.mailInbox = onCall(options, async request => {
   return {
     user: { uid: user.uid, name: user.name, role: user.role },
     requests: batches.flatMap(s => s.docs.map(d => ({ ...d.data(), id: d.id }))).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)),
-    members: members.docs.filter(d => (d.data().mailboxes || []).some(m => allowed.includes(m))).map(d => ({ uid: d.id, name: d.data().name || d.id, mailboxes: d.data().mailboxes || [] })),
+    members: commercialDirectory.merge(settings.system?.commercials, authorizedMembers, allowed),
     mailboxes
   };
 });

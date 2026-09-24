@@ -3,13 +3,14 @@
   const boxes = ['grupos@hotelguadiana.es', 'grupos@encumbria.es'];
   const states = ['Nueva', 'En gestión', 'Pendiente del cliente', 'Presupuestada', 'Ganada', 'Perdida'];
   const stamp = () => new Date().toISOString();
-  const demoMembers = [{ uid: 'demo', name: 'Comercial de ejemplo', mailboxes: boxes }, { uid: 'demo2', name: 'Segundo comercial', mailboxes: boxes }];
   const seed = () => [
     { id: 'demo-1', mailbox: boxes[0], subject: 'Ejemplo: solicitud de 20 habitaciones', from: 'agencia@example.com', status: 'Nueva', assignee: '', version: 1, updatedAt: stamp(), needsReply: true },
-    { id: 'demo-2', mailbox: boxes[1], subject: 'Ejemplo: grupo con media pensión', from: 'cliente@example.com', status: 'En gestión', assignee: 'demo', version: 1, updatedAt: stamp(), needsReply: true }
+    { id: 'demo-2', mailbox: boxes[1], subject: 'Ejemplo: grupo con media pensión', from: 'cliente@example.com', status: 'Nueva', assignee: '', version: 1, updatedAt: stamp(), needsReply: true }
   ];
   function App() {
-    const [demo, setDemo] = useState(true), [rows, setRows] = useState(seed), [members, setMembers] = useState(demoMembers);
+    const [demo, setDemo] = useState(true), [rows, setRows] = useState(seed), [members, setMembers] = useState([]);
+    const [directoryLoading, setDirectoryLoading] = useState(false), [directoryError, setDirectoryError] = useState('');
+    const [directoryRetry, setDirectoryRetry] = useState(0);
     const [user, setUser] = useState({ uid: 'demo', name: 'Dirección de ejemplo', role: 'admin' });
     const [selected, setSelected] = useState(''), [detail, setDetail] = useState(null), [events, setEvents] = useState({});
     const [hotel, setHotel] = useState(''), [view, setView] = useState('all'), [search, setSearch] = useState('');
@@ -18,6 +19,29 @@
     const [connections, setConnections] = useState([]), [showSetup, setShowSetup] = useState(false);
     const [replyNotice, setReplyNotice] = useState('');
     const detailSequence = useRef(0);
+    useEffect(() => {
+      if (!demo) return;
+      let alive = true, sequence = 0;
+      const controller = new AbortController();
+      const load = async () => {
+        const current = ++sequence;
+        setDirectoryLoading(true); setDirectoryError('');
+        try {
+          const project = window.firebaseConfig?.projectId;
+          if (!project) throw new Error('Falta la configuración de la aplicación.');
+          // Field mask prevents downloading the legacy users/passwords stored in settings.
+          const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(project)}/databases/(default)/documents/settings/main?mask.fieldPaths=system.commercials`;
+          const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+          if (!response.ok) throw new Error('No se pudieron cargar los comerciales de Configuración.');
+          const catalog = window.NexusCommercialDirectory.fromFirestore(await response.json());
+          if (alive && current === sequence) setMembers(catalog.map(m => ({ ...m, mailboxes: boxes })));
+        } catch (e) {
+          if (alive && current === sequence) { setMembers([]); setDirectoryError(e.message); }
+        } finally { if (alive && current === sequence) setDirectoryLoading(false); }
+      };
+      load(); window.addEventListener('focus', load);
+      return () => { alive = false; controller.abort(); window.removeEventListener('focus', load); };
+    }, [demo, directoryRetry]);
     const call = async (name, data = {}) => {
       if (!window.firebase?.functions) throw new Error('No se pudo cargar la conexión. Recarga la página.');
       return (await firebase.app().functions('us-central1').httpsCallable(name)(data)).data;
