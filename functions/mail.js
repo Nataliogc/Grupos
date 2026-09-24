@@ -1,0 +1,91 @@
+const admin = require('firebase-admin');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { MAILBOXES, STATES, normalizeMessage } = require('./mail-core');
+if (!admin.apps.length) admin.initializeApp();
+const db = admin.firestore();
+const options = { region: 'us-central1' };
+async function member(request) {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Inicia sesión para acceder al correo.');
+  const doc = await db.collection('mailMembers').doc(request.auth.uid).get();
+  const data = doc.data();
+  if (!data || data.active !== true || !['admin', 'commercial'].includes(data.role)) {
+    throw new HttpsError('permission-denied', 'Tu usuario todavía no tiene acceso a peticiones.');
+  }
+  return { ...data, uid: request.auth.uid };
+}
+function canRead(user, item) {
+  return Array.isArray(user.mailboxes) && user.mailboxes.includes(item.mailbox);
+}
+exports.mailInbox = onCall(options, async request => {
+  const user = await member(request);
+  const allowed = MAILBOXES.filter(m => (user.mailboxes || []).includes(m));
+  if (!allowed.length) throw new HttpsError('permission-denied', 'No tienes buzones asignados.');
+  const batches = await Promise.all(allowed.map(m => db.collection('mailRequests').where('mailbox', '==', m).orderBy('updatedAt', 'desc').limit(100).get()));
+  const members = await db.collection('mailMembers').where('active', '==', true).get();
+  return {
+    user: { uid: user.uid, name: user.name, role: user.role },
+    requests: batches.flatMap(s => s.docs.map(d => ({ ...d.data(), id: d.id }))).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)),
+    members: members.docs.filter(d => (d.data().mailboxes || []).some(m => allowed.includes(m))).map(d => ({ uid: d.id, name: d.data().name || d.id, mailboxes: d.data().mailboxes || [] })),
+    mailboxes: allowed.map(address => ({ address, connected: false }))
+  };
+});
+exports.mailDetail = onCall(options, async request => {
+  const user = await member(request);
+  const id = validId(request.data?.id);
+  const ref = db.collection('mailRequests').doc(id);
+  const doc = await ref.get();
+  if (!doc.exists || !canRead(user, doc.data())) throw new HttpsError('permission-denied', 'Petición no disponible.');
+  const [messages, events] = await Promise.all([ref.collection('messages').orderBy('receivedAt').limit(200).get(), ref.collection('events').orderBy('at', 'desc').limit(100).get()]);
+  return { messages: messages.docs.map(d => d.data()), events: events.docs.map(d => d.data()) };
+});
+function validId(value) {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) throw new HttpsError('invalid-argument', 'Identificador no válido.');
+  return value;
+}
+exports.mailUpdate = onCall(options, async request => {
+  const user = await member(request);
+  const { id, version, action, value } = request.data || {};
+  const ref = db.collection('mailRequests').doc(validId(id));
+  await db.runTransaction(async tx => {
+    const doc = await tx.get(ref);
+    const item = doc.data();
+    if (!item || !canRead(user, item)) throw new HttpsError('permission-denied', 'Petición no disponible.');
+    if (item.version !== version) throw new HttpsError('aborted', 'Otro usuario ha actualizado esta petición. Actualiza la bandeja.');
+    const changes = {};
+    if (action === 'assign') {
+      if (typeof value !== 'string' || value.includes('/') || value.length > 128) throw new HttpsError('invalid-argument', 'Responsable no válido.');
+      if (user.role !== 'admin' && (value !== user.uid || item.assignee)) throw new HttpsError('permission-denied', 'Solo dirección puede reasignar.');
+      if (value) {
+        const target = (await tx.get(db.collection('mailMembers').doc(value))).data();
+        if (!target?.active || !canRead(target, item)) throw new HttpsError('invalid-argument', 'El comercial no tiene acceso a este buzón.');
+      }
+      changes.assignee = value;
+    } else {
+      if (user.role !== 'admin' && item.assignee !== user.uid) throw new HttpsError('permission-denied', 'Asigna primero la petición a tu usuario.');
+      if (action === 'status' && STATES.includes(value)) changes.status = value;
+      else if (action === 'note' && typeof value === 'string' && value.trim() && value.length <= 4000) { /* Stored in audit event. */ }
+      else throw new HttpsError('invalid-argument', 'Cambio no válido.');
+    }
+    const at = new Date().toISOString();
+    tx.update(ref, { ...changes, version: item.version + 1, updatedAt: at });
+    tx.create(ref.collection('events').doc(), { at, actor: user.name || user.uid, actorUid: user.uid, action, value, previous: action === 'assign' ? item.assignee : action === 'status' ? item.status : null });
+  });
+  return { ok: true };
+});
+// Internal adapter boundary. Never expose ingestion as an unauthenticated HTTP endpoint.
+// A future provider connector must establish threadId using the provider conversation or References headers.
+exports.ingestMessage = async input => {
+  const message = normalizeMessage(input);
+  const ref = db.collection('mailRequests').doc(message.requestKey);
+  const messageRef = ref.collection('messages').doc(message.messageKey);
+  return db.runTransaction(async tx => {
+    const [existing, parent] = await Promise.all([tx.get(messageRef), tx.get(ref)]);
+    if (existing.exists) return { duplicate: true, id: ref.id };
+    const current = parent.data();
+    const at = new Date().toISOString();
+    tx.create(messageRef, message);
+    if (current) tx.update(ref, { updatedAt: at, needsReply: true, version: current.version + 1 });
+    else tx.create(ref, { mailbox: message.mailbox, subject: message.subject, from: message.from, status: 'Nueva', assignee: '', needsReply: true, createdAt: at, updatedAt: at, version: 1 });
+    return { duplicate: false, id: ref.id };
+  });
+};

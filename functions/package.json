@@ -2,6 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
+    "test:mail": "node --test ../tests/mail.test.js",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
@@ -16,7 +17,9 @@
     "@google/generative-ai": "^0.1.0",
     "cors": "^2.8.5",
     "firebase-admin": "^11.8.0",
-    "firebase-functions": "^4.3.1"
+    "firebase-functions": "^4.3.1",
+    "imapflow": "^2.0.6",
+    "mailparser": "^3.9.28"
   },
   "devDependencies": {
     "firebase-functions-test": "^3.1.0"

@@ -375,6 +375,11 @@
                         <span class="hidden xl:inline">Grupos</span>
                     </a>
 
+                    <a href="Peticiones.html" class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Peticiones de correo">
+                        <i data-lucide="mail" class="w-3.5 h-3.5 flex-shrink-0"></i>
+                        <span>Peticiones</span>
+                    </a>
+
                     <a href="Presupuestos.html"
                        class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Seguimiento Presupuestos">
                         <i data-lucide="clipboard-list" class="w-3.5 h-3.5 flex-shrink-0"></i>

@@ -6,6 +6,10 @@ const cors = require("cors")({ origin: true });
 
 // Definimos la API Key como SECRET (forma moderna)
 const geminiKey = defineSecret("GEMINI_KEY");
+const mail = require('./mail');
+exports.mailInbox = mail.mailInbox;
+exports.mailDetail = mail.mailDetail;
+exports.mailUpdate = mail.mailUpdate;
 
 exports.analizarGruposIA = onRequest(
   {
