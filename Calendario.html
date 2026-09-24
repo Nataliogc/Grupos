@@ -195,6 +195,7 @@
 
             <!-- IFRAME DEL CALENDARIO DE CAPASUITE -->
             <iframe id="capasuite-iframe" 
+                    src="https://nataliogc.github.io/CapaSuite/AnalisisCalendario.html"
                     title="Calendario Operativo CapaSuite" 
                     class="w-full h-full border-0 flex-1 bg-white" 
                     allow="clipboard-write; clipboard-read; fullscreen"
@@ -206,7 +207,7 @@
                 <div class="flex items-center gap-2">
                     <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
                     <span>
-                        <strong>Sincronización continua:</strong> El calendario se actualiza automáticamente al cambiar de ventana y cada 5 minutos.
+                        <strong>Sincronización en tiempo real:</strong> CapaSuite actualiza las tarifas, cupos y ocupación automáticamente mediante conexión directa con la nube.
                     </span>
                 </div>
                 <button type="button" onclick="document.getElementById('help-notice').style.display='none'" class="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer" title="Cerrar aviso">
@@ -240,69 +241,71 @@
             var fullscreenText = document.getElementById("btn-fullscreen-text");
             var wrapper = document.getElementById("calendar-wrapper");
 
-            var lastSyncTimestamp = 0;
-            var isRefreshing = false;
-
             function formatTime(d) {
                 var p = function (n) { return n < 10 ? "0" + n : "" + n; };
                 return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
             }
 
-            // Cargar o recargar el iframe garantizando datos frescos (Cache-busting)
-            function loadCalendar(showLoader) {
-                if (showLoader !== false && loader) {
-                    loader.style.opacity = "1";
-                    loader.style.display = "flex";
-                }
-
-                if (refreshIcon) {
-                    refreshIcon.classList.add("spinner-anim");
-                }
-
-                // Generar URL con timestamp para saltarse la caché HTTP de GitHub Pages (max-age=600)
-                var freshTimestamp = Date.now();
-                var freshUrl = BASE_CALENDAR_URL + "?_cb=" + freshTimestamp;
-
-                if (syncBadge) {
-                    syncBadge.textContent = "Actualizando...";
-                    syncBadge.className = "text-[10px] font-bold text-amber-600 uppercase tracking-wider";
-                }
-
-                iframe.src = freshUrl;
-                lastSyncTimestamp = freshTimestamp;
-            }
-
-            // Evento cuando el iframe finaliza su carga
-            iframe.addEventListener("load", function () {
-                var now = new Date();
-                if (syncLastTime) {
-                    syncLastTime.textContent = "Actualizado: " + formatTime(now);
-                }
-                if (syncBadge) {
-                    syncBadge.textContent = "Sincronizado";
-                    syncBadge.className = "text-[10px] font-bold text-emerald-600 uppercase tracking-wider";
-                }
-
-                if (refreshIcon) {
-                    refreshIcon.classList.remove("spinner-anim");
-                }
-
+            function hideLoader() {
                 if (loader) {
                     loader.style.opacity = "0";
                     setTimeout(function () {
                         loader.style.display = "none";
                     }, 250);
                 }
+                if (refreshIcon) refreshIcon.classList.remove("spinner-anim");
+                if (syncBadge) {
+                    syncBadge.textContent = "Sincronizado";
+                    syncBadge.className = "text-[10px] font-bold text-emerald-600 uppercase tracking-wider";
+                }
+                if (syncLastTime) {
+                    syncLastTime.textContent = "Actualizado: " + formatTime(new Date());
+                }
+            }
 
-                isRefreshing = false;
+            // Actualización ultra-rápida: intenta llamar a loadAllData() dentro del iframe sin recargar la página entera
+            function refreshCalendar(forceHardReload) {
+                if (refreshIcon) refreshIcon.classList.add("spinner-anim");
+                if (syncBadge) {
+                    syncBadge.textContent = "Actualizando...";
+                    syncBadge.className = "text-[10px] font-bold text-amber-600 uppercase tracking-wider";
+                }
+
+                var reloadedDirectly = false;
+                if (!forceHardReload) {
+                    try {
+                        if (iframe.contentWindow && typeof iframe.contentWindow.loadAllData === "function") {
+                            iframe.contentWindow.loadAllData();
+                            reloadedDirectly = true;
+                        }
+                    } catch (e) {
+                        // Acceso bloqueado por política de origen si se ejecuta en localhosts dispares
+                    }
+                }
+
+                if (reloadedDirectly) {
+                    setTimeout(hideLoader, 300);
+                } else {
+                    if (loader) {
+                        loader.style.display = "flex";
+                        loader.style.opacity = "1";
+                    }
+                    iframe.src = BASE_CALENDAR_URL + (forceHardReload ? "?_cb=" + Date.now() : "");
+                }
+            }
+
+            // Evento cuando el iframe finaliza su carga
+            iframe.addEventListener("load", function () {
+                hideLoader();
             });
 
-            // Botón Recargar / Actualizar manual
+            // Seguridad por si el evento load se retrasa por fuentes o analíticas
+            setTimeout(hideLoader, 2500);
+
+            // Botón manual de recarga
             if (btnRefresh) {
                 btnRefresh.addEventListener("click", function () {
-                    if (isRefreshing) return;
-                    isRefreshing = true;
-                    loadCalendar(true);
+                    refreshCalendar(false);
                 });
             }
 
@@ -313,7 +316,6 @@
                     if (isFull) {
                         fullscreenIcon.setAttribute("data-lucide", "minimize");
                         if (fullscreenText) fullscreenText.textContent = "Salir Pantalla Completa";
-                        // Intentar Fullscreen API del navegador
                         if (wrapper.requestFullscreen) {
                             wrapper.requestFullscreen().catch(function () {});
                         }
@@ -337,29 +339,17 @@
                 });
             }
 
-            // GARANTÍA "SIEMPRE ACTUALIZADO":
-            // 1. Detección de regreso a la pestaña: Si el usuario vuelve tras más de 3 minutos, refrescar suavemente
+            // Al volver a la pestaña, refrescar datos sin recargar la página (cero parpadeo ni congelamiento)
             document.addEventListener("visibilitychange", function () {
                 if (document.visibilityState === "visible") {
-                    var elapsedMs = Date.now() - lastSyncTimestamp;
-                    // Si pasaron más de 3 minutos (180,000 ms), actualizar automáticamente
-                    if (elapsedMs > 180000) {
-                        console.log("[Calendario] Pestaña reactivada tras " + Math.round(elapsedMs / 1000) + "s. Recargando datos en vivo...");
-                        loadCalendar(false);
-                    }
+                    try {
+                        if (iframe.contentWindow && typeof iframe.contentWindow.loadAllData === "function") {
+                            iframe.contentWindow.loadAllData();
+                            if (syncLastTime) syncLastTime.textContent = "Actualizado: " + formatTime(new Date());
+                        }
+                    } catch (e) {}
                 }
             });
-
-            // 2. Intervalo periódico en segundo plano cada 5 minutos
-            setInterval(function () {
-                if (document.visibilityState === "visible" && !isRefreshing) {
-                    console.log("[Calendario] Sincronización periódica automática (5m)...");
-                    loadCalendar(false);
-                }
-            }, 300000);
-
-            // Carga inicial al arrancar
-            loadCalendar(true);
 
             // Re-renderizar iconos Lucide
             if (window.lucide) {
