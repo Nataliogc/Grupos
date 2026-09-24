@@ -402,6 +402,8 @@
         fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
         const fifteenDaysFromNow = new Date(startOfToday);
         fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
+        const twentyFiveDaysFromNow = new Date(startOfToday);
+        twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
 
         (data || []).forEach(g => {
           const status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();

@@ -2470,6 +2470,21 @@
                 btnText.innerText = showBank ? 'Banco: ON' : 'Banco: OFF';
                 btnBank.className = showBank ? 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 shadow-lg text-[10px] font-black uppercase tracking-wider transition-all' : 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/50 border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all';
             }
+
+            // Sincronizar reserva-personas y f-pax-count con la ocupación simultánea
+            const peakPax = calculatePaxFromItems(processedItems);
+            const targetPaxStr = (peakPax > 0 ? peakPax : 80).toString();
+            ['reserva-personas-1', 'reserva-personas-2', 'reserva-personas', 'f-pax-count'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    const currentText = (el.tagName === 'INPUT' ? el.value : el.innerText).trim();
+                    if (currentText === '240' || currentText === '---' || !currentText) {
+                        if (el.tagName === 'INPUT') el.value = targetPaxStr;
+                        else el.innerText = targetPaxStr;
+                    }
+                }
+            });
+
             updatePaymentLink();
             validateProformaAgainstSource();
         }
@@ -2612,20 +2627,6 @@
                     polDiv.style.breakBefore = 'auto';
                 }
             }
-
-            // Sincronizar reserva-personas y f-pax-count con la ocupación simultánea
-            const peakPax = calculatePaxFromItems(processedItems);
-            const targetPaxStr = (peakPax > 0 ? peakPax : 80).toString();
-            ['reserva-personas-1', 'reserva-personas-2', 'reserva-personas', 'f-pax-count'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    const currentText = (el.tagName === 'INPUT' ? el.value : el.innerText).trim();
-                    if (currentText === '240' || currentText === '---' || !currentText) {
-                        if (el.tagName === 'INPUT') el.value = targetPaxStr;
-                        else el.innerText = targetPaxStr;
-                    }
-                }
-            });
         }
 
         function printDoc() {

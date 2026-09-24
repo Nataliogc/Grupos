@@ -449,6 +449,8 @@ var Dashboard = function Dashboard(_ref2) {
     fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
     var fifteenDaysFromNow = new Date(startOfToday);
     fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
+    var twentyFiveDaysFromNow = new Date(startOfToday);
+    twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
     (data || []).forEach(function (g) {
       var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
       var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO"].some(function (s) {
