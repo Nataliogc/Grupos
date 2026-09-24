@@ -41,8 +41,8 @@ exports.mailDetail = onCall(options, async request => {
   const ref = db.collection('mailRequests').doc(id);
   const doc = await ref.get();
   if (!doc.exists || !canRead(user, doc.data())) throw new HttpsError('permission-denied', 'Petición no disponible.');
-  const [messages, events] = await Promise.all([ref.collection('messages').orderBy('receivedAt').limit(200).get(), ref.collection('events').orderBy('at', 'desc').limit(100).get()]);
-  return { messages: messages.docs.map(d => d.data()), events: events.docs.map(d => d.data()) };
+  const [messages, events] = await Promise.all([ref.collection('messages').orderBy('receivedAt', 'desc').limit(200).get(), ref.collection('events').orderBy('at', 'desc').limit(100).get()]);
+  return { messages: messages.docs.map(d => d.data()).reverse(), events: events.docs.map(d => d.data()) };
 });
 function validId(value) {
   if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) throw new HttpsError('invalid-argument', 'Identificador no válido.');

@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "test:outlook": "node --test tests/outlookReply.test.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:js": "npx babel src --out-dir js"
   },

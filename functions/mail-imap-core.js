@@ -53,6 +53,8 @@ function parsedMessage(parsed, account, uidValidity, uid, internalDate) {
     threadId: references[0] || parent[0] || providerId,
     messageId: own || '', references: [...new Set([...references, ...parent])],
     from: String(parsed.from?.text || 'Remitente no disponible').slice(0, 1000),
+    replyTo: String(parsed.replyTo?.value?.[0]?.address || parsed.from?.value?.[0]?.address || '').slice(0, 320),
+    internetMessageId: own || '',
     subject: String(parsed.subject || '(Sin asunto)').slice(0, 1000),
     body: originalText.slice(0, 160000) || (attachments.length ? 'Correo sin texto. Contiene adjuntos; consúltalos en Outlook.' : 'Correo sin texto legible. Consulta el original en Outlook.'),
     truncated: originalText.length > 160000,

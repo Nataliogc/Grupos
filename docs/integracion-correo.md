@@ -36,9 +36,10 @@ Validación realizada: doce pruebas locales de dominio, sincronización y handle
 
 - Un mensaje solo se registra una vez por buzón e identificador del proveedor; una respuesta conserva el responsable. Un correo dirigido a ambos hoteles mantiene dos peticiones por ahora. La fusión entre hoteles requiere revisión explícita.
 - Las mutaciones verifican la versión dentro de una transacción y registran un evento. Una actualización concurrente obliga a refrescar.
-- Bandeja: máximo 100 peticiones recientes por buzón; detalle: primeros 200 mensajes y últimos 100 eventos. Añadir paginación antes de gestionar históricos grandes. Actualización manual en esta entrega.
+- Bandeja: máximo 100 peticiones recientes por buzón; detalle: últimos 200 mensajes (mostrados en orden cronológico) y últimos 100 eventos. Añadir paginación antes de gestionar históricos grandes. Actualización manual en esta entrega.
 - Los mensajes se muestran como texto, nunca como HTML ejecutable. Se crea una petición incluso para correos sin texto o con solo adjuntos, indicando dónde consultar el original.
-- Pendientes: adjuntos privados con límites y validación, respuesta/envío y sincronización de enviados, recordatorios, conversión a presupuesto y extracción IA revisada por una persona. No se crean reservas ni se modifica ocupación.
+- El botón Contestar prepara una respuesta al último mensaje en Outlook clásico mediante el enlace local de `outlook/`. Outlook conserva la firma automática para mensajes nuevos y el enlace inserta debajo el texto original. Requiere instalación por equipo, firma configurada y revisión del remitente. No confirma ni registra un envío. Ver `outlook/LEEME.md`.
+- Pendientes: adjuntos privados con límites y validación, sincronización de enviados desde Outlook, recordatorios, conversión a presupuesto y extracción IA revisada por una persona. No se crean reservas ni se modifica ocupación.
 - Antes de copiar contenido de correos a los grupos existentes, migrar la autenticación general y cerrar los accesos públicos de `groups` y `settings`. No se han endurecido esos accesos en esta entrega para evitar interrumpir las pantallas antiguas sin migrarlas.
 - Antes de producción: probar con Firebase Emulator/proyecto de pruebas las funciones, permisos e índice; dos usuarios reclamando a la vez; reconexión del proveedor sin pérdidas; HTML/adjuntos; probar interfaz en navegador; definir conservación y acceso a originales. Las pruebas locales de dominio/handlers usan un almacén simulado, no sustituyen una prueba real de Firestore.
 - La auditoría `npm audit --omit=dev` detecta vulnerabilidades altas y críticas en dependencias heredadas de Firebase Admin 11 (incluidas cadenas Firestore/protobuf y Realtime Database). Hace falta una actualización compatible y validación antes de producción. No se ha aplicado una actualización mayor automática a toda la infraestructura en esta entrega. Las pruebas locales se ejecutaron con Node 24; verificar también el runtime objetivo Node 20 o actualizarlo con las dependencias antes del despliegue.
@@ -52,6 +53,10 @@ Validación realizada: doce pruebas locales de dominio, sincronización y handle
 ## Comprobación local
 
 `node --test tests/mail.test.js tests/mail-imap.test.js`
+
+`node --test tests/outlookReply.test.js`
+
+La validación de Outlook cubre destinatario, codificación, cabeceras, mensajes largos y lectura del enlace/archivo en Windows sin abrir Outlook. El enlace local está instalado en el equipo de desarrollo y el botón se ha verificado en la interfaz; la apertura real fue bloqueada por la política de seguridad del navegador de pruebas. Comprobar manualmente la firma y el borrador en Outlook clásico antes de dar la función por validada de extremo a extremo.
 
 `node node_modules/@babel/cli/bin/babel.js src/Peticiones.jsx --out-file js/Peticiones.js`
 

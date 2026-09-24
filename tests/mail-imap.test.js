@@ -28,6 +28,8 @@ test('real MIME parsing handles HTML, attachment-only messages and References', 
   assert.equal(result.threadId, '<root@example.com>');
   assert.match(result.body, /Hola grupo/);
   assert.equal(result.providerId, '<two@example.com>');
+  assert.equal(result.replyTo, 'client@example.com');
+  assert.equal(result.internetMessageId, '<two@example.com>');
   const attachment = parsedMessage({ attachments: [{ filename: 'grupo.pdf', size: 100 }] }, account, '123', 7, new Date());
   assert.match(attachment.body, /adjuntos/);
   assert.equal(attachment.attachmentCount, 1);

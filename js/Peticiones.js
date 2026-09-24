@@ -63,6 +63,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }];
   };
   function App() {
+    var _detail$messages2;
     var _useState = useState(true),
       _useState2 = _slicedToArray(_useState, 2),
       demo = _useState2[0],
@@ -139,6 +140,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       _useState34 = _slicedToArray(_useState33, 2),
       showSetup = _useState34[0],
       setShowSetup = _useState34[1];
+    var _useState35 = useState(''),
+      _useState36 = _slicedToArray(_useState35, 2),
+      replyNotice = _useState36[0],
+      setReplyNotice = _useState36[1];
     var detailSequence = useRef(0);
     var call = /*#__PURE__*/function () {
       var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(name) {
@@ -224,6 +229,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       var sequence = ++detailSequence.current;
       setDetail(null);
       setNote('');
+      setReplyNotice('');
       if (!selected) {
         setLoadingDetail(false);
         return;
@@ -254,6 +260,16 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     var item = rows.find(function (r) {
       return r.id === selected;
     });
+    var reply = function reply() {
+      setError('');
+      setReplyNotice('');
+      try {
+        var _detail$messages;
+        setReplyNotice(window.NexusOutlookReply.launch(item, detail === null || detail === void 0 || (_detail$messages = detail.messages) === null || _detail$messages === void 0 ? void 0 : _detail$messages[detail.messages.length - 1]));
+      } catch (e) {
+        setError(e.message);
+      }
+    };
     var update = function update(action, value) {
       return run(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
         return _regenerator().w(function (_context4) {
@@ -583,9 +599,20 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       onClick: function onClick() {
         return update('assign', user.uid);
       }
-    }, "Asignarme"), /*#__PURE__*/React.createElement("h3", {
-      className: "font-bold mt-6 mb-2"
-    }, "Conversaci\xF3n"), loadingDetail && /*#__PURE__*/React.createElement("p", null, "Cargando conversaci\xF3n\u2026"), detail === null || detail === void 0 ? void 0 : detail.messages.map(function (m, i) {
+    }, "Asignarme"), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between gap-3 mt-6 mb-2"
+    }, /*#__PURE__*/React.createElement("h3", {
+      className: "font-bold"
+    }, "Conversaci\xF3n"), /*#__PURE__*/React.createElement("button", {
+      className: button,
+      disabled: busy || loadingDetail || !(detail !== null && detail !== void 0 && (_detail$messages2 = detail.messages) !== null && _detail$messages2 !== void 0 && _detail$messages2.length),
+      onClick: reply
+    }, "Contestar")), /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-slate-500 mb-3"
+    }, "Abre un borrador en Outlook cl\xE1sico con tu firma y el mensaje de la agencia debajo."), replyNotice && /*#__PURE__*/React.createElement("p", {
+      role: "status",
+      className: "bg-emerald-50 text-emerald-900 p-3 rounded-lg mb-3"
+    }, replyNotice), loadingDetail && /*#__PURE__*/React.createElement("p", null, "Cargando conversaci\xF3n\u2026"), detail === null || detail === void 0 ? void 0 : detail.messages.map(function (m, i) {
       var _m$attachments;
       return /*#__PURE__*/React.createElement("article", {
         key: i,
@@ -606,9 +633,17 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
           className: "break-all"
         }, a.filename, " (", Math.ceil(a.size / 1024), " KB)");
       })));
-    }), /*#__PURE__*/React.createElement("p", {
+    }), /*#__PURE__*/React.createElement("details", {
       className: "text-sm text-slate-500 my-4"
-    }, "El env\xEDo de respuestas, los adjuntos y la conversi\xF3n a presupuesto se incorporar\xE1n en la siguiente fase."), /*#__PURE__*/React.createElement("form", {
+    }, /*#__PURE__*/React.createElement("summary", {
+      className: "cursor-pointer"
+    }, "Configurar Outlook en este ordenador"), /*#__PURE__*/React.createElement("p", {
+      className: "mt-2"
+    }, "Instala una vez el enlace de Nexus Groups para Outlook cl\xE1sico. Debes tener configurada tu firma autom\xE1tica en Outlook. Revisa el remitente y pulsa Enviar desde Outlook; abrir el borrador no marca esta petici\xF3n como contestada."), /*#__PURE__*/React.createElement("a", {
+      className: "text-emerald-800 underline",
+      href: "outlook/Nexus-Outlook.zip",
+      download: true
+    }, "Descargar enlace de Outlook"), /*#__PURE__*/React.createElement("p", null, "Descomprime el archivo y ejecuta Instalar-Outlook.ps1. Si tu empresa bloquea los scripts, pide a inform\xE1tica que lo instale.")), /*#__PURE__*/React.createElement("form", {
       onSubmit: function onSubmit(e) {
         e.preventDefault();
         update('note', note.trim());
