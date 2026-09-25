@@ -5,13 +5,13 @@ function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArra
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
+function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
-function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
@@ -30,15 +30,6 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   var stamp = function stamp() {
     return new Date().toISOString();
   };
-  var demoMembers = [{
-    uid: 'demo',
-    name: 'Comercial de ejemplo',
-    mailboxes: boxes
-  }, {
-    uid: 'demo2',
-    name: 'Segundo comercial',
-    mailboxes: boxes
-  }];
   var seed = function seed() {
     return [{
       id: 'demo-1',
@@ -55,8 +46,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       mailbox: boxes[1],
       subject: 'Ejemplo: grupo con media pensión',
       from: 'cliente@example.com',
-      status: 'En gestión',
-      assignee: 'demo',
+      status: 'Nueva',
+      assignee: '',
       version: 1,
       updatedAt: stamp(),
       needsReply: true
@@ -72,157 +63,246 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       _useState4 = _slicedToArray(_useState3, 2),
       rows = _useState4[0],
       setRows = _useState4[1],
-      _useState5 = useState(demoMembers),
+      _useState5 = useState([]),
       _useState6 = _slicedToArray(_useState5, 2),
       members = _useState6[0],
       setMembers = _useState6[1];
-    var _useState7 = useState({
+    var _useState7 = useState(false),
+      _useState8 = _slicedToArray(_useState7, 2),
+      directoryLoading = _useState8[0],
+      setDirectoryLoading = _useState8[1],
+      _useState9 = useState(''),
+      _useState0 = _slicedToArray(_useState9, 2),
+      directoryError = _useState0[0],
+      setDirectoryError = _useState0[1];
+    var _useState1 = useState(0),
+      _useState10 = _slicedToArray(_useState1, 2),
+      directoryRetry = _useState10[0],
+      setDirectoryRetry = _useState10[1];
+    var _useState11 = useState({
         uid: 'demo',
         name: 'Dirección de ejemplo',
         role: 'admin'
       }),
-      _useState8 = _slicedToArray(_useState7, 2),
-      user = _useState8[0],
-      setUser = _useState8[1];
-    var _useState9 = useState(''),
-      _useState0 = _slicedToArray(_useState9, 2),
-      selected = _useState0[0],
-      setSelected = _useState0[1],
-      _useState1 = useState(null),
-      _useState10 = _slicedToArray(_useState1, 2),
-      detail = _useState10[0],
-      setDetail = _useState10[1],
-      _useState11 = useState({}),
       _useState12 = _slicedToArray(_useState11, 2),
-      events = _useState12[0],
-      setEvents = _useState12[1];
+      user = _useState12[0],
+      setUser = _useState12[1];
     var _useState13 = useState(''),
       _useState14 = _slicedToArray(_useState13, 2),
-      hotel = _useState14[0],
-      setHotel = _useState14[1],
-      _useState15 = useState('all'),
+      selected = _useState14[0],
+      setSelected = _useState14[1],
+      _useState15 = useState(null),
       _useState16 = _slicedToArray(_useState15, 2),
-      view = _useState16[0],
-      setView = _useState16[1],
-      _useState17 = useState(''),
+      detail = _useState16[0],
+      setDetail = _useState16[1],
+      _useState17 = useState({}),
       _useState18 = _slicedToArray(_useState17, 2),
-      search = _useState18[0],
-      setSearch = _useState18[1];
+      events = _useState18[0],
+      setEvents = _useState18[1];
     var _useState19 = useState(''),
       _useState20 = _slicedToArray(_useState19, 2),
-      error = _useState20[0],
-      setError = _useState20[1],
-      _useState21 = useState(false),
+      hotel = _useState20[0],
+      setHotel = _useState20[1],
+      _useState21 = useState('all'),
       _useState22 = _slicedToArray(_useState21, 2),
-      busy = _useState22[0],
-      setBusy = _useState22[1],
-      _useState23 = useState(false),
+      view = _useState22[0],
+      setView = _useState22[1],
+      _useState23 = useState(''),
       _useState24 = _slicedToArray(_useState23, 2),
-      loadingDetail = _useState24[0],
-      setLoadingDetail = _useState24[1];
+      search = _useState24[0],
+      setSearch = _useState24[1];
     var _useState25 = useState(''),
       _useState26 = _slicedToArray(_useState25, 2),
-      email = _useState26[0],
-      setEmail = _useState26[1],
-      _useState27 = useState(''),
+      error = _useState26[0],
+      setError = _useState26[1],
+      _useState27 = useState(false),
       _useState28 = _slicedToArray(_useState27, 2),
-      password = _useState28[0],
-      setPassword = _useState28[1],
-      _useState29 = useState(''),
+      busy = _useState28[0],
+      setBusy = _useState28[1],
+      _useState29 = useState(false),
       _useState30 = _slicedToArray(_useState29, 2),
-      note = _useState30[0],
-      setNote = _useState30[1];
-    var _useState31 = useState([]),
+      loadingDetail = _useState30[0],
+      setLoadingDetail = _useState30[1];
+    var _useState31 = useState(''),
       _useState32 = _slicedToArray(_useState31, 2),
-      connections = _useState32[0],
-      setConnections = _useState32[1],
-      _useState33 = useState(false),
+      email = _useState32[0],
+      setEmail = _useState32[1],
+      _useState33 = useState(''),
       _useState34 = _slicedToArray(_useState33, 2),
-      showSetup = _useState34[0],
-      setShowSetup = _useState34[1];
-    var _useState35 = useState(''),
+      password = _useState34[0],
+      setPassword = _useState34[1],
+      _useState35 = useState(''),
       _useState36 = _slicedToArray(_useState35, 2),
-      replyNotice = _useState36[0],
-      setReplyNotice = _useState36[1];
+      note = _useState36[0],
+      setNote = _useState36[1];
+    var _useState37 = useState([]),
+      _useState38 = _slicedToArray(_useState37, 2),
+      connections = _useState38[0],
+      setConnections = _useState38[1],
+      _useState39 = useState(false),
+      _useState40 = _slicedToArray(_useState39, 2),
+      showSetup = _useState40[0],
+      setShowSetup = _useState40[1];
+    var _useState41 = useState(''),
+      _useState42 = _slicedToArray(_useState41, 2),
+      replyNotice = _useState42[0],
+      setReplyNotice = _useState42[1];
     var detailSequence = useRef(0);
+    useEffect(function () {
+      if (!demo) return;
+      var alive = true,
+        sequence = 0;
+      var controller = new AbortController();
+      var load = /*#__PURE__*/function () {
+        var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+          var current, _window$firebaseConfi, project, url, response, catalog, _t, _t2;
+          return _regenerator().w(function (_context) {
+            while (1) switch (_context.p = _context.n) {
+              case 0:
+                current = ++sequence;
+                setDirectoryLoading(true);
+                setDirectoryError('');
+                _context.p = 1;
+                project = (_window$firebaseConfi = window.firebaseConfig) === null || _window$firebaseConfi === void 0 ? void 0 : _window$firebaseConfi.projectId;
+                if (project) {
+                  _context.n = 2;
+                  break;
+                }
+                throw new Error('Falta la configuración de la aplicación.');
+              case 2:
+                // Field mask prevents downloading the legacy users/passwords stored in settings.
+                url = "https://firestore.googleapis.com/v1/projects/".concat(encodeURIComponent(project), "/databases/(default)/documents/settings/main?mask.fieldPaths=system.commercials");
+                _context.n = 3;
+                return fetch(url, {
+                  signal: controller.signal,
+                  cache: 'no-store'
+                });
+              case 3:
+                response = _context.v;
+                if (response.ok) {
+                  _context.n = 4;
+                  break;
+                }
+                throw new Error('No se pudieron cargar los comerciales de Configuración.');
+              case 4:
+                _t = window.NexusCommercialDirectory;
+                _context.n = 5;
+                return response.json();
+              case 5:
+                catalog = _t.fromFirestore.call(_t, _context.v);
+                if (alive && current === sequence) setMembers(catalog.map(function (m) {
+                  return _objectSpread(_objectSpread({}, m), {}, {
+                    mailboxes: boxes
+                  });
+                }));
+                _context.n = 7;
+                break;
+              case 6:
+                _context.p = 6;
+                _t2 = _context.v;
+                if (alive && current === sequence) {
+                  setMembers([]);
+                  setDirectoryError(_t2.message);
+                }
+              case 7:
+                _context.p = 7;
+                if (alive && current === sequence) setDirectoryLoading(false);
+                return _context.f(7);
+              case 8:
+                return _context.a(2);
+            }
+          }, _callee, null, [[1, 6, 7, 8]]);
+        }));
+        return function load() {
+          return _ref.apply(this, arguments);
+        };
+      }();
+      load();
+      window.addEventListener('focus', load);
+      return function () {
+        alive = false;
+        controller.abort();
+        window.removeEventListener('focus', load);
+      };
+    }, [demo, directoryRetry]);
     var call = /*#__PURE__*/function () {
-      var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(name) {
+      var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(name) {
         var _window$firebase;
         var data,
-          _args = arguments;
-        return _regenerator().w(function (_context) {
-          while (1) switch (_context.n) {
+          _args2 = arguments;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.n) {
             case 0:
-              data = _args.length > 1 && _args[1] !== undefined ? _args[1] : {};
+              data = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {};
               if ((_window$firebase = window.firebase) !== null && _window$firebase !== void 0 && _window$firebase.functions) {
-                _context.n = 1;
+                _context2.n = 1;
                 break;
               }
               throw new Error('No se pudo cargar la conexión. Recarga la página.');
             case 1:
-              _context.n = 2;
+              _context2.n = 2;
               return firebase.app().functions('us-central1').httpsCallable(name)(data);
             case 2:
-              return _context.a(2, _context.v.data);
+              return _context2.a(2, _context2.v.data);
           }
-        }, _callee);
+        }, _callee2);
       }));
       return function call(_x) {
-        return _ref.apply(this, arguments);
+        return _ref2.apply(this, arguments);
       };
     }();
     var refresh = /*#__PURE__*/function () {
-      var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+      var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
         var result;
-        return _regenerator().w(function (_context2) {
-          while (1) switch (_context2.n) {
+        return _regenerator().w(function (_context3) {
+          while (1) switch (_context3.n) {
             case 0:
-              _context2.n = 1;
+              _context3.n = 1;
               return call('mailInbox');
             case 1:
-              result = _context2.v;
+              result = _context3.v;
               setRows(result.requests);
               setMembers(result.members);
               setUser(result.user);
               setConnections(result.mailboxes || []);
             case 2:
-              return _context2.a(2);
+              return _context3.a(2);
           }
-        }, _callee2);
+        }, _callee3);
       }));
       return function refresh() {
-        return _ref2.apply(this, arguments);
+        return _ref3.apply(this, arguments);
       };
     }();
     var run = /*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(fn) {
-        var _t;
-        return _regenerator().w(function (_context3) {
-          while (1) switch (_context3.p = _context3.n) {
+      var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(fn) {
+        var _t3;
+        return _regenerator().w(function (_context4) {
+          while (1) switch (_context4.p = _context4.n) {
             case 0:
               setBusy(true);
               setError('');
-              _context3.p = 1;
-              _context3.n = 2;
+              _context4.p = 1;
+              _context4.n = 2;
               return fn();
             case 2:
-              _context3.n = 4;
+              _context4.n = 4;
               break;
             case 3:
-              _context3.p = 3;
-              _t = _context3.v;
-              setError(_t.message || 'No se pudo completar la operación.');
+              _context4.p = 3;
+              _t3 = _context4.v;
+              setError(_t3.message || 'No se pudo completar la operación.');
             case 4:
-              _context3.p = 4;
+              _context4.p = 4;
               setBusy(false);
-              return _context3.f(4);
+              return _context4.f(4);
             case 5:
-              return _context3.a(2);
+              return _context4.a(2);
           }
-        }, _callee3, null, [[1, 3, 4, 5]]);
+        }, _callee4, null, [[1, 3, 4, 5]]);
       }));
       return function run(_x2) {
-        return _ref3.apply(this, arguments);
+        return _ref4.apply(this, arguments);
       };
     }();
     useEffect(function () {
@@ -276,18 +356,18 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       }
     };
     var update = function update(action, value) {
-      return run(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-        return _regenerator().w(function (_context4) {
-          while (1) switch (_context4.n) {
+      return run(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+        return _regenerator().w(function (_context5) {
+          while (1) switch (_context5.n) {
             case 0:
               if (item) {
-                _context4.n = 1;
+                _context5.n = 1;
                 break;
               }
-              return _context4.a(2);
+              return _context5.a(2);
             case 1:
               if (!demo) {
-                _context4.n = 2;
+                _context5.n = 2;
                 break;
               }
               setRows(function (old) {
@@ -310,10 +390,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                   at: stamp()
                 }].concat(_toConsumableArray(old[item.id] || []))));
               });
-              _context4.n = 5;
+              _context5.n = 5;
               break;
             case 2:
-              _context4.n = 3;
+              _context5.n = 3;
               return call('mailUpdate', {
                 id: item.id,
                 version: item.version,
@@ -321,7 +401,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                 value: value
               });
             case 3:
-              _context4.n = 4;
+              _context5.n = 4;
               return refresh();
             case 4:
               setEvents(function (old) {
@@ -330,9 +410,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             case 5:
               setNote('');
             case 6:
-              return _context4.a(2);
+              return _context5.a(2);
           }
-        }, _callee4);
+        }, _callee5);
       })));
     };
     var visible = rows.filter(function (r) {
@@ -420,23 +500,23 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       className: "bg-white border rounded-xl p-5 max-w-lg space-y-3 mb-5",
       onSubmit: function onSubmit(e) {
         e.preventDefault();
-        run(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-          return _regenerator().w(function (_context5) {
-            while (1) switch (_context5.n) {
+        run(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+          return _regenerator().w(function (_context6) {
+            while (1) switch (_context6.n) {
               case 0:
-                _context5.n = 1;
+                _context6.n = 1;
                 return firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION);
               case 1:
-                _context5.n = 2;
+                _context6.n = 2;
                 return firebase.auth().signInWithEmailAndPassword(email, password);
               case 2:
                 setPassword('');
-                _context5.n = 3;
+                _context6.n = 3;
                 return refresh();
               case 3:
-                return _context5.a(2);
+                return _context6.a(2);
             }
-          }, _callee5);
+          }, _callee6);
         })));
       }
     }, /*#__PURE__*/React.createElement("h2", {
@@ -513,11 +593,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }, "Actualizar"), /*#__PURE__*/React.createElement("button", {
       disabled: busy,
       onClick: function onClick() {
-        return run(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-          return _regenerator().w(function (_context6) {
-            while (1) switch (_context6.n) {
+        return run(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+          return _regenerator().w(function (_context7) {
+            while (1) switch (_context7.n) {
               case 0:
-                _context6.n = 1;
+                _context7.n = 1;
                 return firebase.auth().signOut();
               case 1:
                 ++detailSequence.current;
@@ -526,9 +606,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                 setSelected('');
                 setDetail(null);
               case 2:
-                return _context6.a(2);
+                return _context7.a(2);
             }
-          }, _callee6);
+          }, _callee7);
         })));
       }
     }, "Cerrar sesi\xF3n"))), /*#__PURE__*/React.createElement("p", {

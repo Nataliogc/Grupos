@@ -2094,7 +2094,7 @@ function App() {
   };
   var _handleSave = /*#__PURE__*/function () {
     var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
-      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
+      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, isOldDocConfirmed, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
@@ -2317,13 +2317,23 @@ function App() {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(res.childIds.join(', ')));
             }
           case 21:
-            _context2.n = 27;
+            _context2.n = 28;
             break;
           case 22:
             uidToUpdate = groupData.uid;
             oldDoc = groups.find(function (g) {
               return g.uid === uidToUpdate;
-            }); // History Tracking: Detect changes
+            }); // Si el presupuesto ya estaba confirmado, queda como referencia inmutable y no se debe sobreescribir
+            isOldDocConfirmed = oldDoc && (String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "CONFIRMADO" || String(oldDoc.Estado || "").toUpperCase() === "CONFIRMADO" || oldDoc.splitCompleted === true || String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "DESGLOSADO");
+            if (!isOldDocConfirmed) {
+              _context2.n = 23;
+              break;
+            }
+            alert("⚠️ Este presupuesto ya está confirmado y se conserva como referencia histórica inmutable.\n\nEl presupuesto original último guardado no se debe modificar. Para aplicar cambios o emitir una nueva propuesta, por favor utiliza la opción 'Duplicar'.");
+            _handleSave.running = false;
+            return _context2.a(2);
+          case 23:
+            // History Tracking: Detect changes
             changes = [];
             fieldsToTrack = {
               "Nombre del Grupo": "Nombre",
@@ -2371,26 +2381,26 @@ function App() {
             // Usar update en lugar de set({merge: true}) para que mapas
             // enteros (roomCounts, dailyConfig) se REEMPLACEN, no se deep-mergen.
             if (!(Object.keys(validUpdateData).length > 0)) {
-              _context2.n = 23;
-              break;
-            }
-            _context2.n = 23;
-            return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
-          case 23:
-            if (!(Object.keys(fallbackData).length > 0)) {
               _context2.n = 24;
               break;
             }
             _context2.n = 24;
-            return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
-              merge: true
-            });
+            return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
           case 24:
-            if (!statusChangedToConfirmed) {
-              _context2.n = 26;
+            if (!(Object.keys(fallbackData).length > 0)) {
+              _context2.n = 25;
               break;
             }
             _context2.n = 25;
+            return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
+              merge: true
+            });
+          case 25:
+            if (!statusChangedToConfirmed) {
+              _context2.n = 27;
+              break;
+            }
+            _context2.n = 26;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: "CONFIRMADO",
@@ -2398,21 +2408,21 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 25:
+          case 26:
             _res = _context2.v;
             if (_res && _res.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(_res.childIds.join(', ')));
             } else {
               alert("\u2705 Presupuesto confirmado con \xE9xito.");
             }
-            _context2.n = 27;
+            _context2.n = 28;
             break;
-          case 26:
+          case 27:
             if (!(targetStatus && targetStatus !== oldDoc.Com_Estado_Interno)) {
-              _context2.n = 27;
+              _context2.n = 28;
               break;
             }
-            _context2.n = 27;
+            _context2.n = 28;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: targetStatus,
@@ -2420,18 +2430,18 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 27:
-            setCurrentView('dashboard');
-            _context2.n = 29;
-            break;
           case 28:
-            _context2.p = 28;
+            setCurrentView('dashboard');
+            _context2.n = 30;
+            break;
+          case 29:
+            _context2.p = 29;
             _t2 = _context2.v;
             console.error("Error saving budget:", _t2);
-          case 29:
+          case 30:
             return _context2.a(2);
         }
-      }, _callee2, null, [[17, 28]]);
+      }, _callee2, null, [[17, 29]]);
     }));
     return function handleSave(_x) {
       return _ref37.apply(this, arguments);
@@ -2700,12 +2710,26 @@ function App() {
       return _ref43.apply(this, arguments);
     };
   }();
-  var duplicateBudgetToOtherHotel = /*#__PURE__*/function () {
+  var duplicateBudget = /*#__PURE__*/function () {
     var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(budget) {
-      var source, targetHotel, sourceHotel, now, formattedDate, newReservaId, serializableSource, duplicatedBudget, duplicatedTotal, roomingList, duplicateData, _t7;
+      var changeHotel,
+        source,
+        currentHotel,
+        targetHotel,
+        now,
+        formattedDate,
+        newReservaId,
+        serializableSource,
+        duplicatedBudget,
+        duplicatedTotal,
+        roomingList,
+        duplicateData,
+        _args7 = arguments,
+        _t7;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
+            changeHotel = _args7.length > 1 && _args7[1] !== undefined ? _args7[1] : false;
             source = normalizeGroupData(budget);
             if (source) {
               _context7.n = 1;
@@ -2713,14 +2737,8 @@ function App() {
             }
             return _context7.a(2);
           case 1:
-            targetHotel = getAlternateHotel(source.Hotel_Asignado || source.Hotel);
-            sourceHotel = source.Hotel_Asignado || source.Hotel || "hotel actual";
-            if (window.confirm("Duplicar este presupuesto para ".concat(targetHotel, "? Se creara una copia independiente para ajustar tarifas antes de enviarla."))) {
-              _context7.n = 2;
-              break;
-            }
-            return _context7.a(2);
-          case 2:
+            currentHotel = source.Hotel_Asignado || source.Hotel || "Sercotel Guadiana";
+            targetHotel = changeHotel ? getAlternateHotel(currentHotel) : currentHotel;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             newReservaId = "";
@@ -2730,7 +2748,7 @@ function App() {
               return String(g.uid) === newReservaId || String(g.Reserva) === newReservaId;
             }));
             serializableSource = JSON.parse(JSON.stringify(source));
-            duplicatedBudget = remapBudgetRoomsForHotel(serializableSource, targetHotel);
+            duplicatedBudget = changeHotel ? remapBudgetRoomsForHotel(serializableSource, targetHotel) : serializableSource;
             duplicatedTotal = calculateTotal(duplicatedBudget);
             roomingList = buildRoomingList(duplicatedBudget, duplicatedBudget.RoomingList_JSON || "");
             delete duplicatedBudget.uid;
@@ -2741,54 +2759,85 @@ function App() {
               Hotel_Asignado: targetHotel,
               Hotel: targetHotel,
               Estado: "Presupuesto",
+              Com_Estado_Interno: "PRESUPUESTO",
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               createdAt: firebase.firestore.FieldValue.serverTimestamp(),
               "Importe(*)": formatNum(duplicatedTotal),
               "RoomingList_JSON": JSON.stringify(roomingList),
+              Presupuesto_Origen: source.Reserva || source.uid || null,
+              sourceQuoteId: source.Reserva || source.uid || null,
               tracking: [{
                 id: Date.now(),
                 date: formattedDate,
-                text: "Duplicado desde ".concat(source.Reserva || source.uid || "presupuesto", " (").concat(sourceHotel, ") para ").concat(targetHotel, ".")
+                text: "Nueva cotizaci\xF3n generada a partir de ".concat(source.Reserva || source.uid || "presupuesto").concat(changeHotel ? " para ".concat(targetHotel) : "", ".")
               }].concat(_toConsumableArray(Array.isArray(source.tracking) ? source.tracking : []))
             });
-            _context7.p = 3;
-            _context7.n = 4;
+            _context7.p = 2;
+            _context7.n = 3;
             return db.collection("groups").doc(newReservaId).set(duplicateData);
-          case 4:
+          case 3:
             setFormData(_objectSpread(_objectSpread({}, normalizeGroupData(duplicateData)), {}, {
               uid: newReservaId
             }));
             setCurrentView('create');
-            _context7.n = 6;
+            _context7.n = 5;
             break;
-          case 5:
-            _context7.p = 5;
+          case 4:
+            _context7.p = 4;
             _t7 = _context7.v;
             console.error("Error duplicating budget:", _t7);
             alert("Error al duplicar el presupuesto.");
-          case 6:
+          case 5:
             return _context7.a(2);
         }
-      }, _callee7, null, [[3, 5]]);
+      }, _callee7, null, [[2, 4]]);
     }));
-    return function duplicateBudgetToOtherHotel(_x6) {
+    return function duplicateBudget(_x6) {
       return _ref44.apply(this, arguments);
     };
   }();
-  var addTrackingNote = /*#__PURE__*/function () {
-    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(e) {
-      var now, formattedDate, newTracking, _t8;
+  var duplicateBudgetToOtherHotel = /*#__PURE__*/function () {
+    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(budget) {
+      var source, targetHotel;
       return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+        while (1) switch (_context8.n) {
           case 0:
-            e.preventDefault();
-            if (!(!newNote.trim() || !selectedGroup)) {
+            source = normalizeGroupData(budget);
+            if (source) {
               _context8.n = 1;
               break;
             }
             return _context8.a(2);
           case 1:
-            _context8.p = 1;
+            targetHotel = getAlternateHotel(source.Hotel_Asignado || source.Hotel);
+            if (window.confirm("\xBFDuplicar este presupuesto para ".concat(targetHotel, "? Se crear\xE1 una copia independiente para ajustar tarifas antes de enviarla."))) {
+              _context8.n = 2;
+              break;
+            }
+            return _context8.a(2);
+          case 2:
+            return _context8.a(2, duplicateBudget(budget, true));
+        }
+      }, _callee8);
+    }));
+    return function duplicateBudgetToOtherHotel(_x7) {
+      return _ref45.apply(this, arguments);
+    };
+  }();
+  var addTrackingNote = /*#__PURE__*/function () {
+    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(e) {
+      var now, formattedDate, newTracking, _t8;
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
+          case 0:
+            e.preventDefault();
+            if (!(!newNote.trim() || !selectedGroup)) {
+              _context9.n = 1;
+              break;
+            }
+            return _context9.a(2);
+          case 1:
+            _context9.p = 1;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             newTracking = [{
@@ -2796,40 +2845,40 @@ function App() {
               date: formattedDate,
               text: newNote
             }].concat(_toConsumableArray(Array.isArray(selectedGroup.tracking) ? selectedGroup.tracking : []));
-            _context8.n = 2;
+            _context9.n = 2;
             return db.collection("groups").doc(selectedGroup.uid).update({
               tracking: newTracking
             });
           case 2:
             setNewNote('');
-            _context8.n = 4;
+            _context9.n = 4;
             break;
           case 3:
-            _context8.p = 3;
-            _t8 = _context8.v;
+            _context9.p = 3;
+            _t8 = _context9.v;
             console.error(_t8);
           case 4:
-            return _context8.a(2);
+            return _context9.a(2);
         }
-      }, _callee8, null, [[1, 3]]);
+      }, _callee9, null, [[1, 3]]);
     }));
-    return function addTrackingNote(_x7) {
-      return _ref45.apply(this, arguments);
+    return function addTrackingNote(_x8) {
+      return _ref46.apply(this, arguments);
     };
   }();
   var addQuickNote = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(uid, note) {
+    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(uid, note) {
       var now, formattedDate, budget, newTracking, _t9;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.p = _context9.n) {
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
             if (note.trim()) {
-              _context9.n = 1;
+              _context0.n = 1;
               break;
             }
-            return _context9.a(2);
+            return _context0.a(2);
           case 1:
-            _context9.p = 1;
+            _context0.p = 1;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             budget = groups.find(function (g) {
@@ -2840,24 +2889,24 @@ function App() {
               date: formattedDate,
               text: note
             }].concat(_toConsumableArray(Array.isArray(budget.tracking) ? budget.tracking : []));
-            _context9.n = 2;
+            _context0.n = 2;
             return db.collection("groups").doc(uid).update({
               tracking: newTracking
             });
           case 2:
-            _context9.n = 4;
+            _context0.n = 4;
             break;
           case 3:
-            _context9.p = 3;
-            _t9 = _context9.v;
+            _context0.p = 3;
+            _t9 = _context0.v;
             console.error(_t9);
           case 4:
-            return _context9.a(2);
+            return _context0.a(2);
         }
-      }, _callee9, null, [[1, 3]]);
+      }, _callee0, null, [[1, 3]]);
     }));
-    return function addQuickNote(_x8, _x9) {
-      return _ref46.apply(this, arguments);
+    return function addQuickNote(_x9, _x0) {
+      return _ref47.apply(this, arguments);
     };
   }();
 
@@ -3028,10 +3077,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref47) {
-        var _ref48 = _slicedToArray(_ref47, 2),
-          t = _ref48[0],
-          c = _ref48[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref48) {
+        var _ref49 = _slicedToArray(_ref48, 2),
+          t = _ref49[0],
+          c = _ref49[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -3138,10 +3187,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref49) {
-          var _ref50 = _slicedToArray(_ref49, 2),
-            _ = _ref50[0],
-            b = _ref50[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref50) {
+          var _ref51 = _slicedToArray(_ref50, 2),
+            _ = _ref51[0],
+            b = _ref51[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -3210,9 +3259,18 @@ function App() {
           handleOpenDetail(normalizeGroupData(g));
         },
         className: "w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all",
-        title: "Ver Ficha"
+        title: String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') ? "Ver Ficha de Referencia" : "Ver Ficha"
       }, /*#__PURE__*/React.createElement("i", {
         className: "fas fa-external-link-alt text-xs"
+      })), /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick(e) {
+          e.stopPropagation();
+          duplicateBudget(g, false);
+        },
+        className: "w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all",
+        title: "Duplicar Presupuesto"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-clone text-xs"
       })), /*#__PURE__*/React.createElement("button", {
         onClick: function onClick(e) {
           e.stopPropagation();
@@ -3222,7 +3280,16 @@ function App() {
         title: "Duplicar para ".concat(getAlternateHotel(g.Hotel_Asignado || g.Hotel))
       }, /*#__PURE__*/React.createElement("i", {
         className: "fas fa-copy text-xs"
-      })), /*#__PURE__*/React.createElement("button", {
+      })), String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') ? /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick(e) {
+          e.stopPropagation();
+          handleOpenDetail(normalizeGroupData(g));
+        },
+        className: "w-7 h-7 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 flex items-center justify-center hover:bg-amber-600 hover:text-white transition-all",
+        title: "Presupuesto Confirmado (Referencia Inmutable)"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-lock text-xs"
+      })) : /*#__PURE__*/React.createElement("button", {
         onClick: function onClick(e) {
           e.stopPropagation();
           setFormData(normalizeGroupData(g));
@@ -3254,9 +3321,30 @@ function App() {
     var _formData$segments3;
     var stayDates = getCurrentStayDates(formData);
     var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
+    var isFormConfirmed = Boolean(formData.uid && (String(formData.Com_Estado_Interno || formData.Estado || '').toUpperCase().includes('CONFIRM') || formData.splitCompleted === true || String(formData.Com_Estado_Interno || '').toUpperCase() === 'DESGLOSADO'));
     return /*#__PURE__*/React.createElement("div", {
       className: "max-w-5xl mx-auto space-y-8 animate-fade-in pb-20"
+    }, isFormConfirmed && /*#__PURE__*/React.createElement("div", {
+      className: "bg-amber-50 border-2 border-amber-300 text-amber-900 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
     }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-200"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-lock text-base"
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+      className: "text-xs font-black uppercase tracking-wider text-amber-950"
+    }, "Presupuesto Original Confirmado \u2014 Solo Lectura / Referencia"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[11px] text-amber-800 font-medium mt-0.5"
+    }, "El presupuesto original \xFAltimo guardado se conserva como referencia contractual hist\xF3rica y no se debe modificar. Para realizar cambios o emitir una nueva versi\xF3n, utiliza ", /*#__PURE__*/React.createElement("strong", null, "Duplicar"), "."))), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return duplicateBudget(formData, false);
+      },
+      className: "px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md shadow-amber-200 active:scale-95"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-copy"
+    }), " Duplicar para Modificar")), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-4"
@@ -3269,9 +3357,9 @@ function App() {
       className: "fas fa-arrow-left"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
       className: "text-xl font-black text-slate-800 tracking-tight"
-    }, formData.uid ? 'Editar Presupuesto' : 'Nueva Cotización de Grupo'), /*#__PURE__*/React.createElement("p", {
+    }, formData.uid ? isFormConfirmed ? 'Presupuesto de Referencia (Confirmado)' : 'Editar Presupuesto' : 'Nueva Cotización de Grupo'), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1"
-    }, "Completa los campos para generar el documento"))), /*#__PURE__*/React.createElement("div", {
+    }, isFormConfirmed ? 'Referencia histórica inmutable del presupuesto confirmado' : 'Completa los campos para generar el documento'))), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center gap-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
@@ -3757,10 +3845,10 @@ function App() {
           updated["Pax."] = stats.totalPax;
         } else {
           if (!formData.isRatesOnly) {
-            var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref51) {
-              var _ref52 = _slicedToArray(_ref51, 2),
-                roomType = _ref52[0],
-                count = _ref52[1];
+            var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref52) {
+              var _ref53 = _slicedToArray(_ref52, 2),
+                roomType = _ref53[0],
+                count = _ref53[1];
               return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
             }, 0);
             if (totalPax > 0) updated["Pax."] = totalPax;
@@ -4726,16 +4814,31 @@ function App() {
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-medium text-slate-600 outline-none focus:border-indigo-500 min-h-[80px] resize-none transition-all shadow-sm"
     })), /*#__PURE__*/React.createElement("div", {
       className: "flex gap-3 justify-end pt-2"
-    }, /*#__PURE__*/React.createElement("button", {
+    }, isFormConfirmed ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return setCurrentView('dashboard');
+      },
+      className: "px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all"
+    }, "Volver"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return duplicateBudget(formData, false);
+      },
+      className: "bg-amber-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-amber-200/50 flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-copy"
+    }), " Duplicar como Nuevo Presupuesto")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
         return setCurrentView('dashboard');
       },
       className: "px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all"
     }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
       onClick: _handleSave,
       className: "bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-indigo-200/50"
-    }, "Guardar Cotizaci\xF3n"))));
+    }, "Guardar Cotizaci\xF3n")))));
   };
   var HOTEL_DEFAULTS = {
     guadiana: {
@@ -4784,19 +4887,19 @@ function App() {
     };
     var effectiveClauses = getEffectiveClauses();
     var handleSaveDocClauses = /*#__PURE__*/function () {
-      var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+      var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
         var mode,
           isBudget,
           targetDocId,
           clausesToSave,
           fieldKey,
           flagKey,
-          _args0 = arguments,
+          _args1 = arguments,
           _t0;
-        return _regenerator().w(function (_context0) {
-          while (1) switch (_context0.p = _context0.n) {
+        return _regenerator().w(function (_context1) {
+          while (1) switch (_context1.p = _context1.n) {
             case 0:
-              mode = _args0.length > 0 && _args0[0] !== undefined ? _args0[0] : 'presupuesto';
+              mode = _args1.length > 0 && _args1[0] !== undefined ? _args1[0] : 'presupuesto';
               isBudget = mode === 'presupuesto';
               targetDocId = g.uid || g.Reserva || g.id;
               clausesToSave = isBudget ? tempClauses : tempClausesConf;
@@ -4826,29 +4929,29 @@ function App() {
 
               // 4. Guardar en Firestore SOLO para este grupo
               if (!targetDocId) {
-                _context0.n = 4;
+                _context1.n = 4;
                 break;
               }
-              _context0.p = 1;
-              _context0.n = 2;
+              _context1.p = 1;
+              _context1.n = 2;
               return db.collection("groups").doc(targetDocId).set(_defineProperty(_defineProperty(_defineProperty({}, fieldKey, clausesToSave), flagKey, true), "updatedAt", firebase.firestore.FieldValue.serverTimestamp()), {
                 merge: true
               });
             case 2:
-              _context0.n = 4;
+              _context1.n = 4;
               break;
             case 3:
-              _context0.p = 3;
-              _t0 = _context0.v;
+              _context1.p = 3;
+              _t0 = _context1.v;
               console.error("Error al guardar cláusulas para el grupo:", _t0);
               alert("Error al guardar cláusulas en el servidor: " + (_t0.message || _t0));
             case 4:
-              return _context0.a(2);
+              return _context1.a(2);
           }
-        }, _callee0, null, [[1, 3]]);
+        }, _callee1, null, [[1, 3]]);
       }));
       return function handleSaveDocClauses() {
-        return _ref53.apply(this, arguments);
+        return _ref54.apply(this, arguments);
       };
     }();
     var handleResetToGeneral = function handleResetToGeneral() {
@@ -4928,10 +5031,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref54) {
-      var _ref55 = _slicedToArray(_ref54, 2),
-        type = _ref55[0],
-        count = _ref55[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref55) {
+      var _ref56 = _slicedToArray(_ref55, 2),
+        type = _ref56[0],
+        count = _ref56[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -4947,19 +5050,40 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref56) {
-      var _ref57 = _slicedToArray(_ref56, 2),
-        type = _ref57[0],
-        c = _ref57[1];
+    activeRooms.forEach(function (_ref57) {
+      var _ref58 = _slicedToArray(_ref57, 2),
+        type = _ref58[0],
+        c = _ref58[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
       calculatedPax += multiplier * c;
     });
     var totalPax = calculatedPax > 0 ? calculatedPax : g["Pax."] || 0;
+    var isConfirmedBudget = String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') || g.splitCompleted === true || String(g.Com_Estado_Interno || '').toUpperCase() === 'DESGLOSADO';
     return /*#__PURE__*/React.createElement("div", {
       className: "space-y-6 animate-fade-in max-w-7xl mx-auto pb-10"
+    }, isConfirmedBudget && /*#__PURE__*/React.createElement("div", {
+      className: "bg-emerald-50 border-2 border-emerald-300 text-emerald-900 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm print:hidden"
     }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-200"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-lock text-base"
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+      className: "text-xs font-black uppercase tracking-wider text-emerald-950"
+    }, "Presupuesto Confirmado \u2014 Referencia Original Inmutable"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[11px] text-emerald-800 font-medium mt-0.5"
+    }, "Este presupuesto original est\xE1 guardado como referencia contractual hist\xF3rica. No se modifica tras su confirmaci\xF3n."))), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return duplicateBudget(g, false);
+      },
+      className: "px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md shadow-emerald-200 active:scale-95"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-copy"
+    }), " Duplicar / Crear Nueva Oferta")), /*#__PURE__*/React.createElement("div", {
       className: "bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 print:hidden"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-4"
@@ -4972,7 +5096,7 @@ function App() {
       className: "fas fa-arrow-left"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       className: "text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1"
-    }, hotelName, " ", g.Reserva ? "\u2022 ".concat(g.Reserva) : ''), /*#__PURE__*/React.createElement("h2", {
+    }, hotelName, " ", g.Reserva ? "\u2022 ".concat(g.Reserva) : '', " ", isConfirmedBudget ? '• [CONFIRMADO]' : ''), /*#__PURE__*/React.createElement("h2", {
       className: "text-2xl font-black text-slate-800 tracking-tight leading-none"
     }, g["Nombre del Grupo"]), /*#__PURE__*/React.createElement("div", {
       className: "mt-2 flex flex-col gap-1.5"
@@ -5038,7 +5162,15 @@ function App() {
       value: "DESESTIMADO"
     }, "Desestimado"), /*#__PURE__*/React.createElement("option", {
       value: "CADUCADO"
-    }, "Caducado"))), /*#__PURE__*/React.createElement("button", {
+    }, "Caducado"))), isConfirmedBudget ? /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return duplicateBudget(g, false);
+      },
+      className: "flex-1 md:flex-none px-6 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-emerald-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2",
+      title: "Crea una nueva cotizaci\xF3n editable a partir de esta referencia"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-copy"
+    }), " Duplicar Presupuesto") : /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         setFormData(g);
         setCurrentView('create');
@@ -5462,10 +5594,10 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
-      var roomListItems = activeRooms.map(function (_ref58) {
-        var _ref59 = _slicedToArray(_ref58, 2),
-          type = _ref59[0],
-          count = _ref59[1];
+      var roomListItems = activeRooms.map(function (_ref59) {
+        var _ref60 = _slicedToArray(_ref59, 2),
+          type = _ref60[0],
+          count = _ref60[1];
         var typeKey = type.toUpperCase();
         var currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== '' ? Number(config.counts[typeKey]) : count;
         if (currentCount <= 0) return null;

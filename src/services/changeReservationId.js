@@ -40,6 +40,12 @@
         if (isPrevBudget && !String(next).toUpperCase().startsWith("PRES-")) {
           payload.Presupuesto_Origen = payload.Presupuesto_Origen || docData.Presupuesto_Origen || docData.Reserva || previous;
           payload.sourceQuoteId = payload.sourceQuoteId || docData.sourceQuoteId || docData.Reserva || previous;
+          if (payload.Com_Estado_Interno === "PRESUPUESTO" || !payload.Com_Estado_Interno) {
+            payload.Com_Estado_Interno = "CONFIRMADO";
+          }
+          if (payload.Estado === "Presupuesto" || !payload.Estado) {
+            payload.Estado = "Confirmado";
+          }
         }
         let tracking = payload.tracking || [];
         if (typeof tracking === "string") {
@@ -51,7 +57,30 @@
           text: `Cambio de localizador: ${previous} → ${next}`
         }]);
         transaction.set(destinations[index], payload);
-        transaction.delete(doc.ref);
+
+        if (isPrevBudget && !String(next).toUpperCase().startsWith("PRES-")) {
+          // El presupuesto original queda intacto y guardado en base de datos como referencia inmutable
+          let budgetTracking = docData.tracking || [];
+          if (typeof budgetTracking === "string") {
+            try { budgetTracking = JSON.parse(budgetTracking); } catch (_) { budgetTracking = [{ text: budgetTracking }]; }
+          }
+          if (!Array.isArray(budgetTracking)) budgetTracking = [{ text: JSON.stringify(budgetTracking) }];
+          budgetTracking.unshift({
+            id: Date.now(),
+            date: new Date().toISOString(),
+            text: `Presupuesto confirmado y asignado a reserva definitiva: ${next}`
+          });
+          transaction.set(doc.ref, {
+            ...docData,
+            Com_Estado_Interno: "CONFIRMADO",
+            Estado: "Confirmado",
+            convertedToReservation: next,
+            updatedAt: timestamp(),
+            tracking: JSON.stringify(budgetTracking)
+          });
+        } else {
+          transaction.delete(doc.ref);
+        }
         return { ...payload, _docId: destinations[index].id };
       });
       links.forEach(doc => {

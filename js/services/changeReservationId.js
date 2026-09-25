@@ -135,6 +135,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                         if (isPrevBudget && !String(next).toUpperCase().startsWith("PRES-")) {
                           payload.Presupuesto_Origen = payload.Presupuesto_Origen || docData.Presupuesto_Origen || docData.Reserva || previous;
                           payload.sourceQuoteId = payload.sourceQuoteId || docData.sourceQuoteId || docData.Reserva || previous;
+                          if (payload.Com_Estado_Interno === "PRESUPUESTO" || !payload.Com_Estado_Interno) {
+                            payload.Com_Estado_Interno = "CONFIRMADO";
+                          }
+                          if (payload.Estado === "Presupuesto" || !payload.Estado) {
+                            payload.Estado = "Confirmado";
+                          }
                         }
                         var tracking = payload.tracking || [];
                         if (typeof tracking === "string") {
@@ -155,7 +161,36 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                           text: "Cambio de localizador: ".concat(previous, " \u2192 ").concat(next)
                         }]));
                         transaction.set(destinations[index], payload);
-                        transaction.delete(doc.ref);
+                        if (isPrevBudget && !String(next).toUpperCase().startsWith("PRES-")) {
+                          // El presupuesto original queda intacto y guardado en base de datos como referencia inmutable
+                          var budgetTracking = docData.tracking || [];
+                          if (typeof budgetTracking === "string") {
+                            try {
+                              budgetTracking = JSON.parse(budgetTracking);
+                            } catch (_) {
+                              budgetTracking = [{
+                                text: budgetTracking
+                              }];
+                            }
+                          }
+                          if (!Array.isArray(budgetTracking)) budgetTracking = [{
+                            text: JSON.stringify(budgetTracking)
+                          }];
+                          budgetTracking.unshift({
+                            id: Date.now(),
+                            date: new Date().toISOString(),
+                            text: "Presupuesto confirmado y asignado a reserva definitiva: ".concat(next)
+                          });
+                          transaction.set(doc.ref, _objectSpread(_objectSpread({}, docData), {}, {
+                            Com_Estado_Interno: "CONFIRMADO",
+                            Estado: "Confirmado",
+                            convertedToReservation: next,
+                            updatedAt: timestamp(),
+                            tracking: JSON.stringify(budgetTracking)
+                          }));
+                        } else {
+                          transaction.delete(doc.ref);
+                        }
                         return _objectSpread(_objectSpread({}, payload), {}, {
                           _docId: destinations[index].id
                         });

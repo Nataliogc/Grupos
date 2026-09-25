@@ -2010,6 +2010,20 @@
           } else {
             const uidToUpdate = groupData.uid;
             const oldDoc = groups.find(g => g.uid === uidToUpdate);
+
+            // Si el presupuesto ya estaba confirmado, queda como referencia inmutable y no se debe sobreescribir
+            const isOldDocConfirmed = oldDoc && (
+              String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "CONFIRMADO" ||
+              String(oldDoc.Estado || "").toUpperCase() === "CONFIRMADO" ||
+              oldDoc.splitCompleted === true ||
+              String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "DESGLOSADO"
+            );
+
+            if (isOldDocConfirmed) {
+              alert("⚠️ Este presupuesto ya está confirmado y se conserva como referencia histórica inmutable.\n\nEl presupuesto original último guardado no se debe modificar. Para aplicar cambios o emitir una nueva propuesta, por favor utiliza la opción 'Duplicar'.");
+              handleSave.running = false;
+              return;
+            }
             
             // History Tracking: Detect changes
             const changes = [];
@@ -2291,14 +2305,13 @@ ${emailContent}`;
         }
       };
 
-      const duplicateBudgetToOtherHotel = async (budget) => {
+      const duplicateBudget = async (budget, changeHotel = false) => {
         const source = normalizeGroupData(budget);
         if (!source) return;
 
-        const targetHotel = getAlternateHotel(source.Hotel_Asignado || source.Hotel);
-        const sourceHotel = source.Hotel_Asignado || source.Hotel || "hotel actual";
-        if (!window.confirm(`Duplicar este presupuesto para ${targetHotel}? Se creara una copia independiente para ajustar tarifas antes de enviarla.`)) return;
-
+        const currentHotel = source.Hotel_Asignado || source.Hotel || "Sercotel Guadiana";
+        const targetHotel = changeHotel ? getAlternateHotel(currentHotel) : currentHotel;
+        
         const now = new Date();
         const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -2308,7 +2321,7 @@ ${emailContent}`;
         } while (groups.some(g => String(g.uid) === newReservaId || String(g.Reserva) === newReservaId));
 
         const serializableSource = JSON.parse(JSON.stringify(source));
-        const duplicatedBudget = remapBudgetRoomsForHotel(serializableSource, targetHotel);
+        const duplicatedBudget = changeHotel ? remapBudgetRoomsForHotel(serializableSource, targetHotel) : serializableSource;
         const duplicatedTotal = calculateTotal(duplicatedBudget);
         const roomingList = buildRoomingList(duplicatedBudget, duplicatedBudget.RoomingList_JSON || "");
 
@@ -2322,15 +2335,18 @@ ${emailContent}`;
           Hotel_Asignado: targetHotel,
           Hotel: targetHotel,
           Estado: "Presupuesto",
+          Com_Estado_Interno: "PRESUPUESTO",
           updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           "Importe(*)": formatNum(duplicatedTotal),
           "RoomingList_JSON": JSON.stringify(roomingList),
+          Presupuesto_Origen: source.Reserva || source.uid || null,
+          sourceQuoteId: source.Reserva || source.uid || null,
           tracking: [
             {
               id: Date.now(),
               date: formattedDate,
-              text: `Duplicado desde ${source.Reserva || source.uid || "presupuesto"} (${sourceHotel}) para ${targetHotel}.`
+              text: `Nueva cotización generada a partir de ${source.Reserva || source.uid || "presupuesto"}${changeHotel ? ` para ${targetHotel}` : ""}.`
             },
             ...(Array.isArray(source.tracking) ? source.tracking : [])
           ]
@@ -2344,6 +2360,16 @@ ${emailContent}`;
           console.error("Error duplicating budget:", error);
           alert("Error al duplicar el presupuesto.");
         }
+      };
+
+      const duplicateBudgetToOtherHotel = async (budget) => {
+        const source = normalizeGroupData(budget);
+        if (!source) return;
+
+        const targetHotel = getAlternateHotel(source.Hotel_Asignado || source.Hotel);
+        if (!window.confirm(`¿Duplicar este presupuesto para ${targetHotel}? Se creará una copia independiente para ajustar tarifas antes de enviarla.`)) return;
+
+        return duplicateBudget(budget, true);
       };
 
       const addTrackingNote = async (e) => {
@@ -2677,19 +2703,32 @@ ${emailContent}`;
                           <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => { handleOpenDetail(normalizeGroupData(g)); }}
                               className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
-                              title="Ver Ficha">
+                              title={String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') ? "Ver Ficha de Referencia" : "Ver Ficha"}>
                               <i className="fas fa-external-link-alt text-xs"></i>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); duplicateBudget(g, false); }}
+                              className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
+                              title="Duplicar Presupuesto">
+                              <i className="fas fa-clone text-xs"></i>
                             </button>
                             <button onClick={(e) => { e.stopPropagation(); duplicateBudgetToOtherHotel(g); }}
                               className="w-7 h-7 bg-sky-50 text-sky-600 rounded-lg border border-sky-100 flex items-center justify-center hover:bg-sky-600 hover:text-white transition-all"
                               title={`Duplicar para ${getAlternateHotel(g.Hotel_Asignado || g.Hotel)}`}>
                               <i className="fas fa-copy text-xs"></i>
                             </button>
-                            <button onClick={(e) => { e.stopPropagation(); setFormData(normalizeGroupData(g)); setCurrentView('create'); }}
-                              className="w-7 h-7 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
-                              title="Editar">
-                              <i className="fas fa-edit text-xs"></i>
-                            </button>
+                            {String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') ? (
+                              <button onClick={(e) => { e.stopPropagation(); handleOpenDetail(normalizeGroupData(g)); }}
+                                className="w-7 h-7 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 flex items-center justify-center hover:bg-amber-600 hover:text-white transition-all"
+                                title="Presupuesto Confirmado (Referencia Inmutable)">
+                                <i className="fas fa-lock text-xs"></i>
+                              </button>
+                            ) : (
+                              <button onClick={(e) => { e.stopPropagation(); setFormData(normalizeGroupData(g)); setCurrentView('create'); }}
+                                className="w-7 h-7 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
+                                title="Editar">
+                                <i className="fas fa-edit text-xs"></i>
+                              </button>
+                            )}
                             <button onClick={(e) => { e.stopPropagation(); handleDelete(g.uid); }}
                               className="w-7 h-7 bg-rose-50 text-rose-500 rounded-lg border border-rose-100 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all"
                               title="Eliminar">
@@ -2717,9 +2756,35 @@ ${emailContent}`;
     const renderCreate = () => {
         const stayDates = getCurrentStayDates(formData);
         const currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
+        const isFormConfirmed = Boolean(formData.uid && (
+          String(formData.Com_Estado_Interno || formData.Estado || '').toUpperCase().includes('CONFIRM') ||
+          formData.splitCompleted === true ||
+          String(formData.Com_Estado_Interno || '').toUpperCase() === 'DESGLOSADO'
+        ));
 
         return (
           <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
+            {isFormConfirmed && (
+              <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-200">
+                    <i className="fas fa-lock text-base"></i>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-950">Presupuesto Original Confirmado — Solo Lectura / Referencia</h4>
+                    <p className="text-[11px] text-amber-800 font-medium mt-0.5">El presupuesto original último guardado se conserva como referencia contractual histórica y no se debe modificar. Para realizar cambios o emitir una nueva versión, utiliza <strong>Duplicar</strong>.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => duplicateBudget(formData, false)}
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md shadow-amber-200 active:scale-95"
+                >
+                  <i className="fas fa-copy"></i> Duplicar para Modificar
+                </button>
+              </div>
+            )}
+
             {/* Header Alta/Edición */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex items-center gap-4">
@@ -2727,8 +2792,12 @@ ${emailContent}`;
                   <i className="fas fa-arrow-left"></i>
                 </button>
                 <div>
-                  <h2 className="text-xl font-black text-slate-800 tracking-tight">{formData.uid ? 'Editar Presupuesto' : 'Nueva Cotización de Grupo'}</h2>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Completa los campos para generar el documento</p>
+                  <h2 className="text-xl font-black text-slate-800 tracking-tight">
+                    {formData.uid ? (isFormConfirmed ? 'Presupuesto de Referencia (Confirmado)' : 'Editar Presupuesto') : 'Nueva Cotización de Grupo'}
+                  </h2>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                    {isFormConfirmed ? 'Referencia histórica inmutable del presupuesto confirmado' : 'Completa los campos para generar el documento'}
+                  </p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-4">
@@ -4029,19 +4098,41 @@ ${emailContent}`;
               </div>
 
               <div className="flex gap-3 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('dashboard')}
-                  className="px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-indigo-200/50"
-                >
-                  Guardar Cotización
-                </button>
+                {isFormConfirmed ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentView('dashboard')}
+                      className="px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all"
+                    >
+                      Volver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => duplicateBudget(formData, false)}
+                      className="bg-amber-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-amber-200/50 flex items-center gap-2"
+                    >
+                      <i className="fas fa-copy"></i> Duplicar como Nuevo Presupuesto
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentView('dashboard')}
+                      className="px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all shadow-md shadow-indigo-200/50"
+                    >
+                      Guardar Cotización
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -4257,9 +4348,31 @@ ${emailContent}`;
           calculatedPax += (multiplier * c);
         });
         const totalPax = calculatedPax > 0 ? calculatedPax : (g["Pax."] || 0);
+        const isConfirmedBudget = String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') || g.splitCompleted === true || String(g.Com_Estado_Interno || '').toUpperCase() === 'DESGLOSADO';
 
         return (
           <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-10">
+            {isConfirmedBudget && (
+              <div className="bg-emerald-50 border-2 border-emerald-300 text-emerald-900 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm print:hidden">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-200">
+                    <i className="fas fa-lock text-base"></i>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-950">Presupuesto Confirmado — Referencia Original Inmutable</h4>
+                    <p className="text-[11px] text-emerald-800 font-medium mt-0.5">Este presupuesto original está guardado como referencia contractual histórica. No se modifica tras su confirmación.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => duplicateBudget(g, false)}
+                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md shadow-emerald-200 active:scale-95"
+                >
+                  <i className="fas fa-copy"></i> Duplicar / Crear Nueva Oferta
+                </button>
+              </div>
+            )}
+
             {/* HEADER DETALLE */}
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 print:hidden">
               <div className="flex items-center gap-4">
@@ -4268,7 +4381,7 @@ ${emailContent}`;
                 </button>
                 <div>
                   <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">
-                    {hotelName} {g.Reserva ? `• ${g.Reserva}` : ''}
+                    {hotelName} {g.Reserva ? `• ${g.Reserva}` : ''} {isConfirmedBudget ? '• [CONFIRMADO]' : ''}
                   </label>
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{g["Nombre del Grupo"]}</h2>
                   <div className="mt-2 flex flex-col gap-1.5">
@@ -4323,12 +4436,22 @@ ${emailContent}`;
                   </select>
                 </div>
 
-                <button 
-                  onClick={() => { setFormData(g); setCurrentView('create'); }}
-                  className="flex-1 md:flex-none px-6 py-3 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
-                >
-                  <i className="fas fa-edit"></i> Editar Datos
-                </button>
+                {isConfirmedBudget ? (
+                  <button 
+                    onClick={() => duplicateBudget(g, false)}
+                    className="flex-1 md:flex-none px-6 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-emerald-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
+                    title="Crea una nueva cotización editable a partir de esta referencia"
+                  >
+                    <i className="fas fa-copy"></i> Duplicar Presupuesto
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => { setFormData(g); setCurrentView('create'); }}
+                    className="flex-1 md:flex-none px-6 py-3 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <i className="fas fa-edit"></i> Editar Datos
+                  </button>
+                )}
               </div>
             </div>
 

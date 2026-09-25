@@ -59,6 +59,9 @@ function fixture(initial) {
   assert.equal(budgetData.get('77140').Reserva, '77140');
   assert.equal(budgetData.get('77140').Presupuesto_Origen, 'PRES-123');
   assert.equal(budgetData.get('77140').sourceQuoteId, 'PRES-123');
+  assert.equal(budgetData.has('PRES-123'), true);
+  assert.equal(budgetData.get('PRES-123').Com_Estado_Interno, 'CONFIRMADO');
+  assert.equal(budgetData.get('PRES-123').convertedToReservation, '77140');
 
-  console.log('OK: preserves records, payments, rooming and series links; rejects empty, unchanged and occupied IDs; preserves Presupuesto_Origen.');
+  console.log('OK: preserves records, payments, rooming and series links; rejects empty, unchanged and occupied IDs; preserves Presupuesto_Origen and keeps original budget as reference.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

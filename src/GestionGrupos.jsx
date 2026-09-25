@@ -10013,7 +10013,17 @@
 
             batch.set(newRef, payload, { merge: true });
             if (oldId !== newId) {
-              batch.delete(oldRef);
+              if (isOldBudget && !String(destId).toUpperCase().startsWith("PRES-")) {
+                // Preservar el presupuesto original como referencia confirmada inmutable
+                batch.update(oldRef, {
+                  Com_Estado_Interno: "CONFIRMADO",
+                  Estado: "Confirmado",
+                  convertedToReservation: targetReserva,
+                  updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
+              } else {
+                batch.delete(oldRef);
+              }
             }
           }
 
