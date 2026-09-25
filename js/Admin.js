@@ -265,6 +265,10 @@ var Sidebar = function Sidebar(_ref) {
     icon: "users",
     label: "Directorio Grupos"
   }, {
+    id: "peticiones",
+    icon: "mail",
+    label: "Peticiones"
+  }, {
     id: "budgets",
     icon: "clipboard-list",
     label: "Seguimiento Presupuestos"
@@ -280,6 +284,18 @@ var Sidebar = function Sidebar(_ref) {
     id: "calendario",
     icon: "calendar",
     label: "Calendario Operativo"
+  }, {
+    id: "menus",
+    icon: "utensils",
+    label: "Menús Eventos"
+  }, {
+    id: "turisticos",
+    icon: "map",
+    label: "Menús Turísticos"
+  }, {
+    id: "cocteles",
+    icon: "martini",
+    label: "Menús Cócteles"
   }, {
     id: "settings",
     icon: "settings",
@@ -317,11 +333,11 @@ var Sidebar = function Sidebar(_ref) {
     return /*#__PURE__*/React.createElement("button", {
       key: item.id,
       onClick: function onClick() {
-        if (item.id === "groups") window.location.href = "Gestion-de-Grupos.html";else if (item.id === "budgets") window.location.href = "Presupuestos.html";else if (item.id === "alta-email") window.location.href = "AltaEmail.html";else if (item.id === "invoices") {
+        if (item.id === "groups") window.location.href = "Gestion-de-Grupos.html";else if (item.id === "peticiones") window.location.href = "Peticiones.html";else if (item.id === "budgets") window.location.href = "Presupuestos.html";else if (item.id === "alta-email") window.location.href = "AltaEmail.html";else if (item.id === "invoices") {
           window.location.href = "Proformas.html";
         } else if (item.id === "calendario") {
           window.location.href = "Calendario.html";
-        } else if (item.id === "settings") window.location.href = "Configuracion.html";else setActiveTab(item.id);
+        } else if (item.id === "menus") window.open("https://nataliogc.github.io/menus-eventos/admin.html", "_blank");else if (item.id === "turisticos") window.open("https://nataliogc.github.io/Menus-Turisticos/", "_blank");else if (item.id === "cocteles") window.open("https://nataliogc.github.io/menus-cocteles/", "_blank");else if (item.id === "settings") window.location.href = "Configuracion.html";else setActiveTab(item.id);
       },
       className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeTab === item.id ? "sidebar-item-active" : "text-slate-500 hover:bg-slate-50 hover:translate-x-1")
     }, /*#__PURE__*/React.createElement(LucideIcon, {

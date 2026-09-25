@@ -467,6 +467,22 @@
                                 <LucideIcon name="box" className="w-5 h-5" />
                                 Catálogo de Servicios
                             </button>
+                            <button onClick={() => window.open('https://nataliogc.github.io/menus-eventos/admin.html', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
+                                <LucideIcon name="utensils" className="w-5 h-5" />
+                                Menús Eventos
+                            </button>
+                            <button onClick={() => window.open('https://nataliogc.github.io/Menus-Turisticos/', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
+                                <LucideIcon name="map" className="w-5 h-5" />
+                                Menús Turísticos
+                            </button>
+                            <button onClick={() => window.open('https://nataliogc.github.io/menus-cocteles/', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
+                                <LucideIcon name="martini" className="w-5 h-5" />
+                                Menús Cócteles
+                            </button>
+                            <button onClick={() => window.location.href = 'Peticiones.html'} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
+                                <LucideIcon name="inbox" className="w-5 h-5" />
+                                Peticiones
+                            </button>
                         </nav>
 
                         <button

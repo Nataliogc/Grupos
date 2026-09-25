@@ -773,7 +773,39 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "box",
     className: "w-5 h-5"
-  }), "Cat\xE1logo de Servicios")), /*#__PURE__*/React.createElement("button", {
+  }), "Cat\xE1logo de Servicios"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return window.open('https://nataliogc.github.io/menus-eventos/admin.html', '_blank');
+    },
+    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "utensils",
+    className: "w-5 h-5"
+  }), "Men\xFAs Eventos"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return window.open('https://nataliogc.github.io/Menus-Turisticos/', '_blank');
+    },
+    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "map",
+    className: "w-5 h-5"
+  }), "Men\xFAs Tur\xEDsticos"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return window.open('https://nataliogc.github.io/menus-cocteles/', '_blank');
+    },
+    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "martini",
+    className: "w-5 h-5"
+  }), "Men\xFAs C\xF3cteles"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return window.location.href = 'Peticiones.html';
+    },
+    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "inbox",
+    className: "w-5 h-5"
+  }), "Peticiones")), /*#__PURE__*/React.createElement("button", {
     onClick: saveConfig,
     disabled: loading,
     className: "mt-auto w-full bg-[#2d5a43] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3a2c] transition-all flex items-center justify-center gap-2 "
