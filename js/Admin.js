@@ -281,24 +281,12 @@ var Sidebar = function Sidebar(_ref) {
     icon: "calendar",
     label: "Calendario Operativo"
   }, {
-    id: "menus",
-    icon: "utensils",
-    label: "Menús Eventos"
-  }, {
-    id: "turisticos",
-    icon: "map",
-    label: "Menús Turísticos"
-  }, {
-    id: "cocteles",
-    icon: "martini",
-    label: "Menús Cócteles"
-  }, {
     id: "settings",
     icon: "settings",
     label: "Configuración"
   }];
   return /*#__PURE__*/React.createElement("div", {
-    className: "w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50"
+    className: "w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col items-center mb-8 px-2 space-y-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -333,7 +321,7 @@ var Sidebar = function Sidebar(_ref) {
           window.location.href = "Proformas.html";
         } else if (item.id === "calendario") {
           window.location.href = "Calendario.html";
-        } else if (item.id === "menus") window.open("https://nataliogc.github.io/menus-eventos/admin.html", "_blank");else if (item.id === "turisticos") window.open("https://nataliogc.github.io/Menus-Turisticos/", "_blank");else if (item.id === "cocteles") window.open("https://nataliogc.github.io/menus-cocteles/", "_blank");else if (item.id === "settings") window.location.href = "Configuracion.html";else setActiveTab(item.id);
+        } else if (item.id === "settings") window.location.href = "Configuracion.html";else setActiveTab(item.id);
       },
       className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeTab === item.id ? "sidebar-item-active" : "text-slate-500 hover:bg-slate-50 hover:translate-x-1")
     }, /*#__PURE__*/React.createElement(LucideIcon, {
@@ -1267,7 +1255,7 @@ var Dashboard = function Dashboard(_ref2) {
     }, "Enviar")), /*#__PURE__*/React.createElement("span", {
       className: "text-[10px] font-black px-2.5 py-1 rounded-full ".concat(theme.bubble)
     }, alerts.length))), /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col gap-4 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1"
+      className: "flex flex-col gap-4"
     }, alerts.map(function (alert, idx) {
       var g = alert.group;
       var isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
@@ -1432,6 +1420,71 @@ var Dashboard = function Dashboard(_ref2) {
   })), /*#__PURE__*/React.createElement("span", null, "Enviar Informe Interno de Alertas"), /*#__PURE__*/React.createElement("span", {
     className: "bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs"
   }, columnsData.financialAlerts.length + columnsData.releaseAlerts.length + columnsData.logisticsAlerts.length + columnsData.crmAlerts.length + columnsData.tentativeAlerts.length))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-3 gap-3.5"
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "https://nataliogc.github.io/menus-eventos/admin.html",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-orange-400 shadow-2xs hover:shadow-md transition-all duration-300 flex items-center gap-3.5 group cursor-pointer"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-orange-600 group-hover:text-white transition-all shadow-inner"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "utensils",
+    size: 18,
+    strokeWidth: 2.2
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "text-xs font-black text-slate-800 uppercase tracking-wider group-hover:text-orange-600 transition-colors"
+  }, "Men\xFAs Eventos"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 font-medium truncate"
+  }, "Banquetes, bodas y celebraciones")), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "external-link",
+    size: 14,
+    className: "text-slate-300 group-hover:text-orange-600 shrink-0 transition-colors"
+  })), /*#__PURE__*/React.createElement("a", {
+    href: "https://nataliogc.github.io/Menus-Turisticos/",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-emerald-400 shadow-2xs hover:shadow-md transition-all duration-300 flex items-center gap-3.5 group cursor-pointer"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-inner"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "map",
+    size: 18,
+    strokeWidth: 2.2
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "text-xs font-black text-slate-800 uppercase tracking-wider group-hover:text-emerald-600 transition-colors"
+  }, "Men\xFAs Tur\xEDsticos"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 font-medium truncate"
+  }, "Compositor de men\xFAs para grupos")), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "external-link",
+    size: 14,
+    className: "text-slate-300 group-hover:text-emerald-600 shrink-0 transition-colors"
+  })), /*#__PURE__*/React.createElement("a", {
+    href: "https://nataliogc.github.io/menus-cocteles/",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-violet-400 shadow-2xs hover:shadow-md transition-all duration-300 flex items-center gap-3.5 group cursor-pointer"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-violet-600 group-hover:text-white transition-all shadow-inner"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "martini",
+    size: 18,
+    strokeWidth: 2.2
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0 flex-1"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "text-xs font-black text-slate-800 uppercase tracking-wider group-hover:text-violet-600 transition-colors"
+  }, "Men\xFAs C\xF3cteles"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 font-medium truncate"
+  }, "C\xF3cteles, aperitivos y copas")), /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "external-link",
+    size: 14,
+    className: "text-slate-300 group-hover:text-violet-600 shrink-0 transition-colors"
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 items-start"
   }, /*#__PURE__*/React.createElement(AlertColumn, {
     title: "Alertas Financieras",

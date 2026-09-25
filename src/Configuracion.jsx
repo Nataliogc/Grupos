@@ -430,7 +430,7 @@
             return (
                 <div className="flex min-h-screen">
                     {/* Sidebar duplicado para consistencia */}
-                    <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-xl">
+                    <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-xl overflow-y-auto custom-scrollbar">
                         <div className="flex flex-col items-center mb-10 px-2 space-y-6">
                             <img src="Nexus Groups/Nexus_Groups-removebg-preview.png" className="h-16 w-auto object-contain" alt="Logo" />
                             <div className="h-[1px] w-full bg-slate-100"></div>
@@ -466,18 +466,6 @@
                             <button onClick={() => setActiveHotel('services')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'services' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
                                 <LucideIcon name="box" className="w-5 h-5" />
                                 Catálogo de Servicios
-                            </button>
-                            <button onClick={() => window.open('https://nataliogc.github.io/menus-eventos/admin.html', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="utensils" className="w-5 h-5" />
-                                Menús Eventos
-                            </button>
-                            <button onClick={() => window.open('https://nataliogc.github.io/Menus-Turisticos/', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="map" className="w-5 h-5" />
-                                Menús Turísticos
-                            </button>
-                            <button onClick={() => window.open('https://nataliogc.github.io/menus-cocteles/', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="martini" className="w-5 h-5" />
-                                Menús Cócteles
                             </button>
                         </nav>
 

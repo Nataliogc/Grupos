@@ -64,7 +64,7 @@
 <body>
     <div id="app" class="flex min-h-screen">
         <!-- Sidebar -->
-        <aside class="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50">
+        <aside class="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar">
             <div class="flex flex-col items-center mb-8 px-2 space-y-6">
                 <div class="w-full flex justify-center p-4">
                     <img src="Nexus%20Groups/Nexus_Groups-removebg-preview.png" class="h-20 w-auto object-contain" alt="Nexus Groups Logo" />
@@ -88,18 +88,6 @@
                 <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold sidebar-item-active transition-all">
                     <i data-lucide="file-text" class="w-5 h-5"></i>
                     Facturas Proforma
-                </button>
-                <button onclick="window.open('https://nataliogc.github.io/menus-eventos/admin.html', '_blank')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:translate-x-1 transition-all">
-                    <i data-lucide="utensils" class="w-5 h-5"></i>
-                    Menús Eventos
-                </button>
-                <button onclick="window.open('https://nataliogc.github.io/Menus-Turisticos/', '_blank')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:translate-x-1 transition-all">
-                    <i data-lucide="map" class="w-5 h-5"></i>
-                    Menús Turísticos
-                </button>
-                <button onclick="window.open('https://nataliogc.github.io/menus-cocteles/', '_blank')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:translate-x-1 transition-all">
-                    <i data-lucide="martini" class="w-5 h-5"></i>
-                    Menús Cócteles
                 </button>
                 <button onclick="window.location.href='Configuracion.html'" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:translate-x-1 transition-all">
                     <i data-lucide="settings" class="w-5 h-5"></i>

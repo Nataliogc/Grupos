@@ -217,26 +217,11 @@
         { id: "invoices", icon: "file-text", label: "Facturas Proforma" },
         { id: "analytics", icon: "bar-chart-3", label: "Análisis IA" },
         { id: "calendario", icon: "calendar", label: "Calendario Operativo" },
-        {
-          id: "menus",
-          icon: "utensils",
-          label: "Menús Eventos",
-        },
-        {
-          id: "turisticos",
-          icon: "map",
-          label: "Menús Turísticos",
-        },
-        {
-          id: "cocteles",
-          icon: "martini",
-          label: "Menús Cócteles",
-        },
         { id: "settings", icon: "settings", label: "Configuración" },
       ];
 
       return (
-        <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50">
+        <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col items-center mb-8 px-2 space-y-6">
             <div className="w-full flex justify-center p-4">
               <img
@@ -279,22 +264,7 @@
                     window.location.href = "Proformas.html";
                   } else if (item.id === "calendario") {
                     window.location.href = "Calendario.html";
-                  } else if (item.id === "menus")
-                    window.open(
-                      "https://nataliogc.github.io/menus-eventos/admin.html",
-                      "_blank"
-                    );
-                  else if (item.id === "turisticos")
-                    window.open(
-                      "https://nataliogc.github.io/Menus-Turisticos/",
-                      "_blank"
-                    );
-                  else if (item.id === "cocteles")
-                    window.open(
-                      "https://nataliogc.github.io/menus-cocteles/",
-                      "_blank"
-                    );
-                  else if (item.id === "settings")
+                  } else if (item.id === "settings")
                     window.location.href = "Configuracion.html";
                   else setActiveTab(item.id);
                 }}
@@ -1591,7 +1561,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
             </div>
 
             {/* Tarjetas de Alerta */}
-            <div className="flex flex-col gap-4 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1">
+            <div className="flex flex-col gap-4">
               {alerts.map((alert, idx) => {
                 const g = alert.group;
                 const isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
@@ -1803,6 +1773,57 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                   columnsData.tentativeAlerts.length}
               </span>
             </button>
+          </div>
+
+          {/* Accesos a Menús y Restauración en el Panel */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <a
+              href="https://nataliogc.github.io/menus-eventos/admin.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-orange-400 shadow-2xs hover:shadow-md transition-all duration-300 flex items-center gap-3.5 group cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-orange-600 group-hover:text-white transition-all shadow-inner">
+                <LucideIcon name="utensils" size={18} strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider group-hover:text-orange-600 transition-colors">Menús Eventos</h4>
+                <p className="text-[10px] text-slate-400 font-medium truncate">Banquetes, bodas y celebraciones</p>
+              </div>
+              <LucideIcon name="external-link" size={14} className="text-slate-300 group-hover:text-orange-600 shrink-0 transition-colors" />
+            </a>
+
+            <a
+              href="https://nataliogc.github.io/Menus-Turisticos/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-emerald-400 shadow-2xs hover:shadow-md transition-all duration-300 flex items-center gap-3.5 group cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-inner">
+                <LucideIcon name="map" size={18} strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider group-hover:text-emerald-600 transition-colors">Menús Turísticos</h4>
+                <p className="text-[10px] text-slate-400 font-medium truncate">Compositor de menús para grupos</p>
+              </div>
+              <LucideIcon name="external-link" size={14} className="text-slate-300 group-hover:text-emerald-600 shrink-0 transition-colors" />
+            </a>
+
+            <a
+              href="https://nataliogc.github.io/menus-cocteles/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-violet-400 shadow-2xs hover:shadow-md transition-all duration-300 flex items-center gap-3.5 group cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-violet-600 group-hover:text-white transition-all shadow-inner">
+                <LucideIcon name="martini" size={18} strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider group-hover:text-violet-600 transition-colors">Menús Cócteles</h4>
+                <p className="text-[10px] text-slate-400 font-medium truncate">Cócteles, aperitivos y copas</p>
+              </div>
+              <LucideIcon name="external-link" size={14} className="text-slate-300 group-hover:text-violet-600 shrink-0 transition-colors" />
+            </a>
           </div>
 
           {/* Grid de Alertas - 5 columnas */}
