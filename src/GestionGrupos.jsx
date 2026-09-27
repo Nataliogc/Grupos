@@ -23666,7 +23666,10 @@
                                     const firstValidRegime = (Array.isArray(currentRL) ? currentRL.find(r => !r.isService && r.regime && r.regime !== "-")?.regime : null) || currentRec["Régimen"] || "MP";
                                     const savePayload = {
                                       RoomingList_JSON: JSON.stringify(currentRL || []),
-                                      DailyDistribution_JSON: JSON.stringify(distMap || {})
+                                      DailyDistribution_JSON: JSON.stringify(distMap || {}),
+                                      "Pax.": String(selectedGroupFicha.totalPax || 0),
+                                      "Cant.": String(selectedGroupFicha.totalRooms || 0),
+                                      "Importe(*)": String(selectedGroupFicha.totalRevenue !== undefined ? Number(selectedGroupFicha.totalRevenue).toFixed(2) : (currentRec["Importe(*)"] || "0.00"))
                                     };
                                     if (firstValidRegime) {
                                       savePayload["Régimen"] = firstValidRegime;
