@@ -7837,23 +7837,7 @@
 
             setColumns(Array.from(allKeys));
 
-            // Sincronización automática a MesaChef (solo grupos >= 2027 con MP/PC)
-            if (window.MesaChefService && typeof window.MesaChefService.syncAllEligibleGroups === "function") {
-              const groupsForMesachef = dedupedRoomData.filter(row => {
-                if (row.convertedToReservation || row.targetReservationId || row.isHistoricalBudget) return false;
-                const r = String(row.Reserva || row.id || "").trim();
-                if (r.toUpperCase().startsWith("PRES-")) {
-                  const hasRealRes = dedupedRoomData.some(other => {
-                    const otherRes = String(other.Reserva || other.id || "").trim();
-                    if (otherRes === r || otherRes.toUpperCase().startsWith("PRES-")) return false;
-                    return String(other.Presupuesto_Origen || other.sourceQuoteId || "").trim() === r;
-                  });
-                  if (hasRealRes) return false;
-                }
-                return true;
-              });
-              window.MesaChefService.syncAllEligibleGroups(groupsForMesachef);
-            }
+            // Sincronización a MesaChef optimizada: se ejecuta únicamente cuando el usuario guarda cambios reales, evitando escrituras innecesarias.
           },
 
           (error) => {
