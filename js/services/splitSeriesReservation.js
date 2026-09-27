@@ -153,11 +153,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
    */
   function _splitAndConfirmMultiSegment() {
     _splitAndConfirmMultiSegment = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(_ref3) {
-      var budgetId, db, confirmedBy, confirmationSource, serverTimestampVal, now, formattedDate;
+      var budgetId, db, confirmedBy, confirmationSource, _ref3$requestedStatus, requestedStatus, serverTimestampVal, now, formattedDate;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.n) {
           case 0:
-            budgetId = _ref3.budgetId, db = _ref3.db, confirmedBy = _ref3.confirmedBy, confirmationSource = _ref3.confirmationSource;
+            budgetId = _ref3.budgetId, db = _ref3.db, confirmedBy = _ref3.confirmedBy, confirmationSource = _ref3.confirmationSource, _ref3$requestedStatus = _ref3.requestedStatus, requestedStatus = _ref3$requestedStatus === void 0 ? "CONFIRMADO" : _ref3$requestedStatus;
             if (!(!budgetId || !db)) {
               _context2.n = 1;
               break;
@@ -394,8 +394,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                           dailyConfig: segmentDailyConfig,
                           "Importe(*)": String(segmentTotal.toFixed(2)),
                           "RoomingList_JSON": JSON.stringify(segmentRoomingList),
-                          Estado: "Confirmado",
-                          Com_Estado_Interno: "CONFIRMADO",
+                          Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
+                          Com_Estado_Interno: requestedStatus,
                           isMultiSegment: false,
                           segments: [],
                           // Traceability
@@ -499,11 +499,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
   }
   function _confirmBudget() {
     _confirmBudget = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(_ref4) {
-      var budgetId, requestedStatus, confirmationSource, db, confirmedBy, docRef, snapshot, budget, previousStatus, allSegments, activeSegments, isMulti, isTransitioningToConfirmed, segIdsStr, msg, userAccepted, isBudgetDoc, pmsReserva, promptMsg, inputVal, now, formattedDate, track, serverTimestampVal, checkDoc, reservationData, budgetUpdates, updates, _now, _formattedDate, _track, _serverTimestampVal, _updates;
+      var budgetId, requestedStatus, confirmationSource, db, confirmedBy, manualReservationId, docRef, snapshot, budget, hasReservation, allowed, previousStatus, allSegments, activeSegments, isMulti, isTransitioningToConfirmed, segIdsStr, msg, userAccepted, isBudgetDoc, pmsReserva, promptMsg, inputVal, now, formattedDate, track, serverTimestampVal, checkDoc, reservationData, conversionBatch, budgetUpdates, updates, _now, _formattedDate, _track, _serverTimestampVal, _updates, _t;
       return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.n) {
+        while (1) switch (_context3.p = _context3.n) {
           case 0:
-            budgetId = _ref4.budgetId, requestedStatus = _ref4.requestedStatus, confirmationSource = _ref4.confirmationSource, db = _ref4.db, confirmedBy = _ref4.confirmedBy;
+            budgetId = _ref4.budgetId, requestedStatus = _ref4.requestedStatus, confirmationSource = _ref4.confirmationSource, db = _ref4.db, confirmedBy = _ref4.confirmedBy, manualReservationId = _ref4.manualReservationId;
             if (!(!budgetId || !db)) {
               _context3.n = 1;
               break;
@@ -528,7 +528,30 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             }
             throw new Error("Esta serie ya ha sido desglosada previamente.");
           case 4:
-            previousStatus = (budget.Com_Estado_Interno || budget.Estado || "").toUpperCase(); // Check if any segment is active (has dates & rooms) but lacks ID
+            requestedStatus = {
+              PENDIENTE: "PROSPECTO",
+              SEGUIMIENTO: "PRESUPUESTO"
+            }[requestedStatus] || requestedStatus;
+            hasReservation = !/^(PRES|COT)-/i.test(String(budget.Reserva || budgetId)) && budget.isBudget !== true;
+            allowed = hasReservation ? ["TENTATIVA", "CONFIRMADO", "CANCELADO"] : ["PROSPECTO", "PRESUPUESTO", "DESESTIMADO", "TENTATIVA", "CONFIRMADO"];
+            if (allowed.includes(requestedStatus)) {
+              _context3.n = 5;
+              break;
+            }
+            throw new Error("Estado no válido para la fase actual del grupo.");
+          case 5:
+            previousStatus = (budget.Com_Estado_Interno || budget.Estado || "").toUpperCase();
+            if (!(requestedStatus === "CONFIRMADO" && previousStatus !== "CONFIRMADO")) {
+              _context3.n = 6;
+              break;
+            }
+            if (!(typeof window !== "undefined" && !window.confirm("Confirmo que el depósito del 30 % está abonado y que el cliente ha aceptado las condiciones. ¿Pasar a Confirmado?"))) {
+              _context3.n = 6;
+              break;
+            }
+            throw new Error("Confirmación cancelada: no se han declarado cumplidos los requisitos.");
+          case 6:
+            // Check if any segment is active (has dates & rooms) but lacks ID
             allSegments = budget.segments || [];
             allSegments.forEach(function (seg, i) {
               var hasDates = seg.in && seg.out && seg.in < seg.out;
@@ -562,9 +585,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             isMulti = budget.isMultiSegment === true && activeSegments.length > 1; // DESGLOSE CONDITIONAL check:
             // Only split if isMulti segment, requestedStatus is "CONFIRMADO", and previousStatus is NOT "CONFIRMADO".
             // This blocks split execution if someone is only updating/saving changes on an already confirmed quote.
-            isTransitioningToConfirmed = requestedStatus === "CONFIRMADO" && previousStatus !== "CONFIRMADO";
+            isTransitioningToConfirmed = ["TENTATIVA", "CONFIRMADO"].includes(requestedStatus) && previousStatus !== requestedStatus;
             if (!(isMulti && isTransitioningToConfirmed)) {
-              _context3.n = 7;
+              _context3.n = 9;
               break;
             }
             segIdsStr = activeSegments.map(function (s) {
@@ -578,53 +601,60 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               userAccepted = true;
             }
             if (userAccepted) {
-              _context3.n = 5;
+              _context3.n = 7;
               break;
             }
             throw new Error("Operación cancelada por el usuario.");
-          case 5:
-            _context3.n = 6;
+          case 7:
+            _context3.n = 8;
             return splitAndConfirmMultiSegment({
               budgetId: budgetId,
               db: db,
               confirmedBy: confirmedBy || "Usuario",
+              requestedStatus: requestedStatus,
               confirmationSource: confirmationSource || "Interfaz"
             });
-          case 6:
+          case 8:
             return _context3.a(2, {
               split: true,
               childIds: activeSegments.map(function (s) {
                 return s.id;
               })
             });
-          case 7:
+          case 9:
             if (!isTransitioningToConfirmed) {
-              _context3.n = 19;
+              _context3.n = 25;
               break;
             }
             // REGLA FUNDAMENTAL: Al confirmar un presupuesto individual, DEBE asignarse un número de reserva manual del PMS.
             // A partir de ese momento, la referencia única y válida del grupo es el Nº de Reserva.
             // El presupuesto original queda bloqueado en modo de mera consulta histórica y no se modifica más.
-            isBudgetDoc = String(budgetId).toUpperCase().startsWith("PRES-") || String(budget.Reserva || "").toUpperCase().startsWith("PRES-") || budget.isBudget === true || (budget.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO" || (budget.Estado || "").toUpperCase() === "PRESUPUESTO";
+            isBudgetDoc = !hasReservation;
             pmsReserva = typeof manualReservationId !== "undefined" && manualReservationId ? String(manualReservationId).trim() : "";
             if (!(isBudgetDoc && !budget.convertedToReservation && !pmsReserva)) {
-              _context3.n = 9;
+              _context3.n = 11;
               break;
             }
             if (!(typeof window !== "undefined")) {
-              _context3.n = 9;
+              _context3.n = 11;
               break;
             }
-            promptMsg = "Introduce el NÚMERO DE RESERVA DEL PMS para confirmar este grupo / presupuesto:\n\n(A partir de este momento, la referencia única y válida oficial del grupo será este número de reserva)";
+            promptMsg = "Introduce el NÚMERO DE RESERVA DEL PMS para pasar este grupo a " + requestedStatus + ":\n\n(A partir de este momento, la referencia única y válida oficial del grupo será este número de reserva)";
             inputVal = window.prompt(promptMsg);
             if (!(inputVal === null || !inputVal.trim())) {
-              _context3.n = 8;
+              _context3.n = 10;
               break;
             }
             throw new Error("Confirmación cancelada: Se requiere un número de reserva del PMS.");
-          case 8:
+          case 10:
             pmsReserva = inputVal.trim();
-          case 9:
+          case 11:
+            if (!(isBudgetDoc && (!pmsReserva || pmsReserva === budgetId))) {
+              _context3.n = 12;
+              break;
+            }
+            throw new Error("Debes asignar un número de reserva PMS para entrar en fase operativa.");
+          case 12:
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             track = [];
@@ -638,31 +668,31 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               serverTimestampVal = db.app.firebase_.firestore.FieldValue.serverTimestamp();
             }
             if (!(pmsReserva && pmsReserva !== budgetId)) {
-              _context3.n = 16;
+              _context3.n = 22;
               break;
             }
             if (!(pmsReserva.toUpperCase().startsWith("PRES-") || pmsReserva.toUpperCase().startsWith("COT-"))) {
-              _context3.n = 10;
-              break;
-            }
-            throw new Error("El número de reserva del PMS debe ser un localizador real (no puede ser un código de presupuesto PRES-).");
-          case 10:
-            if (!/[/\\.]/.test(pmsReserva)) {
-              _context3.n = 11;
-              break;
-            }
-            throw new Error("El número de reserva del PMS no puede contener barras ni puntos.");
-          case 11:
-            _context3.n = 12;
-            return db.collection("groups").doc(pmsReserva).get();
-          case 12:
-            checkDoc = _context3.v;
-            if (!(checkDoc.exists && checkDoc.id !== budgetId)) {
               _context3.n = 13;
               break;
             }
-            throw new Error("El n\xFAmero de reserva ".concat(pmsReserva, " ya existe en el sistema."));
+            throw new Error("El número de reserva del PMS debe ser un localizador real (no puede ser un código de presupuesto PRES-).");
           case 13:
+            if (!/[/\\.]/.test(pmsReserva)) {
+              _context3.n = 14;
+              break;
+            }
+            throw new Error("El número de reserva del PMS no puede contener barras ni puntos.");
+          case 14:
+            _context3.n = 15;
+            return db.collection("groups").doc(pmsReserva).get();
+          case 15:
+            checkDoc = _context3.v;
+            if (!(checkDoc.exists && checkDoc.id !== budgetId)) {
+              _context3.n = 16;
+              break;
+            }
+            throw new Error("El n\xFAmero de reserva ".concat(pmsReserva, " ya existe en el sistema."));
+          case 16:
             // 1. Crear documento de la reserva oficial en groups
             reservationData = _objectSpread(_objectSpread({}, budget), {}, {
               id: pmsReserva,
@@ -670,9 +700,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               Reserva: pmsReserva,
               Presupuesto_Origen: budgetId,
               sourceQuoteId: budgetId,
-              Com_Estado_Interno: "CONFIRMADO",
-              Estado: "Confirmado",
+              Com_Estado_Interno: requestedStatus,
+              Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
               isBudget: false,
+              _diff: null,
+              isCancelled: false,
               updatedAt: serverTimestampVal,
               tracking: JSON.stringify([{
                 id: Date.now(),
@@ -684,13 +716,13 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             delete reservationData.targetReservationId;
             delete reservationData.isHistoricalBudget;
             delete reservationData.isReadOnly;
-            _context3.n = 14;
-            return db.collection("groups").doc(pmsReserva).set(reservationData);
-          case 14:
+            conversionBatch = db.batch();
+            conversionBatch.set(db.collection("groups").doc(pmsReserva), reservationData);
+
             // 2. Marcar presupuesto original como bloqueado de mera consulta histórica
             budgetUpdates = {
-              Com_Estado_Interno: "CONFIRMADO",
-              Estado: "Confirmado",
+              Com_Estado_Interno: requestedStatus,
+              Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
               convertedToReservation: pmsReserva,
               targetReservationId: pmsReserva,
               isHistoricalBudget: true,
@@ -702,47 +734,55 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
                 text: "Presupuesto confirmado y asignado a reserva definitiva PMS: ".concat(pmsReserva, ". Queda bloqueado en modo de mera consulta.")
               }].concat(_toConsumableArray(track)))
             };
-            _context3.n = 15;
-            return docRef.update(budgetUpdates);
-          case 15:
-            // 3. Sincronización a MesaChef si procede
-            if (typeof window !== "undefined" && window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
-              try {
-                window.MesaChefService.syncGroupToMesachef(reservationData);
-              } catch (syncErr) {
-                console.warn("MesaChef sync after confirmation warning:", syncErr);
-              }
+            conversionBatch.update(docRef, budgetUpdates);
+            _context3.n = 17;
+            return conversionBatch.commit();
+          case 17:
+            if (!(typeof window !== "undefined" && window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function")) {
+              _context3.n = 21;
+              break;
             }
+            _context3.p = 18;
+            _context3.n = 19;
+            return window.MesaChefService.syncGroupToMesachef(reservationData);
+          case 19:
+            _context3.n = 21;
+            break;
+          case 20:
+            _context3.p = 20;
+            _t = _context3.v;
+            console.warn("MesaChef sync after confirmation warning:", _t);
+          case 21:
             return _context3.a(2, {
               split: false,
               converted: true,
               newReservationId: pmsReserva
             });
-          case 16:
+          case 22:
             track.unshift({
               id: Date.now(),
               date: formattedDate,
-              text: "Estado -> ".concat(requestedStatus)
+              text: "Estado -> ".concat(requestedStatus).concat(requestedStatus === "CONFIRMADO" ? " | Comercial declara depósito del 30 % abonado y condiciones aceptadas: " + (confirmedBy || "Usuario") : "")
             });
             updates = {
               Com_Estado_Interno: requestedStatus,
-              Estado: "Confirmado",
+              Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
               _diff: null,
               isCancelled: false,
               updatedAt: serverTimestampVal,
               tracking: JSON.stringify(track)
             };
-            _context3.n = 17;
+            _context3.n = 23;
             return docRef.update(updates);
-          case 17:
+          case 23:
             return _context3.a(2, {
               split: false,
               updates: updates
             });
-          case 18:
-            _context3.n = 21;
+          case 24:
+            _context3.n = 27;
             break;
-          case 19:
+          case 25:
             // Normal update/save process: update status and timestamp in parent document
             _now = new Date();
             _formattedDate = "".concat(_now.getFullYear(), "-").concat(String(_now.getMonth() + 1).padStart(2, '0'), "-").concat(String(_now.getDate()).padStart(2, '0'), " ").concat(String(_now.getHours()).padStart(2, '0'), ":").concat(String(_now.getMinutes()).padStart(2, '0'));
@@ -757,7 +797,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             _track.unshift({
               id: Date.now(),
               date: _formattedDate,
-              text: "Estado -> ".concat(requestedStatus)
+              text: "Estado -> ".concat(requestedStatus).concat(requestedStatus === "CONFIRMADO" ? " | Comercial declara depósito del 30 % abonado y condiciones aceptadas: " + (confirmedBy || "Usuario") : "")
             });
             _serverTimestampVal = new Date();
             if (global.firebase && global.firebase.firestore && global.firebase.firestore.FieldValue) {
@@ -779,17 +819,17 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             } else {
               _updates.Estado = "Presupuesto";
             }
-            _context3.n = 20;
+            _context3.n = 26;
             return docRef.update(_updates);
-          case 20:
+          case 26:
             return _context3.a(2, {
               split: false,
               updates: _updates
             });
-          case 21:
+          case 27:
             return _context3.a(2);
         }
-      }, _callee3);
+      }, _callee3, null, [[18, 20]]);
     }));
     return _confirmBudget.apply(this, arguments);
   }

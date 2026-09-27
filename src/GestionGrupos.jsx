@@ -20001,7 +20001,7 @@
 
                                       s.includes("RESERVA") ||
 
-                                      s === "GRUPOS"
+                                      (s === "GRUPOS" || s === "GRUPO")
 
                                     )
 
@@ -20057,7 +20057,9 @@
 
                                       selectVal = "PROSPECTO";
 
-                                    if (["DESESTIMADO", "CADUCADO", "PENDIENTE", "SEGUIMIENTO"].includes(s)) selectVal = s;
+                                    if (["DESESTIMADO", "CADUCADO"].includes(s)) selectVal = s;
+                                    if (s === "PENDIENTE") selectVal = "PROSPECTO";
+                                    if (s === "SEGUIMIENTO") selectVal = "PRESUPUESTO";
                                     return (
 
                                       <select
@@ -20083,38 +20085,14 @@
                                       >
 
                                         <option value={selectVal} hidden>{selectVal}</option>
-                                        {/* Opciones condicionales: presupuestos vs grupos confirmados */}
-
-                                        {((String(selectedGroupFicha.records?.[0]?.Reserva || '').startsWith('PRES-') || (selectedGroupFicha.records?.[0]?.Estado || '').toUpperCase() === 'PRESUPUESTO') && !selectVal.includes('CONFIRM')) ? (
-
-                                          <>
-
-                                            <option value="PENDIENTE">PENDIENTE</option>
-
-                                            <option value="SEGUIMIENTO">SEGUIMIENTO</option>
-
-                                            <option value="DESESTIMADO">DESESTIMADO</option>
-
-                                          </>
-
-                                        ) : (
-
-                                          <>
-
-                                            <option value="PRESUPUESTO">PRESUPUESTO</option>
-
-                                            <option value="TENTATIVA">TENTATIVA</option>
-
-                                            <option value="CONFIRMADO">CONFIRMADO</option>
-
-                                            <option value="CANCELADO">CANCELADO</option>
-                                            <option value="DESESTIMADO">DESESTIMADO</option>
-
-                                            <option value="PROSPECTO">PROSPECTO</option>
-
-                                          </>
-
-                                        )}
+                                        {(() => {
+                                          const record = selectedGroupFicha.records[0] || {};
+                                          const hasReservation = !/^(PRES|COT)-/i.test(String(record.Reserva || selectedGroupFicha.id)) && record.isBudget !== true;
+                                          const options = hasReservation
+                                            ? ["TENTATIVA", "CONFIRMADO", "CANCELADO"]
+                                            : ["PROSPECTO", "PRESUPUESTO", "DESESTIMADO", "TENTATIVA", "CONFIRMADO"];
+                                          return options.map(status => <option key={status} value={status}>{status}</option>);
+                                        })()}
 
                                       </select>
 

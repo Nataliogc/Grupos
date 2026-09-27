@@ -126,7 +126,7 @@
   /**
    * splitAndConfirmMultiSegment: splits a confirmed series into individual reservations
    */
-  async function splitAndConfirmMultiSegment({ budgetId, db, confirmedBy, confirmationSource }) {
+  async function splitAndConfirmMultiSegment({ budgetId, db, confirmedBy, confirmationSource, requestedStatus = "CONFIRMADO" }) {
     if (!budgetId || !db) {
       throw new Error("Parámetros insuficientes: se requiere budgetId y db.");
     }
@@ -330,8 +330,8 @@
           dailyConfig: segmentDailyConfig,
           "Importe(*)": String(segmentTotal.toFixed(2)),
           "RoomingList_JSON": JSON.stringify(segmentRoomingList),
-          Estado: "Confirmado",
-          Com_Estado_Interno: "CONFIRMADO",
+          Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
+          Com_Estado_Interno: requestedStatus,
           isMultiSegment: false,
           segments: [],
           
@@ -420,7 +420,7 @@
   /**
    * confirmBudget: unified confirmation coordinator
    */
-  async function confirmBudget({ budgetId, requestedStatus, confirmationSource, db, confirmedBy }) {
+  async function confirmBudget({ budgetId, requestedStatus, confirmationSource, db, confirmedBy, manualReservationId }) {
     if (!budgetId || !db) {
       throw new Error("Parámetros insuficientes para la confirmación.");
     }
@@ -439,7 +439,17 @@
       throw new Error("Esta serie ya ha sido desglosada previamente.");
     }
 
+    requestedStatus = ({PENDIENTE:"PROSPECTO", SEGUIMIENTO:"PRESUPUESTO"})[requestedStatus] || requestedStatus;
+    const hasReservation = !/^(PRES|COT)-/i.test(String(budget.Reserva || budgetId)) && budget.isBudget !== true;
+    const allowed = hasReservation ? ["TENTATIVA", "CONFIRMADO", "CANCELADO"] : ["PROSPECTO", "PRESUPUESTO", "DESESTIMADO", "TENTATIVA", "CONFIRMADO"];
+    if (!allowed.includes(requestedStatus)) throw new Error("Estado no válido para la fase actual del grupo.");
     const previousStatus = (budget.Com_Estado_Interno || budget.Estado || "").toUpperCase();
+
+    if (requestedStatus === "CONFIRMADO" && previousStatus !== "CONFIRMADO") {
+      if (typeof window !== "undefined" && !window.confirm("Confirmo que el depósito del 30 % está abonado y que el cliente ha aceptado las condiciones. ¿Pasar a Confirmado?")) {
+        throw new Error("Confirmación cancelada: no se han declarado cumplidos los requisitos.");
+      }
+    }
 
     // Check if any segment is active (has dates & rooms) but lacks ID
     const allSegments = budget.segments || [];
@@ -477,7 +487,7 @@
     // DESGLOSE CONDITIONAL check:
     // Only split if isMulti segment, requestedStatus is "CONFIRMADO", and previousStatus is NOT "CONFIRMADO".
     // This blocks split execution if someone is only updating/saving changes on an already confirmed quote.
-    const isTransitioningToConfirmed = requestedStatus === "CONFIRMADO" && previousStatus !== "CONFIRMADO";
+    const isTransitioningToConfirmed = ["TENTATIVA", "CONFIRMADO"].includes(requestedStatus) && previousStatus !== requestedStatus;
 
     if (isMulti && isTransitioningToConfirmed) {
       const segIdsStr = activeSegments.map(s => s.id).join(", ");
@@ -498,6 +508,7 @@
         budgetId,
         db,
         confirmedBy: confirmedBy || "Usuario",
+        requestedStatus,
         confirmationSource: confirmationSource || "Interfaz"
       });
 
@@ -506,16 +517,12 @@
       // REGLA FUNDAMENTAL: Al confirmar un presupuesto individual, DEBE asignarse un número de reserva manual del PMS.
       // A partir de ese momento, la referencia única y válida del grupo es el Nº de Reserva.
       // El presupuesto original queda bloqueado en modo de mera consulta histórica y no se modifica más.
-      const isBudgetDoc = String(budgetId).toUpperCase().startsWith("PRES-") ||
-                          String(budget.Reserva || "").toUpperCase().startsWith("PRES-") ||
-                          budget.isBudget === true ||
-                          (budget.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO" ||
-                          (budget.Estado || "").toUpperCase() === "PRESUPUESTO";
+      const isBudgetDoc = !hasReservation;
 
       let pmsReserva = (typeof manualReservationId !== "undefined" && manualReservationId) ? String(manualReservationId).trim() : "";
       if (isBudgetDoc && !budget.convertedToReservation && !pmsReserva) {
         if (typeof window !== "undefined") {
-          const promptMsg = "Introduce el NÚMERO DE RESERVA DEL PMS para confirmar este grupo / presupuesto:\n\n(A partir de este momento, la referencia única y válida oficial del grupo será este número de reserva)";
+          const promptMsg = "Introduce el NÚMERO DE RESERVA DEL PMS para pasar este grupo a " + requestedStatus + ":\n\n(A partir de este momento, la referencia única y válida oficial del grupo será este número de reserva)";
           const inputVal = window.prompt(promptMsg);
           if (inputVal === null || !inputVal.trim()) {
             throw new Error("Confirmación cancelada: Se requiere un número de reserva del PMS.");
@@ -523,6 +530,8 @@
           pmsReserva = inputVal.trim();
         }
       }
+
+      if (isBudgetDoc && (!pmsReserva || pmsReserva === budgetId)) throw new Error("Debes asignar un número de reserva PMS para entrar en fase operativa.");
 
       const now = new Date();
       const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -561,9 +570,11 @@
           Reserva: pmsReserva,
           Presupuesto_Origen: budgetId,
           sourceQuoteId: budgetId,
-          Com_Estado_Interno: "CONFIRMADO",
-          Estado: "Confirmado",
+          Com_Estado_Interno: requestedStatus,
+          Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
           isBudget: false,
+          _diff: null,
+          isCancelled: false,
           updatedAt: serverTimestampVal,
           tracking: JSON.stringify([
             {
@@ -579,12 +590,13 @@
         delete reservationData.isHistoricalBudget;
         delete reservationData.isReadOnly;
 
-        await db.collection("groups").doc(pmsReserva).set(reservationData);
+        const conversionBatch = db.batch();
+        conversionBatch.set(db.collection("groups").doc(pmsReserva), reservationData);
 
         // 2. Marcar presupuesto original como bloqueado de mera consulta histórica
         const budgetUpdates = {
-          Com_Estado_Interno: "CONFIRMADO",
-          Estado: "Confirmado",
+          Com_Estado_Interno: requestedStatus,
+          Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
           convertedToReservation: pmsReserva,
           targetReservationId: pmsReserva,
           isHistoricalBudget: true,
@@ -599,12 +611,13 @@
             ...track
           ])
         };
-        await docRef.update(budgetUpdates);
+        conversionBatch.update(docRef, budgetUpdates);
+        await conversionBatch.commit();
 
         // 3. Sincronización a MesaChef si procede
         if (typeof window !== "undefined" && window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
           try {
-            window.MesaChefService.syncGroupToMesachef(reservationData);
+            await window.MesaChefService.syncGroupToMesachef(reservationData);
           } catch (syncErr) {
             console.warn("MesaChef sync after confirmation warning:", syncErr);
           }
@@ -615,12 +628,12 @@
         track.unshift({
           id: Date.now(),
           date: formattedDate,
-          text: `Estado -> ${requestedStatus}`
+          text: `Estado -> ${requestedStatus}${requestedStatus === "CONFIRMADO" ? " | Comercial declara depósito del 30 % abonado y condiciones aceptadas: " + (confirmedBy || "Usuario") : ""}`
         });
 
         const updates = {
           Com_Estado_Interno: requestedStatus,
-          Estado: "Confirmado",
+          Estado: requestedStatus === "TENTATIVA" ? "Tentativa" : "Confirmado",
           _diff: null,
           isCancelled: false,
           updatedAt: serverTimestampVal,
@@ -646,7 +659,7 @@
       track.unshift({
         id: Date.now(),
         date: formattedDate,
-        text: `Estado -> ${requestedStatus}`
+        text: `Estado -> ${requestedStatus}${requestedStatus === "CONFIRMADO" ? " | Comercial declara depósito del 30 % abonado y condiciones aceptadas: " + (confirmedBy || "Usuario") : ""}`
       });
 
       let serverTimestampVal = new Date();

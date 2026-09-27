@@ -279,6 +279,8 @@
       return false;
     }
 
+    if (segmento === "GRUPO" || segmento === "GRUPOS") return true;
+
     var nombre = String(
       groupRecord["Nombre del Grupo"] ||
       groupRecord.Grupo ||
