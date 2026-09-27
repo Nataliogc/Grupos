@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Groups - Calendario Operativo CapaSuite</title>
+    <title>Nexus Groups - Calendario Estratégico y Tarifas</title>
     <link rel="icon" type="image/png" href="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png">
 
     <!-- Tailwind CSS (CDN) -->
@@ -24,12 +24,14 @@
     <link rel="stylesheet" href="style.css">
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Lucide Icons (Local con fallback) -->
+    <!-- Lucide Icons -->
     <script src="js/vendor/lucide.min.js"></script>
     <script>
         if (typeof lucide === "undefined") {
@@ -37,7 +39,10 @@
         }
     </script>
 
-    <!-- Firebase SDK (Compat mode - Local con fallback) -->
+    <!-- SheetJS para importación de eventos desde Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDK Compat -->
     <script src="js/vendor/firebase-app-compat.js"></script>
     <script src="js/vendor/firebase-firestore-compat.js"></script>
     <script>
@@ -52,170 +57,581 @@
             --nexus-bg: #f8fafc;
             --nexus-card: #ffffff;
             --nexus-border: #e2e8f0;
+            --primary: #4f46e5;
+            --primary-glow: rgba(79, 70, 229, 0.25);
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --danger: #ef4444;
         }
 
         body {
-            font-family: "Outfit", sans-serif;
+            font-family: "Outfit", "Inter", sans-serif;
             background-color: var(--nexus-bg);
             color: #1e293b;
             margin: 0;
             overflow-x: hidden;
         }
 
-        .calendar-frame-container {
-            height: calc(100vh - 110px);
-            min-height: 520px;
-            width: 100%;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* ESCALA TÉRMICA */
+        .heat-1 {
+            background-color: #ecfdf5 !important;
+            border-color: #a7f3d0 !important;
+        }
+        .heat-2 {
+            background-color: #e0f2fe !important;
+            border-color: #bae6fd !important;
+        }
+        .heat-3 {
+            background-color: #fef3c7 !important;
+            border-color: #fde68a !important;
+        }
+        .heat-4 {
+            background-color: #ffedd5 !important;
+            border-color: #fed7aa !important;
+        }
+        .heat-5 {
+            background: linear-gradient(135deg, #fee2e2, #fecdd3) !important;
+            border-color: #fca5a5 !important;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);
         }
 
-        /* Modo pantalla completa */
-        .calendar-frame-container.is-fullscreen {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            z-index: 99999 !important;
-            border-radius: 0 !important;
+        .is-past {
+            opacity: 0.35;
+            filter: grayscale(0.7);
+            pointer-events: auto;
+        }
+
+        .is-weekend .day-num {
+            color: #ef4444 !important;
+            font-weight: 800;
+        }
+
+        .is-full {
+            border: 2px solid #ef4444 !important;
+        }
+
+        .has-event {
+            border: 1.5px solid #f59e0b !important;
+        }
+        .has-event::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 6px;
+            height: 6px;
+            background: #f59e0b;
+            border-radius: 50%;
+        }
+
+        /* CELDA DEL DÍA */
+        .day-cell {
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #0f172a;
+            padding: 5px 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            min-height: 82px;
+            border-radius: 10px;
+            z-index: 1;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .day-cell:hover {
+            transform: translateY(-3px) scale(1.02);
+            z-index: 20;
+            border-color: #6366f1;
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.2), 0 8px 10px -6px rgba(99, 102, 241, 0.1);
+        }
+
+        .day-cell.empty {
+            background: transparent !important;
             border: none !important;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .day-num-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+
+        .day-num {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .day-name-short {
+            font-size: 0.55rem;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        .day-price {
+            font-size: 0.95rem;
+            font-weight: 900;
+            color: #0f172a;
+            text-align: center;
+            line-height: 1.1;
+            margin: 1px 0;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.3px;
+        }
+
+        .cell-sub-market {
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 0.5px 5px;
+            border-radius: 4px;
+            margin: 1px auto 0;
+            text-align: center;
+            display: inline-block;
+            background: #eef2ff;
+            color: #4338ca;
+            border: 1px solid #c7d2fe;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.2px;
+            white-space: nowrap;
+        }
+
+        .otb-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            background: #f3e8ff;
+            border: 1px solid #d8b4fe;
+            padding: 1px 5px;
+            border-radius: 5px;
+            width: fit-content;
+            margin: 1px auto 0;
+            line-height: 1;
+        }
+
+        .otb-label {
+            font-size: 0.55rem;
+            font-weight: 800;
+            color: #7c3aed;
+        }
+
+        .otb-val {
+            color: #6d28d9;
+            font-weight: 900;
+            font-size: 0.7rem;
+        }
+
+        /* TARJETAS DE MES */
+        .month-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 14px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .month-card:hover {
+            box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.06);
+        }
+
+        .month-title {
+            font-size: 1.15rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: capitalize;
+        }
+
+        .month-title::before {
+            content: '';
+            width: 4px;
+            height: 16px;
+            background: #6366f1;
+            border-radius: 2px;
+        }
+
+        .days-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .day-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        /* TOOLTIP FLOTANTE MEJORADO */
+        #calendar-tooltip {
+            position: fixed;
+            z-index: 99999;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 18px;
+            pointer-events: none;
+            display: none;
+            min-width: 330px;
+            max-width: 380px;
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
+            animation: ttAppear 0.15s ease-out;
+        }
+
+        @keyframes ttAppear {
+            from { opacity: 0; transform: scale(0.96) translateY(6px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .tt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+        }
+
+        .tt-date {
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: #0f172a;
+        }
+
+        .tt-mkt {
+            font-size: 0.75rem;
+            background: #eef2ff;
+            padding: 3px 10px;
+            border-radius: 20px;
+            color: #4f46e5;
+            font-weight: 800;
+            border: 1px solid #c7d2fe;
+        }
+
+        .tt-comp-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        .tt-comp-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 220px;
+        }
+
+        .tt-sold {
+            color: #ef4444 !important;
+            font-weight: 900;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            padding: 24px;
+            width: 90%;
+            max-width: 480px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.25s ease;
+        }
+
+        .modal.show .modal-card {
+            transform: scale(1);
         }
 
         @keyframes nexus-spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
-
         .spinner-anim {
             animation: nexus-spin 0.8s linear infinite;
-        }
-
-        @keyframes pulse-soft {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.85; transform: scale(1.02); }
-        }
-
-        .pulse-subtle {
-            animation: pulse-soft 3s ease-in-out infinite;
         }
     </style>
 </head>
 
 <body class="bg-slate-50 min-h-screen flex flex-col">
 
-    <!-- SUB-BARRA DE CONTROL DEL CALENDARIO (Directamente bajo la cabecera global) -->
-    <div class="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-6 py-2 sticky top-[50px] z-30 shadow-xs">
+    <!-- SUB-BARRA DE CONTROL Y SINCRONIZACIÓN -->
+    <div class="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-6 py-2.5 sticky top-[50px] z-30 shadow-xs">
         <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
             
-            <!-- Título y descripción -->
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+            <!-- Título y Hotel Selector -->
+            <div class="flex items-center gap-3 flex-wrap">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
                     <i data-lucide="calendar" class="w-4 h-4"></i>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h2 class="text-sm font-extrabold text-slate-800 tracking-tight leading-none font-outfit">
-                            Calendario Operativo
+                        <h2 class="text-sm sm:text-base font-black text-slate-800 tracking-tight leading-none font-outfit">
+                            Calendario Estratégico y Tarifas
                         </h2>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80">
                             <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                            CapaSuite Live
+                            Nexus Sync
                         </span>
                     </div>
                     <p class="text-[11px] text-slate-400 font-medium leading-tight mt-0.5 hidden sm:block">
-                        Ocupación, pick-up, tarifas diarias y eventos sincronizados en la nube
+                        Precios diarios, ocupación, pick-up y benchmarking de mercado para presupuestos
                     </p>
+                </div>
+
+                <!-- Selector de Hotel Integrado en la barra -->
+                <div class="ml-2 sm:ml-4 flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                    <select id="hotelSelector" onchange="onFilterChange()" 
+                            class="bg-white text-slate-800 font-extrabold text-xs py-1.5 px-3 rounded-lg border border-slate-200/80 shadow-xs outline-none cursor-pointer hover:border-indigo-400 transition-colors">
+                        <option value="Guadiana">🏨 Sercotel Guadiana</option>
+                        <option value="Cumbria">🏢 Cumbria Spa & Hotel</option>
+                    </select>
                 </div>
             </div>
 
             <!-- Estado de actualización y acciones -->
             <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <!-- Indicador de Sincronización en Tiempo Real -->
+                <!-- Indicador de Sincronización -->
                 <div class="flex items-center gap-2 px-2.5 py-1 bg-slate-50 border border-slate-200/80 rounded-xl shadow-2xs select-none">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    <span id="sync-status-badge" class="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                    <span id="sync-status-badge" class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
                         Sincronizado
                     </span>
                     <span class="text-slate-300">|</span>
                     <span id="sync-last-time" class="text-[10px] font-semibold text-slate-400 tabular-nums">
-                        Conectando...
+                        Actualizado: --:--:--
                     </span>
                 </div>
 
-                <!-- Botón: Forzar Actualización en Vivo (Bypasses Cache) -->
-                <button id="btn-refresh" type="button" 
+                <!-- Botón Actualizar -->
+                <button id="btn-refresh" type="button" onclick="refreshCalendarData()"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer" 
-                        title="Forzar actualización inmediata sin caché para garantizar datos frescos">
-                    <i id="btn-refresh-icon" data-lucide="refresh-cw" class="w-3.5 h-3.5 text-slate-500 transition-transform"></i>
+                        title="Recargar y sincronizar datos frescos de tarifas y ocupación">
+                    <i id="btn-refresh-icon" data-lucide="refresh-cw" class="w-3.5 h-3.5 text-slate-500"></i>
                     <span>Actualizar</span>
                 </button>
 
-                <!-- Botón: Alternar Pantalla Completa -->
-                <button id="btn-fullscreen" type="button" 
+                <!-- Botón Pantalla Completa -->
+                <button id="btn-fullscreen" type="button" onclick="toggleFullScreen()"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer" 
-                        title="Modo pantalla completa para reuniones de Revenue Management">
+                        title="Modo pantalla completa para presupuestos y análisis comercial">
                     <i id="btn-fullscreen-icon" data-lucide="maximize" class="w-3.5 h-3.5 text-slate-500"></i>
                     <span class="hidden md:inline" id="btn-fullscreen-text">Pantalla Completa</span>
                 </button>
-
-                <!-- Botón: Abrir en pestaña externa directa -->
-                <a href="https://nataliogc.github.io/CapaSuite/AnalisisCalendario.html" 
-                   target="_blank" 
-                   rel="noopener noreferrer" 
-                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer" 
-                   title="Abrir en pestaña nueva del navegador">
-                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                    <span class="hidden sm:inline">Abrir en CapaSuite</span>
-                </a>
             </div>
         </div>
     </div>
 
     <!-- CONTENEDOR PRINCIPAL DEL CALENDARIO -->
-    <main class="flex-1 p-2 sm:p-4 max-w-[1920px] w-full mx-auto flex flex-col">
-        <div id="calendar-wrapper" class="calendar-frame-container bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative flex-1 flex flex-col">
-            
-            <!-- OVERLAY DE CARGA -->
-            <div id="calendar-loader" class="absolute inset-0 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center z-20 transition-opacity duration-300">
-                <div class="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-3 shadow-inner">
-                    <i data-lucide="calendar" class="w-6 h-6 text-indigo-600 animate-bounce"></i>
-                </div>
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full spinner-anim"></div>
-                    <span class="text-xs font-bold text-slate-800 tracking-tight">Cargando Calendario Operativo...</span>
-                </div>
-                <p class="text-[11px] text-slate-400 max-w-sm text-center">
-                    Conectando con CapaSuite y sincronizando datos de ocupación y tarifas en tiempo real.
-                </p>
+    <main class="flex-1 p-3 sm:p-6 max-w-[1920px] w-full mx-auto flex flex-col gap-5">
+        
+        <!-- BARRA SUPERIOR DE FILTROS Y CONTROLES ESTRATÉGICOS -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
+            <div class="flex items-center gap-2">
+                <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-outfit">
+                    Calendario Estratégico
+                </h1>
             </div>
 
-            <!-- IFRAME DEL CALENDARIO DE CAPASUITE -->
-            <iframe id="capasuite-iframe" 
-                    src="https://nataliogc.github.io/CapaSuite/AnalisisCalendario.html"
-                    title="Calendario Operativo CapaSuite" 
-                    class="w-full h-full border-0 flex-1 bg-white" 
-                    allow="clipboard-write; clipboard-read; fullscreen"
-                    loading="eager">
-            </iframe>
-
-            <!-- BARRA DE AYUDA INFERIOR DISMISSIBLE (Solo informativa) -->
-            <div id="help-notice" class="bg-slate-50 border-t border-slate-200/80 px-4 py-1.5 flex items-center justify-between text-[11px] text-slate-500">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
-                    <span>
-                        <strong>Sincronización en tiempo real:</strong> CapaSuite actualiza las tarifas, cupos y ocupación automáticamente mediante conexión directa con la nube.
-                    </span>
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- Leyenda de Escala Térmica -->
+                <div class="flex items-center gap-2 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80 select-none">
+                    <span>Bajo</span>
+                    <div class="flex items-center gap-1">
+                        <div class="w-4 h-4 rounded heat-1 border border-emerald-300" title="Nivel 1: Económico / Tarifa baja"></div>
+                        <div class="w-4 h-4 rounded heat-2 border border-sky-300" title="Nivel 2: Moderado"></div>
+                        <div class="w-4 h-4 rounded heat-3 border border-amber-300" title="Nivel 3: Medio"></div>
+                        <div class="w-4 h-4 rounded heat-4 border border-orange-300" title="Nivel 4: Alto"></div>
+                        <div class="w-4 h-4 rounded heat-5 border border-rose-400" title="Nivel 5: Pico de demanda"></div>
+                    </div>
+                    <span>Alto</span>
                 </div>
-                <button type="button" onclick="document.getElementById('help-notice').style.display='none'" class="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer" title="Cerrar aviso">
-                    <i data-lucide="x" class="w-3 h-3"></i>
+
+                <!-- Botón + Eventos -->
+                <button type="button" onclick="openAddEventModal()"
+                        class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    <span>Eventos</span>
                 </button>
+                <input type="file" id="excelEvents" hidden accept=".xlsx, .xls">
+
+                <div class="w-[1px] h-6 bg-slate-200"></div>
+
+                <!-- Selector de Año -->
+                <select id="yearSelector" onchange="onFilterChange()"
+                        class="bg-white text-slate-800 font-bold text-xs py-1.5 px-3 rounded-xl border border-slate-200 shadow-xs outline-none cursor-pointer hover:border-indigo-400">
+                </select>
+
+                <!-- Selector de Métrica Principal -->
+                <select id="metricSelector" onchange="renderCalendar()"
+                        class="bg-white text-slate-800 font-bold text-xs py-1.5 px-3 rounded-xl border border-slate-200 shadow-xs outline-none cursor-pointer hover:border-indigo-400 min-w-[210px]">
+                    <option value="price" selected>🏷️ Ver Precios Hotel</option>
+                    <option value="market_avg">🌐 Ver Media Mercado (Todos)</option>
+                    <option value="comp_avg">🏢 Ver Media Competencia</option>
+                    <option value="diff_vs_avg">⚖️ Ver Diferencia vs Media (€)</option>
+                    <option value="occupancy">📊 Ver Ocupación (%)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- TARJETAS RESUMEN / KPIS -->
+        <div id="calendarInsights" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            <!-- JS Injected -->
+        </div>
+
+        <!-- CUADRÍCULA DE MESES -->
+        <div id="calendarGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 items-start">
+            <!-- JS Injected -->
+        </div>
+
+        <!-- LISTA DE EVENTOS ESTRATÉGICOS REGISTRADOS -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs mb-8">
+            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+                    <h3 id="eventListTitle" class="text-sm font-extrabold text-slate-800 font-outfit uppercase tracking-wider">
+                        Eventos Estratégicos del Periodo
+                    </h3>
+                </div>
+                <button type="button" onclick="document.getElementById('excelEvents').click()" 
+                        class="text-xs font-bold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1 hover:underline cursor-pointer">
+                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                    <span>Importar Excel</span>
+                </button>
+            </div>
+            <div id="eventList" class="flex flex-wrap gap-2.5">
+                <!-- JS Injected -->
             </div>
         </div>
     </main>
+
+    <!-- TOOLTIP FLOTANTE -->
+    <div id="calendar-tooltip"></div>
+
+    <!-- MODAL PARA AÑADIR EVENTO -->
+    <div id="addEventModal" class="modal" onclick="if(event.target === this) closeAddEventModal()">
+        <div class="modal-card">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-base font-extrabold text-slate-800 font-outfit">Añadir Evento Estratégico</h3>
+                </div>
+                <button type="button" onclick="closeAddEventModal()" class="text-slate-400 hover:text-slate-600 cursor-pointer text-lg leading-none">&times;</button>
+            </div>
+            
+            <div class="flex flex-col gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre o Descripción del Evento</label>
+                    <input type="text" id="eventDesc" placeholder="Ej. Congreso Médico, Feria Nacional, Boda Grande..." 
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Fecha Inicio</label>
+                        <input type="date" id="eventStart" 
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Fecha Fin (Opcional)</label>
+                        <input type="date" id="eventEnd" 
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Prioridad / Impacto</label>
+                    <select id="eventPrio" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors">
+                        <option value="Media">Media (Demanda regular)</option>
+                        <option value="Alta">Alta (Subida de tarifas recomendada)</option>
+                        <option value="Muy Alta">Muy Alta (Pico de demanda / Cierre tarifas mínimas)</option>
+                    </select>
+                </div>
+
+                <div class="pt-2 flex items-center gap-2">
+                    <button type="button" onclick="saveManualEvent()" 
+                            class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer">
+                        Guardar Evento
+                    </button>
+                    <button type="button" onclick="closeAddEventModal()" 
+                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
+                        Cancelar
+                    </button>
+                </div>
+
+                <div class="relative flex py-1 items-center">
+                    <div class="flex-grow border-t border-slate-200"></div>
+                    <span class="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">o</span>
+                    <div class="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                <button type="button" onclick="document.getElementById('excelEvents').click(); closeAddEventModal();" 
+                        class="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+                    <span>Importar Eventos desde Excel</span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- SCRIPTS CENTRALIZADOS DE NEXUS GROUPS -->
     <script src="js/firebase-config.js"></script>
@@ -224,137 +640,956 @@
     <script src="js/navigation.js?v=header-v3"></script>
     <script src="js/firebase-init.js"></script>
 
-    <!-- LÓGICA DE SINCRONIZACIÓN Y GESTIÓN DEL CALENDARIO -->
+    <!-- MOTOR Y LÓGICA DEL CALENDARIO ESTRATÉGICO -->
     <script>
         (function () {
             "use strict";
 
-            var BASE_CALENDAR_URL = "https://nataliogc.github.io/CapaSuite/AnalisisCalendario.html";
-            var iframe = document.getElementById("capasuite-iframe");
-            var loader = document.getElementById("calendar-loader");
-            var syncBadge = document.getElementById("sync-status-badge");
-            var syncLastTime = document.getElementById("sync-last-time");
-            var btnRefresh = document.getElementById("btn-refresh");
-            var refreshIcon = document.getElementById("btn-refresh-icon");
-            var btnFullscreen = document.getElementById("btn-fullscreen");
-            var fullscreenIcon = document.getElementById("btn-fullscreen-icon");
-            var fullscreenText = document.getElementById("btn-fullscreen-text");
-            var wrapper = document.getElementById("calendar-wrapper");
+            // Almacén reactivo de datos
+            var revenueData = {};
+            var rawEvents = [];
+            var db = {};
+            var manualCuposDB = {};
+
+            // Hoteles disponibles y capacidades
+            var HOTEL_CAPACITIES = {
+                Guadiana: 108,
+                Cumbria: 59
+            };
+
+            function getStorageItem(key) {
+                try {
+                    return localStorage.getItem("v3_" + key) || localStorage.getItem(key) || null;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function setStorageItem(key, val) {
+                try {
+                    localStorage.setItem("v3_" + key, val);
+                    localStorage.setItem(key, val);
+                } catch (e) {}
+            }
 
             function formatTime(d) {
                 var p = function (n) { return n < 10 ? "0" + n : "" + n; };
                 return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
             }
 
-            function hideLoader() {
-                if (loader) {
-                    loader.style.opacity = "0";
-                    setTimeout(function () {
-                        loader.style.display = "none";
-                    }, 250);
+            // Cálculo preciso de métricas de precio por día
+            function getDayPriceMetrics(iso, dData, currentHotel) {
+                var hotelPrice = 0;
+                if (dData && dData.hotels && dData.hotels[currentHotel]) {
+                    var v = dData.hotels[currentHotel];
+                    hotelPrice = (typeof v === 'object') ? (v.price || 0) : (Number(v) || 0);
                 }
-                if (refreshIcon) refreshIcon.classList.remove("spinner-anim");
-                if (syncBadge) {
-                    syncBadge.textContent = "Sincronizado";
-                    syncBadge.className = "text-[10px] font-bold text-emerald-600 uppercase tracking-wider";
+                if (hotelPrice <= 0 && dData && dData.occupancyData && dData.occupancyData[currentHotel] && dData.occupancyData[currentHotel].adr > 0) {
+                    hotelPrice = Math.round(dData.occupancyData[currentHotel].adr);
                 }
-                if (syncLastTime) {
-                    syncLastTime.textContent = "Actualizado: " + formatTime(new Date());
+
+                var allPrices = [];
+                var compPrices = [];
+
+                if (dData && dData.hotels) {
+                    Object.entries(dData.hotels).forEach(function (entry) {
+                        var hName = entry[0];
+                        var val = entry[1];
+                        var price = (typeof val === 'object') ? (val.price || 0) : (Number(val) || 0);
+                        var isSold = (typeof val === 'object') && (val.sold === true || val.soldOut === true || val.price === 0 || val.price === '0');
+
+                        if (price > 0 && !isSold) {
+                            allPrices.push({ name: hName, price: price });
+                            var isCurrent = hName.toLowerCase().includes(currentHotel.toLowerCase()) || currentHotel.toLowerCase().includes(hName.toLowerCase());
+                            if (!isCurrent) {
+                                compPrices.push({ name: hName, price: price });
+                            }
+                        }
+                    });
+                }
+
+                var hasCurrentInAll = allPrices.some(function (p) {
+                    return p.name.toLowerCase().includes(currentHotel.toLowerCase()) || currentHotel.toLowerCase().includes(p.name.toLowerCase());
+                });
+                if (!hasCurrentInAll && hotelPrice > 0) {
+                    allPrices.push({ name: currentHotel, price: hotelPrice });
+                }
+
+                var allPricesArr = allPrices.map(function (p) { return p.price; });
+                var compPricesArr = compPrices.map(function (p) { return p.price; });
+
+                var marketAvg = allPricesArr.length > 0 ? Math.round(allPricesArr.reduce(function (a, b) { return a + b; }, 0) / allPricesArr.length) : 0;
+                var compAvg = compPricesArr.length > 0 ? Math.round(compPricesArr.reduce(function (a, b) { return a + b; }, 0) / compPricesArr.length) : 0;
+                var minMarketPrice = allPricesArr.length > 0 ? Math.min.apply(null, allPricesArr) : 0;
+                var maxMarketPrice = allPricesArr.length > 0 ? Math.max.apply(null, allPricesArr) : 0;
+                var diffVsMarket = (hotelPrice > 0 && marketAvg > 0) ? (hotelPrice - marketAvg) : 0;
+
+                return {
+                    hotelPrice: hotelPrice,
+                    marketAvg: marketAvg,
+                    compAvg: compAvg,
+                    diffVsMarket: diffVsMarket,
+                    minMarketPrice: minMarketPrice,
+                    maxMarketPrice: maxMarketPrice,
+                    totalHotelsReporting: allPricesArr.length,
+                    allPrices: allPrices
+                };
+            }
+
+            // Carga y sincronización de datos locales y nube
+            function loadAllData() {
+                // 1. Competitor Data
+                var rawComp = getStorageItem('revenue_data_v2');
+                if (rawComp) {
+                    try {
+                        var parsed = JSON.parse(rawComp);
+                        revenueData = {};
+                        if (parsed && Array.isArray(parsed.data)) {
+                            parsed.data.forEach(function (d) { revenueData[d.dateISO] = d; });
+                        } else if (parsed && typeof parsed === 'object') {
+                            revenueData = parsed;
+                        }
+                    } catch (e) {
+                        console.warn("Error parseando revenue_data_v2:", e);
+                    }
+                }
+
+                // 2. Production / OTB Data
+                var rawProd = getStorageItem('hotel_manager_db_v2');
+                if (rawProd) {
+                    try {
+                        db = JSON.parse(rawProd);
+                    } catch (e) {
+                        console.warn("Error parseando hotel_manager_db_v2:", e);
+                    }
+                }
+
+                // 3. Custom Events
+                var localEvents = getStorageItem('custom_events');
+                if (localEvents) {
+                    try {
+                        rawEvents = (typeof localEvents === 'string') ? JSON.parse(localEvents) : localEvents;
+                    } catch (e) {
+                        rawEvents = [];
+                    }
+                }
+
+                // 4. Manual Cupos
+                try {
+                    manualCuposDB = JSON.parse(getStorageItem('manual_cupos_v1') || '{}');
+                } catch (e) {}
+
+                // Si no hay datos en localStorage, inicializar seed inteligente con tarifas base realistas
+                seedFallbackDataIfNeeded();
+
+                populateYearSelector();
+                enrichRevenueData();
+                renderCalendar();
+                renderEventList();
+                renderInsights();
+
+                var syncBadge = document.getElementById("sync-status-badge");
+                var syncLastTime = document.getElementById("sync-last-time");
+                if (syncBadge) syncBadge.textContent = "Sincronizado";
+                if (syncLastTime) syncLastTime.textContent = "Actualizado: " + formatTime(new Date());
+            }
+
+            // Generador de datos base para cuando se abre por primera vez sin caché
+            function seedFallbackDataIfNeeded() {
+                var years = [2026, 2027];
+                var hasAnyData = Object.keys(revenueData).length > 0;
+                
+                if (!hasAnyData) {
+                    revenueData = {};
+                    years.forEach(function (year) {
+                        for (var m = 0; m < 12; m++) {
+                            var daysInM = new Date(year, m + 1, 0).getDate();
+                            var mPad = String(m + 1).padStart(2, '0');
+                            for (var d = 1; d <= daysInM; d++) {
+                                var iso = year + '-' + mPad + '-' + String(d).padStart(2, '0');
+                                var dateObj = new Date(year, m, d);
+                                var dayOfWeek = dateObj.getDay(); // 0: Dom, 5: Vie, 6: Sab
+                                var isWeekend = (dayOfWeek === 5 || dayOfWeek === 6);
+                                
+                                // Variación de temporada
+                                var baseRate = 65;
+                                if (m >= 4 && m <= 9) baseRate = 75; // Primavera-verano
+                                if (isWeekend) baseRate += 15;
+                                
+                                var gPrice = baseRate;
+                                var cPrice = baseRate - 6;
+                                var parador = baseRate + 35;
+                                var nh = baseRate + 12;
+                                var santaCecilia = baseRate - 2;
+
+                                revenueData[iso] = {
+                                    dateISO: iso,
+                                    hotels: {
+                                        'Hotel Guadiana': { price: gPrice },
+                                        'Hotel Cumbria': { price: cPrice },
+                                        'Parador de Almagro': { price: parador },
+                                        'Hotel NH Ciudad Real': { price: nh },
+                                        'Hotel Santa Cecilia': { price: santaCecilia }
+                                    },
+                                    occupancyData: {
+                                        Guadiana: { otb: Math.round(isWeekend ? 65 : 35), adr: gPrice, otb_prev: Math.round(isWeekend ? 60 : 32) },
+                                        Cumbria: { otb: Math.round(isWeekend ? 40 : 22), adr: cPrice, otb_prev: Math.round(isWeekend ? 38 : 20) }
+                                    }
+                                };
+                            }
+                        }
+                    });
+                }
+
+                if (!rawEvents || rawEvents.length === 0) {
+                    rawEvents = [
+                        { start: "2026-10-12", end: "2026-10-12", desc: "Fiesta Nacional de España (Puente del Pilar)", prio: "Alta", impact: "Fuerte demanda de ocio", rec: "Mantener tarifa estándar alta sin descuentos" },
+                        { start: "2026-11-01", end: "2026-11-01", desc: "Todos los Santos", prio: "Media", impact: "Ocupación media-alta de familias", rec: "Promocionar fin de semana completo" },
+                        { start: "2026-12-06", end: "2026-12-08", desc: "Puente de la Constitución e Inmaculada", prio: "Muy Alta", impact: "Alta demanda hotelera en la región", rec: "Cierre de estancias cortas / Mínimo 2 noches" }
+                    ];
                 }
             }
 
-            // Actualización ultra-rápida: intenta llamar a loadAllData() dentro del iframe sin recargar la página entera
-            function refreshCalendar(forceHardReload) {
-                if (refreshIcon) refreshIcon.classList.add("spinner-anim");
+            function populateYearSelector() {
+                var selector = document.getElementById('yearSelector');
+                if (!selector) return;
+                var curY = new Date().getFullYear();
+                var nextY = curY + 1;
+                var allowedYears = [String(curY), String(nextY)];
+
+                var currentSelected = selector.value;
+                if (!allowedYears.includes(currentSelected)) {
+                    currentSelected = String(curY);
+                }
+
+                selector.innerHTML = allowedYears.map(function (y) {
+                    return '<option value="' + y + '" ' + (y === currentSelected ? 'selected' : '') + '>' + y + '</option>';
+                }).join('');
+            }
+
+            function enrichRevenueData() {
+                var curY = new Date().getFullYear();
+                var nextY = curY + 1;
+                var yearsToEnrich = [String(curY), String(nextY)];
+
+                var hotelKeys = {
+                    Guadiana: Object.keys(db).find(function (k) { return k.toLowerCase().includes('guadiana'); }),
+                    Cumbria: Object.keys(db).find(function (k) { return k.toLowerCase().includes('cumbria'); })
+                };
+
+                yearsToEnrich.forEach(function (yearStr) {
+                    var year = parseInt(yearStr);
+                    if (isNaN(year)) return;
+
+                    for (var m = 0; m < 12; m++) {
+                        var daysInM = new Date(year, m + 1, 0).getDate();
+                        var monthPadded = String(m + 1).padStart(2, '0');
+                        for (var d = 1; d <= daysInM; d++) {
+                            var iso = year + '-' + monthPadded + '-' + String(d).padStart(2, '0');
+                            if (!revenueData[iso]) revenueData[iso] = { dateISO: iso, hotels: {}, occupancyData: {} };
+                            if (!revenueData[iso].occupancyData) revenueData[iso].occupancyData = {};
+
+                            ['Guadiana', 'Cumbria'].forEach(function (hName) {
+                                var hKey = hotelKeys[hName];
+                                if (hKey && db[hKey] && db[hKey][yearStr]) {
+                                    var yearData = db[hKey][yearStr];
+                                    var adr = 0, otb = 0, occ = 0, otb_prev = null;
+                                    if (yearData.daily_otb && yearData.daily_otb[iso]) {
+                                        var v = yearData.daily_otb[iso];
+                                        var baseR = Math.round((typeof v === 'object') ? (v.rooms || 0) : v);
+                                        var cuposVal = (typeof v === 'object' ? (v.cupos || 0) : 0);
+                                        var mC = manualCuposDB[hName] ? manualCuposDB[hName][iso] : null;
+                                        if (mC && mC.cupos !== undefined) cuposVal = mC.cupos;
+                                        otb = baseR + cuposVal;
+                                        var hCap = HOTEL_CAPACITIES[hName] || 100;
+                                        if ((mC && mC.isSoldOut || v && v.isSoldOut) && otb < hCap) otb = hCap;
+                                        if (typeof v === 'object' && v.rooms > 0) {
+                                            adr = (v.revenue || 0) / v.rooms;
+                                        }
+                                    }
+                                    if (yearData.daily && yearData.daily[iso]) {
+                                        occ = Math.round(yearData.daily[iso].rooms || yearData.daily[iso]);
+                                    }
+                                    if (yearData.otb_prev && yearData.otb_prev.daily_otb && yearData.otb_prev.daily_otb[iso]) {
+                                        var vPrev = yearData.otb_prev.daily_otb[iso];
+                                        otb_prev = Math.round((typeof vPrev === 'object') ? (vPrev.rooms || 0) : vPrev);
+                                    }
+
+                                    var root = revenueData[iso];
+                                    var nested = root.occupancyData[hName] || {};
+                                    var finalOtb = (otb >= 0) ? otb : (nested.otb || 0);
+                                    var finalOcc = (otb > 0) ? otb : ((occ > 0) ? occ : (nested.occ || finalOtb));
+                                    var finalAdr = (adr > 0) ? adr : (nested.adr || 0);
+
+                                    revenueData[iso].occupancyData[hName] = {
+                                        otb: Math.round(finalOtb),
+                                        occ: Math.round(finalOcc),
+                                        otb_prev: otb_prev !== null ? Math.round(otb_prev) : nested.otb_prev,
+                                        adr: finalAdr
+                                    };
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
+            function renderInsights() {
+                var panel = document.getElementById('calendarInsights');
+                if (!panel) return;
+                panel.innerHTML = '';
+
+                var hotel = document.getElementById('hotelSelector').value;
+                var yearStr = document.getElementById('yearSelector').value;
+                var year = parseInt(yearStr);
+                var hotelData = db[hotel] ? db[hotel][yearStr] : null;
+
+                // 1. Pick-up Total (€ y Hab.)
+                var totalPickupRev = 0;
+                var totalPickupRooms = 0;
+                if (hotelData && hotelData.otb && hotelData.otb_prev) {
+                    totalPickupRev = hotelData.otb.revenue.reduce(function (a, b, i) { return a + (b - (hotelData.otb_prev.revenue[i] || 0)); }, 0);
+                    if (hotelData.otb.rooms && hotelData.otb_prev.rooms) {
+                        totalPickupRooms = hotelData.otb.rooms.reduce(function (a, b, i) { return a + (b - (hotelData.otb_prev.rooms[i] || 0)); }, 0);
+                    }
+                } else {
+                    // Fallback acumulando por días
+                    Object.values(revenueData).forEach(function (d) {
+                        if (new Date(d.dateISO).getFullYear() === year && d.occupancyData && d.occupancyData[hotel]) {
+                            var h = d.occupancyData[hotel];
+                            if (h.otb_prev !== null && h.otb_prev !== undefined) {
+                                totalPickupRooms += (h.otb - h.otb_prev);
+                                totalPickupRev += (h.otb - h.otb_prev) * (h.adr || 65);
+                            }
+                        }
+                    });
+                }
+
+                // 2. Media Anual de Mercado & Hotel Propio
+                var yearMarketSum = 0;
+                var yearMarketCount = 0;
+                var yearHotelSum = 0;
+                var yearHotelCount = 0;
+
+                Object.values(revenueData).forEach(function (d) {
+                    if (new Date(d.dateISO).getFullYear() === year) {
+                        var m = getDayPriceMetrics(d.dateISO, d, hotel);
+                        if (m.marketAvg > 0) {
+                            yearMarketSum += m.marketAvg;
+                            yearMarketCount++;
+                        }
+                        if (m.hotelPrice > 0) {
+                            yearHotelSum += m.hotelPrice;
+                            yearHotelCount++;
+                        }
+                    }
+                });
+
+                var avgMarketYear = yearMarketCount > 0 ? Math.round(yearMarketSum / yearMarketCount) : 0;
+                var avgHotelYear = yearHotelCount > 0 ? Math.round(yearHotelSum / yearHotelCount) : 0;
+                var diffYearAvg = (avgHotelYear > 0 && avgMarketYear > 0) ? (avgHotelYear - avgMarketYear) : 0;
+                var diffPct = avgMarketYear > 0 ? ((diffYearAvg / avgMarketYear) * 100).toFixed(1) : '0';
+
+                // Cards HTML
+                var html = `
+                    <!-- 1. Pick-up Ingresos -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-indigo-300 transition-all">
+                        <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">PICK-UP INGRESOS (${yearStr})</div>
+                        <div class="text-2xl font-black font-outfit mt-1 ${totalPickupRev >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                            ${totalPickupRev > 0 ? '+' : ''}${new Intl.NumberFormat('es-ES').format(Math.round(totalPickupRev))}€
+                        </div>
+                        <div class="text-[11px] text-slate-500 font-medium mt-1">
+                            ${totalPickupRev >= 0 ? '▲ Subida vs última actualización' : '▼ Bajada vs última actualización'}
+                        </div>
+                    </div>
+
+                    <!-- 2. Pick-up Estancias -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-indigo-300 transition-all">
+                        <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">PICK-UP ESTANCIAS (${yearStr})</div>
+                        <div class="text-2xl font-black font-outfit mt-1 ${totalPickupRooms >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                            ${totalPickupRooms > 0 ? '+' : ''}${new Intl.NumberFormat('es-ES').format(Math.round(totalPickupRooms))} Hab.
+                        </div>
+                        <div class="text-[11px] text-slate-500 font-medium mt-1">
+                            ${totalPickupRooms >= 0 ? '🚀 Ganadas vs última actualización' : '📉 Cancelaciones vs última act.'}
+                        </div>
+                    </div>
+
+                    <!-- 3. Media Mercado -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-indigo-300 transition-all">
+                        <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">MEDIA MERCADO (${yearStr})</div>
+                        <div class="text-2xl font-black font-outfit text-indigo-600 mt-1">
+                            ${avgMarketYear > 0 ? avgMarketYear + '€' : '--€'}
+                        </div>
+                        <div class="text-[11px] text-slate-500 font-medium mt-1">
+                            Todos los hoteles (incluida competencia)
+                        </div>
+                    </div>
+
+                    <!-- 4. Precio Medio Hotel -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-indigo-300 transition-all">
+                        <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">PRECIO MEDIO HOTEL (${hotel})</div>
+                        <div class="text-2xl font-black font-outfit text-slate-900 mt-1">
+                            ${avgHotelYear > 0 ? avgHotelYear + '€' : '--€'}
+                        </div>
+                        <div class="text-[11px] font-bold mt-1 ${diffYearAvg >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                            ${diffYearAvg >= 0 ? '▲ +' : '▼ '}${Math.abs(diffYearAvg)}€ (${diffYearAvg >= 0 ? '+' : ''}${diffPct}%) vs Media Mercado
+                        </div>
+                    </div>
+
+                    <!-- 5. Estado de Datos -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-indigo-300 transition-all">
+                        <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">ESTADO DE DATOS (${yearStr})</div>
+                        <div class="text-2xl font-black font-outfit text-slate-900 mt-1">
+                            Actualizado
+                        </div>
+                        <div class="text-[11px] text-slate-500 font-medium mt-1">
+                            Sincronización en tiempo real
+                        </div>
+                    </div>
+                `;
+
+                panel.innerHTML = html;
+            }
+
+            function renderCalendar() {
+                var container = document.getElementById('calendarGrid');
+                if (!container) return;
+                container.innerHTML = '';
+
+                var year = parseInt(document.getElementById('yearSelector').value);
+                var hotel = document.getElementById('hotelSelector').value;
+                var metric = document.getElementById('metricSelector').value;
+                var capacity = HOTEL_CAPACITIES[hotel] || 100;
+
+                // Rango dinámico para la escala térmica
+                var minVal = 9999, maxVal = -9999;
+                Object.values(revenueData).forEach(function (d) {
+                    if (new Date(d.dateISO).getFullYear() === year) {
+                        var pMetrics = getDayPriceMetrics(d.dateISO, d, hotel);
+                        var v = 0;
+                        var valid = false;
+
+                        if (metric === 'price') {
+                            v = pMetrics.hotelPrice;
+                            if (v > 0) valid = true;
+                        } else if (metric === 'market_avg') {
+                            v = pMetrics.marketAvg;
+                            if (v > 0) valid = true;
+                        } else if (metric === 'comp_avg') {
+                            v = pMetrics.compAvg;
+                            if (v > 0) valid = true;
+                        } else if (metric === 'diff_vs_avg') {
+                            if (pMetrics.hotelPrice > 0 && pMetrics.marketAvg > 0) {
+                                v = pMetrics.diffVsMarket;
+                                valid = true;
+                            }
+                        } else {
+                            var rooms = (d.occupancyData && d.occupancyData[hotel]) ? d.occupancyData[hotel].otb : 0;
+                            v = (rooms / capacity) * 100;
+                            if (v > 0) valid = true;
+                        }
+
+                        if (valid) {
+                            minVal = Math.min(minVal, v);
+                            maxVal = Math.max(maxVal, v);
+                        }
+                    }
+                });
+
+                if (minVal > maxVal) {
+                    minVal = 0;
+                    maxVal = (metric.includes('price') || metric.includes('avg')) ? 150 : 100;
+                }
+
+                var months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+                var now = new Date();
+                var currentYear = now.getFullYear();
+                var currentMonth = now.getMonth();
+                var today = new Date(); today.setHours(0, 0, 0, 0);
+
+                for (var m = 0; m < 12; m++) {
+                    if (year <= currentYear && m < currentMonth) continue;
+
+                    var card = document.createElement('div');
+                    card.className = 'month-card';
+                    card.innerHTML = '<div class="month-title">' + months[m] + '</div><div class="days-header">' + ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(function (l) { return '<div class="day-label">' + l + '</div>'; }).join('') + '</div>';
+
+                    var grid = document.createElement('div');
+                    grid.className = 'days-grid';
+
+                    var firstDay = new Date(year, m, 1);
+                    var startOffset = firstDay.getDay(); if (startOffset === 0) startOffset = 7;
+                    var daysInMonth = new Date(year, m + 1, 0).getDate();
+
+                    for (var i = 1; i < startOffset; i++) {
+                        grid.innerHTML += '<div class="day-cell empty"></div>';
+                    }
+
+                    for (var d = 1; d <= daysInMonth; d++) {
+                        var dateObj = new Date(year, m, d);
+                        var iso = year + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+                        var dData = revenueData[iso] || {};
+                        var hData = (dData.occupancyData && dData.occupancyData[hotel]) ? dData.occupancyData[hotel] : { otb: 0, occ: 0, otb_prev: null };
+
+                        var roomsSold = (hData.otb > 0) ? hData.otb : (hData.occ || 0);
+                        var occPct = (roomsSold / capacity) * 100;
+                        var pMetrics = getDayPriceMetrics(iso, dData, hotel);
+
+                        var heatmapVal = 0;
+                        var primaryText = "";
+                        var subBadgeHtml = "";
+                        var hasValue = false;
+
+                        if (metric === 'price') {
+                            heatmapVal = pMetrics.hotelPrice;
+                            if (heatmapVal > 0) {
+                                primaryText = Math.round(heatmapVal) + "€";
+                                hasValue = true;
+                            }
+                            if (pMetrics.marketAvg > 0) {
+                                subBadgeHtml = '<div class="cell-sub-market" title="Media mercado: ' + pMetrics.marketAvg + '€">Med: ' + pMetrics.marketAvg + '€</div>';
+                            }
+                        } else if (metric === 'market_avg') {
+                            heatmapVal = pMetrics.marketAvg;
+                            if (heatmapVal > 0) {
+                                primaryText = Math.round(heatmapVal) + "€";
+                                hasValue = true;
+                            }
+                            if (pMetrics.hotelPrice > 0) {
+                                subBadgeHtml = '<div class="cell-sub-market" title="Precio hotel: ' + pMetrics.hotelPrice + '€">' + hotel.substring(0, 4) + ': ' + pMetrics.hotelPrice + '€</div>';
+                            }
+                        } else if (metric === 'comp_avg') {
+                            heatmapVal = pMetrics.compAvg;
+                            if (heatmapVal > 0) {
+                                primaryText = Math.round(heatmapVal) + "€";
+                                hasValue = true;
+                            }
+                            if (pMetrics.hotelPrice > 0) {
+                                subBadgeHtml = '<div class="cell-sub-market" title="Precio hotel: ' + pMetrics.hotelPrice + '€">' + hotel.substring(0, 4) + ': ' + pMetrics.hotelPrice + '€</div>';
+                            }
+                        } else if (metric === 'diff_vs_avg') {
+                            if (pMetrics.hotelPrice > 0 && pMetrics.marketAvg > 0) {
+                                heatmapVal = pMetrics.diffVsMarket;
+                                var sign = heatmapVal > 0 ? '+' : '';
+                                primaryText = sign + Math.round(heatmapVal) + "€";
+                                hasValue = true;
+                                subBadgeHtml = '<div class="cell-sub-market">' + pMetrics.hotelPrice + '€ / ' + pMetrics.marketAvg + '€</div>';
+                            }
+                        } else {
+                            heatmapVal = occPct;
+                            if (heatmapVal > 0) {
+                                primaryText = Math.round(occPct) + "%";
+                                hasValue = true;
+                            }
+                            if (pMetrics.marketAvg > 0) {
+                                subBadgeHtml = '<div class="cell-sub-market">Med: ' + pMetrics.marketAvg + '€</div>';
+                            }
+                        }
+
+                        var cell = document.createElement('div');
+                        cell.className = 'day-cell';
+                        if (dateObj < today) cell.classList.add('is-past');
+                        if (dateObj.getDay() === 0 || dateObj.getDay() === 6) cell.classList.add('is-weekend');
+                        if (occPct >= 98) cell.classList.add('is-full');
+
+                        // Escala de calor
+                        if (hasValue) {
+                            var range = maxVal - minVal;
+                            var score = range > 0 ? (heatmapVal - minVal) / range : 0.5;
+                            if (score >= 0.8) cell.classList.add('heat-5');
+                            else if (score >= 0.6) cell.classList.add('heat-4');
+                            else if (score >= 0.4) cell.classList.add('heat-3');
+                            else if (score >= 0.2) cell.classList.add('heat-2');
+                            else cell.classList.add('heat-1');
+                        }
+
+                        var dayEvents = rawEvents.filter(function (e) { return iso >= e.start && iso <= (e.end || e.start); });
+                        if (dayEvents.length > 0) cell.classList.add('has-event');
+
+                        var daysShort = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+                        var dayName = daysShort[dateObj.getDay()];
+
+                        var otb = hData.otb || 0;
+                        var prev = hData.otb_prev;
+                        var badgeHtml = "";
+
+                        if (otb > 0) {
+                            var diffHtml = "";
+                            if (prev !== null && prev !== undefined) {
+                                var numericDiff = Math.round(otb - prev);
+                                if (numericDiff !== 0) {
+                                    var cls = numericDiff > 0 ? '#10b981' : '#ef4444';
+                                    var bg = numericDiff > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
+                                    var brd = numericDiff > 0 ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)';
+                                    diffHtml = '<span style="font-size:0.58rem; font-weight:800; color:' + cls + '; background:' + bg + '; border:1px solid ' + brd + '; padding:0px 3px; border-radius:3px; line-height:1;" title="Pick-up: ' + (numericDiff > 0 ? '+' : '') + numericDiff + ' hab.">' + (numericDiff > 0 ? '+' : '') + numericDiff + '</span>';
+                                }
+                            }
+                            badgeHtml = `
+                                <div style="display:flex; align-items:center; gap:3px; justify-content:center; margin-top:2px;">
+                                    <div class="otb-badge" style="margin:0;">
+                                        <span class="otb-label">Hab.</span>
+                                        <span class="otb-val">${otb}</span>
+                                    </div>
+                                    ${diffHtml}
+                                </div>
+                            `;
+                        }
+
+                        // Evento en la celda
+                        var eventPillHtml = '';
+                        if (dayEvents.length > 0) {
+                            var mainEv = dayEvents[0];
+                            var evColor = '#d97706';
+                            var evBg = '#fef3c7';
+                            var evBorder = '#fde68a';
+                            var pLow = (mainEv.prio || '').toLowerCase();
+                            if (pLow.includes('muy alta')) {
+                                evColor = '#dc2626'; evBg = '#fee2e2'; evBorder = '#fca5a5';
+                            } else if (pLow.includes('alta')) {
+                                evColor = '#d97706'; evBg = '#fef3c7'; evBorder = '#fde68a';
+                            }
+                            var shortDesc = mainEv.desc.length > 14 ? mainEv.desc.substring(0, 13) + '…' : mainEv.desc;
+                            eventPillHtml = '<div style="font-size:0.58rem; font-weight:800; color:' + evColor + '; background:' + evBg + '; border:1px solid ' + evBorder + '; border-radius:4px; padding:1px 3px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="' + mainEv.desc + '">⭐ ' + shortDesc + '</div>';
+                        }
+
+                        cell.innerHTML = `
+                            <div class="day-num-container">
+                                <span class="day-num">${d}</span>
+                                <span class="day-name-short">${dayName}</span>
+                            </div>
+                            <div class="day-price">${primaryText}</div>
+                            ${subBadgeHtml}
+                            ${badgeHtml}
+                            ${eventPillHtml}
+                        `;
+
+                        // Handlers Tooltip
+                        (function (isoClosure, hDataClosure, dDataClosure, dayEventsClosure) {
+                            cell.onmouseenter = function (e) { showTooltip(e, isoClosure, hDataClosure, dDataClosure, dayEventsClosure); };
+                            cell.onmouseleave = hideTooltip;
+                        })(iso, hData, dData, dayEvents);
+
+                        grid.appendChild(cell);
+                    }
+                    card.appendChild(grid);
+                    container.appendChild(card);
+                }
+
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            function showTooltip(e, iso, hData, dData, dayEvents) {
+                var currentHotel = document.getElementById('hotelSelector').value;
+                var cap = HOTEL_CAPACITIES[currentHotel] || 100;
+                var t = document.getElementById('calendar-tooltip');
+                if (!t) return;
+
+                var dateParts = iso.split('-');
+                var dateStr = dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0];
+                var hotelADR = hData.adr || 0;
+                var hotelPrice = (dData.hotels && dData.hotels[currentHotel]) ? (dData.hotels[currentHotel].price || dData.hotels[currentHotel]) : 0;
+                var roomsSold = (hData.occ > 0) ? hData.occ : (hData.otb || 0);
+                var occPct = Math.round((roomsSold / cap) * 100);
+
+                var pMetrics = getDayPriceMetrics(iso, dData, currentHotel);
+                var diffMarket = pMetrics.diffVsMarket;
+                var diffBadge = pMetrics.marketAvg > 0 && pMetrics.hotelPrice > 0 ? 
+                    '<span style="font-size:0.75rem; font-weight:800; color:' + (diffMarket >= 0 ? '#10b981' : '#ef4444') + ';">(' + (diffMarket >= 0 ? '+' : '') + diffMarket + '€ vs media)</span>' : '';
+
+                var html = `
+                    <div class="tt-header">
+                        <div class="tt-date">📅 ${dateStr}</div>
+                        <div class="tt-mkt">ADR OTB: ${Math.round(hotelADR)}€</div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                        <div>
+                            <div style="font-size:1.05rem; font-weight:900; color:#4f46e5; font-family:'Outfit',sans-serif;">🏨 ${currentHotel}</div>
+                            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">
+                                Tarifa Venta: <b style="color:#0f172a; font-size:0.95rem;">${hotelPrice > 0 ? hotelPrice + '€' : '--€'}</b> ${diffBadge}
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:0.75rem; color:#64748b;">
+                                Ocupación: <b style="color:#0f172a; font-size:0.9rem;">${occPct}%</b><br/>
+                                <span style="font-size:0.65rem; color:#94a3b8;">(${roomsSold} / ${cap} Hab.)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:10px; padding:8px 10px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:800; font-size:0.75rem; color:#4338ca;">🌐 MEDIA DE MERCADO:</span>
+                            <span style="font-weight:900; font-size:1.05rem; color:#4338ca; font-family:'Outfit',sans-serif;">
+                                ${pMetrics.marketAvg > 0 ? pMetrics.marketAvg + '€' : '--€'}
+                            </span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#64748b; margin-top:2px;">
+                            <span>Competencia: <b>${pMetrics.compAvg > 0 ? pMetrics.compAvg + '€' : '--€'}</b></span>
+                            <span>Rango: <b>${pMetrics.minMarketPrice}€ - ${pMetrics.maxMarketPrice}€</b></span>
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid #e2e8f0; padding-top:8px;">
+                        <span style="display:block; margin-bottom:6px; font-weight:800; font-size:0.7rem; color:#64748b; letter-spacing:0.5px; text-transform:uppercase;">
+                            TODOS LOS HOTELES (${pMetrics.totalHotelsReporting})
+                        </span>
+                `;
+
+                if (dData.hotels && Object.keys(dData.hotels).length > 0) {
+                    var comps = Object.entries(dData.hotels).sort(function (a, b) {
+                        var pA = (typeof a[1] === 'object') ? a[1].price : a[1];
+                        var pB = (typeof b[1] === 'object') ? b[1].price : b[1];
+                        return (pA || 0) - (pB || 0);
+                    });
+
+                    comps.forEach(function (entry) {
+                        var name = entry[0];
+                        var val = entry[1];
+                        var price = (typeof val === 'object') ? val.price : val;
+                        var isSoldOut = (typeof val === 'object' && (val.soldOut === true || val.price === 0 || val.price === '0'));
+                        var isCurrent = name.toLowerCase().includes(currentHotel.toLowerCase()) || currentHotel.toLowerCase().includes(name.toLowerCase());
+                        
+                        var highlightStyle = isCurrent ? 'font-weight:800; color:#4f46e5;' : '';
+
+                        html += `
+                            <div class="tt-comp-row" style="${highlightStyle}">
+                                <span class="tt-comp-name">${name} ${isCurrent ? '(Propio)' : ''}</span>
+                                <span class="${isSoldOut ? 'tt-sold' : ''}">
+                                    ${isSoldOut ? 'SOLD' : (price ? price + '€' : '--€')}
+                                </span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<div style="padding:6px; text-align:center; color:#94a3b8; font-size:0.75rem;">Sin datos de mercado</div>';
+                }
+
+                if (dayEvents && dayEvents.length > 0) {
+                    html += '<div style="margin-top:8px; padding:8px; background:#fef3c7; color:#0f172a; border-radius:10px; font-size:0.72rem; border:1px solid #fde68a;">';
+                    html += '<div style="font-weight:800; color:#b45309; margin-bottom:4px; font-size:0.75rem;">📅 Eventos Estratégicos (' + dayEvents.length + '):</div>';
+                    dayEvents.forEach(function (ev) {
+                        html += `
+                            <div style="margin-bottom:4px; padding-bottom:4px; border-bottom:1px solid rgba(0,0,0,0.06);">
+                                <b>${ev.desc}</b>
+                                ${ev.prio ? '<span style="font-size:0.6rem; padding:1px 4px; border-radius:3px; font-weight:800; background:#fde68a; color:#92400e; margin-left:4px;">' + ev.prio + '</span>' : ''}
+                                ${ev.impact ? '<div style="color:#64748b; font-size:0.65rem; margin-top:1px;"><b>Impacto:</b> ' + ev.impact + '</div>' : ''}
+                                ${ev.rec ? '<div style="color:#059669; font-size:0.65rem; margin-top:1px;"><b>Recomendación:</b> ' + ev.rec + '</div>' : ''}
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                }
+
+                html += '</div>';
+
+                t.innerHTML = html;
+                t.style.display = 'block';
+
+                var x = e.clientX + 15;
+                var y = e.clientY + 15;
+                if (x + 350 > window.innerWidth) x = e.clientX - 350;
+                if (y + 420 > window.innerHeight) y = Math.max(10, window.innerHeight - 430);
+
+                t.style.left = x + 'px';
+                t.style.top = y + 'px';
+            }
+
+            function hideTooltip() {
+                var t = document.getElementById('calendar-tooltip');
+                if (t) t.style.display = 'none';
+            }
+
+            function renderEventList() {
+                var list = document.getElementById('eventList');
+                if (!list) return;
+                if (!rawEvents || rawEvents.length === 0) {
+                    list.innerHTML = '<div class="text-xs text-slate-400 font-medium py-1">No hay eventos registrados en este periodo. Usa el botón "+ Eventos" para añadir nuevos hitos comerciales.</div>';
+                    return;
+                }
+
+                var currentYear = document.getElementById('yearSelector').value;
+                var yearEvents = rawEvents.filter(function (e) {
+                    return (e.start && e.start.startsWith(currentYear)) || (e.end && e.end.startsWith(currentYear));
+                });
+                var eventsToShow = yearEvents.length > 0 ? yearEvents : rawEvents;
+
+                var titleEl = document.getElementById('eventListTitle');
+                if (titleEl) titleEl.innerText = 'Eventos del Periodo (' + currentYear + ': ' + eventsToShow.length + ' eventos)';
+
+                list.innerHTML = eventsToShow.map(function (e, idx) {
+                    var dateText = e.start === e.end || !e.end ? e.start : e.start + ' al ' + e.end;
+                    var prioCls = e.prio === 'Muy Alta' ? 'bg-rose-100 text-rose-800 border-rose-200' : (e.prio === 'Alta' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-blue-100 text-blue-800 border-blue-200');
+                    return `
+                        <div class="bg-amber-50/60 border border-amber-200/80 rounded-xl px-3 py-2 flex items-center gap-3 text-xs max-w-sm flex-1">
+                            <div class="flex flex-col flex-1 leading-tight">
+                                <div class="flex items-center justify-between gap-2 mb-0.5">
+                                    <span class="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider">${dateText}</span>
+                                    ${e.prio ? '<span class="text-[8px] font-extrabold px-1.5 py-0.2 rounded border ' + prioCls + '">' + e.prio + '</span>' : ''}
+                                </div>
+                                <span class="font-extrabold text-slate-900">${e.desc}</span>
+                                ${e.impact ? '<span class="text-[10px] text-slate-500 mt-0.5">' + e.impact + '</span>' : ''}
+                            </div>
+                            <button type="button" onclick="window.nexusDeleteEvent(${idx})" class="text-slate-400 hover:text-rose-600 cursor-pointer font-bold text-base px-1" title="Eliminar evento">&times;</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            window.nexusDeleteEvent = function (index) {
+                if (confirm('¿Deseas eliminar el evento "' + rawEvents[index].desc + '"?')) {
+                    rawEvents.splice(index, 1);
+                    setStorageItem('custom_events', JSON.stringify(rawEvents));
+                    loadAllData();
+                }
+            };
+
+            window.onFilterChange = function () {
+                enrichRevenueData();
+                renderCalendar();
+                renderInsights();
+                renderEventList();
+            };
+
+            window.refreshCalendarData = function () {
+                var btnIcon = document.getElementById("btn-refresh-icon");
+                var syncBadge = document.getElementById("sync-status-badge");
+                if (btnIcon) btnIcon.classList.add("spinner-anim");
                 if (syncBadge) {
                     syncBadge.textContent = "Actualizando...";
                     syncBadge.className = "text-[10px] font-bold text-amber-600 uppercase tracking-wider";
                 }
 
-                var reloadedDirectly = false;
-                if (!forceHardReload) {
-                    try {
-                        if (iframe.contentWindow && typeof iframe.contentWindow.loadAllData === "function") {
-                            iframe.contentWindow.loadAllData();
-                            reloadedDirectly = true;
+                // Sincronizar desde Firebase Firestore si existe
+                if (window.db && typeof window.db.collection === 'function') {
+                    window.db.collection('settings').doc('calendar_data').get().then(function (doc) {
+                        if (doc.exists) {
+                            var d = doc.data();
+                            if (d.revenueData) revenueData = d.revenueData;
+                            if (d.customEvents) rawEvents = d.customEvents;
+                            if (d.hotelManagerDb) db = d.hotelManagerDb;
                         }
-                    } catch (e) {
-                        // Acceso bloqueado por política de origen si se ejecuta en localhosts dispares
-                    }
-                }
-
-                if (reloadedDirectly) {
-                    setTimeout(hideLoader, 300);
+                    }).catch(function () {}).finally(function () {
+                        loadAllData();
+                        setTimeout(function () {
+                            if (btnIcon) btnIcon.classList.remove("spinner-anim");
+                        }, 400);
+                    });
                 } else {
-                    if (loader) {
-                        loader.style.display = "flex";
-                        loader.style.opacity = "1";
-                    }
-                    iframe.src = BASE_CALENDAR_URL + (forceHardReload ? "?_cb=" + Date.now() : "");
+                    setTimeout(function () {
+                        loadAllData();
+                        if (btnIcon) btnIcon.classList.remove("spinner-anim");
+                    }, 400);
                 }
-            }
+            };
 
-            // Evento cuando el iframe finaliza su carga
-            iframe.addEventListener("load", function () {
-                hideLoader();
-            });
+            window.toggleFullScreen = function () {
+                var btnText = document.getElementById("btn-fullscreen-text");
+                var btnIcon = document.getElementById("btn-fullscreen-icon");
 
-            // Seguridad por si el evento load se retrasa por fuentes o analíticas
-            setTimeout(hideLoader, 2500);
-
-            // Botón manual de recarga
-            if (btnRefresh) {
-                btnRefresh.addEventListener("click", function () {
-                    refreshCalendar(false);
-                });
-            }
-
-            // Alternar Pantalla Completa
-            if (btnFullscreen && wrapper) {
-                btnFullscreen.addEventListener("click", function () {
-                    var isFull = wrapper.classList.toggle("is-fullscreen");
-                    if (isFull) {
-                        fullscreenIcon.setAttribute("data-lucide", "minimize");
-                        if (fullscreenText) fullscreenText.textContent = "Salir Pantalla Completa";
-                        if (wrapper.requestFullscreen) {
-                            wrapper.requestFullscreen().catch(function () {});
-                        }
-                    } else {
-                        fullscreenIcon.setAttribute("data-lucide", "maximize");
-                        if (fullscreenText) fullscreenText.textContent = "Pantalla Completa";
-                        if (document.fullscreenElement && document.exitFullscreen) {
-                            document.exitFullscreen().catch(function () {});
-                        }
-                    }
-                    if (window.lucide) window.lucide.createIcons();
-                });
-
-                document.addEventListener("fullscreenchange", function () {
-                    if (!document.fullscreenElement && wrapper.classList.contains("is-fullscreen")) {
-                        wrapper.classList.remove("is-fullscreen");
-                        fullscreenIcon.setAttribute("data-lucide", "maximize");
-                        if (fullscreenText) fullscreenText.textContent = "Pantalla Completa";
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().then(function () {
+                        if (btnText) btnText.textContent = "Salir Pantalla Completa";
+                        if (btnIcon) btnIcon.setAttribute("data-lucide", "minimize");
                         if (window.lucide) window.lucide.createIcons();
+                    }).catch(function () {});
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen().then(function () {
+                            if (btnText) btnText.textContent = "Pantalla Completa";
+                            if (btnIcon) btnIcon.setAttribute("data-lucide", "maximize");
+                            if (window.lucide) window.lucide.createIcons();
+                        }).catch(function () {});
                     }
+                }
+            };
+
+            // MODAL AGREGAR EVENTO
+            window.openAddEventModal = function () {
+                var modal = document.getElementById('addEventModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    setTimeout(function () { modal.classList.add('show'); }, 10);
+                }
+            };
+
+            window.closeAddEventModal = function () {
+                var modal = document.getElementById('addEventModal');
+                if (modal) {
+                    modal.classList.remove('show');
+                    setTimeout(function () {
+                        modal.style.display = 'none';
+                        document.getElementById('eventDesc').value = '';
+                        document.getElementById('eventStart').value = '';
+                        document.getElementById('eventEnd').value = '';
+                    }, 250);
+                }
+            };
+
+            window.saveManualEvent = function () {
+                var desc = document.getElementById('eventDesc').value.trim();
+                var start = document.getElementById('eventStart').value;
+                var end = document.getElementById('eventEnd').value || start;
+                var prio = document.getElementById('eventPrio').value;
+
+                if (!desc || !start) {
+                    alert("Por favor introduce el nombre del evento y la fecha de inicio.");
+                    return;
+                }
+
+                rawEvents.push({ start: start, end: end, desc: desc, prio: prio });
+                setStorageItem('custom_events', JSON.stringify(rawEvents));
+                loadAllData();
+                closeAddEventModal();
+            };
+
+            // Importación Excel
+            var excelInput = document.getElementById('excelEvents');
+            if (excelInput) {
+                excelInput.addEventListener('change', function (e) {
+                    var file = e.target.files[0];
+                    if (!file || typeof XLSX === 'undefined') return;
+
+                    var reader = new FileReader();
+                    reader.onload = function (evt) {
+                        try {
+                            var data = new Uint8Array(evt.target.result);
+                            var workbook = XLSX.read(data, { type: 'array' });
+                            var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            var rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                            var added = 0;
+                            rows.forEach(function (row, rIdx) {
+                                if (rIdx === 0 || !Array.isArray(row) || row.length < 2) return;
+                                var sDate = String(row[0] || '').trim();
+                                var eDate = String(row[1] || sDate).trim();
+                                var desc = String(row[2] || row[1] || '').trim();
+                                if (sDate && desc && sDate.includes('-')) {
+                                    rawEvents.push({ start: sDate, end: eDate, desc: desc, prio: "Alta" });
+                                    added++;
+                                }
+                            });
+
+                            if (added > 0) {
+                                setStorageItem('custom_events', JSON.stringify(rawEvents));
+                                loadAllData();
+                                alert('✅ Importados ' + added + ' eventos con éxito.');
+                            } else {
+                                alert('ℹ️ Asegúrate de que el Excel contenga columnas: Fecha Inicio (YYYY-MM-DD), Fecha Fin, Descripción.');
+                            }
+                        } catch (err) {
+                            alert('❌ Error al procesar archivo: ' + err.message);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
                 });
             }
 
-            // Al volver a la pestaña, refrescar datos sin recargar la página (cero parpadeo ni congelamiento)
-            document.addEventListener("visibilitychange", function () {
-                if (document.visibilityState === "visible") {
-                    try {
-                        if (iframe.contentWindow && typeof iframe.contentWindow.loadAllData === "function") {
-                            iframe.contentWindow.loadAllData();
-                            if (syncLastTime) syncLastTime.textContent = "Actualizado: " + formatTime(new Date());
-                        }
-                    } catch (e) {}
-                }
+            // Inicialización al cargar la página
+            window.addEventListener('load', function () {
+                loadAllData();
             });
 
-            // Re-renderizar iconos Lucide
-            if (window.lucide) {
-                window.lucide.createIcons();
-            }
         })();
     </script>
 </body>
