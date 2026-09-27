@@ -442,8 +442,8 @@
         });
       }
 
-      // En PC: Almuerzo diario (incluyendo estancia y salida)
-      if (isPc) {
+      // En PC: Almuerzo diario (cada noche de estancia, sin incluir el dia de salida)
+      if (isPc && !isLastDay) {
         var docIdAlmuerzo = "nexus_" + reservaId + "_" + iso + "_almuerzo";
         docs.push({
           id: docIdAlmuerzo,
