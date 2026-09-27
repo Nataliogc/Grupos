@@ -16573,6 +16573,18 @@
                                       </>
                                     )}
                                   </div>
+                                {(() => {
+                                    const regimes = getGroupRegimeLabels(group);
+                                    return regimes.length > 0 && (
+                                      <div className="flex flex-wrap items-center gap-1 mt-1" aria-label="Regímenes del grupo">
+                                        {regimes.map(regime => (
+                                          <span key={regime} className="text-[9px] leading-tight font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5" title={"Régimen: " + regime}>
+                                            {regime}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </td>
 
@@ -21834,18 +21846,7 @@
                                                   🗑️ Reiniciar Lista de Habitaciones
                                                 </button>
                                               </div>
-                                              {(() => {
-                                    const regimes = getGroupRegimeLabels(group);
-                                    return regimes.length > 0 && (
-                                      <div className="flex flex-wrap items-center gap-1 mt-1" aria-label="Regímenes del grupo">
-                                        {regimes.map(regime => (
-                                          <span key={regime} className="text-[9px] leading-tight font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5" title={"Régimen: " + regime}>
-                                            {regime}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    );
-                                  })()}
+
                                 </td>
                                           </tr>
                                         );
