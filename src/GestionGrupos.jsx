@@ -691,41 +691,44 @@
 
           totalRooms += qty;
 
+          const explicitPax = parseInt(rm.pax, 10);
+          const hasExplicitPax = !isNaN(explicitPax) && explicitPax > 0;
+
           if (itype.includes("INDIV") || itype.includes("SINGLE") || itype.includes("SGL") || itype.includes("DUI")) {
             ind += qty;
-            pax += qty * 1;
+            pax += qty * (hasExplicitPax ? explicitPax : 1);
             if (isGratuity) freeInd += qty;
             else if (price > 0) pInd = price;
           } else if (itype.includes("DBL") || itype.includes("DOBLE") || itype.includes("TWIN") || itype.includes("MATRI")) {
             dbl += qty;
-            pax += qty * 2;
+            pax += qty * (hasExplicitPax ? explicitPax : 2);
             if (isGratuity) freeDbl += qty;
             else if (price > 0) pDbl = price;
           } else if (itype.includes("TPL") || itype.includes("TRIPLE")) {
             tpl += qty;
-            pax += qty * 3;
+            pax += qty * (hasExplicitPax ? explicitPax : 3);
             if (isGratuity) freeTpl += qty;
             else if (price > 0) pTpl = price;
           } else if (itype.includes("CUA") || itype.includes("CUAD")) {
             if (isCumbriaHotel) {
               tpl += qty;
-              pax += qty * 3;
+              pax += qty * (hasExplicitPax ? explicitPax : 3);
               if (isGratuity) freeTpl += qty;
               else if (price > 0) pTpl = price;
             } else {
               cua += qty;
-              pax += qty * 4;
+              pax += qty * (hasExplicitPax ? explicitPax : 4);
               if (isGratuity) freeCua += qty;
               else if (price > 0) pCua = price;
             }
           } else if (itype.includes("SUITE")) {
             dbl += qty;
-            pax += qty * 2;
+            pax += qty * (hasExplicitPax ? explicitPax : 2);
             if (isGratuity) freeDbl += qty;
             else if (price > 0) pDbl = price;
           } else {
             dbl += qty;
-            pax += qty * 2;
+            pax += qty * (hasExplicitPax ? explicitPax : 2);
             if (isGratuity) freeDbl += qty;
             else if (price > 0) pDbl = price;
           }

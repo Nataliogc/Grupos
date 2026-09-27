@@ -145,11 +145,74 @@
       r === "PC" ||
       r.includes("MEDIA PENSION") ||
       r.includes("PENSION COMPLETA") ||
-      r.includes("MP") ||
-      r.includes("PC") ||
+      /\bMP\b/.test(r) ||
+      /\bPC\b/.test(r) ||
       r.includes("CENA") ||
       r.includes("ALMUERZO")
     );
+  }
+
+  /**
+   * Determina si el grupo tiene régimen MP o PC a nivel general o en alguno de sus días desglosados
+   */
+  function hasMpOrPcRegimen(groupRecord) {
+    if (!groupRecord) return false;
+    var mainReg = String(groupRecord["Régimen"] || groupRecord.regimen || groupRecord.Regimen || "").toUpperCase();
+    if (isMpOrPcRegimen(mainReg)) return true;
+
+    // Verificar DailyDistribution_JSON
+    var distRaw = groupRecord.DailyDistribution_JSON;
+    if (!distRaw && groupRecord.records && groupRecord.records[0]) {
+      distRaw = groupRecord.records[0].DailyDistribution_JSON;
+    }
+    if (distRaw) {
+      try {
+        var parsed = typeof distRaw === "string" ? JSON.parse(distRaw) : distRaw;
+        if (parsed && typeof parsed === "object") {
+          for (var k in parsed) {
+            if (Object.prototype.hasOwnProperty.call(parsed, k) && parsed[k]) {
+              var dReg = String(parsed[k].regimen || parsed[k].regime || parsed[k].Regimen || "").toUpperCase();
+              if (isMpOrPcRegimen(dReg)) return true;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Verificar RoomingList_JSON
+    var rlRaw = groupRecord.RoomingList_JSON;
+    if (!rlRaw && groupRecord.records && groupRecord.records[0]) {
+      rlRaw = groupRecord.records[0].RoomingList_JSON;
+    }
+    if (rlRaw) {
+      try {
+        var parsedRl = typeof rlRaw === "string" ? JSON.parse(rlRaw) : rlRaw;
+        if (Array.isArray(parsedRl)) {
+          for (var i = 0; i < parsedRl.length; i++) {
+            var item = parsedRl[i];
+            if (item) {
+              var iReg = String(item.regime || item.regimen || item.Regimen || "").toUpperCase();
+              if (isMpOrPcRegimen(iReg)) return true;
+              var iType = String(item.type || item.concept || item.label || "").toUpperCase();
+              if (isMpOrPcRegimen(iType)) return true;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Verificar registros secundarios
+    if (Array.isArray(groupRecord.records)) {
+      for (var r = 0; r < groupRecord.records.length; r++) {
+        var rec = groupRecord.records[r];
+        if (rec) {
+          var recReg = String(rec["Régimen"] || rec.regimen || rec.Regimen || "").toUpperCase();
+          if (isMpOrPcRegimen(recReg)) return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -334,6 +397,9 @@
 
   /**
    * Prepara los documentos diarios para la colección `reservas_salones` de MesaChef Matrix
+   * Soporta regímenes y pax distintos para cada día de estancia (extraídos de DailyDistribution_JSON / RoomingList_JSON).
+   * Recuerda: En PC (Pensión Completa) se genera tanto Almuerzo (14:00) como Cena (21:00).
+   * En MP (Media Pensión) se genera únicamente Cena (21:00).
    */
   function prepareSalonDocuments(groupRecord) {
     if (!groupRecord) return [];
@@ -353,15 +419,16 @@
       return []; // Estrictamente solo 5 de octubre de 2026 en adelante
     }
 
-    var regimen = String(groupRecord["Régimen"] || groupRecord.regimen || groupRecord.Regimen || "MP").toUpperCase();
-    if (!isMpOrPcRegimen(regimen)) {
-      return []; // Solo MP o PC
+    if (!hasMpOrPcRegimen(groupRecord)) {
+      return []; // Solo si tiene MP o PC a nivel general o en algún día
     }
 
     var mesachefStatus = resolveMesachefStatus(groupRecord);
 
-    var pax = parseInt(groupRecord["Pax."] || groupRecord.pax || groupRecord.Pax || groupRecord.totalPax || groupRecord.comensales || 0, 10);
-    if (isNaN(pax) || pax <= 0) pax = 1;
+    var globalPax = parseInt(groupRecord["Pax."] || groupRecord.pax || groupRecord.Pax || groupRecord.totalPax || groupRecord.comensales || 0, 10);
+    if (isNaN(globalPax) || globalPax <= 0) globalPax = 1;
+
+    var globalRegimen = String(groupRecord["Régimen"] || groupRecord.regimen || groupRecord.Regimen || "MP").toUpperCase().trim();
 
     var hotelInfo = resolveHotelAndSalon(groupRecord.Hotel_Asignado || groupRecord.Hotel || groupRecord.hotel);
     var nombreGrupo = String(
@@ -373,62 +440,132 @@
     var endIso = toIsoDate(exitDate) || startIso;
     if (!startIso) return [];
 
-    var isPc = regimen.includes("PC");
-    var docs = [];
+    // 1. Extraer desglose diario de DailyDistribution_JSON
+    var dailyDistRaw = groupRecord.DailyDistribution_JSON;
+    if (!dailyDistRaw && groupRecord.records && groupRecord.records[0]) {
+      dailyDistRaw = groupRecord.records[0].DailyDistribution_JSON;
+    }
+    var cleanDailyDist = {};
+    if (dailyDistRaw) {
+      try {
+        var parsedDist = typeof dailyDistRaw === "string" ? JSON.parse(dailyDistRaw) : dailyDistRaw;
+        if (parsedDist && typeof parsedDist === "object") {
+          Object.keys(parsedDist).forEach(function (k) {
+            var isoKey = toIsoDate(k);
+            if (isoKey) {
+              cleanDailyDist[isoKey] = parsedDist[k];
+            }
+          });
+        }
+      } catch (e) {}
+    }
 
+    // 2. Extraer líneas de RoomingList_JSON
+    var roomingListRaw = groupRecord.RoomingList_JSON;
+    if (!roomingListRaw && groupRecord.records && groupRecord.records[0]) {
+      roomingListRaw = groupRecord.records[0].RoomingList_JSON;
+    }
+    var cleanRoomingList = [];
+    if (roomingListRaw) {
+      try {
+        var parsedRL = typeof roomingListRaw === "string" ? JSON.parse(roomingListRaw) : roomingListRaw;
+        if (Array.isArray(parsedRL)) {
+          cleanRoomingList = parsedRL;
+        }
+      } catch (e) {}
+    }
+
+    var docs = [];
     var startDate = new Date(startIso + "T12:00:00");
     var endDate = new Date(endIso + "T12:00:00");
+    var isSingleDayStay = (startIso === endIso);
     var current = new Date(startDate);
 
     while (current <= endDate) {
       var iso = current.toISOString().split("T")[0];
       var isLastDay = current.getTime() === endDate.getTime();
+      var distForDay = cleanDailyDist[iso];
 
-      // En MP: Cena cada noche de estancia (excepto el día de salida)
-      if (!isLastDay) {
-        var docIdCena = "nexus_" + reservaId + "_" + iso + "_cena";
-        docs.push({
-          id: docIdCena,
-          reservaId: reservaId,
-          origen: "Nexus Groups",
-          hotel: hotelInfo.hotelId,
-          salon: hotelInfo.salon,
-          fecha: iso,
-          cliente: nombreGrupo + " (Ref: " + reservaId + ")",
-          contact: {
-            tel: groupRecord.Telefono || groupRecord.telefono || "",
-            email: groupRecord.Email || groupRecord.email || ""
-          },
-          estado: mesachefStatus,
-          revisado: true,
-          detalles: {
-            jornada: "cena",
-            montaje: "Grupo",
-            hora: "21:00",
-            pax_adultos: pax,
-            pax_ninos: 0,
-            incluido: true
-          },
-          notas: {
-            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: " + (isPc ? "PC" : "MP") + " | Pax: " + pax + " | Estancia: " + startIso + " al " + endIso,
-            cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
-          },
-          servicios: [
-            {
-              fecha: iso,
-              hora: "21:00",
-              concepto: "Cena Grupo " + (isPc ? "PC" : "MP"),
-              uds: pax,
-              precio: 0,
-              total: 0
-            }
-          ],
-          updated_at: new Date().toISOString()
-        });
+      // En estancia de varias noches, el día de salida no genera servicios salvo que venga explícitamente en el desglose
+      if (isLastDay && !isSingleDayStay && (!distForDay || !distForDay.regimen)) {
+        current.setDate(current.getDate() + 1);
+        continue;
       }
 
-      // En PC: Almuerzo diario (cada noche de estancia, sin incluir el dia de salida)
-      if (isPc && !isLastDay) {
+      // Determinar régimen y pax para ESTE día específico
+      var dayRegimen = null;
+      var dayPax = 0;
+
+      if (distForDay) {
+        if (distForDay.regimen && distForDay.regimen !== "-" && distForDay.regimen !== "---") {
+          dayRegimen = String(distForDay.regimen).trim().toUpperCase();
+        }
+        var p = parseInt(distForDay.pax || distForDay.pax_adultos || distForDay.comensales || 0, 10);
+        if (!isNaN(p) && p > 0) {
+          dayPax = p;
+        } else {
+          var calcP = (parseInt(distForDay.individuales, 10) || 0) * 1 +
+                      (parseInt(distForDay.dobles, 10) || 0) * 2 +
+                      (parseInt(distForDay.triples, 10) || 0) * 3 +
+                      (parseInt(distForDay.cuadruples, 10) || 0) * 4;
+          if (calcP > 0) dayPax = calcP;
+        }
+      }
+
+      if ((!dayRegimen || dayPax <= 0) && cleanRoomingList.length > 0) {
+        var rlPaxSum = 0;
+        cleanRoomingList.forEach(function (rm) {
+          if (!rm || rm.isService) return;
+          var rmDate = toIsoDate(rm.dateIn || rm.date || rm.fecha);
+          var rmNights = parseInt(rm.nights, 10) || 1;
+          var matchesDay = false;
+          if (rmDate) {
+            if (rmNights <= 1) {
+              matchesDay = (rmDate === iso);
+            } else {
+              var rmStart = new Date(rmDate + "T12:00:00");
+              var rmEnd = new Date(rmStart);
+              rmEnd.setDate(rmEnd.getDate() + rmNights);
+              var curTime = current.getTime();
+              matchesDay = (curTime >= rmStart.getTime() && curTime < rmEnd.getTime());
+            }
+          }
+          if (matchesDay) {
+            if (!dayRegimen && rm.regime && rm.regime !== "-" && rm.regime !== "---") {
+              dayRegimen = String(rm.regime).trim().toUpperCase();
+            }
+            var q = parseInt(rm.qty, 10) || 1;
+            var px = parseInt(rm.pax, 10) || 1;
+            rlPaxSum += (q * px);
+          }
+        });
+        if (dayPax <= 0 && rlPaxSum > 0) {
+          dayPax = rlPaxSum;
+        }
+      }
+
+      if (!dayRegimen) {
+        dayRegimen = globalRegimen;
+      }
+      if (dayPax <= 0) {
+        dayPax = globalPax;
+      }
+
+      var normDayReg = String(dayRegimen).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      var isDayPc = normDayReg === "PC" ||
+                    normDayReg.includes("PENSION COMPLETA") ||
+                    normDayReg.includes("ALMUERZO Y CENA") ||
+                    normDayReg.includes("COMIDA Y CENA") ||
+                    /\bPC\b/.test(normDayReg);
+      var isDayMp = !isDayPc && (
+                    normDayReg === "MP" ||
+                    normDayReg.includes("MEDIA PENSION") ||
+                    /\bMP\b/.test(normDayReg) ||
+                    normDayReg.includes("CENA")
+      );
+
+      // ── ALMUERZO (En PC: una Pensión Completa incluye almuerzo y cena) ──
+      if (isDayPc) {
         var docIdAlmuerzo = "nexus_" + reservaId + "_" + iso + "_almuerzo";
         docs.push({
           id: docIdAlmuerzo,
@@ -448,12 +585,12 @@
             jornada: "almuerzo",
             montaje: "Grupo",
             hora: "14:00",
-            pax_adultos: pax,
+            pax_adultos: dayPax,
             pax_ninos: 0,
             incluido: true
           },
           notas: {
-            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: PC | Pax: " + pax + " | Estancia: " + startIso + " al " + endIso,
+            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: PC | Pax: " + dayPax + " | Estancia: " + startIso + " al " + endIso,
             cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
           },
           servicios: [
@@ -461,7 +598,7 @@
               fecha: iso,
               hora: "14:00",
               concepto: "Almuerzo Grupo PC",
-              uds: pax,
+              uds: dayPax,
               precio: 0,
               total: 0
             }
@@ -470,8 +607,155 @@
         });
       }
 
+      // ── CENA (Tanto en MP como en PC: una PC incluye almuerzo y cena) ──
+      if (isDayPc || isDayMp) {
+        var docIdCena = "nexus_" + reservaId + "_" + iso + "_cena";
+        var regLabel = isDayPc ? "PC" : "MP";
+        docs.push({
+          id: docIdCena,
+          reservaId: reservaId,
+          origen: "Nexus Groups",
+          hotel: hotelInfo.hotelId,
+          salon: hotelInfo.salon,
+          fecha: iso,
+          cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+          contact: {
+            tel: groupRecord.Telefono || groupRecord.telefono || "",
+            email: groupRecord.Email || groupRecord.email || ""
+          },
+          estado: mesachefStatus,
+          revisado: true,
+          detalles: {
+            jornada: "cena",
+            montaje: "Grupo",
+            hora: "21:00",
+            pax_adultos: dayPax,
+            pax_ninos: 0,
+            incluido: true
+          },
+          notas: {
+            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: " + regLabel + " | Pax: " + dayPax + " | Estancia: " + startIso + " al " + endIso,
+            cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+          },
+          servicios: [
+            {
+              fecha: iso,
+              hora: "21:00",
+              concepto: "Cena Grupo " + regLabel,
+              uds: dayPax,
+              precio: 0,
+              total: 0
+            }
+          ],
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // ── SERVICIOS ADICIONALES STANDALONE (si en el rooming list hay servicios de comida extra) ──
+      if (cleanRoomingList.length > 0) {
+        cleanRoomingList.forEach(function (rm) {
+          if (!rm || !rm.isService) return;
+          var rmDate = toIsoDate(rm.dateIn || rm.date || rm.fecha);
+          if (rmDate !== iso) return;
+
+          var c = String(rm.type || rm.concept || rm.label || "").toUpperCase();
+          var svcQty = parseInt(rm.qty || rm.uds || rm.pax || dayPax, 10) || dayPax;
+
+          if ((c.includes("ALMUERZO") || c.includes("COMIDA")) && !isDayPc) {
+            var docIdExtraAlm = "nexus_" + reservaId + "_" + iso + "_almuerzo";
+            docs.push({
+              id: docIdExtraAlm,
+              reservaId: reservaId,
+              origen: "Nexus Groups",
+              hotel: hotelInfo.hotelId,
+              salon: hotelInfo.salon,
+              fecha: iso,
+              cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+              contact: {
+                tel: groupRecord.Telefono || groupRecord.telefono || "",
+                email: groupRecord.Email || groupRecord.email || ""
+              },
+              estado: mesachefStatus,
+              revisado: true,
+              detalles: {
+                jornada: "almuerzo",
+                montaje: "Grupo",
+                hora: "14:00",
+                pax_adultos: svcQty,
+                pax_ninos: 0,
+                incluido: true
+              },
+              notas: {
+                interna: "[Nexus Groups] Ref: " + reservaId + " | Servicio: " + (rm.type || "Almuerzo") + " | Pax: " + svcQty + " | Estancia: " + startIso + " al " + endIso,
+                cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+              },
+              servicios: [
+                {
+                  fecha: iso,
+                  hora: "14:00",
+                  concepto: "Almuerzo Grupo " + (rm.type || "Extra"),
+                  uds: svcQty,
+                  precio: 0,
+                  total: 0
+                }
+              ],
+              updated_at: new Date().toISOString()
+            });
+          }
+
+          if (c.includes("CENA") && !isDayPc && !isDayMp) {
+            var docIdExtraCena = "nexus_" + reservaId + "_" + iso + "_cena";
+            docs.push({
+              id: docIdExtraCena,
+              reservaId: reservaId,
+              origen: "Nexus Groups",
+              hotel: hotelInfo.hotelId,
+              salon: hotelInfo.salon,
+              fecha: iso,
+              cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+              contact: {
+                tel: groupRecord.Telefono || groupRecord.telefono || "",
+                email: groupRecord.Email || groupRecord.email || ""
+              },
+              estado: mesachefStatus,
+              revisado: true,
+              detalles: {
+                jornada: "cena",
+                montaje: "Grupo",
+                hora: "21:00",
+                pax_adultos: svcQty,
+                pax_ninos: 0,
+                incluido: true
+              },
+              notas: {
+                interna: "[Nexus Groups] Ref: " + reservaId + " | Servicio: " + (rm.type || "Cena") + " | Pax: " + svcQty + " | Estancia: " + startIso + " al " + endIso,
+                cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+              },
+              servicios: [
+                {
+                  fecha: iso,
+                  hora: "21:00",
+                  concepto: "Cena Grupo " + (rm.type || "Extra"),
+                  uds: svcQty,
+                  precio: 0,
+                  total: 0
+                }
+              ],
+              updated_at: new Date().toISOString()
+            });
+          }
+        });
+      }
+
       current.setDate(current.getDate() + 1);
     }
+
+    docs.sort(function (a, b) {
+      if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+      var hA = (a.detalles && a.detalles.hora) || "";
+      var hB = (b.detalles && b.detalles.hora) || "";
+      return hA.localeCompare(hB);
+    });
 
     return docs;
   }
@@ -609,6 +893,9 @@
               var oldFirstSvc = (existing.servicios && existing.servicios[0]) || {};
               var newFirstSvc = (docData.servicios && docData.servicios[0]) || {};
 
+              var oldNotas = existing.notas || {};
+              var newNotas = docData.notas || {};
+
               if (
                 existing.estado !== docData.estado ||
                 existing.cliente !== docData.cliente ||
@@ -620,7 +907,8 @@
                 oldDetalles.jornada !== newDetalles.jornada ||
                 oldDetalles.montaje !== newDetalles.montaje ||
                 oldFirstSvc.uds !== newFirstSvc.uds ||
-                oldFirstSvc.concepto !== newFirstSvc.concepto
+                oldFirstSvc.concepto !== newFirstSvc.concepto ||
+                oldNotas.interna !== newNotas.interna
               ) {
                 isDifferent = true;
               }
@@ -704,8 +992,7 @@
       var entryDate = g.Entrada || g.entrada || g.fechaEntrada || g.fecha;
       if (!isYear2027OrLater(entryDate)) return false;
       var isCanc = isGroupCancelled(g);
-      var regimen = String(g["Régimen"] || g.regimen || g.Regimen || "").toUpperCase();
-      return isMpOrPcRegimen(regimen) || isCanc;
+      return hasMpOrPcRegimen(g) || isCanc;
     });
 
     if (eligibleGroups.length === 0) {
@@ -737,6 +1024,7 @@
     normalizeReservaId: normalizeReservaId,
     isYear2027OrLater: isYear2027OrLater,
     isMpOrPcRegimen: isMpOrPcRegimen,
+    hasMpOrPcRegimen: hasMpOrPcRegimen,
     isGroupCancelled: isGroupCancelled,
     isGroupConfirmedInNexus: isGroupConfirmedInNexus,
     resolveMesachefStatus: resolveMesachefStatus,
