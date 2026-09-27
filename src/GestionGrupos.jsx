@@ -16680,17 +16680,26 @@
                                   >
                                     {statusText}
                                   </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const ptoTarget = group.records?.[0]?.["Presupuesto_Origen"] || group.records?.[0]?.["sourceQuoteId"] || group.records?.[0]?.["Reserva"] || group.id;
-                                      window.location.href = `Presupuestos.html?id=${ptoTarget}`;
-                                    }}
-                                    className="p-1 px-1.5 bg-slate-100 text-slate-400 hover:bg-purple-600 hover:text-white rounded-lg transition-all opacity-0 group-hover/status:opacity-100 shadow-sm"
-                                    title="Ver Presupuesto"
-                                  >
-                                    <IconFileText size={12} stroke={2.5} />
-                                  </button>
+                                  {(() => {
+                                    const ptoTarget =
+                                      group.records?.[0]?.["Presupuesto_Origen"] ||
+                                      group.records?.[0]?.["sourceQuoteId"] ||
+                                      group.records?.[0]?.["budgetLinkedId"] ||
+                                      (String(group.id || "").startsWith("PRES-") ? group.id : null);
+                                    if (!ptoTarget) return null;
+                                    return (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          window.location.href = `Presupuestos.html?id=${encodeURIComponent(ptoTarget)}`;
+                                        }}
+                                        className="p-1 px-1.5 bg-slate-100 text-slate-400 hover:bg-purple-600 hover:text-white rounded-lg transition-all opacity-0 group-hover/status:opacity-100 shadow-sm"
+                                        title={`Ver Presupuesto (${ptoTarget})`}
+                                      >
+                                        <IconFileText size={12} stroke={2.5} />
+                                      </button>
+                                    );
+                                  })()}
                                 </div>
                               </td>
 
@@ -20220,36 +20229,31 @@
 
                               {/* Nexus Presupuestos Link */}
 
-                              {(String(selectedGroupFicha.records[0]?.["Reserva"] || "").startsWith("PRES-") || String(selectedGroupFicha.records[0]?.["Com_Estado_Interno"] || "").toUpperCase() === "PRESUPUESTO" || Boolean(selectedGroupFicha.records[0]?.["Presupuesto_Origen"]) || Boolean(selectedGroupFicha.records[0]?.["sourceQuoteId"])) && (
-
-                                <div className="md:col-span-1 flex items-end pb-0.5">
-
-                                  <button
-
-                                    onClick={() => {
-                                      const ptoTarget = selectedGroupFicha.records[0]?.["Presupuesto_Origen"] || selectedGroupFicha.records[0]?.["sourceQuoteId"] || selectedGroupFicha.records[0]?.["Reserva"];
-                                      window.location.href = `Presupuestos.html?id=${ptoTarget}`;
-                                    }}
-
-                                    className="w-full h-9 flex items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl shadow-lg shadow-purple-200 transition-all hover:scale-[1.05] active:scale-[0.95]"
-
-                                    title="Abrir en Nexus Presupuestos"
-
-                                  >
-
-                                    <IconFileSpreadsheet
-
-                                      size={16}
-
-                                      stroke={2.5}
-
-                                    />
-
-                                  </button>
-
-                                </div>
-
-                              )}
+                              {(() => {
+                                const rec = selectedGroupFicha.records[0] || {};
+                                const ptoTarget =
+                                  rec["Presupuesto_Origen"] ||
+                                  rec["sourceQuoteId"] ||
+                                  rec["budgetLinkedId"] ||
+                                  (String(rec["Reserva"] || "").startsWith("PRES-") ? rec["Reserva"] : null);
+                                if (!ptoTarget) return null;
+                                return (
+                                  <div className="md:col-span-1 flex items-end pb-0.5">
+                                    <button
+                                      onClick={() => {
+                                        window.location.href = `Presupuestos.html?id=${encodeURIComponent(ptoTarget)}`;
+                                      }}
+                                      className="w-full h-9 flex items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl shadow-lg shadow-purple-200 transition-all hover:scale-[1.05] active:scale-[0.95]"
+                                      title={`Abrir en Nexus Presupuestos (${ptoTarget})`}
+                                    >
+                                      <IconFileSpreadsheet
+                                        size={16}
+                                        stroke={2.5}
+                                      />
+                                    </button>
+                                  </div>
+                                );
+                              })()}
 
                               {/* Fechas de Gestión */}
 
