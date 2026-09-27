@@ -2,7 +2,7 @@
  * ═════════════════════════════════════════════════════════════════════
  * NEXUS GROUPS — MesaChef Integration Service (Matrix v6.0)
  * ═════════════════════════════════════════════════════════════════════
- * Sincronización automática de grupos de 2027 en adelante con MP / PC
+ * Sincronización automática de grupos de 5 de octubre de 2026 en adelante con MP / PC
  * hacia el cuadrante Matrix de MesaChef (`mesa-chef-prod`).
  *
  * Reglas de hotel y salón:
@@ -122,38 +122,17 @@
   }
 
   /**
-   * Determina si una reserva pertenece ESTRICTAMENTE a 2027 o posterior (>= 2027)
+   * Determina si una reserva es a partir del 5 de octubre de 2026 en adelante (>= 2026-10-05)
    */
   function isYear2027OrLater(entryDateStr) {
     if (!entryDateStr) return false;
-    if (typeof entryDateStr === "number") {
-      // Número de serie Excel: 46388 corresponde al 01-01-2027
-      if (entryDateStr >= 46388) return true;
-      if (entryDateStr > 30000 && entryDateStr < 46388) return false; // 2026 o anterior
-      return entryDateStr >= 2027;
+    var iso = toIsoDate(entryDateStr);
+    if (iso) {
+      return iso >= "2026-10-05";
     }
-    var s = String(entryDateStr).trim();
-
-    // Formato ISO YYYY-MM-DD o YYYY/MM/DD
-    if (/^\d{4}/.test(s)) {
-      var y = parseInt(s.substring(0, 4), 10);
-      return y >= 2027;
-    }
-    // Formato español DD/MM/YYYY o DD-MM-YYYY
-    var parts = s.split(/[-\/.]/);
-    if (parts.length >= 3) {
-      if (parts[2].length >= 4) {
-        var yNum = parseInt(parts[2].substring(0, 4), 10);
-        if (!isNaN(yNum)) return yNum >= 2027;
-      }
-      if (parts[0].length === 4) {
-        var yFirst = parseInt(parts[0], 10);
-        if (!isNaN(yFirst)) return yFirst >= 2027;
-      }
-    }
-    var d = new Date(s);
-    return !isNaN(d.getTime()) && d.getFullYear() >= 2027;
+    return false;
   }
+  var isEligibleDate = isYear2027OrLater;
 
   /**
    * Determina si el régimen incluye Media Pensión (MP) o Pensión Completa (PC)
@@ -304,6 +283,12 @@
    */
   function toIsoDate(dateVal) {
     if (!dateVal) return null;
+    if (typeof dateVal === "number" || (!isNaN(Number(dateVal)) && Number(dateVal) > 30000 && !String(dateVal).includes("-") && !String(dateVal).includes("/"))) {
+      var n = Number(dateVal);
+      var excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      var jsDate = new Date(excelEpoch.getTime() + n * 86400000);
+      return jsDate.toISOString().split("T")[0];
+    }
     if (dateVal instanceof Date) {
       if (isNaN(dateVal.getTime())) return null;
       return dateVal.toISOString().split("T")[0];
@@ -365,7 +350,7 @@
 
     var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
     if (!isYear2027OrLater(entryDate)) {
-      return []; // Estrictamente solo 2027 en adelante
+      return []; // Estrictamente solo 5 de octubre de 2026 en adelante
     }
 
     var regimen = String(groupRecord["Régimen"] || groupRecord.regimen || groupRecord.Regimen || "MP").toUpperCase();
@@ -512,7 +497,7 @@
     var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
     // Si la fecha existe y es anterior a 2027, descartar estrictamente
     if (entryDate && !isYear2027OrLater(entryDate)) {
-      return Promise.resolve({ skipped: true, reason: "Solo aplicable a reservas de 2027 en adelante" });
+      return Promise.resolve({ skipped: true, reason: "Solo aplicable a reservas de 5 de octubre de 2026 en adelante" });
     }
 
     var isCancelled = isGroupCancelled(groupRecord);
@@ -596,7 +581,7 @@
 
       var salonDocs = prepareSalonDocuments(groupRecord);
       if (!salonDocs || salonDocs.length === 0) {
-        return Promise.resolve({ skipped: true, reason: "No cumple criterios (solo 2027+ con MP/PC)" });
+        return Promise.resolve({ skipped: true, reason: "No cumple criterios (desde 05/10/2026 con MP/PC)" });
       }
 
       var activeDocIds = new Set(salonDocs.map(function (d) { return d.id; }));
