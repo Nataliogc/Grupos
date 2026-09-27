@@ -315,7 +315,7 @@
             .replace(/^habit[^-]*-/, '')
             .replace(/-(dbl|tpl|cua|dui|js1|js2|ss1|ss2)$/, '');
         if (!type) return false;
-        if (/^(dui|doble-uso-individual|doble-individual|uso-individual|single)$/.test(type)) return true;
+        if (/^(dui|doble-de-uso-individual|doble-uso-individual|doble-individual|uso-individual|single)$/.test(type)) return true;
         if (/^(dbl|doble|twin|individual|triple|tpl|cuadruple|cua|suite|junior-suite|suite-superior|apartamento|familiar)$/.test(type)) return true;
         if (/^(junior-)?suite(-superior)?(-[12])?$/.test(type)) return true;
         // Tipos con suplemento: "DOBLE + SUPLETORIA" -> normalizado a "doble-supletoria"
