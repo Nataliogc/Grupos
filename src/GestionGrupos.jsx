@@ -2962,11 +2962,10 @@
           };
 
 
-        // 2. CONFIRMADO / OK / BLOQUEADO
+        // 2. CONFIRMADO / OK
         if (
           s.includes("CONF") ||
           s.includes("OK") ||
-          s.includes("BLOQ") ||
           s === "GRUPOS" ||
           s === "GRUPO"
         ) {
@@ -10289,6 +10288,17 @@
                 alert(`✅ Serie confirmada y desglosada en reservas individuales: ${res.childIds.join(', ')}`);
                 setShowFichaModal(false);
               } else {
+                if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
+                  const sampleRow = currentGroupRows[0] || {};
+                  const mergedForSync = {
+                    ...sampleRow,
+                    ...updates,
+                    Com_Estado_Interno: newStatus,
+                    id: normTargetId,
+                    reserva: normTargetId
+                  };
+                  window.MesaChefService.syncGroupToMesachef(mergedForSync);
+                }
                 alert(`✅ Estado actualizado a ${newStatus}.`);
               }
               return;

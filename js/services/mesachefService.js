@@ -197,19 +197,104 @@
   }
 
   /**
-   * Mapea el estado de Nexus Groups a los estados estándar de MesaChef Matrix:
+   * Determina de manera estricta si un grupo está realmente CONFIRMADO en Nexus Groups.
+   * Solo saldrá como confirmado cuando en Nexus esté confirmado:
+   * 1. Si existe Com_Estado_Interno: debe indicar expresamente CONFIRMADO / ACEPTADO / DEFINITIVO / OK.
+   *    Cualquier otro estado interno (TENTATIVA, PRESUPUESTO, TANTEO, OPCIÓN, BLOQUEO) se considera NO confirmado.
+   * 2. Si no existe Com_Estado_Interno:
+   *    - Si el código empieza por PRES- o COT- -> NO confirmado (presupuesto).
+   *    - Si el segmento contiene TANTEO, TENTA, BLOQ, OPCI, PRESUP, PROSPECT -> NO confirmado (presupuesto).
+   *    - Si el nombre del grupo empieza por BLOQ, TANTEO, TENTA, PRESUP, o contiene BLOQ GRUPOS, BLOQUEO -> NO confirmado.
+   *    - Si el campo Estado indica CONFIRMADO / ACEPTADO / DEFINITIVO / OK -> confirmado.
+   *    - En cualquier otro caso -> NO confirmado.
+   */
+  function isGroupConfirmedInNexus(groupRecord) {
+    if (!groupRecord) return false;
+    if (isGroupCancelled(groupRecord)) return false;
+
+    var interno = String(groupRecord.Com_Estado_Interno || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (interno) {
+      if (interno.includes("CONFIRM") || interno.includes("ACEPTAD") || interno.includes("DEFINITIV") || interno === "OK") {
+        return true;
+      }
+      return false;
+    }
+
+    var resId = String(groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva || "").toUpperCase().trim();
+    if (resId.startsWith("PRES-") || resId.startsWith("COT-")) {
+      return false;
+    }
+
+    var segmento = String(groupRecord["Segment."] || groupRecord.segmento || groupRecord.Segmento || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (
+      segmento.includes("TANTEO") ||
+      segmento.includes("TENTA") ||
+      segmento.includes("BLOQ") ||
+      segmento.includes("OPCI") ||
+      segmento.includes("PRESUP") ||
+      segmento.includes("PROSPECT")
+    ) {
+      return false;
+    }
+
+    var nombre = String(
+      groupRecord["Nombre del Grupo"] ||
+      groupRecord.Grupo ||
+      groupRecord.nombre ||
+      groupRecord.cliente ||
+      ""
+    ).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+    if (
+      nombre.startsWith("BLOQ") ||
+      nombre.startsWith("TANTEO") ||
+      nombre.startsWith("TENTA") ||
+      nombre.startsWith("PRESUP") ||
+      nombre.includes("BLOQ GRUPOS") ||
+      nombre.includes("BLOQUEO") ||
+      nombre.includes("TANTEO")
+    ) {
+      return false;
+    }
+
+    var rawStatus = String(groupRecord.Estado || groupRecord.estado || groupRecord.status || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (rawStatus.includes("CONFIRM") || rawStatus.includes("ACEPTAD") || rawStatus.includes("DEFINITIV") || rawStatus === "OK") {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Resuelve el estado que debe tener en MesaChef:
+   * - "cancelada": si está anulado o cancelado en Nexus
+   * - "confirmada": SOLO si en Nexus está estrictamente confirmado
+   * - "presupuesto": en cualquier otro caso (tentativa, tanteo, presupuesto, bloqueo, etc.)
+   */
+  function resolveMesachefStatus(groupRecord) {
+    if (!groupRecord) return "presupuesto";
+    if (isGroupCancelled(groupRecord)) return "cancelada";
+    if (isGroupConfirmedInNexus(groupRecord)) return "confirmada";
+    return "presupuesto";
+  }
+
+  /**
+   * Mapea un string de estado de Nexus Groups a los estados estándar de MesaChef Matrix:
    * - Confirmada -> "confirmada"
-   * - Tentativa / Presupuesto / Bloqueo -> "presupuesto"
+   * - Tentativa / Presupuesto / Bloqueo / Tanteo -> "presupuesto"
    * - Cancelada / Anulada -> "cancelada"
    */
   function mapMesachefStatus(statusStr) {
     if (!statusStr) return "presupuesto";
     var st = String(statusStr).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    if (st.includes("CONFIRM") || st.includes("ACEPTAD") || st.includes("DEFINITIV")) {
-      return "confirmada";
-    }
     if (st.includes("ANULAD") || st.includes("CANCEL") || st.includes("BAJA") || st.includes("DESESTIM") || st.includes("CADUC")) {
       return "cancelada";
+    }
+    if (st.includes("BLOQ") || st.includes("TANTEO") || st.includes("TENTA") || st.includes("PRESUP") || st.includes("OPCI")) {
+      return "presupuesto";
+    }
+    if (st.includes("CONFIRM") || st.includes("ACEPTAD") || st.includes("DEFINITIV") || st === "OK") {
+      return "confirmada";
     }
     return "presupuesto";
   }
@@ -283,8 +368,7 @@
       return []; // Solo MP o PC
     }
 
-    var rawStatus = groupRecord.Com_Estado_Interno || groupRecord.Estado || groupRecord.estado || groupRecord.status || "Tentativa";
-    var mesachefStatus = isGroupCancelled(groupRecord) ? "cancelada" : mapMesachefStatus(rawStatus);
+    var mesachefStatus = resolveMesachefStatus(groupRecord);
 
     var pax = parseInt(groupRecord["Pax."] || groupRecord.pax || groupRecord.Pax || groupRecord.totalPax || groupRecord.comensales || 0, 10);
     if (isNaN(pax) || pax <= 0) pax = 1;
@@ -329,7 +413,7 @@
           revisado: true,
           detalles: {
             jornada: "cena",
-            montaje: "Banquete",
+            montaje: "Grupo",
             hora: "21:00",
             pax_adultos: pax,
             pax_ninos: 0,
@@ -372,7 +456,7 @@
           revisado: true,
           detalles: {
             jornada: "almuerzo",
-            montaje: "Banquete",
+            montaje: "Grupo",
             hora: "14:00",
             pax_adultos: pax,
             pax_ninos: 0,
@@ -587,6 +671,8 @@
     isYear2027OrLater: isYear2027OrLater,
     isMpOrPcRegimen: isMpOrPcRegimen,
     isGroupCancelled: isGroupCancelled,
+    isGroupConfirmedInNexus: isGroupConfirmedInNexus,
+    resolveMesachefStatus: resolveMesachefStatus,
     mapMesachefStatus: mapMesachefStatus,
     resolveHotelAndSalon: resolveHotelAndSalon,
     prepareSalonDocuments: prepareSalonDocuments,
