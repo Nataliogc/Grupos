@@ -514,6 +514,8 @@
       var rlDayPax = 0;
       var rlDayRegimen = null;
       var rlHasRooms = false;
+      var roomLunchPax = 0;
+      var roomDinnerPax = 0;
 
       if (cleanRoomingList.length > 0) {
         cleanRoomingList.forEach(function (rm) {
@@ -546,6 +548,13 @@
             var explicitPax = parseInt(rm.pax, 10);
             var px = (!isNaN(explicitPax) && explicitPax > 0) ? explicitPax : getPaxPerRoomType(rm.type || rm.roomType);
             rlDayPax += (q * px);
+            var mealReg = String(reg || (distForDay && distForDay.regimen) || globalRegimen).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (/\bPC\b|PENSION COMPLETA/.test(mealReg)) {
+              roomLunchPax += q * px;
+              roomDinnerPax += q * px;
+            } else if (/\bMP\b|MEDIA PENSION|CENA/.test(mealReg)) {
+              roomDinnerPax += q * px;
+            }
           }
         });
       }
@@ -572,7 +581,7 @@
       // C. Consolidar régimen del día:
       // Si la lista de habitaciones especifica PC o MP para hoy, manda la lista de habitaciones
       var dayRegimen = null;
-      if (rlDayRegimen && (isMpOrPcRegimen(rlDayRegimen) || !distDayRegimen)) {
+      if (rlDayRegimen) {
         dayRegimen = rlDayRegimen;
       } else if (distDayRegimen) {
         dayRegimen = distDayRegimen;
@@ -610,6 +619,13 @@
 
       console.log("🍽️ [MesaChef Debug] Ref: " + reservaId + " | Day " + iso + ": Regimen=" + dayRegimen + " (isDayPc=" + isDayPc + ", isDayMp=" + isDayMp + "), Pax=" + dayPax);
 
+      // Las líneas de habitaciones mandan incluso cuando su régimen es HA/AD.
+      // Contar cada comida por separado para no incluir habitaciones sin pensión.
+      var lunchPax = rlHasRooms ? roomLunchPax : (isDayPc ? dayPax : 0);
+      var dinnerPax = rlHasRooms ? roomDinnerPax : ((isDayPc || isDayMp) ? dayPax : 0);
+      isDayPc = lunchPax > 0;
+      isDayMp = dinnerPax > 0 && !isDayPc;
+
       // ── ALMUERZO (En PC: una Pensión Completa incluye almuerzo y cena) ──
       if (isDayPc) {
         var docIdAlmuerzo = "nexus_" + reservaId + "_" + iso + "_almuerzo";
@@ -631,12 +647,12 @@
             jornada: "almuerzo",
             montaje: "Grupo",
             hora: "14:00",
-            pax_adultos: dayPax,
+            pax_adultos: lunchPax,
             pax_ninos: 0,
             incluido: true
           },
           notas: {
-            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: PC | Pax: " + dayPax + " | Estancia: " + startIso + " al " + endIso,
+            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: PC | Pax: " + lunchPax + " | Estancia: " + startIso + " al " + endIso,
             cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
           },
           servicios: [
@@ -644,7 +660,7 @@
               fecha: iso,
               hora: "14:00",
               concepto: "Almuerzo Grupo PC",
-              uds: dayPax,
+              uds: lunchPax,
               precio: 0,
               total: 0
             }
@@ -675,12 +691,12 @@
             jornada: "cena",
             montaje: "Grupo",
             hora: "21:00",
-            pax_adultos: dayPax,
+            pax_adultos: dinnerPax,
             pax_ninos: 0,
             incluido: true
           },
           notas: {
-            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: " + regLabel + " | Pax: " + dayPax + " | Estancia: " + startIso + " al " + endIso,
+            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: " + regLabel + " | Pax: " + dinnerPax + " | Estancia: " + startIso + " al " + endIso,
             cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
           },
           servicios: [
@@ -688,7 +704,7 @@
               fecha: iso,
               hora: "21:00",
               concepto: "Cena Grupo " + regLabel,
-              uds: dayPax,
+              uds: dinnerPax,
               precio: 0,
               total: 0
             }
@@ -919,10 +935,19 @@
       }
 
       var salonDocs = prepareSalonDocuments(groupRecord);
-      if (!salonDocs || salonDocs.length === 0) {
+      if ((!salonDocs || salonDocs.length === 0) && !entryDate) {
         return Promise.resolve({ skipped: true, reason: "No cumple criterios (desde 05/10/2026 con MP/PC)" });
       }
 
+      var fallbackHotel = resolveHotelAndSalon(groupRecord.Hotel_Asignado || groupRecord.Hotel || groupRecord.hotel);
+      var firstDoc = salonDocs[0] || {
+        reservaId: reservaId,
+        cliente: groupRecord["Nombre del Grupo"] || groupRecord.Grupo || reservaId,
+        hotel: fallbackHotel.hotelId,
+        salon: fallbackHotel.salon,
+        estado: resolveMesachefStatus(groupRecord),
+        detalles: { pax_adultos: 0 }
+      };
       var activeDocIds = new Set(salonDocs.map(function (d) { return d.id; }));
 
       return targetDb.collection(COLLECTION_SALONES)

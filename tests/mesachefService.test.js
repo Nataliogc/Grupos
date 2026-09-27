@@ -1,0 +1,58 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const service = require('../js/services/mesachefService');
+const room = (date, qty, pax, regime) => ({ dateIn: date, nights: 1, qty, pax, regime });
+const group = {
+  Reserva: '213521', Entrada: '2027-02-01', Salida: '2027-02-04',
+  'Nombre del Grupo': 'Prueba Grupo', 'Régimen': 'HA', Com_Estado_Interno: 'TENTATIVA',
+  DailyDistribution_JSON: JSON.stringify({'2027-02-01': {regimen: 'PC', pax: 12}, '2027-02-02': {regimen: 'MP', pax: 4}}),
+  RoomingList_JSON: JSON.stringify([
+    room('2027-02-01', 1, 3, 'HA'), room('2027-02-01', 6, 2, 'HA'),
+    room('2027-02-02', 1, 2, 'MP'), room('2027-02-02', 3, 1, 'MP'),
+    room('2027-02-03', 6, 2, 'PC')
+  ])
+};
+test('reproduce la ficha: HA no genera comidas, MP 5 pax, PC 12 pax', () => {
+  const docs = service.prepareSalonDocuments(group);
+  assert.deepEqual(docs.map(d => [d.fecha, d.detalles.jornada, d.detalles.pax_adultos]), [
+    ['2027-02-02','cena',5], ['2027-02-03','almuerzo',12], ['2027-02-03','cena',12]
+  ]);
+  assert.ok(docs.every(d => d.estado === 'presupuesto'));
+});
+test('regímenes mixtos cuentan solo los comensales de cada comida', () => {
+  const docs = service.prepareSalonDocuments({...group, RoomingList_JSON: JSON.stringify([
+    room('2027-02-02', 2, 2, 'PC'), room('2027-02-02', 3, 1, 'MP'), room('2027-02-02', 5, 2, 'HA')
+  ])});
+  assert.deepEqual(docs.filter(d => d.fecha === '2027-02-02').map(d => d.detalles.pax_adultos), [4,7]);
+});
+test('guarda cambios, cancela servicios obsoletos y protege desvinculados', async () => {
+  const data = new Map();
+  const key = (collection,id) => collection+'/'+id;
+  const ref = (collection,id) => ({key:key(collection,id)});
+  const old = 'reservas_salones/nexus_213521_2027-02-01_almuerzo';
+  data.set(old,{reservaId:'213521',estado:'presupuesto'});
+  data.set('reservas_salones/manual',{reservaId:'213521',estado:'confirmada',desvinculado:true});
+  global.window = {db:{
+    collection: collection => ({
+      doc: id => ref(collection,id),
+      where: (field,op,value) => ({get: async () => {
+        const docs = [...data].filter(([k,v]) => k.startsWith(collection+'/') && v[field] === value).map(([k,v]) => ({id:k.split('/')[1],ref:{key:k},data:()=>v}));
+        return {forEach: fn => docs.forEach(fn)};
+      }})
+    }),
+    batch: () => {
+      const writes=[];
+      return {set:(r,v)=>writes.push([r,v]),update:(r,v)=>writes.push([r,v]),commit:async()=>writes.forEach(([r,v])=>data.set(r.key,{...data.get(r.key),...v}))};
+    }
+  }};
+  try {
+    assert.equal((await service.syncGroupToMesachef(group)).success,true);
+    assert.equal(data.get(old).estado,'cancelada');
+    assert.equal(data.get('mesachef_grupos/213521').totalServicios,3);
+    const noMeals = {...group, 'Régimen':'HA', DailyDistribution_JSON:'{}', RoomingList_JSON:JSON.stringify([room('2027-02-01',1,2,'HA')])};
+    assert.equal((await service.syncGroupToMesachef(noMeals)).success,true);
+    assert.equal(data.get('mesachef_grupos/213521').totalServicios,0);
+    assert.ok([...data].filter(([k])=>k.startsWith('reservas_salones/nexus_')).every(([,v])=>v.estado==='cancelada'));
+    assert.equal(data.get('reservas_salones/manual').estado,'confirmada');
+  } finally { delete global.window; }
+});

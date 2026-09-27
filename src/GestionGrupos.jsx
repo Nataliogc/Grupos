@@ -23826,7 +23826,9 @@
                                         Com_Estado_Interno: currentRec.Com_Estado_Interno || currentRec.Estado || selectedGroupFicha.status
                                       };
                                       const syncRes = await window.MesaChefService.syncGroupToMesachef(fullSyncObj);
-                                      if (syncRes && syncRes.hasUnlinked) {
+                                      if (!syncRes || syncRes.success === false) {
+                                        alert("Los cambios se han guardado en Grupos, pero no se han podido sincronizar con MesaChef. Vuelve a intentarlo.");
+                                      } else if (syncRes.hasUnlinked) {
                                         alert(
                                           `✅ Cambios registrados y sincronizados con éxito.\n\n⚠️ AVISO MESACHEF: Se han detectado ${syncRes.unlinkedDocs.length} servicio(s) desvinculados manualmente en mesa. Sus datos en sala/cocina se han respetado y protegido.`
                                         );
@@ -23842,7 +23844,7 @@
                                     }
                                   } catch (err) {
                                     console.error("Error synchronizing in Grabar Cambios:", err);
-                                    alert("✅ Cambios registrados.");
+                                    alert("No se ha podido completar el guardado y la sincronización. Revisa los datos y vuelve a intentarlo.");
                                   }
                                 }
                                 setShowFichaModal(false);
