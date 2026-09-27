@@ -12,6 +12,37 @@
       }
     }
 
+    // Resumen del régimen vigente, priorizando el desglose sobre la cabecera importada.
+    const getGroupRegimeLabels = (group) => {
+      const labels = new Set();
+      const parse = (raw) => {
+        try { return typeof raw === "string" ? JSON.parse(raw) : raw; } catch { return null; }
+      };
+      const labelFor = (raw, meal) => {
+        let reg = String(raw || "").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (!reg || reg === "-" || reg === "---") return null;
+        if (["SA", "SOLO ALOJAMIENTO"].includes(reg)) reg = "HA";
+        if (["AD", "ALOJAMIENTO Y DESAYUNO"].includes(reg)) reg = "HD";
+        if (reg === "MEDIA PENSION") reg = "MP";
+        if (reg === "PENSION COMPLETA") reg = "PC";
+        return reg === "MP" ? (meal === "almuerzo" ? "MP · Almuerzo" : "MP · Cena") : reg;
+      };
+      (group.records?.length ? group.records : [group]).forEach(record => {
+        const rooms = parse(record.RoomingList_JSON);
+        const distribution = parse(record.DailyDistribution_JSON);
+        let detailed = [];
+        if (Array.isArray(rooms)) detailed = rooms.filter(r => r && !r.isService).map(r => labelFor(r.regime || r.regimen, r.mpMeal));
+        detailed = detailed.filter(Boolean);
+        if (!detailed.length && distribution && typeof distribution === "object") {
+          detailed = Object.values(distribution).filter(Boolean).map(d => labelFor(d.regimen || d.regime, d.mpMeal)).filter(Boolean);
+        }
+        if (!detailed.length) detailed = [labelFor(record["Régimen"] || record.Regimen || record.regimen || group.regimen, record.mpMeal)].filter(Boolean);
+        detailed.forEach(label => labels.add(label));
+      });
+      const order = ["HA", "HD", "MP · Almuerzo", "MP · Cena", "PC"];
+      return [...labels].sort((a, b) => (order.includes(a) ? order.indexOf(a) : 99) - (order.includes(b) ? order.indexOf(b) : 99) || a.localeCompare(b));
+    };
+
     const { useState, useEffect, useMemo, useRef } = React;
 
     const {
@@ -21803,7 +21834,19 @@
                                                   🗑️ Reiniciar Lista de Habitaciones
                                                 </button>
                                               </div>
-                                            </td>
+                                              {(() => {
+                                    const regimes = getGroupRegimeLabels(group);
+                                    return regimes.length > 0 && (
+                                      <div className="flex flex-wrap items-center gap-1 mt-1" aria-label="Regímenes del grupo">
+                                        {regimes.map(regime => (
+                                          <span key={regime} className="text-[9px] leading-tight font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5" title={"Régimen: " + regime}>
+                                            {regime}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
                                           </tr>
                                         );
                                       }
