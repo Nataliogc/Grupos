@@ -626,7 +626,85 @@
       item.lodgingRevenue = Math.round(item.lodgingRevenue * 100) / 100;
     }
 
-    overall.totalReservas = Object.keys(overall.uniqueReservasSet).length;
+    // ── Enriquecimiento con datos reales de CapaSuite para meses sin reservas cargadas ──
+    if (filterYear) {
+      try {
+        var capaData = getCapaSuiteGroupData(filterHotel || "guadiana", filterYear);
+        if (capaData) {
+          for (var mCapa = 1; mCapa <= 12; mCapa++) {
+            var mItem = monthlySummary[mCapa];
+            var cMonth = capaData[mCapa];
+            // Si el mes no tiene reservas registradas en el CRM pero sí tiene datos reales en CapaSuite
+            if (mItem && mItem.roomNights === 0 && mItem.totalRevenue === 0 && cMonth && (cMonth.revenue > 0 || cMonth.rooms > 0)) {
+              var cRev = Number(cMonth.revenue || 0);
+              var cRooms = Number(cMonth.rooms || 0);
+              var cPax = Number(cMonth.pax || Math.round(cRooms * 1.9));
+
+              mItem.totalRevenue = Math.round(cRev * 100) / 100;
+              mItem.lodgingRevenue = Math.round(cRev * 100) / 100;
+              mItem.roomNights = cRooms;
+              mItem.pax = cPax;
+              mItem.pernoctaciones = cPax;
+              mItem.reservasCount = Math.max(1, Math.round(cRooms / 25));
+              mItem.isFromCapaSuite = true;
+
+              // Distribución estadística por categorías (Individual 10%, Doble 85%, Triple 5%)
+              var cInd = Math.round(cRooms * 0.10);
+              var cDbl = Math.round(cRooms * 0.85);
+              var cTpl = Math.max(0, cRooms - cInd - cDbl);
+              var cCua = 0;
+
+              mItem.roomNightsIndividual = cInd;
+              mItem.roomNightsDoble = cDbl;
+              mItem.roomNightsTriple = cTpl;
+              mItem.roomNightsCuadruple = cCua;
+
+              mItem.byCategory.individual = cInd;
+              mItem.byCategory.doble = cDbl;
+              mItem.byCategory.triple = cTpl;
+              mItem.byCategory.cuadruple = cCua;
+
+              // Distribución por régimen estándar (HD 60%, MP 35%, PC 5%)
+              var regHD = Math.round(cRooms * 0.60);
+              var regMP = Math.round(cRooms * 0.35);
+              var regPC = Math.max(0, cRooms - regHD - regMP);
+
+              mItem.byRegimen.HD = regHD;
+              mItem.byRegimen.MP = regMP;
+              mItem.byRegimen.PC = regPC;
+              mItem.byRegimen.HA = 0;
+
+              mItem.regimenCategoryMatrix = {
+                HA: { individual: 0, doble: 0, triple: 0, cuadruple: 0 },
+                HD: { individual: Math.round(cInd * 0.6), doble: Math.round(cDbl * 0.6), triple: Math.round(cTpl * 0.6), cuadruple: 0 },
+                MP: { individual: Math.round(cInd * 0.35), doble: Math.round(cDbl * 0.35), triple: Math.round(cTpl * 0.35), cuadruple: 0 },
+                PC: { individual: Math.max(0, cInd - Math.round(cInd * 0.95)), doble: Math.max(0, cDbl - Math.round(cDbl * 0.95)), triple: Math.max(0, cTpl - Math.round(cTpl * 0.95)), cuadruple: 0 }
+              };
+
+              // Acumular en overall
+              overall.totalPax += cPax;
+              overall.totalPernoctaciones += cPax;
+              overall.totalRoomNights += cRooms;
+              overall.totalRevenue += cRev;
+              overall.totalLodgingRevenue += cRev;
+              overall.totalReservas += mItem.reservasCount;
+              overall.byCategory.individual += cInd;
+              overall.byCategory.doble += cDbl;
+              overall.byCategory.triple += cTpl;
+              overall.byCategory.cuadruple += cCua;
+              overall.byRegimen.HD = (overall.byRegimen.HD || 0) + regHD;
+              overall.byRegimen.MP = (overall.byRegimen.MP || 0) + regMP;
+              overall.byRegimen.PC = (overall.byRegimen.PC || 0) + regPC;
+              overall.hasCapaSuiteEnrichment = true;
+            }
+          }
+        }
+      } catch (errCapa) {
+        console.warn("[GroupTargetsService] Error enriqueciendo con datos de CapaSuite:", errCapa);
+      }
+    }
+
+    overall.totalReservas = Object.keys(overall.uniqueReservasSet).length + (overall.totalReservas || 0);
     delete overall.uniqueReservasSet;
     overall.totalRevenue = Math.round(overall.totalRevenue * 100) / 100;
     overall.totalLodgingRevenue = Math.round(overall.totalLodgingRevenue * 100) / 100;
@@ -637,6 +715,103 @@
       overall: overall,
       cancelled: cancelledSummary
     };
+  }
+
+  /**
+   * Obtiene los datos de grupos de CapaSuite (hotel_manager_db_v2) para un hotel y año determinado
+   */
+  function getCapaSuiteGroupData(hotel, year) {
+    var hNorm = normalizeHotelKey(hotel);
+    var yStr = String(year);
+    var db = null;
+
+    // 1. Intentar variable de memoria global o cache
+    if (global._capasuiteDbCache) {
+      db = global._capasuiteDbCache;
+    }
+    // 2. Intentar CapaStorage
+    if (!db && typeof global.CapaStorage !== "undefined" && global.CapaStorage.getItem) {
+      try {
+        var raw = global.CapaStorage.getItem("hotel_manager_db_v2");
+        if (raw) db = JSON.parse(raw);
+      } catch (e) {}
+    }
+    // 3. Intentar localStorage
+    if (!db && typeof localStorage !== "undefined") {
+      try {
+        var rawLs = localStorage.getItem("v3_hotel_manager_db_v2") || localStorage.getItem("hotel_manager_db_v2");
+        if (rawLs) db = JSON.parse(rawLs);
+      } catch (e) {}
+    }
+
+    if (!db || typeof db !== "object") return null;
+
+    // Buscar clave de hotel (Guadiana / Cumbria)
+    var hotelKey = Object.keys(db).find(function (k) {
+      return k.toLowerCase().includes(hNorm);
+    });
+    if (!hotelKey || !db[hotelKey] || !db[hotelKey][yStr]) return null;
+
+    var yearData = db[hotelKey][yStr];
+    var segments = yearData.segments || yearData.monthly_segments || {};
+
+    // Buscar todos los segmentos relacionados con grupos
+    var groupSegments = [];
+    Object.keys(segments).forEach(function (segKey) {
+      var kLow = segKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (kLow.includes("grupo") || kLow.includes("grtanteo") || kLow.includes("tour") || kLow.includes("mice") || kLow.includes("deport")) {
+        groupSegments.push(segments[segKey]);
+      }
+    });
+
+    var monthlyData = {};
+    for (var m = 1; m <= 12; m++) {
+      var mIdx = m - 1;
+      var rev = 0;
+      var rooms = 0;
+      var pax = 0;
+
+      if (groupSegments.length > 0) {
+        groupSegments.forEach(function (seg) {
+          if (Array.isArray(seg.revenue)) rev += (Number(seg.revenue[mIdx]) || 0);
+          else if (seg.revenue && seg.revenue[mIdx] !== undefined) rev += (Number(seg.revenue[mIdx]) || 0);
+
+          if (Array.isArray(seg.rooms)) rooms += (Number(seg.rooms[mIdx]) || 0);
+          else if (seg.rooms && seg.rooms[mIdx] !== undefined) rooms += (Number(seg.rooms[mIdx]) || 0);
+
+          if (Array.isArray(seg.pax)) pax += (Number(seg.pax[mIdx]) || 0);
+          else if (seg.pax && seg.pax[mIdx] !== undefined) pax += (Number(seg.pax[mIdx]) || 0);
+        });
+      }
+
+      // Si no hay en segments pero hay en daily_otb o daily
+      if (rev === 0 && rooms === 0 && yearData.daily) {
+        var mStr = String(m).padStart(2, "0");
+        Object.keys(yearData.daily).forEach(function (dateIso) {
+          if (dateIso.startsWith(yStr + "-" + mStr)) {
+            var val = yearData.daily[dateIso];
+            if (typeof val === "object") {
+              rooms += Number(val.rooms || 0);
+              rev += Number(val.revenue || 0);
+            } else {
+              rooms += Number(val || 0);
+            }
+          }
+        });
+      }
+
+      if (pax === 0 && rooms > 0) {
+        pax = Math.round(rooms * 1.9);
+      }
+
+      monthlyData[m] = {
+        revenue: Math.round(rev * 100) / 100,
+        rooms: Math.round(rooms),
+        pax: Math.round(pax)
+      };
+    }
+
+    return monthlyData;
   }
 
   // ── 6. GENERADOR DE OBJETIVOS (Requisitos 24, 25 y 27) ───────────────
@@ -1035,6 +1210,7 @@
     suggestTariffsForYear: suggestTariffsForYear,
     calculateTargetRevenue: calculateTargetRevenue,
     aggregateHistoricalGroupData: aggregateHistoricalGroupData,
+    getCapaSuiteGroupData: getCapaSuiteGroupData,
     generateTargetFromHistorical: generateTargetFromHistorical,
     compareRealVsTarget: compareRealVsTarget,
     validateTargetIntegrity: validateTargetIntegrity,
@@ -1046,6 +1222,33 @@
   }
   if (typeof window !== "undefined") {
     window.GroupTargetsService = GroupTargetsService;
+
+    // Sincronización continua en tiempo real con CapaSuite y Firestore
+    function listenToCapaSuiteDb() {
+      if (window.db && typeof window.db.collection === "function") {
+        window.db.collection("settings").doc("calendar_data").onSnapshot(function (doc) {
+          if (doc.exists) {
+            var data = doc.data();
+            if (data && data.hotelManagerDb) {
+              window._capasuiteDbCache = data.hotelManagerDb;
+              try {
+                localStorage.setItem("v3_hotel_manager_db_v2", JSON.stringify(data.hotelManagerDb));
+                localStorage.setItem("hotel_manager_db_v2", JSON.stringify(data.hotelManagerDb));
+              } catch (e) {}
+              window.dispatchEvent(new CustomEvent("capasuite-data-synced"));
+            }
+          }
+        }, function (err) {
+          console.warn("[GroupTargetsService] Listener calendar_data:", err);
+        });
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", listenToCapaSuiteDb);
+    } else {
+      setTimeout(listenToCapaSuiteDb, 400);
+    }
   }
 
 })(typeof window !== "undefined" ? window : global);
