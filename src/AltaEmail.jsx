@@ -179,6 +179,25 @@
                         if (doc.exists) {
                             const data = doc.data();
                             console.log("Documento encontrado:", data);
+                            const st = (data.Com_Estado_Interno || data.Estado || "").toUpperCase();
+                            const resId = String(data.Reserva || normId).trim();
+                            const isLocked = Boolean(
+                                st.includes("CONFIRM") ||
+                                st.includes("TENTA") ||
+                                st.includes("TANTEO") ||
+                                st.includes("BLOQ") ||
+                                st.includes("OPCI") ||
+                                (!resId.toUpperCase().startsWith("PRES-")) ||
+                                data.convertedToReservation ||
+                                data.targetReservationId ||
+                                data.isReadOnly ||
+                                data.isHistoricalBudget
+                            );
+                            if (isLocked) {
+                                alert("⚠️ Este presupuesto ya está confirmado o en tentativa con ID de reserva del PMS (" + resId + ").\n\nNo se puede modificar, queda exclusivamente como consulta.");
+                                window.location.href = "Presupuestos.html?id=" + encodeURIComponent(normId);
+                                return;
+                            }
                             setExtractedData({
                                 ...data,
                                 "Observaciones": data.Com_Notas || data.Observaciones || "",

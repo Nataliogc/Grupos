@@ -396,6 +396,18 @@
   }
 
   /**
+   * Determina pax por habitación según la tipología si no está especificado explícitamente
+   */
+  function getPaxPerRoomType(typeStr) {
+    if (!typeStr) return 2;
+    var t = String(typeStr).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("SGL") || t.includes("DUI") || t.includes("USO INDIVIDUAL") || t.includes("IND")) return 1;
+    if (t.includes("TPL") || t.includes("TRIPLE")) return 3;
+    if (t.includes("CUA") || t.includes("CUAD")) return 4;
+    return 2;
+  }
+
+  /**
    * Prepara los documentos diarios para la colección `reservas_salones` de MesaChef Matrix
    * Soporta regímenes y pax distintos para cada día de estancia (extraídos de DailyDistribution_JSON / RoomingList_JSON).
    * Recuerda: En PC (Pensión Completa) se genera tanto Almuerzo (14:00) como Cena (21:00).
@@ -460,10 +472,16 @@
       } catch (e) {}
     }
 
-    // 2. Extraer líneas de RoomingList_JSON
-    var roomingListRaw = groupRecord.RoomingList_JSON;
-    if (!roomingListRaw && groupRecord.records && groupRecord.records[0]) {
-      roomingListRaw = groupRecord.records[0].RoomingList_JSON;
+    // 2. Extraer líneas de RoomingList_JSON / cargos económicos de habitaciones
+    var roomingListRaw = groupRecord.RoomingList_JSON || groupRecord.roomingList || groupRecord.roomList || groupRecord.economicItems;
+    if (!roomingListRaw && groupRecord.records && Array.isArray(groupRecord.records)) {
+      for (var ri = 0; ri < groupRecord.records.length; ri++) {
+        var rRec = groupRecord.records[ri];
+        if (rRec && (rRec.RoomingList_JSON || rRec.roomingList || rRec.roomList)) {
+          roomingListRaw = rRec.RoomingList_JSON || rRec.roomingList || rRec.roomList;
+          if (roomingListRaw && roomingListRaw !== "[]") break;
+        }
+      }
     }
     var cleanRoomingList = [];
     if (roomingListRaw) {
@@ -492,28 +510,12 @@
         continue;
       }
 
-      // Determinar régimen y pax para ESTE día específico
-      var dayRegimen = null;
-      var dayPax = 0;
+      // A. Extraer desglose para ESTE día específico a partir de cleanRoomingList (fuente directa de habitaciones)
+      var rlDayPax = 0;
+      var rlDayRegimen = null;
+      var rlHasRooms = false;
 
-      if (distForDay) {
-        if (distForDay.regimen && distForDay.regimen !== "-" && distForDay.regimen !== "---") {
-          dayRegimen = String(distForDay.regimen).trim().toUpperCase();
-        }
-        var p = parseInt(distForDay.pax || distForDay.pax_adultos || distForDay.comensales || 0, 10);
-        if (!isNaN(p) && p > 0) {
-          dayPax = p;
-        } else {
-          var calcP = (parseInt(distForDay.individuales, 10) || 0) * 1 +
-                      (parseInt(distForDay.dobles, 10) || 0) * 2 +
-                      (parseInt(distForDay.triples, 10) || 0) * 3 +
-                      (parseInt(distForDay.cuadruples, 10) || 0) * 4;
-          if (calcP > 0) dayPax = calcP;
-        }
-      }
-
-      if ((!dayRegimen || dayPax <= 0) && cleanRoomingList.length > 0) {
-        var rlPaxSum = 0;
+      if (cleanRoomingList.length > 0) {
         cleanRoomingList.forEach(function (rm) {
           if (!rm || rm.isService) return;
           var rmDate = toIsoDate(rm.dateIn || rm.date || rm.fecha);
@@ -531,23 +533,65 @@
             }
           }
           if (matchesDay) {
-            if (!dayRegimen && rm.regime && rm.regime !== "-" && rm.regime !== "---") {
-              dayRegimen = String(rm.regime).trim().toUpperCase();
+            rlHasRooms = true;
+            var reg = String(rm.regime || rm.regimen || "").trim().toUpperCase();
+            if (reg && reg !== "-" && reg !== "---") {
+              if (reg === "PC" || reg.includes("PENSION COMPLETA")) {
+                rlDayRegimen = "PC";
+              } else if (!rlDayRegimen || rlDayRegimen !== "PC") {
+                rlDayRegimen = reg;
+              }
             }
             var q = parseInt(rm.qty, 10) || 1;
-            var px = parseInt(rm.pax, 10) || 1;
-            rlPaxSum += (q * px);
+            var explicitPax = parseInt(rm.pax, 10);
+            var px = (!isNaN(explicitPax) && explicitPax > 0) ? explicitPax : getPaxPerRoomType(rm.type || rm.roomType);
+            rlDayPax += (q * px);
           }
         });
-        if (dayPax <= 0 && rlPaxSum > 0) {
-          dayPax = rlPaxSum;
+      }
+
+      // B. Extraer desglose de distForDay (DailyDistribution_JSON)
+      var distDayPax = 0;
+      var distDayRegimen = null;
+      if (distForDay) {
+        if (distForDay.regimen && distForDay.regimen !== "-" && distForDay.regimen !== "---") {
+          distDayRegimen = String(distForDay.regimen).trim().toUpperCase();
+        }
+        var p = parseInt(distForDay.pax || distForDay.pax_adultos || distForDay.comensales || 0, 10);
+        if (!isNaN(p) && p > 0) {
+          distDayPax = p;
+        } else {
+          var calcP = (parseInt(distForDay.individuales, 10) || 0) * 1 +
+                      (parseInt(distForDay.dobles, 10) || 0) * 2 +
+                      (parseInt(distForDay.triples, 10) || 0) * 3 +
+                      (parseInt(distForDay.cuadruples, 10) || 0) * 4;
+          if (calcP > 0) distDayPax = calcP;
         }
       }
 
-      if (!dayRegimen) {
+      // C. Consolidar régimen del día:
+      // Si la lista de habitaciones especifica PC o MP para hoy, manda la lista de habitaciones
+      var dayRegimen = null;
+      if (rlDayRegimen && (isMpOrPcRegimen(rlDayRegimen) || !distDayRegimen)) {
+        dayRegimen = rlDayRegimen;
+      } else if (distDayRegimen) {
+        dayRegimen = distDayRegimen;
+      } else if (rlDayRegimen) {
+        dayRegimen = rlDayRegimen;
+      } else {
         dayRegimen = globalRegimen;
       }
-      if (dayPax <= 0) {
+
+      // D. Consolidar pax del día:
+      // Si la lista de habitaciones tiene habitaciones para hoy, su recuento de personas manda sobre distancias o cabeceras
+      var dayPax = 0;
+      if (rlHasRooms && rlDayPax > 0) {
+        dayPax = rlDayPax;
+      } else if (distDayPax > 0) {
+        dayPax = distDayPax;
+      } else if (rlDayPax > 0) {
+        dayPax = rlDayPax;
+      } else {
         dayPax = globalPax;
       }
 
@@ -563,6 +607,8 @@
                     /\bMP\b/.test(normDayReg) ||
                     normDayReg.includes("CENA")
       );
+
+      console.log("🍽️ [MesaChef Debug] Ref: " + reservaId + " | Day " + iso + ": Regimen=" + dayRegimen + " (isDayPc=" + isDayPc + ", isDayMp=" + isDayMp + "), Pax=" + dayPax);
 
       // ── ALMUERZO (En PC: una Pensión Completa incluye almuerzo y cena) ──
       if (isDayPc) {

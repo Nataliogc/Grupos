@@ -645,7 +645,16 @@
       let result = {};
       if (existingDistMap) {
         try {
-          result = typeof existingDistMap === "string" ? JSON.parse(existingDistMap) : { ...existingDistMap };
+          const rawParsed = typeof existingDistMap === "string" ? JSON.parse(existingDistMap) : { ...existingDistMap };
+          // Normalizar todas las claves existentes a ISO YYYY-MM-DD para evitar duplicados en DD/MM/YYYY
+          if (rawParsed && typeof rawParsed === "object") {
+            Object.keys(rawParsed).forEach((k) => {
+              const isoK = toDateFn(k);
+              if (isoK) {
+                result[isoK] = { ...(result[isoK] || {}), ...rawParsed[k] };
+              }
+            });
+          }
         } catch (e) {
           result = {};
         }
@@ -1138,35 +1147,62 @@
 
                       {/* Acciones */}
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => { window.location.href = "Presupuestos.html?id=" + encodeURIComponent(budget.Reserva); }}
-                            className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
-                            title="Ver / Editar"
-                          >
-                            <i className="fas fa-external-link-alt text-xs"></i>
-                          </button>
-                          <button
-                            onClick={() => {
-                              localStorage.setItem("selectedGroup", JSON.stringify(budget));
-                              window.location.href = "AltaEmail.html?edit=" + encodeURIComponent(budget.Reserva);
-                            }}
-                            className="w-8 h-8 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
-                            title="Editar"
-                          >
-                            <i className="fas fa-edit text-xs"></i>
-                          </button>
-                          <button
-                            onClick={() => {
-                              localStorage.setItem('selectedGroup', JSON.stringify(budget));
-                              window.location.href = "Presupuestos.html?id=" + encodeURIComponent(budget.Reserva);
-                            }}
-                            className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
-                            title="Ver Proforma"
-                          >
-                            <i className="fas fa-file-invoice text-xs"></i>
-                          </button>
-                        </div>
+                        {(() => {
+                          const stVal = (budget.Com_Estado_Interno || budget.Estado || "").toUpperCase();
+                          const resVal = String(budget.Reserva || "").trim();
+                          const isLocked = Boolean(
+                            stVal.includes("CONFIRM") ||
+                            stVal.includes("TENTA") ||
+                            stVal.includes("TANTEO") ||
+                            stVal.includes("BLOQ") ||
+                            stVal.includes("OPCI") ||
+                            (resVal && !resVal.toUpperCase().startsWith("PRES-")) ||
+                            budget.convertedToReservation ||
+                            budget.targetReservationId ||
+                            budget.isReadOnly ||
+                            budget.isHistoricalBudget
+                          );
+                          return (
+                            <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => { window.location.href = "Presupuestos.html?id=" + encodeURIComponent(budget.Reserva); }}
+                                className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
+                                title={isLocked ? "Ver Presupuesto (Solo Consulta)" : "Ver / Editar"}
+                              >
+                                <i className="fas fa-external-link-alt text-xs"></i>
+                              </button>
+                              {isLocked ? (
+                                <span
+                                  className="w-8 h-8 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 flex items-center justify-center cursor-default"
+                                  title="Presupuesto bloqueado (modo solo consulta)"
+                                >
+                                  <i className="fas fa-lock text-xs"></i>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    localStorage.setItem("selectedGroup", JSON.stringify(budget));
+                                    window.location.href = "AltaEmail.html?edit=" + encodeURIComponent(budget.Reserva);
+                                  }}
+                                  className="w-8 h-8 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
+                                  title="Editar"
+                                >
+                                  <i className="fas fa-edit text-xs"></i>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  localStorage.setItem('selectedGroup', JSON.stringify(budget));
+                                  window.location.href = "Presupuestos.html?id=" + encodeURIComponent(budget.Reserva);
+                                }}
+                                className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
+                                title="Ver Proforma"
+                              >
+                                <i className="fas fa-file-invoice text-xs"></i>
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
@@ -11112,7 +11148,12 @@
         try {
           currentList = parseRoomingListSafe(currentRecord["RoomingList_JSON"], "selectedGroupFicha");
         } catch (e) {
-          return;
+          currentList = [];
+        }
+        if (!Array.isArray(currentList) || currentList.length === 0) {
+          if (typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems) {
+            currentList = window.roomingCore.getGroupEconomicItems(selectedGroupFicha);
+          }
         }
         if (!Array.isArray(currentList) || currentList.length === 0) return;
 
@@ -23633,9 +23674,14 @@
                                   try {
                                     const currentRec = selectedGroupFicha.records[0];
                                     let currentRL = [];
-                                    try {
-                                      currentRL = parseRoomingListSafe(currentRec["RoomingList_JSON"], "save-ficha-button");
-                                    } catch(e) {}
+                                    if (typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems) {
+                                      currentRL = window.roomingCore.getGroupEconomicItems(selectedGroupFicha);
+                                    }
+                                    if (!Array.isArray(currentRL) || currentRL.length === 0) {
+                                      try {
+                                        currentRL = parseRoomingListSafe(currentRec["RoomingList_JSON"], "save-ficha-button");
+                                      } catch(e) {}
+                                    }
 
                                     let distMap = {};
                                     if (currentRec.DailyDistribution_JSON) {
@@ -23675,6 +23721,8 @@
                                         Hotel_Asignado: selectedGroupFicha.hotel || currentRec["Hotel_Asignado"] || hotelTarget,
                                         "Pax.": selectedGroupFicha.totalPax || currentRec["Pax."],
                                         "Régimen": savePayload["Régimen"] || currentRec["Régimen"] || "MP",
+                                        RoomingList_JSON: JSON.stringify(currentRL || []),
+                                        DailyDistribution_JSON: JSON.stringify(distMap || {}),
                                         Com_Estado_Interno: currentRec.Com_Estado_Interno || currentRec.Estado || selectedGroupFicha.status
                                       };
                                       await window.MesaChefService.syncGroupToMesachef(fullSyncObj);

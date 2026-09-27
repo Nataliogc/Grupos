@@ -203,6 +203,14 @@ var App = function App() {
         if (doc.exists) {
           var data = doc.data();
           console.log("Documento encontrado:", data);
+          var st = (data.Com_Estado_Interno || data.Estado || "").toUpperCase();
+          var resId = String(data.Reserva || normId).trim();
+          var isLocked = Boolean(st.includes("CONFIRM") || st.includes("TENTA") || st.includes("TANTEO") || st.includes("BLOQ") || st.includes("OPCI") || !resId.toUpperCase().startsWith("PRES-") || data.convertedToReservation || data.targetReservationId || data.isReadOnly || data.isHistoricalBudget);
+          if (isLocked) {
+            alert("⚠️ Este presupuesto ya está confirmado o en tentativa con ID de reserva del PMS (" + resId + ").\n\nNo se puede modificar, queda exclusivamente como consulta.");
+            window.location.href = "Presupuestos.html?id=" + encodeURIComponent(normId);
+            return;
+          }
           setExtractedData(_objectSpread(_objectSpread({}, data), {}, {
             "Observaciones": data.Com_Notas || data.Observaciones || "",
             "Hotel": data.Hotel_Asignado || data.Hotel || "Sercotel Guadiana",

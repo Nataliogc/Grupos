@@ -244,12 +244,70 @@
       return `${y}-${m}-${day}`;
     };
 
+    const isLockedBudget = (g) => {
+      if (!g) return false;
+      const intEst = String(g.Com_Estado_Interno || "").toUpperCase().trim();
+      const extEst = String(g.Estado || "").toUpperCase().trim();
+      const effective = intEst || extEst;
+
+      const isConfirmed = effective.includes("CONFIRM") || g.splitCompleted === true || effective === "DESGLOSADO";
+      const isTentativa = effective.includes("TENTA") || effective.includes("TANTEO") || effective.includes("BLOQ") || effective.includes("OPCI");
+
+      const res = String(g.Reserva || "").trim();
+      const hasPmsId = (res !== "" && !res.toUpperCase().startsWith("PRES-")) ||
+                       Boolean(g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS) ||
+                       Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
+
+      const isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
+
+      return Boolean(isConfirmed || isTentativa || hasPmsId || isExplicitReadOnly);
+    };
+
+    const getBudgetLockedDetails = (g) => {
+      if (!g) return { isLocked: false, isConfirmed: false, isTentativa: false, hasPmsId: false, label: '', pmsId: '' };
+      const intEst = String(g.Com_Estado_Interno || "").toUpperCase().trim();
+      const extEst = String(g.Estado || "").toUpperCase().trim();
+      const effective = intEst || extEst;
+
+      const isConfirmed = effective.includes("CONFIRM") || g.splitCompleted === true || effective === "DESGLOSADO";
+      const isTentativa = effective.includes("TENTA") || effective.includes("TANTEO") || effective.includes("BLOQ") || effective.includes("OPCI");
+
+      const res = String(g.Reserva || "").trim();
+      const rawPmsId = (res !== "" && !res.toUpperCase().startsWith("PRES-")) 
+        ? res 
+        : (g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS || '');
+      const hasPmsId = Boolean(rawPmsId) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
+
+      const isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
+      const isLocked = Boolean(isConfirmed || isTentativa || hasPmsId || isExplicitReadOnly);
+
+      let label = "CONFIRMADO";
+      if (isTentativa) label = "TENTATIVA";
+      else if (isConfirmed) label = "CONFIRMADO";
+      else if (hasPmsId) label = "EN PMS";
+
+      return {
+        isLocked,
+        isConfirmed,
+        isTentativa,
+        hasPmsId,
+        pmsId: rawPmsId || res,
+        label
+      };
+    };
+
     const getBudgetStatusStyle = (status) => {
       const s = (status || "").toUpperCase();
       if (s.includes("CONFIRM")) {
         return {
           select: "bg-emerald-500 text-white border-emerald-600 shadow-emerald-100 hover:bg-emerald-600 focus:ring-emerald-200",
           icon: "fa-check-circle"
+        };
+      }
+      if (s.includes("TENTA") || s.includes("TANTEO") || s.includes("BLOQ") || s.includes("OPCI")) {
+        return {
+          select: "bg-amber-500 text-white border-amber-600 shadow-amber-100 hover:bg-amber-600 focus:ring-amber-200",
+          icon: "fa-lock"
         };
       }
       if (s.includes("SEGUIMIENTO")) {
@@ -271,8 +329,8 @@
         };
       }
       return {
-        select: "bg-amber-400 text-amber-950 border-amber-500 shadow-amber-100 hover:bg-amber-500 focus:ring-amber-200",
-        icon: "fa-clock"
+        select: "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-indigo-50 hover:bg-indigo-100 focus:ring-indigo-200",
+        icon: "fa-file-invoice"
       };
     };
 
@@ -1627,7 +1685,7 @@
               );
               if (matched) {
                 const normMatched = normalizeGroupData(matched);
-                if (shouldEdit) {
+                if (shouldEdit && !isLockedBudget(normMatched)) {
                   setFormData(normMatched);
                   setCurrentView('create');
                 } else {
@@ -1657,17 +1715,17 @@
             const effectiveStatus = intEst || extEst;
 
             const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(status => effectiveStatus.includes(status)) || g.excludeFromStatistics === true;
-            const isConfirmed = effectiveStatus.includes("CONFIRM");
+            const isLocked = isLockedBudget(g);
             
             const departureStr = g.Salida || g.Entrada || "";
             const isPast = departureStr && departureStr < todayStr;
 
             // Filtro por Pestaña
-            if (filterTab === 'confirmados' && !isConfirmed) return false;
+            if (filterTab === 'confirmados' && !isLocked) return false;
             if (filterTab === 'desestimados' && !isCancelled) return false;
             if (filterTab === 'activos') {
               const isActiveStatus = ["PRESUPUESTO", "PENDIENTE", "ENVIADO", "SEGUIMIENTO"].some(s => effectiveStatus.includes(s));
-              if (isCancelled || isConfirmed || (isPast && !isActiveStatus)) return false;
+              if (isCancelled || isLocked || (isPast && !isActiveStatus)) return false;
             }
 
             // Filtro de Búsqueda (usar debouncedSearchTerm)
@@ -1878,17 +1936,12 @@
         e.preventDefault();
         const uidToCheck = formData.uid || (groups.find(g => g.Reserva === formData.Reserva)?.uid);
         const oldRec = uidToCheck ? groups.find(g => g.uid === uidToCheck || g.Reserva === uidToCheck) : null;
-        const isHistoricalReadOnly = Boolean(
-          formData.convertedToReservation ||
-          formData.targetReservationId ||
-          formData.isHistoricalBudget ||
-          formData.isReadOnly ||
-          (oldRec && (oldRec.convertedToReservation || oldRec.targetReservationId || oldRec.isHistoricalBudget || oldRec.isReadOnly || oldRec.Com_Estado_Interno === "CONFIRMADO"))
-        );
+        const isHistoricalReadOnly = isLockedBudget(formData) || (oldRec && isLockedBudget(oldRec));
 
         if (isHistoricalReadOnly && formData.uid) {
-          const resNum = formData.convertedToReservation || (oldRec && oldRec.convertedToReservation) || formData.Reserva;
-          alert("⚠️ Este presupuesto ya está confirmado y asignado a la Reserva PMS Nº " + resNum + ".\n\nLa referencia única y válida es el número de reserva del PMS. Este presupuesto queda bloqueado exclusivamente en modo de consulta y no se puede modificar.");
+          const lockedInfo = getBudgetLockedDetails(formData) || (oldRec && getBudgetLockedDetails(oldRec));
+          const resNum = lockedInfo.pmsId || formData.Reserva;
+          alert("⚠️ Este presupuesto ya está en estado " + lockedInfo.label + " y asignado a la Reserva PMS Nº " + resNum + ".\n\nLa referencia oficial y válida es el número de reserva del PMS. Este presupuesto queda bloqueado exclusivamente en modo de consulta y no se puede modificar.\n\nPara aplicar cambios o emitir una nueva oferta, por favor utiliza la opción 'Duplicar'.");
           return;
         }
 
@@ -2050,16 +2103,12 @@
             const uidToUpdate = groupData.uid;
             const oldDoc = groups.find(g => g.uid === uidToUpdate);
 
-            // Si el presupuesto ya estaba confirmado, queda como referencia inmutable y no se debe sobreescribir
-            const isOldDocConfirmed = oldDoc && (
-              String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "CONFIRMADO" ||
-              String(oldDoc.Estado || "").toUpperCase() === "CONFIRMADO" ||
-              oldDoc.splitCompleted === true ||
-              String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "DESGLOSADO"
-            );
+            // Si el presupuesto ya estaba confirmado o en tentativa / PMS, queda como referencia inmutable y no se debe sobreescribir
+            const isOldDocLocked = oldDoc && isLockedBudget(oldDoc);
 
-            if (isOldDocConfirmed) {
-              alert("⚠️ Este presupuesto ya está confirmado y se conserva como referencia histórica inmutable.\n\nEl presupuesto original último guardado no se debe modificar. Para aplicar cambios o emitir una nueva propuesta, por favor utiliza la opción 'Duplicar'.");
+            if (isOldDocLocked) {
+              const lockedInfo = getBudgetLockedDetails(oldDoc);
+              alert("⚠️ Este presupuesto ya está en estado " + lockedInfo.label + " y se conserva como referencia histórica inmutable.\n\nEl presupuesto original último guardado no se debe modificar. Para aplicar cambios o emitir una nueva propuesta, por favor utiliza la opción 'Duplicar'.");
               handleSave.running = false;
               return;
             }
@@ -2303,6 +2352,11 @@ ${emailContent}`;
       };
 
       const handleDelete = async (uid) => {
+        const itemToDelete = groups.find(g => g.uid === uid || g.Reserva === uid);
+        if (itemToDelete && isLockedBudget(itemToDelete)) {
+          alert("⚠️ Este presupuesto ya está confirmado o en tentativa con ID de reserva del PMS. No se puede eliminar desde Presupuestos.");
+          return;
+        }
         if (!confirm("¿Eliminar este presupuesto?")) return;
         try {
           await db.collection("groups").doc(uid).delete();
@@ -2313,6 +2367,13 @@ ${emailContent}`;
         try {
           if (updateStatus.running) return;
           updateStatus.running = true;
+
+          const existing = groups.find(item => item.uid === uid || item.Reserva === uid);
+          if (existing && isLockedBudget(existing)) {
+            const lockedInfo = getBudgetLockedDetails(existing);
+            alert(`⚠️ Este presupuesto está en estado ${lockedInfo.label} con ID de reserva del PMS. Queda bloqueado exclusivamente en modo de consulta y no se puede modificar su estado.`);
+            return;
+          }
 
           // Actualización optimista inmediata en la UI
           const newExt = (newStatus === "CONFIRMADO") ? "Confirmado" : (["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(newStatus) ? "ANULADA" : "Presupuesto");
@@ -2367,6 +2428,14 @@ ${emailContent}`;
         delete duplicatedBudget.uid;
         delete duplicatedBudget.createdAt;
         delete duplicatedBudget.updatedAt;
+        delete duplicatedBudget.convertedToReservation;
+        delete duplicatedBudget.targetReservationId;
+        delete duplicatedBudget.isHistoricalBudget;
+        delete duplicatedBudget.isReadOnly;
+        delete duplicatedBudget.splitCompleted;
+        delete duplicatedBudget.idPms;
+        delete duplicatedBudget.id_pms;
+        delete duplicatedBudget.Reserva_PMS;
 
         const duplicateData = {
           ...duplicatedBudget,
@@ -2716,64 +2785,90 @@ ${emailContent}`;
                         {/* Contacto comercial */}
                         {/* Estado */}
                         <td className="px-4 py-4 text-center">
-                          <div className="relative inline-flex items-center">
-                            <i className={`fas ${statusStyle.icon} pointer-events-none absolute left-3 text-[9px] text-current z-10`}></i>
-                            <select
-                              value={(g.Com_Estado_Interno || g.Estado || '').toUpperCase()}
-                              onChange={(e) => { e.stopPropagation(); updateStatus(g.uid, e.target.value); }}
-                              onClick={(e) => e.stopPropagation()}
-                              title="Cambiar estado"
-                              className={`${statusStyle.select} pl-7 pr-6 py-1.5 rounded-full text-[8px] font-black uppercase tracking-wide border outline-none cursor-pointer transition-all block mx-auto w-[142px] appearance-none text-center shadow-md focus:ring-4`}
-                            >
-                              <option value="PRESUPUESTO">Presupuesto</option>
-                              <option value="ENVIADO">Enviado</option>
-                              <option value="SEGUIMIENTO">Seguimiento</option>
-                              <option value="CONFIRMADO">Confirmado</option>
-                              <option value="CANCELADO">Cancelado</option>
-                              <option value="DESESTIMADO">Desestimado</option>
-                              <option value="CADUCADO">Caducado</option>
-                            </select>
-                            <i className="fas fa-chevron-down pointer-events-none absolute right-2.5 text-[8px] text-current"></i>
-                          </div>
+                          {(() => {
+                            const isLocked = isLockedBudget(g);
+                            const lockedInfo = getBudgetLockedDetails(g);
+                            if (isLocked) {
+                              return (
+                                <div 
+                                  className={`${statusStyle.select} pl-3 pr-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-wide border inline-flex items-center justify-center gap-1.5 mx-auto shadow-sm cursor-default select-none`}
+                                  title={`Presupuesto ${lockedInfo.label} en PMS (Modo Solo Consulta)`}
+                                >
+                                  <i className="fas fa-lock text-[8px]"></i>
+                                  <span>{lockedInfo.label}</span>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="relative inline-flex items-center">
+                                <i className={`fas ${statusStyle.icon} pointer-events-none absolute left-3 text-[9px] text-current z-10`}></i>
+                                <select
+                                  value={(g.Com_Estado_Interno || g.Estado || '').toUpperCase()}
+                                  onChange={(e) => { e.stopPropagation(); updateStatus(g.uid, e.target.value); }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  title="Cambiar estado"
+                                  className={`${statusStyle.select} pl-7 pr-6 py-1.5 rounded-full text-[8px] font-black uppercase tracking-wide border outline-none cursor-pointer transition-all block mx-auto w-[142px] appearance-none text-center shadow-md focus:ring-4`}
+                                >
+                                  <option value="PRESUPUESTO">Presupuesto</option>
+                                  <option value="ENVIADO">Enviado</option>
+                                  <option value="SEGUIMIENTO">Seguimiento</option>
+                                  <option value="TENTATIVA">Tentativa</option>
+                                  <option value="CONFIRMADO">Confirmado</option>
+                                  <option value="CANCELADO">Cancelado</option>
+                                  <option value="DESESTIMADO">Desestimado</option>
+                                  <option value="CADUCADO">Caducado</option>
+                                </select>
+                                <i className="fas fa-chevron-down pointer-events-none absolute right-2.5 text-[8px] text-current"></i>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Acciones */}
                         <td className="px-4 py-4 text-right">
-                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => { handleOpenDetail(normalizeGroupData(g)); }}
-                              className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
-                              title={String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') ? "Ver Ficha de Referencia" : "Ver Ficha"}>
-                              <i className="fas fa-external-link-alt text-xs"></i>
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); duplicateBudget(g, false); }}
-                              className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
-                              title="Duplicar Presupuesto">
-                              <i className="fas fa-clone text-xs"></i>
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); duplicateBudgetToOtherHotel(g); }}
-                              className="w-7 h-7 bg-sky-50 text-sky-600 rounded-lg border border-sky-100 flex items-center justify-center hover:bg-sky-600 hover:text-white transition-all"
-                              title={`Duplicar para ${getAlternateHotel(g.Hotel_Asignado || g.Hotel)}`}>
-                              <i className="fas fa-copy text-xs"></i>
-                            </button>
-                            {String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') ? (
-                              <button onClick={(e) => { e.stopPropagation(); handleOpenDetail(normalizeGroupData(g)); }}
-                                className="w-7 h-7 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 flex items-center justify-center hover:bg-amber-600 hover:text-white transition-all"
-                                title="Presupuesto Confirmado (Referencia Inmutable)">
-                                <i className="fas fa-lock text-xs"></i>
-                              </button>
-                            ) : (
-                              <button onClick={(e) => { e.stopPropagation(); setFormData(normalizeGroupData(g)); setCurrentView('create'); }}
-                                className="w-7 h-7 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
-                                title="Editar">
-                                <i className="fas fa-edit text-xs"></i>
-                              </button>
-                            )}
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(g.uid); }}
-                              className="w-7 h-7 bg-rose-50 text-rose-500 rounded-lg border border-rose-100 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all"
-                              title="Eliminar">
-                              <i className="fas fa-trash-alt text-xs"></i>
-                            </button>
-                          </div>
+                          {(() => {
+                            const isLocked = isLockedBudget(g);
+                            const lockedInfo = getBudgetLockedDetails(g);
+                            return (
+                              <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => { handleOpenDetail(normalizeGroupData(g)); }}
+                                  className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all"
+                                  title={isLocked ? `Ver Ficha de Referencia (${lockedInfo.label} - Solo Consulta)` : "Ver Ficha"}>
+                                  <i className="fas fa-external-link-alt text-xs"></i>
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); duplicateBudget(g, false); }}
+                                  className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
+                                  title="Duplicar Presupuesto">
+                                  <i className="fas fa-clone text-xs"></i>
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); duplicateBudgetToOtherHotel(g); }}
+                                  className="w-7 h-7 bg-sky-50 text-sky-600 rounded-lg border border-sky-100 flex items-center justify-center hover:bg-sky-600 hover:text-white transition-all"
+                                  title={`Duplicar para ${getAlternateHotel(g.Hotel_Asignado || g.Hotel)}`}>
+                                  <i className="fas fa-copy text-xs"></i>
+                                </button>
+                                {isLocked ? (
+                                  <button onClick={(e) => { e.stopPropagation(); handleOpenDetail(normalizeGroupData(g)); }}
+                                    className="w-7 h-7 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 flex items-center justify-center hover:bg-amber-600 hover:text-white transition-all"
+                                    title={`Presupuesto ${lockedInfo.label} (Solo Consulta - Referencia Inmutable)`}>
+                                    <i className="fas fa-lock text-xs"></i>
+                                  </button>
+                                ) : (
+                                  <button onClick={(e) => { e.stopPropagation(); setFormData(normalizeGroupData(g)); setCurrentView('create'); }}
+                                    className="w-7 h-7 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
+                                    title="Editar">
+                                    <i className="fas fa-edit text-xs"></i>
+                                  </button>
+                                )}
+                                {!isLocked && (
+                                  <button onClick={(e) => { e.stopPropagation(); handleDelete(g.uid); }}
+                                    className="w-7 h-7 bg-rose-50 text-rose-500 rounded-lg border border-rose-100 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all"
+                                    title="Eliminar">
+                                    <i className="fas fa-trash-alt text-xs"></i>
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
@@ -2795,31 +2890,38 @@ ${emailContent}`;
     const renderCreate = () => {
         const stayDates = getCurrentStayDates(formData);
         const currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
-        const isFormConfirmed = Boolean(formData.uid && (
-          String(formData.Com_Estado_Interno || formData.Estado || '').toUpperCase().includes('CONFIRM') ||
-          formData.splitCompleted === true ||
-          String(formData.Com_Estado_Interno || '').toUpperCase() === 'DESGLOSADO'
-        ));
+        const formLockedInfo = getBudgetLockedDetails(formData);
+        const isFormLocked = Boolean(formData.uid && formLockedInfo.isLocked);
 
         return (
           <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
-            {isFormConfirmed && (
-              <div className="bg-amber-50 border-2 border-amber-300 text-amber-900 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            {isFormLocked && (
+              <div className={`border-2 text-amber-950 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm ${
+                formLockedInfo.isTentativa ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300'
+              }`}>
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-200">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md text-white ${
+                    formLockedInfo.isTentativa ? 'bg-amber-500 shadow-amber-200' : 'bg-emerald-600 shadow-emerald-200'
+                  }`}>
                     <i className="fas fa-lock text-base"></i>
                   </div>
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-950">Presupuesto Original Confirmado — Solo Lectura / Referencia</h4>
-                    <p className="text-[11px] text-amber-800 font-medium mt-0.5">El presupuesto original último guardado se conserva como referencia contractual histórica y no se debe modificar. Para realizar cambios o emitir una nueva versión, utiliza <strong>Duplicar</strong>.</p>
+                    <h4 className="text-xs font-black uppercase tracking-wider">
+                      Presupuesto en {formLockedInfo.label} — Modo Solo Consulta {formLockedInfo.pmsId ? `(ID Reserva PMS: #${formLockedInfo.pmsId})` : ''}
+                    </h4>
+                    <p className={`text-[11px] font-medium mt-0.5 ${formLockedInfo.isTentativa ? 'text-amber-800' : 'text-emerald-800'}`}>
+                      Este presupuesto {formLockedInfo.hasPmsId ? `ya cuenta con ID de reserva del PMS (#${formLockedInfo.pmsId}) y` : ''} está en estado {formLockedInfo.label}. No se puede modificar; queda guardado exclusivamente para consulta.
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => duplicateBudget(formData, false)}
-                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md shadow-amber-200 active:scale-95"
+                  className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md active:scale-95 text-white ${
+                    formLockedInfo.isTentativa ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-emerald-700 hover:bg-emerald-800 shadow-emerald-200'
+                  }`}
                 >
-                  <i className="fas fa-copy"></i> Duplicar para Modificar
+                  <i className="fas fa-copy"></i> Duplicar como Nuevo Presupuesto
                 </button>
               </div>
             )}
@@ -2832,39 +2934,51 @@ ${emailContent}`;
                 </button>
                 <div>
                   <h2 className="text-xl font-black text-slate-800 tracking-tight">
-                    {formData.uid ? (isFormConfirmed ? 'Presupuesto de Referencia (Confirmado)' : 'Editar Presupuesto') : 'Nueva Cotización de Grupo'}
+                    {formData.uid ? (isFormLocked ? `Presupuesto de Referencia (${formLockedInfo.label} - Solo Consulta)` : 'Editar Presupuesto') : 'Nueva Cotización de Grupo'}
                   </h2>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                    {isFormConfirmed ? 'Referencia histórica inmutable del presupuesto confirmado' : 'Completa los campos para generar el documento'}
+                    {isFormLocked ? `Referencia inmutable en ${formLockedInfo.label}. Modo solo consulta.` : 'Completa los campos para generar el documento'}
                   </p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-2">Fase / Estado:</span>
-                  <select 
-                    value={formData.Com_Estado_Interno || 'PRESUPUESTO'} 
-                    onChange={e => setFormData({ ...formData, Com_Estado_Interno: e.target.value })}
-                    className="bg-amber-50 text-amber-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-amber-100 focus:ring-amber-300 transition-all cursor-pointer uppercase"
-                  >
-                    <option value="PRESUPUESTO">Presupuesto</option>
-                    <option value="ENVIADO">Enviado</option>
-                    <option value="SEGUIMIENTO">Seguimiento</option>
-                    <option value="CONFIRMADO">Confirmado</option>
-                    <option value="CANCELADO">Cancelado</option>
-                    <option value="DESESTIMADO">Desestimado</option>
-                    <option value="CADUCADO">Caducado</option>
-                  </select>
+                  {isFormLocked ? (
+                    <span className={`rounded-xl px-4 py-2 text-xs font-black uppercase flex items-center gap-1.5 border ${
+                      formLockedInfo.isTentativa 
+                        ? 'bg-amber-100 text-amber-800 border-amber-300' 
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    }`}>
+                      <i className="fas fa-lock text-[10px]"></i> {formLockedInfo.label} (SOLO CONSULTA)
+                    </span>
+                  ) : (
+                    <select 
+                      value={formData.Com_Estado_Interno || 'PRESUPUESTO'} 
+                      onChange={e => setFormData({ ...formData, Com_Estado_Interno: e.target.value })}
+                      className="bg-amber-50 text-amber-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-amber-100 focus:ring-amber-300 transition-all cursor-pointer uppercase"
+                    >
+                      <option value="PRESUPUESTO">Presupuesto</option>
+                      <option value="ENVIADO">Enviado</option>
+                      <option value="SEGUIMIENTO">Seguimiento</option>
+                      <option value="TENTATIVA">Tentativa</option>
+                      <option value="CONFIRMADO">Confirmado</option>
+                      <option value="CANCELADO">Cancelado</option>
+                      <option value="DESESTIMADO">Desestimado</option>
+                      <option value="CADUCADO">Caducado</option>
+                    </select>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-2">Hotel:</span>
                   <select 
                     value={formData.Hotel_Asignado} 
+                    disabled={isFormLocked}
                     onChange={e => {
                       const newH = e.target.value;
                       setFormData(prev => remapBudgetRoomsForHotel(prev, newH));
                     }}
-                    className="bg-indigo-50 text-indigo-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-indigo-100 focus:ring-indigo-300 transition-all cursor-pointer"
+                    className="bg-indigo-50 text-indigo-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-indigo-100 focus:ring-indigo-300 transition-all cursor-pointer disabled:opacity-60"
                   >
                     <option value="Sercotel Guadiana">Sercotel Guadiana</option>
                     <option value="Cumbria Spa&Hotel">Cumbria Spa&Hotel</option>
@@ -2873,29 +2987,7 @@ ${emailContent}`;
               </div>
             </div>
 
-            {Boolean(formData.convertedToReservation || formData.targetReservationId || formData.isHistoricalBudget || formData.isReadOnly || (formData.Com_Estado_Interno === 'CONFIRMADO' && formData.uid)) && (
-              <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-5 shadow-sm mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0">
-                    🔒
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest">
-                      Presupuesto Confirmado — Modo Solo Consulta
-                    </h4>
-                    <p className="text-xs text-amber-800 font-medium mt-0.5">
-                      Este presupuesto está confirmado y vinculado a la <strong>Reserva PMS Nº {formData.convertedToReservation || formData.targetReservationId || formData.Reserva}</strong>.
-                      La referencia oficial del grupo es este número de reserva del PMS. Este presupuesto queda protegido y bloqueado contra modificación.
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest bg-amber-200 text-amber-900 px-3 py-1.5 rounded-full shrink-0">
-                  Mera Consulta
-                </span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 gap-8">
+            <fieldset disabled={isFormLocked} className={`grid grid-cols-1 gap-8 border-none p-0 m-0 ${isFormLocked ? 'opacity-85' : ''}`}>
               {/* Bloque 1: Información Básica */}
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
                 <div className="flex items-center gap-3 border-b border-slate-50 pb-4">
@@ -4217,9 +4309,10 @@ ${emailContent}`;
                   className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-medium text-slate-600 outline-none focus:border-indigo-500 min-h-[80px] resize-none transition-all shadow-sm"
                 />
               </div>
+            </fieldset>
 
-              <div className="flex gap-3 justify-end pt-2">
-                {isFormConfirmed ? (
+            <div className="flex gap-3 justify-end pt-2">
+              {isFormLocked ? (
                   <>
                     <button
                       type="button"
@@ -4256,7 +4349,6 @@ ${emailContent}`;
                 )}
               </div>
             </div>
-          </div>
         );
       };
 
@@ -4469,25 +4561,39 @@ ${emailContent}`;
           calculatedPax += (multiplier * c);
         });
         const totalPax = calculatedPax > 0 ? calculatedPax : (g["Pax."] || 0);
-        const isConfirmedBudget = String(g.Com_Estado_Interno || g.Estado || '').toUpperCase().includes('CONFIRM') || g.splitCompleted === true || String(g.Com_Estado_Interno || '').toUpperCase() === 'DESGLOSADO';
+        const lockedInfo = getBudgetLockedDetails(g);
+        const isConfirmedBudget = lockedInfo.isLocked;
 
         return (
           <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-10">
             {isConfirmedBudget && (
-              <div className="bg-emerald-50 border-2 border-emerald-300 text-emerald-900 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm print:hidden">
+              <div className={`border-2 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm print:hidden ${
+                lockedInfo.isTentativa ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-emerald-50 border-emerald-300 text-emerald-950'
+              }`}>
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-200">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md text-white ${
+                    lockedInfo.isTentativa ? 'bg-amber-500 shadow-amber-200' : 'bg-emerald-600 shadow-emerald-200'
+                  }`}>
                     <i className="fas fa-lock text-base"></i>
                   </div>
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-950">Presupuesto Confirmado — Referencia Original Inmutable</h4>
-                    <p className="text-[11px] text-emerald-800 font-medium mt-0.5">Este presupuesto original está guardado como referencia contractual histórica. No se modifica tras su confirmación.</p>
+                    <h4 className="text-xs font-black uppercase tracking-wider">
+                      Presupuesto en {lockedInfo.label} — Modo Solo Consulta {lockedInfo.pmsId ? `(ID Reserva PMS: #${lockedInfo.pmsId})` : ''}
+                    </h4>
+                    <p className={`text-[11px] font-medium mt-0.5 ${lockedInfo.isTentativa ? 'text-amber-800' : 'text-emerald-800'}`}>
+                      {lockedInfo.hasPmsId 
+                        ? `Este presupuesto ya cuenta con ID de reserva del PMS (#${lockedInfo.pmsId}) y se encuentra en estado ${lockedInfo.label}. No se puede modificar; queda guardado exclusivamente como consulta.`
+                        : `Este presupuesto está en estado ${lockedInfo.label} y se conserva como referencia histórica inmutable de consulta.`
+                      } Para emitir cambios o generar una nueva oferta, utiliza la opción "Duplicar".
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => duplicateBudget(g, false)}
-                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md shadow-emerald-200 active:scale-95"
+                  className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center gap-2 shadow-md active:scale-95 text-white ${
+                    lockedInfo.isTentativa ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-emerald-700 hover:bg-emerald-800 shadow-emerald-200'
+                  }`}
                 >
                   <i className="fas fa-copy"></i> Duplicar / Crear Nueva Oferta
                 </button>
@@ -4502,7 +4608,7 @@ ${emailContent}`;
                 </button>
                 <div>
                   <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">
-                    {hotelName} {g.Reserva ? `• ${g.Reserva}` : ''} {isConfirmedBudget ? '• [CONFIRMADO]' : ''}
+                    {hotelName} {g.Reserva ? `• ${g.Reserva}` : ''} {isConfirmedBudget ? `• [${lockedInfo.label} - SOLO CONSULTA]` : ''}
                   </label>
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">{g["Nombre del Grupo"]}</h2>
                   <div className="mt-2 flex flex-col gap-1.5">
@@ -4536,31 +4642,49 @@ ${emailContent}`;
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
-                <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Fase Actual:</span>
-                  <select 
-                    value={(g.Com_Estado_Interno || g.Estado || '').toUpperCase()} 
-                    onChange={e => { 
-                      const newStatus = e.target.value;
-                      updateStatus(g.uid, newStatus);
-                      setSelectedGroup({...g, Com_Estado_Interno: newStatus});
-                    }}
-                    className="bg-white text-indigo-700 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer uppercase"
-                  >
-                    <option value="PRESUPUESTO">Presupuesto</option>
-                    <option value="ENVIADO">Enviado</option>
-                    <option value="SEGUIMIENTO">Seguimiento</option>
-                    <option value="CONFIRMADO">Confirmado</option>
-                    <option value="CANCELADO">Cancelado</option>
-                    <option value="DESESTIMADO">Desestimado</option>
-                    <option value="CADUCADO">Caducado</option>
-                  </select>
-                </div>
+                {isConfirmedBudget ? (
+                  <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 shadow-sm">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fase:</span>
+                    <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm ${
+                      lockedInfo.isTentativa
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}>
+                      <i className="fas fa-lock text-[9px]"></i> {lockedInfo.label} (SOLO CONSULTA)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Fase Actual:</span>
+                    <select 
+                      value={(g.Com_Estado_Interno || g.Estado || '').toUpperCase()} 
+                      onChange={e => { 
+                        const newStatus = e.target.value;
+                        updateStatus(g.uid, newStatus);
+                        setSelectedGroup({...g, Com_Estado_Interno: newStatus});
+                      }}
+                      className="bg-white text-indigo-700 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer uppercase"
+                    >
+                      <option value="PRESUPUESTO">Presupuesto</option>
+                      <option value="ENVIADO">Enviado</option>
+                      <option value="SEGUIMIENTO">Seguimiento</option>
+                      <option value="TENTATIVA">Tentativa</option>
+                      <option value="CONFIRMADO">Confirmado</option>
+                      <option value="CANCELADO">Cancelado</option>
+                      <option value="DESESTIMADO">Desestimado</option>
+                      <option value="CADUCADO">Caducado</option>
+                    </select>
+                  </div>
+                )}
 
                 {isConfirmedBudget ? (
                   <button 
                     onClick={() => duplicateBudget(g, false)}
-                    className="flex-1 md:flex-none px-6 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-emerald-200 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2"
+                    className={`flex-1 md:flex-none px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2 ${
+                      lockedInfo.isTentativa
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                    }`}
                     title="Crea una nueva cotización editable a partir de esta referencia"
                   >
                     <i className="fas fa-copy"></i> Duplicar Presupuesto
@@ -5146,15 +5270,17 @@ ${emailContent}`;
                                       </button>
                                     </>
                                   ) : (
-                                    <button 
-                                      onClick={() => {
-                                        setTempClauses(JSON.parse(JSON.stringify(effectiveClauses)));
-                                        setIsEditingClauses(true);
-                                      }}
-                                      className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center gap-1.5"
-                                    >
-                                      <i className="fas fa-pen text-[9px]"></i> Editar
-                                    </button>
+                                    !isConfirmedBudget && (
+                                      <button 
+                                        onClick={() => {
+                                          setTempClauses(JSON.parse(JSON.stringify(effectiveClauses)));
+                                          setIsEditingClauses(true);
+                                        }}
+                                        className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center gap-1.5"
+                                      >
+                                        <i className="fas fa-pen text-[9px]"></i> Editar
+                                      </button>
+                                    )
                                   )}
                                 </div>
                               </div>
@@ -5243,15 +5369,17 @@ ${emailContent}`;
                                       </button>
                                     </>
                                   ) : (
-                                    <button 
-                                      onClick={() => {
-                                        setTempClausesConf(JSON.parse(JSON.stringify(effectiveClauses)));
-                                        setIsEditingClausesConf(true);
-                                      }}
-                                      className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-400 hover:bg-slate-200 flex items-center gap-1.5"
-                                    >
-                                      <i className="fas fa-pen text-[9px]"></i> Editar
-                                    </button>
+                                    !isConfirmedBudget && (
+                                      <button 
+                                        onClick={() => {
+                                          setTempClausesConf(JSON.parse(JSON.stringify(effectiveClauses)));
+                                          setIsEditingClausesConf(true);
+                                        }}
+                                        className="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all bg-slate-100 text-slate-400 hover:bg-slate-200 flex items-center gap-1.5"
+                                      >
+                                        <i className="fas fa-pen text-[9px]"></i> Editar
+                                      </button>
+                                    )
                                   )}
                                 </div>
                               </div>
