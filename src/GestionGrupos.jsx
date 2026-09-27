@@ -8743,8 +8743,12 @@
             db.collection("settings")
               .doc("main")
               .set(updatePayload, { merge: true })
-
               .catch((err) => console.error("Error al guardar la fecha de importación:", err));
+
+            // Sincronización a MesaChef (grupos >= 2027 confirmados o cancelados)
+            if (window.MesaChefService && typeof window.MesaChefService.syncAllEligibleGroups === "function") {
+              window.MesaChefService.syncAllEligibleGroups(pendingRows);
+            }
 
 
 
@@ -8969,19 +8973,22 @@
           .doc(normResID)
 
           .set(
-
             {
-
               [column]: value,
-
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-
             },
-
             { merge: true },
-
           )
-
+          .then(() => {
+            if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
+              window.MesaChefService.syncGroupToMesachef({
+                ...(newData[rowIndex] || {}),
+                [column]: value,
+                reserva: normResID,
+                id: normResID
+              });
+            }
+          })
           .catch((err) => {
             console.error("Error editando celda:", err);
             alert("⚠️ Error al guardar el cambio en la base de datos: " + (err.message || err) + "\nSe restaurará el valor anterior.");
@@ -10032,6 +10039,21 @@
           }
 
           await batch.commit();
+
+          if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
+            try {
+              await window.MesaChefService.syncGroupToMesachef({
+                ...(sourceRecords[0] || {}),
+                Reserva: targetReserva,
+                "Nombre del Grupo": targetName,
+                Com_Estado_Interno: "CONFIRMADO",
+                Estado: "Confirmado"
+              });
+            } catch (syncErr) {
+              console.warn("MesaChef sync after merge warning:", syncErr);
+            }
+          }
+
           alert(
             "✅ Fusión completada con éxito. Pulsa Aceptar para recargar.",
           );
@@ -17947,6 +17969,14 @@
                                                 reservaID,
 
                                               );
+
+                                              if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
+                                                window.MesaChefService.syncGroupToMesachef({
+                                                  ...cleanedRow,
+                                                  reserva: reservaID,
+                                                  id: reservaID
+                                                });
+                                              }
 
                                               // Mantener el bloqueo 6s para que onSnapshot no restaure datos viejos
 

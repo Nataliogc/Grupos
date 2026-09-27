@@ -1,6 +1,6 @@
 /**
  * ═════════════════════════════════════════════════════════════════════
- * NEXUS GROUPS — MesaChef Integration Service (Matrix v5.5)
+ * NEXUS GROUPS — MesaChef Integration Service (Matrix v6.0)
  * ═════════════════════════════════════════════════════════════════════
  * Sincronización automática de grupos de 2027 en adelante con MP / PC
  * hacia el cuadrante Matrix de MesaChef (`mesa-chef-prod`).
@@ -174,6 +174,29 @@
   }
 
   /**
+   * Determina si un grupo ha sido cancelado o anulado en Nexus Groups
+   */
+  function isGroupCancelled(groupRecord) {
+    if (!groupRecord) return false;
+    if (groupRecord._diff === "cancelled" || groupRecord.isCancelled === true) return true;
+    var st = String(
+      groupRecord.Com_Estado_Interno ||
+      groupRecord.Estado ||
+      groupRecord.estado ||
+      groupRecord.status ||
+      ""
+    ).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+    return (
+      st.includes("ANULAD") ||
+      st.includes("CANCEL") ||
+      st.includes("BAJA") ||
+      st.includes("DESESTIM") ||
+      st.includes("CADUC")
+    );
+  }
+
+  /**
    * Mapea el estado de Nexus Groups a los estados estándar de MesaChef Matrix:
    * - Confirmada -> "confirmada"
    * - Tentativa / Presupuesto / Bloqueo -> "presupuesto"
@@ -185,7 +208,7 @@
     if (st.includes("CONFIRM") || st.includes("ACEPTAD") || st.includes("DEFINITIV")) {
       return "confirmada";
     }
-    if (st.includes("ANULAD") || st.includes("CANCEL") || st.includes("BAJA")) {
+    if (st.includes("ANULAD") || st.includes("CANCEL") || st.includes("BAJA") || st.includes("DESESTIM") || st.includes("CADUC")) {
       return "cancelada";
     }
     return "presupuesto";
@@ -261,7 +284,7 @@
     }
 
     var rawStatus = groupRecord.Com_Estado_Interno || groupRecord.Estado || groupRecord.estado || groupRecord.status || "Tentativa";
-    var mesachefStatus = mapMesachefStatus(rawStatus);
+    var mesachefStatus = isGroupCancelled(groupRecord) ? "cancelada" : mapMesachefStatus(rawStatus);
 
     var pax = parseInt(groupRecord["Pax."] || groupRecord.pax || groupRecord.Pax || groupRecord.totalPax || groupRecord.comensales || 0, 10);
     if (isNaN(pax) || pax <= 0) pax = 1;
@@ -381,13 +404,29 @@
 
   /**
    * Sincroniza un grupo individual hacia MesaChef (reservas_salones y mesachef_grupos)
+   * Si el grupo se anula o cancela, actualiza todos los documentos existentes en reservas_salones
+   * a estado 'cancelada' para liberar el salón y mantener el histórico.
+   * Si el grupo se confirma o modifica fechas, actualiza los servicios activos correspondientes.
    */
   function syncGroupToMesachef(groupRecord) {
-    var salonDocs = prepareSalonDocuments(groupRecord);
-
-    if (!salonDocs || salonDocs.length === 0) {
-      return Promise.resolve({ skipped: true, reason: "No cumple criterios (solo 2027+ con MP/PC)" });
+    if (!groupRecord) {
+      return Promise.resolve({ skipped: true, reason: "Registro vacío" });
     }
+
+    var reservaId = normalizeReservaId(
+      groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva || groupRecord.uid
+    );
+    if (!reservaId) {
+      return Promise.resolve({ skipped: true, reason: "Sin reserva ID" });
+    }
+
+    var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
+    // Si la fecha existe y es anterior a 2027, descartar estrictamente
+    if (entryDate && !isYear2027OrLater(entryDate)) {
+      return Promise.resolve({ skipped: true, reason: "Solo aplicable a reservas de 2027 en adelante" });
+    }
+
+    var isCancelled = isGroupCancelled(groupRecord);
 
     return ensureMesachefAuth().then(function () {
       var targetDb = getMesachefDb();
@@ -396,35 +435,102 @@
         return { success: false, reason: "No Firestore DB" };
       }
 
-      var batch = targetDb.batch();
+      // ── CASO 1: RESERVA CANCELADA O ANULADA ──
+      if (isCancelled) {
+        return targetDb.collection(COLLECTION_SALONES)
+          .where("reservaId", "==", reservaId)
+          .get()
+          .then(function (snapshot) {
+            var batch = targetDb.batch();
+            var count = 0;
 
-      // 1. Guardar cada servicio en reservas_salones
-      salonDocs.forEach(function (docData) {
-        var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
-        batch.set(ref, docData, { merge: true });
-      });
+            snapshot.forEach(function (docSnap) {
+              batch.update(docSnap.ref, {
+                estado: "cancelada",
+                updated_at: new Date().toISOString()
+              });
+              count++;
+            });
 
-      // 2. Guardar ficha maestra en mesachef_grupos
-      var firstDoc = salonDocs[0];
-      var groupMasterRef = targetDb.collection(COLLECTION_GRUPOS).doc(firstDoc.reservaId);
-      batch.set(groupMasterRef, {
-        id: firstDoc.reservaId,
-        referencia: firstDoc.reservaId,
-        cliente: firstDoc.cliente,
-        hotel: firstDoc.hotel,
-        salon: firstDoc.salon,
-        estado: firstDoc.estado,
-        pax: firstDoc.detalles.pax_adultos,
-        totalServicios: salonDocs.length,
-        origen: "Nexus Groups",
-        updated_at: new Date().toISOString()
-      }, { merge: true });
+            // Si prepareSalonDocuments puede armar los documentos (tiene fecha >= 2027 y MP/PC)
+            var preparedDocs = prepareSalonDocuments(groupRecord);
+            preparedDocs.forEach(function (pDoc) {
+              pDoc.estado = "cancelada";
+              var ref = targetDb.collection(COLLECTION_SALONES).doc(pDoc.id);
+              batch.set(ref, pDoc, { merge: true });
+            });
 
-      return batch
-        .commit()
-        .then(function () {
-          console.log("🍽️ [MesaChef Sync] Reserva " + firstDoc.reservaId + " sincronizada con éxito en " + firstDoc.hotel + " (" + firstDoc.salon + "): " + salonDocs.length + " servicios creados/actualizados en " + COLLECTION_SALONES);
-          return { success: true, count: salonDocs.length, hotel: firstDoc.hotel, salon: firstDoc.salon, docs: salonDocs };
+            // Actualizar la ficha maestra en mesachef_grupos
+            var groupMasterRef = targetDb.collection(COLLECTION_GRUPOS).doc(reservaId);
+            batch.set(groupMasterRef, {
+              id: reservaId,
+              referencia: reservaId,
+              estado: "cancelada",
+              origen: "Nexus Groups",
+              updated_at: new Date().toISOString()
+            }, { merge: true });
+
+            return batch.commit().then(function () {
+              console.log("🚫 [MesaChef Sync] Reserva " + reservaId + " marcada como CANCELADA en MesaChef (" + (count + preparedDocs.length) + " servicios actualizados).");
+              return { success: true, cancelled: true, count: count + preparedDocs.length };
+            });
+          })
+          .catch(function (err) {
+            console.error("❌ [MesaChef Sync Cancellation Error]:", err);
+            return { success: false, error: err };
+          });
+      }
+
+      // ── CASO 2: RESERVA ACTIVA (CONFIRMADA / PRESUPUESTO / TENTATIVA) ──
+      var salonDocs = prepareSalonDocuments(groupRecord);
+      if (!salonDocs || salonDocs.length === 0) {
+        return Promise.resolve({ skipped: true, reason: "No cumple criterios (solo 2027+ con MP/PC)" });
+      }
+
+      var activeDocIds = new Set(salonDocs.map(function (d) { return d.id; }));
+
+      return targetDb.collection(COLLECTION_SALONES)
+        .where("reservaId", "==", reservaId)
+        .get()
+        .then(function (snapshot) {
+          var batch = targetDb.batch();
+
+          // A. Guardar o actualizar los servicios actuales con el estado correspondiente
+          salonDocs.forEach(function (docData) {
+            var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
+            batch.set(ref, docData, { merge: true });
+          });
+
+          // B. Si había servicios antiguos de esta reserva que ya no corresponden a las fechas, anularlos
+          snapshot.forEach(function (docSnap) {
+            if (!activeDocIds.has(docSnap.id)) {
+              batch.update(docSnap.ref, {
+                estado: "cancelada",
+                updated_at: new Date().toISOString()
+              });
+            }
+          });
+
+          // C. Guardar ficha maestra en mesachef_grupos
+          var firstDoc = salonDocs[0];
+          var groupMasterRef = targetDb.collection(COLLECTION_GRUPOS).doc(firstDoc.reservaId);
+          batch.set(groupMasterRef, {
+            id: firstDoc.reservaId,
+            referencia: firstDoc.reservaId,
+            cliente: firstDoc.cliente,
+            hotel: firstDoc.hotel,
+            salon: firstDoc.salon,
+            estado: firstDoc.estado,
+            pax: firstDoc.detalles.pax_adultos,
+            totalServicios: salonDocs.length,
+            origen: "Nexus Groups",
+            updated_at: new Date().toISOString()
+          }, { merge: true });
+
+          return batch.commit().then(function () {
+            console.log("🍽️ [MesaChef Sync] Reserva " + firstDoc.reservaId + " sincronizada con estado '" + firstDoc.estado + "' en " + firstDoc.hotel + " (" + firstDoc.salon + "): " + salonDocs.length + " servicios en " + COLLECTION_SALONES);
+            return { success: true, count: salonDocs.length, hotel: firstDoc.hotel, salon: firstDoc.salon, docs: salonDocs };
+          });
         })
         .catch(function (err) {
           console.error("❌ [MesaChef Sync Error]:", err);
@@ -434,47 +540,37 @@
   }
 
   /**
-   * Sincroniza en lote una lista completa de grupos
+   * Sincroniza en lote una lista completa de grupos (activos y cancelados)
    */
   function syncAllEligibleGroups(groupsList) {
     if (!Array.isArray(groupsList) || groupsList.length === 0) {
       return Promise.resolve({ count: 0 });
     }
 
-    var allDocs = [];
-    groupsList.forEach(function (g) {
-      var docs = prepareSalonDocuments(g);
-      if (docs && docs.length > 0) {
-        allDocs = allDocs.concat(docs);
-      }
+    var eligibleGroups = groupsList.filter(function (g) {
+      if (!g) return false;
+      var entryDate = g.Entrada || g.entrada || g.fechaEntrada || g.fecha;
+      if (!isYear2027OrLater(entryDate)) return false;
+      var isCanc = isGroupCancelled(g);
+      var regimen = String(g["Régimen"] || g.regimen || g.Regimen || "").toUpperCase();
+      // Incluir si tiene MP/PC o si está cancelado
+      return isMpOrPcRegimen(regimen) || isCanc;
     });
 
-    if (allDocs.length === 0) {
+    if (eligibleGroups.length === 0) {
       return Promise.resolve({ count: 0, message: "No hay grupos 2027+ con MP/PC para sincronizar." });
     }
 
     return ensureMesachefAuth().then(function () {
-      var targetDb = getMesachefDb();
-      if (!targetDb) {
-        return { success: false, reason: "No Firestore DB" };
-      }
-
-      var batch = targetDb.batch();
-      allDocs.forEach(function (docData) {
-        var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
-        batch.set(ref, docData, { merge: true });
+      var promises = eligibleGroups.map(function (g) {
+        return syncGroupToMesachef(g);
       });
 
-      return batch
-        .commit()
-        .then(function () {
-          console.log("✅ [MesaChef Sync] Sincronizados " + allDocs.length + " servicios de salones en MesaChef Matrix.");
-          return { count: allDocs.length, totalServices: allDocs.length };
-        })
-        .catch(function (err) {
-          console.error("❌ [MesaChef Sync Batch Error]:", err);
-          return { count: 0, error: err };
-        });
+      return Promise.all(promises).then(function (results) {
+        var syncedCount = results.filter(function (r) { return r && r.success; }).length;
+        console.log("✅ [MesaChef Sync Batch] Procesados " + eligibleGroups.length + " grupos elegibles (" + syncedCount + " sincronizados correctamente en MesaChef).");
+        return { count: eligibleGroups.length, successCount: syncedCount };
+      });
     });
   }
 
@@ -490,6 +586,7 @@
     normalizeReservaId: normalizeReservaId,
     isYear2027OrLater: isYear2027OrLater,
     isMpOrPcRegimen: isMpOrPcRegimen,
+    isGroupCancelled: isGroupCancelled,
     mapMesachefStatus: mapMesachefStatus,
     resolveHotelAndSalon: resolveHotelAndSalon,
     prepareSalonDocuments: prepareSalonDocuments,
