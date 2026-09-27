@@ -802,7 +802,13 @@
             var batch = targetDb.batch();
             var count = 0;
 
+            var unlinkedIds = new Set();
             snapshot.forEach(function (docSnap) {
+              var d = docSnap.data() || {};
+              if (d.desvinculado === true || d.vinculoRoto === true) {
+                unlinkedIds.add(docSnap.id);
+                return; // No tocar si fue desvinculado en MesaChef
+              }
               batch.update(docSnap.ref, {
                 estado: "cancelada",
                 updated_at: new Date().toISOString()
@@ -813,6 +819,7 @@
             // Si prepareSalonDocuments puede armar los documentos (tiene fecha >= 2027 y MP/PC)
             var preparedDocs = prepareSalonDocuments(groupRecord);
             preparedDocs.forEach(function (pDoc) {
+              if (unlinkedIds.has(pDoc.id)) return; // No tocar si fue desvinculado
               pDoc.estado = "cancelada";
               var ref = targetDb.collection(COLLECTION_SALONES).doc(pDoc.id);
               batch.set(ref, pDoc, { merge: true });
@@ -851,6 +858,8 @@
             if (!ptoSnap.empty) {
               var pBatch = targetDb.batch();
               ptoSnap.forEach(function (docSnap) {
+                var d = docSnap.data() || {};
+                if (d.desvinculado === true || d.vinculoRoto === true) return;
                 pBatch.delete(docSnap.ref);
               });
               pBatch.commit().then(function () {
@@ -884,6 +893,10 @@
           // A. Guardar o actualizar los servicios actuales ÚNICAMENTE si han cambiado o no existen
           salonDocs.forEach(function (docData) {
             var existing = existingMap.get(docData.id);
+            if (existing && (existing.desvinculado === true || existing.vinculoRoto === true)) {
+              // Este evento fue desvinculado en MesaChef: NO sobreescribir con datos de Nexus Groups
+              return;
+            }
             var isDifferent = false;
             if (!existing) {
               isDifferent = true;
@@ -925,6 +938,10 @@
           snapshot.forEach(function (docSnap) {
             if (!activeDocIds.has(docSnap.id)) {
               var oldData = docSnap.data() || {};
+              if (oldData.desvinculado === true || oldData.vinculoRoto === true) {
+                // No tocar si fue desvinculado en MesaChef
+                return;
+              }
               if (oldData.estado !== "cancelada") {
                 batch.update(docSnap.ref, {
                   estado: "cancelada",
