@@ -621,11 +621,13 @@
         const updates = {
           Com_Estado_Interno: requestedStatus,
           Estado: "Confirmado",
+          _diff: null,
+          isCancelled: false,
           updatedAt: serverTimestampVal,
           tracking: JSON.stringify(track)
         };
         await docRef.update(updates);
-        return { split: false };
+        return { split: false, updates };
       }
     } else {
       // Normal update/save process: update status and timestamp in parent document
@@ -664,12 +666,14 @@
         updates.Estado = "ANULADA";
       } else if (requestedStatus === "CONFIRMADO") {
         updates.Estado = "Confirmado";
+        updates._diff = null;
+        updates.isCancelled = false;
       } else {
         updates.Estado = "Presupuesto";
       }
 
       await docRef.update(updates);
-      return { split: false };
+      return { split: false, updates };
     }
   }
 

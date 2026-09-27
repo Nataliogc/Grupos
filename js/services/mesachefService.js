@@ -834,7 +834,22 @@
    * a estado 'cancelada' para liberar el salón y mantener el histórico.
    * Si el grupo se confirma o modifica fechas, actualiza los servicios activos correspondientes.
    */
+  var pendingGroupSyncs = new Map();
   function syncGroupToMesachef(groupRecord) {
+    if (!groupRecord) return Promise.resolve({ skipped: true, reason: "Registro vacío" });
+    var key = normalizeReservaId(groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva || groupRecord.uid);
+    var previous = pendingGroupSyncs.get(key) || Promise.resolve();
+    var snapshot = JSON.parse(JSON.stringify(groupRecord));
+    var next = previous.catch(function () {}).then(function () { return performGroupSync(snapshot); });
+    pendingGroupSyncs.set(key, next);
+    function clearPending() {
+      if (pendingGroupSyncs.get(key) === next) pendingGroupSyncs.delete(key);
+    }
+    next.then(clearPending, clearPending);
+    return next;
+  }
+
+  function performGroupSync(groupRecord) {
     if (!groupRecord) {
       return Promise.resolve({ skipped: true, reason: "Registro vacío" });
     }

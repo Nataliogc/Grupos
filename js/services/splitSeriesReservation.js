@@ -727,6 +727,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             updates = {
               Com_Estado_Interno: requestedStatus,
               Estado: "Confirmado",
+              _diff: null,
+              isCancelled: false,
               updatedAt: serverTimestampVal,
               tracking: JSON.stringify(track)
             };
@@ -734,7 +736,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             return docRef.update(updates);
           case 17:
             return _context3.a(2, {
-              split: false
+              split: false,
+              updates: updates
             });
           case 18:
             _context3.n = 21;
@@ -771,6 +774,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               _updates.Estado = "ANULADA";
             } else if (requestedStatus === "CONFIRMADO") {
               _updates.Estado = "Confirmado";
+              _updates._diff = null;
+              _updates.isCancelled = false;
             } else {
               _updates.Estado = "Presupuesto";
             }
@@ -778,7 +783,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             return docRef.update(_updates);
           case 20:
             return _context3.a(2, {
-              split: false
+              split: false,
+              updates: _updates
             });
           case 21:
             return _context3.a(2);

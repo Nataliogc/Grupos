@@ -42,13 +42,25 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     }),
     batch: () => {
       const writes=[];
-      return {set:(r,v)=>writes.push([r,v]),update:(r,v)=>writes.push([r,v]),commit:async()=>writes.forEach(([r,v])=>data.set(r.key,{...data.get(r.key),...v}))};
+      return {set:(r,v)=>writes.push([r,v]),update:(r,v)=>writes.push([r,v]),commit:async()=>{ await new Promise(resolve => setTimeout(resolve, writes.some(([,v]) => v.estado === "confirmada") ? 25 : 0)); writes.forEach(([r,v])=>data.set(r.key,{...data.get(r.key),...v})); }};
     }
   }};
   try {
     assert.equal((await service.syncGroupToMesachef(group)).success,true);
     assert.equal(data.get(old).estado,'cancelada');
     assert.equal(data.get('mesachef_grupos/213521').totalServicios,3);
+    // Una confirmación lenta no puede terminar después de la desestimación y reactivar servicios.
+    const results = await Promise.all([
+      service.syncGroupToMesachef({...group, Com_Estado_Interno:'CONFIRMADO'}),
+      service.syncGroupToMesachef({...group, Com_Estado_Interno:'DESESTIMADO', Estado:'ANULADA'})
+    ]);
+    assert.ok(results.every(r=>r.success));
+    assert.ok([...data].filter(([k])=>k.startsWith('reservas_salones/nexus_')).every(([,v])=>v.estado==='cancelada'));
+    assert.equal(data.get('mesachef_grupos/213521').estado,'cancelada');
+    await service.syncGroupToMesachef({...group, Com_Estado_Interno:'DESESTIMADO', Estado:'ANULADA'});
+    assert.ok([...data].filter(([k])=>k.startsWith('reservas_salones/nexus_')).every(([,v])=>v.estado==='cancelada'));
+    // Reactivación explícita para comprobar después la retirada de todas las comidas.
+    await service.syncGroupToMesachef(group);
     const noMeals = {...group, 'Régimen':'HA', DailyDistribution_JSON:'{}', RoomingList_JSON:JSON.stringify([room('2027-02-01',1,2,'HA')])};
     assert.equal((await service.syncGroupToMesachef(noMeals)).success,true);
     assert.equal(data.get('mesachef_grupos/213521').totalServicios,0);

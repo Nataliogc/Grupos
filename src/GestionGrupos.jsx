@@ -10339,6 +10339,7 @@
         setShowClientData(true);
       };
 
+      const statusChangePendingRef = useRef(false);
       const updateGroupMetadata = async (
         resId,
         fieldOrUpdates,
@@ -10363,8 +10364,9 @@
           
           if (newStatus !== currentStatus) {
             try {
-              if (updateGroupMetadata.running) return;
-              updateGroupMetadata.running = true;
+              if (statusChangePendingRef.current) return;
+              statusChangePendingRef.current = true;
+              setIsSaving(true);
 
               const res = await window.confirmBudget({
                 budgetId: normTargetId,
@@ -10377,17 +10379,35 @@
               if (res && res.split) {
                 alert(`✅ Serie confirmada y desglosada en reservas individuales: ${res.childIds.join(', ')}`);
                 setShowFichaModal(false);
+              } else if (res && res.converted) {
+                setShowFichaModal(false);
               } else {
+                const statusUpdates = {
+                  Com_Estado_Interno: newStatus,
+                  Estado: ["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(newStatus)
+                    ? "ANULADA" : newStatus === "CONFIRMADO" ? "Confirmado" : "Presupuesto"
+                };
+                Object.assign(statusUpdates, res && res.updates);
+                ReactDOM.flushSync(() => {
+                setData(prev => prev.map(row => normalizeId(row.Reserva) === normTargetId ? { ...row, ...statusUpdates } : row));
+                setSelectedGroupFicha(prev => !prev || normalizeId(prev.id) !== normTargetId ? prev : {
+                  ...prev, records: prev.records.map(row => ({ ...row, ...statusUpdates }))
+                });
+                });
                 if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
                   const sampleRow = currentGroupRows[0] || {};
                   const mergedForSync = {
                     ...sampleRow,
                     ...updates,
-                    Com_Estado_Interno: newStatus,
+                    ...statusUpdates,
                     id: normTargetId,
                     reserva: normTargetId
                   };
-                  window.MesaChefService.syncGroupToMesachef(mergedForSync);
+                  const syncResult = await window.MesaChefService.syncGroupToMesachef(mergedForSync);
+                  if (syncResult && syncResult.success === false) {
+                    alert("Estado actualizado en Grupos, pero no se ha podido sincronizar con Mesa. Pulsa Grabar cambios para reintentarlo.");
+                    return;
+                  }
                 }
                 alert(`✅ Estado actualizado a ${newStatus}.`);
               }
@@ -10397,7 +10417,8 @@
               alert("Error: " + err.message);
               return;
             } finally {
-              updateGroupMetadata.running = false;
+              statusChangePendingRef.current = false;
+              setIsSaving(false);
             }
           }
         }
@@ -20036,6 +20057,7 @@
 
                                       selectVal = "PROSPECTO";
 
+                                    if (["DESESTIMADO", "CADUCADO", "PENDIENTE", "SEGUIMIENTO"].includes(s)) selectVal = s;
                                     return (
 
                                       <select
@@ -20060,6 +20082,7 @@
 
                                       >
 
+                                        <option value={selectVal} hidden>{selectVal}</option>
                                         {/* Opciones condicionales: presupuestos vs grupos confirmados */}
 
                                         {((String(selectedGroupFicha.records?.[0]?.Reserva || '').startsWith('PRES-') || (selectedGroupFicha.records?.[0]?.Estado || '').toUpperCase() === 'PRESUPUESTO') && !selectVal.includes('CONFIRM')) ? (
@@ -20085,6 +20108,7 @@
                                             <option value="CONFIRMADO">CONFIRMADO</option>
 
                                             <option value="CANCELADO">CANCELADO</option>
+                                            <option value="DESESTIMADO">DESESTIMADO</option>
 
                                             <option value="PROSPECTO">PROSPECTO</option>
 
@@ -23797,6 +23821,7 @@
                               onClick={async () => {
                                 if (selectedGroupFicha && selectedGroupFicha.records && selectedGroupFicha.records[0]) {
                                   try {
+                                    if (statusChangePendingRef.current) return;
                                     const currentRec = selectedGroupFicha.records[0];
                                     let currentRL = [];
                                     if (typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems) {

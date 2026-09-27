@@ -1,0 +1,20 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {confirmBudget} = require('../src/services/splitSeriesReservation');
+const mesa = require('../js/services/mesachefService');
+test('desestimar y confirmar devuelve los datos persistidos para refrescar la ficha', async () => {
+  let record = {Reserva:'213521', Com_Estado_Interno:'DESESTIMADO', Estado:'ANULADA', _diff:'cancelled', isCancelled:true};
+  const db = {collection:()=>({doc:()=>({get:async()=>({exists:true,data:()=>record}),update:async updates=>{record={...record,...updates};}})})};
+  const confirmed = await confirmBudget({budgetId:'213521',requestedStatus:'CONFIRMADO',db});
+  const ficha = {...record,...confirmed.updates};
+  assert.equal(ficha.Com_Estado_Interno,'CONFIRMADO');
+  assert.equal(ficha.Estado,'Confirmado');
+  assert.equal(ficha._diff,null);
+  assert.equal(ficha.isCancelled,false);
+  assert.equal(mesa.resolveMesachefStatus(ficha),'confirmada');
+  const cancelled = await confirmBudget({budgetId:'213521',requestedStatus:'DESESTIMADO',db});
+  assert.equal(cancelled.updates.Com_Estado_Interno,'DESESTIMADO');
+  assert.equal(cancelled.updates.Estado,'ANULADA');
+  assert.equal(mesa.resolveMesachefStatus({...ficha,...cancelled.updates}),'cancelada');
+  assert.equal(record.Com_Estado_Interno,'DESESTIMADO');
+});
