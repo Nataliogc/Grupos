@@ -2431,14 +2431,6 @@ function App() {
               confirmedBy: "Usuario"
             });
           case 28:
-            try {
-              if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === 'function') {
-                var syncObj = Object.assign({ reserva: isEditing ? uidToUpdate : reservaId }, isEditing ? (validUpdateData || fallbackData || {}) : (groupData || {}));
-                window.MesaChefService.syncGroupToMesachef(syncObj);
-              }
-            } catch (eMesa) {
-              console.warn('[MesaChef Sync] Error:', eMesa);
-            }
             setCurrentView('dashboard');
             _context2.n = 30;
             break;

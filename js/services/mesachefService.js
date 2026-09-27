@@ -1,27 +1,73 @@
 /**
  * ═════════════════════════════════════════════════════════════════════
- * NEXUS GROUPS — MesaChef Integration Service
+ * NEXUS GROUPS — MesaChef Integration Service (Matrix v5.5)
  * ═════════════════════════════════════════════════════════════════════
  * Sincronización automática de grupos de 2027 en adelante con MP / PC
- * hacia la "Sala de Grupos" (conexión completa) en MesaChef.
+ * hacia el cuadrante Matrix de MesaChef (`mesa-chef-prod`).
+ *
+ * Reglas de hotel y salón:
+ * - Hotel Sercotel Guadiana  -> hotel: "Guadiana", salon: "Eventos Grupos Alarcos"
+ * - Cumbria Spa & Hotel      -> hotel: "Cumbria",  salon: "Eventos Restaurante"
  *
  * Reglas de negocio:
  * 1. Ámbito: Grupos con fecha de entrada >= 2027-01-01 y régimen MP o PC.
  * 2. Referencia: Nº de Reserva del grupo (reservaID único).
- * 3. Sala asignada: "Sala de Grupos" (con conexión completa).
+ * 3. Colección destino MesaChef: `reservas_salones` y `mesachef_grupos`.
  * 4. Mapeo de estados:
- *    - Confirmado -> "Confirmado"
- *    - Tentativa / Presupuesto / Bloqueo -> "Presupuesto"
- *    - Anulada / Cancelada -> "Cancelado"
- * 5. Destino: Colección Firestore `mesachef_grupos` (tiempo real).
+ *    - Confirmado -> "confirmada"
+ *    - Tentativa / Presupuesto / Bloqueo -> "presupuesto"
+ *    - Anulada / Cancelada -> "cancelada"
  * ═════════════════════════════════════════════════════════════════════
  */
 
 (function (global) {
   "use strict";
 
-  var MESACHEF_COLLECTION = "mesachef_grupos";
-  var DEFAULT_SALA = "Sala de Grupos";
+  var MESACHEF_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAXv_wKD48EFDe8FBQ-6m0XGUNoxSRiTJY",
+    authDomain: "mesa-chef-prod.firebaseapp.com",
+    projectId: "mesa-chef-prod",
+    storageBucket: "mesa-chef-prod.firebasestorage.app",
+    messagingSenderId: "43170330072",
+    appId: "1:43170330072:web:bcdd09e39930ad08bf2ead"
+  };
+
+  var SALON_GUADIANA = "Eventos Grupos Alarcos";
+  var SALON_CUMBRIA = "Eventos Restaurante";
+  var COLLECTION_SALONES = "reservas_salones";
+  var COLLECTION_GRUPOS = "mesachef_grupos";
+
+  var mesachefDbInstance = null;
+
+  /**
+   * Obtiene o inicializa la instancia de Firestore para el proyecto MesaChef (mesa-chef-prod)
+   */
+  function getMesachefDb() {
+    if (mesachefDbInstance) return mesachefDbInstance;
+
+    if (typeof firebase !== "undefined" && typeof firebase.initializeApp === "function") {
+      try {
+        var existingApp = null;
+        if (Array.isArray(firebase.apps)) {
+          existingApp = firebase.apps.find(function (app) {
+            return app && app.name === "mesachefApp";
+          });
+        }
+        if (!existingApp) {
+          existingApp = firebase.initializeApp(MESACHEF_FIREBASE_CONFIG, "mesachefApp");
+        }
+        mesachefDbInstance = existingApp.firestore();
+        return mesachefDbInstance;
+      } catch (err) {
+        console.warn("[MesaChef Service] Error inicializando secondary app:", err);
+      }
+    }
+
+    if (typeof window !== "undefined" && window.db) {
+      return window.db;
+    }
+    return null;
+  }
 
   /**
    * Normaliza el ID de la reserva eliminando decimales o espacios
@@ -86,21 +132,21 @@
   }
 
   /**
-   * Mapea el estado de Nexus Groups al estado para MesaChef:
-   * - Confirmada -> "Confirmado"
-   * - Tentativa / Presupuesto -> "Presupuesto"
-   * - Cancelada -> "Cancelado"
+   * Mapea el estado de Nexus Groups a los estados estándar de MesaChef Matrix:
+   * - Confirmada -> "confirmada"
+   * - Tentativa / Presupuesto / Bloqueo -> "presupuesto"
+   * - Cancelada / Anulada -> "cancelada"
    */
   function mapMesachefStatus(statusStr) {
-    if (!statusStr) return "Presupuesto";
+    if (!statusStr) return "presupuesto";
     var st = String(statusStr).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     if (st.includes("CONFIRM") || st.includes("ACEPTAD") || st.includes("DEFINITIV")) {
-      return "Confirmado";
+      return "confirmada";
     }
     if (st.includes("ANULAD") || st.includes("CANCEL") || st.includes("BAJA")) {
-      return "Cancelado";
+      return "cancelada";
     }
-    return "Presupuesto";
+    return "presupuesto";
   }
 
   /**
@@ -133,15 +179,64 @@
   }
 
   /**
-   * Genera el desglose diario de servicios de comedor (Almuerzos y Cenas)
+   * Determina hotel y salón para MesaChef Matrix
    */
-  function generateMealServices(entryDateStr, exitDateStr, paxCount, regimenStr, statusMesachef) {
-    var services = [];
-    var startIso = toIsoDate(entryDateStr);
-    var endIso = toIsoDate(exitDateStr) || startIso;
-    if (!startIso) return services;
+  function resolveHotelAndSalon(hotelRaw) {
+    var h = String(hotelRaw || "").toLowerCase();
+    if (h.includes("cumbria")) {
+      return {
+        hotelId: "Cumbria",
+        hotelName: "Cumbria Spa & Hotel",
+        salon: SALON_CUMBRIA
+      };
+    }
+    return {
+      hotelId: "Guadiana",
+      hotelName: "Sercotel Guadiana",
+      salon: SALON_GUADIANA
+    };
+  }
 
-    var isPc = String(regimenStr || "").toUpperCase().includes("PC");
+  /**
+   * Prepara los documentos diarios para la colección `reservas_salones` de MesaChef Matrix
+   */
+  function prepareSalonDocuments(groupRecord) {
+    if (!groupRecord) return [];
+
+    var reservaId = normalizeReservaId(
+      groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva || groupRecord.uid
+    );
+    if (!reservaId) return [];
+
+    var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
+    if (!isYear2027OrLater(entryDate)) {
+      return []; // Estrictamente solo 2027 en adelante
+    }
+
+    var regimen = String(groupRecord["Régimen"] || groupRecord.regimen || groupRecord.Regimen || "MP").toUpperCase();
+    if (!isMpOrPcRegimen(regimen)) {
+      return []; // Solo MP o PC
+    }
+
+    var rawStatus = groupRecord.Com_Estado_Interno || groupRecord.Estado || groupRecord.estado || groupRecord.status || "Tentativa";
+    var mesachefStatus = mapMesachefStatus(rawStatus);
+
+    var pax = parseInt(groupRecord["Pax."] || groupRecord.pax || groupRecord.Pax || groupRecord.totalPax || groupRecord.comensales || 0, 10);
+    if (isNaN(pax) || pax <= 0) pax = 1;
+
+    var hotelInfo = resolveHotelAndSalon(groupRecord.Hotel_Asignado || groupRecord.Hotel || groupRecord.hotel);
+    var nombreGrupo = String(
+      groupRecord["Nombre del Grupo"] || groupRecord.Grupo || groupRecord.nombre || groupRecord.cliente || groupRecord["Agencia / Cliente"] || "Grupo Reserva " + reservaId
+    ).trim();
+
+    var exitDate = groupRecord.Salida || groupRecord.salida || groupRecord.fechaSalida || entryDate;
+    var startIso = toIsoDate(entryDate);
+    var endIso = toIsoDate(exitDate) || startIso;
+    if (!startIso) return [];
+
+    var isPc = regimen.includes("PC");
+    var docs = [];
+
     var startDate = new Date(startIso + "T12:00:00");
     var endDate = new Date(endIso + "T12:00:00");
     var current = new Date(startDate);
@@ -150,190 +245,207 @@
       var iso = current.toISOString().split("T")[0];
       var isLastDay = current.getTime() === endDate.getTime();
 
-      // En MP: Cena diaria (excepto salida si no incluye almuerzo)
+      // En MP: Cena cada noche de estancia (excepto el día de salida)
       if (!isLastDay) {
-        services.push({
+        var docIdCena = "nexus_" + reservaId + "_" + iso + "_cena";
+        docs.push({
+          id: docIdCena,
+          reservaId: reservaId,
+          origen: "Nexus Groups",
+          hotel: hotelInfo.hotelId,
+          salon: hotelInfo.salon,
           fecha: iso,
-          servicio: "Cena",
-          pax: paxCount,
-          sala: DEFAULT_SALA,
-          estado: statusMesachef
+          cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+          contact: {
+            tel: groupRecord.Telefono || groupRecord.telefono || "",
+            email: groupRecord.Email || groupRecord.email || ""
+          },
+          estado: mesachefStatus,
+          revisado: true,
+          detalles: {
+            jornada: "cena",
+            montaje: "Banquete",
+            hora: "21:00",
+            pax_adultos: pax,
+            pax_ninos: 0,
+            incluido: true
+          },
+          notas: {
+            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: " + (isPc ? "PC" : "MP") + " | Pax: " + pax + " | Estancia: " + startIso + " al " + endIso,
+            cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+          },
+          servicios: [
+            {
+              fecha: iso,
+              hora: "21:00",
+              concepto: "Cena Grupo " + (isPc ? "PC" : "MP"),
+              uds: pax,
+              precio: 0,
+              total: 0
+            }
+          ],
+          updated_at: new Date().toISOString()
         });
       }
 
-      // En PC: Almuerzo y Cena diarios
+      // En PC: Almuerzo diario (incluyendo estancia y salida)
       if (isPc) {
-        services.push({
+        var docIdAlmuerzo = "nexus_" + reservaId + "_" + iso + "_almuerzo";
+        docs.push({
+          id: docIdAlmuerzo,
+          reservaId: reservaId,
+          origen: "Nexus Groups",
+          hotel: hotelInfo.hotelId,
+          salon: hotelInfo.salon,
           fecha: iso,
-          servicio: "Almuerzo",
-          pax: paxCount,
-          sala: DEFAULT_SALA,
-          estado: statusMesachef
+          cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+          contact: {
+            tel: groupRecord.Telefono || groupRecord.telefono || "",
+            email: groupRecord.Email || groupRecord.email || ""
+          },
+          estado: mesachefStatus,
+          revisado: true,
+          detalles: {
+            jornada: "almuerzo",
+            montaje: "Banquete",
+            hora: "14:00",
+            pax_adultos: pax,
+            pax_ninos: 0,
+            incluido: true
+          },
+          notas: {
+            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: PC | Pax: " + pax + " | Estancia: " + startIso + " al " + endIso,
+            cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+          },
+          servicios: [
+            {
+              fecha: iso,
+              hora: "14:00",
+              concepto: "Almuerzo Grupo PC",
+              uds: pax,
+              precio: 0,
+              total: 0
+            }
+          ],
+          updated_at: new Date().toISOString()
         });
       }
 
       current.setDate(current.getDate() + 1);
     }
 
-    return services;
+    return docs;
   }
 
   /**
-   * Prepara el objeto de datos formateado para MesaChef
+   * Sincroniza un grupo individual hacia MesaChef (reservas_salones y mesachef_grupos)
    */
-  function prepareMesachefPayload(groupRecord) {
-    if (!groupRecord) return null;
+  function syncGroupToMesachef(groupRecord) {
+    var salonDocs = prepareSalonDocuments(groupRecord);
 
-    var reservaId = normalizeReservaId(
-      groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva
-    );
-    if (!reservaId) return null;
-
-    var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
-    if (!isYear2027OrLater(entryDate)) {
-      return null; // Solo 2027 en adelante
+    if (!salonDocs || salonDocs.length === 0) {
+      return Promise.resolve({ skipped: true, reason: "No cumple criterios (solo 2027+ con MP/PC)" });
     }
 
-    var regimen = String(groupRecord["Régimen"] || groupRecord.regimen || groupRecord.Regimen || "MP").toUpperCase();
-    if (!isMpOrPcRegimen(regimen)) {
-      return null; // Solo MP o PC
+    var targetDb = getMesachefDb();
+    if (!targetDb) {
+      console.warn("[MesaChef Service] Firestore de MesaChef no disponible.");
+      return Promise.resolve({ success: false, reason: "No Firestore DB" });
     }
 
-    var rawStatus = groupRecord.Estado || groupRecord.estado || groupRecord.status || "Tentativa";
-    var mesachefStatus = mapMesachefStatus(rawStatus);
+    var batch = targetDb.batch();
 
-    var pax = parseInt(groupRecord["Pax."] || groupRecord.pax || groupRecord.Pax || groupRecord.comensales || 0, 10);
-    if (isNaN(pax) || pax <= 0) pax = 1;
+    // 1. Guardar cada servicio en reservas_salones
+    salonDocs.forEach(function (docData) {
+      var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
+      batch.set(ref, docData, { merge: true });
+    });
 
-    var hotel = String(groupRecord.Hotel || groupRecord.hotel || groupRecord.Hotel_Asignado || "Sercotel Guadiana");
-    if (hotel.toLowerCase().includes("cumbria")) {
-      hotel = "Cumbria Spa & Hotel";
-    } else {
-      hotel = "Sercotel Guadiana";
-    }
-
-    var nombreGrupo = String(
-      groupRecord.Grupo || groupRecord.nombre || groupRecord.cliente || groupRecord["Agencia / Cliente"] || "Grupo Reserva " + reservaId
-    ).trim();
-
-    var exitDate = groupRecord.Salida || groupRecord.salida || groupRecord.fechaSalida || entryDate;
-    var services = generateMealServices(entryDate, exitDate, pax, regimen, mesachefStatus);
-
-    return {
-      id: reservaId,
-      referencia: reservaId,
-      nombreGrupo: nombreGrupo,
-      hotel: hotel,
-      sala: DEFAULT_SALA,
-      conexionCompleta: true,
-      pax: pax,
-      regimen: regimen.includes("PC") ? "PC" : "MP",
-      estado: mesachefStatus,
-      estadoOrigenNexus: rawStatus,
-      fechaEntrada: toIsoDate(entryDate),
-      fechaSalida: toIsoDate(exitDate),
-      servicios: services,
-      observaciones: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || "",
-      menuMP: !!groupRecord.Logistica_MenuMP,
-      menuPC: !!groupRecord.Logistica_MenuPC,
+    // 2. Guardar ficha maestra en mesachef_grupos
+    var firstDoc = salonDocs[0];
+    var groupMasterRef = targetDb.collection(COLLECTION_GRUPOS).doc(firstDoc.reservaId);
+    batch.set(groupMasterRef, {
+      id: firstDoc.reservaId,
+      referencia: firstDoc.reservaId,
+      cliente: firstDoc.cliente,
+      hotel: firstDoc.hotel,
+      salon: firstDoc.salon,
+      estado: firstDoc.estado,
+      pax: firstDoc.detalles.pax_adultos,
+      totalServicios: salonDocs.length,
       origen: "Nexus Groups",
-      actualizadoEn: new Date().toISOString()
-    };
-  }
+      updated_at: new Date().toISOString()
+    }, { merge: true });
 
-  /**
-   * Sincroniza un grupo individual con la colección de MesaChef en Firestore
-   */
-  function syncGroupToMesachef(groupRecord, options) {
-    options = options || {};
-    var payload = prepareMesachefPayload(groupRecord);
-
-    if (!payload) {
-      return Promise.resolve({ skipped: true, reason: "No cumple criterios (2027+ con MP/PC)" });
-    }
-
-    if (!window.db || typeof window.db.collection !== "function") {
-      console.warn("[MesaChef] Firestore no disponible. Guardando en cache local.");
-      try {
-        var localCache = JSON.parse(localStorage.getItem("nexus_mesachef_cache") || "{}");
-        localCache[payload.id] = payload;
-        localStorage.setItem("nexus_mesachef_cache", JSON.stringify(localCache));
-      } catch (e) {}
-      return Promise.resolve({ success: true, localOnly: true, data: payload });
-    }
-
-    return window.db
-      .collection(MESACHEF_COLLECTION)
-      .doc(payload.id)
-      .set(payload, { merge: true })
+    return batch
+      .commit()
       .then(function () {
-        console.log("🍽️ [MesaChef Sync] Grupo " + payload.id + " (" + payload.nombreGrupo + ") sincronizado en Sala de Grupos como \"" + payload.estado + "\"");
-        if (typeof window.dispatchEvent === "function") {
-          window.dispatchEvent(new CustomEvent("mesachef-synced", { detail: payload }));
-        }
-        return { success: true, data: payload };
+        console.log("🍽️ [MesaChef Sync] Reserva " + firstDoc.reservaId + " sincronizada con éxito en " + firstDoc.hotel + " (" + firstDoc.salon + "): " + salonDocs.length + " servicios creados/actualizados en " + COLLECTION_SALONES);
+        return { success: true, count: salonDocs.length, hotel: firstDoc.hotel, salon: firstDoc.salon, docs: salonDocs };
       })
       .catch(function (err) {
-        console.error("❌ [MesaChef Sync] Error al sincronizar reserva " + payload.id + ":", err);
+        console.error("❌ [MesaChef Sync Error]:", err);
         return { success: false, error: err };
       });
   }
 
   /**
-   * Sincroniza en lote todos los grupos elegibles de 2027+ con MP/PC
+   * Sincroniza en lote una lista completa de grupos
    */
   function syncAllEligibleGroups(groupsList) {
     if (!Array.isArray(groupsList) || groupsList.length === 0) {
-      return Promise.resolve({ count: 0, synced: [] });
+      return Promise.resolve({ count: 0 });
     }
 
-    var eligiblePayloads = [];
+    var targetDb = getMesachefDb();
+    if (!targetDb) {
+      return Promise.resolve({ success: false, reason: "No Firestore DB" });
+    }
+
+    var allDocs = [];
     groupsList.forEach(function (g) {
-      var p = prepareMesachefPayload(g);
-      if (p) eligiblePayloads.push(p);
+      var docs = prepareSalonDocuments(g);
+      if (docs && docs.length > 0) {
+        allDocs = allDocs.concat(docs);
+      }
     });
 
-    if (eligiblePayloads.length === 0) {
-      return Promise.resolve({ count: 0, message: "No se encontraron grupos de 2027+ con MP/PC para sincronizar." });
+    if (allDocs.length === 0) {
+      return Promise.resolve({ count: 0, message: "No hay grupos 2027+ con MP/PC para sincronizar." });
     }
 
-    if (!window.db || typeof window.db.collection !== "function") {
-      try {
-        var localCache = JSON.parse(localStorage.getItem("nexus_mesachef_cache") || "{}");
-        eligiblePayloads.forEach(function (p) { localCache[p.id] = p; });
-        localStorage.setItem("nexus_mesachef_cache", JSON.stringify(localCache));
-      } catch (e) {}
-      return Promise.resolve({ count: eligiblePayloads.length, synced: eligiblePayloads, localOnly: true });
-    }
-
-    var batch = window.db.batch();
-    eligiblePayloads.forEach(function (item) {
-      var ref = window.db.collection(MESACHEF_COLLECTION).doc(item.id);
-      batch.set(ref, item, { merge: true });
+    var batch = targetDb.batch();
+    allDocs.forEach(function (docData) {
+      var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
+      batch.set(ref, docData, { merge: true });
     });
 
     return batch
       .commit()
       .then(function () {
-        console.log("✅ [MesaChef Sync] Sincronizados " + eligiblePayloads.length + " grupos 2027+ con MP/PC en MesaChef.");
-        return { count: eligiblePayloads.length, synced: eligiblePayloads };
+        console.log("✅ [MesaChef Sync] Sincronizados " + allDocs.length + " servicios de salones en MesaChef Matrix.");
+        return { count: allDocs.length, totalServices: allDocs.length };
       })
       .catch(function (err) {
-        console.error("❌ [MesaChef Batch Error]:", err);
+        console.error("❌ [MesaChef Sync Batch Error]:", err);
         return { count: 0, error: err };
       });
   }
 
   // ── Exportación Global ──
   var MesaChefService = {
-    MESACHEF_COLLECTION: MESACHEF_COLLECTION,
-    DEFAULT_SALA: DEFAULT_SALA,
+    MESACHEF_FIREBASE_CONFIG: MESACHEF_FIREBASE_CONFIG,
+    SALON_GUADIANA: SALON_GUADIANA,
+    SALON_CUMBRIA: SALON_CUMBRIA,
+    COLLECTION_SALONES: COLLECTION_SALONES,
+    COLLECTION_GRUPOS: COLLECTION_GRUPOS,
+    getMesachefDb: getMesachefDb,
     normalizeReservaId: normalizeReservaId,
     isYear2027OrLater: isYear2027OrLater,
     isMpOrPcRegimen: isMpOrPcRegimen,
     mapMesachefStatus: mapMesachefStatus,
-    generateMealServices: generateMealServices,
-    prepareMesachefPayload: prepareMesachefPayload,
+    resolveHotelAndSalon: resolveHotelAndSalon,
+    prepareSalonDocuments: prepareSalonDocuments,
     syncGroupToMesachef: syncGroupToMesachef,
     syncAllEligibleGroups: syncAllEligibleGroups
   };

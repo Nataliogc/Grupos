@@ -624,11 +624,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
               updates.Estado = "Presupuesto";
             }
             _context3.n = 8;
-            return docRef.update(updates).then(function() {
-              if (global.MesaChefService && typeof global.MesaChefService.syncGroupToMesachef === 'function') {
-                global.MesaChefService.syncGroupToMesachef(Object.assign({}, budget, updates, { reserva: budgetId, id: budgetId }));
-              }
-            });
+            return docRef.update(updates);
           case 8:
             return _context3.a(2, {
               split: false

@@ -10605,8 +10605,18 @@
 
           await batch.commit();
 
-        } catch (err) {
+          if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
+            const sampleRow = currentGroupRows[0] || {};
+            const mergedForSync = {
+              ...sampleRow,
+              ...updates,
+              id: targetNormId,
+              reserva: targetNormId
+            };
+            window.MesaChefService.syncGroupToMesachef(mergedForSync);
+          }
 
+        } catch (err) {
           console.error("❌ Error updating metadata:", err);
           if (window.Swal) {
             window.Swal.fire({
@@ -23549,18 +23559,35 @@
                                       } catch(e) {}
                                     }
 
+                                    const hotelTarget = currentRec.Hotel_Asignado || currentRec.Hotel || selectedGroupFicha?.hotel || "";
                                     if (Array.isArray(currentRL) && currentRL.length > 0) {
-                                      const hotelTarget = currentRec.Hotel_Asignado || currentRec.Hotel || selectedGroupFicha?.hotel || "";
                                       distMap = buildDailyDistributionFromRoomingList(currentRL, distMap, hotelTarget);
-                                      const firstValidRegime = currentRL.find(r => !r.isService && r.regime && r.regime !== "-")?.regime;
-                                      const savePayload = {
-                                        RoomingList_JSON: JSON.stringify(currentRL),
-                                        DailyDistribution_JSON: JSON.stringify(distMap)
+                                    }
+                                    const firstValidRegime = (Array.isArray(currentRL) ? currentRL.find(r => !r.isService && r.regime && r.regime !== "-")?.regime : null) || currentRec["Régimen"] || "MP";
+                                    const savePayload = {
+                                      RoomingList_JSON: JSON.stringify(currentRL || []),
+                                      DailyDistribution_JSON: JSON.stringify(distMap || {})
+                                    };
+                                    if (firstValidRegime) {
+                                      savePayload["Régimen"] = firstValidRegime;
+                                    }
+                                    await updateGroupMetadata(selectedGroupFicha.id, savePayload);
+
+                                    if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
+                                      const fullSyncObj = {
+                                        ...currentRec,
+                                        ...savePayload,
+                                        id: selectedGroupFicha.id,
+                                        reserva: selectedGroupFicha.id,
+                                        "Nombre del Grupo": selectedGroupFicha.name || currentRec["Nombre del Grupo"],
+                                        Entrada: selectedGroupFicha.arrival || currentRec["Entrada"],
+                                        Salida: selectedGroupFicha.departure || currentRec["Salida"],
+                                        Hotel_Asignado: selectedGroupFicha.hotel || currentRec["Hotel_Asignado"] || hotelTarget,
+                                        "Pax.": selectedGroupFicha.totalPax || currentRec["Pax."],
+                                        "Régimen": savePayload["Régimen"] || currentRec["Régimen"] || "MP",
+                                        Com_Estado_Interno: currentRec.Com_Estado_Interno || currentRec.Estado || selectedGroupFicha.status
                                       };
-                                      if (firstValidRegime) {
-                                        savePayload["Régimen"] = firstValidRegime;
-                                      }
-                                      await updateGroupMetadata(selectedGroupFicha.id, savePayload);
+                                      await window.MesaChefService.syncGroupToMesachef(fullSyncObj);
                                     }
                                   } catch (err) {
                                     console.error("Error synchronizing in Grabar Cambios:", err);
