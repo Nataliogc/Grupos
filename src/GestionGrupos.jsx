@@ -7799,6 +7799,10 @@
 
             setColumns(Array.from(allKeys));
 
+            // Sincronización automática a MesaChef (solo grupos >= 2027 con MP/PC)
+            if (window.MesaChefService && typeof window.MesaChefService.syncAllEligibleGroups === "function") {
+              window.MesaChefService.syncAllEligibleGroups(dedupedRoomData);
+            }
           },
 
           (error) => {
