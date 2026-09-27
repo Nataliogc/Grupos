@@ -10928,6 +10928,7 @@
               pax: parseInt(roomManagerForm.pax || 0),
 
               regime: roomManagerForm.regime,
+              mpMeal: roomManagerForm.mpMeal || "cena",
 
               price: formPrice,
 
@@ -10994,6 +10995,7 @@
             pax: parseInt(roomManagerForm.pax || 0),
 
             regime: roomManagerForm.isService ? "" : roomManagerForm.regime,
+            mpMeal: roomManagerForm.mpMeal || "cena",
 
             price: formPrice,
 
@@ -11141,6 +11143,7 @@
           pax: item.pax || getPaxByRoomType(item.type),
 
           regime: item.regime,
+          mpMeal: item.mpMeal || "cena",
 
           price: item.price !== undefined && item.price !== null ? String(item.price).replace('.', ',') : 0,
 
@@ -11316,6 +11319,8 @@
               );
             } else if (field === "pax") {
               r.pax = Math.max(1, parseInt(rawValue, 10) || 1);
+            } else if (field === "mpMeal") {
+              r.mpMeal = rawValue === "almuerzo" ? "almuerzo" : "cena";
             } else if (field === "regime") {
               const oldRegime = (r.regime || "").trim().toUpperCase();
               const newRegime = (rawValue || "").trim().toUpperCase();
@@ -12491,7 +12496,7 @@
 
         const grouped = [];
         currentList.forEach((item) => {
-          const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
+          const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${item.mpMeal || 'cena'}_${!!item.isService}`;
           const existing = grouped.find(g => g.key === key);
           if (existing) {
             existing.items.push(item);
@@ -21258,6 +21263,14 @@
                                       <option value="PC">PC</option>
 
                                     </select>
+                                    {roomManagerForm.regime === "MP" && (
+                                      <select aria-label="Comida incluida en MP" className="w-full mt-1 border rounded text-xs"
+                                        value={roomManagerForm.mpMeal || "cena"}
+                                        onChange={(e) => setRoomManagerForm({ ...roomManagerForm, mpMeal: e.target.value })}>
+                                        <option value="cena">Cena</option>
+                                        <option value="almuerzo">Almuerzo</option>
+                                      </select>
+                                    )}
 
                                   </div>
 
@@ -21796,7 +21809,7 @@
 
                                      const grouped = [];
                                      rawRL.forEach((item, index) => {
-                                       const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${!!item.isService}`;
+                                       const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${item.mpMeal || 'cena'}_${!!item.isService}`;
                                        const existing = grouped.find(g => g.key === key);
                                        if (existing) {
                                          existing.qty = (existing.qty || 0) + (parseInt(item.qty) || 1);
@@ -22189,6 +22202,18 @@
                                             <option value="PC">PC</option>
                                             <option value="-">-</option>
                                           </select>
+                                          {!item.isService && String(item.regime || "").toUpperCase() === "MP" && (
+                                            <select
+                                              className="block mt-1 border border-slate-200 rounded text-[10px] text-slate-700"
+                                              value={item.mpMeal || "cena"}
+                                              onChange={(e) => handleInlineRoomItemUpdate(item, "mpMeal", e.target.value)}
+                                              title="Comida incluida en la media pensión"
+                                              aria-label="Comida incluida en MP"
+                                            >
+                                              <option value="cena">MP · Cena</option>
+                                              <option value="almuerzo">MP · Almuerzo</option>
+                                            </select>
+                                          )}
                                         </td>
 
                                         {/* PRECIO UNITARIO */}

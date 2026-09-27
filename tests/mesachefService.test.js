@@ -56,3 +56,25 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     assert.equal(data.get('reservas_salones/manual').estado,'confirmada');
   } finally { delete global.window; }
 });
+
+test('MP con almuerzo genera solo almuerzo con etiqueta MP', () => {
+  const docs = service.prepareSalonDocuments({...group, RoomingList_JSON: JSON.stringify([
+    {...room('2027-02-01', 1, 3, 'MP'), mpMeal:'almuerzo'},
+    {...room('2027-02-01', 6, 2, 'MP'), mpMeal:'almuerzo'}
+  ]), DailyDistribution_JSON:'{}'});
+  assert.deepEqual(docs.map(d=>[d.fecha,d.detalles.jornada,d.detalles.pax_adultos,d.servicios[0].concepto]),[
+    ['2027-02-01','almuerzo',15,'Almuerzo Grupo MP']
+  ]);
+});
+test('MP permite distintos turnos el mismo día y PC conserva ambas comidas', () => {
+  const docs = service.prepareSalonDocuments({...group, DailyDistribution_JSON:'{}',RoomingList_JSON:JSON.stringify([
+    {...room('2027-02-01',1,3,'MP'),mpMeal:'almuerzo'}, room('2027-02-01',6,2,'MP'), room('2027-02-01',1,2,'PC')
+  ])});
+  assert.deepEqual(docs.map(d=>[d.detalles.jornada,d.detalles.pax_adultos]),[['almuerzo',5],['cena',14]]);
+});
+test('MP de cabecera o distribución admite almuerzo sin desglose de habitaciones', () => {
+  for (const extra of [{mpMeal:'almuerzo'}, {DailyDistribution_JSON:JSON.stringify({'2027-02-01':{regimen:'MP',mpMeal:'almuerzo',pax:15}})}]) {
+    const docs = service.prepareSalonDocuments({...group, Salida:group.Entrada, 'Régimen':'MP','Pax.':15,RoomingList_JSON:'[]',DailyDistribution_JSON:'{}',...extra});
+    assert.deepEqual(docs.map(d=>[d.detalles.jornada,d.detalles.pax_adultos]),[['almuerzo',15]]);
+  }
+});

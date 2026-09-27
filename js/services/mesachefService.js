@@ -516,6 +516,7 @@
       var rlHasRooms = false;
       var roomLunchPax = 0;
       var roomDinnerPax = 0;
+      var roomPcPax = 0;
 
       if (cleanRoomingList.length > 0) {
         cleanRoomingList.forEach(function (rm) {
@@ -552,8 +553,11 @@
             if (/\bPC\b|PENSION COMPLETA/.test(mealReg)) {
               roomLunchPax += q * px;
               roomDinnerPax += q * px;
+              roomPcPax += q * px;
             } else if (/\bMP\b|MEDIA PENSION|CENA/.test(mealReg)) {
-              roomDinnerPax += q * px;
+              var mpMeal = rm.mpMeal || (distForDay && distForDay.mpMeal) || groupRecord.mpMeal || "cena";
+              if (mpMeal === "almuerzo") roomLunchPax += q * px;
+              else roomDinnerPax += q * px;
             }
           }
         });
@@ -621,13 +625,15 @@
 
       // Las líneas de habitaciones mandan incluso cuando su régimen es HA/AD.
       // Contar cada comida por separado para no incluir habitaciones sin pensión.
-      var lunchPax = rlHasRooms ? roomLunchPax : (isDayPc ? dayPax : 0);
-      var dinnerPax = rlHasRooms ? roomDinnerPax : ((isDayPc || isDayMp) ? dayPax : 0);
-      isDayPc = lunchPax > 0;
-      isDayMp = dinnerPax > 0 && !isDayPc;
+      var mpLunch = ((distForDay && distForDay.mpMeal) || groupRecord.mpMeal) === "almuerzo";
+      var lunchPax = rlHasRooms ? roomLunchPax : ((isDayPc || (isDayMp && mpLunch)) ? dayPax : 0);
+      var dinnerPax = rlHasRooms ? roomDinnerPax : ((isDayPc || (isDayMp && !mpLunch)) ? dayPax : 0);
+      var hasPc = rlHasRooms ? roomPcPax > 0 : isDayPc;
+      var lunchLabel = hasPc ? (rlHasRooms && roomLunchPax > roomPcPax ? "PC / MP" : "PC") : "MP";
+      var dinnerLabel = hasPc ? (rlHasRooms && roomDinnerPax > roomPcPax ? "PC / MP" : "PC") : "MP";
 
       // ── ALMUERZO (En PC: una Pensión Completa incluye almuerzo y cena) ──
-      if (isDayPc) {
+      if (lunchPax > 0) {
         var docIdAlmuerzo = "nexus_" + reservaId + "_" + iso + "_almuerzo";
         docs.push({
           id: docIdAlmuerzo,
@@ -652,14 +658,14 @@
             incluido: true
           },
           notas: {
-            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: PC | Pax: " + lunchPax + " | Estancia: " + startIso + " al " + endIso,
+            interna: "[Nexus Groups] Ref: " + reservaId + " | Régimen: " + lunchLabel + " | Pax: " + lunchPax + " | Estancia: " + startIso + " al " + endIso,
             cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
           },
           servicios: [
             {
               fecha: iso,
               hora: "14:00",
-              concepto: "Almuerzo Grupo PC",
+              concepto: "Almuerzo Grupo " + lunchLabel,
               uds: lunchPax,
               precio: 0,
               total: 0
@@ -670,9 +676,9 @@
       }
 
       // ── CENA (Tanto en MP como en PC: una PC incluye almuerzo y cena) ──
-      if (isDayPc || isDayMp) {
+      if (dinnerPax > 0) {
         var docIdCena = "nexus_" + reservaId + "_" + iso + "_cena";
-        var regLabel = isDayPc ? "PC" : "MP";
+        var regLabel = dinnerLabel;
         docs.push({
           id: docIdCena,
           reservaId: reservaId,
@@ -723,7 +729,7 @@
           var c = String(rm.type || rm.concept || rm.label || "").toUpperCase();
           var svcQty = parseInt(rm.qty || rm.uds || rm.pax || dayPax, 10) || dayPax;
 
-          if ((c.includes("ALMUERZO") || c.includes("COMIDA")) && !isDayPc) {
+          if ((c.includes("ALMUERZO") || c.includes("COMIDA")) && lunchPax === 0) {
             var docIdExtraAlm = "nexus_" + reservaId + "_" + iso + "_almuerzo";
             docs.push({
               id: docIdExtraAlm,
@@ -765,7 +771,7 @@
             });
           }
 
-          if (c.includes("CENA") && !isDayPc && !isDayMp) {
+          if (c.includes("CENA") && dinnerPax === 0) {
             var docIdExtraCena = "nexus_" + reservaId + "_" + iso + "_cena";
             docs.push({
               id: docIdExtraCena,
