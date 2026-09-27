@@ -998,11 +998,33 @@
             }
           });
 
-          var firstDoc = salonDocs[0];
+          var unlinkedDocs = [];
+          snapshot.forEach(function (docSnap) {
+            var d = docSnap.data() || {};
+            if (d.desvinculado === true || d.vinculoRoto === true || d.unlinked === true || d.esDesvinculado === true) {
+              unlinkedDocs.push({
+                id: docSnap.id,
+                fecha: d.fecha || "",
+                jornada: (d.detalles && d.detalles.jornada) || "",
+                hora: (d.detalles && d.detalles.hora) || "",
+                pax: (d.detalles && d.detalles.pax_adultos) || 0,
+                concepto: (d.servicios && d.servicios[0] && d.servicios[0].concepto) || d.cliente || "",
+                estado: d.estado || "",
+                motivoDesvinculacion: d.motivoDesvinculacion || d.motivo || ""
+              });
+            }
+          });
 
           // C. Si no hubo ninguna diferencia real, nos ahorramos la escritura en Firestore
           if (writesCount === 0) {
-            return { success: true, count: 0, skipped: true, reason: "Sin cambios detectados (ahorro de costes)" };
+            return {
+              success: true,
+              count: 0,
+              skipped: true,
+              reason: "Sin cambios detectados (ahorro de costes)",
+              hasUnlinked: unlinkedDocs.length > 0,
+              unlinkedDocs: unlinkedDocs
+            };
           }
 
           // Guardar ficha maestra en mesachef_grupos
@@ -1021,13 +1043,65 @@
           }, { merge: true });
 
           return batch.commit().then(function () {
-            console.log("🍽️ [MesaChef Sync] Reserva " + firstDoc.reservaId + " actualizada (" + writesCount + " operaciones escritas en Firestore por cambios reales).");
-            return { success: true, count: writesCount, hotel: firstDoc.hotel, salon: firstDoc.salon, docs: salonDocs };
+            console.log("🍽️ [MesaChef Sync] Reserva " + firstDoc.reservaId + " actualizada (" + writesCount + " operaciones escritas en Firestore por cambios reales)." + (unlinkedDocs.length > 0 ? " ⚠️ [" + unlinkedDocs.length + " servicios desvinculados en mesa protegidos]" : ""));
+            return {
+              success: true,
+              count: writesCount,
+              hotel: firstDoc.hotel,
+              salon: firstDoc.salon,
+              docs: salonDocs,
+              hasUnlinked: unlinkedDocs.length > 0,
+              unlinkedDocs: unlinkedDocs
+            };
           });
         })
         .catch(function (err) {
           console.error("❌ [MesaChef Sync Error]:", err);
           return { success: false, error: err };
+        });
+    });
+  }
+
+  /**
+   * Consulta en MesaChef si existen servicios de este grupo que hayan sido desvinculados manualmente en mesa
+   */
+  function checkUnlinkedServices(reservaId) {
+    var cleanId = normalizeReservaId(reservaId);
+    if (!cleanId) return Promise.resolve({ hasUnlinked: false, count: 0, unlinkedDocs: [] });
+
+    return ensureMesachefAuth().then(function () {
+      var targetDb = getMesachefDb();
+      if (!targetDb) return { hasUnlinked: false, count: 0, unlinkedDocs: [] };
+
+      return targetDb.collection(COLLECTION_SALONES)
+        .where("reservaId", "==", cleanId)
+        .get()
+        .then(function (snapshot) {
+          var unlinked = [];
+          snapshot.forEach(function (docSnap) {
+            var d = docSnap.data() || {};
+            if (d.desvinculado === true || d.vinculoRoto === true || d.unlinked === true || d.esDesvinculado === true) {
+              unlinked.push({
+                id: docSnap.id,
+                fecha: d.fecha || "",
+                jornada: (d.detalles && d.detalles.jornada) || "",
+                hora: (d.detalles && d.detalles.hora) || "",
+                pax: (d.detalles && d.detalles.pax_adultos) || 0,
+                concepto: (d.servicios && d.servicios[0] && d.servicios[0].concepto) || d.cliente || "",
+                estado: d.estado || "",
+                motivoDesvinculacion: d.motivoDesvinculacion || d.motivo || ""
+              });
+            }
+          });
+          return {
+            hasUnlinked: unlinked.length > 0,
+            count: unlinked.length,
+            unlinkedDocs: unlinked
+          };
+        })
+        .catch(function (err) {
+          console.warn("[MesaChef checkUnlinkedServices Warning]:", err);
+          return { hasUnlinked: false, count: 0, unlinkedDocs: [], error: err };
         });
     });
   }
@@ -1095,6 +1169,7 @@
     resolveHotelAndSalon: resolveHotelAndSalon,
     prepareSalonDocuments: prepareSalonDocuments,
     syncGroupToMesachef: syncGroupToMesachef,
+    checkUnlinkedServices: checkUnlinkedServices,
     syncAllEligibleGroups: syncAllEligibleGroups
   };
 

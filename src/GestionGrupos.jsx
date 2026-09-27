@@ -9105,10 +9105,25 @@
       const [tempClientData, setTempClientData] = useState({});
       const [showBudgetLinkModal, setShowBudgetLinkModal] = useState(false);
       const [budgetSearchTerm, setBudgetSearchTerm] = useState("");
-      const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [isSaving, setIsSaving] = useState(false); // Spinner mientras acceptChanges guarda
+      const [mesachefUnlinkedServices, setMesachefUnlinkedServices] = useState([]);
 
-      // Auto-detección y vinculación de presupuesto previo si no está vinculado
+      // Detección de servicios desvinculados manualmente en MesaChef
+      useEffect(() => {
+        if (showFichaModal && selectedGroupFicha && selectedGroupFicha.id && window.MesaChefService && typeof window.MesaChefService.checkUnlinkedServices === "function") {
+          window.MesaChefService.checkUnlinkedServices(selectedGroupFicha.id).then((res) => {
+            if (res && res.hasUnlinked) {
+              setMesachefUnlinkedServices(res.unlinkedDocs || []);
+            } else {
+              setMesachefUnlinkedServices([]);
+            }
+          }).catch(() => {
+            setMesachefUnlinkedServices([]);
+          });
+        } else if (!showFichaModal) {
+          setMesachefUnlinkedServices([]);
+        }
+      }, [showFichaModal, selectedGroupFicha?.id]);
       useEffect(() => {
         if (!selectedGroupFicha || !selectedGroupFicha.records || !data || data.length === 0) return;
         const rec0 = selectedGroupFicha.records[0];
@@ -21461,7 +21476,38 @@
 
                             </div>
 
-                            
+                            {/* BANNER DE SERVICIOS DESVINCULADOS EN MESACHEF */}
+                            {mesachefUnlinkedServices && mesachefUnlinkedServices.length > 0 && (
+                              <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex items-start gap-3 shadow-xs animate-fade-in">
+                                <div className="text-amber-600 mt-0.5 text-lg shrink-0">⚠️</div>
+                                <div className="flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h4 className="font-black text-amber-900 text-xs uppercase tracking-wider">
+                                      MesaChef: {mesachefUnlinkedServices.length} servicio(s) desvinculados manualmente en sala / cocina
+                                    </h4>
+                                    <span className="bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-300">
+                                      Protegidos contra sobreescritura
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                                    El personal de restaurante/salón ha roto el vínculo automático de {mesachefUnlinkedServices.length === 1 ? "este servicio" : "estos servicios"} en MesaChef para gestionarlo de forma independiente. Sus horarios, salones o comensales manuales se respetarán y Nexus Groups no los sobreescribirá:
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {mesachefUnlinkedServices.map((svc) => (
+                                      <div key={svc.id} className="bg-white border border-amber-300 rounded-lg px-3 py-1 text-xs text-slate-700 shadow-2xs flex items-center gap-2">
+                                        <span className="font-bold text-amber-800">📅 {svc.fecha}</span>
+                                        <span className="text-slate-300">•</span>
+                                        <span className="font-black uppercase text-slate-800">{svc.jornada || "Servicio"} {svc.hora ? `(${svc.hora})` : ""}</span>
+                                        <span className="text-slate-300">•</span>
+                                        <span className="bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded font-bold text-[11px]">{svc.pax} pax</span>
+                                        {svc.concepto && <span className="text-slate-500 text-[10px]">({svc.concepto})</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
                             {(() => {
                               const extraCharges = selectedGroupFicha?.extraCharges || [];
                               if (!extraCharges.length) return null;
@@ -23725,15 +23771,26 @@
                                         DailyDistribution_JSON: JSON.stringify(distMap || {}),
                                         Com_Estado_Interno: currentRec.Com_Estado_Interno || currentRec.Estado || selectedGroupFicha.status
                                       };
-                                      await window.MesaChefService.syncGroupToMesachef(fullSyncObj);
+                                      const syncRes = await window.MesaChefService.syncGroupToMesachef(fullSyncObj);
+                                      if (syncRes && syncRes.hasUnlinked) {
+                                        alert(
+                                          `✅ Cambios registrados y sincronizados con éxito.\n\n⚠️ AVISO MESACHEF: Se han detectado ${syncRes.unlinkedDocs.length} servicio(s) desvinculados manualmente en mesa. Sus datos en sala/cocina se han respetado y protegido.`
+                                        );
+                                      } else {
+                                        alert(
+                                          "✅ Cambios registrados y sincronizados con éxito.",
+                                        );
+                                      }
+                                    } else {
+                                      alert(
+                                        "✅ Cambios registrados y sincronizados con éxito.",
+                                      );
                                     }
                                   } catch (err) {
                                     console.error("Error synchronizing in Grabar Cambios:", err);
+                                    alert("✅ Cambios registrados.");
                                   }
                                 }
-                                alert(
-                                  "✅ Cambios registrados y sincronizados con éxito.",
-                                );
                                 setShowFichaModal(false);
                               }}
 
