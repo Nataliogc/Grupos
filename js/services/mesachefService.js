@@ -353,6 +353,11 @@
   function prepareSalonDocuments(groupRecord) {
     if (!groupRecord) return [];
 
+    // Presupuestos confirmados/convertidos a reserva PMS quedan solo como consulta interna y no se sincronizan
+    if (groupRecord.convertedToReservation || groupRecord.targetReservationId || groupRecord.isHistoricalBudget) {
+      return [];
+    }
+
     var reservaId = normalizeReservaId(
       groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva || groupRecord.uid
     );
@@ -566,6 +571,29 @@
       }
 
       // ── CASO 2: RESERVA ACTIVA (CONFIRMADA / PRESUPUESTO / TENTATIVA) ──
+      // Si la reserva oficial tiene un presupuesto de origen asociado, limpiar/eliminar cualquier documento previo con ese código de presupuesto
+      var origBudget = groupRecord.Presupuesto_Origen || groupRecord.sourceQuoteId || groupRecord.Com_Num_Presupuesto;
+      if (origBudget && String(origBudget).trim() !== String(reservaId).trim()) {
+        var cleanPto = normalizeReservaId(origBudget);
+        targetDb.collection(COLLECTION_SALONES)
+          .where("reservaId", "==", cleanPto)
+          .get()
+          .then(function (ptoSnap) {
+            if (!ptoSnap.empty) {
+              var pBatch = targetDb.batch();
+              ptoSnap.forEach(function (docSnap) {
+                pBatch.delete(docSnap.ref);
+              });
+              pBatch.commit().then(function () {
+                console.log("🧹 [MesaChef Clean] Eliminados " + ptoSnap.size + " eventos duplicados del presupuesto " + cleanPto + " en favor de la reserva " + reservaId);
+              }).catch(function (e) {
+                console.warn("[MesaChef Clean Error]:", e);
+              });
+            }
+          }).catch(function () {});
+        targetDb.collection(COLLECTION_GRUPOS).doc(cleanPto).delete().catch(function () {});
+      }
+
       var salonDocs = prepareSalonDocuments(groupRecord);
       if (!salonDocs || salonDocs.length === 0) {
         return Promise.resolve({ skipped: true, reason: "No cumple criterios (solo 2027+ con MP/PC)" });
@@ -633,11 +661,20 @@
 
     var eligibleGroups = groupsList.filter(function (g) {
       if (!g) return false;
+      if (g.convertedToReservation || g.targetReservationId || g.isHistoricalBudget) return false;
+      var rId = String(g.Reserva || g.reserva || g.id || "").trim();
+      if (rId.toUpperCase().startsWith("PRES-")) {
+        var hasRealRes = groupsList.some(function (other) {
+          var oId = String(other.Reserva || other.reserva || other.id || "").trim();
+          if (oId === rId || oId.toUpperCase().startsWith("PRES-")) return false;
+          return String(other.Presupuesto_Origen || other.sourceQuoteId || "").trim() === rId;
+        });
+        if (hasRealRes) return false;
+      }
       var entryDate = g.Entrada || g.entrada || g.fechaEntrada || g.fecha;
       if (!isYear2027OrLater(entryDate)) return false;
       var isCanc = isGroupCancelled(g);
       var regimen = String(g["Régimen"] || g.regimen || g.Regimen || "").toUpperCase();
-      // Incluir si tiene MP/PC o si está cancelado
       return isMpOrPcRegimen(regimen) || isCanc;
     });
 

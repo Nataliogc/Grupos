@@ -487,7 +487,6 @@
       if (typeof window !== "undefined") {
         userAccepted = window.confirm(msg);
       } else {
-        // Non-browser script execution
         userAccepted = true; 
       }
 
@@ -503,6 +502,131 @@
       });
 
       return { split: true, childIds: activeSegments.map(s => s.id) };
+    } else if (isTransitioningToConfirmed) {
+      // REGLA FUNDAMENTAL: Al confirmar un presupuesto individual, DEBE asignarse un número de reserva manual del PMS.
+      // A partir de ese momento, la referencia única y válida del grupo es el Nº de Reserva.
+      // El presupuesto original queda bloqueado en modo de mera consulta histórica y no se modifica más.
+      const isBudgetDoc = String(budgetId).toUpperCase().startsWith("PRES-") ||
+                          String(budget.Reserva || "").toUpperCase().startsWith("PRES-") ||
+                          budget.isBudget === true ||
+                          (budget.Com_Estado_Interno || "").toUpperCase() === "PRESUPUESTO" ||
+                          (budget.Estado || "").toUpperCase() === "PRESUPUESTO";
+
+      let pmsReserva = (typeof manualReservationId !== "undefined" && manualReservationId) ? String(manualReservationId).trim() : "";
+      if (isBudgetDoc && !budget.convertedToReservation && !pmsReserva) {
+        if (typeof window !== "undefined") {
+          const promptMsg = "Introduce el NÚMERO DE RESERVA DEL PMS para confirmar este grupo / presupuesto:\n\n(A partir de este momento, la referencia única y válida oficial del grupo será este número de reserva)";
+          const inputVal = window.prompt(promptMsg);
+          if (inputVal === null || !inputVal.trim()) {
+            throw new Error("Confirmación cancelada: Se requiere un número de reserva del PMS.");
+          }
+          pmsReserva = inputVal.trim();
+        }
+      }
+
+      const now = new Date();
+      const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      let track = [];
+      try {
+        if (typeof budget.tracking === 'string') track = JSON.parse(budget.tracking || "[]");
+        else if (Array.isArray(budget.tracking)) track = budget.tracking;
+      } catch (e) {}
+
+      let serverTimestampVal = new Date();
+      if (global.firebase && global.firebase.firestore && global.firebase.firestore.FieldValue) {
+        serverTimestampVal = global.firebase.firestore.FieldValue.serverTimestamp();
+      } else if (db.app && db.app.firebase_ && db.app.firebase_.firestore && db.app.firebase_.firestore.FieldValue) {
+        serverTimestampVal = db.app.firebase_.firestore.FieldValue.serverTimestamp();
+      }
+
+      if (pmsReserva && pmsReserva !== budgetId) {
+        if (pmsReserva.toUpperCase().startsWith("PRES-") || pmsReserva.toUpperCase().startsWith("COT-")) {
+          throw new Error("El número de reserva del PMS debe ser un localizador real (no puede ser un código de presupuesto PRES-).");
+        }
+        if (/[/\\.]/.test(pmsReserva)) {
+          throw new Error("El número de reserva del PMS no puede contener barras ni puntos.");
+        }
+
+        const checkDoc = await db.collection("groups").doc(pmsReserva).get();
+        if (checkDoc.exists && checkDoc.id !== budgetId) {
+          throw new Error(`El número de reserva ${pmsReserva} ya existe en el sistema.`);
+        }
+
+        // 1. Crear documento de la reserva oficial en groups
+        const reservationData = {
+          ...budget,
+          id: pmsReserva,
+          uid: pmsReserva,
+          Reserva: pmsReserva,
+          Presupuesto_Origen: budgetId,
+          sourceQuoteId: budgetId,
+          Com_Estado_Interno: "CONFIRMADO",
+          Estado: "Confirmado",
+          isBudget: false,
+          updatedAt: serverTimestampVal,
+          tracking: JSON.stringify([
+            {
+              id: Date.now(),
+              date: formattedDate,
+              text: `Presupuesto ${budgetId} confirmado y asignado a reserva definitiva PMS: ${pmsReserva}`
+            },
+            ...track
+          ])
+        };
+        delete reservationData.convertedToReservation;
+        delete reservationData.targetReservationId;
+        delete reservationData.isHistoricalBudget;
+        delete reservationData.isReadOnly;
+
+        await db.collection("groups").doc(pmsReserva).set(reservationData);
+
+        // 2. Marcar presupuesto original como bloqueado de mera consulta histórica
+        const budgetUpdates = {
+          Com_Estado_Interno: "CONFIRMADO",
+          Estado: "Confirmado",
+          convertedToReservation: pmsReserva,
+          targetReservationId: pmsReserva,
+          isHistoricalBudget: true,
+          isReadOnly: true,
+          updatedAt: serverTimestampVal,
+          tracking: JSON.stringify([
+            {
+              id: Date.now(),
+              date: formattedDate,
+              text: `Presupuesto confirmado y asignado a reserva definitiva PMS: ${pmsReserva}. Queda bloqueado en modo de mera consulta.`
+            },
+            ...track
+          ])
+        };
+        await docRef.update(budgetUpdates);
+
+        // 3. Sincronización a MesaChef si procede
+        if (typeof window !== "undefined" && window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
+          try {
+            window.MesaChefService.syncGroupToMesachef(reservationData);
+          } catch (syncErr) {
+            console.warn("MesaChef sync after confirmation warning:", syncErr);
+          }
+        }
+
+        return { split: false, converted: true, newReservationId: pmsReserva };
+      } else {
+        track.unshift({
+          id: Date.now(),
+          date: formattedDate,
+          text: `Estado -> ${requestedStatus}`
+        });
+
+        const updates = {
+          Com_Estado_Interno: requestedStatus,
+          Estado: "Confirmado",
+          updatedAt: serverTimestampVal,
+          tracking: JSON.stringify(track)
+        };
+        await docRef.update(updates);
+        return { split: false };
+      }
     } else {
       // Normal update/save process: update status and timestamp in parent document
       const now = new Date();

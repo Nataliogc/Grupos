@@ -3765,6 +3765,23 @@
             return false;
           }
 
+          if (row.convertedToReservation || row.targetReservationId || row.isHistoricalBudget) {
+            return false;
+          }
+          const checkRes = String(row["Reserva"] || row.id || row.uid || "").trim();
+          if (checkRes.toUpperCase().startsWith("PRES-") || checkRes.toUpperCase().startsWith("COT-")) {
+            const hasAssociated = (normalizedData || []).some(other => {
+              const otherRes = String(other["Reserva"] || other.id || "").trim();
+              if (otherRes === checkRes || otherRes.toUpperCase().startsWith("PRES-")) return false;
+              return (
+                String(other["Presupuesto_Origen"] || "").trim() === checkRes ||
+                String(other["sourceQuoteId"] || "").trim() === checkRes ||
+                String(other["Com_Num_Presupuesto"] || "").trim() === checkRes
+              );
+            });
+            if (hasAssociated) return false;
+          }
+
           const hasReserva = (row["Reserva"] &&
             row["Reserva"].toString().trim() !== "" &&
             row["Reserva"].toString().trim() !== "-") ||
@@ -3819,6 +3836,28 @@
         });
 
         // REGLA: Si un presupuesto está caducado, desestimado o cancelado, no debe aparecer en el directorio de grupos
+                // REGLA: Si un presupuesto ha sido confirmado con número de reserva del PMS,
+        // la referencia única y válida es la reserva. El presupuesto queda de mera consulta y no debe duplicarse en el listado general.
+        filtered = filtered.filter(row => {
+          const res = String(row["Reserva"] || row.id || row.uid || "").trim();
+          if (row.convertedToReservation || row.targetReservationId || row.isHistoricalBudget) {
+            return false;
+          }
+          if (res.toUpperCase().startsWith("PRES-") || res.toUpperCase().startsWith("COT-")) {
+            const hasAssociatedReservation = normalizedData.some(other => {
+              const otherRes = String(other["Reserva"] || other.id || "").trim();
+              if (otherRes === res || otherRes.toUpperCase().startsWith("PRES-")) return false;
+              return (
+                String(other["Presupuesto_Origen"] || "").trim() === res ||
+                String(other["sourceQuoteId"] || "").trim() === res ||
+                String(other["Com_Num_Presupuesto"] || "").trim() === res
+              );
+            });
+            if (hasAssociatedReservation) return false;
+          }
+          return true;
+        });
+
         filtered = filtered.filter(row => {
           const res = String(row["Reserva"] || "").toUpperCase();
           const uid = String(row.uid || row.id || "").toUpperCase();
@@ -7800,7 +7839,20 @@
 
             // Sincronización automática a MesaChef (solo grupos >= 2027 con MP/PC)
             if (window.MesaChefService && typeof window.MesaChefService.syncAllEligibleGroups === "function") {
-              window.MesaChefService.syncAllEligibleGroups(dedupedRoomData);
+              const groupsForMesachef = dedupedRoomData.filter(row => {
+                if (row.convertedToReservation || row.targetReservationId || row.isHistoricalBudget) return false;
+                const r = String(row.Reserva || row.id || "").trim();
+                if (r.toUpperCase().startsWith("PRES-")) {
+                  const hasRealRes = dedupedRoomData.some(other => {
+                    const otherRes = String(other.Reserva || other.id || "").trim();
+                    if (otherRes === r || otherRes.toUpperCase().startsWith("PRES-")) return false;
+                    return String(other.Presupuesto_Origen || other.sourceQuoteId || "").trim() === r;
+                  });
+                  if (hasRealRes) return false;
+                }
+                return true;
+              });
+              window.MesaChefService.syncAllEligibleGroups(groupsForMesachef);
             }
           },
 

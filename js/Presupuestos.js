@@ -2115,11 +2115,27 @@ function App() {
   };
   var _handleSave = /*#__PURE__*/function () {
     var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
-      var now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, isOldDocConfirmed, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
+      var _groups$find;
+      var uidToCheck, oldRec, isHistoricalReadOnly, resNum, now, formattedDate, normalizedFormData, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, isOldDocConfirmed, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
             e.preventDefault();
+            uidToCheck = formData.uid || ((_groups$find = groups.find(function (g) {
+              return g.Reserva === formData.Reserva;
+            })) === null || _groups$find === void 0 ? void 0 : _groups$find.uid);
+            oldRec = uidToCheck ? groups.find(function (g) {
+              return g.uid === uidToCheck || g.Reserva === uidToCheck;
+            }) : null;
+            isHistoricalReadOnly = Boolean(formData.convertedToReservation || formData.targetReservationId || formData.isHistoricalBudget || formData.isReadOnly || oldRec && (oldRec.convertedToReservation || oldRec.targetReservationId || oldRec.isHistoricalBudget || oldRec.isReadOnly || oldRec.Com_Estado_Interno === "CONFIRMADO"));
+            if (!(isHistoricalReadOnly && formData.uid)) {
+              _context2.n = 1;
+              break;
+            }
+            resNum = formData.convertedToReservation || oldRec && oldRec.convertedToReservation || formData.Reserva;
+            alert("⚠️ Este presupuesto ya está confirmado y asignado a la Reserva PMS Nº " + resNum + ".\n\nLa referencia única y válida es el número de reserva del PMS. Este presupuesto queda bloqueado exclusivamente en modo de consulta y no se puede modificar.");
+            return _context2.a(2);
+          case 1:
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             normalizedFormData = normalizeGroupData(formData);
@@ -2129,128 +2145,128 @@ function App() {
             // Validation: Mandatory Hotel
             hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
             if (!(!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "")) {
-              _context2.n = 1;
+              _context2.n = 2;
               break;
             }
             alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
             return _context2.a(2);
-          case 1:
+          case 2:
             // Validation: Dates
             entrada = String(normalizedFormData.Entrada || "").trim();
             salida = String(normalizedFormData.Salida || "").trim();
             if (!(!entrada || !salida)) {
-              _context2.n = 2;
+              _context2.n = 3;
               break;
             }
             alert("⚠️ Error: Debe especificar las fechas de entrada y salida.");
             return _context2.a(2);
-          case 2:
+          case 3:
             if (!(new Date(entrada) >= new Date(salida))) {
-              _context2.n = 3;
+              _context2.n = 4;
               break;
             }
             alert("⚠️ Error: La fecha de salida debe ser estrictamente posterior a la de entrada (mínimo 1 noche).");
             return _context2.a(2);
-          case 3:
+          case 4:
             if (!normalizedFormData.isMultiSegment) {
-              _context2.n = 16;
+              _context2.n = 17;
               break;
             }
             if (!(!Array.isArray(normalizedFormData.segments) || normalizedFormData.segments.length === 0)) {
-              _context2.n = 4;
+              _context2.n = 5;
               break;
             }
             alert("⚠️ Error: En modo multi-estancia debe haber al menos un segmento.");
             return _context2.a(2);
-          case 4:
-            i = 0;
           case 5:
+            i = 0;
+          case 6:
             if (!(i < normalizedFormData.segments.length)) {
-              _context2.n = 15;
+              _context2.n = 16;
               break;
             }
             seg = normalizedFormData.segments[i];
             if (!(!seg.in || !seg.out)) {
-              _context2.n = 6;
+              _context2.n = 7;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe especificar las fechas de entrada y salida."));
             return _context2.a(2);
-          case 6:
+          case 7:
             if (!(seg.in >= seg.out)) {
-              _context2.n = 7;
+              _context2.n = 8;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La fecha de salida (").concat(seg.out, ") debe ser posterior a la de entrada (").concat(seg.in, ")."));
             return _context2.a(2);
-          case 7:
+          case 8:
             if (!(Number(seg.pax || 0) <= 0)) {
-              _context2.n = 8;
+              _context2.n = 9;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero de PAX debe ser mayor que 0."));
             return _context2.a(2);
-          case 8:
+          case 9:
             allocations = seg.roomAllocations || [];
             if (!(allocations.length === 0)) {
-              _context2.n = 9;
+              _context2.n = 10;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe tener al menos una asignaci\xF3n de habitaci\xF3n."));
             return _context2.a(2);
-          case 9:
+          case 10:
             totalRooms = allocations.reduce(function (sum, a) {
               return sum + Number(a.rooms || 0);
             }, 0);
             if (!(totalRooms <= 0)) {
-              _context2.n = 10;
+              _context2.n = 11;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero total de habitaciones debe ser mayor que 0."));
             return _context2.a(2);
-          case 10:
-            j = 0;
           case 11:
+            j = 0;
+          case 12:
             if (!(j < allocations.length)) {
-              _context2.n = 14;
+              _context2.n = 15;
               break;
             }
             a = allocations[j];
             if (a.roomType) {
-              _context2.n = 12;
+              _context2.n = 13;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Tipo de habitaci\xF3n no especificado."));
             return _context2.a(2);
-          case 12:
+          case 13:
             if (!(Number(a.rooms || 0) <= 0)) {
-              _context2.n = 13;
+              _context2.n = 14;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La asignaci\xF3n para ").concat(a.roomType, " debe ser mayor que 0."));
             return _context2.a(2);
-          case 13:
-            j++;
-            _context2.n = 11;
-            break;
           case 14:
-            i++;
-            _context2.n = 5;
+            j++;
+            _context2.n = 12;
             break;
           case 15:
+            i++;
+            _context2.n = 6;
+            break;
+          case 16:
             // Warnings / Confirmations (non-blocking)
             metrics = buildMultiSegmentMetrics(normalizedFormData.segments, normalizedFormData.declaredPax);
             if (!(metrics.declaredPax > 0 && metrics.segmentPaxTotal > metrics.declaredPax)) {
-              _context2.n = 16;
+              _context2.n = 17;
               break;
             }
             confirmSave = window.confirm("\u26A0\uFE0F Advertencia: El n\xFAmero total de PAX en los segmentos (".concat(metrics.segmentPaxTotal, ") supera los PAX declarados por el cliente (").concat(metrics.declaredPax, "). \xBFDesea continuar?"));
             if (confirmSave) {
-              _context2.n = 16;
+              _context2.n = 17;
               break;
             }
             return _context2.a(2);
-          case 16:
+          case 17:
             reservaId = normalizedFormData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
             isNew = !normalizedFormData.uid;
             releaseDate = normalizedFormData.Com_Vencimiento_Rel || "";
@@ -2298,16 +2314,16 @@ function App() {
                 return newExt;
               });
             }
-            _context2.p = 17;
+            _context2.p = 18;
             if (!_handleSave.running) {
-              _context2.n = 18;
+              _context2.n = 19;
               break;
             }
             return _context2.a(2);
-          case 18:
+          case 19:
             _handleSave.running = true;
             if (!isNew) {
-              _context2.n = 22;
+              _context2.n = 23;
               break;
             }
             groupData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -2317,14 +2333,14 @@ function App() {
               date: formattedDate,
               text: "Presupuesto registrado (Alta Manual)."
             }];
-            _context2.n = 19;
+            _context2.n = 20;
             return db.collection("groups").doc(reservaId).set(groupData);
-          case 19:
+          case 20:
             if (!(groupData.Com_Estado_Interno === "CONFIRMADO")) {
-              _context2.n = 21;
+              _context2.n = 22;
               break;
             }
-            _context2.n = 20;
+            _context2.n = 21;
             return window.confirmBudget({
               budgetId: reservaId,
               requestedStatus: "CONFIRMADO",
@@ -2332,28 +2348,28 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 20:
+          case 21:
             res = _context2.v;
             if (res && res.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(res.childIds.join(', ')));
             }
-          case 21:
-            _context2.n = 28;
-            break;
           case 22:
+            _context2.n = 29;
+            break;
+          case 23:
             uidToUpdate = groupData.uid;
             oldDoc = groups.find(function (g) {
               return g.uid === uidToUpdate;
             }); // Si el presupuesto ya estaba confirmado, queda como referencia inmutable y no se debe sobreescribir
             isOldDocConfirmed = oldDoc && (String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "CONFIRMADO" || String(oldDoc.Estado || "").toUpperCase() === "CONFIRMADO" || oldDoc.splitCompleted === true || String(oldDoc.Com_Estado_Interno || "").toUpperCase() === "DESGLOSADO");
             if (!isOldDocConfirmed) {
-              _context2.n = 23;
+              _context2.n = 24;
               break;
             }
             alert("⚠️ Este presupuesto ya está confirmado y se conserva como referencia histórica inmutable.\n\nEl presupuesto original último guardado no se debe modificar. Para aplicar cambios o emitir una nueva propuesta, por favor utiliza la opción 'Duplicar'.");
             _handleSave.running = false;
             return _context2.a(2);
-          case 23:
+          case 24:
             // History Tracking: Detect changes
             changes = [];
             fieldsToTrack = {
@@ -2402,26 +2418,26 @@ function App() {
             // Usar update en lugar de set({merge: true}) para que mapas
             // enteros (roomCounts, dailyConfig) se REEMPLACEN, no se deep-mergen.
             if (!(Object.keys(validUpdateData).length > 0)) {
-              _context2.n = 24;
-              break;
-            }
-            _context2.n = 24;
-            return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
-          case 24:
-            if (!(Object.keys(fallbackData).length > 0)) {
               _context2.n = 25;
               break;
             }
             _context2.n = 25;
-            return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
-              merge: true
-            });
+            return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
           case 25:
-            if (!statusChangedToConfirmed) {
-              _context2.n = 27;
+            if (!(Object.keys(fallbackData).length > 0)) {
+              _context2.n = 26;
               break;
             }
             _context2.n = 26;
+            return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
+              merge: true
+            });
+          case 26:
+            if (!statusChangedToConfirmed) {
+              _context2.n = 28;
+              break;
+            }
+            _context2.n = 27;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: "CONFIRMADO",
@@ -2429,21 +2445,21 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 26:
+          case 27:
             _res = _context2.v;
             if (_res && _res.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(_res.childIds.join(', ')));
             } else {
               alert("\u2705 Presupuesto confirmado con \xE9xito.");
             }
-            _context2.n = 28;
+            _context2.n = 29;
             break;
-          case 27:
+          case 28:
             if (!(targetStatus && targetStatus !== oldDoc.Com_Estado_Interno)) {
-              _context2.n = 28;
+              _context2.n = 29;
               break;
             }
-            _context2.n = 28;
+            _context2.n = 29;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: targetStatus,
@@ -2451,18 +2467,18 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 28:
-            setCurrentView('dashboard');
-            _context2.n = 30;
-            break;
           case 29:
-            _context2.p = 29;
+            setCurrentView('dashboard');
+            _context2.n = 31;
+            break;
+          case 30:
+            _context2.p = 30;
             _t2 = _context2.v;
             console.error("Error saving budget:", _t2);
-          case 30:
+          case 31:
             return _context2.a(2);
         }
-      }, _callee2, null, [[17, 29]]);
+      }, _callee2, null, [[18, 30]]);
     }));
     return function handleSave(_x) {
       return _ref37.apply(this, arguments);
@@ -3425,7 +3441,19 @@ function App() {
       value: "Sercotel Guadiana"
     }, "Sercotel Guadiana"), /*#__PURE__*/React.createElement("option", {
       value: "Cumbria Spa&Hotel"
-    }, "Cumbria Spa&Hotel"))))), /*#__PURE__*/React.createElement("div", {
+    }, "Cumbria Spa&Hotel"))))), Boolean(formData.convertedToReservation || formData.targetReservationId || formData.isHistoricalBudget || formData.isReadOnly || formData.Com_Estado_Interno === 'CONFIRMADO' && formData.uid) && /*#__PURE__*/React.createElement("div", {
+      className: "bg-amber-50 border-2 border-amber-300 rounded-3xl p-5 shadow-sm mb-6 flex items-center justify-between"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-4"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0"
+    }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+      className: "text-xs font-black text-amber-900 uppercase tracking-widest"
+    }, "Presupuesto Confirmado \u2014 Modo Solo Consulta"), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-amber-800 font-medium mt-0.5"
+    }, "Este presupuesto est\xE1 confirmado y vinculado a la ", /*#__PURE__*/React.createElement("strong", null, "Reserva PMS N\xBA ", formData.convertedToReservation || formData.targetReservationId || formData.Reserva), ". La referencia oficial del grupo es este n\xFAmero de reserva del PMS. Este presupuesto queda protegido y bloqueado contra modificaci\xF3n."))), /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px] font-black uppercase tracking-widest bg-amber-200 text-amber-900 px-3 py-1.5 rounded-full shrink-0"
+    }, "Mera Consulta")), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 gap-8"
     }, /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6"
