@@ -357,6 +357,27 @@ var generateSeriesDates = NexusUtils.generateSeriesDates;
 var formatDate = NexusUtils.formatDate;
 var formatNum = NexusUtils.formatNum;
 var toInputDate = NexusUtils.toInputDate;
+var calcStayDays = function calcStayDays(inVal, outVal) {
+  var inStr = toInputDate(inVal);
+  var outStr = toInputDate(outVal);
+  if (!inStr || !outStr) return 1;
+  var dIn = new Date(inStr + "T00:00:00");
+  var dOut = new Date(outStr + "T00:00:00");
+  if (isNaN(dIn.getTime()) || isNaN(dOut.getTime())) return 1;
+  var diff = Math.round((dOut.getTime() - dIn.getTime()) / (1000 * 60 * 60 * 24));
+  return diff >= 1 ? diff : 1;
+};
+var addStayDays = function addStayDays(inVal, days) {
+  var inStr = toInputDate(inVal) || new Date().toISOString().split("T")[0];
+  var d = new Date(inStr + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+  var validDays = Math.max(1, parseInt(days, 10) || 1);
+  d.setDate(d.getDate() + validDays);
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, "0");
+  var day = String(d.getDate()).padStart(2, "0");
+  return "".concat(y, "-").concat(m, "-").concat(day);
+};
 var getBudgetStatusStyle = function getBudgetStatusStyle(status) {
   var s = (status || "").toUpperCase();
   if (s.includes("CONFIRM")) {
@@ -3491,7 +3512,7 @@ function App() {
       placeholder: "N\xFAmero de tel\xE9fono...",
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
     }))), !formData.isMultiSegment ? /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-3 gap-6 pt-2"
+      className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
@@ -3500,8 +3521,12 @@ function App() {
       type: "date",
       value: toInputDate(formData.Entrada),
       onChange: function onChange(e) {
-        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-          Entrada: e.target.value
+        var newIn = e.target.value;
+        var currentDays = calcStayDays(formData.Entrada, formData.Salida);
+        var newOut = newIn ? addStayDays(newIn, currentDays) : formData.Salida;
+        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          Entrada: newIn,
+          Salida: newOut
         }));
       },
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
@@ -3509,12 +3534,43 @@ function App() {
       className: "space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
+    }, "D\xEDas / Noches"), /*#__PURE__*/React.createElement("div", {
+      className: "relative"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: "1",
+      value: formData.Entrada && formData.Salida ? calcStayDays(formData.Entrada, formData.Salida) : formData.Entrada ? 1 : '',
+      onChange: function onChange(e) {
+        var val = e.target.value;
+        var days = Math.max(1, parseInt(val, 10) || 1);
+        var inDate = formData.Entrada || toInputDate(new Date());
+        var newOut = addStayDays(inDate, days);
+        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          Entrada: inDate,
+          Salida: newOut
+        }));
+      },
+      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 text-center",
+      placeholder: "M\xEDn. 1",
+      title: "N\xFAmero de d\xEDas de estancia (m\xEDnimo 1 d\xEDa desde la entrada)"
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none"
+    }, "d\xEDas"))), /*#__PURE__*/React.createElement("div", {
+      className: "space-y-1"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
     }, "Fecha Salida"), /*#__PURE__*/React.createElement("input", {
       type: "date",
       value: toInputDate(formData.Salida),
+      min: formData.Entrada ? addStayDays(formData.Entrada, 1) : undefined,
       onChange: function onChange(e) {
-        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-          Salida: e.target.value
+        var newOut = e.target.value;
+        var validOut = newOut;
+        if (formData.Entrada && newOut && toInputDate(newOut) <= toInputDate(formData.Entrada)) {
+          validOut = addStayDays(formData.Entrada, 1);
+        }
+        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          Salida: validOut
         }));
       },
       className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
@@ -3594,9 +3650,11 @@ function App() {
     }, "Grupo"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Distribuci\xF3n de habitaciones"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36"
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
-      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36"
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24 text-center"
+    }, "D\xEDas (m\xEDn. 1)"), /*#__PURE__*/React.createElement("th", {
+      className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32"
     }, "Salida"), /*#__PURE__*/React.createElement("th", {
       className: "p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Notas / Ocupantes"), /*#__PURE__*/React.createElement("th", {
@@ -3739,9 +3797,12 @@ function App() {
         value: toInputDate(seg.in),
         onChange: function onChange(e) {
           var val = e.target.value;
+          var currentDays = calcStayDays(seg.in, seg.out);
+          var newOut = val ? addStayDays(val, currentDays) : seg.out;
           var updated = _toConsumableArray(formData.segments || []);
           updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
-            in: val
+            in: val,
+            out: newOut
           });
           setFormData(_objectSpread(_objectSpread({}, formData), {}, {
             segments: updated
@@ -3751,13 +3812,40 @@ function App() {
       })), /*#__PURE__*/React.createElement("td", {
         className: "p-2"
       }, /*#__PURE__*/React.createElement("input", {
-        type: "date",
-        value: toInputDate(seg.out),
+        type: "number",
+        min: "1",
+        value: seg.in && seg.out ? calcStayDays(seg.in, seg.out) : seg.in ? 1 : '',
         onChange: function onChange(e) {
-          var val = e.target.value;
+          var days = Math.max(1, parseInt(e.target.value, 10) || 1);
+          var inDate = seg.in || toInputDate(new Date());
+          var newOut = addStayDays(inDate, days);
           var updated = _toConsumableArray(formData.segments || []);
           updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
-            out: val
+            in: inDate,
+            out: newOut
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            segments: updated
+          }));
+        },
+        className: "w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-center",
+        placeholder: "M\xEDn. 1",
+        title: "N\xFAmero de d\xEDas de estancia (m\xEDnimo 1 d\xEDa desde la entrada)"
+      })), /*#__PURE__*/React.createElement("td", {
+        className: "p-2"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "date",
+        value: toInputDate(seg.out),
+        min: seg.in ? addStayDays(seg.in, 1) : undefined,
+        onChange: function onChange(e) {
+          var val = e.target.value;
+          var validOut = val;
+          if (seg.in && val && toInputDate(val) <= toInputDate(seg.in)) {
+            validOut = addStayDays(seg.in, 1);
+          }
+          var updated = _toConsumableArray(formData.segments || []);
+          updated[idx] = _objectSpread(_objectSpread({}, updated[idx]), {}, {
+            out: validOut
           });
           setFormData(_objectSpread(_objectSpread({}, formData), {}, {
             segments: updated

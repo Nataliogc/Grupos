@@ -221,6 +221,29 @@
     const formatNum = NexusUtils.formatNum;
     const toInputDate = NexusUtils.toInputDate;
 
+    const calcStayDays = (inVal, outVal) => {
+      const inStr = toInputDate(inVal);
+      const outStr = toInputDate(outVal);
+      if (!inStr || !outStr) return 1;
+      const dIn = new Date(inStr + "T00:00:00");
+      const dOut = new Date(outStr + "T00:00:00");
+      if (isNaN(dIn.getTime()) || isNaN(dOut.getTime())) return 1;
+      const diff = Math.round((dOut.getTime() - dIn.getTime()) / (1000 * 60 * 60 * 24));
+      return diff >= 1 ? diff : 1;
+    };
+
+    const addStayDays = (inVal, days) => {
+      const inStr = toInputDate(inVal) || new Date().toISOString().split("T")[0];
+      const d = new Date(inStr + "T00:00:00");
+      if (isNaN(d.getTime())) return "";
+      const validDays = Math.max(1, parseInt(days, 10) || 1);
+      d.setDate(d.getDate() + validDays);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
     const getBudgetStatusStyle = (status) => {
       const s = (status || "").toUpperCase();
       if (s.includes("CONFIRM")) {
@@ -2901,22 +2924,56 @@ ${emailContent}`;
                 </div>
 
                 {!formData.isMultiSegment ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Entrada</label>
                       <input 
                         type="date" 
                         value={toInputDate(formData.Entrada)} 
-                        onChange={e => setFormData({ ...formData, Entrada: e.target.value })}
+                        onChange={e => {
+                          const newIn = e.target.value;
+                          const currentDays = calcStayDays(formData.Entrada, formData.Salida);
+                          const newOut = newIn ? addStayDays(newIn, currentDays) : formData.Salida;
+                          setFormData({ ...formData, Entrada: newIn, Salida: newOut });
+                        }}
                         className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
                       />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Días / Noches</label>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          min="1"
+                          value={formData.Entrada && formData.Salida ? calcStayDays(formData.Entrada, formData.Salida) : (formData.Entrada ? 1 : '')} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            const days = Math.max(1, parseInt(val, 10) || 1);
+                            const inDate = formData.Entrada || toInputDate(new Date());
+                            const newOut = addStayDays(inDate, days);
+                            setFormData({ ...formData, Entrada: inDate, Salida: newOut });
+                          }}
+                          className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 text-center"
+                          placeholder="Mín. 1"
+                          title="Número de días de estancia (mínimo 1 día desde la entrada)"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none">días</span>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Salida</label>
                       <input 
                         type="date" 
                         value={toInputDate(formData.Salida)} 
-                        onChange={e => setFormData({ ...formData, Salida: e.target.value })}
+                        min={formData.Entrada ? addStayDays(formData.Entrada, 1) : undefined}
+                        onChange={e => {
+                          const newOut = e.target.value;
+                          let validOut = newOut;
+                          if (formData.Entrada && newOut && toInputDate(newOut) <= toInputDate(formData.Entrada)) {
+                            validOut = addStayDays(formData.Entrada, 1);
+                          }
+                          setFormData({ ...formData, Salida: validOut });
+                        }}
                         className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
                       />
                     </div>
@@ -2984,8 +3041,9 @@ ${emailContent}`;
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center">ID</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24">Grupo</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Distribución de habitaciones</th>
-                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36">Entrada</th>
-                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-36">Salida</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32">Entrada</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-24 text-center">Días (mín. 1)</th>
+                            <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-32">Salida</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Notas / Ocupantes</th>
                             <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest w-12 text-center"></th>
                           </tr>
@@ -3109,8 +3167,10 @@ ${emailContent}`;
                                   value={toInputDate(seg.in)}
                                   onChange={e => {
                                     const val = e.target.value;
+                                    const currentDays = calcStayDays(seg.in, seg.out);
+                                    const newOut = val ? addStayDays(val, currentDays) : seg.out;
                                     const updated = [...(formData.segments || [])];
-                                    updated[idx] = { ...updated[idx], in: val };
+                                    updated[idx] = { ...updated[idx], in: val, out: newOut };
                                     setFormData({ ...formData, segments: updated });
                                   }}
                                   className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
@@ -3118,12 +3178,35 @@ ${emailContent}`;
                               </td>
                               <td className="p-2">
                                 <input
+                                  type="number"
+                                  min="1"
+                                  value={seg.in && seg.out ? calcStayDays(seg.in, seg.out) : (seg.in ? 1 : '')}
+                                  onChange={e => {
+                                    const days = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                    const inDate = seg.in || toInputDate(new Date());
+                                    const newOut = addStayDays(inDate, days);
+                                    const updated = [...(formData.segments || [])];
+                                    updated[idx] = { ...updated[idx], in: inDate, out: newOut };
+                                    setFormData({ ...formData, segments: updated });
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-center"
+                                  placeholder="Mín. 1"
+                                  title="Número de días de estancia (mínimo 1 día desde la entrada)"
+                                />
+                              </td>
+                              <td className="p-2">
+                                <input
                                   type="date"
                                   value={toInputDate(seg.out)}
+                                  min={seg.in ? addStayDays(seg.in, 1) : undefined}
                                   onChange={e => {
                                     const val = e.target.value;
+                                    let validOut = val;
+                                    if (seg.in && val && toInputDate(val) <= toInputDate(seg.in)) {
+                                      validOut = addStayDays(seg.in, 1);
+                                    }
                                     const updated = [...(formData.segments || [])];
-                                    updated[idx] = { ...updated[idx], out: val };
+                                    updated[idx] = { ...updated[idx], out: validOut };
                                     setFormData({ ...formData, segments: updated });
                                   }}
                                   className="w-full bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
