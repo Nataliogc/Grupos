@@ -1107,6 +1107,70 @@
   }
 
   /**
+   * Vuelve a vincular uno o todos los servicios desvinculados de una reserva en MesaChef,
+   * eliminando la bandera de desvinculación y resincronizando con los datos de Nexus Groups.
+   * @param {string} reservaId ID o referencia de la reserva
+   * @param {string|null} specificDocId Si se especifica, solo revincula ese documento específico en reservas_salones. Si es null, revincula todos los de la reserva.
+   * @param {object|null} optionalGroupRecord Si se proporciona, sincroniza inmediatamente los datos actualizados a MesaChef
+   */
+  function relinkServices(reservaId, specificDocId, optionalGroupRecord) {
+    var cleanId = normalizeReservaId(reservaId);
+    if (!cleanId) return Promise.resolve({ success: false, reason: "ID de reserva inválido" });
+
+    return ensureMesachefAuth().then(function () {
+      var targetDb = getMesachefDb();
+      if (!targetDb) return { success: false, reason: "No Firestore DB" };
+
+      var query = targetDb.collection(COLLECTION_SALONES).where("reservaId", "==", cleanId);
+
+      return query.get().then(function (snapshot) {
+        if (snapshot.empty) {
+          return { success: true, count: 0, message: "No se encontraron servicios para esta reserva." };
+        }
+
+        var batch = targetDb.batch();
+        var relinkedCount = 0;
+
+        snapshot.forEach(function (docSnap) {
+          if (specificDocId && docSnap.id !== specificDocId) return;
+          var d = docSnap.data() || {};
+          if (d.desvinculado === true || d.vinculoRoto === true || d.unlinked === true || d.esDesvinculado === true) {
+            batch.update(docSnap.ref, {
+              desvinculado: false,
+              vinculoRoto: false,
+              unlinked: false,
+              esDesvinculado: false,
+              revinculado_at: new Date().toISOString(),
+              revinculado_por: "Nexus Groups"
+            });
+            relinkedCount++;
+          }
+        });
+
+        if (relinkedCount === 0) {
+          return { success: true, count: 0, message: "No había servicios desvinculados para actualizar." };
+        }
+
+        return batch.commit().then(function () {
+          console.log("🔗 [MesaChef Relink] " + relinkedCount + " servicio(s) revinculados para reserva " + cleanId);
+
+          // Si se proporcionó el registro del grupo, forzar sincronización inmediata para alinear datos
+          if (optionalGroupRecord) {
+            return syncGroupToMesachef(optionalGroupRecord).then(function (syncRes) {
+              return { success: true, count: relinkedCount, resynced: true, syncResult: syncRes };
+            });
+          }
+
+          return { success: true, count: relinkedCount };
+        });
+      });
+    }).catch(function (err) {
+      console.error("❌ [MesaChef Relink Error]:", err);
+      return { success: false, error: err };
+    });
+  }
+
+  /**
    * Sincroniza en lote una lista completa de grupos (activos y cancelados)
    */
   function syncAllEligibleGroups(groupsList) {
@@ -1170,6 +1234,7 @@
     prepareSalonDocuments: prepareSalonDocuments,
     syncGroupToMesachef: syncGroupToMesachef,
     checkUnlinkedServices: checkUnlinkedServices,
+    relinkServices: relinkServices,
     syncAllEligibleGroups: syncAllEligibleGroups
   };
 

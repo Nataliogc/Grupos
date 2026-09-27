@@ -21478,33 +21478,87 @@
 
                             {/* BANNER DE SERVICIOS DESVINCULADOS EN MESACHEF */}
                             {mesachefUnlinkedServices && mesachefUnlinkedServices.length > 0 && (
-                              <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex items-start gap-3 shadow-xs animate-fade-in">
-                                <div className="text-amber-600 mt-0.5 text-lg shrink-0">⚠️</div>
-                                <div className="flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <h4 className="font-black text-amber-900 text-xs uppercase tracking-wider">
-                                      MesaChef: {mesachefUnlinkedServices.length} servicio(s) desvinculados manualmente en sala / cocina
-                                    </h4>
-                                    <span className="bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-300">
-                                      Protegidos contra sobreescritura
-                                    </span>
-                                  </div>
-                                  <p className="mt-1 text-xs text-amber-800 leading-relaxed">
-                                    El personal de restaurante/salón ha roto el vínculo automático de {mesachefUnlinkedServices.length === 1 ? "este servicio" : "estos servicios"} en MesaChef para gestionarlo de forma independiente. Sus horarios, salones o comensales manuales se respetarán y Nexus Groups no los sobreescribirá:
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    {mesachefUnlinkedServices.map((svc) => (
-                                      <div key={svc.id} className="bg-white border border-amber-300 rounded-lg px-3 py-1 text-xs text-slate-700 shadow-2xs flex items-center gap-2">
-                                        <span className="font-bold text-amber-800">📅 {svc.fecha}</span>
-                                        <span className="text-slate-300">•</span>
-                                        <span className="font-black uppercase text-slate-800">{svc.jornada || "Servicio"} {svc.hora ? `(${svc.hora})` : ""}</span>
-                                        <span className="text-slate-300">•</span>
-                                        <span className="bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded font-bold text-[11px]">{svc.pax} pax</span>
-                                        {svc.concepto && <span className="text-slate-500 text-[10px]">({svc.concepto})</span>}
-                                      </div>
-                                    ))}
+                              <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex flex-col md:flex-row items-start justify-between gap-3 shadow-xs animate-fade-in">
+                                <div className="flex items-start gap-3">
+                                  <div className="text-amber-600 mt-0.5 text-lg shrink-0">⚠️</div>
+                                  <div className="flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h4 className="font-black text-amber-900 text-xs uppercase tracking-wider">
+                                        MesaChef: {mesachefUnlinkedServices.length} servicio(s) desvinculados manualmente en sala / cocina
+                                      </h4>
+                                      <span className="bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-300">
+                                        Protegidos contra sobreescritura
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                                      Personal de restaurante/salón desvinculó {mesachefUnlinkedServices.length === 1 ? "este servicio" : "estos servicios"} en MesaChef. Si fue un error o deseas volver a sincronizarlos automáticamente con Nexus Groups, puedes revincularlos:
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {mesachefUnlinkedServices.map((svc) => (
+                                        <div key={svc.id} className="bg-white border border-amber-300 rounded-lg px-2.5 py-1 text-xs text-slate-700 shadow-2xs flex items-center gap-2">
+                                          <span className="font-bold text-amber-800">📅 {svc.fecha}</span>
+                                          <span className="text-slate-300">•</span>
+                                          <span className="font-black uppercase text-slate-800">{svc.jornada || "Servicio"} {svc.hora ? `(${svc.hora})` : ""}</span>
+                                          <span className="text-slate-300">•</span>
+                                          <span className="bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded font-bold text-[11px]">{svc.pax} pax</span>
+                                          {svc.concepto && <span className="text-slate-500 text-[10px]">({svc.concepto})</span>}
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              if (window.confirm(`¿Volver a vincular el servicio de ${svc.jornada ? svc.jornada.toUpperCase() : "Servicio"} (${svc.fecha}) con Nexus Groups? Sus datos se actualizarán automáticamente con esta ficha.`)) {
+                                                try {
+                                                  setIsSaving(true);
+                                                  const res = await window.MesaChefService.relinkServices(selectedGroupFicha.id, svc.id, selectedGroupFicha.records[0]);
+                                                  if (res && res.success) {
+                                                    setMesachefUnlinkedServices(prev => prev.filter(x => x.id !== svc.id));
+                                                    alert("✅ Servicio revinculado con éxito. Ahora vuelve a estar sincronizado con Nexus Groups.");
+                                                  } else {
+                                                    alert("❌ No se pudo revincular: " + (res.reason || res.error?.message || "Error"));
+                                                  }
+                                                } catch (e) {
+                                                  alert("❌ Error: " + (e.message || e));
+                                                } finally {
+                                                  setIsSaving(false);
+                                                }
+                                              }
+                                            }}
+                                            className="ml-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                            title="Volver a vincular este servicio específico para que Nexus Groups lo gestione automáticamente"
+                                          >
+                                            🔗 Revincular
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 </div>
+                                {mesachefUnlinkedServices.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (window.confirm(`¿Volver a vincular TODOS los ${mesachefUnlinkedServices.length} servicios desvinculados de esta reserva con Nexus Groups? Se resincronizarán automáticamente con los datos de esta ficha.`)) {
+                                        try {
+                                          setIsSaving(true);
+                                          const res = await window.MesaChefService.relinkServices(selectedGroupFicha.id, null, selectedGroupFicha.records[0]);
+                                          if (res && res.success) {
+                                            setMesachefUnlinkedServices([]);
+                                            alert("✅ Todos los servicios han sido revinculados con éxito.");
+                                          } else {
+                                            alert("❌ No se pudieron revincular: " + (res.reason || res.error?.message || "Error"));
+                                          }
+                                        } catch (e) {
+                                          alert("❌ Error: " + (e.message || e));
+                                        } finally {
+                                          setIsSaving(false);
+                                        }
+                                      }
+                                    }}
+                                    className="shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition shadow-sm active:scale-95 flex items-center gap-1 cursor-pointer self-start md:self-center"
+                                  >
+                                    <span>🔗</span>
+                                    <span>Revincular Todos</span>
+                                  </button>
+                                )}
                               </div>
                             )}
 
