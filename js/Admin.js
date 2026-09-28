@@ -74,6 +74,7 @@ var _isCreditoGroup = function isCreditoGroup(g) {
   }
   return false;
 };
+var pensionsCache = new WeakMap();
 var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
   if (!g) return {
     total: 0,
@@ -359,6 +360,7 @@ var Sidebar = function Sidebar(_ref) {
   }, "Sistema Operativo")))));
 };
 var Dashboard = function Dashboard(_ref2) {
+  var _internalReportModal$, _internalReportModal$2, _internalReportModal$3, _internalReportModal$4, _internalReportModal$5;
   var arrivals = _ref2.arrivals,
     stats = _ref2.stats,
     alerts = _ref2.alerts,
@@ -791,6 +793,8 @@ var Dashboard = function Dashboard(_ref2) {
     if (t.includes("rel")) sectionKey = "release";else if (t.includes("dato") || t.includes("falt") || t.includes("logist")) sectionKey = "logistics";else if (t.includes("crm") || t.includes("seg")) sectionKey = "crm";else if (t.includes("tent")) sectionKey = "tentative";
     handleOpenInternalReportModal(sectionKey);
   };
+  var internalReportFilterKey = internalReportModal ? [internalReportModal.filterComercial || "todos", (_internalReportModal$ = internalReportModal.sections) !== null && _internalReportModal$ !== void 0 && _internalReportModal$.financial ? "1" : "0", (_internalReportModal$2 = internalReportModal.sections) !== null && _internalReportModal$2 !== void 0 && _internalReportModal$2.release ? "1" : "0", (_internalReportModal$3 = internalReportModal.sections) !== null && _internalReportModal$3 !== void 0 && _internalReportModal$3.logistics ? "1" : "0", (_internalReportModal$4 = internalReportModal.sections) !== null && _internalReportModal$4 !== void 0 && _internalReportModal$4.crm ? "1" : "0", (_internalReportModal$5 = internalReportModal.sections) !== null && _internalReportModal$5 !== void 0 && _internalReportModal$5.tentative ? "1" : "0"].join("-") : "";
+  var isInternalReportOpen = !!internalReportModal;
   var reportData = React.useMemo(function () {
     if (!internalReportModal) return null;
     var hotelLabel = selectedHotel === "guadiana" ? "Sercotel Guadiana" : selectedHotel === "cumbria" ? "Cumbria Spa & Hotel" : "Todos los Hoteles";
@@ -882,28 +886,31 @@ var Dashboard = function Dashboard(_ref2) {
         minute: "2-digit"
       })
     };
-  }, [internalReportModal, columnsData, selectedHotel]);
+  }, [isInternalReportOpen, internalReportFilterKey, columnsData, selectedHotel]);
   var getGroupDailyPensions = function getGroupDailyPensions(g) {
-    if (!g) return {
+    if (!g || _typeof(g) !== "object") return {
       hasMeals: false,
       isRoomOnly: false,
       regimeLabel: "Sin definir",
       days: [],
       summaryText: ""
     };
+    if (pensionsCache.has(g)) return pensionsCache.get(g);
     var dIn = parseDate(g.Entrada);
     var dOut = parseDate(g.Salida);
     var rawPax = parseInt(g["Pax."] || g.Pax || 0, 10) || 0;
     var rawReg = String(g["Régimen"] || g.Regimen || g.regimen || g.regime || "").trim().toUpperCase();
     var notes = (String(g.Com_Notas || "") + " " + String(g.Notas || "")).toLowerCase();
     if (!dIn || isNaN(dIn.getTime()) || !dOut || isNaN(dOut.getTime())) {
-      return {
+      var res = {
         hasMeals: false,
         isRoomOnly: false,
         regimeLabel: rawReg || "Sin régimen",
         days: [],
         summaryText: "Estancia sin fechas confirmadas"
       };
+      pensionsCache.set(g, res);
+      return res;
     }
     var start = new Date(dIn.getFullYear(), dIn.getMonth(), dIn.getDate());
     var end = new Date(dOut.getFullYear(), dOut.getMonth(), dOut.getDate());
@@ -932,23 +939,39 @@ var Dashboard = function Dashboard(_ref2) {
 
     // Daily distribution or rooming extra services
     var dailyDist = {};
-    try {
-      if (g.DailyDistribution_JSON) {
+    if (g.DailyDistribution_JSON) {
+      try {
         dailyDist = typeof g.DailyDistribution_JSON === "string" ? JSON.parse(g.DailyDistribution_JSON) : g.DailyDistribution_JSON;
         if (!dailyDist || _typeof(dailyDist) !== "object") dailyDist = {};
+      } catch (e) {}
+    }
+    var preParsedServices = [];
+    if (g.RoomingList_JSON) {
+      var rawR = typeof g.RoomingList_JSON === "string" ? g.RoomingList_JSON : "";
+      if (Array.isArray(g.RoomingList_JSON) || rawR.includes("isService") || rawR.includes("servicio")) {
+        try {
+          var parsedList = Array.isArray(g.RoomingList_JSON) ? g.RoomingList_JSON : JSON.parse(rawR);
+          if (Array.isArray(parsedList)) {
+            parsedList.forEach(function (item) {
+              if (item && (item.isService || item.servicio && !item.tipo && !item.hab)) {
+                var sDate = item.dateIn || item.serviceDate || item.fecha || item.date;
+                var parsedD = sDate ? parseDate(sDate) : null;
+                var sType = String(item.type || item.servicio || item.name || "").trim();
+                if (parsedD && sType) {
+                  preParsedServices.push({
+                    year: parsedD.getFullYear(),
+                    month: parsedD.getMonth(),
+                    date: parsedD.getDate(),
+                    name: sType,
+                    pax: parseInt(item.pax, 10)
+                  });
+                }
+              }
+            });
+          }
+        } catch (e) {}
       }
-    } catch (e) {}
-    var roomingServices = [];
-    try {
-      if (g.RoomingList_JSON) {
-        var parsedList = typeof g.RoomingList_JSON === "string" ? JSON.parse(g.RoomingList_JSON) : g.RoomingList_JSON;
-        if (Array.isArray(parsedList)) {
-          roomingServices = parsedList.filter(function (item) {
-            return item && (item.isService || item.servicio && !item.tipo && !item.hab);
-          });
-        }
-      }
-    } catch (e) {}
+    }
     var startsWithDinner = /(entra\s+con\s+cena|primer\s+servicio\s+cena|comienza\s+con\s+cena)/i.test(notes);
     var startsWithLunch = /(entra\s+con\s+almuerzo|entra\s+con\s+comida|primer\s+servicio\s+almuerzo|primer\s+servicio\s+comida)/i.test(notes);
     var mpUsesLunch = notes.includes("almuerzo") && !notes.includes("cena");
@@ -958,8 +981,11 @@ var Dashboard = function Dashboard(_ref2) {
     var _loop = function _loop() {
       var cur = new Date(start);
       cur.setDate(cur.getDate() + i);
-      var isoKey = "".concat(cur.getFullYear(), "-").concat(String(cur.getMonth() + 1).padStart(2, "0"), "-").concat(String(cur.getDate()).padStart(2, "0"));
-      var dFmt = "".concat(String(cur.getDate()).padStart(2, "0"), "/").concat(String(cur.getMonth() + 1).padStart(2, "0"));
+      var curYear = cur.getFullYear();
+      var curMonth = cur.getMonth();
+      var curDate = cur.getDate();
+      var isoKey = "".concat(curYear, "-").concat(String(curMonth + 1).padStart(2, "0"), "-").concat(String(curDate).padStart(2, "0"));
+      var dFmt = "".concat(String(curDate).padStart(2, "0"), "/").concat(String(curMonth + 1).padStart(2, "0"));
       var dayName = dayNames[cur.getDay()];
       var dayLabel = "".concat(dFmt, " (").concat(dayName, ")");
       var isArrival = i === 0;
@@ -1079,23 +1105,18 @@ var Dashboard = function Dashboard(_ref2) {
         }
       }
 
-      // Check extra rooming services for this day
-      roomingServices.forEach(function (s) {
-        var sDate = s.dateIn || s.serviceDate || s.fecha || s.date;
-        if (sDate) {
-          var parsedSDate = parseDate(sDate);
-          if (parsedSDate && parsedSDate.getFullYear() === cur.getFullYear() && parsedSDate.getMonth() === cur.getMonth() && parsedSDate.getDate() === cur.getDate()) {
-            var sType = String(s.type || s.servicio || s.name || "").trim();
-            var sPax = parseInt(s.pax || dayPax, 10) || dayPax;
-            if (sType && !meals.some(function (m) {
-              return m.name.toLowerCase() === sType.toLowerCase();
-            })) {
-              meals.push({
-                name: sType,
-                pax: sPax,
-                isExtra: true
-              });
-            }
+      // Pre-parsed extra rooming services for this day
+      preParsedServices.forEach(function (s) {
+        if (s.year === curYear && s.month === curMonth && s.date === curDate) {
+          var sPax = !isNaN(s.pax) && s.pax > 0 ? s.pax : dayPax;
+          if (!meals.some(function (m) {
+            return m.name.toLowerCase() === s.name.toLowerCase();
+          })) {
+            meals.push({
+              name: s.name,
+              pax: sPax,
+              isExtra: true
+            });
           }
         }
       });
@@ -1131,7 +1152,7 @@ var Dashboard = function Dashboard(_ref2) {
     }).map(function (d) {
       return "".concat(d.dayLabel, ": ").concat(d.mealsText);
     }).join(" | ");
-    return {
+    var result = {
       hasMeals: hasMeals,
       isRoomOnly: isRoomOnly,
       regimeLabel: regimeLabel,
@@ -1139,6 +1160,8 @@ var Dashboard = function Dashboard(_ref2) {
       days: days,
       summaryText: summaryText
     };
+    pensionsCache.set(g, result);
+    return result;
   };
   var generateInternalReportText = function generateInternalReportText(rep) {
     if (!rep) return "";
@@ -1231,9 +1254,9 @@ var Dashboard = function Dashboard(_ref2) {
           if (activeDays.length <= 6) {
             dayRows = activeDays.map(function (d) {
               var mealBadges = d.meals.map(function (m) {
-                return "<span style=\"display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;\">".concat(m.name, " <span style=\"color: #64748b; font-weight: 600;\">(").concat(m.pax, " pax)</span></span>");
+                return "<span style=\"display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-weight: 700; color: #0f172a; margin-right: 5px; font-size: 10.5px; line-height: 1.3;\">".concat(m.name, " <span style=\"color: #64748b; font-weight: 600;\">(").concat(m.pax, " pax)</span></span>");
               }).join("");
-              return "\n                    <tr>\n                      <td width=\"92\" valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;\">\n                        \uD83D\uDCC5 ".concat(d.dayLabel, ":\n                      </td>\n                      <td valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; font-size: 10px;\">\n                        ").concat(mealBadges, "\n                      </td>\n                    </tr>\n                  ");
+              return "\n                    <tr>\n                      <td width=\"96\" valign=\"middle\" style=\"padding: 2.5px 0; vertical-align: middle; white-space: nowrap; width: 96px; font-weight: 700; color: #475569; font-size: 10.5px;\">\n                        \uD83D\uDCC5 ".concat(d.dayLabel, ":\n                      </td>\n                      <td valign=\"middle\" style=\"padding: 2.5px 0; vertical-align: middle; font-size: 10.5px;\">\n                        ").concat(mealBadges, "\n                      </td>\n                    </tr>\n                  ");
             }).join("");
           } else {
             var firstDays = activeDays.slice(0, 2);
@@ -1241,32 +1264,38 @@ var Dashboard = function Dashboard(_ref2) {
             var interDays = activeDays.slice(2, activeDays.length - 1);
             var renderRow = function renderRow(d) {
               var mealBadges = d.meals.map(function (m) {
-                return "<span style=\"display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;\">".concat(m.name, " <span style=\"color: #64748b; font-weight: 600;\">(").concat(m.pax, " pax)</span></span>");
+                return "<span style=\"display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-weight: 700; color: #0f172a; margin-right: 5px; font-size: 10.5px; line-height: 1.3;\">".concat(m.name, " <span style=\"color: #64748b; font-weight: 600;\">(").concat(m.pax, " pax)</span></span>");
               }).join("");
-              return "\n                    <tr>\n                      <td width=\"92\" valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;\">\n                        \uD83D\uDCC5 ".concat(d.dayLabel, ":\n                      </td>\n                      <td valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; font-size: 10px;\">\n                        ").concat(mealBadges, "\n                      </td>\n                    </tr>\n                  ");
+              return "\n                    <tr>\n                      <td width=\"96\" valign=\"middle\" style=\"padding: 2.5px 0; vertical-align: middle; white-space: nowrap; width: 96px; font-weight: 700; color: #475569; font-size: 10.5px;\">\n                        \uD83D\uDCC5 ".concat(d.dayLabel, ":\n                      </td>\n                      <td valign=\"middle\" style=\"padding: 2.5px 0; vertical-align: middle; font-size: 10.5px;\">\n                        ").concat(mealBadges, "\n                      </td>\n                    </tr>\n                  ");
             };
             var firstHtml = firstDays.map(renderRow).join("");
-            var interHtml = "\n                  <tr>\n                    <td colspan=\"2\" style=\"padding: 2px 0; color: #64748b; font-size: 9.5px; font-style: italic;\">\n                      ... ".concat(interDays.length, " d\xEDas intermedios (").concat(interDays[0].dayLabel, " al ").concat(interDays[interDays.length - 1].dayLabel, ") con pensi\xF3n habitual ...\n                    </td>\n                  </tr>\n                ");
+            var interHtml = "\n                  <tr>\n                    <td colspan=\"2\" style=\"padding: 3px 0; color: #64748b; font-size: 10px; font-style: italic;\">\n                      ... ".concat(interDays.length, " d\xEDas intermedios (").concat(interDays[0].dayLabel, " al ").concat(interDays[interDays.length - 1].dayLabel, ") con pensi\xF3n habitual ...\n                    </td>\n                  </tr>\n                ");
             var lastHtml = renderRow(lastDay);
             dayRows = firstHtml + interHtml + lastHtml;
           }
-          pensionsHtml = "\n                <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;\">\n                  <tr>\n                    <td style=\"padding: 5px 8px;\">\n                      <div style=\"font-size: 9.5px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;\">\n                        \uD83C\uDF7D\uFE0F Previsi\xF3n de Pensiones <span style=\"font-weight: 600; color: #64748b; text-transform: none;\">(".concat(pensions.regimeLabel, ")</span>:\n                      </div>\n                      <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">\n                        ").concat(dayRows, "\n                      </table>\n                    </td>\n                  </tr>\n                </table>\n              ");
+          pensionsHtml = "\n                <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 7px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;\">\n                  <tr>\n                    <td style=\"padding: 6px 10px;\">\n                      <div style=\"font-size: 10px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px;\">\n                        \uD83C\uDF7D\uFE0F Previsi\xF3n de Pensiones <span style=\"font-weight: 600; color: #64748b; text-transform: none;\">(".concat(pensions.regimeLabel, ")</span>:\n                      </div>\n                      <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">\n                        ").concat(dayRows, "\n                      </table>\n                    </td>\n                  </tr>\n                </table>\n              ");
         } else if (pensions.isRoomOnly) {
-          pensionsHtml = "\n                <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;\">\n                  <tr>\n                    <td style=\"padding: 4px 8px; font-size: 10px; color: #64748b; font-style: italic;\">\n                      \uD83C\uDF7D\uFE0F <strong>R\xE9gimen:</strong> Solo Alojamiento (sin servicios de pensi\xF3n contratados)\n                    </td>\n                  </tr>\n                </table>\n              ";
+          pensionsHtml = "\n                <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 7px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;\">\n                  <tr>\n                    <td style=\"padding: 5px 10px; font-size: 10.5px; color: #64748b; font-style: italic;\">\n                      \uD83C\uDF7D\uFE0F <strong>R\xE9gimen:</strong> Solo Alojamiento (sin servicios de pensi\xF3n contratados)\n                    </td>\n                  </tr>\n                </table>\n              ";
         }
         var alertDetailText = sec.id === "logistics" && alert.details ? alert.details.map(function (d) {
           return d.text;
         }).join(" • ") : alert.detail || alert.label;
-        return "\n              <tr style=\"border-bottom: 1px solid #e2e8f0; background-color: #ffffff;\">\n                <td width=\"100\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 100px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#0f172a\" style=\"background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;\">\n                        #".concat(resId, "\n                      </td>\n                    </tr>\n                  </table>\n                  <div style=\"font-size: 10px; color: #64748b; font-weight: 700; margin-top: 5px; white-space: nowrap;\">\n                    \uD83C\uDFE8 ").concat(hotelName, "\n                  </div>\n                </td>\n                <td width=\"378\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 378px;\">\n                  <div style=\"font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;\">\n                    ").concat(name, "\n                  </div>\n                  <div style=\"font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;\">\n                    <strong style=\"color: #475569;\">Estancia:</strong> ").concat(entrada, " \u2794 ").concat(salida, " &nbsp;|&nbsp; <strong style=\"color: #475569;\">Pax:</strong> ").concat(pax, "\n                  </div>\n                  ").concat(pensionsHtml, "\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 6px; width: 100%;\">\n                    <tr>\n                      <td bgcolor=\"#f8fafc\" style=\"background-color: #f8fafc; border-left: 3px solid ").concat(sec.headerColor, "; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;\">\n                        \u26A0\uFE0F ").concat(alertDetailText, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                <td width=\"105\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 105px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#e2e8f0\" style=\"background-color: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        \uD83D\uDC64 ").concat(com, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                ").concat(sec.id === "financial" || sec.id === "release" ? "\n                <td width=\"145\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 145px; white-space: nowrap;\">\n                  <div style=\"font-size: 10px; color: #64748b; white-space: nowrap;\">Total: <strong>".concat(fmt(fin.total), "</strong></div>\n                  <div style=\"font-size: 13.5px; font-weight: 900; color: #be123c; margin-top: 2px; white-space: nowrap;\">\n                    Pend: ").concat(fmt(fin.pending), "\n                  </div>\n                  <div style=\"font-size: 10px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;\">Abonado: ").concat(fmt(fin.paid), "</div>\n                </td>") : "\n                <td width=\"145\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 145px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"right\">\n                    <tr>\n                      <td bgcolor=\"#f0f9ff\" style=\"background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        Requiere Acci\xF3n\n                      </td>\n                    </tr>\n                  </table>\n                </td>", "\n              </tr>\n            ");
+        return "\n              <tr style=\"border-bottom: 1px solid #e2e8f0; background-color: #ffffff;\">\n                <td width=\"105\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 105px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#0f172a\" style=\"background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;\">\n                        #".concat(resId, "\n                      </td>\n                    </tr>\n                  </table>\n                  <div style=\"font-size: 10px; color: #64748b; font-weight: 700; margin-top: 5px; white-space: nowrap;\">\n                    \uD83C\uDFE8 ").concat(hotelName, "\n                  </div>\n                </td>\n                <td width=\"490\" valign=\"top\" style=\"padding: 12px 12px; vertical-align: top; width: 490px;\">\n                  <div style=\"font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;\">\n                    ").concat(name, "\n                  </div>\n                  <div style=\"font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;\">\n                    <strong style=\"color: #475569;\">Estancia:</strong> ").concat(entrada, " \u2794 ").concat(salida, " &nbsp;|&nbsp; <strong style=\"color: #475569;\">Pax:</strong> ").concat(pax, "\n                  </div>\n                  ").concat(pensionsHtml, "\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 7px; width: 100%;\">\n                    <tr>\n                      <td bgcolor=\"#f8fafc\" style=\"background-color: #f8fafc; border-left: 3px solid ").concat(sec.headerColor, "; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;\">\n                        \u26A0\uFE0F ").concat(alertDetailText, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                <td width=\"125\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 125px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#e2e8f0\" style=\"background-color: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        \uD83D\uDC64 ").concat(com, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                ").concat(sec.id === "financial" || sec.id === "release" ? "\n                <td width=\"160\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 160px; white-space: nowrap;\">\n                  <div style=\"font-size: 10px; color: #64748b; white-space: nowrap;\">Total: <strong>".concat(fmt(fin.total), "</strong></div>\n                  <div style=\"font-size: 13.5px; font-weight: 900; color: #be123c; margin-top: 2px; white-space: nowrap;\">\n                    Pend: ").concat(fmt(fin.pending), "\n                  </div>\n                  <div style=\"font-size: 10px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;\">Abonado: ").concat(fmt(fin.paid), "</div>\n                </td>") : "\n                <td width=\"160\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 160px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"right\">\n                    <tr>\n                      <td bgcolor=\"#f0f9ff\" style=\"background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        Requiere Acci\xF3n\n                      </td>\n                    </tr>\n                  </table>\n                </td>", "\n              </tr>\n            ");
       }).join("");
-      return "\n            <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"center\" style=\"width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse; table-layout: fixed;\">\n              <tr>\n                <td colspan=\"4\" bgcolor=\"".concat(sec.headerBg, "\" style=\"background-color: ").concat(sec.headerBg, "; border-bottom: 2px solid ").concat(sec.headerColor, "; padding: 11px 16px;\">\n                  <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td valign=\"middle\" style=\"font-size: 13px; font-weight: 800; color: ").concat(sec.headerColor, "; text-transform: uppercase; letter-spacing: 0.5px;\">\n                        ").concat(sec.title, "\n                      </td>\n                      <td valign=\"middle\" align=\"right\" style=\"text-align: right; font-size: 11.5px; font-weight: 800; color: ").concat(sec.headerColor, "; white-space: nowrap; padding-left: 12px;\">\n                        <span style=\"background-color: #ffffff; border: 1px solid ").concat(sec.headerColor, "; padding: 3px 10px; border-radius: 12px; display: inline-block;\">\n                          ").concat(sec.alerts.length, " caso(s)\n                        </span>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n              <tr bgcolor=\"#f1f5f9\" style=\"background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;\">\n                <td width=\"100\" style=\"padding: 8px 10px; width: 100px;\">Localizador</td>\n                <td width=\"378\" style=\"padding: 8px 10px; width: 378px;\">Grupo &amp; Requerimiento</td>\n                <td width=\"105\" style=\"padding: 8px 10px; width: 105px;\">Comercial</td>\n                <td width=\"145\" align=\"right\" style=\"padding: 8px 10px; text-align: right; width: 145px;\">").concat(sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado", "</td>\n              </tr>\n              ").concat(rowsHtml, "\n            </table>\n          ");
+      return "\n            <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"center\" style=\"width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse; table-layout: fixed;\">\n              <tr>\n                <td colspan=\"4\" bgcolor=\"".concat(sec.headerBg, "\" style=\"background-color: ").concat(sec.headerBg, "; border-bottom: 2px solid ").concat(sec.headerColor, "; padding: 11px 16px;\">\n                  <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td valign=\"middle\" style=\"font-size: 13px; font-weight: 800; color: ").concat(sec.headerColor, "; text-transform: uppercase; letter-spacing: 0.5px;\">\n                        ").concat(sec.title, "\n                      </td>\n                      <td valign=\"middle\" align=\"right\" style=\"text-align: right; font-size: 11.5px; font-weight: 800; color: ").concat(sec.headerColor, "; white-space: nowrap; padding-left: 12px;\">\n                        <span style=\"background-color: #ffffff; border: 1px solid ").concat(sec.headerColor, "; padding: 3px 10px; border-radius: 12px; display: inline-block;\">\n                          ").concat(sec.alerts.length, " caso(s)\n                        </span>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n              <tr bgcolor=\"#f1f5f9\" style=\"background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;\">\n                <td width=\"105\" style=\"padding: 8px 12px; width: 105px;\">Localizador</td>\n                <td width=\"490\" style=\"padding: 8px 12px; width: 490px;\">Grupo &amp; Requerimiento</td>\n                <td width=\"125\" style=\"padding: 8px 12px; width: 125px;\">Comercial</td>\n                <td width=\"160\" align=\"right\" style=\"padding: 8px 12px; text-align: right; width: 160px;\">").concat(sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado", "</td>\n              </tr>\n              ").concat(rowsHtml, "\n            </table>\n          ");
     }).join("");
-    return "\n<center style=\"width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;\">\n  <!--[if mso]>\n  <table role=\"presentation\" width=\"760\" align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr><td>\n  <![endif]-->\n  <table role=\"presentation\" width=\"760\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"center\" style=\"width: 760px; max-width: 760px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;\">\n    <!-- Header Banner: Fondo solido azul oscuro para compatibilidad total con Outlook -->\n    <tr>\n      <td bgcolor=\"#0f172a\" style=\"background-color: #0f172a; padding: 20px 24px;\">\n        <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td valign=\"middle\" style=\"vertical-align: middle;\">\n              <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td bgcolor=\"#d97706\" style=\"background-color: #d97706; color: #ffffff; font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                    CONTROL INTERNO OPERATIVO\n                  </td>\n                </tr>\n              </table>\n              <div style=\"font-size: 18px; font-weight: 800; color: #ffffff; margin-top: 8px; line-height: 1.25;\">\n                Informe de Alertas Operativas y Actuaciones Cr\xEDticas\n              </div>\n              <div style=\"font-size: 11.5px; color: #94a3b8; font-weight: 600; margin-top: 4px;\">\n                Establecimiento: <strong style=\"color: #38bdf8;\">".concat(rep.hotelLabel, "</strong> &nbsp;|&nbsp; Fecha: ").concat(rep.dateStr, " (").concat(rep.timeStr, ")\n              </div>\n              <div style=\"font-size: 11.5px; color: #cbd5e1; margin-top: 2px;\">\n                Filtro Comercial: <strong>").concat(rep.filterComercial === "todos" ? "Todos los Comerciales" : rep.filterComercial, "</strong>\n              </div>\n            </td>\n            <td valign=\"middle\" align=\"right\" width=\"115\" style=\"vertical-align: middle; text-align: right; width: 115px;\">\n              <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"right\">\n                <tr>\n                  <td bgcolor=\"#1e293b\" style=\"background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 14px; text-align: center; white-space: nowrap;\">\n                    <div style=\"font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase;\">Total Alertas</div>\n                    <div style=\"font-size: 24px; font-weight: 900; color: #f59e0b; line-height: 1.1;\">").concat(rep.totalAlerts, "</div>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n\n    <!-- Financial Alert Highlight Banner si procede -->\n    ").concat(rep.totalFinancialPending > 0 ? "\n    <tr>\n      <td bgcolor=\"#fff1f2\" style=\"background-color: #fff1f2; border-bottom: 2px solid #fecdd3; padding: 12px 24px;\">\n        <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td style=\"font-size: 12px; font-weight: 800; color: #be123c;\">\n              \uD83D\uDCB0 TOTAL PENDIENTE DE COBRO EN ALERTAS FINANCIERAS:\n            </td>\n            <td align=\"right\" style=\"text-align: right; font-size: 16px; font-weight: 900; color: #9f1239; white-space: nowrap;\">\n              ".concat(fmt(rep.totalFinancialPending), "\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>") : '', "\n\n    <!-- Body Content con las tablas de secciones -->\n    <tr>\n      <td bgcolor=\"#f8fafc\" style=\"background-color: #f8fafc; padding: 20px 16px;\">\n        ").concat(sectionsHtml || "\n          <div style=\"text-align: center; padding: 30px; color: #64748b; font-size: 13px; font-weight: 700;\">\n            \u2705 No hay alertas activas en las secciones seleccionadas para este filtro.\n          </div>\n        ", "\n      </td>\n    </tr>\n\n    <!-- Footer Oficial -->\n    <tr>\n      <td bgcolor=\"#ffffff\" style=\"background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 14px 24px; font-size: 11px; color: #64748b; text-align: center;\">\n        <strong>Nexus Groups Gold Edition</strong> \u2022 M\xF3dulo de Control Interno de Operaciones y Seguimiento Comercial\n      </td>\n    </tr>\n  </table>\n  <!--[if mso]>\n  </td></tr></table>\n  <![endif]-->\n</center>\n        ");
+    return "\n<center style=\"width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;\">\n  <!--[if mso]>\n  <table role=\"presentation\" width=\"880\" align=\"center\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr><td>\n  <![endif]-->\n  <table role=\"presentation\" width=\"880\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"center\" style=\"width: 880px; max-width: 880px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;\">\n    <!-- Header Banner: Fondo solido azul oscuro para compatibilidad total con Outlook -->\n    <tr>\n      <td bgcolor=\"#0f172a\" style=\"background-color: #0f172a; padding: 20px 24px;\">\n        <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td valign=\"middle\" style=\"vertical-align: middle;\">\n              <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                <tr>\n                  <td bgcolor=\"#d97706\" style=\"background-color: #d97706; color: #ffffff; font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                    CONTROL INTERNO OPERATIVO\n                  </td>\n                </tr>\n              </table>\n              <div style=\"font-size: 18px; font-weight: 800; color: #ffffff; margin-top: 8px; line-height: 1.25;\">\n                Informe de Alertas Operativas y Actuaciones Cr\xEDticas\n              </div>\n              <div style=\"font-size: 11.5px; color: #94a3b8; font-weight: 600; margin-top: 4px;\">\n                Establecimiento: <strong style=\"color: #38bdf8;\">".concat(rep.hotelLabel, "</strong> &nbsp;|&nbsp; Fecha: ").concat(rep.dateStr, " (").concat(rep.timeStr, ")\n              </div>\n              <div style=\"font-size: 11.5px; color: #cbd5e1; margin-top: 2px;\">\n                Filtro Comercial: <strong>").concat(rep.filterComercial === "todos" ? "Todos los Comerciales" : rep.filterComercial, "</strong>\n              </div>\n            </td>\n            <td valign=\"middle\" align=\"right\" width=\"115\" style=\"vertical-align: middle; text-align: right; width: 115px;\">\n              <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"right\">\n                <tr>\n                  <td bgcolor=\"#1e293b\" style=\"background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 14px; text-align: center; white-space: nowrap;\">\n                    <div style=\"font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase;\">Total Alertas</div>\n                    <div style=\"font-size: 24px; font-weight: 900; color: #f59e0b; line-height: 1.1;\">").concat(rep.totalAlerts, "</div>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n\n    <!-- Financial Alert Highlight Banner si procede -->\n    ").concat(rep.totalFinancialPending > 0 ? "\n    <tr>\n      <td bgcolor=\"#fff1f2\" style=\"background-color: #fff1f2; border-bottom: 2px solid #fecdd3; padding: 12px 24px;\">\n        <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td style=\"font-size: 12px; font-weight: 800; color: #be123c;\">\n              \uD83D\uDCB0 TOTAL PENDIENTE DE COBRO EN ALERTAS FINANCIERAS:\n            </td>\n            <td align=\"right\" style=\"text-align: right; font-size: 16px; font-weight: 900; color: #9f1239; white-space: nowrap;\">\n              ".concat(fmt(rep.totalFinancialPending), "\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>") : '', "\n\n    <!-- Body Content con las tablas de secciones -->\n    <tr>\n      <td bgcolor=\"#f8fafc\" style=\"background-color: #f8fafc; padding: 20px 16px;\">\n        ").concat(sectionsHtml || "\n          <div style=\"text-align: center; padding: 30px; color: #64748b; font-size: 13px; font-weight: 700;\">\n            \u2705 No hay alertas activas en las secciones seleccionadas para este filtro.\n          </div>\n        ", "\n      </td>\n    </tr>\n\n    <!-- Footer Oficial -->\n    <tr>\n      <td bgcolor=\"#ffffff\" style=\"background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 14px 24px; font-size: 11px; color: #64748b; text-align: center;\">\n        <strong>Nexus Groups Gold Edition</strong> \u2022 M\xF3dulo de Control Interno de Operaciones y Seguimiento Comercial\n      </td>\n    </tr>\n  </table>\n  <!--[if mso]>\n  </td></tr></table>\n  <![endif]-->\n</center>\n        ");
   };
+  var internalReportHtml = React.useMemo(function () {
+    return generateInternalReportHtml(reportData);
+  }, [reportData]);
+  var internalReportText = React.useMemo(function () {
+    return generateInternalReportText(reportData);
+  }, [reportData]);
   var handleCopyReportRichEmail = function handleCopyReportRichEmail() {
     if (!reportData) return;
-    var htmlContent = generateInternalReportHtml(reportData);
-    var plainText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || generateInternalReportText(reportData);
+    var htmlContent = internalReportHtml;
+    var plainText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || internalReportText;
     var fullPlain = "Para: ".concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.emailTo) || "", "\nAsunto: ").concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.subject) || "", "\n\n").concat(plainText);
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
       try {
@@ -1299,7 +1328,7 @@ var Dashboard = function Dashboard(_ref2) {
   };
   var handleCopyReportText = function handleCopyReportText() {
     if (!reportData) return;
-    var bodyText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || generateInternalReportText(reportData);
+    var bodyText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || internalReportText;
     var fullPlain = "Para: ".concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.emailTo) || "", "\nAsunto: ").concat((internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.subject) || "", "\n\n").concat(bodyText);
     navigator.clipboard.writeText(fullPlain).then(function () {
       setToastInfo("📋 Texto del informe copiado al portapapeles.");
@@ -1309,7 +1338,7 @@ var Dashboard = function Dashboard(_ref2) {
   };
   var handleExecuteSendReport = function handleExecuteSendReport() {
     if (!reportData) return;
-    var bodyText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || generateInternalReportText(reportData);
+    var bodyText = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.customBody) || internalReportText;
     var to = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.emailTo) || "comunicaciones@hotelguadiana.es";
     var sub = (internalReportModal === null || internalReportModal === void 0 ? void 0 : internalReportModal.subject) || "[CONTROL INTERNO] Resumen de Alertas Operativas - ".concat(reportData.hotelLabel);
     var mailtoUrl = "mailto:".concat(encodeURIComponent(to), "?subject=").concat(encodeURIComponent(sub), "&body=").concat(encodeURIComponent(bodyText));
@@ -2213,7 +2242,7 @@ var Dashboard = function Dashboard(_ref2) {
       return setInternalReportModal(null);
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col my-auto max-h-[95vh] animate-slide-up",
+    className: "bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-6xl w-full overflow-hidden flex flex-col my-auto max-h-[95vh] animate-slide-up",
     onClick: function onClick(e) {
       return e.stopPropagation();
     }
@@ -2252,7 +2281,7 @@ var Dashboard = function Dashboard(_ref2) {
     onClick: function onClick() {
       if (internalReportModal.customBody === null && reportData) {
         setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
-          customBody: generateInternalReportText(reportData)
+          customBody: internalReportText
         }));
       }
       setInternalReportTab("edit");
@@ -2392,9 +2421,9 @@ var Dashboard = function Dashboard(_ref2) {
   }))))), internalReportTab === "preview" ? /*#__PURE__*/React.createElement("div", {
     className: "p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "w-full max-w-[800px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white",
+    className: "w-full max-w-[940px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white",
     dangerouslySetInnerHTML: {
-      __html: generateInternalReportHtml(reportData)
+      __html: internalReportHtml
     }
   })) : /*#__PURE__*/React.createElement("div", {
     className: "p-5 sm:p-6 overflow-y-auto flex-1 custom-scrollbar space-y-3 bg-white"
@@ -2408,13 +2437,13 @@ var Dashboard = function Dashboard(_ref2) {
     type: "button",
     onClick: function onClick() {
       return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
-        customBody: generateInternalReportText(reportData)
+        customBody: internalReportText
       }));
     },
     className: "text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
   }, "Restablecer Texto Original")), /*#__PURE__*/React.createElement("textarea", {
     rows: 16,
-    value: internalReportModal.customBody !== null ? internalReportModal.customBody : generateInternalReportText(reportData) || "",
+    value: internalReportModal.customBody !== null ? internalReportModal.customBody : internalReportText || "",
     onChange: function onChange(e) {
       return setInternalReportModal(_objectSpread(_objectSpread({}, internalReportModal), {}, {
         customBody: e.target.value

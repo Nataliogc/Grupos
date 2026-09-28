@@ -51,6 +51,8 @@
       return false;
     };
 
+    const pensionsCache = new WeakMap();
+
     const getGroupFinancialInfo = (g) => {
       if (!g) return { total: 0, paid: 0, pending: 0, planPaid: 0, planTotal: 0, allMilestonesCobrado: false };
 
@@ -749,6 +751,17 @@
         handleOpenInternalReportModal(sectionKey);
       };
 
+      const internalReportFilterKey = internalReportModal ? [
+        internalReportModal.filterComercial || "todos",
+        internalReportModal.sections?.financial ? "1" : "0",
+        internalReportModal.sections?.release ? "1" : "0",
+        internalReportModal.sections?.logistics ? "1" : "0",
+        internalReportModal.sections?.crm ? "1" : "0",
+        internalReportModal.sections?.tentative ? "1" : "0"
+      ].join("-") : "";
+
+      const isInternalReportOpen = !!internalReportModal;
+
       const reportData = React.useMemo(() => {
         if (!internalReportModal) return null;
 
@@ -849,10 +862,11 @@
           dateStr: new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }),
           timeStr: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
         };
-      }, [internalReportModal, columnsData, selectedHotel]);
+      }, [isInternalReportOpen, internalReportFilterKey, columnsData, selectedHotel]);
 
       const getGroupDailyPensions = (g) => {
-        if (!g) return { hasMeals: false, isRoomOnly: false, regimeLabel: "Sin definir", days: [], summaryText: "" };
+        if (!g || typeof g !== "object") return { hasMeals: false, isRoomOnly: false, regimeLabel: "Sin definir", days: [], summaryText: "" };
+        if (pensionsCache.has(g)) return pensionsCache.get(g);
 
         const dIn = parseDate(g.Entrada);
         const dOut = parseDate(g.Salida);
@@ -861,13 +875,15 @@
         const notes = (String(g.Com_Notas || "") + " " + String(g.Notas || "")).toLowerCase();
 
         if (!dIn || isNaN(dIn.getTime()) || !dOut || isNaN(dOut.getTime())) {
-          return {
+          const res = {
             hasMeals: false,
             isRoomOnly: false,
             regimeLabel: rawReg || "Sin régimen",
             days: [],
             summaryText: "Estancia sin fechas confirmadas"
           };
+          pensionsCache.set(g, res);
+          return res;
         }
 
         const start = new Date(dIn.getFullYear(), dIn.getMonth(), dIn.getDate());
@@ -897,22 +913,40 @@
 
         // Daily distribution or rooming extra services
         let dailyDist = {};
-        try {
-          if (g.DailyDistribution_JSON) {
+        if (g.DailyDistribution_JSON) {
+          try {
             dailyDist = typeof g.DailyDistribution_JSON === "string" ? JSON.parse(g.DailyDistribution_JSON) : g.DailyDistribution_JSON;
             if (!dailyDist || typeof dailyDist !== "object") dailyDist = {};
-          }
-        } catch(e) {}
+          } catch(e) {}
+        }
 
-        let roomingServices = [];
-        try {
-          if (g.RoomingList_JSON) {
-            const parsedList = typeof g.RoomingList_JSON === "string" ? JSON.parse(g.RoomingList_JSON) : g.RoomingList_JSON;
-            if (Array.isArray(parsedList)) {
-              roomingServices = parsedList.filter(item => item && (item.isService || (item.servicio && !item.tipo && !item.hab)));
-            }
+        let preParsedServices = [];
+        if (g.RoomingList_JSON) {
+          const rawR = typeof g.RoomingList_JSON === "string" ? g.RoomingList_JSON : "";
+          if (Array.isArray(g.RoomingList_JSON) || rawR.includes("isService") || rawR.includes("servicio")) {
+            try {
+              const parsedList = Array.isArray(g.RoomingList_JSON) ? g.RoomingList_JSON : JSON.parse(rawR);
+              if (Array.isArray(parsedList)) {
+                parsedList.forEach(item => {
+                  if (item && (item.isService || (item.servicio && !item.tipo && !item.hab))) {
+                    const sDate = item.dateIn || item.serviceDate || item.fecha || item.date;
+                    const parsedD = sDate ? parseDate(sDate) : null;
+                    const sType = String(item.type || item.servicio || item.name || "").trim();
+                    if (parsedD && sType) {
+                      preParsedServices.push({
+                        year: parsedD.getFullYear(),
+                        month: parsedD.getMonth(),
+                        date: parsedD.getDate(),
+                        name: sType,
+                        pax: parseInt(item.pax, 10)
+                      });
+                    }
+                  }
+                });
+              }
+            } catch(e) {}
           }
-        } catch(e) {}
+        }
 
         const startsWithDinner = /(entra\s+con\s+cena|primer\s+servicio\s+cena|comienza\s+con\s+cena)/i.test(notes);
         const startsWithLunch = /(entra\s+con\s+almuerzo|entra\s+con\s+comida|primer\s+servicio\s+almuerzo|primer\s+servicio\s+comida)/i.test(notes);
@@ -926,8 +960,12 @@
           const cur = new Date(start);
           cur.setDate(cur.getDate() + i);
 
-          const isoKey = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
-          const dFmt = `${String(cur.getDate()).padStart(2, "0")}/${String(cur.getMonth() + 1).padStart(2, "0")}`;
+          const curYear = cur.getFullYear();
+          const curMonth = cur.getMonth();
+          const curDate = cur.getDate();
+
+          const isoKey = `${curYear}-${String(curMonth + 1).padStart(2, "0")}-${String(curDate).padStart(2, "0")}`;
+          const dFmt = `${String(curDate).padStart(2, "0")}/${String(curMonth + 1).padStart(2, "0")}`;
           const dayName = dayNames[cur.getDay()];
           const dayLabel = `${dFmt} (${dayName})`;
 
@@ -1000,17 +1038,12 @@
             }
           }
 
-          // Check extra rooming services for this day
-          roomingServices.forEach(s => {
-            const sDate = s.dateIn || s.serviceDate || s.fecha || s.date;
-            if (sDate) {
-              const parsedSDate = parseDate(sDate);
-              if (parsedSDate && parsedSDate.getFullYear() === cur.getFullYear() && parsedSDate.getMonth() === cur.getMonth() && parsedSDate.getDate() === cur.getDate()) {
-                const sType = String(s.type || s.servicio || s.name || "").trim();
-                const sPax = parseInt(s.pax || dayPax, 10) || dayPax;
-                if (sType && !meals.some(m => m.name.toLowerCase() === sType.toLowerCase())) {
-                  meals.push({ name: sType, pax: sPax, isExtra: true });
-                }
+          // Pre-parsed extra rooming services for this day
+          preParsedServices.forEach(s => {
+            if (s.year === curYear && s.month === curMonth && s.date === curDate) {
+              const sPax = !isNaN(s.pax) && s.pax > 0 ? s.pax : dayPax;
+              if (!meals.some(m => m.name.toLowerCase() === s.name.toLowerCase())) {
+                meals.push({ name: s.name, pax: sPax, isExtra: true });
               }
             }
           });
@@ -1038,7 +1071,7 @@
           .map(d => `${d.dayLabel}: ${d.mealsText}`)
           .join(" | ");
 
-        return {
+        const result = {
           hasMeals,
           isRoomOnly,
           regimeLabel,
@@ -1046,6 +1079,8 @@
           days,
           summaryText
         };
+        pensionsCache.set(g, result);
+        return result;
       };
 
       const generateInternalReportText = (rep) => {
@@ -1145,14 +1180,14 @@
               if (activeDays.length <= 6) {
                 dayRows = activeDays.map(d => {
                   const mealBadges = d.meals.map(m => 
-                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
+                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-weight: 700; color: #0f172a; margin-right: 5px; font-size: 10.5px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
                   ).join("");
                   return `
                     <tr>
-                      <td width="92" valign="middle" style="padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;">
+                      <td width="96" valign="middle" style="padding: 2.5px 0; vertical-align: middle; white-space: nowrap; width: 96px; font-weight: 700; color: #475569; font-size: 10.5px;">
                         📅 ${d.dayLabel}:
                       </td>
-                      <td valign="middle" style="padding: 2px 0; vertical-align: middle; font-size: 10px;">
+                      <td valign="middle" style="padding: 2.5px 0; vertical-align: middle; font-size: 10.5px;">
                         ${mealBadges}
                       </td>
                     </tr>
@@ -1165,14 +1200,14 @@
                 
                 const renderRow = (d) => {
                   const mealBadges = d.meals.map(m => 
-                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
+                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-weight: 700; color: #0f172a; margin-right: 5px; font-size: 10.5px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
                   ).join("");
                   return `
                     <tr>
-                      <td width="92" valign="middle" style="padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;">
+                      <td width="96" valign="middle" style="padding: 2.5px 0; vertical-align: middle; white-space: nowrap; width: 96px; font-weight: 700; color: #475569; font-size: 10.5px;">
                         📅 ${d.dayLabel}:
                       </td>
-                      <td valign="middle" style="padding: 2px 0; vertical-align: middle; font-size: 10px;">
+                      <td valign="middle" style="padding: 2.5px 0; vertical-align: middle; font-size: 10.5px;">
                         ${mealBadges}
                       </td>
                     </tr>
@@ -1182,7 +1217,7 @@
                 const firstHtml = firstDays.map(renderRow).join("");
                 const interHtml = `
                   <tr>
-                    <td colspan="2" style="padding: 2px 0; color: #64748b; font-size: 9.5px; font-style: italic;">
+                    <td colspan="2" style="padding: 3px 0; color: #64748b; font-size: 10px; font-style: italic;">
                       ... ${interDays.length} días intermedios (${interDays[0].dayLabel} al ${interDays[interDays.length - 1].dayLabel}) con pensión habitual ...
                     </td>
                   </tr>
@@ -1192,10 +1227,10 @@
               }
 
               pensionsHtml = `
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 7px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
                   <tr>
-                    <td style="padding: 5px 8px;">
-                      <div style="font-size: 9.5px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">
+                    <td style="padding: 6px 10px;">
+                      <div style="font-size: 10px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px;">
                         🍽️ Previsión de Pensiones <span style="font-weight: 600; color: #64748b; text-transform: none;">(${pensions.regimeLabel})</span>:
                       </div>
                       <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -1207,9 +1242,9 @@
               `;
             } else if (pensions.isRoomOnly) {
               pensionsHtml = `
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 7px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
                   <tr>
-                    <td style="padding: 4px 8px; font-size: 10px; color: #64748b; font-style: italic;">
+                    <td style="padding: 5px 10px; font-size: 10.5px; color: #64748b; font-style: italic;">
                       🍽️ <strong>Régimen:</strong> Solo Alojamiento (sin servicios de pensión contratados)
                     </td>
                   </tr>
@@ -1223,7 +1258,7 @@
 
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td width="100" valign="top" style="padding: 12px 10px; vertical-align: top; width: 100px;">
+                <td width="105" valign="top" style="padding: 12px 10px; vertical-align: top; width: 105px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
                       <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;">
@@ -1235,7 +1270,7 @@
                     🏨 ${hotelName}
                   </div>
                 </td>
-                <td width="378" valign="top" style="padding: 12px 10px; vertical-align: top; width: 378px;">
+                <td width="490" valign="top" style="padding: 12px 12px; vertical-align: top; width: 490px;">
                   <div style="font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;">
                     ${name}
                   </div>
@@ -1243,7 +1278,7 @@
                     <strong style="color: #475569;">Estancia:</strong> ${entrada} ➔ ${salida} &nbsp;|&nbsp; <strong style="color: #475569;">Pax:</strong> ${pax}
                   </div>
                   ${pensionsHtml}
-                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 6px; width: 100%;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 7px; width: 100%;">
                     <tr>
                       <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;">
                         ⚠️ ${alertDetailText}
@@ -1251,7 +1286,7 @@
                     </tr>
                   </table>
                 </td>
-                <td width="105" valign="top" style="padding: 12px 10px; vertical-align: top; width: 105px;">
+                <td width="125" valign="top" style="padding: 12px 10px; vertical-align: top; width: 125px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
                       <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;">
@@ -1261,14 +1296,14 @@
                   </table>
                 </td>
                 ${sec.id === "financial" || sec.id === "release" ? `
-                <td width="145" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 145px; white-space: nowrap;">
+                <td width="160" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 160px; white-space: nowrap;">
                   <div style="font-size: 10px; color: #64748b; white-space: nowrap;">Total: <strong>${fmt(fin.total)}</strong></div>
                   <div style="font-size: 13.5px; font-weight: 900; color: #be123c; margin-top: 2px; white-space: nowrap;">
                     Pend: ${fmt(fin.pending)}
                   </div>
                   <div style="font-size: 10px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;">Abonado: ${fmt(fin.paid)}</div>
                 </td>` : `
-                <td width="145" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 145px;">
+                <td width="160" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 160px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
                     <tr>
                       <td bgcolor="#f0f9ff" style="background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;">
@@ -1300,10 +1335,10 @@
                 </td>
               </tr>
               <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
-                <td width="100" style="padding: 8px 10px; width: 100px;">Localizador</td>
-                <td width="378" style="padding: 8px 10px; width: 378px;">Grupo &amp; Requerimiento</td>
-                <td width="105" style="padding: 8px 10px; width: 105px;">Comercial</td>
-                <td width="145" align="right" style="padding: 8px 10px; text-align: right; width: 145px;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</td>
+                <td width="105" style="padding: 8px 12px; width: 105px;">Localizador</td>
+                <td width="490" style="padding: 8px 12px; width: 490px;">Grupo &amp; Requerimiento</td>
+                <td width="125" style="padding: 8px 12px; width: 125px;">Comercial</td>
+                <td width="160" align="right" style="padding: 8px 12px; text-align: right; width: 160px;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</td>
               </tr>
               ${rowsHtml}
             </table>
@@ -1313,9 +1348,9 @@
         return `
 <center style="width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;">
   <!--[if mso]>
-  <table role="presentation" width="760" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
+  <table role="presentation" width="880" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
   <![endif]-->
-  <table role="presentation" width="760" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 760px; max-width: 760px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
+  <table role="presentation" width="880" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 880px; max-width: 880px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
     <!-- Header Banner: Fondo solido azul oscuro para compatibilidad total con Outlook -->
     <tr>
       <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 20px 24px;">
@@ -1396,10 +1431,18 @@
         `;
       };
 
+      const internalReportHtml = React.useMemo(() => {
+        return generateInternalReportHtml(reportData);
+      }, [reportData]);
+
+      const internalReportText = React.useMemo(() => {
+        return generateInternalReportText(reportData);
+      }, [reportData]);
+
       const handleCopyReportRichEmail = () => {
         if (!reportData) return;
-        const htmlContent = generateInternalReportHtml(reportData);
-        const plainText = internalReportModal?.customBody || generateInternalReportText(reportData);
+        const htmlContent = internalReportHtml;
+        const plainText = internalReportModal?.customBody || internalReportText;
         const fullPlain = `Para: ${internalReportModal?.emailTo || ""}\nAsunto: ${internalReportModal?.subject || ""}\n\n${plainText}`;
 
         if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -1432,7 +1475,7 @@
 
       const handleCopyReportText = () => {
         if (!reportData) return;
-        const bodyText = internalReportModal?.customBody || generateInternalReportText(reportData);
+        const bodyText = internalReportModal?.customBody || internalReportText;
         const fullPlain = `Para: ${internalReportModal?.emailTo || ""}\nAsunto: ${internalReportModal?.subject || ""}\n\n${bodyText}`;
         navigator.clipboard.writeText(fullPlain).then(() => {
           setToastInfo("📋 Texto del informe copiado al portapapeles.");
@@ -1443,7 +1486,7 @@
 
       const handleExecuteSendReport = () => {
         if (!reportData) return;
-        const bodyText = internalReportModal?.customBody || generateInternalReportText(reportData);
+        const bodyText = internalReportModal?.customBody || internalReportText;
         const to = internalReportModal?.emailTo || "comunicaciones@hotelguadiana.es";
         const sub = internalReportModal?.subject || `[CONTROL INTERNO] Resumen de Alertas Operativas - ${reportData.hotelLabel}`;
 
@@ -2624,7 +2667,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
               onClick={() => setInternalReportModal(null)}
             >
               <div
-                className="bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col my-auto max-h-[95vh] animate-slide-up"
+                className="bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-6xl w-full overflow-hidden flex flex-col my-auto max-h-[95vh] animate-slide-up"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Cabecera del Modal */}
@@ -2669,7 +2712,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                           if (internalReportModal.customBody === null && reportData) {
                             setInternalReportModal({
                               ...internalReportModal,
-                              customBody: generateInternalReportText(reportData)
+                              customBody: internalReportText
                             });
                           }
                           setInternalReportTab("edit");
@@ -2821,8 +2864,8 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                   <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70">
                     {/* Render visual del HTML del informe */}
                     <div
-                      className="w-full max-w-[800px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white"
-                      dangerouslySetInnerHTML={{ __html: generateInternalReportHtml(reportData) }}
+                      className="w-full max-w-[940px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white"
+                      dangerouslySetInnerHTML={{ __html: internalReportHtml }}
                     />
                   </div>
                 ) : (
@@ -2840,7 +2883,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                         type="button"
                         onClick={() => setInternalReportModal({
                           ...internalReportModal,
-                          customBody: generateInternalReportText(reportData)
+                          customBody: internalReportText
                         })}
                         className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
                       >
@@ -2850,7 +2893,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
 
                     <textarea
                       rows={16}
-                      value={internalReportModal.customBody !== null ? internalReportModal.customBody : (generateInternalReportText(reportData) || "")}
+                      value={internalReportModal.customBody !== null ? internalReportModal.customBody : (internalReportText || "")}
                       onChange={(e) => setInternalReportModal({ ...internalReportModal, customBody: e.target.value })}
                       className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-[12px] leading-relaxed text-slate-800 font-medium font-mono outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none custom-scrollbar"
                       placeholder="Generando informe..."
