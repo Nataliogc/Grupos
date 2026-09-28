@@ -32,7 +32,10 @@
             .no-print { display: none !important; }
             input, textarea, .editable { border: none !important; resize: none; overflow: hidden; background: transparent !important; }
             .dept-grid { display: block !important; }
-            .dept-box { page-break-inside: avoid !important; break-inside: avoid !important; display: block !important; margin-bottom: 15px; }
+            .dept-grid.all-depts-hidden { display: none !important; }
+            .section-title.all-depts-hidden { display: none !important; }
+            .dept-box:not(.hidden) { page-break-inside: avoid !important; break-inside: avoid !important; display: block !important; margin-bottom: 15px; }
+            .dept-box.hidden, .hidden { display: none !important; }
             tr { page-break-inside: avoid; break-inside: avoid; }
             .section-title { page-break-after: avoid; break-after: avoid; }
         }
@@ -224,13 +227,14 @@
         </div>
 
         <!-- RESUMEN RAPIDO POR DEPARTAMENTO -->
-        <div class="section-title flex justify-between items-end">
+        <div id="section-title-departments" class="section-title flex justify-between items-end">
             <span>RESUMEN RÁPIDO POR DEPARTAMENTO</span>
             <div class="no-print flex gap-2">
                 <button onclick="editDepartmentSummary()" class="text-[9px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-black px-2 py-1 rounded uppercase tracking-wider">Editar resumen</button>
                 <button onclick="saveDepartmentSummaryManual()" class="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-black px-2 py-1 rounded uppercase tracking-wider">Guardar resumen</button>
                 <button onclick="cancelDepartmentSummaryEdit()" class="text-[9px] bg-slate-50 hover:bg-slate-100 text-slate-500 font-black px-2 py-1 rounded uppercase tracking-wider">Cancelar</button>
                 <button onclick="showAllDepartmentBoxes()" class="text-[9px] bg-slate-50 hover:bg-slate-100 text-slate-500 font-black px-2 py-1 rounded uppercase tracking-wider">Mostrar todos</button>
+                <button onclick="hideAllDepartmentBoxes()" class="text-[9px] bg-rose-50 hover:bg-rose-100 text-rose-600 font-black px-2 py-1 rounded uppercase tracking-wider">Ocultar todos</button>
                 <button onclick="regenerateDepartmentSummary()" class="text-[9px] bg-amber-50 hover:bg-amber-100 text-amber-700 font-black px-2 py-1 rounded uppercase tracking-wider">Regenerar automático</button>
             </div>
         </div>
@@ -467,14 +471,25 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         function applyDepartmentSummaryLayout() {
+            let visibleCount = 0;
             ['reception', 'kitchen', 'admin'].forEach(key => {
                 const box = document.querySelector(`[data-dept-box="${key}"]`);
                 if (!box) return;
                 const layout = departmentSummaryLayout[key] || {};
-                box.classList.toggle('hidden', !!layout.hidden);
-                box.classList.toggle('md:col-span-2', !!layout.wide && !layout.hidden);
-                box.classList.toggle('md:col-span-3', !!layout.full && !layout.hidden);
+                const isHidden = !!layout.hidden;
+                box.classList.toggle('hidden', isHidden);
+                box.classList.toggle('md:col-span-2', !!layout.wide && !isHidden);
+                box.classList.toggle('md:col-span-3', !!layout.full && !isHidden);
+                if (!isHidden) visibleCount++;
             });
+            const titleEl = document.getElementById('section-title-departments');
+            const gridEl = document.querySelector('.dept-grid');
+            if (titleEl) {
+                titleEl.classList.toggle('all-depts-hidden', visibleCount === 0);
+            }
+            if (gridEl) {
+                gridEl.classList.toggle('all-depts-hidden', visibleCount === 0);
+            }
         }
 
         function updateDepartmentSummaryLayout(key, patch) {
@@ -507,6 +522,19 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 departmentSummaryLayout[key] = {
                     ...(departmentSummaryLayout[key] || {}),
                     hidden: false
+                };
+            });
+            applyDepartmentSummaryLayout();
+            captureDepartmentSummary(true);
+            saveStateToCache({ skipDepartmentSummarySync: true });
+            syncDepartmentSummaryToFirestore();
+        }
+
+        function hideAllDepartmentBoxes() {
+            ['reception', 'kitchen', 'admin'].forEach(key => {
+                departmentSummaryLayout[key] = {
+                    ...(departmentSummaryLayout[key] || {}),
+                    hidden: true
                 };
             });
             applyDepartmentSummaryLayout();
@@ -2054,17 +2082,112 @@ ${inputVal}`;
                   return room && typeof room === "object";
                 });
 
-                // Convertir la salida de Gemini a registros de rooming canónicos (1 fila = 1 hab, qty 1)
-                const newList = validRooms.map(item => {
-                    const rowDateIn = window.RoomingCore.normalizeRoomingDate(item.dateIn || finalInDate);
-                    const rowDateOut = window.RoomingCore.normalizeRoomingDate(item.dateOut || finalOutDate);
-                    return {
+                // Clonar la lista original preservando todos los bloques económicos y servicios intactos
+                let finalRoomingList = JSON.parse(JSON.stringify(originalList));
+
+                // Identificar los bloques de alojamiento económicos originales
+                const economicAccommodationBlocks = finalRoomingList.filter(item => 
+                    window.RoomingCore.isAccommodationItem(item) && !item.isManualRoomingItem && !item.pendienteValoracion
+                );
+
+                if (economicAccommodationBlocks.length > 0) {
+                    // Inicializar assignments en cada bloque económico
+                    economicAccommodationBlocks.forEach(block => {
+                        block.assignments = block.assignments || {};
+                    });
+
+                    // Construir los slots físicos disponibles de las habitaciones contratadas
+                    const availableSlots = [];
+                    economicAccommodationBlocks.forEach(block => {
+                        const qty = parseInt(block.qty) || 1;
+                        const nights = parseInt(block.nights) || 1;
+                        const canonicalType = window.RoomingCore.getCanonicalRoomType(block);
+                        for (let q = 0; q < qty; q++) {
+                            availableSlots.push({
+                                block,
+                                qIndex: q,
+                                nights,
+                                canonicalType,
+                                assigned: false
+                            });
+                        }
+                    });
+
+                    // Asignar los datos de cada habitación extraída por IA en los slots contratados
+                    validRooms.forEach(room => {
+                        const roomType = window.RoomingCore.normalizeRoomType(room.type || 'Habitación Doble');
+                        const canonicalRoomType = window.RoomingCore.getCanonicalRoomType({ type: roomType });
+                        const occupantsList = (room.ocupantes || '').split('\n').map(x => x.trim()).filter(Boolean);
+                        const dniList = (room.dni || '').split(';').map(x => x.trim()).filter(Boolean);
+                        const roomNo = window.RoomingCore.normalizeRoomNumber(room.roomNo || '');
+                        const observ = room.observ || '';
+
+                        // 1. Coincidencia exacta de tipo
+                        let targetSlot = availableSlots.find(s => !s.assigned && s.canonicalType === canonicalRoomType);
+                        // 2. Coincidencia parcial de tipo
+                        if (!targetSlot) {
+                            targetSlot = availableSlots.find(s => !s.assigned && (s.canonicalType.includes(canonicalRoomType) || canonicalRoomType.includes(s.canonicalType)));
+                        }
+                        // 3. Cualquier slot libre de alojamiento
+                        if (!targetSlot) {
+                            targetSlot = availableSlots.find(s => !s.assigned);
+                        }
+
+                        if (targetSlot) {
+                            targetSlot.assigned = true;
+                            const block = targetSlot.block;
+                            const q = targetSlot.qIndex;
+                            const assignData = {
+                                assignmentId: `assign_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                                roomNo: roomNo,
+                                occupants: occupantsList,
+                                dni: dniList,
+                                observations: observ
+                            };
+                            for (let n = 0; n < targetSlot.nights; n++) {
+                                block.assignments[`q${q}_n${n}`] = { ...assignData };
+                            }
+                            if (parseInt(block.qty) === 1 && parseInt(block.nights) === 1) {
+                                block.roomNo = roomNo;
+                                block.ocupantes = occupantsList.join('\n');
+                                block.dni = dniList.join(';');
+                                block.observ = observ;
+                            }
+                        } else {
+                            // Habitación extra que sobrepasa lo contratado: se agrega como habitación manual
+                            // con excludeFromEconomicTotals: true, price: 0 para NO tocar distribución ni precios
+                            const manualId = `manual_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                            finalRoomingList.push({
+                                id: manualId,
+                                isManualRoomingItem: true,
+                                pendienteValoracion: true,
+                                excludeFromEconomicTotals: true,
+                                type: roomType,
+                                pax: parseInt(room.pax) || 1,
+                                dateIn: window.RoomingCore.normalizeRoomingDate(room.dateIn || finalInDate),
+                                dateOut: window.RoomingCore.normalizeRoomingDate(room.dateOut || finalOutDate),
+                                qty: 1,
+                                price: 0,
+                                total: 0,
+                                nights: window.RoomingCore.calculateRoomingNights(room.dateIn || finalInDate, room.dateOut || finalOutDate) || 1,
+                                roomNo: roomNo,
+                                ocupantes: occupantsList.join('\n'),
+                                dni: dniList.join(';'),
+                                observ: observ,
+                                hotel: room.hotel || hHotel,
+                                isService: false
+                            });
+                        }
+                    });
+                } else {
+                    // Si no había bloques económicos previos, construir lista
+                    const newRooms = validRooms.map(item => ({
                         id: item.id || Date.now() + Math.random(),
                         hotel: item.hotel || hHotel,
                         type: window.RoomingCore.normalizeRoomType(item.type || 'Habitación Doble'),
-                        dateIn: rowDateIn,
-                        dateOut: rowDateOut,
-                        qty: 1, // REGLA: qty = 1 para cada habitación física
+                        dateIn: window.RoomingCore.normalizeRoomingDate(item.dateIn || finalInDate),
+                        dateOut: window.RoomingCore.normalizeRoomingDate(item.dateOut || finalOutDate),
+                        qty: 1,
                         pax: parseInt(item.pax) || 2,
                         regime: item.regime || gRegimen,
                         isService: false,
@@ -2075,69 +2198,23 @@ ${inputVal}`;
                         source: 'auto_rooming',
                         generatedFrom: 'rooming_ai',
                         generatedAt: new Date().toISOString()
-                    };
-                });
+                    }));
+                    finalRoomingList = [...newRooms, ...servicesList];
+                }
 
-                // Separar ítems económicos (los que tienen precio, isEconomicRepresentation:true)
-                // de los ítems de tracking de habitaciones (room assignments individuales)
-                const economicRepresentationItems = originalList.filter(item =>
-                    item && item.isEconomicRepresentation === true
-                );
-                const nonEconomicAccommodationItems = originalList.filter(item =>
-                    item && item.isEconomicRepresentation !== true && !window.RoomingCore.isAccommodationItem(item)
-                );
-
-                // combinedList = nuevas habitaciones (IA) + ítems económicos originales (precios) + servicios
-                // IMPORTANTE: Los ítems económicos se conservan intactos para no borrar los precios
-                const combinedList = [...newList, ...economicRepresentationItems, ...servicesList];
-
-                // Preservar la estructura económica asignando el precio previo por categoría.
-                // Usamos los economicItems para extraer el precio canónico.
-                const blockDetails = {};
-                economicItems.forEach(item => {
-                    const key = window.RoomingCore.getCanonicalRoomType(item);
-                    if (!key) return;
-                    blockDetails[key] = {
-                        price: window.RoomingCore.parsePositiveNumber(item.price),
-                        iva: window.RoomingCore.parsePositiveNumber(item.iva)
-                    };
-                });
-
-                combinedList.forEach(item => {
-                    // Solo intentar asignar precio a las habitaciones generadas por IA (tracking items)
-                    // Los ítems económicos originales (isEconomicRepresentation:true) ya tienen su precio
-                    if (item.isEconomicRepresentation === true) return;
-
-                    if (window.RoomingCore.isAccommodationItem(item)) {
-                        const typeKey = window.RoomingCore.getCanonicalRoomType(item);
-                        let match = blockDetails[typeKey];
-                        if (!match) {
-                            const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
-                            if (matchingKey) match = blockDetails[matchingKey];
-                        }
-                        
-                        if (match && Number.isFinite(match.price) && match.price > 0) {
-                            item.price = match.price;
-                            item.iva = match.iva;
-                            const itemNights = window.RoomingCore.calculateRoomingNights(item.dateIn, item.dateOut);
-                            item.nights = itemNights;
-                            item.total = (1 * match.price * itemNights).toFixed(2);
-                        }
-                        // Si no hay match, el ítem de tracking no tiene precio propio (el precio está en los ítems económicos)
-                    }
-                });
-
-                // Recalculate totals
-                const newTotalRooms = window.RoomingCore.calculateMaxDailyRooms(newList);
-                const newTotalPax = window.RoomingCore.calculateMaxDailyOccupancy(newList);
-                const newTotalSum = combinedList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
+                // REGLA FUNDAMENTAL: Preservar estrictamente la distribución y precios originales de la reserva.
+                // "No me debe cambiar la distribución ni precios al meter la rooming"
+                const paxTotal = recData['Pax.'] || '';
+                const cantTotal = recData['Cant.'] || '';
+                const habitacionesTotal = recData['Habitaciones'] || '';
+                const importeTotal = recData['Importe(*)'] || '0.00';
 
                 await docRef.set({
-                    RoomingList_JSON: JSON.stringify(combinedList),
-                    "Pax.": newTotalPax.toString(),
-                    "Cant.": newTotalRooms.toString(),
-                    "Habitaciones": `${newTotalRooms} habitaciones`,
-                    "Importe(*)": newTotalSum.toFixed(2),
+                    RoomingList_JSON: JSON.stringify(finalRoomingList),
+                    "Pax.": paxTotal,
+                    "Cant.": cantTotal,
+                    "Habitaciones": habitacionesTotal,
+                    "Importe(*)": importeTotal,
                     "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
@@ -2146,11 +2223,11 @@ ${inputVal}`;
                     try {
                         let group = JSON.parse(rawGroupData);
                         const updatePayload = {
-                            RoomingList_JSON: JSON.stringify(combinedList),
-                            "Pax.": newTotalPax.toString(),
-                            "Cant.": newTotalRooms.toString(),
-                            "Habitaciones": `${newTotalRooms} habitaciones`,
-                            "Importe(*)": newTotalSum.toFixed(2)
+                            RoomingList_JSON: JSON.stringify(finalRoomingList),
+                            "Pax.": paxTotal,
+                            "Cant.": cantTotal,
+                            "Habitaciones": habitacionesTotal,
+                            "Importe(*)": importeTotal
                         };
                         
                         let updated = false;
