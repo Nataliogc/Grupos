@@ -933,54 +933,54 @@
 
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td width="90" valign="top" style="padding: 10px 8px; vertical-align: top; width: 90px;">
+                <td width="100" valign="top" style="padding: 12px 10px; vertical-align: top; width: 100px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
-                      <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 6px; border-radius: 4px; text-align: center;">
+                      <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;">
                         #${resId}
                       </td>
                     </tr>
                   </table>
-                  <div style="font-size: 9.5px; color: #64748b; font-weight: 700; margin-top: 4px;">
+                  <div style="font-size: 10px; color: #64748b; font-weight: 700; margin-top: 5px; white-space: nowrap;">
                     🏨 ${hotelName}
                   </div>
                 </td>
-                <td width="280" valign="top" style="padding: 10px 8px; vertical-align: top; width: 280px;">
-                  <div style="font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+                <td width="378" valign="top" style="padding: 12px 10px; vertical-align: top; width: 378px;">
+                  <div style="font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;">
                     ${name}
                   </div>
-                  <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">
-                    <strong>Estancia:</strong> ${entrada} ➔ ${salida} &nbsp;|&nbsp; <strong>Pax:</strong> ${pax}
+                  <div style="font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;">
+                    <strong style="color: #475569;">Estancia:</strong> ${entrada} ➔ ${salida} &nbsp;|&nbsp; <strong style="color: #475569;">Pax:</strong> ${pax}
                   </div>
-                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 5px;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 6px; width: 100%;">
                     <tr>
-                      <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #1e293b;">
+                      <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;">
                         ⚠️ ${alertDetailText}
                       </td>
                     </tr>
                   </table>
                 </td>
-                <td width="110" valign="top" style="padding: 10px 8px; vertical-align: top; width: 110px;">
+                <td width="105" valign="top" style="padding: 12px 10px; vertical-align: top; width: 105px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
-                      <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
+                      <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;">
                         👤 ${com}
                       </td>
                     </tr>
                   </table>
                 </td>
                 ${sec.id === "financial" || sec.id === "release" ? `
-                <td width="140" valign="top" align="right" style="padding: 10px 8px; vertical-align: top; text-align: right; width: 140px;">
-                  <div style="font-size: 9.5px; color: #64748b;">Total: ${fmt(fin.total)}</div>
-                  <div style="font-size: 13px; font-weight: 900; color: #be123c; margin-top: 2px;">
+                <td width="145" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 145px; white-space: nowrap;">
+                  <div style="font-size: 10px; color: #64748b; white-space: nowrap;">Total: <strong>${fmt(fin.total)}</strong></div>
+                  <div style="font-size: 13.5px; font-weight: 900; color: #be123c; margin-top: 2px; white-space: nowrap;">
                     Pend: ${fmt(fin.pending)}
                   </div>
-                  <div style="font-size: 9.5px; color: #059669; font-weight: 700;">Abonado: ${fmt(fin.paid)}</div>
+                  <div style="font-size: 10px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;">Abonado: ${fmt(fin.paid)}</div>
                 </td>` : `
-                <td width="140" valign="top" align="right" style="padding: 10px 8px; vertical-align: top; text-align: right; width: 140px;">
+                <td width="145" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 145px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
                     <tr>
-                      <td bgcolor="#f0f9ff" style="background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 4px;">
+                      <td bgcolor="#f0f9ff" style="background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;">
                         Requiere Acción
                       </td>
                     </tr>
@@ -991,26 +991,28 @@
           }).join("");
 
           return `
-            <table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 600px; max-width: 600px; margin-bottom: 20px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse;">
+            <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse; table-layout: fixed;">
               <tr>
-                <td bgcolor="${sec.headerBg}" style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 10px 12px;">
+                <td colspan="4" bgcolor="${sec.headerBg}" style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 11px 16px;">
                   <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
                     <tr>
-                      <td style="font-size: 12px; font-weight: 800; color: ${sec.headerColor}; text-transform: uppercase; letter-spacing: 0.5px;">
+                      <td valign="middle" style="font-size: 13px; font-weight: 800; color: ${sec.headerColor}; text-transform: uppercase; letter-spacing: 0.5px;">
                         ${sec.title}
                       </td>
-                      <td align="right" style="text-align: right; font-size: 11px; font-weight: 800; color: ${sec.headerColor};">
-                        ${sec.alerts.length} caso(s)
+                      <td valign="middle" align="right" style="text-align: right; font-size: 11.5px; font-weight: 800; color: ${sec.headerColor}; white-space: nowrap; padding-left: 12px;">
+                        <span style="background-color: #ffffff; border: 1px solid ${sec.headerColor}; padding: 3px 10px; border-radius: 12px; display: inline-block;">
+                          ${sec.alerts.length} caso(s)
+                        </span>
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
-              <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 9.5px; font-weight: 800; color: #475569; text-transform: uppercase;">
-                <td width="90" style="padding: 6px 8px;">Localizador</td>
-                <td width="280" style="padding: 6px 8px;">Grupo & Requerimiento</td>
-                <td width="110" style="padding: 6px 8px;">Comercial</td>
-                <td width="140" align="right" style="padding: 6px 8px; text-align: right;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</td>
+              <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+                <td width="100" style="padding: 8px 10px; width: 100px;">Localizador</td>
+                <td width="378" style="padding: 8px 10px; width: 378px;">Grupo &amp; Requerimiento</td>
+                <td width="105" style="padding: 8px 10px; width: 105px;">Comercial</td>
+                <td width="145" align="right" style="padding: 8px 10px; text-align: right; width: 145px;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</td>
               </tr>
               ${rowsHtml}
             </table>
@@ -1020,9 +1022,9 @@
         return `
 <center style="width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;">
   <!--[if mso]>
-  <table role="presentation" width="640" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
+  <table role="presentation" width="760" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
   <![endif]-->
-  <table role="presentation" width="640" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 640px; max-width: 640px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
+  <table role="presentation" width="760" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 760px; max-width: 760px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
     <!-- Header Banner: Fondo solido azul oscuro para compatibilidad total con Outlook -->
     <tr>
       <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 20px 24px;">
@@ -1031,25 +1033,25 @@
             <td valign="middle" style="vertical-align: middle;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td bgcolor="#d97706" style="background-color: #d97706; color: #ffffff; font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px;">
+                  <td bgcolor="#d97706" style="background-color: #d97706; color: #ffffff; font-size: 9.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; white-space: nowrap;">
                     CONTROL INTERNO OPERATIVO
                   </td>
                 </tr>
               </table>
-              <div style="font-size: 17px; font-weight: 800; color: #ffffff; margin-top: 8px; line-height: 1.25;">
+              <div style="font-size: 18px; font-weight: 800; color: #ffffff; margin-top: 8px; line-height: 1.25;">
                 Informe de Alertas Operativas y Actuaciones Críticas
               </div>
-              <div style="font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 4px;">
+              <div style="font-size: 11.5px; color: #94a3b8; font-weight: 600; margin-top: 4px;">
                 Establecimiento: <strong style="color: #38bdf8;">${rep.hotelLabel}</strong> &nbsp;|&nbsp; Fecha: ${rep.dateStr} (${rep.timeStr})
               </div>
-              <div style="font-size: 11px; color: #cbd5e1; margin-top: 2px;">
+              <div style="font-size: 11.5px; color: #cbd5e1; margin-top: 2px;">
                 Filtro Comercial: <strong>${rep.filterComercial === "todos" ? "Todos los Comerciales" : rep.filterComercial}</strong>
               </div>
             </td>
-            <td valign="middle" align="right" width="105" style="vertical-align: middle; text-align: right;">
+            <td valign="middle" align="right" width="115" style="vertical-align: middle; text-align: right; width: 115px;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
                 <tr>
-                  <td bgcolor="#1e293b" style="background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; text-align: center;">
+                  <td bgcolor="#1e293b" style="background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 14px; text-align: center; white-space: nowrap;">
                     <div style="font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Total Alertas</div>
                     <div style="font-size: 24px; font-weight: 900; color: #f59e0b; line-height: 1.1;">${rep.totalAlerts}</div>
                   </td>
@@ -1067,10 +1069,10 @@
       <td bgcolor="#fff1f2" style="background-color: #fff1f2; border-bottom: 2px solid #fecdd3; padding: 12px 24px;">
         <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="font-size: 11.5px; font-weight: 800; color: #be123c;">
+            <td style="font-size: 12px; font-weight: 800; color: #be123c;">
               💰 TOTAL PENDIENTE DE COBRO EN ALERTAS FINANCIERAS:
             </td>
-            <td align="right" style="text-align: right; font-size: 16px; font-weight: 900; color: #9f1239;">
+            <td align="right" style="text-align: right; font-size: 16px; font-weight: 900; color: #9f1239; white-space: nowrap;">
               ${fmt(rep.totalFinancialPending)}
             </td>
           </tr>
@@ -1080,7 +1082,7 @@
 
     <!-- Body Content con las tablas de secciones -->
     <tr>
-      <td bgcolor="#f8fafc" style="background-color: #f8fafc; padding: 20px 10px;">
+      <td bgcolor="#f8fafc" style="background-color: #f8fafc; padding: 20px 16px;">
         ${sectionsHtml || `
           <div style="text-align: center; padding: 30px; color: #64748b; font-size: 13px; font-weight: 700;">
             ✅ No hay alertas activas en las secciones seleccionadas para este filtro.
@@ -1091,7 +1093,7 @@
 
     <!-- Footer Oficial -->
     <tr>
-      <td bgcolor="#ffffff" style="background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 12px 24px; font-size: 11px; color: #64748b; text-align: center;">
+      <td bgcolor="#ffffff" style="background-color: #ffffff; border-top: 1px solid #e2e8f0; padding: 14px 24px; font-size: 11px; color: #64748b; text-align: center;">
         <strong>Nexus Groups Gold Edition</strong> • Módulo de Control Interno de Operaciones y Seguimiento Comercial
       </td>
     </tr>
@@ -2528,7 +2530,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                   <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70">
                     {/* Render visual del HTML del informe */}
                     <div
-                      className="w-full max-w-[660px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white"
+                      className="w-full max-w-[800px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white"
                       dangerouslySetInnerHTML={{ __html: generateInternalReportHtml(reportData) }}
                     />
                   </div>
