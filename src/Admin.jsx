@@ -1258,7 +1258,7 @@
 
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td width="105" valign="top" style="padding: 12px 10px; vertical-align: top; width: 105px;">
+                <td width="95" valign="top" style="padding: 12px 10px; vertical-align: top; width: 95px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
                       <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;">
@@ -1270,8 +1270,8 @@
                     🏨 ${hotelName}
                   </div>
                 </td>
-                <td width="490" valign="top" style="padding: 12px 12px; vertical-align: top; width: 490px;">
-                  <div style="font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+                <td width="665" valign="top" style="padding: 12px 14px; vertical-align: top; width: 665px;">
+                  <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; line-height: 1.3;">
                     ${name}
                   </div>
                   <div style="font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;">
@@ -1286,32 +1286,26 @@
                     </tr>
                   </table>
                 </td>
-                <td width="125" valign="top" style="padding: 12px 10px; vertical-align: top; width: 125px;">
-                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                <td width="120" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 120px;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
                     <tr>
-                      <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;">
+                      <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; padding: 2.5px 7px; border-radius: 4px; white-space: nowrap;">
                         👤 ${com}
                       </td>
                     </tr>
                   </table>
-                </td>
-                ${sec.id === "financial" || sec.id === "release" ? `
-                <td width="160" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 160px; white-space: nowrap;">
-                  <div style="font-size: 10px; color: #64748b; white-space: nowrap;">Total: <strong>${fmt(fin.total)}</strong></div>
-                  <div style="font-size: 13.5px; font-weight: 900; color: #be123c; margin-top: 2px; white-space: nowrap;">
+                  ${(sec.id === "financial" || sec.id === "release") ? `
+                  <div style="font-size: 12.5px; font-weight: 900; color: #be123c; margin-top: 6px; white-space: nowrap;">
                     Pend: ${fmt(fin.pending)}
                   </div>
-                  <div style="font-size: 10px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;">Abonado: ${fmt(fin.paid)}</div>
-                </td>` : `
-                <td width="160" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 160px;">
-                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
-                    <tr>
-                      <td bgcolor="#f0f9ff" style="background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;">
-                        Requiere Acción
-                      </td>
-                    </tr>
-                  </table>
-                </td>`}
+                  <div style="font-size: 9.5px; color: #64748b; margin-top: 1px; white-space: nowrap;">
+                    Total: <strong>${fmt(fin.total)}</strong>
+                  </div>
+                  <div style="font-size: 9.5px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;">
+                    Abonado: ${fmt(fin.paid)}
+                  </div>
+                  ` : ''}
+                </td>
               </tr>
             `;
           }).join("");
@@ -1319,7 +1313,7 @@
           return `
             <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse; table-layout: fixed;">
               <tr>
-                <td colspan="4" bgcolor="${sec.headerBg}" style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 11px 16px;">
+                <td colspan="3" bgcolor="${sec.headerBg}" style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 11px 16px;">
                   <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
                     <tr>
                       <td valign="middle" style="font-size: 13px; font-weight: 800; color: ${sec.headerColor}; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -1335,10 +1329,9 @@
                 </td>
               </tr>
               <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
-                <td width="105" style="padding: 8px 12px; width: 105px;">Localizador</td>
-                <td width="490" style="padding: 8px 12px; width: 490px;">Grupo &amp; Requerimiento</td>
-                <td width="125" style="padding: 8px 12px; width: 125px;">Comercial</td>
-                <td width="160" align="right" style="padding: 8px 12px; text-align: right; width: 160px;">${sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado"}</td>
+                <td width="95" style="padding: 8px 10px; width: 95px;">Localizador</td>
+                <td width="665" style="padding: 8px 12px; width: 665px;">Grupo &amp; Requerimiento</td>
+                <td width="120" align="right" style="padding: 8px 10px; text-align: right; width: 120px;">${sec.id === "financial" || sec.id === "release" ? "Comercial / Saldo" : "Comercial"}</td>
               </tr>
               ${rowsHtml}
             </table>
