@@ -851,6 +851,203 @@
         };
       }, [internalReportModal, columnsData, selectedHotel]);
 
+      const getGroupDailyPensions = (g) => {
+        if (!g) return { hasMeals: false, isRoomOnly: false, regimeLabel: "Sin definir", days: [], summaryText: "" };
+
+        const dIn = parseDate(g.Entrada);
+        const dOut = parseDate(g.Salida);
+        const rawPax = parseInt(g["Pax."] || g.Pax || 0, 10) || 0;
+        const rawReg = String(g["Régimen"] || g.Regimen || g.regimen || g.regime || "").trim().toUpperCase();
+        const notes = (String(g.Com_Notas || "") + " " + String(g.Notas || "")).toLowerCase();
+
+        if (!dIn || isNaN(dIn.getTime()) || !dOut || isNaN(dOut.getTime())) {
+          return {
+            hasMeals: false,
+            isRoomOnly: false,
+            regimeLabel: rawReg || "Sin régimen",
+            days: [],
+            summaryText: "Estancia sin fechas confirmadas"
+          };
+        }
+
+        const start = new Date(dIn.getFullYear(), dIn.getMonth(), dIn.getDate());
+        const end = new Date(dOut.getFullYear(), dOut.getMonth(), dOut.getDate());
+        const nights = Math.max(0, Math.round((end - start) / 86400000));
+        const totalDays = nights === 0 ? 1 : nights + 1;
+
+        // Determine base regime
+        let baseRegimeType = "OTHER";
+        let regimeLabel = rawReg || "Sin Régimen";
+        if (rawReg.includes("PC") || rawReg.includes("COMPLET") || rawReg.includes("FULL")) {
+          baseRegimeType = "PC";
+          regimeLabel = "Pensión Completa (PC)";
+        } else if (rawReg.includes("MP") || rawReg.includes("MEDIA") || rawReg.includes("HALF")) {
+          baseRegimeType = "MP";
+          regimeLabel = "Media Pensión (MP)";
+        } else if (rawReg.includes("TI") || rawReg.includes("TODO INC") || rawReg.includes("ALL INC")) {
+          baseRegimeType = "TI";
+          regimeLabel = "Todo Incluido (TI)";
+        } else if (rawReg.includes("AD") || rawReg.includes("HD") || rawReg.includes("DESAYUN") || rawReg.includes("B&B")) {
+          baseRegimeType = "AD";
+          regimeLabel = "Alojamiento y Desayuno (AD)";
+        } else if (rawReg.includes("HA") || rawReg.includes("SOLO") || rawReg.includes("SÓLO") || rawReg.includes("RO")) {
+          baseRegimeType = "HA";
+          regimeLabel = "Solo Alojamiento (SA)";
+        }
+
+        // Daily distribution or rooming extra services
+        let dailyDist = {};
+        try {
+          if (g.DailyDistribution_JSON) {
+            dailyDist = typeof g.DailyDistribution_JSON === "string" ? JSON.parse(g.DailyDistribution_JSON) : g.DailyDistribution_JSON;
+            if (!dailyDist || typeof dailyDist !== "object") dailyDist = {};
+          }
+        } catch(e) {}
+
+        let roomingServices = [];
+        try {
+          if (g.RoomingList_JSON) {
+            const parsedList = typeof g.RoomingList_JSON === "string" ? JSON.parse(g.RoomingList_JSON) : g.RoomingList_JSON;
+            if (Array.isArray(parsedList)) {
+              roomingServices = parsedList.filter(item => item && (item.isService || (item.servicio && !item.tipo && !item.hab)));
+            }
+          }
+        } catch(e) {}
+
+        const startsWithDinner = /(entra\s+con\s+cena|primer\s+servicio\s+cena|comienza\s+con\s+cena)/i.test(notes);
+        const startsWithLunch = /(entra\s+con\s+almuerzo|entra\s+con\s+comida|primer\s+servicio\s+almuerzo|primer\s+servicio\s+comida)/i.test(notes);
+        const mpUsesLunch = notes.includes("almuerzo") && !notes.includes("cena");
+
+        const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+        const days = [];
+        let totalMealsCount = 0;
+
+        for (let i = 0; i < totalDays; i++) {
+          const cur = new Date(start);
+          cur.setDate(cur.getDate() + i);
+
+          const isoKey = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+          const dFmt = `${String(cur.getDate()).padStart(2, "0")}/${String(cur.getMonth() + 1).padStart(2, "0")}`;
+          const dayName = dayNames[cur.getDay()];
+          const dayLabel = `${dFmt} (${dayName})`;
+
+          const isArrival = (i === 0);
+          const isDeparture = (i === nights);
+          const isIntermediate = (!isArrival && !isDeparture);
+
+          const dayDist = dailyDist[isoKey] || null;
+          let dayRegime = baseRegimeType;
+          let dayPax = rawPax;
+          if (dayDist) {
+            if (dayDist.pax !== undefined && dayDist.pax !== null && !isNaN(dayDist.pax)) {
+              dayPax = parseInt(dayDist.pax, 10);
+            }
+            if (dayDist.regimen) {
+              const dr = String(dayDist.regimen).toUpperCase();
+              if (dr.includes("PC")) dayRegime = "PC";
+              else if (dr.includes("MP")) dayRegime = "MP";
+              else if (dr.includes("AD") || dr.includes("HD")) dayRegime = "AD";
+              else if (dr.includes("HA")) dayRegime = "HA";
+            }
+          }
+
+          const meals = [];
+
+          if (dayRegime === "PC" || dayRegime === "TI") {
+            if (nights === 0) {
+              meals.push({ name: "Almuerzo", pax: dayPax });
+              meals.push({ name: "Cena", pax: dayPax });
+            } else if (isArrival) {
+              if (startsWithLunch) {
+                meals.push({ name: "Almuerzo", pax: dayPax });
+                meals.push({ name: "Cena", pax: dayPax });
+              } else if (startsWithDinner) {
+                meals.push({ name: "Cena", pax: dayPax });
+              } else {
+                meals.push({ name: "Almuerzo", pax: dayPax });
+                meals.push({ name: "Cena", pax: dayPax });
+              }
+            } else if (isIntermediate) {
+              meals.push({ name: "Desayuno", pax: dayPax });
+              meals.push({ name: "Almuerzo", pax: dayPax });
+              meals.push({ name: "Cena", pax: dayPax });
+            } else if (isDeparture) {
+              meals.push({ name: "Desayuno", pax: dayPax });
+              if (startsWithDinner) {
+                meals.push({ name: "Almuerzo", pax: dayPax });
+              }
+            }
+          } else if (dayRegime === "MP") {
+            const mainMeal = (dayDist && dayDist.mpMeal)
+              ? (dayDist.mpMeal.toLowerCase().includes("almuerzo") ? "Almuerzo" : "Cena")
+              : (mpUsesLunch ? "Almuerzo" : "Cena");
+
+            if (nights === 0) {
+              meals.push({ name: mainMeal, pax: dayPax });
+            } else if (isArrival) {
+              meals.push({ name: mainMeal, pax: dayPax });
+            } else if (isIntermediate) {
+              meals.push({ name: "Desayuno", pax: dayPax });
+              meals.push({ name: mainMeal, pax: dayPax });
+            } else if (isDeparture) {
+              meals.push({ name: "Desayuno", pax: dayPax });
+            }
+          } else if (dayRegime === "AD") {
+            if (nights === 0) {
+              meals.push({ name: "Desayuno", pax: dayPax });
+            } else if (!isArrival) {
+              meals.push({ name: "Desayuno", pax: dayPax });
+            }
+          }
+
+          // Check extra rooming services for this day
+          roomingServices.forEach(s => {
+            const sDate = s.dateIn || s.serviceDate || s.fecha || s.date;
+            if (sDate) {
+              const parsedSDate = parseDate(sDate);
+              if (parsedSDate && parsedSDate.getFullYear() === cur.getFullYear() && parsedSDate.getMonth() === cur.getMonth() && parsedSDate.getDate() === cur.getDate()) {
+                const sType = String(s.type || s.servicio || s.name || "").trim();
+                const sPax = parseInt(s.pax || dayPax, 10) || dayPax;
+                if (sType && !meals.some(m => m.name.toLowerCase() === sType.toLowerCase())) {
+                  meals.push({ name: sType, pax: sPax, isExtra: true });
+                }
+              }
+            }
+          });
+
+          // Sort meals chronologically
+          const order = { "Desayuno": 1, "Almuerzo": 2, "Cena": 3 };
+          meals.sort((a, b) => (order[a.name] || 4) - (order[b.name] || 4));
+
+          totalMealsCount += meals.length;
+          const mealsText = meals.map(m => `${m.name} (${m.pax} pax)`).join(", ");
+
+          days.push({
+            date: cur,
+            isoKey,
+            dayLabel,
+            meals,
+            mealsText
+          });
+        }
+
+        const hasMeals = totalMealsCount > 0;
+        const isRoomOnly = (baseRegimeType === "HA" && !hasMeals);
+        const summaryText = days
+          .filter(d => d.meals.length > 0)
+          .map(d => `${d.dayLabel}: ${d.mealsText}`)
+          .join(" | ");
+
+        return {
+          hasMeals,
+          isRoomOnly,
+          regimeLabel,
+          totalMealsCount,
+          days,
+          summaryText
+        };
+      };
+
       const generateInternalReportText = (rep) => {
         if (!rep) return "";
         const lines = [];
@@ -886,10 +1083,22 @@
             const entrada = formatDate(g.Entrada) || "---";
             const salida = formatDate(g.Salida) || "---";
             const fin = getGroupFinancialInfo(g);
+            const pensions = getGroupDailyPensions(g);
 
             lines.push(`• [Reserva #${resId}] ${name.toUpperCase()}`);
             lines.push(`  Hotel: ${hotel} | Comercial: ${com} | Pax: ${pax}`);
             lines.push(`  Estancia: ${entrada} ➔ ${salida}`);
+
+            if (pensions.hasMeals && pensions.days.length > 0) {
+              lines.push(`  Previsión Pensiones (${pensions.regimeLabel}):`);
+              pensions.days.forEach(d => {
+                if (d.meals.length > 0) {
+                  lines.push(`    • ${d.dayLabel}: ${d.mealsText}`);
+                }
+              });
+            } else if (pensions.isRoomOnly) {
+              lines.push(`  Previsión Pensiones: Solo Alojamiento (sin comidas)`);
+            }
 
             if (sec.id === "financial" || sec.id === "release") {
               lines.push(`  Importes: Total: ${fmt(fin.total)} | Pagado: ${fmt(fin.paid)} | PENDIENTE: ${fmt(fin.pending)}`);
@@ -926,6 +1135,87 @@
             const entrada = formatDate(g.Entrada) || "---";
             const salida = formatDate(g.Salida) || "---";
             const fin = getGroupFinancialInfo(g);
+            const pensions = getGroupDailyPensions(g);
+
+            let pensionsHtml = "";
+            if (pensions.hasMeals && pensions.days.length > 0) {
+              const activeDays = pensions.days.filter(d => d.meals.length > 0);
+              
+              let dayRows = "";
+              if (activeDays.length <= 6) {
+                dayRows = activeDays.map(d => {
+                  const mealBadges = d.meals.map(m => 
+                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
+                  ).join("");
+                  return `
+                    <tr>
+                      <td width="92" valign="middle" style="padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;">
+                        📅 ${d.dayLabel}:
+                      </td>
+                      <td valign="middle" style="padding: 2px 0; vertical-align: middle; font-size: 10px;">
+                        ${mealBadges}
+                      </td>
+                    </tr>
+                  `;
+                }).join("");
+              } else {
+                const firstDays = activeDays.slice(0, 2);
+                const lastDay = activeDays[activeDays.length - 1];
+                const interDays = activeDays.slice(2, activeDays.length - 1);
+                
+                const renderRow = (d) => {
+                  const mealBadges = d.meals.map(m => 
+                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
+                  ).join("");
+                  return `
+                    <tr>
+                      <td width="92" valign="middle" style="padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;">
+                        📅 ${d.dayLabel}:
+                      </td>
+                      <td valign="middle" style="padding: 2px 0; vertical-align: middle; font-size: 10px;">
+                        ${mealBadges}
+                      </td>
+                    </tr>
+                  `;
+                };
+
+                const firstHtml = firstDays.map(renderRow).join("");
+                const interHtml = `
+                  <tr>
+                    <td colspan="2" style="padding: 2px 0; color: #64748b; font-size: 9.5px; font-style: italic;">
+                      ... ${interDays.length} días intermedios (${interDays[0].dayLabel} al ${interDays[interDays.length - 1].dayLabel}) con pensión habitual ...
+                    </td>
+                  </tr>
+                `;
+                const lastHtml = renderRow(lastDay);
+                dayRows = firstHtml + interHtml + lastHtml;
+              }
+
+              pensionsHtml = `
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                  <tr>
+                    <td style="padding: 5px 8px;">
+                      <div style="font-size: 9.5px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">
+                        🍽️ Previsión de Pensiones <span style="font-weight: 600; color: #64748b; text-transform: none;">(${pensions.regimeLabel})</span>:
+                      </div>
+                      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                        ${dayRows}
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              `;
+            } else if (pensions.isRoomOnly) {
+              pensionsHtml = `
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+                  <tr>
+                    <td style="padding: 4px 8px; font-size: 10px; color: #64748b; font-style: italic;">
+                      🍽️ <strong>Régimen:</strong> Solo Alojamiento (sin servicios de pensión contratados)
+                    </td>
+                  </tr>
+                </table>
+              `;
+            }
 
             const alertDetailText = (sec.id === "logistics" && alert.details)
               ? alert.details.map(d => d.text).join(" • ")
@@ -952,6 +1242,7 @@
                   <div style="font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;">
                     <strong style="color: #475569;">Estancia:</strong> ${entrada} ➔ ${salida} &nbsp;|&nbsp; <strong style="color: #475569;">Pax:</strong> ${pax}
                   </div>
+                  ${pensionsHtml}
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 6px; width: 100%;">
                     <tr>
                       <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;">

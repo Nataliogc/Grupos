@@ -883,6 +883,263 @@ var Dashboard = function Dashboard(_ref2) {
       })
     };
   }, [internalReportModal, columnsData, selectedHotel]);
+  var getGroupDailyPensions = function getGroupDailyPensions(g) {
+    if (!g) return {
+      hasMeals: false,
+      isRoomOnly: false,
+      regimeLabel: "Sin definir",
+      days: [],
+      summaryText: ""
+    };
+    var dIn = parseDate(g.Entrada);
+    var dOut = parseDate(g.Salida);
+    var rawPax = parseInt(g["Pax."] || g.Pax || 0, 10) || 0;
+    var rawReg = String(g["Régimen"] || g.Regimen || g.regimen || g.regime || "").trim().toUpperCase();
+    var notes = (String(g.Com_Notas || "") + " " + String(g.Notas || "")).toLowerCase();
+    if (!dIn || isNaN(dIn.getTime()) || !dOut || isNaN(dOut.getTime())) {
+      return {
+        hasMeals: false,
+        isRoomOnly: false,
+        regimeLabel: rawReg || "Sin régimen",
+        days: [],
+        summaryText: "Estancia sin fechas confirmadas"
+      };
+    }
+    var start = new Date(dIn.getFullYear(), dIn.getMonth(), dIn.getDate());
+    var end = new Date(dOut.getFullYear(), dOut.getMonth(), dOut.getDate());
+    var nights = Math.max(0, Math.round((end - start) / 86400000));
+    var totalDays = nights === 0 ? 1 : nights + 1;
+
+    // Determine base regime
+    var baseRegimeType = "OTHER";
+    var regimeLabel = rawReg || "Sin Régimen";
+    if (rawReg.includes("PC") || rawReg.includes("COMPLET") || rawReg.includes("FULL")) {
+      baseRegimeType = "PC";
+      regimeLabel = "Pensión Completa (PC)";
+    } else if (rawReg.includes("MP") || rawReg.includes("MEDIA") || rawReg.includes("HALF")) {
+      baseRegimeType = "MP";
+      regimeLabel = "Media Pensión (MP)";
+    } else if (rawReg.includes("TI") || rawReg.includes("TODO INC") || rawReg.includes("ALL INC")) {
+      baseRegimeType = "TI";
+      regimeLabel = "Todo Incluido (TI)";
+    } else if (rawReg.includes("AD") || rawReg.includes("HD") || rawReg.includes("DESAYUN") || rawReg.includes("B&B")) {
+      baseRegimeType = "AD";
+      regimeLabel = "Alojamiento y Desayuno (AD)";
+    } else if (rawReg.includes("HA") || rawReg.includes("SOLO") || rawReg.includes("SÓLO") || rawReg.includes("RO")) {
+      baseRegimeType = "HA";
+      regimeLabel = "Solo Alojamiento (SA)";
+    }
+
+    // Daily distribution or rooming extra services
+    var dailyDist = {};
+    try {
+      if (g.DailyDistribution_JSON) {
+        dailyDist = typeof g.DailyDistribution_JSON === "string" ? JSON.parse(g.DailyDistribution_JSON) : g.DailyDistribution_JSON;
+        if (!dailyDist || _typeof(dailyDist) !== "object") dailyDist = {};
+      }
+    } catch (e) {}
+    var roomingServices = [];
+    try {
+      if (g.RoomingList_JSON) {
+        var parsedList = typeof g.RoomingList_JSON === "string" ? JSON.parse(g.RoomingList_JSON) : g.RoomingList_JSON;
+        if (Array.isArray(parsedList)) {
+          roomingServices = parsedList.filter(function (item) {
+            return item && (item.isService || item.servicio && !item.tipo && !item.hab);
+          });
+        }
+      }
+    } catch (e) {}
+    var startsWithDinner = /(entra\s+con\s+cena|primer\s+servicio\s+cena|comienza\s+con\s+cena)/i.test(notes);
+    var startsWithLunch = /(entra\s+con\s+almuerzo|entra\s+con\s+comida|primer\s+servicio\s+almuerzo|primer\s+servicio\s+comida)/i.test(notes);
+    var mpUsesLunch = notes.includes("almuerzo") && !notes.includes("cena");
+    var dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    var days = [];
+    var totalMealsCount = 0;
+    var _loop = function _loop() {
+      var cur = new Date(start);
+      cur.setDate(cur.getDate() + i);
+      var isoKey = "".concat(cur.getFullYear(), "-").concat(String(cur.getMonth() + 1).padStart(2, "0"), "-").concat(String(cur.getDate()).padStart(2, "0"));
+      var dFmt = "".concat(String(cur.getDate()).padStart(2, "0"), "/").concat(String(cur.getMonth() + 1).padStart(2, "0"));
+      var dayName = dayNames[cur.getDay()];
+      var dayLabel = "".concat(dFmt, " (").concat(dayName, ")");
+      var isArrival = i === 0;
+      var isDeparture = i === nights;
+      var isIntermediate = !isArrival && !isDeparture;
+      var dayDist = dailyDist[isoKey] || null;
+      var dayRegime = baseRegimeType;
+      var dayPax = rawPax;
+      if (dayDist) {
+        if (dayDist.pax !== undefined && dayDist.pax !== null && !isNaN(dayDist.pax)) {
+          dayPax = parseInt(dayDist.pax, 10);
+        }
+        if (dayDist.regimen) {
+          var dr = String(dayDist.regimen).toUpperCase();
+          if (dr.includes("PC")) dayRegime = "PC";else if (dr.includes("MP")) dayRegime = "MP";else if (dr.includes("AD") || dr.includes("HD")) dayRegime = "AD";else if (dr.includes("HA")) dayRegime = "HA";
+        }
+      }
+      var meals = [];
+      if (dayRegime === "PC" || dayRegime === "TI") {
+        if (nights === 0) {
+          meals.push({
+            name: "Almuerzo",
+            pax: dayPax
+          });
+          meals.push({
+            name: "Cena",
+            pax: dayPax
+          });
+        } else if (isArrival) {
+          if (startsWithLunch) {
+            meals.push({
+              name: "Almuerzo",
+              pax: dayPax
+            });
+            meals.push({
+              name: "Cena",
+              pax: dayPax
+            });
+          } else if (startsWithDinner) {
+            meals.push({
+              name: "Cena",
+              pax: dayPax
+            });
+          } else {
+            meals.push({
+              name: "Almuerzo",
+              pax: dayPax
+            });
+            meals.push({
+              name: "Cena",
+              pax: dayPax
+            });
+          }
+        } else if (isIntermediate) {
+          meals.push({
+            name: "Desayuno",
+            pax: dayPax
+          });
+          meals.push({
+            name: "Almuerzo",
+            pax: dayPax
+          });
+          meals.push({
+            name: "Cena",
+            pax: dayPax
+          });
+        } else if (isDeparture) {
+          meals.push({
+            name: "Desayuno",
+            pax: dayPax
+          });
+          if (startsWithDinner) {
+            meals.push({
+              name: "Almuerzo",
+              pax: dayPax
+            });
+          }
+        }
+      } else if (dayRegime === "MP") {
+        var mainMeal = dayDist && dayDist.mpMeal ? dayDist.mpMeal.toLowerCase().includes("almuerzo") ? "Almuerzo" : "Cena" : mpUsesLunch ? "Almuerzo" : "Cena";
+        if (nights === 0) {
+          meals.push({
+            name: mainMeal,
+            pax: dayPax
+          });
+        } else if (isArrival) {
+          meals.push({
+            name: mainMeal,
+            pax: dayPax
+          });
+        } else if (isIntermediate) {
+          meals.push({
+            name: "Desayuno",
+            pax: dayPax
+          });
+          meals.push({
+            name: mainMeal,
+            pax: dayPax
+          });
+        } else if (isDeparture) {
+          meals.push({
+            name: "Desayuno",
+            pax: dayPax
+          });
+        }
+      } else if (dayRegime === "AD") {
+        if (nights === 0) {
+          meals.push({
+            name: "Desayuno",
+            pax: dayPax
+          });
+        } else if (!isArrival) {
+          meals.push({
+            name: "Desayuno",
+            pax: dayPax
+          });
+        }
+      }
+
+      // Check extra rooming services for this day
+      roomingServices.forEach(function (s) {
+        var sDate = s.dateIn || s.serviceDate || s.fecha || s.date;
+        if (sDate) {
+          var parsedSDate = parseDate(sDate);
+          if (parsedSDate && parsedSDate.getFullYear() === cur.getFullYear() && parsedSDate.getMonth() === cur.getMonth() && parsedSDate.getDate() === cur.getDate()) {
+            var sType = String(s.type || s.servicio || s.name || "").trim();
+            var sPax = parseInt(s.pax || dayPax, 10) || dayPax;
+            if (sType && !meals.some(function (m) {
+              return m.name.toLowerCase() === sType.toLowerCase();
+            })) {
+              meals.push({
+                name: sType,
+                pax: sPax,
+                isExtra: true
+              });
+            }
+          }
+        }
+      });
+
+      // Sort meals chronologically
+      var order = {
+        "Desayuno": 1,
+        "Almuerzo": 2,
+        "Cena": 3
+      };
+      meals.sort(function (a, b) {
+        return (order[a.name] || 4) - (order[b.name] || 4);
+      });
+      totalMealsCount += meals.length;
+      var mealsText = meals.map(function (m) {
+        return "".concat(m.name, " (").concat(m.pax, " pax)");
+      }).join(", ");
+      days.push({
+        date: cur,
+        isoKey: isoKey,
+        dayLabel: dayLabel,
+        meals: meals,
+        mealsText: mealsText
+      });
+    };
+    for (var i = 0; i < totalDays; i++) {
+      _loop();
+    }
+    var hasMeals = totalMealsCount > 0;
+    var isRoomOnly = baseRegimeType === "HA" && !hasMeals;
+    var summaryText = days.filter(function (d) {
+      return d.meals.length > 0;
+    }).map(function (d) {
+      return "".concat(d.dayLabel, ": ").concat(d.mealsText);
+    }).join(" | ");
+    return {
+      hasMeals: hasMeals,
+      isRoomOnly: isRoomOnly,
+      regimeLabel: regimeLabel,
+      totalMealsCount: totalMealsCount,
+      days: days,
+      summaryText: summaryText
+    };
+  };
   var generateInternalReportText = function generateInternalReportText(rep) {
     if (!rep) return "";
     var lines = [];
@@ -915,9 +1172,20 @@ var Dashboard = function Dashboard(_ref2) {
         var entrada = formatDate(g.Entrada) || "---";
         var salida = formatDate(g.Salida) || "---";
         var fin = getGroupFinancialInfo(g);
+        var pensions = getGroupDailyPensions(g);
         lines.push("\u2022 [Reserva #".concat(resId, "] ").concat(name.toUpperCase()));
         lines.push("  Hotel: ".concat(hotel, " | Comercial: ").concat(com, " | Pax: ").concat(pax));
         lines.push("  Estancia: ".concat(entrada, " \u2794 ").concat(salida));
+        if (pensions.hasMeals && pensions.days.length > 0) {
+          lines.push("  Previsi\xF3n Pensiones (".concat(pensions.regimeLabel, "):"));
+          pensions.days.forEach(function (d) {
+            if (d.meals.length > 0) {
+              lines.push("    \u2022 ".concat(d.dayLabel, ": ").concat(d.mealsText));
+            }
+          });
+        } else if (pensions.isRoomOnly) {
+          lines.push("  Previsi\xF3n Pensiones: Solo Alojamiento (sin comidas)");
+        }
         if (sec.id === "financial" || sec.id === "release") {
           lines.push("  Importes: Total: ".concat(fmt(fin.total), " | Pagado: ").concat(fmt(fin.paid), " | PENDIENTE: ").concat(fmt(fin.pending)));
         }
@@ -953,10 +1221,43 @@ var Dashboard = function Dashboard(_ref2) {
         var entrada = formatDate(g.Entrada) || "---";
         var salida = formatDate(g.Salida) || "---";
         var fin = getGroupFinancialInfo(g);
+        var pensions = getGroupDailyPensions(g);
+        var pensionsHtml = "";
+        if (pensions.hasMeals && pensions.days.length > 0) {
+          var activeDays = pensions.days.filter(function (d) {
+            return d.meals.length > 0;
+          });
+          var dayRows = "";
+          if (activeDays.length <= 6) {
+            dayRows = activeDays.map(function (d) {
+              var mealBadges = d.meals.map(function (m) {
+                return "<span style=\"display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;\">".concat(m.name, " <span style=\"color: #64748b; font-weight: 600;\">(").concat(m.pax, " pax)</span></span>");
+              }).join("");
+              return "\n                    <tr>\n                      <td width=\"92\" valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;\">\n                        \uD83D\uDCC5 ".concat(d.dayLabel, ":\n                      </td>\n                      <td valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; font-size: 10px;\">\n                        ").concat(mealBadges, "\n                      </td>\n                    </tr>\n                  ");
+            }).join("");
+          } else {
+            var firstDays = activeDays.slice(0, 2);
+            var lastDay = activeDays[activeDays.length - 1];
+            var interDays = activeDays.slice(2, activeDays.length - 1);
+            var renderRow = function renderRow(d) {
+              var mealBadges = d.meals.map(function (m) {
+                return "<span style=\"display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 3px; padding: 1px 6px; font-weight: 700; color: #0f172a; margin-right: 4px; font-size: 10px; line-height: 1.3;\">".concat(m.name, " <span style=\"color: #64748b; font-weight: 600;\">(").concat(m.pax, " pax)</span></span>");
+              }).join("");
+              return "\n                    <tr>\n                      <td width=\"92\" valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; white-space: nowrap; width: 92px; font-weight: 700; color: #475569; font-size: 10px;\">\n                        \uD83D\uDCC5 ".concat(d.dayLabel, ":\n                      </td>\n                      <td valign=\"middle\" style=\"padding: 2px 0; vertical-align: middle; font-size: 10px;\">\n                        ").concat(mealBadges, "\n                      </td>\n                    </tr>\n                  ");
+            };
+            var firstHtml = firstDays.map(renderRow).join("");
+            var interHtml = "\n                  <tr>\n                    <td colspan=\"2\" style=\"padding: 2px 0; color: #64748b; font-size: 9.5px; font-style: italic;\">\n                      ... ".concat(interDays.length, " d\xEDas intermedios (").concat(interDays[0].dayLabel, " al ").concat(interDays[interDays.length - 1].dayLabel, ") con pensi\xF3n habitual ...\n                    </td>\n                  </tr>\n                ");
+            var lastHtml = renderRow(lastDay);
+            dayRows = firstHtml + interHtml + lastHtml;
+          }
+          pensionsHtml = "\n                <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;\">\n                  <tr>\n                    <td style=\"padding: 5px 8px;\">\n                      <div style=\"font-size: 9.5px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;\">\n                        \uD83C\uDF7D\uFE0F Previsi\xF3n de Pensiones <span style=\"font-weight: 600; color: #64748b; text-transform: none;\">(".concat(pensions.regimeLabel, ")</span>:\n                      </div>\n                      <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">\n                        ").concat(dayRows, "\n                      </table>\n                    </td>\n                  </tr>\n                </table>\n              ");
+        } else if (pensions.isRoomOnly) {
+          pensionsHtml = "\n                <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 6px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;\">\n                  <tr>\n                    <td style=\"padding: 4px 8px; font-size: 10px; color: #64748b; font-style: italic;\">\n                      \uD83C\uDF7D\uFE0F <strong>R\xE9gimen:</strong> Solo Alojamiento (sin servicios de pensi\xF3n contratados)\n                    </td>\n                  </tr>\n                </table>\n              ";
+        }
         var alertDetailText = sec.id === "logistics" && alert.details ? alert.details.map(function (d) {
           return d.text;
         }).join(" • ") : alert.detail || alert.label;
-        return "\n              <tr style=\"border-bottom: 1px solid #e2e8f0; background-color: #ffffff;\">\n                <td width=\"100\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 100px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#0f172a\" style=\"background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;\">\n                        #".concat(resId, "\n                      </td>\n                    </tr>\n                  </table>\n                  <div style=\"font-size: 10px; color: #64748b; font-weight: 700; margin-top: 5px; white-space: nowrap;\">\n                    \uD83C\uDFE8 ").concat(hotelName, "\n                  </div>\n                </td>\n                <td width=\"378\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 378px;\">\n                  <div style=\"font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;\">\n                    ").concat(name, "\n                  </div>\n                  <div style=\"font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;\">\n                    <strong style=\"color: #475569;\">Estancia:</strong> ").concat(entrada, " \u2794 ").concat(salida, " &nbsp;|&nbsp; <strong style=\"color: #475569;\">Pax:</strong> ").concat(pax, "\n                  </div>\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 6px; width: 100%;\">\n                    <tr>\n                      <td bgcolor=\"#f8fafc\" style=\"background-color: #f8fafc; border-left: 3px solid ").concat(sec.headerColor, "; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;\">\n                        \u26A0\uFE0F ").concat(alertDetailText, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                <td width=\"105\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 105px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#e2e8f0\" style=\"background-color: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        \uD83D\uDC64 ").concat(com, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                ").concat(sec.id === "financial" || sec.id === "release" ? "\n                <td width=\"145\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 145px; white-space: nowrap;\">\n                  <div style=\"font-size: 10px; color: #64748b; white-space: nowrap;\">Total: <strong>".concat(fmt(fin.total), "</strong></div>\n                  <div style=\"font-size: 13.5px; font-weight: 900; color: #be123c; margin-top: 2px; white-space: nowrap;\">\n                    Pend: ").concat(fmt(fin.pending), "\n                  </div>\n                  <div style=\"font-size: 10px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;\">Abonado: ").concat(fmt(fin.paid), "</div>\n                </td>") : "\n                <td width=\"145\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 145px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"right\">\n                    <tr>\n                      <td bgcolor=\"#f0f9ff\" style=\"background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        Requiere Acci\xF3n\n                      </td>\n                    </tr>\n                  </table>\n                </td>", "\n              </tr>\n            ");
+        return "\n              <tr style=\"border-bottom: 1px solid #e2e8f0; background-color: #ffffff;\">\n                <td width=\"100\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 100px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#0f172a\" style=\"background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;\">\n                        #".concat(resId, "\n                      </td>\n                    </tr>\n                  </table>\n                  <div style=\"font-size: 10px; color: #64748b; font-weight: 700; margin-top: 5px; white-space: nowrap;\">\n                    \uD83C\uDFE8 ").concat(hotelName, "\n                  </div>\n                </td>\n                <td width=\"378\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 378px;\">\n                  <div style=\"font-size: 13px; font-weight: 800; color: #0f172a; line-height: 1.3;\">\n                    ").concat(name, "\n                  </div>\n                  <div style=\"font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;\">\n                    <strong style=\"color: #475569;\">Estancia:</strong> ").concat(entrada, " \u2794 ").concat(salida, " &nbsp;|&nbsp; <strong style=\"color: #475569;\">Pax:</strong> ").concat(pax, "\n                  </div>\n                  ").concat(pensionsHtml, "\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"margin-top: 6px; width: 100%;\">\n                    <tr>\n                      <td bgcolor=\"#f8fafc\" style=\"background-color: #f8fafc; border-left: 3px solid ").concat(sec.headerColor, "; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;\">\n                        \u26A0\uFE0F ").concat(alertDetailText, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                <td width=\"105\" valign=\"top\" style=\"padding: 12px 10px; vertical-align: top; width: 105px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td bgcolor=\"#e2e8f0\" style=\"background-color: #e2e8f0; color: #334155; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        \uD83D\uDC64 ").concat(com, "\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n                ").concat(sec.id === "financial" || sec.id === "release" ? "\n                <td width=\"145\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 145px; white-space: nowrap;\">\n                  <div style=\"font-size: 10px; color: #64748b; white-space: nowrap;\">Total: <strong>".concat(fmt(fin.total), "</strong></div>\n                  <div style=\"font-size: 13.5px; font-weight: 900; color: #be123c; margin-top: 2px; white-space: nowrap;\">\n                    Pend: ").concat(fmt(fin.pending), "\n                  </div>\n                  <div style=\"font-size: 10px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;\">Abonado: ").concat(fmt(fin.paid), "</div>\n                </td>") : "\n                <td width=\"145\" valign=\"top\" align=\"right\" style=\"padding: 12px 10px; vertical-align: top; text-align: right; width: 145px;\">\n                  <table role=\"presentation\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"right\">\n                    <tr>\n                      <td bgcolor=\"#f0f9ff\" style=\"background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap;\">\n                        Requiere Acci\xF3n\n                      </td>\n                    </tr>\n                  </table>\n                </td>", "\n              </tr>\n            ");
       }).join("");
       return "\n            <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\" align=\"center\" style=\"width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse; table-layout: fixed;\">\n              <tr>\n                <td colspan=\"4\" bgcolor=\"".concat(sec.headerBg, "\" style=\"background-color: ").concat(sec.headerBg, "; border-bottom: 2px solid ").concat(sec.headerColor, "; padding: 11px 16px;\">\n                  <table role=\"presentation\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td valign=\"middle\" style=\"font-size: 13px; font-weight: 800; color: ").concat(sec.headerColor, "; text-transform: uppercase; letter-spacing: 0.5px;\">\n                        ").concat(sec.title, "\n                      </td>\n                      <td valign=\"middle\" align=\"right\" style=\"text-align: right; font-size: 11.5px; font-weight: 800; color: ").concat(sec.headerColor, "; white-space: nowrap; padding-left: 12px;\">\n                        <span style=\"background-color: #ffffff; border: 1px solid ").concat(sec.headerColor, "; padding: 3px 10px; border-radius: 12px; display: inline-block;\">\n                          ").concat(sec.alerts.length, " caso(s)\n                        </span>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n              <tr bgcolor=\"#f1f5f9\" style=\"background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;\">\n                <td width=\"100\" style=\"padding: 8px 10px; width: 100px;\">Localizador</td>\n                <td width=\"378\" style=\"padding: 8px 10px; width: 378px;\">Grupo &amp; Requerimiento</td>\n                <td width=\"105\" style=\"padding: 8px 10px; width: 105px;\">Comercial</td>\n                <td width=\"145\" align=\"right\" style=\"padding: 8px 10px; text-align: right; width: 145px;\">").concat(sec.id === "financial" || sec.id === "release" ? "Importes" : "Estado", "</td>\n              </tr>\n              ").concat(rowsHtml, "\n            </table>\n          ");
     }).join("");
