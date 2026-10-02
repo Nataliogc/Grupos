@@ -914,9 +914,11 @@
             var unlinkedIds = new Set();
             var salonOverrides = new Map();
             var existingSalonIds = new Set();
+            var existingHotels = new Map();
             snapshot.forEach(function (docSnap) {
               var d = docSnap.data() || {};
               existingSalonIds.add(docSnap.id);
+              existingHotels.set(docSnap.id, d.hotel);
               if (d.salonOverride) salonOverrides.set(docSnap.id, d.salonOverride);
               if (d.desvinculado === true || d.vinculoRoto === true) {
                 unlinkedIds.add(docSnap.id);
@@ -937,9 +939,11 @@
             preparedDocs.forEach(function (pDoc) {
               if (unlinkedIds.has(pDoc.id)) return; // No tocar si fue desvinculado
               pDoc.estado = "cancelada";
-              if (salonOverrides.has(pDoc.id)) pDoc.salon = salonOverrides.get(pDoc.id);
+              var hotelChanged = existingSalonIds.has(pDoc.id) && existingHotels.get(pDoc.id) !== pDoc.hotel;
+              if (!hotelChanged && salonOverrides.has(pDoc.id)) pDoc.salon = salonOverrides.get(pDoc.id);
               // Updating a linked service must never write its MesaChef-owned location.
-              if (existingSalonIds.has(pDoc.id)) delete pDoc.salon;
+              if (existingSalonIds.has(pDoc.id) && !hotelChanged) delete pDoc.salon;
+              if (hotelChanged) { pDoc.salonOverride = null; pDoc.salonOverrideHotel = null; }
               var ref = targetDb.collection(COLLECTION_SALONES).doc(pDoc.id);
               batch.set(ref, pDoc, { merge: true });
             });
@@ -1026,8 +1030,9 @@
               return;
             }
             var isDifferent = false;
+            var hotelChanged = existing && existing.hotel !== docData.hotel;
             // MesaChef owns only the location override of this dated meal service.
-            if (existing) {
+            if (existing && !hotelChanged) {
               docData.salon = existing.salonOverride || existing.salon || docData.salon;
             }
             if (!existing) {
@@ -1062,9 +1067,12 @@
               var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
               var serviceUpdate = Object.assign({}, docData);
               // Omit the field entirely: a room change can occur after this snapshot.
-              if (existing) delete serviceUpdate.salon;
+              if (existing && !hotelChanged) delete serviceUpdate.salon;
+              if (hotelChanged) { serviceUpdate.salonOverride = null; serviceUpdate.salonOverrideHotel = null; }
               batch.set(ref, serviceUpdate, { merge: true });
-              if (existing && String(existing.salonOverride || '').trim().toLowerCase() === 'restaurante') {
+              if (hotelChanged && String(existing.salonOverride || existing.salon || '').trim().toLowerCase() === 'restaurante') {
+                batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + docData.id), {estado:'cancelada'}, {merge:true});
+              } else if (existing && String(existing.salonOverride || '').trim().toLowerCase() === 'restaurante') {
                 batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + docData.id), {
                   hotel: docData.hotel, referencia: docData.reservaId, fecha: docData.fecha,
                   espacio: 'Restaurante', nombre: docData.cliente, estado: docData.estado,

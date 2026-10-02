@@ -91,6 +91,17 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     data.set(lunchKey, {...data.get(lunchKey), salon:'Restaurante', salonOverride:'Restaurante'});
     await service.syncGroupToMesachef(group);
     assert.equal(data.get('reservas_restaurante/salon_nexus_213521_2027-02-03_almuerzo').pax, 12);
+    await service.syncGroupToMesachef({...group, Hotel_Asignado:'Cumbria'});
+    assert.equal(data.get(dinnerKey).hotel, 'Cumbria');
+    assert.equal(data.get(dinnerKey).salon, 'Eventos Restaurante');
+    assert.equal(data.get(dinnerKey).salonOverride, null);
+    assert.equal(data.get(legacyKey).salon, 'Eventos Restaurante');
+    assert.equal(data.get('reservas_restaurante/salon_nexus_213521_2027-02-03_almuerzo').estado, 'cancelada');
+    await service.syncGroupToMesachef(group);
+    assert.equal(data.get(dinnerKey).salon, 'Eventos Grupos Alarcos');
+    // Reapply the local locations for the cancellation tests below.
+    data.set(dinnerKey, {...data.get(dinnerKey), salon:'Salón Guadiana', salonOverride:'Salón Guadiana'});
+    data.set(lunchKey, {...data.get(lunchKey), salon:'Restaurante', salonOverride:'Restaurante'});
     // Una confirmación lenta no puede terminar después de la desestimación y reactivar servicios.
     const results = await Promise.all([
       service.syncGroupToMesachef({...group, Com_Estado_Interno:'CONFIRMADO'}),
