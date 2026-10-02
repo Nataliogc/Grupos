@@ -49,6 +49,17 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     assert.equal((await service.syncGroupToMesachef(group)).success,true);
     assert.equal(data.get(old).estado,'cancelada');
     assert.equal(data.get('mesachef_grupos/213521').totalServicios,3);
+    const dinnerKey = 'reservas_salones/nexus_213521_2027-02-03_cena';
+    data.set(dinnerKey, {...data.get(dinnerKey), salon:'Salón Guadiana', salonOverride:'Salón Guadiana'});
+    await service.syncGroupToMesachef({...group, Com_Estado_Interno:'CONFIRMADO'});
+    assert.equal(data.get(dinnerKey).salon, 'Salón Guadiana');
+    assert.equal(data.get(dinnerKey).estado, 'confirmada');
+    assert.equal(data.get(dinnerKey).desvinculado, undefined);
+    assert.equal(data.get('reservas_salones/nexus_213521_2027-02-03_almuerzo').salon, 'Eventos Grupos Alarcos');
+    const lunchKey = 'reservas_salones/nexus_213521_2027-02-03_almuerzo';
+    data.set(lunchKey, {...data.get(lunchKey), salon:'Restaurante', salonOverride:'Restaurante'});
+    await service.syncGroupToMesachef(group);
+    assert.equal(data.get('reservas_restaurante/salon_nexus_213521_2027-02-03_almuerzo').pax, 12);
     // Una confirmación lenta no puede terminar después de la desestimación y reactivar servicios.
     const results = await Promise.all([
       service.syncGroupToMesachef({...group, Com_Estado_Interno:'CONFIRMADO'}),
@@ -57,6 +68,8 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     assert.ok(results.every(r=>r.success));
     assert.ok([...data].filter(([k])=>k.startsWith('reservas_salones/nexus_')).every(([,v])=>v.estado==='cancelada'));
     assert.equal(data.get('mesachef_grupos/213521').estado,'cancelada');
+    assert.equal(data.get(dinnerKey).salon, 'Salón Guadiana');
+    assert.equal(data.get('reservas_restaurante/salon_nexus_213521_2027-02-03_almuerzo').estado, 'cancelada');
     await service.syncGroupToMesachef({...group, Com_Estado_Interno:'DESESTIMADO', Estado:'ANULADA'});
     assert.ok([...data].filter(([k])=>k.startsWith('reservas_salones/nexus_')).every(([,v])=>v.estado==='cancelada'));
     // Reactivación explícita para comprobar después la retirada de todas las comidas.

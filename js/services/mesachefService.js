@@ -888,8 +888,10 @@
             var count = 0;
 
             var unlinkedIds = new Set();
+            var salonOverrides = new Map();
             snapshot.forEach(function (docSnap) {
               var d = docSnap.data() || {};
+              if (d.salonOverride) salonOverrides.set(docSnap.id, d.salonOverride);
               if (d.desvinculado === true || d.vinculoRoto === true) {
                 unlinkedIds.add(docSnap.id);
                 return; // No tocar si fue desvinculado en MesaChef
@@ -898,6 +900,9 @@
                 estado: "cancelada",
                 updated_at: new Date().toISOString()
               });
+              if (String(d.salonOverride || '').trim().toLowerCase() === 'restaurante') {
+                batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + docSnap.id), {estado:'cancelada'}, {merge:true});
+              }
               count++;
             });
 
@@ -906,6 +911,7 @@
             preparedDocs.forEach(function (pDoc) {
               if (unlinkedIds.has(pDoc.id)) return; // No tocar si fue desvinculado
               pDoc.estado = "cancelada";
+              if (salonOverrides.has(pDoc.id)) pDoc.salon = salonOverrides.get(pDoc.id);
               var ref = targetDb.collection(COLLECTION_SALONES).doc(pDoc.id);
               batch.set(ref, pDoc, { merge: true });
             });
@@ -992,6 +998,10 @@
               return;
             }
             var isDifferent = false;
+            // MesaChef owns only the location override of this dated meal service.
+            if (existing && typeof existing.salonOverride === 'string' && existing.salonOverride.trim()) {
+              docData.salon = existing.salonOverride;
+            }
             if (!existing) {
               isDifferent = true;
             } else {
@@ -1024,6 +1034,16 @@
             if (isDifferent) {
               var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
               batch.set(ref, docData, { merge: true });
+              if (existing && String(existing.salonOverride || '').trim().toLowerCase() === 'restaurante') {
+                batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + docData.id), {
+                  hotel: docData.hotel, referencia: docData.reservaId, fecha: docData.fecha,
+                  espacio: 'Restaurante', nombre: docData.cliente, estado: docData.estado,
+                  hora: docData.detalles.hora, turno: docData.detalles.jornada,
+                  pax: (docData.detalles.pax_adultos || 0) + (docData.detalles.pax_ninos || 0),
+                  ninos: docData.detalles.pax_ninos || 0, servicioIncluido: !!docData.detalles.incluido,
+                  salonBookingId: docData.id, _isFromSalones: true, updatedAt: new Date().toISOString()
+                }, {merge:true});
+              }
               writesCount++;
             }
           });
@@ -1037,6 +1057,9 @@
                 return;
               }
               if (oldData.estado !== "cancelada") {
+                if (String(oldData.salonOverride || '').trim().toLowerCase() === 'restaurante') {
+                  batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + docSnap.id), {estado:'cancelada'}, {merge:true});
+                }
                 batch.update(docSnap.ref, {
                   estado: "cancelada",
                   updated_at: new Date().toISOString()
