@@ -429,13 +429,6 @@
     if (!reservaId) return [];
 
     var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
-    if (!isYear2027OrLater(entryDate)) {
-      return []; // Estrictamente solo 5 de octubre de 2026 en adelante
-    }
-
-    if (!hasMpOrPcRegimen(groupRecord)) {
-      return []; // Solo si tiene MP o PC a nivel general o en algún día
-    }
 
     var mesachefStatus = resolveMesachefStatus(groupRecord);
 
@@ -452,7 +445,6 @@
     var exitDate = groupRecord.Salida || groupRecord.salida || groupRecord.fechaSalida || entryDate;
     var startIso = toIsoDate(entryDate);
     var endIso = toIsoDate(exitDate) || startIso;
-    if (!startIso) return [];
 
     // 1. Extraer desglose diario de DailyDistribution_JSON
     var dailyDistRaw = groupRecord.DailyDistribution_JSON;
@@ -496,8 +488,29 @@
     }
 
     var docs = [];
+    if (!cleanRoomingList.length && !Object.keys(cleanDailyDist).length && !isYear2027OrLater(entryDate)) return [];
     var startDate = new Date(startIso + "T12:00:00");
     var endDate = new Date(endIso + "T12:00:00");
+    var hasLineDates = false;
+    // The economic breakdown may extend beyond the dates in the group header.
+    cleanRoomingList.forEach(function (rm) {
+      if (!rm) return;
+      var date = toIsoDate(rm.dateIn || rm.date || rm.fecha);
+      if (!date) return;
+      var first = new Date(date + 'T12:00:00');
+      var last = new Date(first);
+      last.setDate(last.getDate() + (rm.isService ? 0 : Math.max(1, parseInt(rm.nights, 10) || 1) - 1));
+      if (!hasLineDates || first < startDate) startDate = first;
+      if (!hasLineDates || last > endDate) endDate = last;
+      hasLineDates = true;
+    });
+    Object.keys(cleanDailyDist).forEach(function (date) {
+      var explicitDate = new Date(date + 'T12:00:00');
+      if (cleanRoomingList.length) return;
+      if (!hasLineDates || explicitDate < startDate) startDate = explicitDate;
+      if (!hasLineDates || explicitDate > endDate) endDate = explicitDate;
+      hasLineDates = true;
+    });
     var isSingleDayStay = (startIso === endIso);
     var current = new Date(startDate);
 
@@ -505,9 +518,7 @@
       var iso = current.toISOString().split("T")[0];
       var isLastDay = current.getTime() === endDate.getTime();
       var distForDay = cleanDailyDist[iso];
-
-      // En estancia de varias noches, el día de salida no genera servicios salvo que venga explícitamente en el desglose
-      if (isLastDay && !isSingleDayStay && (!distForDay || !distForDay.regimen)) {
+      if (!isYear2027OrLater(iso)) {
         current.setDate(current.getDate() + 1);
         continue;
       }
@@ -551,18 +562,31 @@
             var explicitPax = parseInt(rm.pax, 10);
             var px = (!isNaN(explicitPax) && explicitPax > 0) ? explicitPax : getPaxPerRoomType(rm.type || rm.roomType);
             rlDayPax += (q * px);
-            var mealReg = String(reg || (distForDay && distForDay.regimen) || globalRegimen).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            var mealReg = String(reg).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             if (/\bPC\b|PENSION COMPLETA/.test(mealReg)) {
               roomLunchPax += q * px;
               roomDinnerPax += q * px;
               roomPcPax += q * px;
             } else if (/\bMP\b|MEDIA PENSION|CENA/.test(mealReg)) {
-              var mpMeal = rm.mpMeal || (distForDay && distForDay.mpMeal) || groupRecord.mpMeal || "cena";
+              var mpMeal = rm.mpMeal || "cena";
               if (mpMeal === "almuerzo") roomLunchPax += q * px;
               else roomDinnerPax += q * px;
             }
           }
         });
+      }
+
+      // Do not skip explicit rooms or meals merely because the header says checkout.
+      var hasExplicitService = cleanRoomingList.some(function (rm) {
+        return rm && rm.isService && toIsoDate(rm.dateIn || rm.date || rm.fecha) === iso;
+      });
+      if (cleanRoomingList.length && !rlHasRooms && !hasExplicitService) {
+        current.setDate(current.getDate() + 1);
+        continue;
+      }
+      if (isLastDay && !isSingleDayStay && !rlHasRooms && !hasExplicitService && (!distForDay || !distForDay.regimen)) {
+        current.setDate(current.getDate() + 1);
+        continue;
       }
 
       // B. Extraer desglose de distForDay (DailyDistribution_JSON)
@@ -589,12 +613,12 @@
       var dayRegimen = null;
       if (rlDayRegimen) {
         dayRegimen = rlDayRegimen;
-      } else if (distDayRegimen) {
+      } else if (!cleanRoomingList.length && distDayRegimen) {
         dayRegimen = distDayRegimen;
       } else if (rlDayRegimen) {
         dayRegimen = rlDayRegimen;
       } else {
-        dayRegimen = globalRegimen;
+        dayRegimen = cleanRoomingList.length ? '' : globalRegimen;
       }
 
       // D. Consolidar pax del día:
@@ -865,7 +889,7 @@
 
     var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
     // Si la fecha existe y es anterior a 2027, descartar estrictamente
-    if (entryDate && !isYear2027OrLater(entryDate)) {
+    if (entryDate && !isYear2027OrLater(entryDate) && !prepareSalonDocuments(groupRecord).length) {
       return Promise.resolve({ skipped: true, reason: "Solo aplicable a reservas de 5 de octubre de 2026 en adelante" });
     }
 
@@ -889,8 +913,10 @@
 
             var unlinkedIds = new Set();
             var salonOverrides = new Map();
+            var existingSalonIds = new Set();
             snapshot.forEach(function (docSnap) {
               var d = docSnap.data() || {};
+              existingSalonIds.add(docSnap.id);
               if (d.salonOverride) salonOverrides.set(docSnap.id, d.salonOverride);
               if (d.desvinculado === true || d.vinculoRoto === true) {
                 unlinkedIds.add(docSnap.id);
@@ -912,6 +938,8 @@
               if (unlinkedIds.has(pDoc.id)) return; // No tocar si fue desvinculado
               pDoc.estado = "cancelada";
               if (salonOverrides.has(pDoc.id)) pDoc.salon = salonOverrides.get(pDoc.id);
+              // Updating a linked service must never write its MesaChef-owned location.
+              if (existingSalonIds.has(pDoc.id)) delete pDoc.salon;
               var ref = targetDb.collection(COLLECTION_SALONES).doc(pDoc.id);
               batch.set(ref, pDoc, { merge: true });
             });
@@ -999,8 +1027,8 @@
             }
             var isDifferent = false;
             // MesaChef owns only the location override of this dated meal service.
-            if (existing && typeof existing.salonOverride === 'string' && existing.salonOverride.trim()) {
-              docData.salon = existing.salonOverride;
+            if (existing) {
+              docData.salon = existing.salonOverride || existing.salon || docData.salon;
             }
             if (!existing) {
               isDifferent = true;
@@ -1017,7 +1045,6 @@
                 existing.estado !== docData.estado ||
                 existing.cliente !== docData.cliente ||
                 existing.hotel !== docData.hotel ||
-                existing.salon !== docData.salon ||
                 existing.fecha !== docData.fecha ||
                 oldDetalles.pax_adultos !== newDetalles.pax_adultos ||
                 oldDetalles.hora !== newDetalles.hora ||
@@ -1033,7 +1060,10 @@
 
             if (isDifferent) {
               var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
-              batch.set(ref, docData, { merge: true });
+              var serviceUpdate = Object.assign({}, docData);
+              // Omit the field entirely: a room change can occur after this snapshot.
+              if (existing) delete serviceUpdate.salon;
+              batch.set(ref, serviceUpdate, { merge: true });
               if (existing && String(existing.salonOverride || '').trim().toLowerCase() === 'restaurante') {
                 batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + docData.id), {
                   hotel: docData.hotel, referencia: docData.reservaId, fecha: docData.fecha,
@@ -1262,6 +1292,7 @@
         if (hasRealRes) return false;
       }
       var entryDate = g.Entrada || g.entrada || g.fechaEntrada || g.fecha;
+      if (prepareSalonDocuments(g).length) return true;
       if (!isYear2027OrLater(entryDate)) return false;
       var isCanc = isGroupCancelled(g);
       return hasMpOrPcRegimen(g) || isCanc;

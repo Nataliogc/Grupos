@@ -19,6 +19,27 @@ test('reproduce la ficha: HA no genera comidas, MP 5 pax, PC 12 pax', () => {
   ]);
   assert.ok(docs.every(d => d.estado === 'presupuesto'));
 });
+
+test('el desglose de tres días prevalece sobre la salida antigua de cabecera', () => {
+  const docs = service.prepareSalonDocuments({...group, Salida:'2027-02-02'});
+  assert.deepEqual(docs.map(d => [d.fecha,d.detalles.jornada,d.detalles.pax_adultos]), [
+    ['2027-02-02','cena',5], ['2027-02-03','almuerzo',12], ['2027-02-03','cena',12]
+  ]);
+});
+
+test('las líneas determinan las comidas aunque la cabecera tenga otras fechas, pax y régimen', () => {
+  const docs = service.prepareSalonDocuments({...group, Entrada:'2026-01-01', Salida:'2028-12-31', 'Pax.':999, 'Régimen':'PC'});
+  assert.deepEqual(docs.map(d => [d.fecha,d.detalles.jornada,d.detalles.pax_adultos]), [
+    ['2027-02-02','cena',5], ['2027-02-03','almuerzo',12], ['2027-02-03','cena',12]
+  ]);
+});
+
+test('no inventa comidas de cabecera en huecos o líneas sin régimen', () => {
+  const docs = service.prepareSalonDocuments({...group, 'Régimen':'PC', RoomingList_JSON:JSON.stringify([
+    room('2027-02-01',1,2,'MP'), room('2027-02-03',1,2,'')
+  ])});
+  assert.deepEqual(docs.map(d=>[d.fecha,d.detalles.jornada]), [['2027-02-01','cena']]);
+});
 test('regímenes mixtos cuentan solo los comensales de cada comida', () => {
   const docs = service.prepareSalonDocuments({...group, RoomingList_JSON: JSON.stringify([
     room('2027-02-02', 2, 2, 'PC'), room('2027-02-02', 3, 1, 'MP'), room('2027-02-02', 5, 2, 'HA')
@@ -27,6 +48,7 @@ test('regímenes mixtos cuentan solo los comensales de cada comida', () => {
 });
 test('guarda cambios, cancela servicios obsoletos y protege desvinculados', async () => {
   const data = new Map();
+  let beforeCommit = null;
   const key = (collection,id) => collection+'/'+id;
   const ref = (collection,id) => ({key:key(collection,id)});
   const old = 'reservas_salones/nexus_213521_2027-02-01_almuerzo';
@@ -42,7 +64,7 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     }),
     batch: () => {
       const writes=[];
-      return {set:(r,v)=>writes.push([r,v]),update:(r,v)=>writes.push([r,v]),commit:async()=>{ await new Promise(resolve => setTimeout(resolve, writes.some(([,v]) => v.estado === "confirmada") ? 25 : 0)); writes.forEach(([r,v])=>data.set(r.key,{...data.get(r.key),...v})); }};
+      return {set:(r,v)=>writes.push([r,v]),update:(r,v)=>writes.push([r,v]),commit:async()=>{ await new Promise(resolve => setTimeout(resolve, writes.some(([,v]) => v.estado === "confirmada") ? 25 : 0)); if (beforeCommit) { const hook = beforeCommit; beforeCommit = null; hook(); } writes.forEach(([r,v])=>data.set(r.key,{...data.get(r.key),...v})); }};
     }
   }};
   try {
@@ -56,6 +78,15 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     assert.equal(data.get(dinnerKey).estado, 'confirmada');
     assert.equal(data.get(dinnerKey).desvinculado, undefined);
     assert.equal(data.get('reservas_salones/nexus_213521_2027-02-03_almuerzo').salon, 'Eventos Grupos Alarcos');
+    // A legacy room move without metadata is respected too.
+    const legacyKey = 'reservas_salones/nexus_213521_2027-02-02_cena';
+    data.set(legacyKey, {...data.get(legacyKey), salon:'Puerta del Carmen'});
+    await service.syncGroupToMesachef(group);
+    assert.equal(data.get(legacyKey).salon, 'Puerta del Carmen');
+    // Simulate MesaChef changing location after Groups has read its snapshot.
+    beforeCommit = () => data.set(legacyKey, {...data.get(legacyKey), salon:'Puerta de Alarcos', salonOverride:'Puerta de Alarcos'});
+    await service.syncGroupToMesachef({...group, Com_Estado_Interno:'CONFIRMADO'});
+    assert.equal(data.get(legacyKey).salon, 'Puerta de Alarcos');
     const lunchKey = 'reservas_salones/nexus_213521_2027-02-03_almuerzo';
     data.set(lunchKey, {...data.get(lunchKey), salon:'Restaurante', salonOverride:'Restaurante'});
     await service.syncGroupToMesachef(group);
