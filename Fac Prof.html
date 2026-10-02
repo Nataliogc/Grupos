@@ -1280,7 +1280,26 @@
                     customFields["reserva-id"] = String(id).trim().replace(/\.0$/, "");
                 }
 
-                customFields.dynamicRows = Array.from(document.querySelectorAll('#ocupante-box [data-dynamic="true"]')).map(row => {
+                
+    const polDiv = document.getElementById('tpl-policies');
+    if (polDiv && currentTemplate === 'confirmacion') {
+        const clauseBlocks = Array.from(polDiv.querySelectorAll('div > div > p.editable-clause')).map(p => p.closest('div').parentElement);
+        // unique blocks
+        const uniqueBlocks = [...new Set(clauseBlocks)];
+        if (uniqueBlocks.length > 0) {
+            customFields.confirmationClauses = uniqueBlocks.map(c => {
+                const allEditable = c.querySelectorAll('.editable-clause');
+                const titleEl = allEditable[0];
+                const bodyEl = allEditable[1] || c.querySelector('.clause-body');
+                return {
+                    title: titleEl ? titleEl.innerText.trim() : '',
+                    body: bodyEl ? bodyEl.innerText.trim() : ''
+                };
+            }).filter(c => c.title || c.body);
+        }
+    }
+
+    customFields.dynamicRows = Array.from(document.querySelectorAll('#ocupante-box [data-dynamic="true"]')).map(row => {
                     const editableCells = row.querySelectorAll('.editable');
                     return {
                         key: (editableCells[0]?.innerText || '').trim(),
@@ -2509,7 +2528,11 @@
                 if (currentTemplate === 'confirmacion') {
                     const hotelClauses = window.globalConfig?.[currentHotel]?.confirmationClauses || [];
                     const commonClauses = window.globalConfig?.common?.confirmationClauses || [];
-                    const allC = hotelClauses.length > 0 ? hotelClauses : commonClauses;
+                    
+                    const groupObjTemp = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                    const customC = groupObjTemp.ProformaCustomFields?.confirmationClauses;
+                    let allC = customC && customC.length > 0 ? customC : (hotelClauses.length > 0 ? hotelClauses : commonClauses);
+
                     if (allC.length > 0) {
                         const totalNeto = total - totalComision;
 
