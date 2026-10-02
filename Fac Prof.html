@@ -430,22 +430,22 @@
 <body class="bg-gray-200 p-0 md:p-8">
 
     <!-- Panel de Control Superior (no-print) -->
-    <div class="max-w-[210mm] mx-auto mb-5 no-print rounded-2xl overflow-hidden shadow-xl border border-slate-200/60" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+    <div class="w-full mb-5 no-print rounded-2xl overflow-hidden shadow-sm border border-slate-200 bg-white">
 
         <!-- Fila 1: Navegación y hotel -->
-        <div class="flex items-center justify-between px-5 py-3 border-b border-white/10">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100">
             <div class="flex items-center gap-4">
                 <!-- Botón volver -->
                 <button onclick="saveAndExit()" title="Guardar y volver"
-                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all">
+                    class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-all">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 </button>
 
                 <!-- Separador -->
-                <div class="w-px h-6 bg-white/15"></div>
+                <div class="w-px h-6 bg-slate-200"></div>
 
                 <!-- Label -->
-                <span class="text-[9px] font-bold text-white/40 uppercase tracking-[0.25em]">Entorno de Trabajo</span>
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-[0.25em]">Entorno de Trabajo</span>
 
                 <!-- Tabs -->
                 <div class="flex gap-1">
@@ -462,9 +462,9 @@
 
             <!-- Hotel selector -->
             <div class="flex items-center gap-2">
-                <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest">Hotel</span>
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Hotel</span>
                 <select id="hotel-selector" onchange="updateHotel(this.value)"
-                    class="bg-white/10 border border-white/20 text-white text-[10px] font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/30 cursor-pointer">
+                    class="bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
                     <option value="guadiana" class="text-slate-900 bg-white">Sercotel Guadiana</option>
                     <option value="cumbria" class="text-slate-900 bg-white">Cumbria Spa&Hotel</option>
                 </select>
@@ -484,14 +484,14 @@
             
             <!-- Guardar y Salir -->
             <button onclick="saveAndExit()"
-                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all">
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Guardar y Salir
             </button>
 
             <!-- Redactar Email -->
             <button onclick="generateAIEmail()"
-                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white border border-white/15 text-[10px] font-bold uppercase tracking-wider transition-all">
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-white/15 text-[10px] font-bold uppercase tracking-wider transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2l-19 9 8 4 10-13z"/><path d="M12.5 15l1 6 4-8"/></svg>
                 Redactar Email
             </button>
@@ -505,14 +505,14 @@
 
             <!-- Alternar Banco (Proforma) -->
             <button id="toggle-bank-btn" onclick="toggleBankDetails()"
-                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all">
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><path d="M13 13h4"/><path d="M13 17h4"/></svg>
                 <span id="bank-btn-text">Banco: ON</span>
             </button>
 
             <!-- Alternar Registro Proforma -->
             <button id="toggle-independent-btn" onclick="toggleIndependentMode()"
-                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all">
+                class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 <span id="independent-btn-text">Enviar a Registro: OFF</span>
             </button>
@@ -527,7 +527,7 @@
                 Imprimir / PDF
             </button>
             <select id="print-lang-select"
-                class="px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-[10px] font-bold uppercase tracking-wider">
+                class="px-3 py-2 rounded-xl bg-white/10 border border-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
                 <option value="" class="text-slate-900 bg-white">Sin traducir</option>
                 <option value="en" class="text-slate-900 bg-white">Inglés</option>
                 <option value="fr" class="text-slate-900 bg-white">Francés</option>
@@ -2225,6 +2225,7 @@
             loadSelectedGroup();
             renderItems();
             syncFields();
+        switchTemplate(currentTemplate);
         });
 
         function copyAIContent() {
@@ -2757,7 +2758,7 @@
                 }
             } else {
                 btnText.innerText = 'Enviar a Registro: OFF';
-                btn.className = 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all';
+                btn.className = 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm text-[10px] font-bold uppercase tracking-wider transition-all';
                 
                 // Disable editing for reserva-id
                 const rid2 = document.getElementById('reserva-id-2');
