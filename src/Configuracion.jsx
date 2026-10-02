@@ -499,10 +499,6 @@
                                 <LucideIcon name="shield-check" className="w-5 h-5" />
                                 Usuarios y Accesos
                             </button>
-                            <button onClick={() => setActiveHotel('commercials')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'commercials' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <LucideIcon name="users" className="w-5 h-5" />
-                                Agentes Comerciales
-                            </button>
                             <div className="pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4">Global</div>
                             <button onClick={() => setActiveHotel('services')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'services' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
                                 <LucideIcon name="box" className="w-5 h-5" />
@@ -559,11 +555,6 @@
                                     <div>
                                         <h3 className="text-xl font-bold text-slate-900 uppercase">Gestión de Usuarios y Accesos</h3>
                                         <p className="text-xs text-slate-400">Control centralizado de cuentas autorizadas, contraseñas y permisos de acceso.</p>
-                                    </div>
-                                ) : activeHotel === 'commercials' ? (
-                                    <div>
-                                        <h3 className="text-xl font-bold text-slate-900 uppercase">Base de Datos de Personal</h3>
-                                        <p className="text-xs text-slate-400">Gestiona los agentes comerciales autorizados en el sistema.</p>
                                     </div>
                                 ) : activeHotel === 'services' ? (
                                     <div>
@@ -761,93 +752,6 @@
                                                     );
                                                 });
                                             })()}
-                                        </div>
-                                    </div>
-                                ) : activeHotel === 'services' ? (
-                                    <div className="max-w-3xl space-y-8 animate-fade-in">
-                                        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
-                                            <div className="flex justify-between items-center mb-6">
-                                                <div>
-                                                    <h4 className="font-bold text-slate-800 tracking-tight">Inventario de Desplegables</h4>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Añade o edita servicios</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleChange('common', 'services', [...(config.common?.services || []), { label: "Nuevo Servicio", pax: 1, isService: true }])}
-                                                    className="bg-[#2d5a43] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#1e3a2c] transition-all flex items-center gap-2"
-                                                >
-                                                    <LucideIcon name="plus" className="w-4 h-4" />
-                                                    Añadir Servicio
-                                                </button>
-                                            </div>
-                                            
-                                            <div className="space-y-4">
-                                                {(config.common?.services || []).map((srv, idx) => (
-                                                    <div key={idx} className="flex flex-wrap md:flex-nowrap gap-3 items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                                        <div className="flex-1 min-w-[200px]">
-                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">Nombre</label>
-                                                            <input
-                                                                type="text"
-                                                                value={srv.label}
-                                                                onChange={(e) => {
-                                                                    const arr = [...config.common.services];
-                                                                    arr[idx].label = e.target.value;
-                                                                    handleChange('common', 'services', arr);
-                                                                }}
-                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="w-24">
-                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">Pax / Uds</label>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                value={srv.pax}
-                                                                onChange={(e) => {
-                                                                    const arr = [...config.common.services];
-                                                                    arr[idx].pax = Number(e.target.value) || 0;
-                                                                    handleChange('common', 'services', arr);
-                                                                }}
-                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:border-[#2d5a43] outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="w-32">
-                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">Tipo</label>
-                                                            <select
-                                                                value={srv.isService ? 'true' : 'false'}
-                                                                onChange={(e) => {
-                                                                    const arr = [...config.common.services];
-                                                                    arr[idx].isService = e.target.value === 'true';
-                                                                    handleChange('common', 'services', arr);
-                                                                }}
-                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
-                                                            >
-                                                                <option value="false">Habitación</option>
-                                                                <option value="true">Servicio Extra</option>
-                                                            </select>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => {
-                                                                const arr = config.common.services.filter((_, i) => i !== idx);
-                                                                handleChange('common', 'services', arr);
-                                                            }}
-                                                            className="mt-5 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                                            title="Eliminar"
-                                                        >
-                                                            <LucideIcon name="trash-2" className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                                {(!config.common?.services || config.common.services.length === 0) && (
-                                                    <div className="text-center py-8 text-slate-400 font-bold text-sm">
-                                                        No hay servicios registrados.
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                ) : activeHotel === 'commercials' ? (
-                                    <div className="max-w-xl space-y-8">
                                         <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
                                             <div className="flex justify-between items-center mb-6">
                                                 <div>
@@ -1028,6 +932,90 @@
                                                 );
                                             })()}
                                         </div>
+                                        </div>
+                                    </div>
+                                ) : activeHotel === 'services' ? (
+                                    <div className="max-w-3xl space-y-8 animate-fade-in">
+                                        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800 tracking-tight">Inventario de Desplegables</h4>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Añade o edita servicios</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleChange('common', 'services', [...(config.common?.services || []), { label: "Nuevo Servicio", pax: 1, isService: true }])}
+                                                    className="bg-[#2d5a43] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#1e3a2c] transition-all flex items-center gap-2"
+                                                >
+                                                    <LucideIcon name="plus" className="w-4 h-4" />
+                                                    Añadir Servicio
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="space-y-4">
+                                                {(config.common?.services || []).map((srv, idx) => (
+                                                    <div key={idx} className="flex flex-wrap md:flex-nowrap gap-3 items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                                        <div className="flex-1 min-w-[200px]">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">Nombre</label>
+                                                            <input
+                                                                type="text"
+                                                                value={srv.label}
+                                                                onChange={(e) => {
+                                                                    const arr = [...config.common.services];
+                                                                    arr[idx].label = e.target.value;
+                                                                    handleChange('common', 'services', arr);
+                                                                }}
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="w-24">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">Pax / Uds</label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={srv.pax}
+                                                                onChange={(e) => {
+                                                                    const arr = [...config.common.services];
+                                                                    arr[idx].pax = Number(e.target.value) || 0;
+                                                                    handleChange('common', 'services', arr);
+                                                                }}
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:border-[#2d5a43] outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="w-32">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">Tipo</label>
+                                                            <select
+                                                                value={srv.isService ? 'true' : 'false'}
+                                                                onChange={(e) => {
+                                                                    const arr = [...config.common.services];
+                                                                    arr[idx].isService = e.target.value === 'true';
+                                                                    handleChange('common', 'services', arr);
+                                                                }}
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
+                                                            >
+                                                                <option value="false">Habitación</option>
+                                                                <option value="true">Servicio Extra</option>
+                                                            </select>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                const arr = config.common.services.filter((_, i) => i !== idx);
+                                                                handleChange('common', 'services', arr);
+                                                            }}
+                                                            className="mt-5 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                            title="Eliminar"
+                                                        >
+                                                            <LucideIcon name="trash-2" className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {(!config.common?.services || config.common.services.length === 0) && (
+                                                    <div className="text-center py-8 text-slate-400 font-bold text-sm">
+                                                        No hay servicios registrados.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
                                     </div>
                                 ) : activeHotel === 'clauses' ? (
                                     <div className="max-w-4xl space-y-8 animate-fade-in">

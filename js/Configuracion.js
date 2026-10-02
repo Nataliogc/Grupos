@@ -854,15 +854,7 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "shield-check",
     className: "w-5 h-5"
-  }), "Usuarios y Accesos"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('commercials');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'commercials' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "users",
-    className: "w-5 h-5"
-  }), "Agentes Comerciales"), /*#__PURE__*/React.createElement("div", {
+  }), "Usuarios y Accesos"), /*#__PURE__*/React.createElement("div", {
     className: "pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4"
   }, "Global"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
@@ -936,11 +928,7 @@ var App = function App() {
     className: "text-xl font-bold text-slate-900 uppercase"
   }, "Gesti\xF3n de Usuarios y Accesos"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-slate-400"
-  }, "Control centralizado de cuentas autorizadas, contrase\xF1as y permisos de acceso.")) : activeHotel === 'commercials' ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "text-xl font-bold text-slate-900 uppercase"
-  }, "Base de Datos de Personal"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-slate-400"
-  }, "Gestiona los agentes comerciales autorizados en el sistema.")) : activeHotel === 'services' ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+  }, "Control centralizado de cuentas autorizadas, contrase\xF1as y permisos de acceso.")) : activeHotel === 'services' ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-xl font-bold text-slate-900 uppercase"
   }, "Cat\xE1logo de Servicios"), /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-slate-400"
@@ -1114,96 +1102,7 @@ var App = function App() {
         className: "w-4 h-4"
       }))));
     });
-  }())) : activeHotel === 'services' ? /*#__PURE__*/React.createElement("div", {
-    className: "max-w-3xl space-y-8 animate-fade-in"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-between items-center mb-6"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
-    className: "font-bold text-slate-800 tracking-tight"
-  }, "Inventario de Desplegables"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest"
-  }, "A\xF1ade o edita servicios")), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      var _config$common;
-      return handleChange('common', 'services', [].concat(_toConsumableArray(((_config$common = config.common) === null || _config$common === void 0 ? void 0 : _config$common.services) || []), [{
-        label: "Nuevo Servicio",
-        pax: 1,
-        isService: true
-      }]));
-    },
-    className: "bg-[#2d5a43] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#1e3a2c] transition-all flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "plus",
-    className: "w-4 h-4"
-  }), "A\xF1adir Servicio")), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-4"
-  }, (((_config$common2 = config.common) === null || _config$common2 === void 0 ? void 0 : _config$common2.services) || []).map(function (srv, idx) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: idx,
-      className: "flex flex-wrap md:flex-nowrap gap-3 items-center bg-slate-50 p-4 rounded-xl border border-slate-100"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 min-w-[200px]"
-    }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1"
-    }, "Nombre"), /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      value: srv.label,
-      onChange: function onChange(e) {
-        var arr = _toConsumableArray(config.common.services);
-        arr[idx].label = e.target.value;
-        handleChange('common', 'services', arr);
-      },
-      className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "w-24"
-    }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1"
-    }, "Pax / Uds"), /*#__PURE__*/React.createElement("input", {
-      type: "number",
-      min: "0",
-      value: srv.pax,
-      onChange: function onChange(e) {
-        var arr = _toConsumableArray(config.common.services);
-        arr[idx].pax = Number(e.target.value) || 0;
-        handleChange('common', 'services', arr);
-      },
-      className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:border-[#2d5a43] outline-none"
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "w-32"
-    }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1"
-    }, "Tipo"), /*#__PURE__*/React.createElement("select", {
-      value: srv.isService ? 'true' : 'false',
-      onChange: function onChange(e) {
-        var arr = _toConsumableArray(config.common.services);
-        arr[idx].isService = e.target.value === 'true';
-        handleChange('common', 'services', arr);
-      },
-      className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
-    }, /*#__PURE__*/React.createElement("option", {
-      value: "false"
-    }, "Habitaci\xF3n"), /*#__PURE__*/React.createElement("option", {
-      value: "true"
-    }, "Servicio Extra"))), /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        var arr = config.common.services.filter(function (_, i) {
-          return i !== idx;
-        });
-        handleChange('common', 'services', arr);
-      },
-      className: "mt-5 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all",
-      title: "Eliminar"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "trash-2",
-      className: "w-5 h-5"
-    })));
-  }), (!((_config$common3 = config.common) !== null && _config$common3 !== void 0 && _config$common3.services) || config.common.services.length === 0) && /*#__PURE__*/React.createElement("div", {
-    className: "text-center py-8 text-slate-400 font-bold text-sm"
-  }, "No hay servicios registrados.")))) : activeHotel === 'commercials' ? /*#__PURE__*/React.createElement("div", {
-    className: "max-w-xl space-y-8"
-  }, /*#__PURE__*/React.createElement("div", {
+  }(), /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex justify-between items-center mb-6"
@@ -1416,7 +1315,94 @@ var App = function App() {
     }, "Inactivos")), inactiveCommercials.length > 0 ? inactiveCommercials.map(renderComm) : /*#__PURE__*/React.createElement("div", {
       className: "text-center p-6 border-2 border-dashed border-slate-100 rounded-xl text-xs text-slate-400 italic"
     }, "No hay comerciales inactivos")));
-  }())) : activeHotel === 'clauses' ? /*#__PURE__*/React.createElement("div", {
+  }()))) : activeHotel === 'services' ? /*#__PURE__*/React.createElement("div", {
+    className: "max-w-3xl space-y-8 animate-fade-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between items-center mb-6"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+    className: "font-bold text-slate-800 tracking-tight"
+  }, "Inventario de Desplegables"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest"
+  }, "A\xF1ade o edita servicios")), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      var _config$common;
+      return handleChange('common', 'services', [].concat(_toConsumableArray(((_config$common = config.common) === null || _config$common === void 0 ? void 0 : _config$common.services) || []), [{
+        label: "Nuevo Servicio",
+        pax: 1,
+        isService: true
+      }]));
+    },
+    className: "bg-[#2d5a43] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#1e3a2c] transition-all flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "plus",
+    className: "w-4 h-4"
+  }), "A\xF1adir Servicio")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4"
+  }, (((_config$common2 = config.common) === null || _config$common2 === void 0 ? void 0 : _config$common2.services) || []).map(function (srv, idx) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: idx,
+      className: "flex flex-wrap md:flex-nowrap gap-3 items-center bg-slate-50 p-4 rounded-xl border border-slate-100"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 min-w-[200px]"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1"
+    }, "Nombre"), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: srv.label,
+      onChange: function onChange(e) {
+        var arr = _toConsumableArray(config.common.services);
+        arr[idx].label = e.target.value;
+        handleChange('common', 'services', arr);
+      },
+      className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "w-24"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1"
+    }, "Pax / Uds"), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: "0",
+      value: srv.pax,
+      onChange: function onChange(e) {
+        var arr = _toConsumableArray(config.common.services);
+        arr[idx].pax = Number(e.target.value) || 0;
+        handleChange('common', 'services', arr);
+      },
+      className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-center focus:border-[#2d5a43] outline-none"
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "w-32"
+    }, /*#__PURE__*/React.createElement("label", {
+      className: "text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1"
+    }, "Tipo"), /*#__PURE__*/React.createElement("select", {
+      value: srv.isService ? 'true' : 'false',
+      onChange: function onChange(e) {
+        var arr = _toConsumableArray(config.common.services);
+        arr[idx].isService = e.target.value === 'true';
+        handleChange('common', 'services', arr);
+      },
+      className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none"
+    }, /*#__PURE__*/React.createElement("option", {
+      value: "false"
+    }, "Habitaci\xF3n"), /*#__PURE__*/React.createElement("option", {
+      value: "true"
+    }, "Servicio Extra"))), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        var arr = config.common.services.filter(function (_, i) {
+          return i !== idx;
+        });
+        handleChange('common', 'services', arr);
+      },
+      className: "mt-5 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all",
+      title: "Eliminar"
+    }, /*#__PURE__*/React.createElement(LucideIcon, {
+      name: "trash-2",
+      className: "w-5 h-5"
+    })));
+  }), (!((_config$common3 = config.common) !== null && _config$common3 !== void 0 && _config$common3.services) || config.common.services.length === 0) && /*#__PURE__*/React.createElement("div", {
+    className: "text-center py-8 text-slate-400 font-bold text-sm"
+  }, "No hay servicios registrados.")))) : activeHotel === 'clauses' ? /*#__PURE__*/React.createElement("div", {
     className: "max-w-4xl space-y-8 animate-fade-in"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-xl font-bold text-slate-900 uppercase"
