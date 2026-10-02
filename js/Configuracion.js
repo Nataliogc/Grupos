@@ -1201,96 +1201,7 @@ var App = function App() {
     })));
   }), (!((_config$common3 = config.common) !== null && _config$common3 !== void 0 && _config$common3.services) || config.common.services.length === 0) && /*#__PURE__*/React.createElement("div", {
     className: "text-center py-8 text-slate-400 font-bold text-sm"
-  }, "No hay servicios registrados."))), [{
-    key: 'clauses',
-    title: 'Cláusulas Globales (Presupuesto)',
-    subtitle: 'Aplican a todos los hoteles salvo que el hotel tenga las suyas propias.'
-  }, {
-    key: 'confirmationClauses',
-    title: 'Cláusulas Globales (Confirmación)',
-    subtitle: 'Aplican a todos los hoteles en la carta de confirmación.'
-  }].map(function (_ref8) {
-    var _config$common5, _config$common6;
-    var key = _ref8.key,
-      title = _ref8.title,
-      subtitle = _ref8.subtitle;
-    return /*#__PURE__*/React.createElement("div", {
-      key: key,
-      className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8 space-y-4"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex justify-between items-center"
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
-      className: "font-bold text-slate-800 tracking-tight"
-    }, title), /*#__PURE__*/React.createElement("p", {
-      className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest"
-    }, subtitle)), /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        var _config$common4;
-        return handleChange('common', key, [].concat(_toConsumableArray(((_config$common4 = config.common) === null || _config$common4 === void 0 ? void 0 : _config$common4[key]) || []), [{
-          title: 'Nueva Cláusula',
-          body: ''
-        }]));
-      },
-      className: "bg-[#2d5a43] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-[#1e3a2c] transition-all flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "plus",
-      className: "w-4 h-4"
-    }), "A\xF1adir")), (((_config$common5 = config.common) === null || _config$common5 === void 0 ? void 0 : _config$common5[key]) || []).length > 0 && (((_config$common6 = config.common) === null || _config$common6 === void 0 ? void 0 : _config$common6[key]) || []).map(function (clause, idx) {
-      return /*#__PURE__*/React.createElement("div", {
-        key: idx,
-        className: "border border-slate-100 rounded-2xl p-5 space-y-4 relative group ".concat(key === 'clauses' ? 'bg-indigo-50/30' : 'bg-emerald-50/30')
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "flex gap-2 items-start"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "flex-1 space-y-3"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "flex gap-2"
-      }, /*#__PURE__*/React.createElement("input", {
-        type: "text",
-        value: clause.title,
-        onChange: function onChange(e) {
-          var arr = _toConsumableArray(config.common[key]);
-          arr[idx] = _objectSpread(_objectSpread({}, arr[idx]), {}, {
-            title: e.target.value
-          });
-          handleChange('common', key, arr);
-        },
-        className: "flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:border-[#2d5a43] outline-none shadow-sm",
-        placeholder: "T\xEDtulo de la cl\xE1usula"
-      }), /*#__PURE__*/React.createElement("button", {
-        onClick: function onClick() {
-          return handleTranslateClause(idx, key, 'common');
-        },
-        className: "px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-sm ".concat(key === 'clauses' ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-emerald-500 text-white hover:bg-emerald-600'),
-        title: "Traducir al Ingl\xE9s con IA"
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: "languages",
-        className: "w-4 h-4"
-      }), "Traducir")), /*#__PURE__*/React.createElement("textarea", {
-        value: clause.body,
-        onChange: function onChange(e) {
-          var arr = _toConsumableArray(config.common[key]);
-          arr[idx] = _objectSpread(_objectSpread({}, arr[idx]), {}, {
-            body: e.target.value
-          });
-          handleChange('common', key, arr);
-        },
-        className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 focus:border-[#2d5a43] outline-none min-h-[80px] resize-none shadow-sm",
-        placeholder: "Cuerpo de la cl\xE1usula. Puedes usar {DEP_30} para el 30% del total."
-      })), /*#__PURE__*/React.createElement("button", {
-        onClick: function onClick() {
-          var arr = config.common[key].filter(function (_, i) {
-            return i !== idx;
-          });
-          handleChange('common', key, arr);
-        },
-        className: "mt-1 w-9 h-9 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-      }, /*#__PURE__*/React.createElement(LucideIcon, {
-        name: "trash-2",
-        className: "w-4 h-4"
-      }))));
-    }));
-  })) : activeHotel === 'commercials' ? /*#__PURE__*/React.createElement("div", {
+  }, "No hay servicios registrados.")))) : activeHotel === 'commercials' ? /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl space-y-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8"
@@ -1360,12 +1271,12 @@ var App = function App() {
     var inactiveCommercials = allCommercials.filter(function (c) {
       return !c.isActive;
     });
-    var renderComm = function renderComm(_ref9) {
-      var comm = _ref9.comm,
-        idx = _ref9.originalIdx,
-        name = _ref9.name,
-        isActive = _ref9.isActive,
-        isObject = _ref9.isObject;
+    var renderComm = function renderComm(_ref8) {
+      var comm = _ref8.comm,
+        idx = _ref8.originalIdx,
+        name = _ref8.name,
+        isActive = _ref8.isActive,
+        isObject = _ref8.isObject;
       return /*#__PURE__*/React.createElement("div", {
         key: idx,
         className: "border p-3 rounded-xl flex items-center justify-between gap-4 transition-all group ".concat(isActive ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-75')
