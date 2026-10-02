@@ -1762,7 +1762,21 @@ var App = function App() {
     },
     className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all",
     placeholder: "Nombre del Banco"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "mt-8 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-3"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "info",
+    className: "w-5 h-5 text-indigo-500 mt-0.5 shrink-0"
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h5", {
+    className: "text-sm font-bold text-indigo-900"
+  }, "\xBFBuscas las Cl\xE1usulas?"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-indigo-700 mt-1"
+  }, "Los textos legales y condiciones de presupuestos/confirmaciones ahora son compartidos por todos los hoteles. Puedes encontrarlos y editarlos en la nueva pesta\xF1a ", /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setActiveHotel('clauses');
+    },
+    className: "font-bold underline cursor-pointer"
+  }, "Textos Legales"), " del men\xFA principal."))), /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
   }, "IBAN de Cobro"), /*#__PURE__*/React.createElement("input", {
     type: "text",

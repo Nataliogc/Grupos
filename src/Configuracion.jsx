@@ -1305,6 +1305,16 @@
                                                         <input type="text" value={config[activeHotel].bank || ""} onChange={(e) => handleChange(activeHotel, 'bank', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" placeholder="Nombre del Banco" />
                                                     </div>
                                                     <div>
+                                                <div className="mt-8 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-3">
+                                                    <LucideIcon name="info" className="w-5 h-5 text-indigo-500 mt-0.5 shrink-0" />
+                                                    <div>
+                                                        <h5 className="text-sm font-bold text-indigo-900">¿Buscas las Cláusulas?</h5>
+                                                        <p className="text-xs text-indigo-700 mt-1">
+                                                            Los textos legales y condiciones de presupuestos/confirmaciones ahora son compartidos por todos los hoteles. 
+                                                            Puedes encontrarlos y editarlos en la nueva pestaña <button onClick={() => setActiveHotel('clauses')} className="font-bold underline cursor-pointer">Textos Legales</button> del menú principal.
+                                                        </p>
+                                                    </div>
+                                                </div>
                                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">IBAN de Cobro</label>
                                                         <input type="text" value={config[activeHotel].iban} onChange={(e) => handleChange(activeHotel, 'iban', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-emerald-700 font-bold focus:border-[#2d5a43] outline-none transition-all tracking-tighter text-sm" />
                                                     </div>
