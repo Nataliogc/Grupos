@@ -1230,8 +1230,8 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   newData.Com_Nombre_Contacto = groupData.Com_Nombre_Contacto || groupData.Persona_Contacto || "";
   newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
   newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\xC3\xA9fono"] || groupData["Teléfono"] || "";
-  newData.hasCustomClauses = groupData.hasCustomClauses !== undefined ? !!groupData.hasCustomClauses : Array.isArray(groupData.clauses) && groupData.clauses.length > 0;
-  newData.hasCustomClausesConf = groupData.hasCustomClausesConf !== undefined ? !!groupData.hasCustomClausesConf : Array.isArray(groupData.clauses_conf) && groupData.clauses_conf.length > 0;
+  newData.hasCustomClauses = !!groupData.hasCustomClauses;
+  newData.hasCustomClausesConf = !!groupData.hasCustomClausesConf;
   return newData;
 };
 var calculateTotal = function calculateTotal(rawGroupData) {
@@ -4809,8 +4809,8 @@ function App() {
       var fHotelKey = fIsCumbria ? 'cumbria' : 'guadiana';
       var defaultBudget = globalConfig && globalConfig[fHotelKey] && Array.isArray(globalConfig[fHotelKey].clauses) && globalConfig[fHotelKey].clauses.length > 0 ? globalConfig[fHotelKey].clauses : globalConfig && globalConfig.common && Array.isArray(globalConfig.common.clauses) && globalConfig.common.clauses.length > 0 ? globalConfig.common.clauses : BUDGET_DEFAULT_CLAUSES;
       var defaultConf = globalConfig && globalConfig[fHotelKey] && Array.isArray(globalConfig[fHotelKey].confirmationClauses) && globalConfig[fHotelKey].confirmationClauses.length > 0 ? globalConfig[fHotelKey].confirmationClauses : globalConfig && globalConfig.common && Array.isArray(globalConfig.common.confirmationClauses) && globalConfig.common.confirmationClauses.length > 0 ? globalConfig.common.confirmationClauses : CONF_DEFAULT_CLAUSES;
-      var budgetClausesList = formData.hasCustomClauses || Array.isArray(formData.clauses) && formData.clauses.length > 0 ? formData.clauses || [] : defaultBudget;
-      var confClausesList = formData.hasCustomClausesConf || Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0 ? formData.clauses_conf || [] : defaultConf;
+      var budgetClausesList = formData.hasCustomClauses ? formData.clauses || [] : defaultBudget;
+      var confClausesList = formData.hasCustomClausesConf ? formData.clauses_conf || [] : defaultConf;
       return /*#__PURE__*/React.createElement("div", {
         className: "grid grid-cols-1 md:grid-cols-2 gap-8"
       }, /*#__PURE__*/React.createElement("div", {
@@ -5076,8 +5076,8 @@ function App() {
     var modeKey = docMode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
     var groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
     var documentPaymentPlan = normalizePaymentPlan(g.PaymentPlan_JSON, calculatedTotal, g);
-    var isCustomBudget = !!(g.hasCustomClauses || Array.isArray(g.clauses) && g.clauses.length > 0);
-    var isCustomConf = !!(g.hasCustomClausesConf || Array.isArray(g.clauses_conf) && g.clauses_conf.length > 0);
+    var isCustomBudget = !!g.hasCustomClauses;
+    var isCustomConf = !!g.hasCustomClausesConf;
     var getGeneralClauses = function getGeneralClauses() {
       var mode = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : docMode;
       var mKey = mode === 'confirmacion' ? 'confirmationClauses' : 'clauses';

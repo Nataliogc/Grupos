@@ -1093,12 +1093,8 @@
       newData.Com_Email_Contacto = groupData.Com_Email_Contacto || groupData.Email || "";
       newData.Com_Telefono_Contacto = groupData.Com_Telefono_Contacto || groupData.Telefono || groupData["Teléfono"] || groupData["Tel\u00c3\u00a9fono"] || groupData["Teléfono"] || "";
 
-      newData.hasCustomClauses = groupData.hasCustomClauses !== undefined 
-        ? !!groupData.hasCustomClauses 
-        : (Array.isArray(groupData.clauses) && groupData.clauses.length > 0);
-      newData.hasCustomClausesConf = groupData.hasCustomClausesConf !== undefined 
-        ? !!groupData.hasCustomClausesConf 
-        : (Array.isArray(groupData.clauses_conf) && groupData.clauses_conf.length > 0);
+      newData.hasCustomClauses = !!groupData.hasCustomClauses;
+      newData.hasCustomClausesConf = !!groupData.hasCustomClausesConf;
 
       return newData;
     };
@@ -4112,11 +4108,11 @@ ${emailContent}`;
                         ? globalConfig.common.confirmationClauses
                         : CONF_DEFAULT_CLAUSES);
 
-                  const budgetClausesList = (formData.hasCustomClauses || (Array.isArray(formData.clauses) && formData.clauses.length > 0))
+                  const budgetClausesList = formData.hasCustomClauses
                     ? (formData.clauses || [])
                     : defaultBudget;
 
-                  const confClausesList = (formData.hasCustomClausesConf || (Array.isArray(formData.clauses_conf) && formData.clauses_conf.length > 0))
+                  const confClausesList = formData.hasCustomClausesConf
                     ? (formData.clauses_conf || [])
                     : defaultConf;
 
@@ -4384,8 +4380,8 @@ ${emailContent}`;
         const groupKey = docMode === 'confirmacion' ? 'clauses_conf' : 'clauses';
         const documentPaymentPlan = normalizePaymentPlan(g.PaymentPlan_JSON, calculatedTotal, g);
 
-        const isCustomBudget = !!(g.hasCustomClauses || (Array.isArray(g.clauses) && g.clauses.length > 0));
-        const isCustomConf = !!(g.hasCustomClausesConf || (Array.isArray(g.clauses_conf) && g.clauses_conf.length > 0));
+        const isCustomBudget = !!g.hasCustomClauses;
+        const isCustomConf = !!g.hasCustomClausesConf;
 
         const getGeneralClauses = (mode = docMode) => {
           const mKey = mode === 'confirmacion' ? 'confirmationClauses' : 'clauses';
