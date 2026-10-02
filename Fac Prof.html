@@ -2507,7 +2507,9 @@
             const polDiv = document.getElementById('tpl-policies');
             if (polDiv) {
                 if (currentTemplate === 'confirmacion') {
-                    const allC = [...(window.globalConfig?.common?.confirmationClauses || []), ...(window.globalConfig?.[currentHotel]?.confirmationClauses || [])];
+                    const hotelClauses = window.globalConfig?.[currentHotel]?.confirmationClauses || [];
+                    const commonClauses = window.globalConfig?.common?.confirmationClauses || [];
+                    const allC = hotelClauses.length > 0 ? hotelClauses : commonClauses;
                     if (allC.length > 0) {
                         const totalNeto = total - totalComision;
 
@@ -2567,6 +2569,11 @@
                             parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
                             return parsed;
                         };
+                        
+                        const parseBold = (str) => {
+                            if (!str) return str;
+                            return str.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 800; color: #0f172a;">$1</strong>');
+                        };
     
                         polDiv.innerHTML = `
                             <!-- Sidebar Legal Vertical -->
@@ -2590,7 +2597,7 @@
                                                 <p class="editable-clause" contenteditable="true" style="font-size:8px; font-weight:800; text-transform:uppercase; color:${accentColor}; letter-spacing:0.12em; margin:0; line-height:1.3; font-family:'Montserrat',sans-serif;">${c.title}</p>
                                             </div>
                                             <p class="clause-body editable-clause" contenteditable="true" style="font-size:8.5px; font-weight:500; margin:0; color:#475569; text-align:justify; hyphens:auto; line-height:1.55; font-family:'Montserrat',sans-serif;">
-                                                ${parseClauseVariables(c.body || "", c.title)}
+                                                ${parseBold(parseClauseVariables(c.body || "", c.title))}
                                             </p>
                                         </div>`;
                                     }).join('')}
