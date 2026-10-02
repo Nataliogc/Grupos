@@ -1181,6 +1181,7 @@
 
         // Sincronización de datos comunes
         function syncFields() {
+        switchTemplate(currentTemplate);
             // Corrección activa si aparece el valor erróneo acumulado 240 personas-noche
             const elP = document.getElementById('reserva-personas-1');
             if (elP && elP.innerText && elP.innerText.trim() === '240') {
