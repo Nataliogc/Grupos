@@ -216,6 +216,34 @@
                 setTimeout(() => setMessage(null), 3000);
             };
 
+            const handleResetAllGroups = async () => {
+                if (!window.confirm("ATENCIÓN: Esto borrará las cláusulas personalizadas de TODOS los presupuestos/grupos guardados. Todos volverán a heredar las cláusulas generales que tengas aquí configuradas. ¿Estás absolutamente seguro de continuar?")) return;
+                setLoading(true);
+                try {
+                    const snapshot = await db.collection("groups").get();
+                    const batch = db.batch();
+                    let count = 0;
+                    snapshot.forEach(doc => {
+                        batch.update(doc.ref, {
+                            hasCustomClausesConf: false,
+                            hasCustomClauses: false
+                        });
+                        count++;
+                    });
+                    if (count > 0) {
+                        await batch.commit();
+                        setMessage({ type: 'success', text: `Se han reseteado las cláusulas de ${count} presupuestos correctamente.` });
+                    } else {
+                        setMessage({ type: 'info', text: 'No hay presupuestos para actualizar.' });
+                    }
+                } catch (e) {
+                    console.error(e);
+                    setMessage({ type: 'error', text: 'Error al resetear grupos: ' + e.message });
+                } finally {
+                    setLoading(false);
+                }
+            };
+
             const handleTranslateClause = async (idx, fieldKey, hotel) => {
                 const currentList = [...(config[hotel][fieldKey] || [])];
                 const textToTranslate = currentList[idx].body.split('[EN]')[0].trim();
@@ -1371,8 +1399,11 @@
                                                         className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-emerald-200 rounded-2xl text-emerald-500 font-bold hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-sm"
                                                     >
                                                         <LucideIcon name="plus" className="w-4 h-4" />
-                                                        Añadir Cláusula de Confirmación</button><button onClick={() => handleChange(activeHotel, "confirmationClauses", CONF_MODEL_TEMPLATES)} className="w-full flex items-center justify-center gap-2 py-3 mt-2 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="refresh-cw" className="w-3 h-3" /> Cargar Modelo Estándar (Confirmación)
-                                                    </button>
+                                                        Añadir Cláusula de Confirmación</button>
+                                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                                        <button onClick={() => handleChange(activeHotel, "confirmationClauses", CONF_MODEL_TEMPLATES)} className="flex items-center justify-center gap-2 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="refresh-cw" className="w-3 h-3" /> Cargar Modelo Estándar</button>
+                                                        <button onClick={handleResetAllGroups} className="flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="alert-triangle" className="w-3 h-3" /> Resetear Todos los Grupos</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

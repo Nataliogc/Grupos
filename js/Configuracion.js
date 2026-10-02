@@ -352,45 +352,114 @@ var App = function App() {
       return _ref.apply(this, arguments);
     };
   }();
-  var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(idx, fieldKey, hotel) {
-      var currentList, textToTranslate, prompt, aiResult, _t2;
+  var handleResetAllGroups = /*#__PURE__*/function () {
+    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+      var snapshot, batch, count, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
-            currentList = _toConsumableArray(config[hotel][fieldKey] || []);
-            textToTranslate = currentList[idx].body.split('[EN]')[0].trim();
-            if (textToTranslate) {
+            if (window.confirm("ATENCIÓN: Esto borrará las cláusulas personalizadas de TODOS los presupuestos/grupos guardados. Todos volverán a heredar las cláusulas generales que tengas aquí configuradas. ¿Estás absolutamente seguro de continuar?")) {
               _context2.n = 1;
               break;
             }
             return _context2.a(2);
           case 1:
-            _context2.p = 1;
+            setLoading(true);
+            _context2.p = 2;
+            _context2.n = 3;
+            return db.collection("groups").get();
+          case 3:
+            snapshot = _context2.v;
+            batch = db.batch();
+            count = 0;
+            snapshot.forEach(function (doc) {
+              batch.update(doc.ref, {
+                hasCustomClausesConf: false,
+                hasCustomClauses: false
+              });
+              count++;
+            });
+            if (!(count > 0)) {
+              _context2.n = 5;
+              break;
+            }
+            _context2.n = 4;
+            return batch.commit();
+          case 4:
+            setMessage({
+              type: 'success',
+              text: "Se han reseteado las cl\xE1usulas de ".concat(count, " presupuestos correctamente.")
+            });
+            _context2.n = 6;
+            break;
+          case 5:
+            setMessage({
+              type: 'info',
+              text: 'No hay presupuestos para actualizar.'
+            });
+          case 6:
+            _context2.n = 8;
+            break;
+          case 7:
+            _context2.p = 7;
+            _t2 = _context2.v;
+            console.error(_t2);
+            setMessage({
+              type: 'error',
+              text: 'Error al resetear grupos: ' + _t2.message
+            });
+          case 8:
+            _context2.p = 8;
+            setLoading(false);
+            return _context2.f(8);
+          case 9:
+            return _context2.a(2);
+        }
+      }, _callee2, null, [[2, 7, 8, 9]]);
+    }));
+    return function handleResetAllGroups() {
+      return _ref2.apply(this, arguments);
+    };
+  }();
+  var handleTranslateClause = /*#__PURE__*/function () {
+    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx, fieldKey, hotel) {
+      var currentList, textToTranslate, prompt, aiResult, _t3;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.p = _context3.n) {
+          case 0:
+            currentList = _toConsumableArray(config[hotel][fieldKey] || []);
+            textToTranslate = currentList[idx].body.split('[EN]')[0].trim();
+            if (textToTranslate) {
+              _context3.n = 1;
+              break;
+            }
+            return _context3.a(2);
+          case 1:
+            _context3.p = 1;
             prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xE9s. Mant\xE9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
-            _context2.n = 2;
+            _context3.n = 2;
             return window.callGemini(prompt);
           case 2:
-            aiResult = _context2.v;
+            aiResult = _context3.v;
             if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
               currentList[idx].body = "".concat(textToTranslate, " [EN] ").concat(aiResult.text.trim());
               handleChange(hotel, fieldKey, currentList);
             } else {
               alert("Error en la traducción: " + ((aiResult === null || aiResult === void 0 ? void 0 : aiResult.error) || "Desconocido"));
             }
-            _context2.n = 4;
+            _context3.n = 4;
             break;
           case 3:
-            _context2.p = 3;
-            _t2 = _context2.v;
+            _context3.p = 3;
+            _t3 = _context3.v;
             alert("Error al conectar con la IA.");
           case 4:
-            return _context2.a(2);
+            return _context3.a(2);
         }
-      }, _callee2, null, [[1, 3]]);
+      }, _callee3, null, [[1, 3]]);
     }));
     return function handleTranslateClause(_x, _x2, _x3) {
-      return _ref2.apply(this, arguments);
+      return _ref3.apply(this, arguments);
     };
   }();
   var handleChange = function handleChange(hotel, field, value) {
@@ -399,47 +468,47 @@ var App = function App() {
     });
   };
   var handleCreateUser = /*#__PURE__*/function () {
-    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
       var _config$system;
-      var name, email, role, pass, currentUsers, emailLower, newUser, updatedUsers, updatedConfig, _t3;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+      var name, email, role, pass, currentUsers, emailLower, newUser, updatedUsers, updatedConfig, _t4;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
             name = (newUserData.name || '').trim();
             email = (newUserData.email || '').trim();
             role = newUserData.role || "Comercial";
             pass = (newUserData.pass || '').trim();
             if (name) {
-              _context3.n = 1;
+              _context4.n = 1;
               break;
             }
             alert("Por favor, introduce el nombre del usuario.");
-            return _context3.a(2);
+            return _context4.a(2);
           case 1:
             if (email) {
-              _context3.n = 2;
+              _context4.n = 2;
               break;
             }
             alert("Por favor, introduce el correo electrónico del usuario.");
-            return _context3.a(2);
+            return _context4.a(2);
           case 2:
             if (!(!pass || pass.length < 4)) {
-              _context3.n = 3;
+              _context4.n = 3;
               break;
             }
             alert("La contraseña debe tener al menos 4 caracteres.");
-            return _context3.a(2);
+            return _context4.a(2);
           case 3:
             currentUsers = _toConsumableArray(((_config$system = config.system) === null || _config$system === void 0 ? void 0 : _config$system.users) || []);
             emailLower = email.toLowerCase();
             if (!currentUsers.some(function (u) {
               return (u.email || '').toLowerCase() === emailLower;
             })) {
-              _context3.n = 4;
+              _context4.n = 4;
               break;
             }
             alert("Ya existe un usuario registrado con este correo electrónico.");
-            return _context3.a(2);
+            return _context4.a(2);
           case 4:
             newUser = {
               id: name.toLowerCase().replace(/[^a-z0-9]/g, ''),
@@ -458,8 +527,8 @@ var App = function App() {
             });
             setConfig(updatedConfig);
             setLoading(true);
-            _context3.p = 5;
-            _context3.n = 6;
+            _context4.p = 5;
+            _context4.n = 6;
             return db.collection("settings").doc("main").set(updatedConfig);
           case 6:
             setMessage({
@@ -473,11 +542,11 @@ var App = function App() {
               role: 'Comercial',
               pass: '1234'
             });
-            _context3.n = 8;
+            _context4.n = 8;
             break;
           case 7:
-            _context3.p = 7;
-            _t3 = _context3.v;
+            _context4.p = 7;
+            _t4 = _context4.v;
             setMessage({
               type: 'error',
               text: 'Error al persistir el nuevo usuario en Firestore.'
@@ -488,49 +557,49 @@ var App = function App() {
               return setMessage(null);
             }, 3500);
           case 9:
-            return _context3.a(2);
+            return _context4.a(2);
         }
-      }, _callee3, null, [[5, 7]]);
+      }, _callee4, null, [[5, 7]]);
     }));
     return function handleCreateUser() {
-      return _ref3.apply(this, arguments);
+      return _ref4.apply(this, arguments);
     };
   }();
   var handleToggleRevokeUser = /*#__PURE__*/function () {
-    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(idx) {
+    var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(idx) {
       var _config$system2;
-      var users, target, isNatalio, currentlyRevoked, nextRevoked, ok, updatedConfig, _t4;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
+      var users, target, isNatalio, currentlyRevoked, nextRevoked, ok, updatedConfig, _t5;
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.p = _context5.n) {
           case 0:
             users = _toConsumableArray(((_config$system2 = config.system) === null || _config$system2 === void 0 ? void 0 : _config$system2.users) || []);
             target = users[idx];
             if (target) {
-              _context4.n = 1;
+              _context5.n = 1;
               break;
             }
-            return _context4.a(2);
+            return _context5.a(2);
           case 1:
             isNatalio = target.name && target.name.toLowerCase() === 'natalio' || target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es');
             if (!isNatalio) {
-              _context4.n = 2;
+              _context5.n = 2;
               break;
             }
             alert("Por seguridad, no es posible revocar el acceso a la cuenta principal del Administrador (Natalio).");
-            return _context4.a(2);
+            return _context5.a(2);
           case 2:
             currentlyRevoked = target.revoked === true || target.active === false;
             nextRevoked = !currentlyRevoked;
             if (!nextRevoked) {
-              _context4.n = 3;
+              _context5.n = 3;
               break;
             }
             ok = window.confirm("\xBFConfirmas que deseas REVOCAR el acceso a \"".concat(target.name, "\"? El usuario no podr\xE1 iniciar sesi\xF3n en Nexus Groups."));
             if (ok) {
-              _context4.n = 3;
+              _context5.n = 3;
               break;
             }
-            return _context4.a(2);
+            return _context5.a(2);
           case 3:
             users[idx] = _objectSpread(_objectSpread({}, target), {}, {
               revoked: nextRevoked,
@@ -543,19 +612,19 @@ var App = function App() {
             });
             setConfig(updatedConfig);
             setLoading(true);
-            _context4.p = 4;
-            _context4.n = 5;
+            _context5.p = 4;
+            _context5.n = 5;
             return db.collection("settings").doc("main").set(updatedConfig);
           case 5:
             setMessage({
               type: 'success',
               text: nextRevoked ? "Acceso de \"".concat(target.name, "\" revocado correctamente.") : "Acceso de \"".concat(target.name, "\" reactivado correctamente.")
             });
-            _context4.n = 7;
+            _context5.n = 7;
             break;
           case 6:
-            _context4.p = 6;
-            _t4 = _context4.v;
+            _context5.p = 6;
+            _t5 = _context5.v;
             setMessage({
               type: 'error',
               text: 'Error al actualizar el estado del usuario.'
@@ -566,36 +635,36 @@ var App = function App() {
               return setMessage(null);
             }, 3500);
           case 8:
-            return _context4.a(2);
+            return _context5.a(2);
         }
-      }, _callee4, null, [[4, 6]]);
+      }, _callee5, null, [[4, 6]]);
     }));
     return function handleToggleRevokeUser(_x4) {
-      return _ref4.apply(this, arguments);
+      return _ref5.apply(this, arguments);
     };
   }();
   var handleResetUserPass = /*#__PURE__*/function () {
-    var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(idx, newPass) {
+    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(idx, newPass) {
       var _config$system3;
-      var trimmed, users, target, updatedConfig, _t5;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
+      var trimmed, users, target, updatedConfig, _t6;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
           case 0:
             trimmed = (newPass || '').trim();
             if (!(!trimmed || trimmed.length < 4)) {
-              _context5.n = 1;
+              _context6.n = 1;
               break;
             }
             alert("La contraseña debe contener al menos 4 caracteres.");
-            return _context5.a(2);
+            return _context6.a(2);
           case 1:
             users = _toConsumableArray(((_config$system3 = config.system) === null || _config$system3 === void 0 ? void 0 : _config$system3.users) || []);
             target = users[idx];
             if (target) {
-              _context5.n = 2;
+              _context6.n = 2;
               break;
             }
-            return _context5.a(2);
+            return _context6.a(2);
           case 2:
             users[idx] = _objectSpread(_objectSpread({}, target), {}, {
               pass: trimmed
@@ -607,8 +676,8 @@ var App = function App() {
             });
             setConfig(updatedConfig);
             setLoading(true);
-            _context5.p = 3;
-            _context5.n = 4;
+            _context6.p = 3;
+            _context6.n = 4;
             return db.collection("settings").doc("main").set(updatedConfig);
           case 4:
             setMessage({
@@ -616,11 +685,11 @@ var App = function App() {
               text: "Contrase\xF1a de \"".concat(target.name, "\" restablecida con \xE9xito a \"").concat(trimmed, "\".")
             });
             setResetPassUser(null);
-            _context5.n = 6;
+            _context6.n = 6;
             break;
           case 5:
-            _context5.p = 5;
-            _t5 = _context5.v;
+            _context6.p = 5;
+            _t6 = _context6.v;
             setMessage({
               type: 'error',
               text: 'Error al actualizar la contraseña en Firestore.'
@@ -631,43 +700,43 @@ var App = function App() {
               return setMessage(null);
             }, 3500);
           case 7:
-            return _context5.a(2);
+            return _context6.a(2);
         }
-      }, _callee5, null, [[3, 5]]);
+      }, _callee6, null, [[3, 5]]);
     }));
     return function handleResetUserPass(_x5, _x6) {
-      return _ref5.apply(this, arguments);
+      return _ref6.apply(this, arguments);
     };
   }();
   var handleDeleteUser = /*#__PURE__*/function () {
-    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(idx) {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(idx) {
       var _config$system4;
-      var users, target, isNatalio, ok, updatedConfig, _t6;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+      var users, target, isNatalio, ok, updatedConfig, _t7;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
             users = _toConsumableArray(((_config$system4 = config.system) === null || _config$system4 === void 0 ? void 0 : _config$system4.users) || []);
             target = users[idx];
             if (target) {
-              _context6.n = 1;
+              _context7.n = 1;
               break;
             }
-            return _context6.a(2);
+            return _context7.a(2);
           case 1:
             isNatalio = target.name && target.name.toLowerCase() === 'natalio' || target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es');
             if (!isNatalio) {
-              _context6.n = 2;
+              _context7.n = 2;
               break;
             }
             alert("No es posible eliminar la cuenta principal del Administrador (Natalio).");
-            return _context6.a(2);
+            return _context7.a(2);
           case 2:
             ok = window.confirm("\xBFEst\xE1s seguro de que deseas ELIMINAR permanentemente a \"".concat(target.name, "\" (").concat(target.email, ")? Esta acci\xF3n no se puede deshacer."));
             if (ok) {
-              _context6.n = 3;
+              _context7.n = 3;
               break;
             }
-            return _context6.a(2);
+            return _context7.a(2);
           case 3:
             users.splice(idx, 1);
             updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
@@ -677,19 +746,19 @@ var App = function App() {
             });
             setConfig(updatedConfig);
             setLoading(true);
-            _context6.p = 4;
-            _context6.n = 5;
+            _context7.p = 4;
+            _context7.n = 5;
             return db.collection("settings").doc("main").set(updatedConfig);
           case 5:
             setMessage({
               type: 'success',
               text: "Usuario \"".concat(target.name, "\" eliminado de la plataforma.")
             });
-            _context6.n = 7;
+            _context7.n = 7;
             break;
           case 6:
-            _context6.p = 6;
-            _t6 = _context6.v;
+            _context7.p = 6;
+            _t7 = _context7.v;
             setMessage({
               type: 'error',
               text: 'Error al eliminar el usuario en Firestore.'
@@ -700,12 +769,12 @@ var App = function App() {
               return setMessage(null);
             }, 3500);
           case 8:
-            return _context6.a(2);
+            return _context7.a(2);
         }
-      }, _callee6, null, [[4, 6]]);
+      }, _callee7, null, [[4, 6]]);
     }));
     return function handleDeleteUser(_x7) {
-      return _ref6.apply(this, arguments);
+      return _ref7.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -1119,11 +1188,11 @@ var App = function App() {
     key: 'confirmationClauses',
     title: 'Cláusulas Globales (Confirmación)',
     subtitle: 'Aplican a todos los hoteles en la carta de confirmación.'
-  }].map(function (_ref7) {
+  }].map(function (_ref8) {
     var _config$common5, _config$common6;
-    var key = _ref7.key,
-      title = _ref7.title,
-      subtitle = _ref7.subtitle;
+    var key = _ref8.key,
+      title = _ref8.title,
+      subtitle = _ref8.subtitle;
     return /*#__PURE__*/React.createElement("div", {
       key: key,
       className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8 space-y-4"
@@ -1270,12 +1339,12 @@ var App = function App() {
     var inactiveCommercials = allCommercials.filter(function (c) {
       return !c.isActive;
     });
-    var renderComm = function renderComm(_ref8) {
-      var comm = _ref8.comm,
-        idx = _ref8.originalIdx,
-        name = _ref8.name,
-        isActive = _ref8.isActive,
-        isObject = _ref8.isObject;
+    var renderComm = function renderComm(_ref9) {
+      var comm = _ref9.comm,
+        idx = _ref9.originalIdx,
+        name = _ref9.name,
+        isActive = _ref9.isActive,
+        isObject = _ref9.isObject;
       return /*#__PURE__*/React.createElement("div", {
         key: idx,
         className: "border p-3 rounded-xl flex items-center justify-between gap-4 transition-all group ".concat(isActive ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-75')
@@ -1841,15 +1910,23 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "plus",
     className: "w-4 h-4"
-  }), "A\xF1adir Cl\xE1usula de Confirmaci\xF3n"), /*#__PURE__*/React.createElement("button", {
+  }), "A\xF1adir Cl\xE1usula de Confirmaci\xF3n"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return handleChange(activeHotel, "confirmationClauses", CONF_MODEL_TEMPLATES);
     },
-    className: "w-full flex items-center justify-center gap-2 py-3 mt-2 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
+    className: "flex items-center justify-center gap-2 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "refresh-cw",
     className: "w-3 h-3"
-  }), " Cargar Modelo Est\xE1ndar (Confirmaci\xF3n)"))))))), /*#__PURE__*/React.createElement("footer", {
+  }), " Cargar Modelo Est\xE1ndar"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleResetAllGroups,
+    className: "flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "alert-triangle",
+    className: "w-3 h-3"
+  }), " Resetear Todos los Grupos")))))))), /*#__PURE__*/React.createElement("footer", {
     className: "mt-12 pt-8 border-t border-slate-200 flex justify-between items-center opacity-40"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] font-bold uppercase tracking-widest"
