@@ -1267,6 +1267,7 @@
 
       // Estados de control
       const [targetHotel, setTargetHotel] = useState("guadiana");
+      const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [targetYear, setTargetYear] = useState(2027);
       const [baseYear, setBaseYear] = useState(2026);
       const [scenario, setScenario] = useState("base");
