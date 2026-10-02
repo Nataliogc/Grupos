@@ -657,7 +657,7 @@
 
             <table class="w-full text-[10px] mb-6 border-collapse">
                 <thead>
-                    <tr class="bg-gray-50 text-[#2d5a43] border-b-2 border-[#2d5a43] uppercase text-[8px] font-bold">
+                    <tr class="bg-gray-50 text-[#2d5a43] border-b-2 border-[#2d5a43] text-[8px] font-normal">
                         <th class="p-2 text-left w-20">Fecha</th>
                         <th class="p-2 text-center w-8">Cantidad</th>
                         <th class="p-2 text-left">Concepto</th>
@@ -1246,25 +1246,20 @@
         }
 
 
-        function resetClauses() {
-            if(!confirm('¿Estás seguro de que quieres borrar las cláusulas personalizadas de este grupo y volver a cargar las cláusulas estándar globales?')) return;
+        async function resetClauses() {
+            if (!confirm('¿Estás seguro de que quieres borrar las cláusulas personalizadas de este grupo y volver a cargar las cláusulas estándar globales?')) return;
             const saved = localStorage.getItem('selectedGroup');
-            if(saved) {
-                const group = JSON.parse(saved);
-                if(group.ProformaCustomFields) {
-                    delete group.ProformaCustomFields.confirmationClauses;
-                    localStorage.setItem('selectedGroup', JSON.stringify(group));
-                    
-                    // Al guardar le mandaremos las custom fields sin las clausulas para borrar en BBDD
-                    // Pero para que sea inmediato, regeneramos la vista
-                    renderItems();
-                    
-                    // Hacemos auto-save para persistirlo
-                    saveProforma(true);
-                }
-            }
+            if (!saved) return;
+            const group = JSON.parse(saved);
+            group.ProformaCustomFields = group.ProformaCustomFields || {};
+            // An empty array also replaces the previous clauses in Firestore's merged map.
+            group.ProformaCustomFields.confirmationClauses = [];
+            localStorage.setItem('selectedGroup', JSON.stringify(group));
+            renderItems();
+            const persisted = await saveProforma(true, { resetClauses: true });
+            if (!persisted) alert('Las cláusulas se han restaurado en pantalla, pero no se ha podido guardar el cambio. Vuelve a intentarlo.');
         }
-        async function saveProforma(silent = false) {
+        async function saveProforma(silent = false, { resetClauses = false } = {}) {
             const saved = localStorage.getItem('selectedGroup');
             if (!saved) return;
             const group = JSON.parse(saved);
@@ -1309,7 +1304,8 @@
 
                 
     const polDiv = document.getElementById('tpl-policies');
-    if (polDiv && currentTemplate === 'confirmacion') {
+    if (resetClauses) customFields.confirmationClauses = [];
+    if (!resetClauses && polDiv && currentTemplate === 'confirmacion') {
         const clauseBlocks = Array.from(polDiv.querySelectorAll('div > div > p.editable-clause')).map(p => p.closest('div').parentElement);
         // unique blocks
         const uniqueBlocks = [...new Set(clauseBlocks)];
@@ -1394,9 +1390,11 @@
                         }, 2000);
                     }
                 }
+                return true;
             } catch (e) {
                 console.error("Error al guardar proforma:", e);
                 if (!silent) alert("Error al guardar en el servidor: " + e.message);
+                return false;
             }
         }
 
@@ -2252,6 +2250,14 @@
             renderItems();
         }
 
+        function displayConcept(text) {
+            const concept = cleanConcept(text);
+            if (concept.length > 3 && concept === concept.toLocaleUpperCase('es')) {
+                const normal = concept.toLocaleLowerCase('es');
+                return normal.charAt(0).toLocaleUpperCase('es') + normal.slice(1);
+            }
+            return concept;
+        }
         function cleanConcept(text) { return (text || '').replace(/\s*\((DBL|TPL|DUI|SGL|SA|TRP|JR|SU|STD|PC|AD|MP|BB|HB|FB|RO|CUA|QUA)\)/gi, '').trim().replace(/Doble\s+Uso\s+Individual/gi, 'Uso Individual'); }
         const formatNum = NexusUtils.formatNum;
 
@@ -2340,24 +2346,24 @@
                 const row = currentTemplate === 'confirmacion' ? `
                     <tr class="border-b group">
                         <td class="p-1"><input type="date" value="${toInputDate(item.fecha)}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent text-gray-500 w-22 outline-none text-[9px]"></td>
-                        <td class="p-1 text-center font-bold text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
-                        <td class="p-1 text-[11px] font-black text-gray-800"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${cleanConcept(item.concepto)}</span>${renderTaxSelect(index, item)}</td>
+                        <td class="p-1 text-center font-normal text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
+                        <td class="p-1 text-[11px] font-normal text-gray-800"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${displayConcept(item.concepto)}</span>${renderTaxSelect(index, item)}</td>
                         <td class="p-1 text-center text-gray-400"><span class="editable text-[9px]" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)">${item.regimen || '-'}</span></td>
                         <td class="p-1 text-center text-[9px] text-gray-500"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'dias', this.innerText)">${item.dias || 1}</span></td>
                         <td class="p-1 text-right text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(item.precio)}</span></td>
-                        <td class="p-1 text-right font-black text-gray-900 text-[11px]">${formatNum(sub)}</td>
-                        <td class="p-1 text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
+                        <td class="p-1 text-right font-normal text-gray-900 text-[11px]">${formatNum(sub)}</td>
+                        <td class="p-1 text-right text-gray-300 font-normal text-[10px]">${formatNum(runningTotal)}</td>
                         <td class="p-1 no-print text-center"><button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">✖</button></td>
                     </tr>` : `
                     <tr class="h-7 border-b border-gray-100">
                         <td class="py-1"><input type="date" value="${toInputDate(item.fecha)}" onchange="updateItem(${index}, 'fecha', this.value)" class="bg-transparent w-20 outline-none text-[9px] text-gray-500"></td>
-                        <td class="text-center font-bold text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
-                        <td class="font-black text-gray-800 text-[11px] uppercase py-1"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${cleanConcept(item.concepto)}</span>${renderTaxSelect(index, item)}</td>
+                        <td class="text-center font-normal text-gray-400 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'cant', this.innerText)">${item.cant || '1'}</span></td>
+                        <td class="font-normal text-gray-800 text-[11px] py-1"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'concepto', this.innerText)">${displayConcept(item.concepto)}</span>${renderTaxSelect(index, item)}</td>
                         <td class="text-center text-gray-400"><span class="editable text-[9px]" contenteditable="true" onblur="updateItem(${index}, 'regimen', this.innerText)">${item.regimen || '-'}</span></td>
                         <td class="text-center text-[9px] text-gray-500"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'dias', this.innerText)">${item.dias || 1}</span></td>
                         <td class="text-right text-gray-600 text-[10px]"><span class="editable" contenteditable="true" onblur="updateItem(${index}, 'precio', this.innerText)">${formatNum(item.precio)}</span></td>
-                        <td class="text-right font-black text-gray-900 text-[11px]">${formatNum(sub)}</td>
-                        <td class="text-right text-gray-300 font-medium text-[10px]">${formatNum(runningTotal)}</td>
+                        <td class="text-right font-normal text-gray-900 text-[11px]">${formatNum(sub)}</td>
+                        <td class="text-right text-gray-300 font-normal text-[10px]">${formatNum(runningTotal)}</td>
                         <td class="no-print text-center py-1"><button onclick="removeItem(${index})" class="text-gray-300 hover:text-red-500">✖</button></td>
                     </tr>`;
                 containers.forEach(c => c.insertAdjacentHTML('beforeend', row));
