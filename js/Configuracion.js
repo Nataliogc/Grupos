@@ -866,6 +866,14 @@ var App = function App() {
     className: "w-5 h-5"
   }), "Cat\xE1logo de Servicios"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
+      return setActiveHotel('clauses');
+    },
+    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'clauses' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "file-text",
+    className: "w-5 h-5"
+  }), "Textos Legales"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
       return window.open('https://nataliogc.github.io/menus-eventos/admin.html', '_blank');
     },
     className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
