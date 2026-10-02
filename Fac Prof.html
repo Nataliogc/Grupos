@@ -450,11 +450,11 @@
                 <!-- Tabs -->
                 <div class="flex gap-1">
                     <button onclick="switchTemplate('confirmacion')" id="btn-confirmacion"
-                        class="px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-white text-slate-900 shadow-md transition-all whitespace-nowrap">
+                        class="px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-indigo-50 text-indigo-700 shadow-md transition-all whitespace-nowrap">
                         Confirmación
                     </button>
                     <button onclick="switchTemplate('proforma')" id="btn-proforma"
-                        class="px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white/80 hover:bg-white/10 transition-all whitespace-nowrap">
+                        class="px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap">
                         Factura Proforma
                     </button>
                 </div>
@@ -620,30 +620,30 @@
 
             <div class="grid grid-cols-2 gap-8 mb-6">
                 <div class="border-l-4 border-[#2d5a43] pl-4">
-                    <h4 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Solicitante</h4>
+                    <h4 class="text-[10px] font-normal text-gray-400 uppercase mb-1">Solicitante</h4>
                     <div class="text-xs space-y-1">
-                        <p><strong class="font-bold text-slate-500">Organismo:</strong> <span
-                                class="editable font-black text-slate-800" id="solicitante-org-1"
+                        <p><span class="font-normal text-slate-500">Organismo:</span> <span
+                                class="editable font-normal text-slate-800" id="solicitante-org-1"
                                 contenteditable="true">---</span></p>
-                        <p><strong class="font-bold text-slate-500">Contacto:</strong> <span
-                                class="editable font-bold text-slate-700" id="solicitante-nombre-1"
+                        <p><span class="font-normal text-slate-500">Contacto:</span> <span
+                                class="editable font-normal text-slate-700" id="solicitante-nombre-1"
                                 contenteditable="true">---</span></p>
-                        <p><strong class="font-bold text-slate-500">Email:</strong> <span
+                        <p><span class="font-normal text-slate-500">Email:</span> <span
                                 class="editable text-slate-600" id="solicitante-email-1"
                                 contenteditable="true">---</span></p>
-                        <p><strong class="font-bold text-slate-500">Teléfono:</strong> <span class="editable"
+                        <p><span class="font-normal text-slate-500">Teléfono:</span> <span class="editable"
                                 id="solicitante-tel-1" contenteditable="true">-</span></p>
                     </div>
 
                 </div>
                 <div class="border-l-4 border-[#eab308] pl-4">
-                    <h4 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Reserva</h4>
+                    <h4 class="text-[10px] font-normal text-gray-400 uppercase mb-1">Reserva</h4>
                     <div class="text-xs grid grid-cols-2 gap-x-1">
-                        <span class="text-gray-500">Personas:</span> <span class="editable font-bold"
+                        <span class="text-gray-500">Personas:</span> <span class="editable font-normal"
                             id="reserva-personas-1" contenteditable="true">---</span>
-                        <span class="text-gray-500">Entrada:</span> <span class="editable font-bold"
+                        <span class="text-gray-500">Entrada:</span> <span class="editable font-normal"
                             id="reserva-entrada-1" contenteditable="true">---</span>
-                        <span class="text-gray-500">Salida:</span> <span class="editable font-bold"
+                        <span class="text-gray-500">Salida:</span> <span class="editable font-normal"
                             id="reserva-salida-1" contenteditable="true">---</span>
                     </div>
                 </div>
@@ -651,8 +651,8 @@
 
             <!-- Referencia del Evento: bloque independiente con raya amarilla -->
             <div class="border-l-4 border-[#eab308] pl-4 mb-6">
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Referencia del Evento:</p>
-                <span class="editable font-black text-slate-800 text-sm" id="programa-1" contenteditable="true">---</span>
+                <p class="text-[9px] font-normal text-slate-400 uppercase tracking-widest mb-0.5">Referencia del Evento:</p>
+                <span class="editable font-normal text-slate-800 text-sm" id="programa-1" contenteditable="true">---</span>
             </div>
 
             <table class="w-full text-[10px] mb-6 border-collapse">
@@ -2240,8 +2240,8 @@
             document.getElementById('tpl-proforma').classList.toggle('hidden', tpl !== 'proforma');
             document.getElementById('tpl-policies').classList.toggle('hidden', tpl !== 'confirmacion');
             
-            document.getElementById('btn-confirmacion').className = tpl === 'confirmacion' ? 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-white text-slate-900 shadow-md transition-all whitespace-nowrap' : 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white/80 hover:bg-white/10 transition-all whitespace-nowrap';
-            document.getElementById('btn-proforma').className = tpl === 'proforma' ? 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-white text-slate-900 shadow-md transition-all whitespace-nowrap' : 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white/80 hover:bg-white/10 transition-all whitespace-nowrap';
+            document.getElementById('btn-confirmacion').className = tpl === 'confirmacion' ? 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-indigo-50 text-indigo-700 shadow-md transition-all whitespace-nowrap' : 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap';
+            document.getElementById('btn-proforma').className = tpl === 'proforma' ? 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-indigo-50 text-indigo-700 shadow-md transition-all whitespace-nowrap' : 'px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap';
             const btnReset = document.getElementById('btn-reset-clauses'); if(btnReset) btnReset.classList.toggle('hidden', tpl !== 'confirmacion');
 
             const docTitle = document.getElementById('doc-type-title');
@@ -2516,7 +2516,7 @@
             const btnText = document.getElementById('bank-btn-text');
             if (btnBank && btnText) {
                 btnText.innerText = showBank ? 'Banco: ON' : 'Banco: OFF';
-                btnBank.className = showBank ? 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 shadow-lg text-[10px] font-black uppercase tracking-wider transition-all' : 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/50 border border-white/20 text-[10px] font-bold uppercase tracking-wider transition-all';
+                btnBank.className = showBank ? 'flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 shadow-lg text-[10px] font-black uppercase tracking-wider transition-all' : 'flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[10px] font-bold uppercase tracking-wider transition-all';
             }
 
             // Sincronizar reserva-personas y f-pax-count con la ocupación simultánea
