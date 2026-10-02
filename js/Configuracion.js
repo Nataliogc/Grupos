@@ -307,7 +307,16 @@ var App = function App() {
         var data = doc.data();
         setConfig(function (prev) {
           var cloudUsers = data.system && Array.isArray(data.system.users) && data.system.users.length > 0 ? data.system.users : prev.system.users;
+          // MIGRATION: Migrate clauses from guadiana to common if missing
+          var migratedCommon = _objectSpread(_objectSpread({}, prev.common), data.common || {});
+          if (!migratedCommon.clauses || migratedCommon.clauses.length === 0) {
+            migratedCommon.clauses = data.guadiana && data.guadiana.clauses ? data.guadiana.clauses : BUDGET_MODEL_TEMPLATES;
+          }
+          if (!migratedCommon.confirmationClauses || migratedCommon.confirmationClauses.length === 0) {
+            migratedCommon.confirmationClauses = data.guadiana && data.guadiana.confirmationClauses ? data.guadiana.confirmationClauses : CONF_MODEL_TEMPLATES;
+          }
           return _objectSpread(_objectSpread(_objectSpread({}, prev), data), {}, {
+            common: migratedCommon,
             system: _objectSpread(_objectSpread(_objectSpread({}, prev.system), data.system || {}), {}, {
               users: cloudUsers
             })
@@ -319,14 +328,23 @@ var App = function App() {
   }, []);
   var saveConfig = /*#__PURE__*/function () {
     var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-      var _t;
+      var dataToSave, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
             setLoading(true);
             _context.p = 1;
+            dataToSave = _objectSpread({}, config);
+            if (dataToSave.guadiana) {
+              delete dataToSave.guadiana.clauses;
+              delete dataToSave.guadiana.confirmationClauses;
+            }
+            if (dataToSave.cumbria) {
+              delete dataToSave.cumbria.clauses;
+              delete dataToSave.cumbria.confirmationClauses;
+            }
             _context.n = 2;
-            return db.collection("settings").doc("main").set(config);
+            return db.collection("settings").doc("main").set(dataToSave);
           case 2:
             setMessage({
               type: 'success',
@@ -1487,7 +1505,202 @@ var App = function App() {
     }, "Inactivos")), inactiveCommercials.length > 0 ? inactiveCommercials.map(renderComm) : /*#__PURE__*/React.createElement("div", {
       className: "text-center p-6 border-2 border-dashed border-slate-100 rounded-xl text-xs text-slate-400 italic"
     }, "No hay comerciales inactivos")));
-  }())) : activeHotel === 'system' ? /*#__PURE__*/React.createElement("div", {
+  }())) : activeHotel === 'clauses' ? /*#__PURE__*/React.createElement("div", {
+    className: "max-w-4xl space-y-8 animate-fade-in"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "text-xl font-bold text-slate-900 uppercase"
+  }, "Textos Legales"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "Configuraci\xF3n global de las cl\xE1usulas para todos los presupuestos y confirmaciones.")), /*#__PURE__*/React.createElement("div", {
+    className: "mt-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-2 bg-slate-100 rounded-lg"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "file-text",
+    className: "w-5 h-5 text-slate-600"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+    className: "text-lg font-bold text-slate-800 tracking-tight"
+  }, "Cl\xE1usulas y Condiciones"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest"
+  }, "Textos legales para el final del presupuesto"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-slate-50 border border-slate-200 rounded-3xl p-6 md:p-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "info",
+    className: "w-4 h-4 text-indigo-500 mt-0.5 shrink-0"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-indigo-700 leading-relaxed"
+  }, /*#__PURE__*/React.createElement("strong", null, "Variables disponibles:"), " Puedes usar ", /*#__PURE__*/React.createElement("code", null, '{DEP_30}'), " en el texto; el sistema lo reemplazar\xE1 autom\xE1ticamente por el 30% del presupuesto para indicarlo en la cl\xE1usula. Puedes a\xF1adir tantas cl\xE1usulas como consideres necesarias.")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-6"
+  }, (config['common'].clauses || []).map(function (clause, idx) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: idx,
+      className: "bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-indigo-200 transition-all"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        var newClauses = _toConsumableArray(config['common'].clauses);
+        newClauses.splice(idx, 1);
+        handleChange('common', 'clauses', newClauses);
+      },
+      className: "absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100",
+      title: "Eliminar cl\xE1usula"
+    }, /*#__PURE__*/React.createElement(LucideIcon, {
+      name: "trash-2",
+      size: 16
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-4 mb-4 pr-12"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "w-8 h-8 shrink-0 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-600 text-xs"
+    }, idx + 1), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 flex gap-3"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: clause.title,
+      placeholder: "T\xEDtulo de la cl\xE1usula (ej. Cupo y Disponibilidad)",
+      onChange: function onChange(e) {
+        var newClauses = _toConsumableArray(config['common'].clauses);
+        newClauses[idx].title = e.target.value;
+        handleChange('common', 'clauses', newClauses);
+      },
+      className: "flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-indigo-500 transition-colors"
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return handleTranslateClause(idx, 'clauses', 'common');
+      },
+      className: "bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement(LucideIcon, {
+      name: "languages",
+      className: "w-3.5 h-3.5"
+    }), "TRADUCIR"))), /*#__PURE__*/React.createElement("textarea", {
+      rows: "3",
+      value: clause.body,
+      placeholder: "Contenido descriptivo de la cl\xE1usula...",
+      onChange: function onChange(e) {
+        var newClauses = _toConsumableArray(config['common'].clauses);
+        newClauses[idx].body = e.target.value;
+        handleChange('common', 'clauses', newClauses);
+      },
+      className: "w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-indigo-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
+    }));
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      var current = config['common'].clauses || [];
+      handleChange('common', 'clauses', [].concat(_toConsumableArray(current), [{
+        title: "Nueva Cláusula",
+        body: ""
+      }]));
+    },
+    className: "w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-[#2d5a43] hover:text-[#2d5a43] hover:bg-emerald-50/50 transition-all text-sm"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "plus",
+    className: "w-4 h-4"
+  }), "A\xF1adir Nueva Cl\xE1usula"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return handleChange('common', "clauses", BUDGET_MODEL_TEMPLATES);
+    },
+    className: "w-full flex items-center justify-center gap-2 py-3 mt-2 bg-indigo-50 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "refresh-cw",
+    className: "w-3 h-3"
+  }), " Cargar Modelo Est\xE1ndar (Presupuesto)")))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-8 pt-8 border-t border-slate-100"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3 mb-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-2 bg-emerald-50 rounded-lg"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "check-square",
+    className: "w-5 h-5 text-emerald-600"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
+    className: "text-lg font-bold text-slate-800 tracking-tight"
+  }, "Cl\xE1usulas de Confirmaci\xF3n"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest"
+  }, "Textos legales para la carta de confirmaci\xF3n"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-slate-50 border border-emerald-100 rounded-[2rem] p-6 md:p-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "space-y-6"
+  }, (config['common'].confirmationClauses || []).map(function (clause, idx) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: idx,
+      className: "bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-emerald-200 transition-all"
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        var nc = _toConsumableArray(config['common'].confirmationClauses || []);
+        nc.splice(idx, 1);
+        handleChange('common', 'confirmationClauses', nc);
+      },
+      className: "absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100",
+      title: "Eliminar cl\xE1usula"
+    }, /*#__PURE__*/React.createElement(LucideIcon, {
+      name: "trash-2",
+      size: 16
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-4 mb-4 pr-12"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "w-8 h-8 shrink-0 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center font-black text-emerald-700 text-xs"
+    }, idx + 1), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 flex gap-3"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: clause.title,
+      placeholder: "T\xEDtulo (ej. Firma y Aceptaci\xF3n)",
+      onChange: function onChange(e) {
+        var nc = _toConsumableArray(config['common'].confirmationClauses || []);
+        nc[idx].title = e.target.value;
+        handleChange('common', 'confirmationClauses', nc);
+      },
+      className: "flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-emerald-500 transition-colors"
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return handleTranslateClause(idx, 'confirmationClauses', 'common');
+      },
+      className: "bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
+    }, /*#__PURE__*/React.createElement(LucideIcon, {
+      name: "languages",
+      className: "w-3.5 h-3.5"
+    }), "TRADUCIR"))), /*#__PURE__*/React.createElement("textarea", {
+      rows: "3",
+      value: clause.body,
+      placeholder: "Contenido de la cl\xE1usula...",
+      onChange: function onChange(e) {
+        var nc = _toConsumableArray(config['common'].confirmationClauses || []);
+        nc[idx].body = e.target.value;
+        handleChange('common', 'confirmationClauses', nc);
+      },
+      className: "w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-emerald-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
+    }));
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      var current = config['common'].confirmationClauses || [];
+      handleChange('common', 'confirmationClauses', [].concat(_toConsumableArray(current), [{
+        title: "Nueva Cláusula Conf.",
+        body: ""
+      }]));
+    },
+    className: "w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-emerald-200 rounded-2xl text-emerald-500 font-bold hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-sm"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "plus",
+    className: "w-4 h-4"
+  }), "A\xF1adir Cl\xE1usula de Confirmaci\xF3n"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 mt-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return handleChange('common', "confirmationClauses", CONF_MODEL_TEMPLATES);
+    },
+    className: "flex items-center justify-center gap-2 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "refresh-cw",
+    className: "w-3 h-3"
+  }), " Cargar Modelo Est\xE1ndar"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleResetAllGroups,
+    className: "flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "alert-triangle",
+    className: "w-3 h-3"
+  }), " Resetear Todos los Grupos")))))) : activeHotel === 'system' ? /*#__PURE__*/React.createElement("div", {
     className: "max-w-xl space-y-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden"
@@ -1740,196 +1953,7 @@ var App = function App() {
       return handleChange(activeHotel, 'web', e.target.value);
     },
     className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all"
-  })))), /*#__PURE__*/React.createElement("div", {
-    className: "mt-12 pt-10 border-t border-slate-100"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 mb-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "p-2 bg-slate-100 rounded-lg"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "file-text",
-    className: "w-5 h-5 text-slate-600"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
-    className: "text-lg font-bold text-slate-800 tracking-tight"
-  }, "Cl\xE1usulas y Condiciones"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest"
-  }, "Textos legales para el final del presupuesto"))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-slate-50 border border-slate-200 rounded-3xl p-6 md:p-8"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "info",
-    className: "w-4 h-4 text-indigo-500 mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs text-indigo-700 leading-relaxed"
-  }, /*#__PURE__*/React.createElement("strong", null, "Variables disponibles:"), " Puedes usar ", /*#__PURE__*/React.createElement("code", null, '{DEP_30}'), " en el texto; el sistema lo reemplazar\xE1 autom\xE1ticamente por el 30% del presupuesto para indicarlo en la cl\xE1usula. Puedes a\xF1adir tantas cl\xE1usulas como consideres necesarias.")), /*#__PURE__*/React.createElement("div", {
-    className: "space-y-6"
-  }, (config[activeHotel].clauses || []).map(function (clause, idx) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: idx,
-      className: "bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-indigo-200 transition-all"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        var newClauses = _toConsumableArray(config[activeHotel].clauses);
-        newClauses.splice(idx, 1);
-        handleChange(activeHotel, 'clauses', newClauses);
-      },
-      className: "absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100",
-      title: "Eliminar cl\xE1usula"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "trash-2",
-      size: 16
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-4 mb-4 pr-12"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "w-8 h-8 shrink-0 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-600 text-xs"
-    }, idx + 1), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 flex gap-3"
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      value: clause.title,
-      placeholder: "T\xEDtulo de la cl\xE1usula (ej. Cupo y Disponibilidad)",
-      onChange: function onChange(e) {
-        var newClauses = _toConsumableArray(config[activeHotel].clauses);
-        newClauses[idx].title = e.target.value;
-        handleChange(activeHotel, 'clauses', newClauses);
-      },
-      className: "flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-indigo-500 transition-colors"
-    }), /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        return handleTranslateClause(idx, 'clauses', activeHotel);
-      },
-      className: "bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "languages",
-      className: "w-3.5 h-3.5"
-    }), "TRADUCIR"))), /*#__PURE__*/React.createElement("textarea", {
-      rows: "3",
-      value: clause.body,
-      placeholder: "Contenido descriptivo de la cl\xE1usula...",
-      onChange: function onChange(e) {
-        var newClauses = _toConsumableArray(config[activeHotel].clauses);
-        newClauses[idx].body = e.target.value;
-        handleChange(activeHotel, 'clauses', newClauses);
-      },
-      className: "w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-indigo-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
-    }));
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      var current = config[activeHotel].clauses || [];
-      handleChange(activeHotel, 'clauses', [].concat(_toConsumableArray(current), [{
-        title: "Nueva Cláusula",
-        body: ""
-      }]));
-    },
-    className: "w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-[#2d5a43] hover:text-[#2d5a43] hover:bg-emerald-50/50 transition-all text-sm"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "plus",
-    className: "w-4 h-4"
-  }), "A\xF1adir Nueva Cl\xE1usula"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return handleChange(activeHotel, "clauses", BUDGET_MODEL_TEMPLATES);
-    },
-    className: "w-full flex items-center justify-center gap-2 py-3 mt-2 bg-indigo-50 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "refresh-cw",
-    className: "w-3 h-3"
-  }), " Cargar Modelo Est\xE1ndar (Presupuesto)")))), /*#__PURE__*/React.createElement("div", {
-    className: "mt-8 pt-8 border-t border-slate-100"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 mb-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "p-2 bg-emerald-50 rounded-lg"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "check-square",
-    className: "w-5 h-5 text-emerald-600"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
-    className: "text-lg font-bold text-slate-800 tracking-tight"
-  }, "Cl\xE1usulas de Confirmaci\xF3n"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] text-slate-400 font-bold uppercase tracking-widest"
-  }, "Textos legales para la carta de confirmaci\xF3n"))), /*#__PURE__*/React.createElement("div", {
-    className: "bg-slate-50 border border-emerald-100 rounded-[2rem] p-6 md:p-8"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "space-y-6"
-  }, (config[activeHotel].confirmationClauses || []).map(function (clause, idx) {
-    return /*#__PURE__*/React.createElement("div", {
-      key: idx,
-      className: "bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-emerald-200 transition-all"
-    }, /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        var nc = _toConsumableArray(config[activeHotel].confirmationClauses || []);
-        nc.splice(idx, 1);
-        handleChange(activeHotel, 'confirmationClauses', nc);
-      },
-      className: "absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100",
-      title: "Eliminar cl\xE1usula"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "trash-2",
-      size: 16
-    })), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-4 mb-4 pr-12"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "w-8 h-8 shrink-0 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center font-black text-emerald-700 text-xs"
-    }, idx + 1), /*#__PURE__*/React.createElement("div", {
-      className: "flex-1 flex gap-3"
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "text",
-      value: clause.title,
-      placeholder: "T\xEDtulo (ej. Firma y Aceptaci\xF3n)",
-      onChange: function onChange(e) {
-        var nc = _toConsumableArray(config[activeHotel].confirmationClauses || []);
-        nc[idx].title = e.target.value;
-        handleChange(activeHotel, 'confirmationClauses', nc);
-      },
-      className: "flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-emerald-500 transition-colors"
-    }), /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        return handleTranslateClause(idx, 'confirmationClauses', activeHotel);
-      },
-      className: "bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: "languages",
-      className: "w-3.5 h-3.5"
-    }), "TRADUCIR"))), /*#__PURE__*/React.createElement("textarea", {
-      rows: "3",
-      value: clause.body,
-      placeholder: "Contenido de la cl\xE1usula...",
-      onChange: function onChange(e) {
-        var nc = _toConsumableArray(config[activeHotel].confirmationClauses || []);
-        nc[idx].body = e.target.value;
-        handleChange(activeHotel, 'confirmationClauses', nc);
-      },
-      className: "w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-emerald-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
-    }));
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      var current = config[activeHotel].confirmationClauses || [];
-      handleChange(activeHotel, 'confirmationClauses', [].concat(_toConsumableArray(current), [{
-        title: "Nueva Cláusula Conf.",
-        body: ""
-      }]));
-    },
-    className: "w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-emerald-200 rounded-2xl text-emerald-500 font-bold hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-sm"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "plus",
-    className: "w-4 h-4"
-  }), "A\xF1adir Cl\xE1usula de Confirmaci\xF3n"), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-2 mt-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return handleChange(activeHotel, "confirmationClauses", CONF_MODEL_TEMPLATES);
-    },
-    className: "flex items-center justify-center gap-2 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "refresh-cw",
-    className: "w-3 h-3"
-  }), " Cargar Modelo Est\xE1ndar"), /*#__PURE__*/React.createElement("button", {
-    onClick: handleResetAllGroups,
-    className: "flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "alert-triangle",
-    className: "w-3 h-3"
-  }), " Resetear Todos los Grupos")))))))), /*#__PURE__*/React.createElement("footer", {
+  }))))))), /*#__PURE__*/React.createElement("footer", {
     className: "mt-12 pt-8 border-t border-slate-200 flex justify-between items-center opacity-40"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] font-bold uppercase tracking-widest"

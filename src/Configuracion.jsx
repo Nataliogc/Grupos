@@ -189,9 +189,19 @@
                             const cloudUsers = (data.system && Array.isArray(data.system.users) && data.system.users.length > 0)
                                 ? data.system.users
                                 : prev.system.users;
+                            // MIGRATION: Migrate clauses from guadiana to common if missing
+                            const migratedCommon = { ...prev.common, ...(data.common || {}) };
+                            if (!migratedCommon.clauses || migratedCommon.clauses.length === 0) {
+                                migratedCommon.clauses = (data.guadiana && data.guadiana.clauses) ? data.guadiana.clauses : BUDGET_MODEL_TEMPLATES;
+                            }
+                            if (!migratedCommon.confirmationClauses || migratedCommon.confirmationClauses.length === 0) {
+                                migratedCommon.confirmationClauses = (data.guadiana && data.guadiana.confirmationClauses) ? data.guadiana.confirmationClauses : CONF_MODEL_TEMPLATES;
+                            }
+
                             return {
                                 ...prev,
                                 ...data,
+                                common: migratedCommon,
                                 system: {
                                     ...prev.system,
                                     ...(data.system || {}),
@@ -207,7 +217,10 @@
             const saveConfig = async () => {
                 setLoading(true);
                 try {
-                    await db.collection("settings").doc("main").set(config);
+                    const dataToSave = { ...config };
+                    if (dataToSave.guadiana) { delete dataToSave.guadiana.clauses; delete dataToSave.guadiana.confirmationClauses; }
+                    if (dataToSave.cumbria) { delete dataToSave.cumbria.clauses; delete dataToSave.cumbria.confirmationClauses; }
+                    await db.collection("settings").doc("main").set(dataToSave);
                     setMessage({ type: 'success', text: 'Configuración guardada correctamente en la nube.' });
                 } catch (e) {
                     setMessage({ type: 'error', text: 'Error al persistir datos. Revisa permisos.' });
@@ -1085,6 +1098,177 @@
                                             })()}
                                         </div>
                                     </div>
+                                ) : activeHotel === 'clauses' ? (
+                                    <div className="max-w-4xl space-y-8 animate-fade-in">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-slate-900 uppercase">Textos Legales</h3>
+                                            <p className="text-xs text-slate-400">Configuración global de las cláusulas para todos los presupuestos y confirmaciones.</p>
+                                        </div>
+                                        {/* CLÁUSULAS */}
+                                        <div className="mt-0">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="p-2 bg-slate-100 rounded-lg">
+                                                    <LucideIcon name="file-text" className="w-5 h-5 text-slate-600" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight">Cláusulas y Condiciones</h4>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Textos legales para el final del presupuesto</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 md:p-8">
+                                                <div className="mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3">
+                                                    <LucideIcon name="info" className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                                                    <div className="text-xs text-indigo-700 leading-relaxed">
+                                                        <strong>Variables disponibles:</strong> Puedes usar <code>{'{DEP_30}'}</code> en el texto; el sistema lo reemplazará automáticamente por el 30% del presupuesto para indicarlo en la cláusula. Puedes añadir tantas cláusulas como consideres necesarias.
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-6">
+                                                    {(config['common'].clauses || []).map((clause, idx) => (
+                                                        <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-indigo-200 transition-all">
+                                                            <button
+                                                                onClick={() => {
+                                                                    const newClauses = [...config['common'].clauses];
+                                                                    newClauses.splice(idx, 1);
+                                                                    handleChange('common', 'clauses', newClauses);
+                                                                }}
+                                                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100"
+                                                                title="Eliminar cláusula">
+                                                                <LucideIcon name="trash-2" size={16} />
+                                                            </button>
+
+                                                            <div className="flex items-center gap-4 mb-4 pr-12">
+                                                                <span className="w-8 h-8 shrink-0 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-600 text-xs">
+                                                                    {idx + 1}
+                                                                </span>
+                                                                <div className="flex-1 flex gap-3">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={clause.title}
+                                                                        placeholder="Título de la cláusula (ej. Cupo y Disponibilidad)"
+                                                                        onChange={(e) => {
+                                                                            const newClauses = [...config['common'].clauses];
+                                                                            newClauses[idx].title = e.target.value;
+                                                                            handleChange('common', 'clauses', newClauses);
+                                                                        }}
+                                                                        className="flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-indigo-500 transition-colors"
+                                                                    />
+                                                                    <button 
+                                                                        onClick={() => handleTranslateClause(idx, 'clauses', 'common')}
+                                                                        className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2"
+                                                                    >
+                                                                        <LucideIcon name="languages" className="w-3.5 h-3.5" />
+                                                                        TRADUCIR
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <textarea
+                                                                rows="3"
+                                                                value={clause.body}
+                                                                placeholder="Contenido descriptivo de la cláusula..."
+                                                                onChange={(e) => {
+                                                                    const newClauses = [...config['common'].clauses];
+                                                                    newClauses[idx].body = e.target.value;
+                                                                    handleChange('common', 'clauses', newClauses);
+                                                                }}
+                                                                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-indigo-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
+                                                            />
+                                                        </div>
+                                                    ))}
+
+                                                    <button
+                                                        onClick={() => {
+                                                            const current = config['common'].clauses || [];
+                                                            handleChange('common', 'clauses', [...current, { title: "Nueva Cláusula", body: "" }]);
+                                                        }}
+                                                        className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-[#2d5a43] hover:text-[#2d5a43] hover:bg-emerald-50/50 transition-all text-sm"
+                                                    >
+                                                        <LucideIcon name="plus" className="w-4 h-4" />
+                                                        Añadir Nueva Cláusula</button><button onClick={() => handleChange('common', "clauses", BUDGET_MODEL_TEMPLATES)} className="w-full flex items-center justify-center gap-2 py-3 mt-2 bg-indigo-50 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="refresh-cw" className="w-3 h-3" /> Cargar Modelo Estándar (Presupuesto)
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* CLÁUSULAS DE CONFIRMACIÓN */}
+                                        <div className="mt-8 pt-8 border-t border-slate-100">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="p-2 bg-emerald-50 rounded-lg">
+                                                    <LucideIcon name="check-square" className="w-5 h-5 text-emerald-600" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight">Cláusulas de Confirmación</h4>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Textos legales para la carta de confirmación</p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-slate-50 border border-emerald-100 rounded-[2rem] p-6 md:p-8">
+                                                <div className="space-y-6">
+                                                    {(config['common'].confirmationClauses || []).map((clause, idx) => (
+                                                        <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-emerald-200 transition-all">
+                                                            <button
+                                                                onClick={() => {
+                                                                    const nc = [...(config['common'].confirmationClauses || [])];
+                                                                    nc.splice(idx, 1);
+                                                                    handleChange('common', 'confirmationClauses', nc);
+                                                                }}
+                                                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100"
+                                                                title="Eliminar cláusula">
+                                                                <LucideIcon name="trash-2" size={16} />
+                                                            </button>
+                                                            <div className="flex items-center gap-4 mb-4 pr-12">
+                                                                <span className="w-8 h-8 shrink-0 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center font-black text-emerald-700 text-xs">{idx + 1}</span>
+                                                                <div className="flex-1 flex gap-3">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={clause.title}
+                                                                        placeholder="Título (ej. Firma y Aceptación)"
+                                                                        onChange={(e) => {
+                                                                            const nc = [...(config['common'].confirmationClauses || [])];
+                                                                            nc[idx].title = e.target.value;
+                                                                            handleChange('common', 'confirmationClauses', nc);
+                                                                        }}
+                                                                        className="flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-emerald-500 transition-colors"
+                                                                    />
+                                                                    <button 
+                                                                        onClick={() => handleTranslateClause(idx, 'confirmationClauses', 'common')}
+                                                                        className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
+                                                                    >
+                                                                        <LucideIcon name="languages" className="w-3.5 h-3.5" />
+                                                                        TRADUCIR
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <textarea
+                                                                rows="3"
+                                                                value={clause.body}
+                                                                placeholder="Contenido de la cláusula..."
+                                                                onChange={(e) => {
+                                                                    const nc = [...(config['common'].confirmationClauses || [])];
+                                                                    nc[idx].body = e.target.value;
+                                                                    handleChange('common', 'confirmationClauses', nc);
+                                                                }}
+                                                                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-emerald-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        onClick={() => {
+                                                            const current = config['common'].confirmationClauses || [];
+                                                            handleChange('common', 'confirmationClauses', [...current, { title: "Nueva Cláusula Conf.", body: "" }]);
+                                                        }}
+                                                        className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-emerald-200 rounded-2xl text-emerald-500 font-bold hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-sm"
+                                                    >
+                                                        <LucideIcon name="plus" className="w-4 h-4" />
+                                                        Añadir Cláusula de Confirmación</button>
+                                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                                        <button onClick={() => handleChange('common', "confirmationClauses", CONF_MODEL_TEMPLATES)} className="flex items-center justify-center gap-2 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="refresh-cw" className="w-3 h-3" /> Cargar Modelo Estándar</button>
+                                                        <button onClick={handleResetAllGroups} className="flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="alert-triangle" className="w-3 h-3" /> Resetear Todos los Grupos</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 ) : activeHotel === 'system' ? (
                                     <div className="max-w-xl space-y-8">
                                         <div className="bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
@@ -1243,170 +1427,6 @@
                                             </div>
                                         </div>
 
-                                        {/* CLÁUSULAS */}
-                                        <div className="mt-12 pt-10 border-t border-slate-100">
-                                            <div className="flex items-center gap-3 mb-6">
-                                                <div className="p-2 bg-slate-100 rounded-lg">
-                                                    <LucideIcon name="file-text" className="w-5 h-5 text-slate-600" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight">Cláusulas y Condiciones</h4>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Textos legales para el final del presupuesto</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 md:p-8">
-                                                <div className="mb-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3">
-                                                    <LucideIcon name="info" className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
-                                                    <div className="text-xs text-indigo-700 leading-relaxed">
-                                                        <strong>Variables disponibles:</strong> Puedes usar <code>{'{DEP_30}'}</code> en el texto; el sistema lo reemplazará automáticamente por el 30% del presupuesto para indicarlo en la cláusula. Puedes añadir tantas cláusulas como consideres necesarias.
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-6">
-                                                    {(config[activeHotel].clauses || []).map((clause, idx) => (
-                                                        <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-indigo-200 transition-all">
-                                                            <button
-                                                                onClick={() => {
-                                                                    const newClauses = [...config[activeHotel].clauses];
-                                                                    newClauses.splice(idx, 1);
-                                                                    handleChange(activeHotel, 'clauses', newClauses);
-                                                                }}
-                                                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100"
-                                                                title="Eliminar cláusula">
-                                                                <LucideIcon name="trash-2" size={16} />
-                                                            </button>
-
-                                                            <div className="flex items-center gap-4 mb-4 pr-12">
-                                                                <span className="w-8 h-8 shrink-0 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-600 text-xs">
-                                                                    {idx + 1}
-                                                                </span>
-                                                                <div className="flex-1 flex gap-3">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={clause.title}
-                                                                        placeholder="Título de la cláusula (ej. Cupo y Disponibilidad)"
-                                                                        onChange={(e) => {
-                                                                            const newClauses = [...config[activeHotel].clauses];
-                                                                            newClauses[idx].title = e.target.value;
-                                                                            handleChange(activeHotel, 'clauses', newClauses);
-                                                                        }}
-                                                                        className="flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-indigo-500 transition-colors"
-                                                                    />
-                                                                    <button 
-                                                                        onClick={() => handleTranslateClause(idx, 'clauses', activeHotel)}
-                                                                        className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2"
-                                                                    >
-                                                                        <LucideIcon name="languages" className="w-3.5 h-3.5" />
-                                                                        TRADUCIR
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <textarea
-                                                                rows="3"
-                                                                value={clause.body}
-                                                                placeholder="Contenido descriptivo de la cláusula..."
-                                                                onChange={(e) => {
-                                                                    const newClauses = [...config[activeHotel].clauses];
-                                                                    newClauses[idx].body = e.target.value;
-                                                                    handleChange(activeHotel, 'clauses', newClauses);
-                                                                }}
-                                                                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-indigo-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
-                                                            />
-                                                        </div>
-                                                    ))}
-
-                                                    <button
-                                                        onClick={() => {
-                                                            const current = config[activeHotel].clauses || [];
-                                                            handleChange(activeHotel, 'clauses', [...current, { title: "Nueva Cláusula", body: "" }]);
-                                                        }}
-                                                        className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-[#2d5a43] hover:text-[#2d5a43] hover:bg-emerald-50/50 transition-all text-sm"
-                                                    >
-                                                        <LucideIcon name="plus" className="w-4 h-4" />
-                                                        Añadir Nueva Cláusula</button><button onClick={() => handleChange(activeHotel, "clauses", BUDGET_MODEL_TEMPLATES)} className="w-full flex items-center justify-center gap-2 py-3 mt-2 bg-indigo-50 text-indigo-600 rounded-2xl font-bold hover:bg-indigo-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="refresh-cw" className="w-3 h-3" /> Cargar Modelo Estándar (Presupuesto)
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* CLÁUSULAS DE CONFIRMACIÓN */}
-                                        <div className="mt-8 pt-8 border-t border-slate-100">
-                                            <div className="flex items-center gap-3 mb-6">
-                                                <div className="p-2 bg-emerald-50 rounded-lg">
-                                                    <LucideIcon name="check-square" className="w-5 h-5 text-emerald-600" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-lg font-bold text-slate-800 tracking-tight">Cláusulas de Confirmación</h4>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Textos legales para la carta de confirmación</p>
-                                                </div>
-                                            </div>
-                                            <div className="bg-slate-50 border border-emerald-100 rounded-[2rem] p-6 md:p-8">
-                                                <div className="space-y-6">
-                                                    {(config[activeHotel].confirmationClauses || []).map((clause, idx) => (
-                                                        <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm relative group hover:border-emerald-200 transition-all">
-                                                            <button
-                                                                onClick={() => {
-                                                                    const nc = [...(config[activeHotel].confirmationClauses || [])];
-                                                                    nc.splice(idx, 1);
-                                                                    handleChange(activeHotel, 'confirmationClauses', nc);
-                                                                }}
-                                                                className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors bg-white p-2 rounded-xl opacity-0 group-hover:opacity-100 shadow-sm border border-slate-100"
-                                                                title="Eliminar cláusula">
-                                                                <LucideIcon name="trash-2" size={16} />
-                                                            </button>
-                                                            <div className="flex items-center gap-4 mb-4 pr-12">
-                                                                <span className="w-8 h-8 shrink-0 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center font-black text-emerald-700 text-xs">{idx + 1}</span>
-                                                                <div className="flex-1 flex gap-3">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={clause.title}
-                                                                        placeholder="Título (ej. Firma y Aceptación)"
-                                                                        onChange={(e) => {
-                                                                            const nc = [...(config[activeHotel].confirmationClauses || [])];
-                                                                            nc[idx].title = e.target.value;
-                                                                            handleChange(activeHotel, 'confirmationClauses', nc);
-                                                                        }}
-                                                                        className="flex-1 bg-transparent border-b border-slate-200 py-1 text-sm font-black text-slate-800 outline-none focus:border-emerald-500 transition-colors"
-                                                                    />
-                                                                    <button 
-                                                                        onClick={() => handleTranslateClause(idx, 'confirmationClauses', activeHotel)}
-                                                                        className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2"
-                                                                    >
-                                                                        <LucideIcon name="languages" className="w-3.5 h-3.5" />
-                                                                        TRADUCIR
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <textarea
-                                                                rows="3"
-                                                                value={clause.body}
-                                                                placeholder="Contenido de la cláusula..."
-                                                                onChange={(e) => {
-                                                                    const nc = [...(config[activeHotel].confirmationClauses || [])];
-                                                                    nc[idx].body = e.target.value;
-                                                                    handleChange(activeHotel, 'confirmationClauses', nc);
-                                                                }}
-                                                                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-slate-600 text-sm outline-none focus:border-emerald-400 transition-all resize-none ml-12 w-[calc(100%-3rem)] font-medium"
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        onClick={() => {
-                                                            const current = config[activeHotel].confirmationClauses || [];
-                                                            handleChange(activeHotel, 'confirmationClauses', [...current, { title: "Nueva Cláusula Conf.", body: "" }]);
-                                                        }}
-                                                        className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-emerald-200 rounded-2xl text-emerald-500 font-bold hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-sm"
-                                                    >
-                                                        <LucideIcon name="plus" className="w-4 h-4" />
-                                                        Añadir Cláusula de Confirmación</button>
-                                                    <div className="grid grid-cols-2 gap-2 mt-2">
-                                                        <button onClick={() => handleChange(activeHotel, "confirmationClauses", CONF_MODEL_TEMPLATES)} className="flex items-center justify-center gap-2 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="refresh-cw" className="w-3 h-3" /> Cargar Modelo Estándar</button>
-                                                        <button onClick={handleResetAllGroups} className="flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-600 hover:text-white transition-all text-[10px] uppercase tracking-widest"><LucideIcon name="alert-triangle" className="w-3 h-3" /> Resetear Todos los Grupos</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </>
                                 )}
                             </div>
