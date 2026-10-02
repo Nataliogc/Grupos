@@ -21,17 +21,20 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 var BUDGET_MODEL_TEMPLATES = [{
-  "title": "Cupo y Disponibilidad",
-  "body": "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito. [EN] This offer is valid for 48 hours. Since total facility blocking is required, availability is not guaranteed until the first deposit."
+  "title": "Validez de la oferta",
+  "body": "Cotización válida durante 7 días naturales desde la fecha de envío. Transcurrido este plazo, tarifas y disponibilidad deberán ser revisadas."
 }, {
-  "title": "Confirmación y Depósito",
-  "body": "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada. [EN] Booking confirmed upon receipt of 30% of the total ({DEP_30}). The remaining 70% must be settled 7 days before entry."
+  "title": "Disponibilidad y bloqueo",
+  "body": "La disponibilidad indicada no supone reserva en firme. Las habitaciones solo quedarán bloqueadas mediante confirmación expresa por escrito del hotel."
 }, {
-  "title": "Política de Cancelación",
-  "body": "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES. [EN] Being an exclusive event with inventory blocking, all deposits delivered are NON-REFUNDABLE."
+  "title": "Condiciones comerciales",
+  "body": "Tarifas especiales aplicables exclusivamente a este grupo y no acumulables a otras ofertas, descuentos o comisiones, salvo acuerdo por escrito. Gratuidad: 1 habitación individual por cada 25 personas de pago."
 }, {
-  "title": "Rooming List",
-  "body": "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero. [EN] The detailed list of occupants must be delivered 5 business days before the arrival of the first passenger."
+  "title": "Modificaciones",
+  "body": "Cualquier cambio en fechas, número de habitaciones, régimen o servicios podrá implicar una revisión de tarifas, disponibilidad y condiciones."
+}, {
+  "title": "Confirmación definitiva",
+  "body": "Las condiciones de depósito, pago, cancelación, release y rooming list se detallarán en la confirmación definitiva de la reserva."
 }];
 var CONF_MODEL_TEMPLATES = [{
   "title": "Confirmación del grupo",

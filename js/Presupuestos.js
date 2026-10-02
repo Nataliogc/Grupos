@@ -795,17 +795,20 @@ var remapBudgetRoomsForHotel = function remapBudgetRoomsForHotel(budget, targetH
   return normalizeGroupData(copy);
 };
 var BUDGET_DEFAULT_CLAUSES = [{
-  title: "Cupo y Disponibilidad",
-  body: "La presente oferta es válida por 48 horas. Dado que se requiere el bloqueo total de instalaciones, la disponibilidad no se garantiza hasta el primer depósito."
+  "title": "Validez de la oferta",
+  "body": "Cotización válida durante 7 días naturales desde la fecha de envío. Transcurrido este plazo, tarifas y disponibilidad deberán ser revisadas."
 }, {
-  title: "Confirmación y Depósito",
-  body: "Bloqueo confirmado al recibir el 30% del total ({DEP_30}). El 70% restante deberá liquidarse 7 días antes de la entrada."
+  "title": "Disponibilidad y bloqueo",
+  "body": "La disponibilidad indicada no supone reserva en firme. Las habitaciones solo quedarán bloqueadas mediante confirmación expresa por escrito del hotel."
 }, {
-  title: "Política de Cancelación",
-  body: "Al ser un evento de carácter exclusivo con bloqueo de inventario, todos los depósitos entregados tienen carácter de NO REEMBOLSABLES."
+  "title": "Condiciones comerciales",
+  "body": "Tarifas especiales aplicables exclusivamente a este grupo y no acumulables a otras ofertas, descuentos o comisiones, salvo acuerdo por escrito. Gratuidad: 1 habitación individual por cada 25 personas de pago."
 }, {
-  title: "Rooming List",
-  body: "La relación detallada de ocupantes deberá entregarse 5 días hábiles antes de la llegada del primer pasajero."
+  "title": "Modificaciones",
+  "body": "Cualquier cambio en fechas, número de habitaciones, régimen o servicios podrá implicar una revisión de tarifas, disponibilidad y condiciones."
+}, {
+  "title": "Confirmación definitiva",
+  "body": "Las condiciones de depósito, pago, cancelación, release y rooming list se detallarán en la confirmación definitiva de la reserva."
 }];
 var CONF_DEFAULT_CLAUSES = [{
   "title": "Confirmación del grupo",
