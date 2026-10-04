@@ -464,8 +464,6 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
   var recByRoom = {};
   var savingsByRoom = {};
   var offDblHA = Number(haPrices['doble'] || haPrices['DOBLE'] || 62);
-  var discountTotalDbl = offDblHA > recDobleHA ? offDblHA - recDobleHA : 0;
-  var discountPerPax = discountTotalDbl > 0 ? discountTotalDbl / 2 : 0;
   rooms.forEach(function (rt) {
     var offP = Number(offPrices[rt] || offPrices[rt.toLowerCase()] || offDoble);
     var offP_HA = haPrices[rt] !== undefined && haPrices[rt] !== null ? Number(haPrices[rt]) : haPrices[rt.toLowerCase()] !== undefined ? Number(haPrices[rt.toLowerCase()]) : null;
@@ -474,14 +472,8 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
     var pax = 2;
     var isDUI = rtNorm.includes('individual') || rtNorm.includes('dui');
     if (isDUI) pax = 1;else if (rtNorm.includes('supletoria') || rtNorm.includes('triple')) pax = 3;else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
-    var baseHA;
-    if (isDUI) {
-      baseHA = recDobleHA;
-    } else if (offP_HA !== null && offP_HA > 0 && discountPerPax > 0) {
-      baseHA = Math.round((offP_HA - discountPerPax * pax) * 100) / 100;
-    } else {
-      baseHA = recDobleHA;
-    }
+    var roomTypeSupplement = offP_HA !== null ? Math.round((offP_HA - offDblHA) * 100) / 100 : 0;
+    var baseHA = Math.round((recDobleHA + roomTypeSupplement) * 100) / 100;
     var roomSupp;
     if (boardCode === 'HA' || boardCode === 'SA') {
       roomSupp = 0;
@@ -493,7 +485,7 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
     var recP = Math.round((baseHA + roomSupp) * 100) / 100;
     recByRoom[rt] = recP;
     savingsByRoom[rt] = {
-      diffVsHotel: Math.round((priceInfo.price + roomSupp - recP) * 100) / 100,
+      diffVsHotel: Math.round((priceInfo.price + roomTypeSupplement + roomSupp - recP) * 100) / 100,
       diffVsOfficial: Math.round((recP - offP) * 100) / 100
     };
   });
@@ -4573,7 +4565,45 @@ function App() {
       },
       "aria-pressed": !!formData.isRatesOnly,
       className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800')
-    }, "Solo Tarifas (Grid)"))), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    }, "Solo Tarifas (Grid)"))), !formData.isRatesOnly && stayDates.length > 0 && function () {
+      var segmentCounts = formData.isMultiSegment ? buildDailyCountsFromSegments(formData.segments || []) : null;
+      var checks = stayDates.map(function (date) {
+        var _formData$dailyConfig3, _window$CapaSuitePric, _window$CapaSuitePric2;
+        var counts = segmentCounts ? segmentCounts[date] || {} : _objectSpread(_objectSpread({}, formData.roomCounts || {}), ((_formData$dailyConfig3 = formData.dailyConfig) === null || _formData$dailyConfig3 === void 0 || (_formData$dailyConfig3 = _formData$dailyConfig3[date]) === null || _formData$dailyConfig3 === void 0 ? void 0 : _formData$dailyConfig3.counts) || {});
+        var requested = Object.values(counts).reduce(function (sum, count) {
+          return sum + Math.max(0, Number(count) || 0);
+        }, 0);
+        var availability = (_window$CapaSuitePric = window.CapaSuitePricingService) === null || _window$CapaSuitePric === void 0 || (_window$CapaSuitePric2 = _window$CapaSuitePric.getDayAvailability) === null || _window$CapaSuitePric2 === void 0 ? void 0 : _window$CapaSuitePric2.call(_window$CapaSuitePric, formData.Hotel_Asignado || 'Sercotel Guadiana', date);
+        return _objectSpread({
+          date: date,
+          requested: requested
+        }, availability);
+      }).filter(function (day) {
+        return day.requested > 0;
+      });
+      if (!checks.length) return null;
+      var insufficient = checks.filter(function (day) {
+        return day.available != null && day.requested > day.available;
+      });
+      var unknown = checks.filter(function (day) {
+        return day.available == null;
+      });
+      return /*#__PURE__*/React.createElement("div", {
+        role: insufficient.length ? 'alert' : 'status',
+        className: "rounded-2xl border p-4 space-y-2 ".concat(insufficient.length ? 'bg-rose-50 border-rose-300 text-rose-800' : unknown.length ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800')
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-sm font-black"
+      }, insufficient.length ? 'El grupo no cabe: disponibilidad insuficiente en CapaSuite' : unknown.length ? 'Disponibilidad pendiente de verificar' : 'El cupo solicitado cabe en la disponibilidad total de CapaSuite'), /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-wrap gap-2 text-xs"
+      }, checks.map(function (day) {
+        return /*#__PURE__*/React.createElement("div", {
+          key: day.date,
+          className: "rounded-lg bg-white/70 px-3 py-2"
+        }, /*#__PURE__*/React.createElement("strong", null, formatDate(day.date)), ": ", day.requested, " solicitadas \xB7 ", day.available == null ? 'sin datos de habitaciones libres' : "".concat(day.available, " libres"), day.available != null && day.requested > day.available && /*#__PURE__*/React.createElement("strong", null, " \xB7 Faltan ", day.requested - day.available, " habitaciones"));
+      })), /*#__PURE__*/React.createElement("p", {
+        className: "text-[11px]"
+      }, "Disponibilidad total del hotel, descontando ocupaci\xF3n y cupos bloqueados. La disponibilidad por tipolog\xEDa debe confirmarse con el hotel."));
+    }(), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3"
@@ -4765,9 +4795,9 @@ function App() {
     }(), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
-      var _formData$dailyConfig3, _formData$dailyConfig4;
+      var _formData$dailyConfig4, _formData$dailyConfig5;
       var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
-      var currentBoard = ((_formData$dailyConfig3 = formData.dailyConfig) === null || _formData$dailyConfig3 === void 0 || (_formData$dailyConfig3 = _formData$dailyConfig3[date]) === null || _formData$dailyConfig3 === void 0 ? void 0 : _formData$dailyConfig3.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+      var currentBoard = ((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
       var dayComp = getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, discount);
       var selectedTypes = formData.isMultiSegment ? Array.from(new Set((formData.segments || []).flatMap(function (s) {
         var allocations = Array.isArray(s.roomAllocations) && s.roomAllocations.length > 0 ? s.roomAllocations : [{
@@ -4794,9 +4824,9 @@ function App() {
       }, dayComp.hotelDayPrice, " \u20AC")), /*#__PURE__*/React.createElement("select", {
         "aria-label": "Tarifa para toda la fila del ".concat(formatDate(date)),
         title: "Aplica a toda la fila y mantiene esta elecci\xF3n al cambiar de r\xE9gimen",
-        value: ((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.tariffMode) || (selectedTypes.length > 0 && selectedTypes.every(function (t) {
-          var _formData$dailyConfig5, _dayComp$recommendedP;
-          var price = (_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5.prices) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5[t];
+        value: ((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.tariffMode) || (selectedTypes.length > 0 && selectedTypes.every(function (t) {
+          var _formData$dailyConfig6, _dayComp$recommendedP;
+          var price = (_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6.prices) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6[t];
           var recommended = (_dayComp$recommendedP = dayComp.recommendedPricesByRoom) === null || _dayComp$recommendedP === void 0 ? void 0 : _dayComp$recommendedP[t];
           return price !== undefined && price !== '' && recommended != null && Number(price) === Number(recommended);
         }) ? 'recommended' : 'official'),
@@ -4812,8 +4842,8 @@ function App() {
         var allOff = selectedTypes.length > 0;
         var allRec = selectedTypes.length > 0;
         selectedTypes.forEach(function (t) {
-          var _formData$dailyConfig6;
-          var p = (((_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.prices) || {})[t];
+          var _formData$dailyConfig7;
+          var p = (((_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.prices) || {})[t];
           var offP = dayComp.officialPricesByRoom[t];
           var recP = dayComp.recommendedPricesByRoom[t];
           if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
@@ -4837,8 +4867,8 @@ function App() {
       }()), /*#__PURE__*/React.createElement("div", {
         className: "flex-1 flex flex-wrap gap-2 items-center"
       }, selectedTypes.map(function (type) {
-        var _formData$dailyConfig7, _formData$dailyConfig8, _formData$dailyConfig9;
-        var dailyCounts = ((_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.counts) || {};
+        var _formData$dailyConfig8, _formData$dailyConfig9, _formData$dailyConfig0;
+        var dailyCounts = ((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.counts) || {};
         var countVal = formData.isMultiSegment ? function (_segmentCountsByDate$) {
           var segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
           return ((_segmentCountsByDate$ = segmentCountsByDate[date]) === null || _segmentCountsByDate$ === void 0 ? void 0 : _segmentCountsByDate$[type.toUpperCase()]) || 0;
@@ -4869,7 +4899,7 @@ function App() {
           className: "relative group flex w-[68px]"
         }, /*#__PURE__*/React.createElement("input", {
           type: "number",
-          value: (((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.prices) || {})[type] || '',
+          value: (((_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.prices) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'prices', e.target.value, type);
           },
@@ -4886,14 +4916,14 @@ function App() {
         }, "Grat."), /*#__PURE__*/React.createElement("input", {
           type: "number",
           min: "0",
-          value: (((_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.gratuities) || {})[type] || '',
+          value: (((_formData$dailyConfig0 = formData.dailyConfig) === null || _formData$dailyConfig0 === void 0 || (_formData$dailyConfig0 = _formData$dailyConfig0[date]) === null || _formData$dailyConfig0 === void 0 ? void 0 : _formData$dailyConfig0.gratuities) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'gratuities', e.target.value, type);
           },
           className: "w-full bg-transparent text-[10px] font-black text-center outline-none text-emerald-700 [&::-webkit-inner-spin-button]:appearance-none placeholder:text-emerald-300",
           placeholder: "0"
-        }))), function (_formData$dailyConfig0) {
-          var currentPrice = (((_formData$dailyConfig0 = formData.dailyConfig) === null || _formData$dailyConfig0 === void 0 || (_formData$dailyConfig0 = _formData$dailyConfig0[date]) === null || _formData$dailyConfig0 === void 0 ? void 0 : _formData$dailyConfig0.prices) || {})[type];
+        }))), function (_formData$dailyConfig1) {
+          var currentPrice = (((_formData$dailyConfig1 = formData.dailyConfig) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1[date]) === null || _formData$dailyConfig1 === void 0 ? void 0 : _formData$dailyConfig1.prices) || {})[type];
           var isOffActive = offPrice !== null && offPrice !== undefined && Number(currentPrice) === Number(offPrice);
           var isRecActive = recPrice !== null && recPrice !== undefined && Number(currentPrice) === Number(recPrice);
           return /*#__PURE__*/React.createElement("div", {
@@ -4933,8 +4963,8 @@ function App() {
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
       }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
-        value: function (_formData$dailyConfig1) {
-          var b = (_formData$dailyConfig1 = formData.dailyConfig) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1[date]) === null || _formData$dailyConfig1 === void 0 ? void 0 : _formData$dailyConfig1.board;
+        value: function (_formData$dailyConfig10) {
+          var b = (_formData$dailyConfig10 = formData.dailyConfig) === null || _formData$dailyConfig10 === void 0 || (_formData$dailyConfig10 = _formData$dailyConfig10[date]) === null || _formData$dailyConfig10 === void 0 ? void 0 : _formData$dailyConfig10.board;
           if (!b) return 'HD (Alojamiento y Desayuno)';
           if (b.startsWith('SA') || b.startsWith('HA')) return 'HA (Solo Alojamiento)';
           if (b.startsWith('AD') || b.startsWith('HD')) return 'HD (Alojamiento y Desayuno)';

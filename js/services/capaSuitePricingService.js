@@ -175,6 +175,48 @@
     };
   }
 
+  // Same inventory and blocked-allotment rules as Calendario.html.
+  function getDayAvailability(hotelName, dateISO) {
+    var hotelKey = normalizeHotelKey(hotelName);
+    var hotelLabel = hotelKey === 'cumbria' ? 'Cumbria' : 'Guadiana';
+    var capacity = hotelKey === 'cumbria' ? 59 : 108;
+    function read(key) {
+      try { return JSON.parse(safeGetStorage(key) || '{}'); } catch (e) { return {}; }
+    }
+    function valid(value) { return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0; }
+    var db = read('hotel_manager_db_v2');
+    var key = Object.keys(db).find(function (k) { return k.toLowerCase().indexOf(hotelKey) !== -1; });
+    var year = key && db[key] && db[key][String(dateISO).slice(0, 4)];
+    var entry = year && year.daily_otb && year.daily_otb[dateISO];
+    var manual = read('manual_cupos_v1');
+    var allotment = manual[hotelLabel] && manual[hotelLabel][dateISO];
+    var occupied = null;
+    var blocked = 0;
+    var source = 'OTB CapaSuite';
+    if (typeof entry === 'object' && entry) {
+      if (valid(entry.rooms)) occupied = Number(entry.rooms);
+      if (valid(entry.cupos)) blocked = Number(entry.cupos);
+    } else if (valid(entry)) occupied = Number(entry);
+    if (allotment && valid(allotment.cupos)) blocked = Number(allotment.cupos);
+    var soldOut = !!((entry && entry.isSoldOut) || (allotment && allotment.isSoldOut));
+    if (occupied === null) {
+      var revenue = read('revenue_data_v2');
+      var day = Array.isArray(revenue.data) ? revenue.data.find(function (d) { return d.dateISO === dateISO; }) : revenue[dateISO] || (revenue.data && revenue.data[dateISO]);
+      var occupancy = day && day.occupancyData;
+      var occKey = occupancy && Object.keys(occupancy).find(function (k) { return k.toLowerCase().indexOf(hotelKey) !== -1; });
+      var info = occKey && occupancy[occKey];
+      if (info && (valid(info.otb) || valid(info.occ))) {
+        occupied = valid(info.otb) ? Number(info.otb) : Number(info.occ);
+        // Calendar occupancy already includes blocked allotments.
+        blocked = 0;
+        source = 'Calendario CapaSuite';
+      }
+    }
+    if (soldOut) occupied = capacity;
+    if (occupied === null) return { dateISO: dateISO, available: null, capacity: capacity, source: 'Sin datos de disponibilidad' };
+    return { dateISO: dateISO, available: Math.max(0, Math.floor(capacity - occupied - blocked)), occupied: occupied, blocked: blocked, capacity: capacity, source: source };
+  }
+
   /**
    * Obtiene la comparativa detallada para un día, hotel, régimen y descuento:
    * - Tarifa oficial de grupos para esa fecha
@@ -292,11 +334,6 @@
 
     // Obtener precios base de HA oficial para proporciones
     var offDblHA = getTariffPrice(haTariffs, 'DOBLE') || (isCumbria ? 60 : 62);
-    // Descuento conseguido en la habitación doble respecto al oficial HA
-    // Ej: Doble oficial 62 € y recDobleHA 58.50 € => ahorro 3.50 € total (1.75 € por persona)
-    var discountTotalDbl = (offDblHA > recDobleHA) ? (offDblHA - recDobleHA) : 0;
-    var discountPerPax = discountTotalDbl > 0 ? (discountTotalDbl / 2) : 0;
-
     roomTypes.forEach(function (rt) {
       var rtNorm = rt.toLowerCase();
       var offP = getTariffPrice(boardTariffs, rt);
@@ -340,52 +377,15 @@
         return;
       }
 
-      // Ocupantes por tipología
+      // Fixed supplements come from this hotel's yearly group catalogue.
       var pax = 2;
-      var ratioHA = 1.0;
-      var isDUI = (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1);
-      if (isDUI) {
-        pax = 1;
-        var offDuiHA = offP_HA || offDblHA;
-        ratioHA = offDblHA > 0 ? (offDuiHA / offDblHA) : 1.0;
-      } else if (rtNorm.indexOf('niño') !== -1 || rtNorm.indexOf('nino') !== -1) {
-        pax = 2.5; // 2 adultos + 1 niño con 50% pensión
-        var offTplNinoHA = offP_HA || (offDblHA * 1.16);
-        ratioHA = offDblHA > 0 ? (offTplNinoHA / offDblHA) : 1.16;
-      } else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) {
-        pax = 3;
-        var offTplHA = offP_HA || (offDblHA * 1.33);
-        ratioHA = offDblHA > 0 ? (offTplHA / offDblHA) : 1.33;
-      } else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) {
-        pax = 4;
-        var offCuaHA = offP_HA || (offDblHA * 1.65);
-        ratioHA = offDblHA > 0 ? (offCuaHA / offDblHA) : 1.65;
-      } else if (rtNorm.indexOf('superior') !== -1) {
-        pax = 2;
-        var offSuiteSupHA = offP_HA || (offDblHA * 1.50);
-        ratioHA = offDblHA > 0 ? (offSuiteSupHA / offDblHA) : 1.50;
-      } else if (rtNorm.indexOf('suite') !== -1) {
-        pax = 2;
-        var offSuiteHA = offP_HA || (offDblHA * 1.35);
-        ratioHA = offDblHA > 0 ? (offSuiteHA / offDblHA) : 1.35;
-      } else {
-        // Doble estándar
-        pax = 2;
-        ratioHA = 1.0;
-      }
-
-      // Base HA recomendada para esta tipología:
-      // - Para DUI: es la misma habitación doble en solo alojamiento (58.50 €)
-      // - Para Doble: recDobleHA (58.50 €)
-      // - Para Triple/Cuádruple: Oficial HA menos el ahorro lineal por plaza (1.75 € * pax)
-      var baseHA;
-      if (isDUI) {
-        baseHA = recDobleHA;
-      } else if (offP_HA !== null && offP_HA > 0 && discountPerPax > 0) {
-        baseHA = Math.round((offP_HA - (discountPerPax * pax)) * 100) / 100;
-      } else {
-        baseHA = Math.round(recDobleHA * ratioHA * 100) / 100;
-      }
+      var isDUI = rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1;
+      if (isDUI) pax = 1;
+      else if (rtNorm.indexOf('niño') !== -1 || rtNorm.indexOf('nino') !== -1) pax = 2.5;
+      else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) pax = 3;
+      else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) pax = 4;
+      var roomTypeSupplement = offP_HA !== null ? Math.round((offP_HA - offDblHA) * 100) / 100 : 0;
+      var baseHA = Math.round((recDobleHA + roomTypeSupplement) * 100) / 100;
 
       // Suplemento de pensión:
       // Si el catálogo oficial tiene precio cerrado para esta tipología en este régimen,
@@ -405,7 +405,7 @@
       recommendedPricesByRoom[rt] = recP;
 
       savingsByRoom[rt] = {
-        diffVsHotel: Math.round(((hotelRoomPrice + roomSupplement) - recP) * 100) / 100,
+        diffVsHotel: Math.round(((hotelRoomPrice + roomTypeSupplement + roomSupplement) - recP) * 100) / 100,
         diffVsOfficial: offP !== null ? Math.round((recP - offP) * 100) / 100 : 0
       };
     });
@@ -469,6 +469,7 @@
   }
 
   return {
+    getDayAvailability: getDayAvailability,
     DEFAULT_DISCOUNT_PERCENT: DEFAULT_DISCOUNT_PERCENT,
     getCapaSuiteHotelDayPrice: getCapaSuiteHotelDayPrice,
     getTariffComparison: getTariffComparison,

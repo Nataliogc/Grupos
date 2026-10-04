@@ -285,9 +285,6 @@
       const recByRoom = {};
       const savingsByRoom = {};
       const offDblHA = Number(haPrices['doble'] || haPrices['DOBLE'] || 62);
-      const discountTotalDbl = (offDblHA > recDobleHA) ? (offDblHA - recDobleHA) : 0;
-      const discountPerPax = discountTotalDbl > 0 ? (discountTotalDbl / 2) : 0;
-
       rooms.forEach(rt => {
         const offP = Number(offPrices[rt] || offPrices[rt.toLowerCase()] || offDoble);
         const offP_HA = haPrices[rt] !== undefined && haPrices[rt] !== null ? Number(haPrices[rt]) : (haPrices[rt.toLowerCase()] !== undefined ? Number(haPrices[rt.toLowerCase()]) : null);
@@ -300,14 +297,8 @@
         else if (rtNorm.includes('supletoria') || rtNorm.includes('triple')) pax = 3;
         else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
 
-        let baseHA;
-        if (isDUI) {
-          baseHA = recDobleHA;
-        } else if (offP_HA !== null && offP_HA > 0 && discountPerPax > 0) {
-          baseHA = Math.round((offP_HA - (discountPerPax * pax)) * 100) / 100;
-        } else {
-          baseHA = recDobleHA;
-        }
+        const roomTypeSupplement = offP_HA !== null ? Math.round((offP_HA - offDblHA) * 100) / 100 : 0;
+        const baseHA = Math.round((recDobleHA + roomTypeSupplement) * 100) / 100;
 
         let roomSupp;
         if (boardCode === 'HA' || boardCode === 'SA') {
@@ -321,7 +312,7 @@
         const recP = Math.round((baseHA + roomSupp) * 100) / 100;
         recByRoom[rt] = recP;
         savingsByRoom[rt] = {
-          diffVsHotel: Math.round(((priceInfo.price + roomSupp) - recP) * 100) / 100,
+          diffVsHotel: Math.round(((priceInfo.price + roomTypeSupplement + roomSupp) - recP) * 100) / 100,
           diffVsOfficial: Math.round((recP - offP) * 100) / 100
         };
       });
@@ -3861,6 +3852,31 @@ ${emailContent}`;
                         </button>
                       </div>
               </div>
+
+              {!formData.isRatesOnly && stayDates.length > 0 && (() => {
+                const segmentCounts = formData.isMultiSegment ? buildDailyCountsFromSegments(formData.segments || []) : null;
+                const checks = stayDates.map(date => {
+                  const counts = segmentCounts ? segmentCounts[date] || {} : { ...(formData.roomCounts || {}), ...(formData.dailyConfig?.[date]?.counts || {}) };
+                  const requested = Object.values(counts).reduce((sum, count) => sum + Math.max(0, Number(count) || 0), 0);
+                  const availability = window.CapaSuitePricingService?.getDayAvailability?.(formData.Hotel_Asignado || 'Sercotel Guadiana', date);
+                  return { date, requested, ...availability };
+                }).filter(day => day.requested > 0);
+                if (!checks.length) return null;
+                const insufficient = checks.filter(day => day.available != null && day.requested > day.available);
+                const unknown = checks.filter(day => day.available == null);
+                return (
+                  <div role={insufficient.length ? 'alert' : 'status'} className={`rounded-2xl border p-4 space-y-2 ${insufficient.length ? 'bg-rose-50 border-rose-300 text-rose-800' : unknown.length ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                    <div className="text-sm font-black">{insufficient.length ? 'El grupo no cabe: disponibilidad insuficiente en CapaSuite' : unknown.length ? 'Disponibilidad pendiente de verificar' : 'El cupo solicitado cabe en la disponibilidad total de CapaSuite'}</div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {checks.map(day => <div key={day.date} className="rounded-lg bg-white/70 px-3 py-2">
+                        <strong>{formatDate(day.date)}</strong>: {day.requested} solicitadas · {day.available == null ? 'sin datos de habitaciones libres' : `${day.available} libres`}
+                        {day.available != null && day.requested > day.available && <strong> · Faltan {day.requested - day.available} habitaciones</strong>}
+                      </div>)}
+                    </div>
+                    <p className="text-[11px]">Disponibilidad total del hotel, descontando ocupación y cupos bloqueados. La disponibilidad por tipología debe confirmarse con el hotel.</p>
+                  </div>
+                );
+              })()}
 
               {/* Bloque 2: Tipología de Habitaciones y Modo de Cotización Unificado */}
               {!formData.isRatesOnly ? (
