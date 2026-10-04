@@ -1324,10 +1324,11 @@
       return newData;
     };
 
-    const calculateTotal = (rawGroupData) => {
+    const calculateTotal = (rawGroupData, withBreakdown = false) => {
       const groupData = normalizeGroupData(rawGroupData);
-      if (!groupData) return 0;
-      if (groupData.isRatesOnly) return 0;
+      if (!groupData || groupData.isRatesOnly) {
+        return withBreakdown ? window.AgencyCommissionService.settle(0, 0, groupData || {}) : 0;
+      }
 
       let dates = [];
       // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
@@ -1339,6 +1340,8 @@
         dates = generateDates(groupData.Entrada, groupData.Salida);
       }
       let total = 0;
+      let commissionBase = 0;
+      const services = groupData.agencyCommissionServices || [];
       dates.forEach(date => {
         const config = groupData.dailyConfig?.[date] || {};
         const allTypes = new Set([
@@ -1378,19 +1381,43 @@
               }
             }
             total += lineSubtotal;
+            const roomConfigKey = Object.keys(config).find(key => key.toLowerCase() === type.toLowerCase());
+            const roomConfig = config[roomConfigKey] || {};
+            const board = roomConfig.board || config.board || groupData['Régimen'] || 'HA';
+            const priceKey = Object.keys(config.prices || {}).find(key => key.toLowerCase() === type.toLowerCase());
+            const unitPrice = Number(config.prices ? config.prices[priceKey] : roomConfig.price) || 0;
+            const hotel = groupData.Hotel_Asignado || groupData.Hotel || '';
+            const hotelKey = hotel.toLowerCase().includes('cumbria') ? 'cumbria' : 'guadiana';
+            let pricing = { breakfast: 8.5, lunch: 19.5, dinner: 19.5 };
+            try {
+              const catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}');
+              const breakdown = (catalog[String(date).slice(0, 4)]?.[hotelKey] || catalog[String(date).slice(0, 4)]?.[hotel])?._desglose;
+              const configs = JSON.parse(localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig') || '{}');
+              const custom = configs[hotel] || configs[hotelKey] || configs.default || {};
+              for (const entry of [breakdown || {}, custom]) {
+                pricing.breakfast = Number(entry.breakfast ?? pricing.breakfast);
+                pricing.lunch = Number(entry.lunch ?? entry.meal ?? pricing.lunch);
+                pricing.dinner = Number(entry.dinner ?? entry.meal ?? entry.lunch ?? pricing.dinner);
+              }
+            } catch (error) {}
+            commissionBase += window.AgencyCommissionService.roomBase({ subtotal: lineSubtotal, unitPrice, roomType: type, board, services, ...pricing });
           }
         });
       });
       // Descuentos globales. El suplemento global antiguo ya no se utiliza.
       const descuentos = parseFloat(groupData.Descuentos) || 0;
+      const beforeDiscount = total;
       total = total - descuentos;
+      if (beforeDiscount > 0) commissionBase *= Math.max(0, total) / beforeDiscount;
 
       // Otros Cargos (Extras Dinámicos)
       const extras = groupData.extraCharges || [];
       extras.forEach(extra => {
         const isGlobal = !extra.date;
         const px = parseFloat(extra.price) || 0;
-        total += isGlobal ? (px * Math.max(1, dates.length)) : px;
+        const amount = isGlobal ? (px * Math.max(1, dates.length)) : px;
+        total += amount;
+        if (extra.commissionService && services.includes(extra.commissionService)) commissionBase += amount;
       });
 
       // Si no hay configuración diaria pero hay un importe fijado (desde IA)
@@ -1402,9 +1429,11 @@
           cleanStr = cleanStr.replace(',', '.');
         }
         const imp = parseFloat(cleanStr);
-        return isNaN(imp) ? 0 : imp;
+        const result = window.AgencyCommissionService.settle(isNaN(imp) ? 0 : imp, 0, groupData);
+        return withBreakdown ? result : result.total;
       }
-      return total > 0 ? total : 0;
+      const result = window.AgencyCommissionService.settle(Math.max(0, total), commissionBase, groupData);
+      return withBreakdown ? result : result.total;
     };
 
     const parsePaymentPlan = (value) => {
@@ -4646,6 +4675,11 @@ ${emailContent}`;
                     onChange={e => setFormData({ ...formData, agencyCommissionPercent: e.target.value === '' ? '' : Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
                     className="mt-2 w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-indigo-600" placeholder="0" />
                 </label>
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <input type="checkbox" checked={formData.agencyIsClient !== false}
+                    onChange={e => setFormData({ ...formData, agencyIsClient: e.target.checked })} />
+                  La agencia es el cliente y paga el presupuesto
+                </label>
                 <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Servicios sujetos a comisión</div>
                 <div className="flex flex-wrap gap-3">
                   {['Alojamiento', 'Desayuno', 'Almuerzo', 'Cena', 'Salas', 'Spa', 'Otros servicios'].map(service => (
@@ -4663,7 +4697,7 @@ ${emailContent}`;
                     onChange={e => setFormData({ ...formData, agencyCommissionOtherServices: e.target.value })}
                     placeholder="Indica los otros servicios" className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs" />
                 )}
-                <p className="text-xs text-slate-400">Comisión para la agencia sobre los servicios seleccionados. No modifica el total a pagar por el cliente.</p>
+                <p className="text-xs text-slate-400">La comisión se descuenta del importe a pagar cuando la agencia es el cliente.</p>
               </div>
 
               {/* Bloque 4.1: Condiciones de pago */}
@@ -4995,6 +5029,15 @@ ${emailContent}`;
                           />
                         </div>
 
+                        <select aria-label="Servicio del cargo sujeto a comisión" value={extra.commissionService || ''}
+                          onChange={e => {
+                            const newExtras = [...formData.extraCharges];
+                            newExtras[index] = { ...extra, commissionService: e.target.value };
+                            setFormData({ ...formData, extraCharges: newExtras });
+                          }} className="bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[11px]">
+                          <option value="">Sin comisión</option>
+                          {['Alojamiento', 'Desayuno', 'Almuerzo', 'Cena', 'Salas', 'Spa', 'Otros servicios'].map(service => <option key={service} value={service}>{service}</option>)}
+                        </select>
                         {/* Cantidad / Unidades */}
                         <div className="w-full md:w-16 relative">
                           <input 
@@ -5361,7 +5404,8 @@ ${emailContent}`;
         if (!selectedGroup) return null;
         const g = normalizeGroupData(selectedGroup);
 
-        const calculatedTotal = calculateTotal(g);
+        const commissionBreakdown = calculateTotal(g, true);
+        const calculatedTotal = commissionBreakdown.total;
         const hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
         const isCumbria = hotelName.toLowerCase().includes("cumbria");
         const currentRooms = ROOM_TYPES[g.Hotel_Asignado] || [];
@@ -6166,12 +6210,12 @@ ${emailContent}`;
                                      descuentos: parseFloat(g.Descuentos) || 0,
                                      totalNet: calculatedTotal
                                    };
-                                   docBreakdown.totalGross = calculatedTotal + docBreakdown.descuentos;
+                                   docBreakdown.totalGross = commissionBreakdown.grossTotal + docBreakdown.descuentos;
                                    const hasDiscount = (docBreakdown.descuentos || 0) > 0;
                                    const gross = docBreakdown.totalGross;
                                    const net = docBreakdown.totalNet;
 
-                                   if (hasDiscount) {
+                                   if (hasDiscount || commissionBreakdown.commissionDeduction > 0) {
                                      return (
                                        <>
                                          <tr className="border-b border-slate-700/50 text-slate-300">
@@ -6182,6 +6226,12 @@ ${emailContent}`;
                                            <tr className="border-b border-slate-700/50 text-rose-300">
                                              <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Descuentos aplicados:</td>
                                              <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(docBreakdown.descuentos)} €</td>
+                                           </tr>
+                                         )}
+                                         {commissionBreakdown.commissionDeduction > 0 && (
+                                           <tr className="border-b border-slate-700/50 text-indigo-300">
+                                             <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right text-[10px]">− Comisión de agencia ({formatNum(g.agencyCommissionPercent)}% sobre {formatNum(commissionBreakdown.commissionBase)} €):</td>
+                                             <td className="px-6 py-3 print:py-1.5 print:px-3 text-right whitespace-nowrap">−{formatNum(commissionBreakdown.commissionDeduction)} €</td>
                                            </tr>
                                          )}
                                          <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
@@ -6213,7 +6263,8 @@ ${emailContent}`;
                         <div className="rounded-2xl border border-slate-100 p-4 text-xs text-slate-600">
                           <strong>Comisión de agencia: {formatNum(g.agencyCommissionPercent)}% sobre los servicios indicados</strong>
                           <p className="mt-1">Servicios: {(g.agencyCommissionServices || []).map(service => service === 'Otros servicios' ? g.agencyCommissionOtherServices : service).join(', ')}.</p>
-                          <p className="mt-1">La comisión corresponde a la agencia y no se descuenta del total a pagar por el cliente.</p>
+                          <p className="mt-1">Base de comisión: {formatNum(commissionBreakdown.commissionBase)} € · Comisión: {formatNum(commissionBreakdown.commissionAmount)} €.</p>
+                          <p className="mt-1">{g.agencyIsClient !== false ? 'La comisión está descontada del importe a pagar por la agencia.' : 'El cliente paga el importe completo; la comisión se liquida con la agencia.'}</p>
                         </div>
                       )}
 

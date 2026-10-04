@@ -1528,9 +1528,11 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   return newData;
 };
 var calculateTotal = function calculateTotal(rawGroupData) {
+  var withBreakdown = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
   var groupData = normalizeGroupData(rawGroupData);
-  if (!groupData) return 0;
-  if (groupData.isRatesOnly) return 0;
+  if (!groupData || groupData.isRatesOnly) {
+    return withBreakdown ? window.AgencyCommissionService.settle(0, 0, groupData || {}) : 0;
+  }
   var dates = [];
   // PRIORIDAD: multi-segmento > DateRanges > Entrada/Salida simple
   if (groupData.isMultiSegment && Array.isArray(groupData.segments) && groupData.segments.length > 0) {
@@ -1541,6 +1543,8 @@ var calculateTotal = function calculateTotal(rawGroupData) {
     dates = generateDates(groupData.Entrada, groupData.Salida);
   }
   var total = 0;
+  var commissionBase = 0;
+  var services = groupData.agencyCommissionServices || [];
   dates.forEach(function (date) {
     var _groupData$dailyConfi;
     var config = ((_groupData$dailyConfi = groupData.dailyConfig) === null || _groupData$dailyConfi === void 0 ? void 0 : _groupData$dailyConfi[date]) || {};
@@ -1559,10 +1563,10 @@ var calculateTotal = function calculateTotal(rawGroupData) {
       if (count > 0) {
         var lineSubtotal = 0;
         if (config.prices) {
-          var priceKey = Object.keys(config.prices).find(function (k) {
+          var _priceKey = Object.keys(config.prices).find(function (k) {
             return k.toLowerCase() === type.toLowerCase();
           });
-          var p = priceKey ? parseFloat(config.prices[priceKey] || 0) : 0;
+          var p = _priceKey ? parseFloat(config.prices[_priceKey] || 0) : 0;
           var gratKey = config.gratuities ? Object.keys(config.gratuities).find(function (k) {
             return k.toLowerCase() === type.toLowerCase();
           }) : null;
@@ -1586,19 +1590,60 @@ var calculateTotal = function calculateTotal(rawGroupData) {
           }
         }
         total += lineSubtotal;
+        var roomConfigKey = Object.keys(config).find(function (key) {
+          return key.toLowerCase() === type.toLowerCase();
+        });
+        var roomConfig = config[roomConfigKey] || {};
+        var board = roomConfig.board || config.board || groupData['Régimen'] || 'HA';
+        var priceKey = Object.keys(config.prices || {}).find(function (key) {
+          return key.toLowerCase() === type.toLowerCase();
+        });
+        var unitPrice = Number(config.prices ? config.prices[priceKey] : roomConfig.price) || 0;
+        var hotel = groupData.Hotel_Asignado || groupData.Hotel || '';
+        var hotelKey = hotel.toLowerCase().includes('cumbria') ? 'cumbria' : 'guadiana';
+        var pricing = {
+          breakfast: 8.5,
+          lunch: 19.5,
+          dinner: 19.5
+        };
+        try {
+          var _ref33, _catalog$String$slice, _catalog$String$slice2;
+          var catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}');
+          var breakdown = (_ref33 = ((_catalog$String$slice = catalog[String(date).slice(0, 4)]) === null || _catalog$String$slice === void 0 ? void 0 : _catalog$String$slice[hotelKey]) || ((_catalog$String$slice2 = catalog[String(date).slice(0, 4)]) === null || _catalog$String$slice2 === void 0 ? void 0 : _catalog$String$slice2[hotel])) === null || _ref33 === void 0 ? void 0 : _ref33._desglose;
+          var configs = JSON.parse(localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig') || '{}');
+          var custom = configs[hotel] || configs[hotelKey] || configs.default || {};
+          for (var _i = 0, _arr = [breakdown || {}, custom]; _i < _arr.length; _i++) {
+            var _entry$breakfast, _ref34, _entry$lunch, _ref35, _ref36, _entry$dinner;
+            var entry = _arr[_i];
+            pricing.breakfast = Number((_entry$breakfast = entry.breakfast) !== null && _entry$breakfast !== void 0 ? _entry$breakfast : pricing.breakfast);
+            pricing.lunch = Number((_ref34 = (_entry$lunch = entry.lunch) !== null && _entry$lunch !== void 0 ? _entry$lunch : entry.meal) !== null && _ref34 !== void 0 ? _ref34 : pricing.lunch);
+            pricing.dinner = Number((_ref35 = (_ref36 = (_entry$dinner = entry.dinner) !== null && _entry$dinner !== void 0 ? _entry$dinner : entry.meal) !== null && _ref36 !== void 0 ? _ref36 : entry.lunch) !== null && _ref35 !== void 0 ? _ref35 : pricing.dinner);
+          }
+        } catch (error) {}
+        commissionBase += window.AgencyCommissionService.roomBase(_objectSpread({
+          subtotal: lineSubtotal,
+          unitPrice: unitPrice,
+          roomType: type,
+          board: board,
+          services: services
+        }, pricing));
       }
     });
   });
   // Descuentos globales. El suplemento global antiguo ya no se utiliza.
   var descuentos = parseFloat(groupData.Descuentos) || 0;
+  var beforeDiscount = total;
   total = total - descuentos;
+  if (beforeDiscount > 0) commissionBase *= Math.max(0, total) / beforeDiscount;
 
   // Otros Cargos (Extras Dinámicos)
   var extras = groupData.extraCharges || [];
   extras.forEach(function (extra) {
     var isGlobal = !extra.date;
     var px = parseFloat(extra.price) || 0;
-    total += isGlobal ? px * Math.max(1, dates.length) : px;
+    var amount = isGlobal ? px * Math.max(1, dates.length) : px;
+    total += amount;
+    if (extra.commissionService && services.includes(extra.commissionService)) commissionBase += amount;
   });
 
   // Si no hay configuración diaria pero hay un importe fijado (desde IA)
@@ -1610,9 +1655,11 @@ var calculateTotal = function calculateTotal(rawGroupData) {
       cleanStr = cleanStr.replace(',', '.');
     }
     var imp = parseFloat(cleanStr);
-    return isNaN(imp) ? 0 : imp;
+    var _result = window.AgencyCommissionService.settle(isNaN(imp) ? 0 : imp, 0, groupData);
+    return withBreakdown ? _result : _result.total;
   }
-  return total > 0 ? total : 0;
+  var result = window.AgencyCommissionService.settle(Math.max(0, total), commissionBase, groupData);
+  return withBreakdown ? result : result.total;
 };
 var parsePaymentPlan = function parsePaymentPlan(value) {
   if (Array.isArray(value)) return value;
@@ -2087,10 +2134,10 @@ function App() {
       if (formData.isMultiSegment && Array.isArray(formData.segments) && formData.segments.length > 0) {
         segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
         Object.values(segmentCountsByDate).forEach(function (countsByType) {
-          Object.entries(countsByType).forEach(function (_ref33) {
-            var _ref34 = _slicedToArray(_ref33, 2),
-              rt = _ref34[0],
-              cnt = _ref34[1];
+          Object.entries(countsByType).forEach(function (_ref37) {
+            var _ref38 = _slicedToArray(_ref37, 2),
+              rt = _ref38[0],
+              cnt = _ref38[1];
             if (cnt > (maxByType[rt] || 0)) {
               maxByType[rt] = cnt;
             }
@@ -2120,10 +2167,10 @@ function App() {
           });
           // Set the actual counts for this date
           var countsForDate = segmentCountsByDate[date] || {};
-          Object.entries(countsForDate).forEach(function (_ref35) {
-            var _ref36 = _slicedToArray(_ref35, 2),
-              rt = _ref36[0],
-              cnt = _ref36[1];
+          Object.entries(countsForDate).forEach(function (_ref39) {
+            var _ref40 = _slicedToArray(_ref39, 2),
+              rt = _ref40[0],
+              cnt = _ref40[1];
             newCounts[rt] = cnt;
           });
           if (JSON.stringify(dayConf.counts) !== JSON.stringify(newCounts)) {
@@ -2316,10 +2363,10 @@ function App() {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
     // Auto-calcular PAX total (solo para los tipos válidos del hotel actual)
     var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
-    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref37) {
-      var _ref38 = _slicedToArray(_ref37, 2),
-        roomType = _ref38[0],
-        count = _ref38[1];
+    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref41) {
+      var _ref42 = _slicedToArray(_ref41, 2),
+        roomType = _ref42[0],
+        count = _ref42[1];
       if (currentRooms.includes(roomType)) {
         return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
       }
@@ -2458,11 +2505,11 @@ function App() {
           var wasUsingRec = false;
           var priceEntries = Object.entries(currentDayPrices);
           if (priceEntries.length > 0) {
-            var recMatches = priceEntries.filter(function (_ref39) {
+            var recMatches = priceEntries.filter(function (_ref43) {
               var _oldComp$recommendedP;
-              var _ref40 = _slicedToArray(_ref39, 2),
-                rt = _ref40[0],
-                p = _ref40[1];
+              var _ref44 = _slicedToArray(_ref43, 2),
+                rt = _ref44[0],
+                p = _ref44[1];
               return Number(p) === Number((_oldComp$recommendedP = oldComp.recommendedPricesByRoom) === null || _oldComp$recommendedP === void 0 ? void 0 : _oldComp$recommendedP[rt]);
             }).length;
             if (recMatches >= Math.max(1, priceEntries.length / 2)) {
@@ -2522,10 +2569,10 @@ function App() {
       }
     });
     setFormData(function (prev) {
-      var totalPax = Object.entries(prev.roomCounts || {}).reduce(function (sum, _ref41) {
-        var _ref42 = _slicedToArray(_ref41, 2),
-          roomType = _ref42[0],
-          count = _ref42[1];
+      var totalPax = Object.entries(prev.roomCounts || {}).reduce(function (sum, _ref45) {
+        var _ref46 = _slicedToArray(_ref45, 2),
+          roomType = _ref46[0],
+          count = _ref46[1];
         return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
       }, 0);
       return _objectSpread(_objectSpread({}, prev), {}, {
@@ -2783,7 +2830,7 @@ function App() {
     });
   };
   var _handleSave = /*#__PURE__*/function () {
-    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
+    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
       var _groups$find;
       var uidToCheck, oldRec, isHistoricalReadOnly, lockedInfo, resNum, now, formattedDate, normalizedFormData, autoCom, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, isOldDocLocked, _lockedInfo, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
       return _regenerator().w(function (_context2) {
@@ -3069,10 +3116,10 @@ function App() {
               "Empresa/Agencia": "Empresa",
               "Pax.": "Pax"
             };
-            Object.entries(fieldsToTrack).forEach(function (_ref44) {
-              var _ref45 = _slicedToArray(_ref44, 2),
-                field = _ref45[0],
-                label = _ref45[1];
+            Object.entries(fieldsToTrack).forEach(function (_ref48) {
+              var _ref49 = _slicedToArray(_ref48, 2),
+                field = _ref49[0],
+                label = _ref49[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
                 changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
               }
@@ -3169,7 +3216,7 @@ function App() {
       }, _callee2, null, [[20, 32]]);
     }));
     return function handleSave(_x) {
-      return _ref43.apply(this, arguments);
+      return _ref47.apply(this, arguments);
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
@@ -3184,7 +3231,7 @@ function App() {
     setCurrentView('detail');
   };
   var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
+    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
       var type,
         clauses,
         textToTranslate,
@@ -3228,11 +3275,11 @@ function App() {
       }, _callee3, null, [[1, 3]]);
     }));
     return function handleTranslateClause(_x2) {
-      return _ref46.apply(this, arguments);
+      return _ref50.apply(this, arguments);
     };
   }();
   var handleParseEmailIA = /*#__PURE__*/function () {
-    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
       var currentYear, _prompt2, aiResult, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
@@ -3328,7 +3375,7 @@ function App() {
       }, _callee4, null, [[2, 6, 7, 8]]);
     }));
     return function handleParseEmailIA() {
-      return _ref47.apply(this, arguments);
+      return _ref51.apply(this, arguments);
     };
   }();
   var renderClauseText = function renderClauseText(text) {
@@ -3355,7 +3402,7 @@ function App() {
     return parseBold(text);
   };
   var handleDelete = /*#__PURE__*/function () {
-    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
+    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
       var itemToDelete, _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
@@ -3392,11 +3439,11 @@ function App() {
       }, _callee5, null, [[2, 4]]);
     }));
     return function handleDelete(_x3) {
-      return _ref48.apply(this, arguments);
+      return _ref52.apply(this, arguments);
     };
   }();
   var _updateStatus = /*#__PURE__*/function () {
-    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
+    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
       var existing, lockedInfo, result, _t6;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
@@ -3462,11 +3509,11 @@ function App() {
       }, _callee6, null, [[0, 4, 5, 6]]);
     }));
     return function updateStatus(_x4, _x5) {
-      return _ref49.apply(this, arguments);
+      return _ref53.apply(this, arguments);
     };
   }();
   var duplicateBudget = /*#__PURE__*/function () {
-    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(budget) {
+    var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(budget) {
       var changeHotel,
         source,
         currentHotel,
@@ -3556,11 +3603,11 @@ function App() {
       }, _callee7, null, [[2, 4]]);
     }));
     return function duplicateBudget(_x6) {
-      return _ref50.apply(this, arguments);
+      return _ref54.apply(this, arguments);
     };
   }();
   var duplicateBudgetToOtherHotel = /*#__PURE__*/function () {
-    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(budget) {
+    var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(budget) {
       var source, targetHotel;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.n) {
@@ -3584,11 +3631,11 @@ function App() {
       }, _callee8);
     }));
     return function duplicateBudgetToOtherHotel(_x7) {
-      return _ref51.apply(this, arguments);
+      return _ref55.apply(this, arguments);
     };
   }();
   var addTrackingNote = /*#__PURE__*/function () {
-    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(e) {
+    var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(e) {
       var now, formattedDate, newTracking, _t8;
       return _regenerator().w(function (_context9) {
         while (1) switch (_context9.p = _context9.n) {
@@ -3626,11 +3673,11 @@ function App() {
       }, _callee9, null, [[1, 3]]);
     }));
     return function addTrackingNote(_x8) {
-      return _ref52.apply(this, arguments);
+      return _ref56.apply(this, arguments);
     };
   }();
   var addQuickNote = /*#__PURE__*/function () {
-    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(uid, note) {
+    var _ref57 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(uid, note) {
       var now, formattedDate, budget, newTracking, _t9;
       return _regenerator().w(function (_context0) {
         while (1) switch (_context0.p = _context0.n) {
@@ -3669,7 +3716,7 @@ function App() {
       }, _callee0, null, [[1, 3]]);
     }));
     return function addQuickNote(_x9, _x0) {
-      return _ref53.apply(this, arguments);
+      return _ref57.apply(this, arguments);
     };
   }();
 
@@ -3840,10 +3887,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref54) {
-        var _ref55 = _slicedToArray(_ref54, 2),
-          t = _ref55[0],
-          c = _ref55[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref58) {
+        var _ref59 = _slicedToArray(_ref58, 2),
+          t = _ref59[0],
+          c = _ref59[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -3950,10 +3997,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref56) {
-          var _ref57 = _slicedToArray(_ref56, 2),
-            _ = _ref57[0],
-            b = _ref57[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref60) {
+          var _ref61 = _slicedToArray(_ref60, 2),
+            _ = _ref61[0],
+            b = _ref61[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -4710,10 +4757,10 @@ function App() {
           isMultiSegment: false
         });
         if (!formData.isRatesOnly) {
-          var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref58) {
-            var _ref59 = _slicedToArray(_ref58, 2),
-              roomType = _ref59[0],
-              count = _ref59[1];
+          var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref62) {
+            var _ref63 = _slicedToArray(_ref62, 2),
+              roomType = _ref63[0],
+              count = _ref63[1];
             return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
           }, 0);
           if (totalPax > 0) updated["Pax."] = totalPax;
@@ -5503,7 +5550,17 @@ function App() {
       },
       className: "mt-2 w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-indigo-600",
       placeholder: "0"
-    })), /*#__PURE__*/React.createElement("div", {
+    })), /*#__PURE__*/React.createElement("label", {
+      className: "flex items-center gap-2 text-xs font-bold text-slate-600"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: formData.agencyIsClient !== false,
+      onChange: function onChange(e) {
+        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          agencyIsClient: e.target.checked
+        }));
+      }
+    }), "La agencia es el cliente y paga el presupuesto"), /*#__PURE__*/React.createElement("div", {
       className: "text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Servicios sujetos a comisi\xF3n"), /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-3"
@@ -5536,7 +5593,7 @@ function App() {
       className: "w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs"
     }), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-400"
-    }, "Comisi\xF3n para la agencia sobre los servicios seleccionados. No modifica el total a pagar por el cliente.")), /*#__PURE__*/React.createElement("div", {
+    }, "La comisi\xF3n se descuenta del importe a pagar cuando la agencia es el cliente.")), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4"
     }, function () {
       var total = calculateTotal(formData);
@@ -5904,6 +5961,26 @@ function App() {
         },
         placeholder: "Concepto (ej: Almuerzo d\xEDa de llegada, Sala...)",
         className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
+      })), /*#__PURE__*/React.createElement("select", {
+        "aria-label": "Servicio del cargo sujeto a comisi\xF3n",
+        value: extra.commissionService || '',
+        onChange: function onChange(e) {
+          var newExtras = _toConsumableArray(formData.extraCharges);
+          newExtras[index] = _objectSpread(_objectSpread({}, extra), {}, {
+            commissionService: e.target.value
+          });
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            extraCharges: newExtras
+          }));
+        },
+        className: "bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[11px]"
+      }, /*#__PURE__*/React.createElement("option", {
+        value: ""
+      }, "Sin comisi\xF3n"), ['Alojamiento', 'Desayuno', 'Almuerzo', 'Cena', 'Salas', 'Spa', 'Otros servicios'].map(function (service) {
+        return /*#__PURE__*/React.createElement("option", {
+          key: service,
+          value: service
+        }, service);
       })), /*#__PURE__*/React.createElement("div", {
         className: "w-full md:w-16 relative"
       }, /*#__PURE__*/React.createElement("input", {
@@ -6244,7 +6321,8 @@ function App() {
   var renderDetail = function renderDetail() {
     if (!selectedGroup) return null;
     var g = normalizeGroupData(selectedGroup);
-    var calculatedTotal = calculateTotal(g);
+    var commissionBreakdown = calculateTotal(g, true);
+    var calculatedTotal = commissionBreakdown.total;
     var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
     var isCumbria = hotelName.toLowerCase().includes("cumbria");
     var currentRooms = ROOM_TYPES[g.Hotel_Asignado] || [];
@@ -6272,7 +6350,7 @@ function App() {
     };
     var effectiveClauses = getEffectiveClauses();
     var handleSaveDocClauses = /*#__PURE__*/function () {
-      var _ref60 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+      var _ref64 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
         var mode,
           isBudget,
           targetDocId,
@@ -6336,7 +6414,7 @@ function App() {
         }, _callee1, null, [[1, 3]]);
       }));
       return function handleSaveDocClauses() {
-        return _ref60.apply(this, arguments);
+        return _ref64.apply(this, arguments);
       };
     }();
     var handleResetToGeneral = function handleResetToGeneral() {
@@ -6416,10 +6494,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref61) {
-      var _ref62 = _slicedToArray(_ref61, 2),
-        type = _ref62[0],
-        count = _ref62[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref65) {
+      var _ref66 = _slicedToArray(_ref65, 2),
+        type = _ref66[0],
+        count = _ref66[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -6435,10 +6513,10 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref63) {
-      var _ref64 = _slicedToArray(_ref63, 2),
-        type = _ref64[0],
-        c = _ref64[1];
+    activeRooms.forEach(function (_ref67) {
+      var _ref68 = _slicedToArray(_ref67, 2),
+        type = _ref68[0],
+        c = _ref68[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
@@ -6991,10 +7069,10 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
-      var roomListItems = activeRooms.map(function (_ref65) {
-        var _ref66 = _slicedToArray(_ref65, 2),
-          type = _ref66[0],
-          count = _ref66[1];
+      var roomListItems = activeRooms.map(function (_ref69) {
+        var _ref70 = _slicedToArray(_ref69, 2),
+          type = _ref70[0],
+          count = _ref70[1];
         var typeKey = type.toUpperCase();
         var currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== '' ? Number(config.counts[typeKey]) : count;
         if (currentCount <= 0) return null;
@@ -7090,11 +7168,11 @@ function App() {
         descuentos: parseFloat(g.Descuentos) || 0,
         totalNet: calculatedTotal
       };
-      docBreakdown.totalGross = calculatedTotal + docBreakdown.descuentos;
+      docBreakdown.totalGross = commissionBreakdown.grossTotal + docBreakdown.descuentos;
       var hasDiscount = (docBreakdown.descuentos || 0) > 0;
       var gross = docBreakdown.totalGross;
       var net = docBreakdown.totalNet;
-      if (hasDiscount) {
+      if (hasDiscount || commissionBreakdown.commissionDeduction > 0) {
         return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
           className: "border-b border-slate-700/50 text-slate-300"
         }, /*#__PURE__*/React.createElement("td", {
@@ -7109,7 +7187,14 @@ function App() {
           className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
         }, "- Descuentos aplicados:"), /*#__PURE__*/React.createElement("td", {
           className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-        }, "-", formatNum(docBreakdown.descuentos), " \u20AC")), /*#__PURE__*/React.createElement("tr", {
+        }, "-", formatNum(docBreakdown.descuentos), " \u20AC")), commissionBreakdown.commissionDeduction > 0 && /*#__PURE__*/React.createElement("tr", {
+          className: "border-b border-slate-700/50 text-indigo-300"
+        }, /*#__PURE__*/React.createElement("td", {
+          colSpan: "3",
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right text-[10px]"
+        }, "\u2212 Comisi\xF3n de agencia (", formatNum(g.agencyCommissionPercent), "% sobre ", formatNum(commissionBreakdown.commissionBase), " \u20AC):"), /*#__PURE__*/React.createElement("td", {
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right whitespace-nowrap"
+        }, "\u2212", formatNum(commissionBreakdown.commissionDeduction), " \u20AC")), /*#__PURE__*/React.createElement("tr", {
           style: {
             backgroundColor: '#0f172a',
             color: 'white',
@@ -7158,7 +7243,9 @@ function App() {
       return service === 'Otros servicios' ? g.agencyCommissionOtherServices : service;
     }).join(', '), "."), /*#__PURE__*/React.createElement("p", {
       className: "mt-1"
-    }, "La comisi\xF3n corresponde a la agencia y no se descuenta del total a pagar por el cliente.")), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, "Base de comisi\xF3n: ", formatNum(commissionBreakdown.commissionBase), " \u20AC \xB7 Comisi\xF3n: ", formatNum(commissionBreakdown.commissionAmount), " \u20AC."), /*#__PURE__*/React.createElement("p", {
+      className: "mt-1"
+    }, g.agencyIsClient !== false ? 'La comisión está descontada del importe a pagar por la agencia.' : 'El cliente paga el importe completo; la comisión se liquida con la agencia.')), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible"
     }, /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50 px-4 py-3 print:py-2 border-b border-slate-100"
