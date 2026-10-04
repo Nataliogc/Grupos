@@ -196,18 +196,49 @@
     var hotelKey = normalizeHotelKey(hotelName);
     var isCumbria = hotelKey === 'cumbria';
 
-    // Tipologías disponibles
+    // Tipologías disponibles para cada hotel
     var roomTypes = isCumbria
-      ? ['DOBLE DE USO INDIVIDUAL', 'DOBLE', 'TRIPLE']
-      : ['DOBLE DE USO INDIVIDUAL', 'DOBLE', 'TRIPLE', 'CUÁDRUPLE'];
+      ? ['DOBLE DE USO INDIVIDUAL', 'DOBLE', 'DOBLE + SUPLETORIA', 'DOBLE + SUPLETORIA NIÑO', 'SUITE']
+      : ['DOBLE DE USO INDIVIDUAL', 'DOBLE', 'DOBLE + SUPLETORIA', 'DOBLE + SUPLETORIA NIÑO', 'CUÁDRUPLE', 'SUITE', 'SUITE SUPERIOR'];
 
     // Si no se suministra grid oficial, usar valores por defecto estándar
     var boardTariffs = (officialGrid && officialGrid[boardCode]) ? officialGrid[boardCode] : null;
     var haTariffs = (officialGrid && officialGrid['HA']) ? officialGrid['HA'] : null;
 
-    var officialDoble = (boardTariffs && (boardTariffs['doble'] || boardTariffs['DOBLE']))
-      ? Number(boardTariffs['doble'] || boardTariffs['DOBLE'])
-      : (isCumbria ? (boardCode === 'HA' ? 63 : 79) : (boardCode === 'HA' ? 65 : 82));
+    function getTariffPrice(tObj, roomName) {
+      if (!tObj) return null;
+      if (tObj[roomName] !== undefined && tObj[roomName] !== null) return Number(tObj[roomName]);
+      var norm = String(roomName).toLowerCase().trim();
+      for (var k in tObj) {
+        if (k.toLowerCase().trim() === norm && tObj[k] !== null && tObj[k] !== undefined) {
+          return Number(tObj[k]);
+        }
+      }
+      if (norm.indexOf('individual') !== -1 || norm.indexOf('dui') !== -1) {
+        return tObj['individual'] !== undefined ? Number(tObj['individual']) : (tObj['ind'] !== undefined ? Number(tObj['ind']) : null);
+      }
+      if (norm === 'doble' || norm.indexOf('matrimonial') !== -1 || norm.indexOf('2 camas') !== -1) {
+        return tObj['doble'] !== undefined ? Number(tObj['doble']) : null;
+      }
+      if (norm.indexOf('niño') !== -1 || norm.indexOf('nino') !== -1) {
+        return tObj['triple_nino'] !== undefined ? Number(tObj['triple_nino']) : null;
+      }
+      if (norm.indexOf('supletoria') !== -1 || norm.indexOf('triple') !== -1) {
+        return tObj['triple'] !== undefined ? Number(tObj['triple']) : null;
+      }
+      if (norm.indexOf('cuadruple') !== -1 || norm.indexOf('cuádruple') !== -1) {
+        return tObj['cuadruple'] !== undefined ? Number(tObj['cuadruple']) : null;
+      }
+      if (norm.indexOf('superior') !== -1) {
+        return tObj['suite_superior'] !== undefined ? Number(tObj['suite_superior']) : (tObj['suite'] !== undefined ? Number(tObj['suite']) : null);
+      }
+      if (norm.indexOf('suite') !== -1) {
+        return tObj['suite'] !== undefined ? Number(tObj['suite']) : null;
+      }
+      return null;
+    }
+
+    var officialDoble = getTariffPrice(boardTariffs, 'DOBLE') || (isCumbria ? (boardCode === 'HA' ? 63 : 79) : (boardCode === 'HA' ? 65 : 82));
 
     var discountFactor = (100 - discount) / 100;
     // Tarifa recomendada base de alojamiento (HA) para habitación doble con descuento
@@ -259,29 +290,26 @@
     var recommendedPricesByRoom = {};
     var savingsByRoom = {};
 
+    // Obtener precios base de HA oficial para proporciones
+    var offDblHA = getTariffPrice(haTariffs, 'DOBLE') || (isCumbria ? 63 : 65);
+
     roomTypes.forEach(function (rt) {
       var rtNorm = rt.toLowerCase();
-      var offP = 0;
-      if (boardTariffs && boardTariffs[rt] !== undefined && boardTariffs[rt] !== null) {
-        offP = Number(boardTariffs[rt]);
-      } else if (boardTariffs) {
-        if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) {
-          offP = Number(boardTariffs['individual'] || boardTariffs['ind'] || (officialDoble * 0.9));
-        } else if (rtNorm.indexOf('triple') !== -1) {
-          offP = Number(boardTariffs['triple'] || (officialDoble * 1.36));
-        } else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) {
-          offP = isCumbria ? null : Number(boardTariffs['cuadruple'] || (officialDoble * 1.72));
-        } else {
-          offP = officialDoble;
-        }
-      } else {
-        // Fallbacks según tipología
+      var offP = getTariffPrice(boardTariffs, rt);
+
+      if (offP === null) {
         if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) {
           offP = isCumbria ? (boardCode === 'HA' ? 63 : 71) : (boardCode === 'HA' ? 65 : 73.5);
-        } else if (rtNorm.indexOf('triple') !== -1) {
+        } else if (rtNorm.indexOf('niño') !== -1 || rtNorm.indexOf('nino') !== -1) {
+          offP = isCumbria ? (boardCode === 'HA' ? 73.75 : 93.75) : (boardCode === 'HA' ? 75.75 : 97.0);
+        } else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) {
           offP = isCumbria ? (boardCode === 'HA' ? 84.5 : 108.5) : (boardCode === 'HA' ? 86.5 : 112);
         } else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) {
           offP = isCumbria ? null : (boardCode === 'HA' ? 107 : 141);
+        } else if (rtNorm.indexOf('superior') !== -1) {
+          offP = isCumbria ? null : (boardCode === 'HA' ? 95 : 125);
+        } else if (rtNorm.indexOf('suite') !== -1) {
+          offP = isCumbria ? (boardCode === 'HA' ? 85 : 105) : (boardCode === 'HA' ? 90 : 118);
         } else {
           offP = officialDoble;
         }
@@ -289,7 +317,7 @@
 
       officialPricesByRoom[rt] = offP;
 
-      if (offP === null) {
+      if (offP === null && isCumbria && (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1)) {
         recommendedPricesByRoom[rt] = null;
         savingsByRoom[rt] = null;
         return;
@@ -297,35 +325,48 @@
 
       // Ocupantes por tipología para aplicar suplemento por persona
       var pax = 2;
-      if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) pax = 1;
-      else if (rtNorm.indexOf('triple') !== -1) pax = 3;
-      else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) pax = 4;
-
-      // Base HA recomendada para esta tipología
-      var baseHA = recDobleHA;
-      if (pax === 1) {
-        // En HA oficial DUI = Doble (100%) o proporcional
-        var offDuiHA = haTariffs ? Number(haTariffs['individual'] || haTariffs['ind'] || haTariffs['doble'] || 65) : 65;
-        var offDblHA = haTariffs ? Number(haTariffs['doble'] || 65) : 65;
-        baseHA = offDblHA > 0 ? (recDobleHA * (offDuiHA / offDblHA)) : recDobleHA;
-      } else if (pax === 3) {
-        var offTplHA = haTariffs ? Number(haTariffs['triple'] || 86.5) : 86.5;
-        var offDblHA = haTariffs ? Number(haTariffs['doble'] || 65) : 65;
-        baseHA = offDblHA > 0 ? (recDobleHA * (offTplHA / offDblHA)) : (recDobleHA * 1.33);
-      } else if (pax === 4) {
-        var offCuaHA = haTariffs ? Number(haTariffs['cuadruple'] || 107) : 107;
-        var offDblHA = haTariffs ? Number(haTariffs['doble'] || 65) : 65;
-        baseHA = offDblHA > 0 ? (recDobleHA * (offCuaHA / offDblHA)) : (recDobleHA * 1.65);
+      var ratioHA = 1.0;
+      if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) {
+        pax = 1;
+        var offDuiHA = getTariffPrice(haTariffs, 'DOBLE DE USO INDIVIDUAL') || offDblHA;
+        ratioHA = offDblHA > 0 ? (offDuiHA / offDblHA) : 1.0;
+      } else if (rtNorm.indexOf('niño') !== -1 || rtNorm.indexOf('nino') !== -1) {
+        pax = 2.5; // 2 adultos + 1 niño con 50% pensión
+        var offTplNinoHA = getTariffPrice(haTariffs, 'DOBLE + SUPLETORIA NIÑO') || (offDblHA * 1.16);
+        ratioHA = offDblHA > 0 ? (offTplNinoHA / offDblHA) : 1.16;
+      } else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) {
+        pax = 3;
+        var offTplHA = getTariffPrice(haTariffs, 'DOBLE + SUPLETORIA') || getTariffPrice(haTariffs, 'triple') || (offDblHA * 1.33);
+        ratioHA = offDblHA > 0 ? (offTplHA / offDblHA) : 1.33;
+      } else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) {
+        pax = 4;
+        var offCuaHA = getTariffPrice(haTariffs, 'CUÁDRUPLE') || getTariffPrice(haTariffs, 'cuadruple') || (offDblHA * 1.65);
+        ratioHA = offDblHA > 0 ? (offCuaHA / offDblHA) : 1.65;
+      } else if (rtNorm.indexOf('superior') !== -1) {
+        pax = 2;
+        var offSuiteSupHA = getTariffPrice(haTariffs, 'SUITE SUPERIOR') || (offDblHA * 1.50);
+        ratioHA = offDblHA > 0 ? (offSuiteSupHA / offDblHA) : 1.50;
+      } else if (rtNorm.indexOf('suite') !== -1) {
+        pax = 2;
+        var offSuiteHA = getTariffPrice(haTariffs, 'SUITE') || (offDblHA * 1.35);
+        ratioHA = offDblHA > 0 ? (offSuiteHA / offDblHA) : 1.35;
+      } else {
+        // Doble estándar
+        pax = 2;
+        ratioHA = 1.0;
       }
 
+      // Base HA recomendada para esta tipología
+      var baseHA = Math.round(recDobleHA * ratioHA * 100) / 100;
+
       // Precio final recomendado = Base Alojamiento (HA con descuento) + (Suplemento Pensión × Pax)
-      var roomSupplement = boardSupplementPerPerson * pax;
+      var roomSupplement = Math.round(boardSupplementPerPerson * pax * 100) / 100;
       var recP = Math.round((baseHA + roomSupplement) * 100) / 100;
       recommendedPricesByRoom[rt] = recP;
 
       savingsByRoom[rt] = {
         diffVsHotel: Math.round(((hotelRoomPrice + roomSupplement) - recP) * 100) / 100,
-        diffVsOfficial: Math.round((recP - offP) * 100) / 100
+        diffVsOfficial: offP !== null ? Math.round((recP - offP) * 100) / 100 : 0
       };
     });
 
