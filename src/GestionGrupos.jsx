@@ -20896,14 +20896,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                               </span>
                                             </>
                                           )}
-                                          {m.adr > 0 && (
-                                            <>
-                                              <span className="opacity-30">•</span>
-                                              <span className="bg-emerald-500/25 border border-emerald-400/40 text-emerald-200 px-2 py-0.5 rounded font-black text-[10px] shadow-sm tracking-tight" title={`Precio Medio por Habitación (ADR): ${m.adr.toFixed(2)} €/hab`}>
-                                                🛏️ ADR: {m.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                                              </span>
-                                            </>
-                                          )}
                                         </>
                                       );
                                     }
