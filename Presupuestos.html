@@ -142,6 +142,10 @@
       border-radius: 4px;
     }
 
+    .quote-clause-grid > div { padding-top: 0; padding-bottom: 0; }
+    .quote-clause-grid > div > p { font-size: 9px; margin-bottom: 2px; }
+    .quote-clause-grid > div > div { font-size: 9px; line-height: 1.25; }
+
     @page { size: A4 portrait; margin: 10mm; }
 
     @media print {
@@ -188,10 +192,15 @@
       #quote-document .quote-clause-grid {
         display: grid !important;
         grid-template-columns: 1fr 1fr !important;
-        gap: 6px 14px !important;
+        gap: 4px 12px !important;
         break-inside: avoid;
       }
       #quote-document .quote-clause-grid > div { padding-top: 0 !important; padding-bottom: 0 !important; }
+      #quote-document .quote-clause-grid > div > p,
+      #quote-document .quote-clause-grid > div > div {
+        font-size: 8.5pt !important;
+        line-height: 1.15 !important;
+      }
       #quote-document .print-break-before { break-before: auto !important; }
       #quote-document [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
         margin-top: 6px !important;
@@ -249,7 +258,7 @@
   <div id="root"></div>
 
   <script src="js/agencyCommissionService.js?v=1"></script>
-  <script src="js/Presupuestos.js?v=1.1.41-compact-table"></script>
+  <script src="js/Presupuestos.js?v=1.1.42-compact-clauses"></script>
 </body>
 
 </html>
