@@ -344,16 +344,16 @@
       };
     };
 
-    const getCapaSuiteStayTariffSummary = (hotelName, stayDates, boardName, discountPercent) => {
+    const getCapaSuiteStayTariffSummary = (hotelName, stayDates, boardName, discountPercent, dailyConfig) => {
       const ps = window.CapaSuitePricingService;
       const firstDate = stayDates && stayDates[0];
       const y = firstDate ? new Date(toInputDate(firstDate)).getFullYear() : 2027;
       const offGrid = getOfficialTariffsGrid(hotelName, isNaN(y) ? 2027 : y);
-      if (ps && typeof ps.getStayTariffSummary === 'function') {
+      if (!dailyConfig && ps && typeof ps.getStayTariffSummary === 'function') {
         return ps.getStayTariffSummary(hotelName, stayDates, boardName, discountPercent, offGrid);
       }
       if (!stayDates || stayDates.length === 0) return null;
-      const comps = stayDates.map(d => getCapaSuiteTariffComparison(hotelName, d, boardName, discountPercent));
+      const comps = stayDates.map(d => getCapaSuiteTariffComparison(hotelName, d, dailyConfig?.[d]?.board || boardName, discountPercent));
       const len = comps.length;
       let sumH = 0, sumOff = 0, sumRec = 0;
       comps.forEach(c => {
@@ -3940,7 +3940,7 @@ ${emailContent}`;
                         const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
                         const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
                         const board = formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
-                        const staySummary = getCapaSuiteStayTariffSummary(hotel, stayDates, board, discount);
+                        const staySummary = getCapaSuiteStayTariffSummary(hotel, stayDates, board, discount, formData.dailyConfig || {});
                         if (!staySummary) return null;
 
                         return (
@@ -4030,14 +4030,14 @@ ${emailContent}`;
                             {/* Tarjetas resumen de precio medio */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-[10px]">
                               <div className="bg-white/5 rounded-xl p-2 border border-white/5">
-                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">PVP Hotel (Día)</div>
+                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">PVP Hotel medio (HA)</div>
                                 <div className="text-sm font-black text-white mt-0.5">{staySummary.avgHotelPrice.toFixed(2)} €</div>
-                                <div className="text-[7px] text-slate-400 truncate">Precio hab. CapaSuite</div>
+                                <div className="text-[7px] text-slate-400 truncate">Habitación doble · solo alojamiento</div>
                               </div>
                               <div className="bg-white/5 rounded-xl p-2 border border-white/5">
                                 <div className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Tarifa Oficial Grupo</div>
                                 <div className="text-sm font-black text-emerald-300 mt-0.5">{staySummary.avgOfficialRate.toFixed(2)} €</div>
-                                <div className="text-[7px] text-slate-400 truncate">Catálogo de grupos</div>
+                                <div className="text-[7px] text-slate-400 truncate">Doble · {Array.from(new Set(staySummary.comparisons.map(c => c.boardCode))).join(' / ')} · media por noche</div>
                               </div>
                               <div className="bg-white/5 rounded-xl p-2 border border-white/5">
                                 <div className="text-[8px] font-bold text-amber-400 uppercase tracking-wider">Descuento CapaSuite</div>
@@ -4047,7 +4047,7 @@ ${emailContent}`;
                               <div className="bg-indigo-500/20 rounded-xl p-2 border border-indigo-400/30">
                                 <div className="text-[8px] font-bold text-indigo-300 uppercase tracking-wider">Tarifa Recomendada</div>
                                 <div className="text-sm font-black text-indigo-200 mt-0.5">{staySummary.avgRecommendedRate.toFixed(2)} €</div>
-                                <div className="text-[7px] text-indigo-300/80 truncate">PVP - dto. comercial</div>
+                                <div className="text-[7px] text-indigo-300/80 truncate">Doble · media con régimen de cada noche</div>
                               </div>
                             </div>
                           </div>

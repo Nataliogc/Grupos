@@ -513,17 +513,18 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
     savingsByRoom: savingsByRoom
   };
 };
-var getCapaSuiteStayTariffSummary = function getCapaSuiteStayTariffSummary(hotelName, stayDates, boardName, discountPercent) {
+var getCapaSuiteStayTariffSummary = function getCapaSuiteStayTariffSummary(hotelName, stayDates, boardName, discountPercent, dailyConfig) {
   var ps = window.CapaSuitePricingService;
   var firstDate = stayDates && stayDates[0];
   var y = firstDate ? new Date(toInputDate(firstDate)).getFullYear() : 2027;
   var offGrid = getOfficialTariffsGrid(hotelName, isNaN(y) ? 2027 : y);
-  if (ps && typeof ps.getStayTariffSummary === 'function') {
+  if (!dailyConfig && ps && typeof ps.getStayTariffSummary === 'function') {
     return ps.getStayTariffSummary(hotelName, stayDates, boardName, discountPercent, offGrid);
   }
   if (!stayDates || stayDates.length === 0) return null;
   var comps = stayDates.map(function (d) {
-    return getCapaSuiteTariffComparison(hotelName, d, boardName, discountPercent);
+    var _dailyConfig$d;
+    return getCapaSuiteTariffComparison(hotelName, d, (dailyConfig === null || dailyConfig === void 0 || (_dailyConfig$d = dailyConfig[d]) === null || _dailyConfig$d === void 0 ? void 0 : _dailyConfig$d.board) || boardName, discountPercent);
   });
   var len = comps.length;
   var sumH = 0,
@@ -4642,7 +4643,7 @@ function App() {
       var hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
       var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
       var board = formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
-      var staySummary = getCapaSuiteStayTariffSummary(hotel, stayDates, board, discount);
+      var staySummary = getCapaSuiteStayTariffSummary(hotel, stayDates, board, discount, formData.dailyConfig || {});
       if (!staySummary) return null;
       return /*#__PURE__*/React.createElement("div", {
         className: "bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 text-white shadow-sm border border-indigo-500/20 space-y-3"
@@ -4730,11 +4731,11 @@ function App() {
         className: "bg-white/5 rounded-xl p-2 border border-white/5"
       }, /*#__PURE__*/React.createElement("div", {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-wider"
-      }, "PVP Hotel (D\xEDa)"), /*#__PURE__*/React.createElement("div", {
+      }, "PVP Hotel medio (HA)"), /*#__PURE__*/React.createElement("div", {
         className: "text-sm font-black text-white mt-0.5"
       }, staySummary.avgHotelPrice.toFixed(2), " \u20AC"), /*#__PURE__*/React.createElement("div", {
         className: "text-[7px] text-slate-400 truncate"
-      }, "Precio hab. CapaSuite")), /*#__PURE__*/React.createElement("div", {
+      }, "Habitaci\xF3n doble \xB7 solo alojamiento")), /*#__PURE__*/React.createElement("div", {
         className: "bg-white/5 rounded-xl p-2 border border-white/5"
       }, /*#__PURE__*/React.createElement("div", {
         className: "text-[8px] font-bold text-emerald-400 uppercase tracking-wider"
@@ -4742,7 +4743,9 @@ function App() {
         className: "text-sm font-black text-emerald-300 mt-0.5"
       }, staySummary.avgOfficialRate.toFixed(2), " \u20AC"), /*#__PURE__*/React.createElement("div", {
         className: "text-[7px] text-slate-400 truncate"
-      }, "Cat\xE1logo de grupos")), /*#__PURE__*/React.createElement("div", {
+      }, "Doble \xB7 ", Array.from(new Set(staySummary.comparisons.map(function (c) {
+        return c.boardCode;
+      }))).join(' / '), " \xB7 media por noche")), /*#__PURE__*/React.createElement("div", {
         className: "bg-white/5 rounded-xl p-2 border border-white/5"
       }, /*#__PURE__*/React.createElement("div", {
         className: "text-[8px] font-bold text-amber-400 uppercase tracking-wider"
@@ -4758,7 +4761,7 @@ function App() {
         className: "text-sm font-black text-indigo-200 mt-0.5"
       }, staySummary.avgRecommendedRate.toFixed(2), " \u20AC"), /*#__PURE__*/React.createElement("div", {
         className: "text-[7px] text-indigo-300/80 truncate"
-      }, "PVP - dto. comercial"))));
+      }, "Doble \xB7 media con r\xE9gimen de cada noche"))));
     }(), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
