@@ -5968,11 +5968,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
           let importe = parseNum(row["Importe(*)"]);
 
-          const suplementos = parseFloat(row.Suplementos || 0);
 
           const descuentos = parseFloat(row.Descuentos || 0);
 
-          importe = (importe + suplementos - descuentos);
+          importe = (importe - descuentos);
 
 
 

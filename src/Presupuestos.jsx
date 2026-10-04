@@ -1381,10 +1381,9 @@
           }
         });
       });
-      // Suplementos y Descuentos Globales
-      const suplementos = parseFloat(groupData.Suplementos) || 0;
+      // Descuentos globales. El suplemento global antiguo ya no se utiliza.
       const descuentos = parseFloat(groupData.Descuentos) || 0;
-      total = total + suplementos - descuentos;
+      total = total - descuentos;
 
       // Otros Cargos (Extras Dinámicos)
       const extras = groupData.extraCharges || [];
@@ -6164,29 +6163,21 @@ ${emailContent}`;
                                <tbody className="bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid">
                                  {(() => {
                                    const docBreakdown = {
-                                     suplementos: parseFloat(g.Suplementos) || 0,
                                      descuentos: parseFloat(g.Descuentos) || 0,
                                      totalNet: calculatedTotal
                                    };
-                                   docBreakdown.totalGross = calculatedTotal - docBreakdown.suplementos + docBreakdown.descuentos;
+                                   docBreakdown.totalGross = calculatedTotal + docBreakdown.descuentos;
                                    const hasDiscount = (docBreakdown.descuentos || 0) > 0;
-                                   const hasSupplements = (docBreakdown.suplementos || 0) > 0;
                                    const gross = docBreakdown.totalGross;
                                    const net = docBreakdown.totalNet;
 
-                                   if (hasDiscount || hasSupplements) {
+                                   if (hasDiscount) {
                                      return (
                                        <>
                                          <tr className="border-b border-slate-700/50 text-slate-300">
-                                           <td colSpan="3" className="px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">PVP Bruto Estancia:</td>
+                                           <td colSpan="3" className="px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">Subtotal antes de descuentos:</td>
                                            <td className="px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(gross)} €</td>
                                          </tr>
-                                         {hasSupplements && (
-                                           <tr className="border-b border-slate-700/50 text-indigo-300">
-                                             <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">+ Suplementos Varios:</td>
-                                             <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(docBreakdown.suplementos)} €</td>
-                                           </tr>
-                                         )}
                                          {hasDiscount && (
                                            <tr className="border-b border-slate-700/50 text-rose-300">
                                              <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Descuentos aplicados:</td>
@@ -6194,7 +6185,7 @@ ${emailContent}`;
                                            </tr>
                                          )}
                                          <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
-                                           <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
+                                           <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total a pagar por el cliente:</td>
                                            <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(net)} €</td>
                                          </tr>
                                        </>
@@ -6203,7 +6194,7 @@ ${emailContent}`;
 
                                    return (
                                      <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
-                                       <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
+                                       <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total a pagar por el cliente:</td>
                                        <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                      </tr>
                                    );
@@ -6220,8 +6211,9 @@ ${emailContent}`;
 
                       {Number(g.agencyCommissionPercent) > 0 && (
                         <div className="rounded-2xl border border-slate-100 p-4 text-xs text-slate-600">
-                          <strong>Comisión de agencia: {formatNum(g.agencyCommissionPercent)}%</strong>
+                          <strong>Comisión de agencia: {formatNum(g.agencyCommissionPercent)}% sobre los servicios indicados</strong>
                           <p className="mt-1">Servicios: {(g.agencyCommissionServices || []).map(service => service === 'Otros servicios' ? g.agencyCommissionOtherServices : service).join(', ')}.</p>
+                          <p className="mt-1">La comisión corresponde a la agencia y no se descuenta del total a pagar por el cliente.</p>
                         </div>
                       )}
 

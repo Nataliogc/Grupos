@@ -1589,10 +1589,9 @@ var calculateTotal = function calculateTotal(rawGroupData) {
       }
     });
   });
-  // Suplementos y Descuentos Globales
-  var suplementos = parseFloat(groupData.Suplementos) || 0;
+  // Descuentos globales. El suplemento global antiguo ya no se utiliza.
   var descuentos = parseFloat(groupData.Descuentos) || 0;
-  total = total + suplementos - descuentos;
+  total = total - descuentos;
 
   // Otros Cargos (Extras Dinámicos)
   var extras = groupData.extraCharges || [];
@@ -7088,31 +7087,22 @@ function App() {
       className: "bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid"
     }, function () {
       var docBreakdown = {
-        suplementos: parseFloat(g.Suplementos) || 0,
         descuentos: parseFloat(g.Descuentos) || 0,
         totalNet: calculatedTotal
       };
-      docBreakdown.totalGross = calculatedTotal - docBreakdown.suplementos + docBreakdown.descuentos;
+      docBreakdown.totalGross = calculatedTotal + docBreakdown.descuentos;
       var hasDiscount = (docBreakdown.descuentos || 0) > 0;
-      var hasSupplements = (docBreakdown.suplementos || 0) > 0;
       var gross = docBreakdown.totalGross;
       var net = docBreakdown.totalNet;
-      if (hasDiscount || hasSupplements) {
+      if (hasDiscount) {
         return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
           className: "border-b border-slate-700/50 text-slate-300"
         }, /*#__PURE__*/React.createElement("td", {
           colSpan: "3",
           className: "px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
-        }, "PVP Bruto Estancia:"), /*#__PURE__*/React.createElement("td", {
+        }, "Subtotal antes de descuentos:"), /*#__PURE__*/React.createElement("td", {
           className: "px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap"
-        }, formatNum(gross), " \u20AC")), hasSupplements && /*#__PURE__*/React.createElement("tr", {
-          className: "border-b border-slate-700/50 text-indigo-300"
-        }, /*#__PURE__*/React.createElement("td", {
-          colSpan: "3",
-          className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
-        }, "+ Suplementos Varios:"), /*#__PURE__*/React.createElement("td", {
-          className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-        }, formatNum(docBreakdown.suplementos), " \u20AC")), hasDiscount && /*#__PURE__*/React.createElement("tr", {
+        }, formatNum(gross), " \u20AC")), hasDiscount && /*#__PURE__*/React.createElement("tr", {
           className: "border-b border-slate-700/50 text-rose-300"
         }, /*#__PURE__*/React.createElement("td", {
           colSpan: "3",
@@ -7129,7 +7119,7 @@ function App() {
         }, /*#__PURE__*/React.createElement("td", {
           colSpan: "3",
           className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
-        }, "Total Neto Documento:"), /*#__PURE__*/React.createElement("td", {
+        }, "Total a pagar por el cliente:"), /*#__PURE__*/React.createElement("td", {
           className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
           style: {
             color: 'white',
@@ -7147,7 +7137,7 @@ function App() {
       }, /*#__PURE__*/React.createElement("td", {
         colSpan: "3",
         className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
-      }, "Total Neto Documento:"), /*#__PURE__*/React.createElement("td", {
+      }, "Total a pagar por el cliente:"), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
         style: {
           color: 'white',
@@ -7162,11 +7152,13 @@ function App() {
       className: "text-xs text-slate-400 mt-2"
     }, "Detalle de noches no configurado a\xFAn.")), Number(g.agencyCommissionPercent) > 0 && /*#__PURE__*/React.createElement("div", {
       className: "rounded-2xl border border-slate-100 p-4 text-xs text-slate-600"
-    }, /*#__PURE__*/React.createElement("strong", null, "Comisi\xF3n de agencia: ", formatNum(g.agencyCommissionPercent), "%"), /*#__PURE__*/React.createElement("p", {
+    }, /*#__PURE__*/React.createElement("strong", null, "Comisi\xF3n de agencia: ", formatNum(g.agencyCommissionPercent), "% sobre los servicios indicados"), /*#__PURE__*/React.createElement("p", {
       className: "mt-1"
     }, "Servicios: ", (g.agencyCommissionServices || []).map(function (service) {
       return service === 'Otros servicios' ? g.agencyCommissionOtherServices : service;
-    }).join(', '), ".")), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }).join(', '), "."), /*#__PURE__*/React.createElement("p", {
+      className: "mt-1"
+    }, "La comisi\xF3n corresponde a la agencia y no se descuenta del total a pagar por el cliente.")), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible"
     }, /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50 px-4 py-3 print:py-2 border-b border-slate-100"

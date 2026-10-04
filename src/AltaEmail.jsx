@@ -302,10 +302,9 @@
                             }
                         });
                     });
-                    // Suplementos y Descuentos Globales
-                    const suplementos = parseFloat(data.Suplementos) || 0;
+                    // Descuentos globales
                     const descuentos = parseFloat(data.Descuentos) || 0;
-                    total = total + suplementos - descuentos;
+                    total = total - descuentos;
                 } else {
                     total = parseFloat(data["Importe(*)"]) || 0;
                 }
