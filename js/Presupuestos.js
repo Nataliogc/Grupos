@@ -6837,7 +6837,7 @@ function App() {
         className: "text-sm print:text-[11px] font-extrabold text-slate-800"
       }, g.segments.length, " estancias")));
     }()) : /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6"
+      className: "quote-summary grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6"
     }, /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
     }, /*#__PURE__*/React.createElement("span", {
@@ -6863,7 +6863,7 @@ function App() {
     }, "Reserva ID"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs print:text-[10px] font-bold text-slate-800"
     }, "#", g.Reserva))), (g.Com_Nombre_Contacto || g.Persona_Contacto || g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\xC3\xA9fono"]) && /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4"
+      className: "quote-contact grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4"
     }, (g.Com_Nombre_Contacto || g.Persona_Contacto) && /*#__PURE__*/React.createElement("div", {
       className: "space-y-0.5"
     }, /*#__PURE__*/React.createElement("span", {
@@ -6962,7 +6962,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
     }, "Itinerario y Condiciones Econ\xF3micas"), g.averageStayCondition && /*#__PURE__*/React.createElement("div", {
-      className: "rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid"
+      className: "quote-stay-condition rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid"
     }, /*#__PURE__*/React.createElement("strong", null, "Oferta v\xE1lida para una estancia m\xEDnima de ", g.averageStayCondition.nights, " noches."), " Tarifa media calculada para la estancia completa en las fechas ", g.averageStayCondition.dates.map(formatDate).join(', '), ". Cualquier reducci\xF3n o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente."), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border ".concat(isCumbria ? 'border-blue-900/20' : 'border-orange-600/20', " text-xs print:text-[10px] bg-white shadow-sm")
     }, /*#__PURE__*/React.createElement("table", {

@@ -5908,7 +5908,7 @@ ${emailContent}`;
                         })()}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6">
+                      <div className="quote-summary grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6">
                         <div className="space-y-0.5">
                           <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Cliente / Grupo</span>
                           <p className="text-xs print:text-[10px] font-bold text-slate-800 uppercase">{g["Nombre del Grupo"]}</p>
@@ -5929,7 +5929,7 @@ ${emailContent}`;
                     )}
 
                     {(g.Com_Nombre_Contacto || g.Persona_Contacto || g.Com_Email_Contacto || g.Email || g.Com_Telefono_Contacto || g.Telefono || g["Tel\u00c3\u00a9fono"]) && (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4">
+                      <div className="quote-contact grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-6 border-t border-slate-50 pt-4">
                         {(g.Com_Nombre_Contacto || g.Persona_Contacto) && (
                           <div className="space-y-0.5">
                             <span className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest">Contacto</span>
@@ -6026,7 +6026,7 @@ ${emailContent}`;
                     <div className="quote-economic space-y-8 print:space-y-4">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
                       {g.averageStayCondition && (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid">
+                        <div className="quote-stay-condition rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid">
                           <strong>Oferta válida para una estancia mínima de {g.averageStayCondition.nights} noches.</strong> Tarifa media calculada para la estancia completa en las fechas {g.averageStayCondition.dates.map(formatDate).join(', ')}. Cualquier reducción o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente.
                         </div>
                       )}
