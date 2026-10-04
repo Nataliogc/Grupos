@@ -1418,17 +1418,22 @@
       // Carga y verificación automática al cambiar hotel, año o syncKey
       useEffect(() => {
         const doc = getCapaSuiteTargetDoc(targetHotel, targetYear);
-        setOfficialDoc(doc);
+        if (doc) setOfficialDoc(doc);
 
         const onDataSynced = () => {
           const freshDoc = getCapaSuiteTargetDoc(targetHotel, targetYear);
-          setOfficialDoc(freshDoc);
+          if (freshDoc) setOfficialDoc(freshDoc);
         };
         window.addEventListener("capasuite-data-synced", onDataSynced);
         window.addEventListener("storage", onDataSynced);
 
-        // Sincronizar catálogo de tarifas desde Firestore settings si existe
+        let unsubscribeTargets = null;
+        const hKey = gts ? gts.normalizeHotelKey(targetHotel) : (String(targetHotel || "").toLowerCase().includes("cumbria") ? "cumbria" : "guadiana");
+        const yStr = String(targetYear);
+
+        // Sincronizar catálogo de tarifas y objetivos de grupos desde Firestore settings si existe
         if (window.db && typeof window.db.collection === "function") {
+          // 1. Catálogo de tarifas
           window.db.collection("settings").doc("groupTariffs").get()
             .then(snap => {
               if (snap.exists) {
@@ -1443,9 +1448,44 @@
               }
             })
             .catch(err => console.warn("Error cargando groupTariffs desde Firestore:", err));
+
+          // 2. Objetivos oficiales de CapaSuite en Firestore
+          const fsDocId = `groupTargets_${hKey}_${yStr}`;
+          window.db.collection("settings").doc(fsDocId).get()
+            .then(snap => {
+              if (snap.exists) {
+                const fsDoc = snap.data();
+                if (fsDoc && (fsDoc.monthly || fsDoc.overall)) {
+                  console.log("[Nexus Groups] Objetivos cargados desde Firestore:", fsDocId);
+                  setOfficialDoc(fsDoc);
+                  try {
+                    localStorage.setItem(`nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
+                    localStorage.setItem(`v3_nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
+                  } catch(e) {}
+                }
+              }
+            })
+            .catch(err => console.warn("Error cargando groupTargets desde Firestore:", err));
+
+          // Escucha en tiempo real si el usuario actualiza o guarda en CapaSuite
+          try {
+            unsubscribeTargets = window.db.collection("settings").doc(fsDocId).onSnapshot(snap => {
+              if (snap && snap.exists) {
+                const fsDoc = snap.data();
+                if (fsDoc && (fsDoc.monthly || fsDoc.overall)) {
+                  setOfficialDoc(fsDoc);
+                  try {
+                    localStorage.setItem(`nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
+                    localStorage.setItem(`v3_nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
+                  } catch(e) {}
+                }
+              }
+            }, err => console.warn("Error en snapshot groupTargets:", err));
+          } catch(e) {}
         }
 
         return () => {
+          if (typeof unsubscribeTargets === "function") unsubscribeTargets();
           window.removeEventListener("capasuite-data-synced", onDataSynced);
           window.removeEventListener("storage", onDataSynced);
         };
@@ -1812,8 +1852,47 @@
       const handleSyncFromCapaSuite = () => {
         setSyncKey(k => k + 1);
         const doc = getCapaSuiteTargetDoc(targetHotel, targetYear);
-        setOfficialDoc(doc);
-        if (doc && doc.overall) {
+        if (doc) setOfficialDoc(doc);
+
+        const hKey = gts ? gts.normalizeHotelKey(targetHotel) : (String(targetHotel || "").toLowerCase().includes("cumbria") ? "cumbria" : "guadiana");
+        const yStr = String(targetYear);
+
+        if (window.db && typeof window.db.collection === "function") {
+          const fsDocId = `groupTargets_${hKey}_${yStr}`;
+          window.db.collection("settings").doc(fsDocId).get()
+            .then(snap => {
+              if (snap.exists) {
+                const fsDoc = snap.data();
+                if (fsDoc && (fsDoc.monthly || fsDoc.overall)) {
+                  setOfficialDoc(fsDoc);
+                  try {
+                    localStorage.setItem(`nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
+                    localStorage.setItem(`v3_nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
+                  } catch(e) {}
+                  const revStr = Number(fsDoc.overall?.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  const rnStr = Number(fsDoc.overall?.roomNights || 0).toLocaleString("es-ES");
+                  showToast(`⚡ Sincronizado en tiempo real con CapaSuite: ${revStr} € (${rnStr} hab-noches) para ${targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ${targetYear}.`);
+                  return;
+                }
+              }
+              if (doc && doc.overall) {
+                const revStr = Number(doc.overall.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const rnStr = Number(doc.overall.roomNights || 0).toLocaleString("es-ES");
+                showToast(`🎯 Sincronizado con CapaSuite: ${revStr} € (${rnStr} hab-noches) vinculados.`);
+              } else {
+                showToast(`ℹ️ No hay presupuesto fijado para ${targetYear} en CapaSuite. Se muestra el histórico base.`);
+              }
+            })
+            .catch(() => {
+              if (doc && doc.overall) {
+                const revStr = Number(doc.overall.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const rnStr = Number(doc.overall.roomNights || 0).toLocaleString("es-ES");
+                showToast(`🎯 Sincronizado con CapaSuite (Local): ${revStr} € (${rnStr} hab-noches).`);
+              } else {
+                showToast(`ℹ️ No hay presupuesto fijado para ${targetYear} en CapaSuite. Se muestra el histórico base.`);
+              }
+            });
+        } else if (doc && doc.overall) {
           const revStr = Number(doc.overall.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const rnStr = Number(doc.overall.roomNights || 0).toLocaleString("es-ES");
           showToast(`🎯 Sincronizado con CapaSuite: ${revStr} € (${rnStr} hab-noches) vinculados para ${targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ${targetYear}.`);

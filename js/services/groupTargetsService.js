@@ -744,12 +744,9 @@
         if (rawTarget) {
           var parsedTarget = JSON.parse(rawTarget);
           if (parsedTarget && parsedTarget.monthly && Object.keys(parsedTarget.monthly).length > 0) {
-            var sumCheck = 0;
-            for (var mm = 1; mm <= 12; mm++) {
-              if (parsedTarget.monthly[mm]) sumCheck += Number(parsedTarget.monthly[mm].revenue || 0);
-            }
-            // Evitar objetivos residuales inflados de versiones previas (>500.000€ es el hotel completo)
-            if (sumCheck < 450000 && parsedTarget.isOfficial) {
+            // Si el objetivo está marcado como oficial o proviene de CapaSuite, aceptarlo directamente.
+            // Eliminado el límite arbitrario sumCheck < 450000 porque en hoteles como Guadiana el presupuesto anual de Grupos supera 700.000€ (Octubre es 97.735€).
+            if (parsedTarget.isOfficial || parsedTarget.source === "CapaSuite" || (parsedTarget.overall && parsedTarget.overall.isOfficial)) {
               return parsedTarget.monthly;
             }
           }
@@ -761,7 +758,8 @@
     var customSegKeys = [
       "custom_seg_budget_" + hotelKeyTitle + "_" + yStr,
       "custom_seg_budget_" + hNorm + "_" + yStr,
-      "v3_custom_seg_budget_" + hotelKeyTitle + "_" + yStr
+      "v3_custom_seg_budget_" + hotelKeyTitle + "_" + yStr,
+      "v3_custom_seg_budget_" + hNorm + "_" + yStr
     ];
     for (var j = 0; j < customSegKeys.length; j++) {
       try {
@@ -797,22 +795,46 @@
       } catch (e) {}
     }
 
-    // 3. TERCERA PRIORIDAD: Base de datos general de CapaSuite (hotel_manager_db_v2)
+    // 3. TERCERA PRIORIDAD: Base de datos general de CapaSuite (hotel_manager_db_v2 y upload_segment_db_v2)
     var db = null;
+    var segDb = null;
     if (global._capasuiteDbCache) {
       db = global._capasuiteDbCache;
     }
-    if (!db && typeof global.CapaStorage !== "undefined" && global.CapaStorage.getItem) {
+    if (typeof global.CapaStorage !== "undefined" && global.CapaStorage.getItem) {
       try {
-        var raw = global.CapaStorage.getItem("hotel_manager_db_v2");
-        if (raw) db = JSON.parse(raw);
+        if (!db) {
+          var raw = global.CapaStorage.getItem("hotel_manager_db_v2");
+          if (raw) db = JSON.parse(raw);
+        }
+        var rawSeg = global.CapaStorage.getItem("upload_segment_db_v2");
+        if (rawSeg) segDb = JSON.parse(rawSeg);
       } catch (e) {}
     }
-    if (!db && typeof localStorage !== "undefined") {
+    if (typeof localStorage !== "undefined") {
       try {
-        var rawLs = localStorage.getItem("v3_hotel_manager_db_v2") || localStorage.getItem("hotel_manager_db_v2");
-        if (rawLs) db = JSON.parse(rawLs);
+        if (!db) {
+          var rawLs = localStorage.getItem("v3_hotel_manager_db_v2") || localStorage.getItem("hotel_manager_db_v2");
+          if (rawLs) db = JSON.parse(rawLs);
+        }
+        if (!segDb) {
+          var rawSegLs = localStorage.getItem("v3_upload_segment_db_v2") || localStorage.getItem("upload_segment_db_v2");
+          if (rawSegLs) segDb = JSON.parse(rawSegLs);
+        }
       } catch (e) {}
+    }
+
+    // Si segDb tiene segmentos específicos para el hotel y año, unificarlos
+    if (segDb && typeof segDb === "object") {
+      var segHotelKey = Object.keys(segDb).find(function (k) {
+        return k.toLowerCase().includes(hNorm);
+      });
+      if (segHotelKey && segDb[segHotelKey] && segDb[segHotelKey][yStr] && segDb[segHotelKey][yStr].segment) {
+        if (!db) db = {};
+        if (!db[segHotelKey]) db[segHotelKey] = {};
+        if (!db[segHotelKey][yStr]) db[segHotelKey][yStr] = {};
+        db[segHotelKey][yStr].segments = segDb[segHotelKey][yStr].segment;
+      }
     }
 
     if (!db || typeof db !== "object") return null;
