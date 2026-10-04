@@ -4397,113 +4397,196 @@ ${emailContent}`;
                 })()}
               </div>
 
-              {/* Bloque 4.5: Otros Cargos / Extras */}
+              {/* Bloque 4.5: Otros Cargos / Extras y Suplementos Detallados */}
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-lg bg-teal-50 text-teal-500 flex items-center justify-center">
-                      <i className="fas fa-plus-circle text-[10px]"></i>
+                    <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                      <i className="fas fa-plus-circle text-xs"></i>
                     </div>
                     <div>
-                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4.5 Otros Cargos / Extras</h3>
+                      <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">4.5 Otros Cargos / Extras y Suplementos</h3>
+                      <p className="text-[10px] text-slate-400 font-bold">Añade cargos desglosados para toda la estancia, para cada día o para un día concreto (por persona, por habitación o por unidad)</p>
                     </div>
                   </div>
                   <button 
                     type="button"
                     onClick={() => {
-                      const newExtras = [...(formData.extraCharges || []), { id: Date.now(), date: '', concept: '', units: 0, pax: 0, unitPrice: 0, price: 0 }];
+                      const newExtras = [
+                        ...(formData.extraCharges || []), 
+                        { 
+                          id: Date.now(), 
+                          scope: 'total', // 'total' | 'daily' | 'YYYY-MM-DD'
+                          chargeType: 'pax', // 'pax' | 'room' | 'unit'
+                          concept: '', 
+                          units: 1, 
+                          unitPrice: 0, 
+                          price: 0 
+                        }
+                      ];
                       setFormData({ ...formData, extraCharges: newExtras });
                     }}
-                    className="bg-teal-50 hover:bg-teal-100 text-teal-600 px-3 py-1.5 rounded-lg border border-teal-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all"
+                    className="bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-xl border border-teal-200 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider transition-all shadow-2xs active:scale-95"
                   >
                     <i className="fas fa-plus"></i> Añadir Cargo
                   </button>
                 </div>
 
-                <div className="space-y-3">
-                  {(formData.extraCharges || []).map((extra, index) => (
-                    <div key={extra.id} className="flex gap-2 items-center group">
-                      <div className="w-[130px] relative">
-                        <select
-                          value={extra.date || ''}
-                          onChange={(e) => {
-                             const newExtras = [...formData.extraCharges];
-                             newExtras[index].date = e.target.value;
-                             setFormData({ ...formData, extraCharges: newExtras });
+                {/* Header de columnas si hay filas */}
+                {(formData.extraCharges || []).length > 0 && (
+                  <div className="hidden md:flex gap-2 text-[9px] font-black text-slate-400 uppercase tracking-wider px-2">
+                    <div className="w-[150px]">Temporalidad</div>
+                    <div className="w-[130px]">Aplicación</div>
+                    <div className="flex-1">Concepto</div>
+                    <div className="w-16 text-center">Uds/Cant</div>
+                    <div className="w-24 text-right">Precio Unit.</div>
+                    <div className="w-24 text-right">Subtotal</div>
+                    <div className="w-8"></div>
+                  </div>
+                )}
+
+                <div className="space-y-2.5">
+                  {(formData.extraCharges || []).map((extra, index) => {
+                    const scope = extra.scope || (extra.date === 'daily' ? 'daily' : (extra.date ? extra.date : 'total'));
+                    const chargeType = extra.chargeType || (extra.pax ? 'pax' : 'unit');
+                    const nightsCount = Math.max(1, stayDates.length);
+                    const u = extra.units !== undefined && extra.units !== '' ? Number(extra.units) : 1;
+                    const up = extra.unitPrice !== undefined && extra.unitPrice !== '' ? Number(extra.unitPrice) : (parseFloat(extra.price) || 0);
+
+                    let multiplier = 1;
+                    if (scope === 'daily') {
+                      multiplier = nightsCount;
+                    }
+                    const calculatedLineTotal = Math.round(u * up * multiplier * 100) / 100;
+
+                    return (
+                      <div key={extra.id || index} className="flex flex-col md:flex-row gap-2 items-stretch md:items-center p-2.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:border-teal-200 transition-all">
+                        {/* Temporalidad */}
+                        <div className="w-full md:w-[150px] relative">
+                          <select
+                            value={scope}
+                            onChange={(e) => {
+                              const newExtras = [...formData.extraCharges];
+                              const newScope = e.target.value;
+                              newExtras[index].scope = newScope;
+                              newExtras[index].date = (newScope === 'total' || newScope === 'daily') ? '' : newScope;
+                              setFormData({ ...formData, extraCharges: newExtras });
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
+                          >
+                            <option value="total">🏨 Toda la estancia</option>
+                            <option value="daily">📅 Cada día (Diario)</option>
+                            <optgroup label="Día concreto">
+                              {stayDates.map(d => (
+                                <option key={d} value={d}>Día {formatDate(d)}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        </div>
+
+                        {/* Tipo de cargo: Por persona / Por habitación / Por unidad */}
+                        <div className="w-full md:w-[130px] relative">
+                          <select
+                            value={chargeType}
+                            onChange={(e) => {
+                              const newExtras = [...formData.extraCharges];
+                              newExtras[index].chargeType = e.target.value;
+                              setFormData({ ...formData, extraCharges: newExtras });
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
+                          >
+                            <option value="pax">👤 Por persona</option>
+                            <option value="room">🛏️ Por habitación</option>
+                            <option value="unit">📦 Por unidad / Fijo</option>
+                          </select>
+                        </div>
+
+                        {/* Concepto */}
+                        <div className="flex-1 min-w-[140px] relative">
+                          <input 
+                            type="text" 
+                            value={extra.concept || ''} 
+                            onChange={(e) => {
+                              const newExtras = [...formData.extraCharges];
+                              newExtras[index].concept = e.target.value;
+                              setFormData({ ...formData, extraCharges: newExtras });
+                            }}
+                            placeholder="Concepto (ej: Almuerzo día de llegada, Sala...)" 
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
+                          />
+                        </div>
+
+                        {/* Cantidad / Unidades */}
+                        <div className="w-full md:w-16 relative">
+                          <input 
+                            type="number" 
+                            min="0"
+                            step="1"
+                            value={extra.units !== undefined ? extra.units : ''} 
+                            onChange={(e) => {
+                              const newExtras = [...formData.extraCharges];
+                              const val = e.target.value;
+                              newExtras[index].units = val;
+                              newExtras[index].pax = val;
+                              const numU = Number(val) || 0;
+                              const numUp = Number(newExtras[index].unitPrice) || 0;
+                              newExtras[index].price = numU * numUp;
+                              setFormData({ ...formData, extraCharges: newExtras });
+                            }}
+                            placeholder="Cant." 
+                            className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-center text-slate-700"
+                          />
+                        </div>
+
+                        {/* Precio Unitario */}
+                        <div className="w-full md:w-24 relative">
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={extra.unitPrice !== undefined ? extra.unitPrice : ''} 
+                            onChange={(e) => {
+                              const newExtras = [...formData.extraCharges];
+                              const val = e.target.value;
+                              newExtras[index].unitPrice = val;
+                              const numU = Number(newExtras[index].units || newExtras[index].pax || 0);
+                              const numUp = Number(val) || 0;
+                              newExtras[index].price = numU * numUp;
+                              setFormData({ ...formData, extraCharges: newExtras });
+                            }}
+                            placeholder="Precio/ud" 
+                            className="w-full bg-white border border-slate-200 rounded-xl pl-2 pr-5 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-right text-slate-700"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">€</span>
+                        </div>
+
+                        {/* Subtotal Calculado */}
+                        <div className="w-full md:w-24 bg-white border border-teal-100 rounded-xl px-2.5 py-1.5 text-right font-black text-[11px] text-teal-800 tabular-nums">
+                          {formatNum(calculatedLineTotal)} €
+                        </div>
+
+                        {/* Botón Eliminar */}
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            const newExtras = formData.extraCharges.filter((_, i) => i !== index);
+                            setFormData({ ...formData, extraCharges: newExtras });
                           }}
-                          className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-2 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700"
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                          title="Eliminar este cargo"
                         >
-                          <option value="">Global / Todas</option>
-                          {stayDates.map(d => <option key={d} value={d}>{d}</option>)}
-                        </select>
+                          <i className="fas fa-trash-alt text-xs"></i>
+                        </button>
                       </div>
-                      <div className="flex-1 min-w-[150px] relative">
-                        <input 
-                          type="text" 
-                          value={extra.concept}
-                          onChange={(e) => {
-                             const newExtras = [...formData.extraCharges];
-                             newExtras[index].concept = e.target.value;
-                             setFormData({ ...formData, extraCharges: newExtras });
-                          }}
-                          placeholder="Concepto (ej: Almuerzo...)"
-                          className="w-full bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700"
-                        />
-                      </div>
-                      {/* Uds */}
-                      <div className="w-14 relative">
-                        <input
-                          type="number"
-                          min="0"
-                          value={extra.units !== undefined ? extra.units : ''}
-                          onChange={(e) => {
-                             const newExtras = [...formData.extraCharges];
-                             const u = Number(e.target.value) || 0;
-                             newExtras[index].units = u;
-                             const up = newExtras[index].unitPrice || 0;
-                             newExtras[index].price = u * up;
-                             setFormData({ ...formData, extraCharges: newExtras });
-                          }}
-                          placeholder="Uds"
-                          className="w-full px-2 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-black outline-none transition-all text-center"
-                        />
-                      </div>
-                      {/* Unit Price */}
-                      <div className="w-20 md:w-24 relative">
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          value={extra.unitPrice !== undefined ? extra.unitPrice : 0}
-                          onChange={(e) => {
-                             const newExtras = [...formData.extraCharges];
-                             const up = parseFloat(e.target.value) || 0;
-                             newExtras[index].unitPrice = up;
-                             const u = newExtras[index].units || 0;
-                             const pax = newExtras[index].pax || 0;
-                             const activeQty = u > 0 ? u : pax;
-                             newExtras[index].price = activeQty * up;
-                             setFormData({ ...formData, extraCharges: newExtras });
-                          }}
-                          placeholder="0.00"
-                          className="w-full pl-2 pr-5 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 text-right"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">€</span>
-                      </div>
-                      <div className="w-20 md:w-24 px-2 py-2 bg-teal-50/50 border border-teal-100 rounded-lg text-[11px] font-black text-teal-700 text-right">
-                        {formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0))} €
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                           const newExtras = formData.extraCharges.filter((_, i) => i !== index);
-                           setFormData({ ...formData, extraCharges: newExtras });
-                        }}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all flex-shrink-0"
-                      >
-                        <i className="fas fa-trash text-xs"></i>
-                      </button>
+                    );
+                  })}
+
+                  {(formData.extraCharges || []).length === 0 && (
+                    <div className="p-4 rounded-2xl border border-dashed border-slate-200 text-center">
+                      <p className="text-[11px] text-slate-400 font-bold">
+                        No hay cargos ni suplementos adicionales configurados.
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
@@ -5481,22 +5564,30 @@ ${emailContent}`;
                                    const config = g.dailyConfig?.[date] || {};
                                    const boardTitle = config.board || g.Regimen || '';
 
-                                   const dailyExtrasRows = (g.extraCharges || []).filter(ext => ext.date === date).map((ext, extIdx) => {
-                                      const u = ext.units || 0;
-                                      const pax = ext.pax || 0;
-                                      const up = ext.unitPrice !== undefined ? ext.unitPrice : Number(ext.price || 0);
-                                      const px = (u > 0 ? u : pax) * up;
-                                      return (
-                                         <tr key={`ext-${date}-${extIdx}`} className="bg-slate-50 border-t border-slate-100">
-                                           <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
-                                           <td className="p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60">Cargo Extra</td>
-                                           <td className="p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic">{ext.description || ext.concept} ({u > 0 ? u : pax} x {formatNum(up)}€)</td>
-                                           <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(px)} €</td>
-                                         </tr>
-                                      );
-                                   });
+                                   const dailyExtrasRows = (g.extraCharges || []).filter(ext => {
+                                      const sc = ext.scope || ext.date;
+                                      return sc === date || sc === 'daily';
+                                    }).map((ext, extIdx) => {
+                                       const u = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : (ext.pax || 0);
+                                       const up = ext.unitPrice !== undefined && ext.unitPrice !== '' ? Number(ext.unitPrice) : Number(ext.price || 0);
+                                       const px = (u > 0 ? u : 1) * up;
+                                       const isDaily = (ext.scope === 'daily' || ext.date === 'daily');
+                                       const typeLabel = ext.chargeType === 'pax' ? 'pax' : (ext.chargeType === 'room' ? 'hab.' : 'ud.');
+                                       return (
+                                          <tr key={`ext-${date}-${extIdx}`} className="bg-slate-50 border-t border-slate-100">
+                                            <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
+                                            <td className="p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60">
+                                              {isDaily ? 'Extra Diario' : 'Cargo Extra'}
+                                            </td>
+                                            <td className="p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic">
+                                              {ext.description || ext.concept} ({u > 0 ? u : 1} {typeLabel} x {formatNum(up)}€)
+                                            </td>
+                                            <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(px)} €</td>
+                                          </tr>
+                                       );
+                                    });
 
-                                   const roomListItems = activeRooms.map(([type, count]) => {
+                                    const roomListItems = activeRooms.map(([type, count]) => {
                                      const typeKey = type.toUpperCase();
                                      const currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== ''
                                        ? Number(config.counts[typeKey])
@@ -5566,48 +5657,77 @@ ${emailContent}`;
                                    return [roomRow, ...dailyExtrasRows];
                                 })}
 
-                                {(g.extraCharges || []).filter(ext => !ext.date || ext.date === '' || ext.date === 'Todas' || !dates.includes(ext.date)).map((ext, idx) => {
-                                  const px = (ext.units || ext.pax || 0) * (ext.unitPrice !== undefined ? ext.unitPrice : parseFloat(ext.price || 0));
-                                  return (
-                                    <tr key={`ext-global-${idx}`} className="bg-indigo-50/30 border-t border-indigo-100/50 italic">
-                                      <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">General</td>
-                                      <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">Extra Global</td>
-                                      <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({ext.units || ext.pax || 0} x {formatNum(ext.unitPrice || ext.price || 0)}€)</td>
-                                      <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                              <tbody className="bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid">
-                                 {parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? (
-                                   <>
-                                     <tr className="border-b border-slate-700/50 text-slate-300">
-                                       <td colSpan="3" className="px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">Subtotal Estancia:</td>
-                                       <td className="px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - (parseFloat(g.Suplementos || 0)) + (parseFloat(g.Descuentos || 0)))} €</td>
+                                {(g.extraCharges || []).filter(ext => {
+                                   const sc = ext.scope || ext.date;
+                                   return !sc || sc === 'total' || sc === 'Todas' || (!dates.includes(sc) && sc !== 'daily');
+                                 }).map((ext, idx) => {
+                                   const u = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : (ext.pax || 0);
+                                   const up = ext.unitPrice !== undefined && ext.unitPrice !== '' ? Number(ext.unitPrice) : parseFloat(ext.price || 0);
+                                   const px = (u > 0 ? u : 1) * up;
+                                   const typeLabel = ext.chargeType === 'pax' ? 'pax' : (ext.chargeType === 'room' ? 'hab.' : 'ud.');
+                                   return (
+                                     <tr key={`ext-global-${idx}`} className="bg-indigo-50/30 border-t border-indigo-100/50 italic">
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">Estancia Completa</td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">Extra Global</td>
+                                       <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({u > 0 ? u : 1} {typeLabel} x {formatNum(up)}€)</td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
                                      </tr>
-                                     {parseFloat(g.Suplementos || 0) > 0 && (
-                                       <tr className="border-b border-slate-700/50 text-indigo-300">
-                                         <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">+ Suplementos:</td>
-                                         <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(parseFloat(g.Suplementos))} €</td>
-                                       </tr>
-                                     )}
-                                     {parseFloat(g.Descuentos || 0) > 0 && (
-                                       <tr className="border-b border-slate-700/50 text-rose-300">
-                                         <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Descuentos aplicados:</td>
-                                         <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(parseFloat(g.Descuentos))} €</td>
-                                       </tr>
-                                     )}
+                                   );
+                                 })}
+                               </tbody>
+                               <tbody className="bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid">
+                                 {(() => {
+                                   const docBreakdown = calculatePriceBreakdown(g);
+                                   const hasCommission = (docBreakdown.commAmount || 0) > 0;
+                                   const hasDiscount = (docBreakdown.descuentos || 0) > 0;
+                                   const hasSupplements = (docBreakdown.suplementos || 0) > 0;
+                                   const gross = docBreakdown.totalGross > 0 ? docBreakdown.totalGross : calculatedTotal;
+                                   const net = docBreakdown.totalNet > 0 ? docBreakdown.totalNet : calculatedTotal;
+
+                                   const baseLabel = docBreakdown.baseMode === 'accommodation_only' 
+                                     ? 'Alojamiento' 
+                                     : (docBreakdown.baseMode === 'accommodation_breakfast' ? 'Aloj. y Desayuno' : 'Total Estancia');
+
+                                   if (hasCommission || hasDiscount || hasSupplements) {
+                                     return (
+                                       <>
+                                         <tr className="border-b border-slate-700/50 text-slate-300">
+                                           <td colSpan="3" className="px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">PVP Bruto Estancia:</td>
+                                           <td className="px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(gross)} €</td>
+                                         </tr>
+                                         {hasSupplements && (
+                                           <tr className="border-b border-slate-700/50 text-indigo-300">
+                                             <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">+ Suplementos Varios:</td>
+                                             <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(docBreakdown.suplementos)} €</td>
+                                           </tr>
+                                         )}
+                                         {hasCommission && (
+                                           <tr className="border-b border-slate-700/50 text-amber-300">
+                                             <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Comisión Agencia ({formatNum(docBreakdown.commPct)}% s/ {baseLabel}):</td>
+                                             <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(docBreakdown.commAmount)} €</td>
+                                           </tr>
+                                         )}
+                                         {hasDiscount && (
+                                           <tr className="border-b border-slate-700/50 text-rose-300">
+                                             <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Descuentos aplicados:</td>
+                                             <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(docBreakdown.descuentos)} €</td>
+                                           </tr>
+                                         )}
+                                         <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
+                                           <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
+                                           <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(net)} €</td>
+                                         </tr>
+                                       </>
+                                     );
+                                   }
+
+                                   return (
                                      <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
                                        <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
                                        <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                      </tr>
-                                   </>
-                                 ) : (
-                                   <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
-                                     <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total Neto Documento:</td>
-                                     <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
-                                   </tr>
-                                 )}
+                                   );
+                                 })()}
                               </tbody>
                             </table>
                           </div>

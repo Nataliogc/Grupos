@@ -5106,20 +5106,24 @@ function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-6 h-6 rounded-lg bg-teal-50 text-teal-500 flex items-center justify-center"
+      className: "w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center"
     }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-plus-circle text-[10px]"
+      className: "fas fa-plus-circle text-xs"
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-      className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "4.5 Otros Cargos / Extras"))), /*#__PURE__*/React.createElement("button", {
+      className: "text-xs font-black text-slate-800 uppercase tracking-widest"
+    }, "4.5 Otros Cargos / Extras y Suplementos"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[10px] text-slate-400 font-bold"
+    }, "A\xF1ade cargos desglosados para toda la estancia, para cada d\xEDa o para un d\xEDa concreto (por persona, por habitaci\xF3n o por unidad)"))), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
         var newExtras = [].concat(_toConsumableArray(formData.extraCharges || []), [{
           id: Date.now(),
-          date: '',
+          scope: 'total',
+          // 'total' | 'daily' | 'YYYY-MM-DD'
+          chargeType: 'pax',
+          // 'pax' | 'room' | 'unit'
           concept: '',
-          units: 0,
-          pax: 0,
+          units: 1,
           unitPrice: 0,
           price: 0
         }]);
@@ -5127,39 +5131,89 @@ function App() {
           extraCharges: newExtras
         }));
       },
-      className: "bg-teal-50 hover:bg-teal-100 text-teal-600 px-3 py-1.5 rounded-lg border border-teal-100 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all"
+      className: "bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-xl border border-teal-200 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider transition-all shadow-2xs active:scale-95"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
-    }), " A\xF1adir Cargo")), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-3"
+    }), " A\xF1adir Cargo")), (formData.extraCharges || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "hidden md:flex gap-2 text-[9px] font-black text-slate-400 uppercase tracking-wider px-2"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-[150px]"
+    }, "Temporalidad"), /*#__PURE__*/React.createElement("div", {
+      className: "w-[130px]"
+    }, "Aplicaci\xF3n"), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1"
+    }, "Concepto"), /*#__PURE__*/React.createElement("div", {
+      className: "w-16 text-center"
+    }, "Uds/Cant"), /*#__PURE__*/React.createElement("div", {
+      className: "w-24 text-right"
+    }, "Precio Unit."), /*#__PURE__*/React.createElement("div", {
+      className: "w-24 text-right"
+    }, "Subtotal"), /*#__PURE__*/React.createElement("div", {
+      className: "w-8"
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "space-y-2.5"
     }, (formData.extraCharges || []).map(function (extra, index) {
+      var scope = extra.scope || (extra.date === 'daily' ? 'daily' : extra.date ? extra.date : 'total');
+      var chargeType = extra.chargeType || (extra.pax ? 'pax' : 'unit');
+      var nightsCount = Math.max(1, stayDates.length);
+      var u = extra.units !== undefined && extra.units !== '' ? Number(extra.units) : 1;
+      var up = extra.unitPrice !== undefined && extra.unitPrice !== '' ? Number(extra.unitPrice) : parseFloat(extra.price) || 0;
+      var multiplier = 1;
+      if (scope === 'daily') {
+        multiplier = nightsCount;
+      }
+      var calculatedLineTotal = Math.round(u * up * multiplier * 100) / 100;
       return /*#__PURE__*/React.createElement("div", {
-        key: extra.id,
-        className: "flex gap-2 items-center group"
+        key: extra.id || index,
+        className: "flex flex-col md:flex-row gap-2 items-stretch md:items-center p-2.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:border-teal-200 transition-all"
       }, /*#__PURE__*/React.createElement("div", {
-        className: "w-[130px] relative"
+        className: "w-full md:w-[150px] relative"
       }, /*#__PURE__*/React.createElement("select", {
-        value: extra.date || '',
+        value: scope,
         onChange: function onChange(e) {
           var newExtras = _toConsumableArray(formData.extraCharges);
-          newExtras[index].date = e.target.value;
+          var newScope = e.target.value;
+          newExtras[index].scope = newScope;
+          newExtras[index].date = newScope === 'total' || newScope === 'daily' ? '' : newScope;
           setFormData(_objectSpread(_objectSpread({}, formData), {}, {
             extraCharges: newExtras
           }));
         },
-        className: "w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-2 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700"
+        className: "w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
       }, /*#__PURE__*/React.createElement("option", {
-        value: ""
-      }, "Global / Todas"), stayDates.map(function (d) {
+        value: "total"
+      }, "\uD83C\uDFE8 Toda la estancia"), /*#__PURE__*/React.createElement("option", {
+        value: "daily"
+      }, "\uD83D\uDCC5 Cada d\xEDa (Diario)"), /*#__PURE__*/React.createElement("optgroup", {
+        label: "D\xEDa concreto"
+      }, stayDates.map(function (d) {
         return /*#__PURE__*/React.createElement("option", {
           key: d,
           value: d
-        }, d);
-      }))), /*#__PURE__*/React.createElement("div", {
-        className: "flex-1 min-w-[150px] relative"
+        }, "D\xEDa ", formatDate(d));
+      })))), /*#__PURE__*/React.createElement("div", {
+        className: "w-full md:w-[130px] relative"
+      }, /*#__PURE__*/React.createElement("select", {
+        value: chargeType,
+        onChange: function onChange(e) {
+          var newExtras = _toConsumableArray(formData.extraCharges);
+          newExtras[index].chargeType = e.target.value;
+          setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            extraCharges: newExtras
+          }));
+        },
+        className: "w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
+      }, /*#__PURE__*/React.createElement("option", {
+        value: "pax"
+      }, "\uD83D\uDC64 Por persona"), /*#__PURE__*/React.createElement("option", {
+        value: "room"
+      }, "\uD83D\uDECF\uFE0F Por habitaci\xF3n"), /*#__PURE__*/React.createElement("option", {
+        value: "unit"
+      }, "\uD83D\uDCE6 Por unidad / Fijo"))), /*#__PURE__*/React.createElement("div", {
+        className: "flex-1 min-w-[140px] relative"
       }, /*#__PURE__*/React.createElement("input", {
         type: "text",
-        value: extra.concept,
+        value: extra.concept || '',
         onChange: function onChange(e) {
           var newExtras = _toConsumableArray(formData.extraCharges);
           newExtras[index].concept = e.target.value;
@@ -5167,51 +5221,53 @@ function App() {
             extraCharges: newExtras
           }));
         },
-        placeholder: "Concepto (ej: Almuerzo...)",
-        className: "w-full bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700"
+        placeholder: "Concepto (ej: Almuerzo d\xEDa de llegada, Sala...)",
+        className: "w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
       })), /*#__PURE__*/React.createElement("div", {
-        className: "w-14 relative"
+        className: "w-full md:w-16 relative"
       }, /*#__PURE__*/React.createElement("input", {
         type: "number",
         min: "0",
+        step: "1",
         value: extra.units !== undefined ? extra.units : '',
         onChange: function onChange(e) {
           var newExtras = _toConsumableArray(formData.extraCharges);
-          var u = Number(e.target.value) || 0;
-          newExtras[index].units = u;
-          var up = newExtras[index].unitPrice || 0;
-          newExtras[index].price = u * up;
+          var val = e.target.value;
+          newExtras[index].units = val;
+          newExtras[index].pax = val;
+          var numU = Number(val) || 0;
+          var numUp = Number(newExtras[index].unitPrice) || 0;
+          newExtras[index].price = numU * numUp;
           setFormData(_objectSpread(_objectSpread({}, formData), {}, {
             extraCharges: newExtras
           }));
         },
-        placeholder: "Uds",
-        className: "w-full px-2 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-black outline-none transition-all text-center"
+        placeholder: "Cant.",
+        className: "w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-center text-slate-700"
       })), /*#__PURE__*/React.createElement("div", {
-        className: "w-20 md:w-24 relative"
+        className: "w-full md:w-24 relative"
       }, /*#__PURE__*/React.createElement("input", {
         type: "number",
         step: "0.01",
-        value: extra.unitPrice !== undefined ? extra.unitPrice : 0,
+        value: extra.unitPrice !== undefined ? extra.unitPrice : '',
         onChange: function onChange(e) {
           var newExtras = _toConsumableArray(formData.extraCharges);
-          var up = parseFloat(e.target.value) || 0;
-          newExtras[index].unitPrice = up;
-          var u = newExtras[index].units || 0;
-          var pax = newExtras[index].pax || 0;
-          var activeQty = u > 0 ? u : pax;
-          newExtras[index].price = activeQty * up;
+          var val = e.target.value;
+          newExtras[index].unitPrice = val;
+          var numU = Number(newExtras[index].units || newExtras[index].pax || 0);
+          var numUp = Number(val) || 0;
+          newExtras[index].price = numU * numUp;
           setFormData(_objectSpread(_objectSpread({}, formData), {}, {
             extraCharges: newExtras
           }));
         },
-        placeholder: "0.00",
-        className: "w-full pl-2 pr-5 py-2 bg-slate-50 border border-slate-100 rounded-lg text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/10 focus:border-teal-500 transition-all text-slate-700 text-right"
+        placeholder: "Precio/ud",
+        className: "w-full bg-white border border-slate-200 rounded-xl pl-2 pr-5 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-right text-slate-700"
       }), /*#__PURE__*/React.createElement("span", {
         className: "absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold"
       }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
-        className: "w-20 md:w-24 px-2 py-2 bg-teal-50/50 border border-teal-100 rounded-lg text-[11px] font-black text-teal-700 text-right"
-      }, formatNum((extra.units || extra.pax || 0) * (extra.unitPrice || 0)), " \u20AC"), /*#__PURE__*/React.createElement("button", {
+        className: "w-full md:w-24 bg-white border border-teal-100 rounded-xl px-2.5 py-1.5 text-right font-black text-[11px] text-teal-800 tabular-nums"
+      }, formatNum(calculatedLineTotal), " \u20AC"), /*#__PURE__*/React.createElement("button", {
         type: "button",
         onClick: function onClick() {
           var newExtras = formData.extraCharges.filter(function (_, i) {
@@ -5221,11 +5277,16 @@ function App() {
             extraCharges: newExtras
           }));
         },
-        className: "w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all flex-shrink-0"
+        className: "w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-all",
+        title: "Eliminar este cargo"
       }, /*#__PURE__*/React.createElement("i", {
-        className: "fas fa-trash text-xs"
+        className: "fas fa-trash-alt text-xs"
       })));
-    }))), /*#__PURE__*/React.createElement("div", {
+    }), (formData.extraCharges || []).length === 0 && /*#__PURE__*/React.createElement("div", {
+      className: "p-4 rounded-2xl border border-dashed border-slate-200 text-center"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-[11px] text-slate-400 font-bold"
+    }, "No hay cargos ni suplementos adicionales configurados.")))), /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-3"
@@ -6229,12 +6290,14 @@ function App() {
       var config = ((_g$dailyConfig = g.dailyConfig) === null || _g$dailyConfig === void 0 ? void 0 : _g$dailyConfig[date]) || {};
       var boardTitle = config.board || g.Regimen || '';
       var dailyExtrasRows = (g.extraCharges || []).filter(function (ext) {
-        return ext.date === date;
+        var sc = ext.scope || ext.date;
+        return sc === date || sc === 'daily';
       }).map(function (ext, extIdx) {
-        var u = ext.units || 0;
-        var pax = ext.pax || 0;
-        var up = ext.unitPrice !== undefined ? ext.unitPrice : Number(ext.price || 0);
-        var px = (u > 0 ? u : pax) * up;
+        var u = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : ext.pax || 0;
+        var up = ext.unitPrice !== undefined && ext.unitPrice !== '' ? Number(ext.unitPrice) : Number(ext.price || 0);
+        var px = (u > 0 ? u : 1) * up;
+        var isDaily = ext.scope === 'daily' || ext.date === 'daily';
+        var typeLabel = ext.chargeType === 'pax' ? 'pax' : ext.chargeType === 'room' ? 'hab.' : 'ud.';
         return /*#__PURE__*/React.createElement("tr", {
           key: "ext-".concat(date, "-").concat(extIdx),
           className: "bg-slate-50 border-t border-slate-100"
@@ -6242,9 +6305,9 @@ function App() {
           className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800"
         }, formatDate(date)), /*#__PURE__*/React.createElement("td", {
           className: "p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60"
-        }, "Cargo Extra"), /*#__PURE__*/React.createElement("td", {
+        }, isDaily ? 'Extra Diario' : 'Cargo Extra'), /*#__PURE__*/React.createElement("td", {
           className: "p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic"
-        }, ext.description || ext.concept, " (", u > 0 ? u : pax, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
+        }, ext.description || ext.concept, " (", u > 0 ? u : 1, " ", typeLabel, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
           className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
@@ -6319,77 +6382,100 @@ function App() {
       }, formatNum(subtotalDate), " \u20AC"));
       return [roomRow].concat(_toConsumableArray(dailyExtrasRows));
     }), (g.extraCharges || []).filter(function (ext) {
-      return !ext.date || ext.date === '' || ext.date === 'Todas' || !dates.includes(ext.date);
+      var sc = ext.scope || ext.date;
+      return !sc || sc === 'total' || sc === 'Todas' || !dates.includes(sc) && sc !== 'daily';
     }).map(function (ext, idx) {
-      var px = (ext.units || ext.pax || 0) * (ext.unitPrice !== undefined ? ext.unitPrice : parseFloat(ext.price || 0));
+      var u = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : ext.pax || 0;
+      var up = ext.unitPrice !== undefined && ext.unitPrice !== '' ? Number(ext.unitPrice) : parseFloat(ext.price || 0);
+      var px = (u > 0 ? u : 1) * up;
+      var typeLabel = ext.chargeType === 'pax' ? 'pax' : ext.chargeType === 'room' ? 'hab.' : 'ud.';
       return /*#__PURE__*/React.createElement("tr", {
         key: "ext-global-".concat(idx),
         className: "bg-indigo-50/30 border-t border-indigo-100/50 italic"
       }, /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900"
-      }, "General"), /*#__PURE__*/React.createElement("td", {
+      }, "Estancia Completa"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest"
       }, "Extra Global"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold"
-      }, ext.description || ext.concept, " (", ext.units || ext.pax || 0, " x ", formatNum(ext.unitPrice || ext.price || 0), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
+      }, ext.description || ext.concept, " (", u > 0 ? u : 1, " ", typeLabel, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums"
       }, formatNum(px), " \u20AC"));
     })), /*#__PURE__*/React.createElement("tbody", {
       className: "bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid"
-    }, parseFloat(g.Suplementos || 0) > 0 || parseFloat(g.Descuentos || 0) > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
-      className: "border-b border-slate-700/50 text-slate-300"
-    }, /*#__PURE__*/React.createElement("td", {
-      colSpan: "3",
-      className: "px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
-    }, "Subtotal Estancia:"), /*#__PURE__*/React.createElement("td", {
-      className: "px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, formatNum((calculatedTotal > 0 ? calculatedTotal : 0) - parseFloat(g.Suplementos || 0) + parseFloat(g.Descuentos || 0)), " \u20AC")), parseFloat(g.Suplementos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
-      className: "border-b border-slate-700/50 text-indigo-300"
-    }, /*#__PURE__*/React.createElement("td", {
-      colSpan: "3",
-      className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
-    }, "+ Suplementos:"), /*#__PURE__*/React.createElement("td", {
-      className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, formatNum(parseFloat(g.Suplementos)), " \u20AC")), parseFloat(g.Descuentos || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
-      className: "border-b border-slate-700/50 text-rose-300"
-    }, /*#__PURE__*/React.createElement("td", {
-      colSpan: "3",
-      className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
-    }, "- Descuentos aplicados:"), /*#__PURE__*/React.createElement("td", {
-      className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-    }, "-", formatNum(parseFloat(g.Descuentos)), " \u20AC")), /*#__PURE__*/React.createElement("tr", {
-      style: {
-        backgroundColor: '#0f172a',
-        color: 'white',
-        WebkitPrintColorAdjust: 'exact',
-        printColorAdjust: 'exact'
+    }, function () {
+      var docBreakdown = calculatePriceBreakdown(g);
+      var hasCommission = (docBreakdown.commAmount || 0) > 0;
+      var hasDiscount = (docBreakdown.descuentos || 0) > 0;
+      var hasSupplements = (docBreakdown.suplementos || 0) > 0;
+      var gross = docBreakdown.totalGross > 0 ? docBreakdown.totalGross : calculatedTotal;
+      var net = docBreakdown.totalNet > 0 ? docBreakdown.totalNet : calculatedTotal;
+      var baseLabel = docBreakdown.baseMode === 'accommodation_only' ? 'Alojamiento' : docBreakdown.baseMode === 'accommodation_breakfast' ? 'Aloj. y Desayuno' : 'Total Estancia';
+      if (hasCommission || hasDiscount || hasSupplements) {
+        return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
+          className: "border-b border-slate-700/50 text-slate-300"
+        }, /*#__PURE__*/React.createElement("td", {
+          colSpan: "3",
+          className: "px-6 py-4 print:py-2 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
+        }, "PVP Bruto Estancia:"), /*#__PURE__*/React.createElement("td", {
+          className: "px-6 py-4 print:py-2 print:px-3 text-right tabular-nums whitespace-nowrap"
+        }, formatNum(gross), " \u20AC")), hasSupplements && /*#__PURE__*/React.createElement("tr", {
+          className: "border-b border-slate-700/50 text-indigo-300"
+        }, /*#__PURE__*/React.createElement("td", {
+          colSpan: "3",
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
+        }, "+ Suplementos Varios:"), /*#__PURE__*/React.createElement("td", {
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
+        }, formatNum(docBreakdown.suplementos), " \u20AC")), hasCommission && /*#__PURE__*/React.createElement("tr", {
+          className: "border-b border-slate-700/50 text-amber-300"
+        }, /*#__PURE__*/React.createElement("td", {
+          colSpan: "3",
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
+        }, "- Comisi\xF3n Agencia (", formatNum(docBreakdown.commPct), "% s/ ", baseLabel, "):"), /*#__PURE__*/React.createElement("td", {
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
+        }, "-", formatNum(docBreakdown.commAmount), " \u20AC")), hasDiscount && /*#__PURE__*/React.createElement("tr", {
+          className: "border-b border-slate-700/50 text-rose-300"
+        }, /*#__PURE__*/React.createElement("td", {
+          colSpan: "3",
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
+        }, "- Descuentos aplicados:"), /*#__PURE__*/React.createElement("td", {
+          className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
+        }, "-", formatNum(docBreakdown.descuentos), " \u20AC")), /*#__PURE__*/React.createElement("tr", {
+          style: {
+            backgroundColor: '#0f172a',
+            color: 'white',
+            WebkitPrintColorAdjust: 'exact',
+            printColorAdjust: 'exact'
+          }
+        }, /*#__PURE__*/React.createElement("td", {
+          colSpan: "3",
+          className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
+        }, "Total Neto Documento:"), /*#__PURE__*/React.createElement("td", {
+          className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
+          style: {
+            color: 'white',
+            fontWeight: 900
+          }
+        }, formatNum(net), " \u20AC")));
       }
-    }, /*#__PURE__*/React.createElement("td", {
-      colSpan: "3",
-      className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
-    }, "Total Neto Documento:"), /*#__PURE__*/React.createElement("td", {
-      className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
-      style: {
-        color: 'white',
-        fontWeight: 900
-      }
-    }, formatNum(calculatedTotal), " \u20AC"))) : /*#__PURE__*/React.createElement("tr", {
-      style: {
-        backgroundColor: '#0f172a',
-        color: 'white',
-        WebkitPrintColorAdjust: 'exact',
-        printColorAdjust: 'exact'
-      }
-    }, /*#__PURE__*/React.createElement("td", {
-      colSpan: "3",
-      className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
-    }, "Total Neto Documento:"), /*#__PURE__*/React.createElement("td", {
-      className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
-      style: {
-        color: 'white',
-        fontWeight: 900
-      }
-    }, formatNum(calculatedTotal), " \u20AC"))))) : /*#__PURE__*/React.createElement("div", {
+      return /*#__PURE__*/React.createElement("tr", {
+        style: {
+          backgroundColor: '#0f172a',
+          color: 'white',
+          WebkitPrintColorAdjust: 'exact',
+          printColorAdjust: 'exact'
+        }
+      }, /*#__PURE__*/React.createElement("td", {
+        colSpan: "3",
+        className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
+      }, "Total Neto Documento:"), /*#__PURE__*/React.createElement("td", {
+        className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
+        style: {
+          color: 'white',
+          fontWeight: 900
+        }
+      }, formatNum(calculatedTotal), " \u20AC"));
+    }()))) : /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50 p-8 rounded-2xl text-center border border-slate-200"
     }, /*#__PURE__*/React.createElement("p", {
       className: "text-lg font-black text-indigo-700"
@@ -6983,7 +7069,7 @@ function App() {
       return setEmailContent(e.target.value);
     },
     disabled: isParsingEmail,
-    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa...\r 3 personas: Entrada 14 junio, Salida 19 junio.\r\nY del 21 de junio al...",
+    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa... 3 personas: Entrada 14 junio, Salida 19 junio.\nY del 21 de junio al...",
     className: "w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all min-h-[250px] resize-none"
   }))), /*#__PURE__*/React.createElement("div", {
     className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"
