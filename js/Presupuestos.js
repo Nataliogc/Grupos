@@ -5862,7 +5862,9 @@ function App() {
           key: d,
           value: d
         }, "D\xEDa ", formatDate(d));
-      })))), /*#__PURE__*/React.createElement("div", {
+      }), toInputDate(formData.Salida) && !stayDates.includes(toInputDate(formData.Salida)) && /*#__PURE__*/React.createElement("option", {
+        value: toInputDate(formData.Salida)
+      }, "Salida ", formatDate(formData.Salida))))), /*#__PURE__*/React.createElement("div", {
         className: "w-full md:w-[130px] relative"
       }, /*#__PURE__*/React.createElement("select", {
         value: chargeType,
@@ -7064,6 +7066,8 @@ function App() {
       var sc = ext.scope || ext.date;
       return !sc || sc === 'total' || sc === 'Todas' || !dates.includes(sc) && sc !== 'daily';
     }).map(function (ext, idx) {
+      var specificDate = ext.scope || ext.date;
+      var isDatedCharge = /^\d{4}-\d{2}-\d{2}$/.test(specificDate || '');
       var u = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : ext.pax || 0;
       var up = ext.unitPrice !== undefined && ext.unitPrice !== '' ? Number(ext.unitPrice) : parseFloat(ext.price || 0);
       var px = (u > 0 ? u : 1) * up;
@@ -7073,9 +7077,9 @@ function App() {
         className: "bg-indigo-50/30 border-t border-indigo-100/50 italic"
       }, /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900"
-      }, "Estancia Completa"), /*#__PURE__*/React.createElement("td", {
+      }, isDatedCharge ? "".concat(specificDate === toInputDate(g.Salida) ? 'Salida' : 'Día', " ").concat(formatDate(specificDate)) : 'Estancia Completa'), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest"
-      }, "Extra Global"), /*#__PURE__*/React.createElement("td", {
+      }, isDatedCharge ? 'Extra puntual' : 'Extra Global'), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold"
       }, ext.description || ext.concept, " (", u > 0 ? u : 1, " ", typeLabel, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
         className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums"

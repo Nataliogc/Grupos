@@ -4948,6 +4948,9 @@ ${emailContent}`;
                               {stayDates.map(d => (
                                 <option key={d} value={d}>Día {formatDate(d)}</option>
                               ))}
+                              {toInputDate(formData.Salida) && !stayDates.includes(toInputDate(formData.Salida)) && (
+                                <option value={toInputDate(formData.Salida)}>Salida {formatDate(formData.Salida)}</option>
+                              )}
                             </optgroup>
                           </select>
                         </div>
@@ -6142,14 +6145,16 @@ ${emailContent}`;
                                    const sc = ext.scope || ext.date;
                                    return !sc || sc === 'total' || sc === 'Todas' || (!dates.includes(sc) && sc !== 'daily');
                                  }).map((ext, idx) => {
+                                   const specificDate = ext.scope || ext.date;
+                                   const isDatedCharge = /^\d{4}-\d{2}-\d{2}$/.test(specificDate || '');
                                    const u = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : (ext.pax || 0);
                                    const up = ext.unitPrice !== undefined && ext.unitPrice !== '' ? Number(ext.unitPrice) : parseFloat(ext.price || 0);
                                    const px = (u > 0 ? u : 1) * up;
                                    const typeLabel = ext.chargeType === 'pax' ? 'pax' : (ext.chargeType === 'room' ? 'hab.' : 'ud.');
                                    return (
                                      <tr key={`ext-global-${idx}`} className="bg-indigo-50/30 border-t border-indigo-100/50 italic">
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">Estancia Completa</td>
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">Extra Global</td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">{isDatedCharge ? `${specificDate === toInputDate(g.Salida) ? 'Salida' : 'Día'} ${formatDate(specificDate)}` : 'Estancia Completa'}</td>
+                                       <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">{isDatedCharge ? 'Extra puntual' : 'Extra Global'}</td>
                                        <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({u > 0 ? u : 1} {typeLabel} x {formatNum(up)}€)</td>
                                        <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
                                      </tr>
