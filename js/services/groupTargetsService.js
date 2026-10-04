@@ -718,25 +718,96 @@
   }
 
   /**
-   * Obtiene los datos de grupos de CapaSuite (hotel_manager_db_v2) para un hotel y año determinado
+   * Obtiene los datos u objetivos del segmento GRUPOS fijados en CapaSuite para un hotel y año determinado.
+   * La fuente de verdad para los objetivos de grupos son los fijados en CapaSuite por segmento.
    */
   function getCapaSuiteGroupData(hotel, year) {
     var hNorm = normalizeHotelKey(hotel);
     var yStr = String(year);
-    var db = null;
+    var hotelKeyTitle = hNorm === "cumbria" ? "Cumbria" : "Guadiana";
 
-    // 1. Intentar variable de memoria global o cache
+    // 1. PRIMERA PRIORIDAD: Comprobar si existe un objetivo oficial de Grupos fijado/sincronizado desde CapaSuite
+    var nexusTargetKeys = [
+      "nexus_target_" + hNorm + "_" + yStr,
+      "v3_nexus_target_" + hNorm + "_" + yStr,
+      "nexus_target_" + hotelKeyTitle + "_" + yStr
+    ];
+    for (var i = 0; i < nexusTargetKeys.length; i++) {
+      try {
+        var rawTarget = null;
+        if (typeof global.CapaStorage !== "undefined" && global.CapaStorage.getItem) {
+          rawTarget = global.CapaStorage.getItem(nexusTargetKeys[i]);
+        }
+        if (!rawTarget && typeof localStorage !== "undefined") {
+          rawTarget = localStorage.getItem(nexusTargetKeys[i]);
+        }
+        if (rawTarget) {
+          var parsedTarget = JSON.parse(rawTarget);
+          if (parsedTarget && parsedTarget.monthly && Object.keys(parsedTarget.monthly).length > 0) {
+            var sumCheck = 0;
+            for (var mm = 1; mm <= 12; mm++) {
+              if (parsedTarget.monthly[mm]) sumCheck += Number(parsedTarget.monthly[mm].revenue || 0);
+            }
+            // Evitar objetivos residuales inflados de versiones previas (>500.000€ es el hotel completo)
+            if (sumCheck < 450000 && parsedTarget.isOfficial) {
+              return parsedTarget.monthly;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. SEGUNDA PRIORIDAD: Comprobar reparto personalizado por segmento de CapaSuite (custom_seg_budget)
+    var customSegKeys = [
+      "custom_seg_budget_" + hotelKeyTitle + "_" + yStr,
+      "custom_seg_budget_" + hNorm + "_" + yStr,
+      "v3_custom_seg_budget_" + hotelKeyTitle + "_" + yStr
+    ];
+    for (var j = 0; j < customSegKeys.length; j++) {
+      try {
+        var rawSeg = null;
+        if (typeof global.CapaStorage !== "undefined" && global.CapaStorage.getItem) {
+          rawSeg = global.CapaStorage.getItem(customSegKeys[j]);
+        }
+        if (!rawSeg && typeof localStorage !== "undefined") {
+          rawSeg = localStorage.getItem(customSegKeys[j]);
+        }
+        if (rawSeg) {
+          var segStore = JSON.parse(rawSeg);
+          if (segStore && typeof segStore === "object") {
+            var customMonthly = {};
+            var hasAnyGroup = false;
+            for (var m = 0; m < 12; m++) {
+              var monthMap = segStore[m] || {};
+              var gData = monthMap["GRUPOS"] || monthMap["Grupos"] || monthMap["Grupo"] || monthMap["GRUPO TANTEO"];
+              if (gData && (gData.rev > 0 || gData.rn > 0)) {
+                hasAnyGroup = true;
+                customMonthly[m + 1] = {
+                  revenue: Math.round(Number(gData.rev || 0) * 100) / 100,
+                  rooms: Math.round(Number(gData.rn || 0)),
+                  pax: Math.round(Number(gData.rn || 0) * 1.9)
+                };
+              }
+            }
+            if (hasAnyGroup) {
+              return customMonthly;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 3. TERCERA PRIORIDAD: Base de datos general de CapaSuite (hotel_manager_db_v2)
+    var db = null;
     if (global._capasuiteDbCache) {
       db = global._capasuiteDbCache;
     }
-    // 2. Intentar CapaStorage
     if (!db && typeof global.CapaStorage !== "undefined" && global.CapaStorage.getItem) {
       try {
         var raw = global.CapaStorage.getItem("hotel_manager_db_v2");
         if (raw) db = JSON.parse(raw);
       } catch (e) {}
     }
-    // 3. Intentar localStorage
     if (!db && typeof localStorage !== "undefined") {
       try {
         var rawLs = localStorage.getItem("v3_hotel_manager_db_v2") || localStorage.getItem("hotel_manager_db_v2");
@@ -746,14 +817,13 @@
 
     if (!db || typeof db !== "object") return null;
 
-    // Buscar clave de hotel (Guadiana / Cumbria)
     var hotelKey = Object.keys(db).find(function (k) {
       return k.toLowerCase().includes(hNorm);
     });
     if (!hotelKey || !db[hotelKey] || !db[hotelKey][yStr]) return null;
 
     var yearData = db[hotelKey][yStr];
-    var segments = yearData.segments || yearData.monthly_segments || {};
+    var segments = yearData.segments || yearData.monthly_segments || yearData.segment || {};
 
     // Buscar todos los segmentos relacionados con grupos
     var groupSegments = [];
@@ -765,13 +835,15 @@
     });
 
     var monthlyData = {};
-    for (var m = 1; m <= 12; m++) {
-      var mIdx = m - 1;
+    var foundRealSegments = groupSegments.length > 0;
+
+    for (var mIdx = 0; mIdx < 12; mIdx++) {
+      var mNum = mIdx + 1;
       var rev = 0;
       var rooms = 0;
       var pax = 0;
 
-      if (groupSegments.length > 0) {
+      if (foundRealSegments) {
         groupSegments.forEach(function (seg) {
           if (Array.isArray(seg.revenue)) rev += (Number(seg.revenue[mIdx]) || 0);
           else if (seg.revenue && seg.revenue[mIdx] !== undefined) rev += (Number(seg.revenue[mIdx]) || 0);
@@ -784,27 +856,43 @@
         });
       }
 
-      // Si no hay en segments pero hay en daily_otb o daily
-      if (rev === 0 && rooms === 0 && yearData.daily) {
-        var mStr = String(m).padStart(2, "0");
-        Object.keys(yearData.daily).forEach(function (dateIso) {
-          if (dateIso.startsWith(yStr + "-" + mStr)) {
-            var val = yearData.daily[dateIso];
-            if (typeof val === "object") {
-              rooms += Number(val.rooms || 0);
-              rev += Number(val.revenue || 0);
-            } else {
-              rooms += Number(val || 0);
+      // Si no hay datos específicos del segmento Grupos para ese año, calcular la cuota estándar de Grupos
+      // sobre el presupuesto total del hotel (5% según benchmark oficial de CapaSuite), NUNCA el 100% del hotel.
+      if (rev === 0 && rooms === 0) {
+        var hotelMonthRev = 0;
+        var hotelMonthRooms = 0;
+
+        if (yearData.daily) {
+          var mStr = String(mNum).padStart(2, "0");
+          Object.keys(yearData.daily).forEach(function (dateIso) {
+            if (dateIso.startsWith(yStr + "-" + mStr)) {
+              var val = yearData.daily[dateIso];
+              if (typeof val === "object") {
+                hotelMonthRooms += Number(val.rooms || 0);
+                hotelMonthRev += Number(val.revenue || 0);
+              } else {
+                hotelMonthRooms += Number(val || 0);
+              }
             }
-          }
-        });
+          });
+        } else if (yearData.currentRev && yearData.currentRev[mIdx]) {
+          hotelMonthRev = Number(yearData.currentRev[mIdx] || 0);
+          var adr = Number(yearData.currentAdr ? yearData.currentAdr[mIdx] : 75) || 75;
+          hotelMonthRooms = adr > 0 ? Math.round(hotelMonthRev / adr) : 0;
+        }
+
+        // Estimación del segmento Grupos: 5% del volumen del hotel (ratio estándar de CapaSuite)
+        if (hotelMonthRev > 0 || hotelMonthRooms > 0) {
+          rev = Math.round(hotelMonthRev * 0.05 * 100) / 100;
+          rooms = Math.round(hotelMonthRooms * 0.05);
+        }
       }
 
       if (pax === 0 && rooms > 0) {
         pax = Math.round(rooms * 1.9);
       }
 
-      monthlyData[m] = {
+      monthlyData[mNum] = {
         revenue: Math.round(rev * 100) / 100,
         rooms: Math.round(rooms),
         pax: Math.round(pax)
