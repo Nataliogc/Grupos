@@ -59,9 +59,10 @@
 
   const normalizeSegment = (s) => {
     const v = cleanStr(s);
-    if (v === "GRUPOS" || v === "GRUPO" || v.startsWith("GRUP")) return "GRUPO";
+    if (!v) return "";
     if (v === "GRTANTEO" || v === "GRUPO TANTEO" || v === "TANTEO") return "GRUPO TANTEO";
-    if (v.includes("DIRECTO")) return "DIRECTO";
+    if (v === "GRUPOS" || v === "GRUPO") return "GRUPO";
+    if (v.includes("DIRECTO")) return "DIRECTO OFFLINE";
     return v;
   };
 
@@ -208,7 +209,9 @@
       "DESCRIPCIÓN": "Descripción", "DESCRIPCION": "Descripción",
       "PRECIO": "Precio", "PRECIOS": "precios",
       "IMPORTE": "Importe(*)",
-      "SEGMENTO": "Segment.", "SEGMENT.": "Segment."
+      "SEGMENTO": "Segment.", "SEGMENT.": "Segment.", "SEGMENT": "Segment.", "SEGMENTOS": "Segment.",
+      "SEGM.": "Segment.", "SEG.": "Segment.", "SEG": "Segment.", "SUBSEGMENTO": "Segment.",
+      "SUB-SEGMENTO": "Segment.", "SEGMENTACIÓN": "Segment.", "SEGMENTACION": "Segment."
     };
 
     const cleanData = [];
@@ -333,12 +336,19 @@
             }
             let cleanKey = k.trim();
             let cleanVal = val;
-            if (cleanKey === "Segment." || cleanKey === "Segmento") {
-                let seg = (val || "").toString().trim().toUpperCase();
-                if (seg === "GRTANTEO" || seg === "GRUPO TANTEO") cleanVal = "GRUPO TANTEO";
-                else if (seg === "GRUPOS" || seg === "GRUPO") cleanVal = "GRUPO";
+            const upperK = cleanKey.toUpperCase();
+            if (upperK === "SEGMENT." || upperK === "SEGMENTO" || upperK === "SEGMENT" || upperK === "SEG." || upperK === "SEGM." || upperK === "SEGMENTOS" || upperK === "SUBSEGMENTO" || upperK === "SEGMENTACIÓN" || upperK === "SEGMENTACION") {
+                let seg = (val || "").toString().trim();
+                const upperSeg = cleanStr(seg);
+                if (upperSeg === "GRTANTEO" || upperSeg === "GRUPO TANTEO" || upperSeg === "TANTEO") cleanVal = "GRUPO TANTEO";
+                else if (upperSeg === "GRUPOS" || upperSeg === "GRUPO") cleanVal = "GRUPO";
+                else if (upperSeg !== "") cleanVal = upperSeg;
+                else cleanVal = seg;
                 if (cleanVal !== "") foundSegment = true;
-                cleanKey = "Segment."; // Normalize the key name
+                cleanKey = "Segment."; // Normalize the primary key name
+                cleanRow["Segment"] = cleanVal;
+                cleanRow["Segmento"] = cleanVal;
+                cleanRow["Excel_Segmento"] = cleanVal;
             }
             cleanRow[cleanKey] = cleanVal;
         }
@@ -681,8 +691,15 @@
                     isDifferent = hOld !== hNew;
                 } else if (key === "Segment.") {
                     const segOld = normalizeSegment(rawOld || existingRow["Segmento"] || existingRow["Segment"] || "");
-                    const segNew = normalizeSegment(rawNew);
-                    isDifferent = segOld !== segNew;
+                    const rawExcelSeg = (rawNew !== undefined && rawNew !== null && String(rawNew).trim() !== "")
+                        ? rawNew
+                        : (newRow["Segment"] || newRow["Segmento"] || "");
+                    const segNew = normalizeSegment(rawExcelSeg);
+                    if (segNew && segNew !== "") {
+                        isDifferent = segOld !== segNew;
+                    } else {
+                        isDifferent = false;
+                    }
                 } else if (key === "Régimen") {
                     const regOld = normalizeRegimen(rawOld);
                     const regNew = normalizeRegimen(rawNew);
@@ -701,6 +718,10 @@
                     if (NUMERIC_KEYS.has(key)) {
                         const cleanVal = (v) => isNaN(toNum(v)) ? String(v).trim() : Number(Math.round(toNum(v) + "e2") + "e-2").toString();
                         changes[key] = { old: isEmptyOld ? "---" : cleanVal(rawOld), new: isEmptyNew ? "---" : cleanVal(rawNew) };
+                    } else if (key === "Segment.") {
+                        const oldDisplay = rawOld || existingRow["Segmento"] || existingRow["Segment"] || "---";
+                        const newDisplay = rawNew || newRow["Segment"] || newRow["Segmento"] || "---";
+                        changes[key] = { old: oldDisplay, new: newDisplay };
                     } else {
                         changes[key] = { old: isEmptyOld ? "---" : rawOld, new: isEmptyNew ? "---" : rawNew };
                     }
@@ -723,6 +744,21 @@
                 else mergedRow[key] = valNew;
             });
 
+            // Siempre prevalece el segmento del Excel sobre el existente si viene informado
+            const excelSeg = newRow["Segment."] || newRow["Segment"] || newRow["Segmento"];
+            if (excelSeg !== undefined && excelSeg !== null && String(excelSeg).trim() !== "") {
+                let finalSegment = String(excelSeg).trim();
+                const normFinal = cleanStr(finalSegment);
+                if (normFinal === "GRTANTEO" || normFinal === "GRUPO TANTEO" || normFinal === "TANTEO") finalSegment = "GRUPO TANTEO";
+                else if (normFinal === "GRUPOS" || normFinal === "GRUPO") finalSegment = "GRUPO";
+                else if (normFinal !== "") finalSegment = normFinal;
+
+                mergedRow["Segment."] = finalSegment;
+                mergedRow["Segment"] = finalSegment;
+                mergedRow["Segmento"] = finalSegment;
+                mergedRow["Excel_Segmento"] = finalSegment;
+            }
+
             // Preservar clave de registro y número de línea para re-importaciones estables
             if (targetRecordKey) mergedRow["_recordKey"] = targetRecordKey;
             if (newLinea) mergedRow["_linea"] = newLinea;
@@ -734,6 +770,9 @@
             mergedRow["Excel_Salida"] = toIsoDate(newRow["Salida"]) || newRow["Salida"];
             mergedRow["Excel_Regimen"] = normalizeRegimen(newRow["Régimen"]);
             mergedRow["Excel_Estado"] = normalizeEstado(newRow["Estado"]);
+            if (newRow["Segment."] || newRow["Segment"] || newRow["Segmento"]) {
+                mergedRow["Excel_Segmento"] = mergedRow["Segment."];
+            }
 
             if (newRow._hasWarning) mergedRow._hasWarning = true;
 

@@ -10990,6 +10990,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         const updates = {
           "Segment.": targetSegment,
           "Segment": targetSegment,
+          "Segmento": targetSegment,
         };
 
         // Salvaguarda: si no tenía Com_Estado_Interno explícito fijado, preservamos su estado actual
@@ -19635,7 +19636,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     <div className="relative inline-flex items-center group/seg" title="Modificar segmento">
                                       <select
                                         value={
-                                          ((selectedGroupFicha.records[0]?.["Segment."] || "GRUPOS").toString().trim().toUpperCase())
+                                          ((selectedGroupFicha.records[0]?.["Segment."] || selectedGroupFicha.records[0]?.["Segment"] || selectedGroupFicha.records[0]?.["Segmento"] || "GRUPOS").toString().trim().toUpperCase())
                                         }
                                         onChange={(e) => handleSegmentChange(e.target.value)}
                                         className="bg-blue-500/25 hover:bg-blue-500/35 text-blue-100 border border-blue-400/30 hover:border-blue-400/50 pl-2 pr-5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider appearance-none outline-none cursor-pointer transition-all shadow-sm"
@@ -20490,7 +20491,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                   <select
                                     className="w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl bg-slate-50 border border-slate-200 text-slate-700 appearance-none outline-none hover:border-blue-400 transition-all cursor-pointer"
                                     value={
-                                      ((selectedGroupFicha.records[0]?.["Segment."] || "GRUPOS").toString().trim().toUpperCase())
+                                      ((selectedGroupFicha.records[0]?.["Segment."] || selectedGroupFicha.records[0]?.["Segment"] || selectedGroupFicha.records[0]?.["Segmento"] || "GRUPOS").toString().trim().toUpperCase())
                                     }
                                     onChange={(e) => handleSegmentChange(e.target.value)}
                                   >

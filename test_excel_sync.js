@@ -392,5 +392,91 @@ test("Multi-line reservation with same Entrada does not cross-match lines on re-
     assert.strictEqual(result.summaryData.modifiedGroupsCount, 0, "0 modifications expected when re-importing identical lines");
 });
 
+// Test 8: Excel segment overrides existing segment and marks change
+test("Excel segment modification is detected and Excel segment prevails in merged row", () => {
+    const rawData = [
+        {
+            "Reserva": "RES-030",
+            "Nombre del Grupo": "GRUPO SATSE",
+            "Entrada": "08/10/2026",
+            "Salida": "09/10/2026",
+            "Pax.": "7",
+            "Importe(*)": "558,30",
+            "Estado": "Confirmada",
+            "Hotel_Asignado": "Sercotel Guadiana",
+            "Régimen": "HD",
+            "Segmento": "CORPORATIVO LINEAL" // Changed in Excel from GRUPO to CORPORATIVO LINEAL
+        }
+    ];
+
+    const currentFirestoreData = [
+        {
+            "_docId": "RES-030",
+            "Reserva": "RES-030",
+            "Nombre del Grupo": "GRUPO SATSE",
+            "Entrada": "2026-10-08",
+            "Salida": "2026-10-09",
+            "Pax.": "7",
+            "Importe(*)": "558.30",
+            "Estado": "Confirmada",
+            "Hotel_Asignado": "Sercotel Guadiana",
+            "Régimen": "HD",
+            "Segment.": "GRUPO",
+            "Segment": "GRUPO",
+            "Segmento": "GRUPO"
+        }
+    ];
+
+    const result = ExcelService.sanitizeAndMerge(rawData, [], "Sercotel Guadiana", currentFirestoreData);
+    assert.strictEqual(result.summaryData.modifiedGroupsCount, 1, "Should detect 1 modified group");
+    const mod = result.sortedData.find(r => r.Reserva === "RES-030");
+    assert(mod, "Modified row should exist");
+    assert.strictEqual(mod._diff, "modified");
+    assert(mod._changes["Segment."], "Should detect change in Segment.");
+    assert.strictEqual(mod["Segment."], "CORPORATIVO LINEAL", "Excel segment must prevail in Segment.");
+    assert.strictEqual(mod["Segment"], "CORPORATIVO LINEAL", "Excel segment must prevail in Segment");
+    assert.strictEqual(mod["Segmento"], "CORPORATIVO LINEAL", "Excel segment must prevail in Segmento");
+    assert.strictEqual(mod["Excel_Segmento"], "CORPORATIVO LINEAL", "Excel segment must prevail in Excel_Segmento");
+});
+
+// Test 9: GRUPO TANTEO vs GRUPO is detected as change and Excel prevails
+test("GRUPO TANTEO vs GRUPO segment distinction is preserved and detected", () => {
+    const rawData = [
+        {
+            "Reserva": "RES-031",
+            "Nombre del Grupo": "GRUPO TANTEO EJEMPLO",
+            "Entrada": "15/10/2026",
+            "Salida": "16/10/2026",
+            "Pax.": "10",
+            "Importe(*)": "700,00",
+            "Estado": "Confirmada",
+            "Hotel_Asignado": "Sercotel Guadiana",
+            "Régimen": "HD",
+            "Segment.": "GRUPO TANTEO"
+        }
+    ];
+
+    const currentFirestoreData = [
+        {
+            "_docId": "RES-031",
+            "Reserva": "RES-031",
+            "Nombre del Grupo": "GRUPO TANTEO EJEMPLO",
+            "Entrada": "2026-10-15",
+            "Salida": "2026-10-16",
+            "Pax.": "10",
+            "Importe(*)": "700",
+            "Estado": "Confirmada",
+            "Hotel_Asignado": "Sercotel Guadiana",
+            "Régimen": "HD",
+            "Segment.": "GRUPO"
+        }
+    ];
+
+    const result = ExcelService.sanitizeAndMerge(rawData, [], "Sercotel Guadiana", currentFirestoreData);
+    assert.strictEqual(result.summaryData.modifiedGroupsCount, 1, "Should detect 1 modified group for GRUPO TANTEO");
+    const mod = result.sortedData.find(r => r.Reserva === "RES-031");
+    assert.strictEqual(mod["Segment."], "GRUPO TANTEO");
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
