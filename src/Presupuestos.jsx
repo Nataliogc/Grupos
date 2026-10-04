@@ -2026,6 +2026,51 @@
         });
       };
 
+      const handleBudgetHotelChange = targetHotel => {
+        setFormData(prev => {
+          const next = remapBudgetRoomsForHotel(prev, targetHotel);
+          const dates = getCurrentStayDates(next);
+          const rooms = getRoomTypesForHotel(targetHotel);
+          const discount = prev.capaSuiteDiscountPercent ?? 15;
+          const average = !!prev.averageStayCondition;
+          const recommendedGrid = prev.gridTariffMode === 'recommended';
+          const year = Number(toInputDate(next.Entrada).slice(0, 4)) || 2027;
+          next.ratesOnlyGrid = {};
+          ['HA', 'HD', 'MP', 'PC'].forEach(board => {
+            next.ratesOnlyGrid[board] = {};
+            const refs = average && dates.length ? dates : [dates[0] || toInputDate(next.Entrada)];
+            const comps = refs.map(date => getCapaSuiteTariffComparison(targetHotel, date, board, discount));
+            const official = getOfficialTariffsGrid(targetHotel, year)[board] || {};
+            rooms.forEach(room => {
+              const values = comps.map(comp => comp.recommendedPricesByRoom?.[room]);
+              const price = average || recommendedGrid
+                ? (values.every(v => v != null) ? roundRate(values.reduce((sum, v) => sum + Number(v), 0) / values.length) : null)
+                : official[room];
+              if (price != null) next.ratesOnlyGrid[board][room] = price;
+            });
+          });
+          dates.forEach(date => {
+            const day = next.dailyConfig[date] || { board: next['Régimen'] || 'HD', counts: {}, gratuities: {} };
+            const oldDay = prev.dailyConfig?.[date] || {};
+            const board = day.board || next['Régimen'] || 'HD';
+            const mode = oldDay.tariffMode || 'official';
+            const refs = average ? dates : [date];
+            const comps = refs.map(d => getCapaSuiteTariffComparison(targetHotel, d, board, discount));
+            const prices = {};
+            rooms.forEach(room => {
+              const values = comps.map(comp => comp.recommendedPricesByRoom?.[room]);
+              const price = average || mode === 'recommended'
+                ? (values.every(v => v != null) ? roundRate(values.reduce((sum, v) => sum + Number(v), 0) / values.length) : null)
+                : comps[0].officialPricesByRoom?.[room];
+              if (price != null) prices[room] = price;
+            });
+            next.dailyConfig[date] = { ...day, prices, tariffMode: average ? 'average' : mode };
+          });
+          if (average) next.averageStayCondition = { dates: [...dates], nights: dates.length };
+          return next;
+        });
+      };
+
       const handleDailyConfigChange = (date, field, value, roomType = null) => {
         setFormData(prev => {
           const newDailyConfig = { ...(prev.dailyConfig || {}) };
@@ -2169,7 +2214,8 @@
           ...prev,
           ratesOnlyGrid: mergedGrid,
           dailyConfig: newDailyConfig,
-          averageStayCondition: null
+          averageStayCondition: null,
+          gridTariffMode: 'official'
         }));
 
         alert('Tarifas oficiales ' + validYear + ' aplicadas correctamente a ' + hotel + ' (' + Object.keys(mergedGrid).length + ' regímenes).');
@@ -2229,7 +2275,8 @@
           capaSuiteDiscountPercent: discount,
           ratesOnlyGrid: mergedGrid,
           dailyConfig: newDailyConfig,
-          averageStayCondition: null
+          averageStayCondition: null,
+          gridTariffMode: 'recommended'
         }));
 
         alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
@@ -2345,7 +2392,7 @@
       const handleSave = async (e) => {
         e.preventDefault();
         if (formData.averageStayCondition && JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates)) {
-          alert('La tarifa media estaba calculada para ' + formData.averageStayCondition.nights + ' noches y las fechas han cambiado. Reaplica Tarifa Media Estancia o elige tarifas oficiales/recomendadas antes de guardar.');
+          alert('La tarifa media estaba calculada para ' + formData.averageStayCondition.nights + ' noches y las fechas han cambiado. Reaplica Tarifa Media Estancia o elige tarifas de grupos/recomendadas antes de guardar.');
           return;
         }
         const uidToCheck = formData.uid || (groups.find(g => g.Reserva === formData.Reserva)?.uid);
@@ -3353,7 +3400,7 @@ ${emailContent}`;
             )}
 
             {/* Header Alta/Edición */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div className="sticky top-[50px] z-40 print:static flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex items-center gap-4">
                 <button onClick={() => setCurrentView('dashboard')} className="w-10 h-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 hover:text-slate-800 transition-all border border-slate-100 flex-shrink-0">
                   <i className="fas fa-arrow-left"></i>
@@ -3402,7 +3449,7 @@ ${emailContent}`;
                     disabled={isFormLocked}
                     onChange={e => {
                       const newH = e.target.value;
-                      setFormData(prev => remapBudgetRoomsForHotel(prev, newH));
+                      handleBudgetHotelChange(newH);
                     }}
                     className="bg-indigo-50 text-indigo-700 border-none rounded-xl px-4 py-2 text-xs font-black outline-none ring-2 ring-indigo-100 focus:ring-indigo-300 transition-all cursor-pointer disabled:opacity-60"
                   >
@@ -4004,7 +4051,7 @@ ${emailContent}`;
                             className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition-all focus:scale-95"
                             title="Cargar las tarifas oficiales de grupos para este hotel y año en todas las fechas"
                           >
-                            <i className="fas fa-tags text-emerald-600"></i> Cargar Tarifas Oficiales
+                            <i className="fas fa-tags text-emerald-600"></i> Cargar Tarifas de Grupos
                           </button>
                           <button 
                             type="button"
@@ -4017,7 +4064,7 @@ ${emailContent}`;
                         </div>
                       </div>
 
-                      {/* Panel de Inteligencia CapaSuite vs Tarifas Oficiales */}
+                      {/* Panel de Inteligencia CapaSuite vs Tarifas de Grupos */}
                       {(() => {
                         const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
                         const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
@@ -4040,7 +4087,7 @@ ${emailContent}`;
                                     </span>
                                   </div>
                                   <h4 className="text-xs font-black text-white tracking-tight">
-                                    Tarifa Oficial de Grupo vs Tarifa Recomendada CapaSuite
+                                    Tarifa de Grupos vs Tarifa Recomendada CapaSuite
                                   </h4>
                                   <p className="text-[9px] text-indigo-200 mt-1">{hotel} · Catálogo {Array.from(new Set(stayDates.map(date => toInputDate(date).slice(0, 4)))).join(' / ')}</p>
                                 </div>
@@ -4102,10 +4149,10 @@ ${emailContent}`;
                                   type="button"
                                   onClick={handleLoadOfficialTariffs}
                                   className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1"
-                                  title="Aplica la tarifa oficial de grupos vigente del catálogo"
+                                  title="Aplica la tarifa de grupos vigente del catálogo"
                                 >
                                   <i className="fas fa-tags text-indigo-300"></i>
-                                  Tarifa Oficial
+                                  Tarifa de Grupos
                                 </button>
                               </div>
                             </div>
@@ -4113,12 +4160,12 @@ ${emailContent}`;
                             {/* Tarjetas resumen de precio medio */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-[10px]">
                               <div className="bg-white/5 rounded-xl p-2 border border-white/5">
-                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">PVP Hotel medio (HA)</div>
+                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Tarifa del hotel · media (HA)</div>
                                 <div className="text-sm font-black text-white mt-0.5">{staySummary.avgHotelPrice.toFixed(2)} €</div>
                                 <div className="text-[7px] text-slate-400 truncate">Habitación doble · solo alojamiento</div>
                               </div>
                               <div className="bg-white/5 rounded-xl p-2 border border-white/5">
-                                <div className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Tarifa Oficial Grupo</div>
+                                <div className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Tarifa de Grupos</div>
                                 <div className="text-sm font-black text-emerald-300 mt-0.5">{staySummary.avgOfficialRate.toFixed(2)} €</div>
                                 <div className="text-[7px] text-slate-400 truncate">Doble · {Array.from(new Set(staySummary.comparisons.map(c => c.boardCode))).join(' / ')} · media por noche</div>
                               </div>
@@ -4161,6 +4208,26 @@ ${emailContent}`;
                                   <span className="text-slate-500">{formData.Hotel_Asignado?.toLowerCase().includes('cumbria') ? 'Cumbria' : 'Guadiana'} · {date.slice(0, 4)}</span><br />
                                   PVP hab. (HA): <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
                                 </span>
+                                {(() => {
+                                  const availability = window.CapaSuitePricingService?.getDayAvailability?.(formData.Hotel_Asignado, date);
+                                  if (availability?.available == null || !availability.capacity) {
+                                    return <span className="text-[9px] font-bold text-slate-400">Ocupación: sin datos</span>;
+                                  }
+                                  const counts = formData.isMultiSegment
+                                    ? buildDailyCountsFromSegments(formData.segments || [])[date] || {}
+                                    : { ...(formData.roomCounts || {}), ...(formData.dailyConfig?.[date]?.counts || {}) };
+                                  const requested = Object.values(counts).reduce((sum, count) => sum + Math.max(0, Number(count) || 0), 0);
+                                  const occupied = (availability.occupied || 0) + (availability.blocked || 0);
+                                  const percent = occupied / availability.capacity * 100;
+                                  const projected = (occupied + requested) / availability.capacity * 100;
+                                  return (
+                                    <div className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[9px] leading-relaxed" title={`${availability.source}. Ocupación y cupos bloqueados incluidos. Proyección si este grupo es adicional a la ocupación registrada.`}>
+                                      <div className="font-black text-slate-700">Ocupación: {percent.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</div>
+                                      <div className="text-slate-500">{availability.available} hab. libres</div>
+                                      <div className={`font-bold ${projected > 100 ? 'text-rose-600' : 'text-indigo-600'}`}>Con grupo: {projected.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</div>
+                                    </div>
+                                  );
+                                })()}
                                 <select
                                   aria-label={`Tarifa para toda la fila del ${formatDate(date)}`}
                                   title="Aplica a toda la fila y mantiene esta elección al cambiar de régimen"
@@ -4187,7 +4254,7 @@ ${emailContent}`;
                                     if (p === undefined || p === '' || Number(p) !== Number(recP)) allRec = false;
                                   });
                                   if (allOff) {
-                                    return <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">[OK] Oficial</span>;
+                                    return <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">[OK] Grupos</span>;
                                   } else if (allRec) {
                                     return <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight flex items-center gap-0.5"><i className="fas fa-bolt text-amber-500 text-[6px]"></i> Rec. CapaSuite</span>;
                                   } else {
@@ -4262,10 +4329,10 @@ ${emailContent}`;
                                                   ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black ring-1 ring-emerald-400/50" 
                                                   : "bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-700 border-slate-200/80"
                                               }`}
-                                              title={`Tarifa Oficial: ${offPrice !== undefined && offPrice !== null ? offPrice + ' €' : '-'} (Clic para aplicar)`}
+                                              title={`Tarifa de Grupos: ${offPrice !== undefined && offPrice !== null ? offPrice + ' €' : '-'} (Clic para aplicar)`}
                                             >
                                               {isOffActive && <i className="fas fa-check text-[7px] mr-0.5"></i>}
-                                              <span className={`text-[7px] uppercase ${isOffActive ? "text-emerald-100" : "text-slate-400"}`}>Ofi:</span>
+                                              <span className={`text-[7px] uppercase ${isOffActive ? "text-emerald-100" : "text-slate-400"}`}>Grupo:</span>
                                               <span className="font-black">{offPrice !== undefined && offPrice !== null ? offPrice + '€' : '-'}</span>
                                             </button>
                                             <button
@@ -4355,7 +4422,7 @@ ${emailContent}`;
                         title="Rellena la tabla con las tarifas oficiales vigentes para este hotel"
                       >
                         <i className="fas fa-magic text-[10px]"></i>
-                        Tarifas Oficiales
+                        Tarifas de Grupos
                       </button>
                       {/* Selector de Descuento y Botón Tarifa Sugerida */}
                       <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 rounded-xl px-2.5 py-1">
@@ -4492,7 +4559,7 @@ ${emailContent}`;
                                             />
                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
                                           </div>
-                                          {/* Tarifa Oficial como Referencia y Aviso de Mínimo */}
+                                          {/* Tarifa de Grupos como Referencia y Aviso de Mínimo */}
                                           <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] px-0.5 font-bold">
                                             <span className="text-slate-500" title="Tarifa de catálogo de grupos para esta habitación y régimen">
                                               T/grupo: {offPriceVal !== null ? `${formatMoney(offPriceVal)}€` : '—'}
