@@ -4201,13 +4201,15 @@ ${emailContent}`;
                               ))
                             : currentRooms.filter(type => (formData.roomCounts || {})[type] > 0);
                           return (
-                            <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center">
-                              <div className="shrink-0 w-24 flex flex-col gap-1">
+                            <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all grid grid-cols-1 md:grid-cols-[140px_180px_minmax(0,1fr)_180px] gap-5 items-center">
+                              <div className="flex flex-col gap-2">
                                 <span className="bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest">{formatDate(date)}</span>
                                 <span className="text-[7px] text-slate-400 font-bold" title={`PVP de habitación doble, solo alojamiento, sin manutención: ${dayComp.hotelDayPrice} €`}>
                                   <span className="text-slate-500">{formData.Hotel_Asignado?.toLowerCase().includes('cumbria') ? 'Cumbria' : 'Guadiana'} · {date.slice(0, 4)}</span><br />
                                   PVP hab. (HA): <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
                                 </span>
+                              </div>
+                              <div className="min-w-0">
                                 {(() => {
                                   const availability = window.CapaSuitePricingService?.getDayAvailability?.(formData.Hotel_Asignado, date);
                                   if (availability?.available == null || !availability.capacity) {
@@ -4221,49 +4223,17 @@ ${emailContent}`;
                                   const percent = occupied / availability.capacity * 100;
                                   const projected = (occupied + requested) / availability.capacity * 100;
                                   return (
-                                    <div className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[9px] leading-relaxed" title={`${availability.source}. Ocupación y cupos bloqueados incluidos. Proyección si este grupo es adicional a la ocupación registrada.`}>
+                                    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed" title={`${availability.source}. Ocupación y cupos bloqueados incluidos. Proyección si este grupo es adicional a la ocupación registrada.`}>
                                       <div className="font-black text-slate-700">Ocupación: {percent.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</div>
                                       <div className="text-slate-500">{availability.available} hab. libres</div>
                                       <div className={`font-bold ${projected > 100 ? 'text-rose-600' : 'text-indigo-600'}`}>Con grupo: {projected.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</div>
                                     </div>
                                   );
                                 })()}
-                                <select
-                                  aria-label={`Tarifa para toda la fila del ${formatDate(date)}`}
-                                  title="Aplica a toda la fila y mantiene esta elección al cambiar de régimen"
-                                  value={formData.dailyConfig?.[date]?.tariffMode || (selectedTypes.length > 0 && selectedTypes.every(t => {
-                                    const price = formData.dailyConfig?.[date]?.prices?.[t];
-                                    const recommended = dayComp.recommendedPricesByRoom?.[t];
-                                    return price !== undefined && price !== '' && recommended != null && Number(price) === Number(recommended);
-                                  }) ? 'recommended' : 'official')}
-                                  onChange={e => handleDailyConfigChange(date, 'tariffMode', e.target.value)}
-                                  className="w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
-                                >
-                                  {formData.dailyConfig?.[date]?.tariffMode === 'average' && <option value="average">Tarifa media</option>}
-                                  <option value="official">Tarifa de grupos</option>
-                                  <option value="recommended">Recomendada</option>
-                                </select>
-                                {(() => {
-                                  let allOff = selectedTypes.length > 0;
-                                  let allRec = selectedTypes.length > 0;
-                                  selectedTypes.forEach(t => {
-                                    const p = (formData.dailyConfig?.[date]?.prices || {})[t];
-                                    const offP = dayComp.officialPricesByRoom[t];
-                                    const recP = dayComp.recommendedPricesByRoom[t];
-                                    if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
-                                    if (p === undefined || p === '' || Number(p) !== Number(recP)) allRec = false;
-                                  });
-                                  if (allOff) {
-                                    return <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">[OK] Grupos</span>;
-                                  } else if (allRec) {
-                                    return <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight flex items-center gap-0.5"><i className="fas fa-bolt text-amber-500 text-[6px]"></i> Rec. CapaSuite</span>;
-                                  } else {
-                                    return <span className="bg-amber-100 text-amber-800 border border-amber-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">Tarifa Mixta</span>;
-                                  }
-                                })()}
+
                               </div>
 
-                              <div className="flex-1 flex flex-wrap gap-2 items-center">
+                              <div className="min-w-0 flex flex-wrap gap-4 items-center justify-center md:justify-start">
                                 {selectedTypes.map(type => {
                                   const dailyCounts = formData.dailyConfig?.[date]?.counts || {};
                                   const countVal = formData.isMultiSegment
@@ -4358,7 +4328,41 @@ ${emailContent}`;
                                 })}
                               </div>
 
-                              <div className="shrink-0 w-32 flex flex-col gap-0.5">
+                              <div className="min-w-0 flex flex-col gap-2">
+                                <label className="text-[9px] font-black text-indigo-500 uppercase px-1">Tarifa del día</label>
+                                <select
+                                  aria-label={`Tarifa para toda la fila del ${formatDate(date)}`}
+                                  title="Aplica a toda la fila y mantiene esta elección al cambiar de régimen"
+                                  value={formData.dailyConfig?.[date]?.tariffMode || (selectedTypes.length > 0 && selectedTypes.every(t => {
+                                    const price = formData.dailyConfig?.[date]?.prices?.[t];
+                                    const recommended = dayComp.recommendedPricesByRoom?.[t];
+                                    return price !== undefined && price !== '' && recommended != null && Number(price) === Number(recommended);
+                                  }) ? 'recommended' : 'official')}
+                                  onChange={e => handleDailyConfigChange(date, 'tariffMode', e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
+                                >
+                                  {formData.dailyConfig?.[date]?.tariffMode === 'average' && <option value="average">Tarifa media</option>}
+                                  <option value="official">Tarifa de grupos</option>
+                                  <option value="recommended">Recomendada</option>
+                                </select>
+                                {(() => {
+                                  let allOff = selectedTypes.length > 0;
+                                  let allRec = selectedTypes.length > 0;
+                                  selectedTypes.forEach(t => {
+                                    const p = (formData.dailyConfig?.[date]?.prices || {})[t];
+                                    const offP = dayComp.officialPricesByRoom[t];
+                                    const recP = dayComp.recommendedPricesByRoom[t];
+                                    if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
+                                    if (p === undefined || p === '' || Number(p) !== Number(recP)) allRec = false;
+                                  });
+                                  if (allOff) {
+                                    return <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">[OK] Grupos</span>;
+                                  } else if (allRec) {
+                                    return <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight flex items-center gap-0.5"><i className="fas fa-bolt text-amber-500 text-[6px]"></i> Rec. CapaSuite</span>;
+                                  } else {
+                                    return <span className="bg-amber-100 text-amber-800 border border-amber-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">Tarifa Mixta</span>;
+                                  }
+                                })()}
                                 <label className="text-[7px] font-black text-indigo-500 uppercase px-1">Régimen</label>
                                 <select
                                   value={(() => {

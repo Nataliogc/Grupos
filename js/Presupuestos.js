@@ -4976,7 +4976,7 @@ function App() {
     }(), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
-      var _formData$dailyConfig4, _formData$Hotel_Asign, _formData$dailyConfig6, _formData$dailyConfig8;
+      var _formData$dailyConfig4, _formData$Hotel_Asign, _formData$dailyConfig0, _formData$dailyConfig10;
       var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
       var currentBoard = ((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
       var dayComp = getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, discount);
@@ -4992,9 +4992,9 @@ function App() {
       });
       return /*#__PURE__*/React.createElement("div", {
         key: date,
-        className: "group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center"
+        className: "group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all grid grid-cols-1 md:grid-cols-[140px_180px_minmax(0,1fr)_180px] gap-5 items-center"
       }, /*#__PURE__*/React.createElement("div", {
-        className: "shrink-0 w-24 flex flex-col gap-1"
+        className: "flex flex-col gap-2"
       }, /*#__PURE__*/React.createElement("span", {
         className: "bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest"
       }, formatDate(date)), /*#__PURE__*/React.createElement("span", {
@@ -5004,7 +5004,9 @@ function App() {
         className: "text-slate-500"
       }, (_formData$Hotel_Asign = formData.Hotel_Asignado) !== null && _formData$Hotel_Asign !== void 0 && _formData$Hotel_Asign.toLowerCase().includes('cumbria') ? 'Cumbria' : 'Guadiana', " \xB7 ", date.slice(0, 4)), /*#__PURE__*/React.createElement("br", null), "PVP hab. (HA): ", /*#__PURE__*/React.createElement("span", {
         className: "text-slate-600 font-black"
-      }, dayComp.hotelDayPrice, " \u20AC")), function (_window$CapaSuitePric3, _window$CapaSuitePric4, _formData$dailyConfig5) {
+      }, dayComp.hotelDayPrice, " \u20AC"))), /*#__PURE__*/React.createElement("div", {
+        className: "min-w-0"
+      }, function (_window$CapaSuitePric3, _window$CapaSuitePric4, _formData$dailyConfig5) {
         var availability = (_window$CapaSuitePric3 = window.CapaSuitePricingService) === null || _window$CapaSuitePric3 === void 0 || (_window$CapaSuitePric4 = _window$CapaSuitePric3.getDayAvailability) === null || _window$CapaSuitePric4 === void 0 ? void 0 : _window$CapaSuitePric4.call(_window$CapaSuitePric3, formData.Hotel_Asignado, date);
         if ((availability === null || availability === void 0 ? void 0 : availability.available) == null || !availability.capacity) {
           return /*#__PURE__*/React.createElement("span", {
@@ -5019,7 +5021,7 @@ function App() {
         var percent = occupied / availability.capacity * 100;
         var projected = (occupied + requested) / availability.capacity * 100;
         return /*#__PURE__*/React.createElement("div", {
-          className: "rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[9px] leading-relaxed",
+          className: "rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed",
           title: "".concat(availability.source, ". Ocupaci\xF3n y cupos bloqueados incluidos. Proyecci\xF3n si este grupo es adicional a la ocupaci\xF3n registrada.")
         }, /*#__PURE__*/React.createElement("div", {
           className: "font-black text-slate-700"
@@ -5032,56 +5034,11 @@ function App() {
         }, "Con grupo: ", projected.toLocaleString('es-ES', {
           maximumFractionDigits: 1
         }), "%"));
-      }(), /*#__PURE__*/React.createElement("select", {
-        "aria-label": "Tarifa para toda la fila del ".concat(formatDate(date)),
-        title: "Aplica a toda la fila y mantiene esta elecci\xF3n al cambiar de r\xE9gimen",
-        value: ((_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.tariffMode) || (selectedTypes.length > 0 && selectedTypes.every(function (t) {
-          var _formData$dailyConfig7, _dayComp$recommendedP;
-          var price = (_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7.prices) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7[t];
-          var recommended = (_dayComp$recommendedP = dayComp.recommendedPricesByRoom) === null || _dayComp$recommendedP === void 0 ? void 0 : _dayComp$recommendedP[t];
-          return price !== undefined && price !== '' && recommended != null && Number(price) === Number(recommended);
-        }) ? 'recommended' : 'official'),
-        onChange: function onChange(e) {
-          return handleDailyConfigChange(date, 'tariffMode', e.target.value);
-        },
-        className: "w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
-      }, ((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.tariffMode) === 'average' && /*#__PURE__*/React.createElement("option", {
-        value: "average"
-      }, "Tarifa media"), /*#__PURE__*/React.createElement("option", {
-        value: "official"
-      }, "Tarifa de grupos"), /*#__PURE__*/React.createElement("option", {
-        value: "recommended"
-      }, "Recomendada")), function () {
-        var allOff = selectedTypes.length > 0;
-        var allRec = selectedTypes.length > 0;
-        selectedTypes.forEach(function (t) {
-          var _formData$dailyConfig9;
-          var p = (((_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.prices) || {})[t];
-          var offP = dayComp.officialPricesByRoom[t];
-          var recP = dayComp.recommendedPricesByRoom[t];
-          if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
-          if (p === undefined || p === '' || Number(p) !== Number(recP)) allRec = false;
-        });
-        if (allOff) {
-          return /*#__PURE__*/React.createElement("span", {
-            className: "bg-emerald-100 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight"
-          }, "[OK] Grupos");
-        } else if (allRec) {
-          return /*#__PURE__*/React.createElement("span", {
-            className: "bg-indigo-100 text-indigo-800 border border-indigo-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight flex items-center gap-0.5"
-          }, /*#__PURE__*/React.createElement("i", {
-            className: "fas fa-bolt text-amber-500 text-[6px]"
-          }), " Rec. CapaSuite");
-        } else {
-          return /*#__PURE__*/React.createElement("span", {
-            className: "bg-amber-100 text-amber-800 border border-amber-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight"
-          }, "Tarifa Mixta");
-        }
       }()), /*#__PURE__*/React.createElement("div", {
-        className: "flex-1 flex flex-wrap gap-2 items-center"
+        className: "min-w-0 flex flex-wrap gap-4 items-center justify-center md:justify-start"
       }, selectedTypes.map(function (type) {
-        var _formData$dailyConfig0, _formData$dailyConfig1, _formData$dailyConfig10;
-        var dailyCounts = ((_formData$dailyConfig0 = formData.dailyConfig) === null || _formData$dailyConfig0 === void 0 || (_formData$dailyConfig0 = _formData$dailyConfig0[date]) === null || _formData$dailyConfig0 === void 0 ? void 0 : _formData$dailyConfig0.counts) || {};
+        var _formData$dailyConfig6, _formData$dailyConfig7, _formData$dailyConfig8;
+        var dailyCounts = ((_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.counts) || {};
         var countVal = formData.isMultiSegment ? function (_segmentCountsByDate$) {
           var segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
           return ((_segmentCountsByDate$ = segmentCountsByDate[date]) === null || _segmentCountsByDate$ === void 0 ? void 0 : _segmentCountsByDate$[type.toUpperCase()]) || 0;
@@ -5112,7 +5069,7 @@ function App() {
           className: "relative group flex w-[68px]"
         }, /*#__PURE__*/React.createElement("input", {
           type: "number",
-          value: (((_formData$dailyConfig1 = formData.dailyConfig) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1[date]) === null || _formData$dailyConfig1 === void 0 ? void 0 : _formData$dailyConfig1.prices) || {})[type] || '',
+          value: (((_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.prices) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'prices', e.target.value, type);
           },
@@ -5129,14 +5086,14 @@ function App() {
         }, "Grat."), /*#__PURE__*/React.createElement("input", {
           type: "number",
           min: "0",
-          value: (((_formData$dailyConfig10 = formData.dailyConfig) === null || _formData$dailyConfig10 === void 0 || (_formData$dailyConfig10 = _formData$dailyConfig10[date]) === null || _formData$dailyConfig10 === void 0 ? void 0 : _formData$dailyConfig10.gratuities) || {})[type] || '',
+          value: (((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.gratuities) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'gratuities', e.target.value, type);
           },
           className: "w-full bg-transparent text-[10px] font-black text-center outline-none text-emerald-700 [&::-webkit-inner-spin-button]:appearance-none placeholder:text-emerald-300",
           placeholder: "0"
-        }))), function (_formData$dailyConfig11) {
-          var currentPrice = (((_formData$dailyConfig11 = formData.dailyConfig) === null || _formData$dailyConfig11 === void 0 || (_formData$dailyConfig11 = _formData$dailyConfig11[date]) === null || _formData$dailyConfig11 === void 0 ? void 0 : _formData$dailyConfig11.prices) || {})[type];
+        }))), function (_formData$dailyConfig9) {
+          var currentPrice = (((_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.prices) || {})[type];
           var isOffActive = offPrice !== null && offPrice !== undefined && Number(currentPrice) === Number(offPrice);
           var isRecActive = recPrice !== null && recPrice !== undefined && Number(currentPrice) === Number(recPrice);
           return /*#__PURE__*/React.createElement("div", {
@@ -5172,8 +5129,55 @@ function App() {
           }, recPrice !== undefined && recPrice !== null ? recPrice + '€' : '-')));
         }());
       })), /*#__PURE__*/React.createElement("div", {
-        className: "shrink-0 w-32 flex flex-col gap-0.5"
+        className: "min-w-0 flex flex-col gap-2"
       }, /*#__PURE__*/React.createElement("label", {
+        className: "text-[9px] font-black text-indigo-500 uppercase px-1"
+      }, "Tarifa del d\xEDa"), /*#__PURE__*/React.createElement("select", {
+        "aria-label": "Tarifa para toda la fila del ".concat(formatDate(date)),
+        title: "Aplica a toda la fila y mantiene esta elecci\xF3n al cambiar de r\xE9gimen",
+        value: ((_formData$dailyConfig0 = formData.dailyConfig) === null || _formData$dailyConfig0 === void 0 || (_formData$dailyConfig0 = _formData$dailyConfig0[date]) === null || _formData$dailyConfig0 === void 0 ? void 0 : _formData$dailyConfig0.tariffMode) || (selectedTypes.length > 0 && selectedTypes.every(function (t) {
+          var _formData$dailyConfig1, _dayComp$recommendedP;
+          var price = (_formData$dailyConfig1 = formData.dailyConfig) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1[date]) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1.prices) === null || _formData$dailyConfig1 === void 0 ? void 0 : _formData$dailyConfig1[t];
+          var recommended = (_dayComp$recommendedP = dayComp.recommendedPricesByRoom) === null || _dayComp$recommendedP === void 0 ? void 0 : _dayComp$recommendedP[t];
+          return price !== undefined && price !== '' && recommended != null && Number(price) === Number(recommended);
+        }) ? 'recommended' : 'official'),
+        onChange: function onChange(e) {
+          return handleDailyConfigChange(date, 'tariffMode', e.target.value);
+        },
+        className: "w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
+      }, ((_formData$dailyConfig10 = formData.dailyConfig) === null || _formData$dailyConfig10 === void 0 || (_formData$dailyConfig10 = _formData$dailyConfig10[date]) === null || _formData$dailyConfig10 === void 0 ? void 0 : _formData$dailyConfig10.tariffMode) === 'average' && /*#__PURE__*/React.createElement("option", {
+        value: "average"
+      }, "Tarifa media"), /*#__PURE__*/React.createElement("option", {
+        value: "official"
+      }, "Tarifa de grupos"), /*#__PURE__*/React.createElement("option", {
+        value: "recommended"
+      }, "Recomendada")), function () {
+        var allOff = selectedTypes.length > 0;
+        var allRec = selectedTypes.length > 0;
+        selectedTypes.forEach(function (t) {
+          var _formData$dailyConfig11;
+          var p = (((_formData$dailyConfig11 = formData.dailyConfig) === null || _formData$dailyConfig11 === void 0 || (_formData$dailyConfig11 = _formData$dailyConfig11[date]) === null || _formData$dailyConfig11 === void 0 ? void 0 : _formData$dailyConfig11.prices) || {})[t];
+          var offP = dayComp.officialPricesByRoom[t];
+          var recP = dayComp.recommendedPricesByRoom[t];
+          if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
+          if (p === undefined || p === '' || Number(p) !== Number(recP)) allRec = false;
+        });
+        if (allOff) {
+          return /*#__PURE__*/React.createElement("span", {
+            className: "bg-emerald-100 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight"
+          }, "[OK] Grupos");
+        } else if (allRec) {
+          return /*#__PURE__*/React.createElement("span", {
+            className: "bg-indigo-100 text-indigo-800 border border-indigo-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight flex items-center gap-0.5"
+          }, /*#__PURE__*/React.createElement("i", {
+            className: "fas fa-bolt text-amber-500 text-[6px]"
+          }), " Rec. CapaSuite");
+        } else {
+          return /*#__PURE__*/React.createElement("span", {
+            className: "bg-amber-100 text-amber-800 border border-amber-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight"
+          }, "Tarifa Mixta");
+        }
+      }(), /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
       }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
         value: function (_formData$dailyConfig12) {
