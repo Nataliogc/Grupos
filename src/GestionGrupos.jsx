@@ -1268,19 +1268,10 @@
       // Estados de control
       const [targetHotel, setTargetHotel] = useState("guadiana");
       const [targetYear, setTargetYear] = useState(2027);
-      const [baseYear, setBaseYear] = useState(2026);
-      const [scenario, setScenario] = useState("base");
-      const [growthPercent, setGrowthPercent] = useState(0); // 0% por defecto (Req 25)
+      const [syncKey, setSyncKey] = useState(0);
 
-      // Estados de Presupuesto Oficial y Seguridad (Clave 1234)
-      const [isOfficial, setIsOfficial] = useState(false);
-      const [isUnlocked, setIsUnlocked] = useState(false);
+      // Documento oficial de objetivos fijado en CapaSuite
       const [officialDoc, setOfficialDoc] = useState(null);
-      const [showPinModal, setShowPinModal] = useState(false);
-      const [pinInput, setPinInput] = useState("");
-      const [pinError, setPinError] = useState(null);
-      const [manualMonthOverrides, setManualMonthOverrides] = useState({});
-      const [isManualEditMode, setIsManualEditMode] = useState(false);
 
       const [activeSubView, setActiveSubView] = useState("monthly"); // 'monthly' | 'regimen' | 'category'
       const [showTariffModal, setShowTariffModal] = useState(false);
@@ -1300,6 +1291,26 @@
       const [tariffPinError, setTariffPinError] = useState(null);
       const [isTariffSuggested, setIsTariffSuggested] = useState(false);
       const [tariffSuggestedGrowth, setTariffSuggestedGrowth] = useState(4.0);
+
+      // Formateador de fecha en español dd/mm/aaaa
+      const formatDateEs = (d, includeTime = false) => {
+        if (!d) return "";
+        try {
+          const dateObj = (d instanceof Date) ? d : new Date(d);
+          if (isNaN(dateObj.getTime())) return String(d);
+          const day = String(dateObj.getDate()).padStart(2, "0");
+          const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+          const year = dateObj.getFullYear();
+          if (includeTime) {
+            const hours = String(dateObj.getHours()).padStart(2, "0");
+            const mins = String(dateObj.getMinutes()).padStart(2, "0");
+            return `${day}/${month}/${year} ${hours}:${mins}`;
+          }
+          return `${day}/${month}/${year}`;
+        } catch(e) {
+          return String(d);
+        }
+      };
 
       // Catálogo de tarifas local y editable
       const [tariffsCatalog, setTariffsCatalog] = useState(() => {
@@ -1335,33 +1346,86 @@
         setTimeout(() => setToastMsg(null), 4000);
       };
 
-      // Carga y verificación automática de Presupuesto Oficial al cambiar hotel o año
+      // ── LECTURA OFICIAL DE OBJETIVOS FIJADOS EN CAPASUITE ──
+      const getCapaSuiteTargetDoc = (hotel, year) => {
+        const hKey = gts ? gts.normalizeHotelKey(hotel) : (String(hotel || "").toLowerCase().includes("cumbria") ? "cumbria" : "guadiana");
+        const yStr = String(year);
+
+        // 1. Prioridad: documento oficial generado por CapaSuite (syncGroupsTargetToNexus)
+        const keys = [
+          `nexus_target_${hKey}_${yStr}`,
+          `v3_nexus_target_${hKey}_${yStr}`,
+          `nexus_target_${hKey === "cumbria" ? "Cumbria" : "Guadiana"}_${yStr}`
+        ];
+        for (const k of keys) {
+          try {
+            const raw = (typeof window.CapaStorage !== "undefined" && window.CapaStorage.getItem)
+              ? window.CapaStorage.getItem(k)
+              : localStorage.getItem(k);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && (parsed.monthly || parsed.overall)) {
+                return parsed;
+              }
+            }
+          } catch(e) {}
+        }
+
+        // 2. Prioridad: lectura de segmentos de grupos en base general hotel_manager_db_v2 o custom_seg_budget
+        if (gts && typeof gts.getCapaSuiteGroupData === "function") {
+          try {
+            const gData = gts.getCapaSuiteGroupData(hKey, Number(year));
+            if (gData && Object.keys(gData).length > 0) {
+              let totRev = 0, totRN = 0, totPax = 0;
+              let hasAny = false;
+              Object.keys(gData).forEach(m => {
+                const rev = Number(gData[m].revenue || 0);
+                const rn = Number(gData[m].rooms || 0);
+                if (rev > 0 || rn > 0) hasAny = true;
+                totRev += rev;
+                totRN += rn;
+                totPax += Number(gData[m].pax || Math.round(rn * 1.9));
+              });
+              if (hasAny) {
+                return {
+                  hotel: hKey,
+                  targetYear: Number(year),
+                  baseYear: Number(year) - 1,
+                  scenario: "capasuite_official",
+                  growthPercent: 0,
+                  monthly: gData,
+                  overall: {
+                    totalRevenue: Math.round(totRev * 100) / 100,
+                    roomNights: Math.round(totRN),
+                    pax: Math.round(totPax),
+                    adr: totRN > 0 ? Math.round((totRev / totRN) * 100) / 100 : 75,
+                    isOfficial: true,
+                    source: "CapaSuite"
+                  },
+                  isOfficial: true,
+                  source: "CapaSuite",
+                  officialSavedBy: "Dirección Revenue (CapaSuite)",
+                  status: "Definitivo"
+                };
+              }
+            }
+          } catch(e) {}
+        }
+
+        return null;
+      };
+
+      // Carga y verificación automática al cambiar hotel, año o syncKey
       useEffect(() => {
-        const docKey = "nexus_target_" + targetHotel + "_" + targetYear;
-        let localData = null;
-        try {
-          const raw = localStorage.getItem(docKey);
-          if (raw) localData = JSON.parse(raw);
-        } catch(e) {}
+        const doc = getCapaSuiteTargetDoc(targetHotel, targetYear);
+        setOfficialDoc(doc);
 
-        const applyTargetDoc = (doc) => {
-          if (doc && doc.isOfficial) {
-            setOfficialDoc(doc);
-            setIsOfficial(true);
-            setIsUnlocked(false);
-            if (doc.scenario) setScenario(doc.scenario);
-            if (typeof doc.growthPercent === "number") setGrowthPercent(doc.growthPercent);
-            if (doc.manualOverrides) setManualMonthOverrides(doc.manualOverrides);
-            else setManualMonthOverrides({});
-          } else {
-            setOfficialDoc(null);
-            setIsOfficial(false);
-            setIsUnlocked(true); // Libre para simular en años sin presupuesto
-            setManualMonthOverrides({});
-          }
+        const onDataSynced = () => {
+          const freshDoc = getCapaSuiteTargetDoc(targetHotel, targetYear);
+          setOfficialDoc(freshDoc);
         };
-
-        applyTargetDoc(localData);
+        window.addEventListener("capasuite-data-synced", onDataSynced);
+        window.addEventListener("storage", onDataSynced);
 
         // Sincronizar catálogo de tarifas desde Firestore settings si existe
         if (window.db && typeof window.db.collection === "function") {
@@ -1381,33 +1445,20 @@
             .catch(err => console.warn("Error cargando groupTariffs desde Firestore:", err));
         }
 
-        if (window.db && typeof window.db.collection === "function") {
-          window.db.collection("groupTargets").doc(targetHotel + "_" + targetYear).get()
-            .then(snap => {
-              if (snap.exists) {
-                const fsData = snap.data();
-                if (fsData) {
-                  applyTargetDoc(fsData);
-                  try {
-                    localStorage.setItem(docKey, JSON.stringify(fsData));
-                  } catch(e) {}
-                }
-              } else if (!localData) {
-                applyTargetDoc(null);
-              }
-            })
-            .catch(err => console.warn("Error cargando groupTargets desde Firestore:", err));
-        }
-      }, [targetHotel, targetYear]);
+        return () => {
+          window.removeEventListener("capasuite-data-synced", onDataSynced);
+          window.removeEventListener("storage", onDataSynced);
+        };
+      }, [targetHotel, targetYear, syncKey]);
 
-      // 1. Agregación histórica base (Req 23)
+      // 1. Agregación histórica del año previo para comparativas y anuladas
       const histData = useMemo(() => {
         if (!gts || !dailyOccupancyList) return { monthly: {}, overall: {}, cancelled: { count: 0, pax: 0, lostRevenue: 0 } };
         return gts.aggregateHistoricalGroupData(dailyOccupancyList, {
           hotel: targetHotel,
-          year: baseYear
+          year: targetYear - 1
         });
-      }, [dailyOccupancyList, targetHotel, baseYear]);
+      }, [dailyOccupancyList, targetHotel, targetYear]);
 
       // 2. Tarifas activas para el hotel y año objetivo
       const currentTariffs = useMemo(() => {
@@ -1415,19 +1466,101 @@
         return gts.getTariffsForHotelAndYear(tariffsCatalog, targetHotel, targetYear);
       }, [tariffsCatalog, targetHotel, targetYear]);
 
-      // 3. Generación de objetivo (Req 24, 25, 27)
+      // 3. Generación y fijación del objetivo (Fuente: CapaSuite Oficial)
       const generatedTarget = useMemo(() => {
         if (!gts) return null;
+        const capaDoc = officialDoc || getCapaSuiteTargetDoc(targetHotel, targetYear);
+
+        if (capaDoc && capaDoc.monthly) {
+          const targetMonthly = {};
+          let totRev = 0, totRN = 0, totPax = 0, totRes = 0;
+          const byCatTotal = { individual: 0, doble: 0, triple: 0, cuadruple: 0 };
+          const byRegTotal = { HA: 0, HD: 0, MP: 0, PC: 0 };
+          const isCumbria = targetHotel === "cumbria";
+
+          for (let m = 1; m <= 12; m++) {
+            const cm = capaDoc.monthly[m] || {};
+            const rev = Number(cm.revenue !== undefined ? cm.revenue : (cm.targetRevenue || 0));
+            const rn = Number(cm.rooms !== undefined ? cm.rooms : (cm.targetRoomNights || 0));
+            const pax = Number(cm.pax !== undefined ? cm.pax : (cm.targetPax || Math.round(rn * 1.9)));
+            const res = Number(cm.reservas !== undefined ? cm.reservas : (cm.targetReservas || (rn > 0 ? Math.max(1, Math.round(rn / 15)) : 0)));
+
+            const catInd = Math.round(rn * 0.15);
+            const catTpl = Math.round(rn * 0.10);
+            const catCua = isCumbria ? 0 : Math.round(rn * 0.05);
+            const catDbl = Math.max(0, rn - catInd - catTpl - catCua);
+
+            const regHA = Math.round(rn * 0.10);
+            const regMP = Math.round(rn * 0.15);
+            const regPC = Math.round(rn * 0.05);
+            const regHD = Math.max(0, rn - regHA - regMP - regPC);
+
+            targetMonthly[m] = {
+              month: m,
+              targetReservas: res,
+              targetPax: pax,
+              targetPernoctaciones: pax,
+              targetRoomNights: rn,
+              targetRevenue: rev,
+              byCategory: { individual: catInd, doble: catDbl, triple: catTpl, cuadruple: catCua },
+              byRegimen: { HA: regHA, HD: regHD, MP: regMP, PC: regPC },
+              revenueByRegimen: {},
+              revenueByCategory: {},
+              isProvisional: false,
+              source: "CapaSuite"
+            };
+
+            totRev += rev;
+            totRN += rn;
+            totPax += pax;
+            totRes += res;
+            byCatTotal.individual += catInd;
+            byCatTotal.doble += catDbl;
+            byCatTotal.triple += catTpl;
+            byCatTotal.cuadruple += catCua;
+            byRegTotal.HA += regHA;
+            byRegTotal.HD += regHD;
+            byRegTotal.MP += regMP;
+            byRegTotal.PC += regPC;
+          }
+
+          return {
+            hotel: targetHotel,
+            targetYear: targetYear,
+            baseYear: targetYear - 1,
+            scenario: "capasuite_official",
+            growthPercent: 0,
+            monthly: targetMonthly,
+            overall: {
+              targetReservas: totRes,
+              targetPax: totPax,
+              targetPernoctaciones: totPax,
+              targetRoomNights: totRN,
+              targetRevenue: Math.round(totRev * 100) / 100,
+              byCategory: byCatTotal,
+              byRegimen: byRegTotal,
+              isProvisional: false,
+              adr: totRN > 0 ? Math.round((totRev / totRN) * 100) / 100 : 75,
+              source: "CapaSuite"
+            },
+            isOfficial: true,
+            source: "CapaSuite",
+            officialSavedAt: capaDoc.officialSavedAt || null,
+            officialSavedBy: capaDoc.officialSavedBy || "Dirección Revenue (CapaSuite)",
+            tariffsUsed: currentTariffs
+          };
+        }
+
+        // Si aún no se ha fijado en CapaSuite, fallback a producción base histórica
         return gts.generateTargetFromHistorical(histData, {
           hotel: targetHotel,
           targetYear: targetYear,
-          baseYear: baseYear,
-          scenario: scenario,
-          growthPercent: Number(growthPercent) || 0,
-          tariffs: currentTariffs,
-          manualOverrides: manualMonthOverrides
+          baseYear: targetYear - 1,
+          scenario: "base",
+          growthPercent: 0,
+          tariffs: currentTariffs
         });
-      }, [histData, targetHotel, targetYear, baseYear, scenario, growthPercent, currentTariffs, manualMonthOverrides]);
+      }, [gts, officialDoc, targetHotel, targetYear, syncKey, histData, currentTariffs]);
 
       // 4. Datos reales del año objetivo (si existen)
       const realDataTargetYear = useMemo(() => {
@@ -1675,95 +1808,18 @@
         showToast("Tarifas redondeadas a " + (roundingType === "0.50" ? "0,50 €" : roundingType === "1.00" ? "1 € entero" : "5 €"));
       };
 
-      // Guardar Presupuesto Oficial
-      const handleSaveOfficialTarget = () => {
-        if (!gts || !generatedTarget) return;
-        try {
-          const doc = gts.prepareTargetDocumentForSave(generatedTarget, "Dirección Comercial", {
-            isOfficial: true,
-            officialSavedAt: new Date().toISOString(),
-            officialSavedBy: "Dirección Comercial",
-            manualOverrides: manualMonthOverrides
-          });
-          const key = "nexus_target_" + targetHotel + "_" + targetYear;
-          localStorage.setItem(key, JSON.stringify(doc));
-          if (window.db && typeof window.db.collection === "function") {
-            window.db.collection("groupTargets").doc(targetHotel + "_" + targetYear).set(doc, { merge: true })
-              .catch(err => console.warn("Error guardando en Firestore groupTargets:", err));
-          }
-          setOfficialDoc(doc);
-          setIsOfficial(true);
-          setIsUnlocked(false);
-          showToast("🔒 Presupuesto Oficial " + targetYear + " grabado y bloqueado con éxito.");
-        } catch(err) {
-          showToast("Error al guardar el presupuesto: " + err.message);
-        }
-      };
-
-      // Desbloqueo mediante Clave 1234
-      const handleVerifyPin = (e) => {
-        if (e) e.preventDefault();
-        if (pinInput.trim() === "1234") {
-          setIsUnlocked(true);
-          setShowPinModal(false);
-          setPinInput("");
-          setPinError(null);
-          setScenario("personalizado");
-          setIsManualEditMode(true);
-          showToast("🔓 Presupuesto Oficial desbloqueado. Ya puedes modificar los objetivos mes a mes.");
+      // Acción manual de sincronización desde CapaSuite
+      const handleSyncFromCapaSuite = () => {
+        setSyncKey(k => k + 1);
+        const doc = getCapaSuiteTargetDoc(targetHotel, targetYear);
+        setOfficialDoc(doc);
+        if (doc && doc.overall) {
+          const revStr = Number(doc.overall.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const rnStr = Number(doc.overall.roomNights || 0).toLocaleString("es-ES");
+          showToast(`🎯 Sincronizado con CapaSuite: ${revStr} € (${rnStr} hab-noches) vinculados para ${targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ${targetYear}.`);
         } else {
-          setPinError("Clave incorrecta. Solo autorizada con clave 1234.");
+          showToast(`ℹ️ No hay presupuesto fijado para ${targetYear} en CapaSuite. Se muestra el histórico base.`);
         }
-      };
-
-      const handleStartManualEditing = () => {
-        if (isOfficial && !isUnlocked) {
-          setShowPinModal(true);
-          setPinError("El presupuesto oficial está bloqueado. Introduzca la clave 1234 para desbloquear y modificar los objetivos.");
-          return;
-        }
-        setScenario("personalizado");
-        setIsManualEditMode(true);
-        showToast("✏️ Modo edición de objetivos activado. Introduce los importes directamente en la columna 'Ingresos Obj'.");
-      };
-
-      const handleRelockBudget = () => {
-        setIsUnlocked(false);
-        showToast("🔒 Presupuesto Oficial vuelto a bloquear.");
-      };
-
-      // Selección rápida de escenario
-      const handleSelectScenario = (scenKey) => {
-        if (isOfficial && !isUnlocked) {
-          setShowPinModal(true);
-          setPinError("El presupuesto oficial está bloqueado. Introduzca la clave 1234 para modificar el escenario.");
-          return;
-        }
-        setScenario(scenKey);
-        if (scenKey === "base") setGrowthPercent(0);
-        else if (scenKey === "conservador") setGrowthPercent(3);
-        else if (scenKey === "recomendado") setGrowthPercent(7);
-        else if (scenKey === "ambicioso") setGrowthPercent(12);
-        else if (scenKey === "personalizado") setIsManualEditMode(true);
-      };
-
-      // Ajustes mensuales manuales
-      const handleMonthOverrideChange = (m, field, value) => {
-        if (isOfficial && !isUnlocked) return;
-        const val = value === "" ? null : parseFloat(value);
-        setManualMonthOverrides(prev => ({
-          ...prev,
-          [m]: {
-            ...(prev[m] || {}),
-            [field]: isNaN(val) ? null : val
-          }
-        }));
-      };
-
-      const handleClearManualOverrides = () => {
-        if (isOfficial && !isUnlocked) return;
-        setManualMonthOverrides({});
-        showToast("Ajustes manuales restablecidos a valores calculados.");
       };
 
       const monthNames = [
@@ -1794,7 +1850,7 @@
                       Objetivos de Grupos y Tarifas
                     </h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Planificación estratégica anual, tarifas oficiales y seguimiento de cumplimiento por categoría y régimen
+                      Monitorización y seguimiento de objetivos de grupos vinculados a CapaSuite · Fuente Oficial de Revenue Management
                     </p>
                   </div>
                 </div>
@@ -1802,17 +1858,23 @@
 
               {/* ACCIONES PRINCIPALES */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Badge de Presupuesto Oficial */}
-                {isOfficial && (
-                  <span className={"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border " + (isUnlocked ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-emerald-50 text-emerald-800 border-emerald-200")}>
-                    {isUnlocked ? "🔓 Desbloqueado para edición" : "🔒 Presupuesto Oficial"}
-                    {officialDoc && officialDoc.officialSavedAt && (
-                      <span className="font-normal text-[10px] opacity-70">
-                        · {new Date(officialDoc.officialSavedAt).toLocaleDateString("es-ES")}
-                      </span>
-                    )}
-                  </span>
-                )}
+                {/* Badge de Vinculación Oficial con CapaSuite */}
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border bg-emerald-50 text-emerald-800 border-emerald-200">
+                  <span>🔗</span> Vinculado a CapaSuite
+                  {officialDoc?.officialSavedAt && (
+                    <span className="font-normal text-[10px] opacity-75">
+                      · {formatDateEs(officialDoc.officialSavedAt, true)}
+                    </span>
+                  )}
+                </span>
+
+                <button
+                  onClick={handleSyncFromCapaSuite}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition flex items-center gap-2"
+                  title="Sincronizar y recargar objetivos fijados en CapaSuite"
+                >
+                  <span>🔄</span> Sincronizar desde CapaSuite
+                </button>
 
                 <button
                   onClick={() => openTariffModal(targetHotel, targetYear)}
@@ -1827,38 +1889,11 @@
                 >
                   <span>🚫</span> Anuladas ({histData.cancelled.count})
                 </button>
-
-                {/* Botón principal de guardado según estado */}
-                {isOfficial && !isUnlocked ? (
-                  <button
-                    onClick={() => { setShowPinModal(true); setPinError(null); setPinInput(""); }}
-                    className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2"
-                  >
-                    <span>🔑</span> Desbloquear (Clave)
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleSaveOfficialTarget}
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition flex items-center gap-2"
-                    >
-                      <span>💾</span> Grabar Presupuesto Oficial
-                    </button>
-                    {isOfficial && isUnlocked && (
-                      <button
-                        onClick={handleRelockBudget}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2"
-                      >
-                        <span>🔒</span> Volver a Bloquear
-                      </button>
-                    )}
-                  </>
-                )}
               </div>
             </div>
 
-            {/* SELECTORES DE CONFIGURACIÓN DEL OBJETIVO */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
+            {/* SELECTORES Y ESTADO DE INTEGRACIÓN CON CAPASUITE */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
               {/* Hotel */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -1884,109 +1919,82 @@
                   onChange={(e) => setTargetYear(Number(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
                 >
-                  {[2025, 2026, 2027, 2028, 2029, 2030].map(y => {
-                    const isOff = isYearOfficial(targetHotel, y);
-                    return (
-                      <option key={y} value={y}>
-                        {y} {isOff ? "(Oficial 🔒)" : ""}
-                      </option>
-                    );
-                  })}
+                  {[2025, 2026, 2027, 2028, 2029, 2030].map(y => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Año Base Histórico */}
+              {/* Origen de los Objetivos */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Año Base Histórico
+                  Fuente de Datos
                 </label>
-                <select
-                  value={baseYear}
-                  onChange={(e) => setBaseYear(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                >
-                  <option value={2025}>2025</option>
-                  <option value={2026}>2026</option>
-                  <option value={2027}>2027</option>
-                </select>
-              </div>
-
-              {/* % Incremento propuesto */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  % Incremento Propuesto
-                </label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={growthPercent}
-                    onChange={(e) => setGrowthPercent(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-                  />
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setGrowthPercent(0)}
-                      className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[10px] font-bold"
-                      title="Restablecer a 0%"
-                    >
-                      0%
-                    </button>
-                    <button
-                      onClick={() => setGrowthPercent(p => Number((p + 5).toFixed(1)))}
-                      className="px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold"
-                      title="+5%"
-                    >
-                      +5%
-                    </button>
-                  </div>
+                <div className="w-full bg-indigo-50/70 border border-indigo-100 rounded-xl px-3 py-2 text-xs font-bold text-indigo-900 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span>🏢</span> CapaSuite Revenue
+                  </span>
+                  <span className="text-[10px] bg-indigo-200/60 text-indigo-800 px-2 py-0.5 rounded-full font-black">
+                    Oficial
+                  </span>
                 </div>
+              </div>
+
+              {/* Estado de Sincronización */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                  Estado de Conexión
+                </label>
+                <button
+                  type="button"
+                  onClick={handleSyncFromCapaSuite}
+                  className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl px-3 py-2 text-xs font-bold text-emerald-900 flex items-center justify-between transition cursor-pointer group"
+                  title="Haz clic para forzar la actualización desde CapaSuite"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="group-hover:rotate-180 transition-transform duration-500">🔄</span>
+                    {officialDoc ? "Sincronizado" : "Comprobar"}
+                  </span>
+                  <span className="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-black">
+                    {officialDoc ? "En Línea" : "Pendiente"}
+                  </span>
+                </button>
               </div>
             </div>
 
-            {/* TARJETAS DE ESCENARIO */}
-            <div className="pt-4">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
-                Escenario de Objetivo
-                {isOfficial && !isUnlocked && (
-                  <span className="ml-2 text-amber-600 font-normal normal-case">🔒 Bloqueado — desbloquea para cambiar escenario</span>
-                )}
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                {[
-                  { key: "base",          icon: "🏛️", label: "Base",        pct: "+0%",   desc: "Igual que año base",       color: "slate"  },
-                  { key: "conservador",   icon: "🛡️", label: "Conservador", pct: "+3%",   desc: "Crecimiento prudente",     color: "sky"    },
-                  { key: "recomendado",   icon: "⭐",  label: "Recomendado", pct: "+7%",   desc: "Objetivo equilibrado",     color: "indigo" },
-                  { key: "ambicioso",     icon: "🚀",  label: "Ambicioso",   pct: "+12%",  desc: "Máximo crecimiento",       color: "purple" },
-                  { key: "personalizado", icon: "✏️",  label: "Manual",      pct: "libre", desc: "Define tu % mensualmente", color: "amber"  }
-                ].map(sc => {
-                  const isActive = scenario === sc.key;
-                  const colorMap = {
-                    slate:  { active: "border-slate-500 bg-slate-50 text-slate-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-slate-400" },
-                    sky:    { active: "border-sky-500 bg-sky-50 text-sky-900",          inactive: "border-slate-200 bg-white text-slate-500 hover:border-sky-400" },
-                    indigo: { active: "border-indigo-500 bg-indigo-50 text-indigo-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-indigo-400" },
-                    purple: { active: "border-purple-500 bg-purple-50 text-purple-900", inactive: "border-slate-200 bg-white text-slate-500 hover:border-purple-400" },
-                    amber:  { active: "border-amber-500 bg-amber-50 text-amber-900",    inactive: "border-slate-200 bg-white text-slate-500 hover:border-amber-400" }
-                  };
-                  const cls = colorMap[sc.color][isActive ? "active" : "inactive"];
-                  return (
-                    <button
-                      key={sc.key}
-                      onClick={() => handleSelectScenario(sc.key)}
-                      className={"rounded-xl border-2 p-3 text-left transition flex flex-col gap-0.5 " + cls + (isOfficial && !isUnlocked ? " opacity-60 cursor-not-allowed" : " cursor-pointer")}
-                    >
-                      <span className="text-base leading-none">{sc.icon}</span>
-                      <span className="text-[11px] font-black mt-1 block">{sc.label}</span>
-                      <span className={"text-[13px] font-black " + (isActive ? "" : "text-slate-400")}>{sc.pct}</span>
-                      <span className="text-[9px] font-semibold mt-0.5 opacity-70 leading-tight">{sc.desc}</span>
-                    </button>
-                  );
-                })}
+            {/* BANNER INFORMATIVO DE VINCULACIÓN CON CAPASUITE */}
+            <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 border border-indigo-100/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                  🔗
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                    <span>Presupuesto Comercial Fijado en CapaSuite</span>
+                    {officialDoc?.officialSavedAt && (
+                      <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                        Última fijación: {formatDateEs(officialDoc.officialSavedAt, true)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Los objetivos de ingresos, habitaciones-noche y ADR de grupos están determinados por el presupuesto de Revenue Management establecido en CapaSuite.
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={handleSyncFromCapaSuite}
+                className="shrink-0 px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+              >
+                <span>🔄</span> Sincronizar Ahora
+              </button>
             </div>
           </div>
 
-          {/* ALERTAS DE INTEGRIDAD (Req 33) */}
+          {/* ALERTAS DE INTEGRIDAD */}
           {integrity.errors.length > 0 && (
             <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-start gap-3">
               <span className="text-xl text-red-600">⚠️</span>
@@ -2005,7 +2013,7 @@
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900">Aviso sobre Datos Provisionales</h4>
                 <p className="text-xs mt-0.5">
-                  Parte de los datos del año base contienen propuestas automáticas de habitaciones pendientes de confirmación. El objetivo resultante tiene consideración de <strong>Provisional</strong>.
+                  Parte de los datos históricos contienen propuestas pendientes de confirmación.
                 </p>
               </div>
             </div>
@@ -2016,17 +2024,22 @@
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Ingresos Objetivo */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ingresos Previstos {targetYear}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ingresos Previstos {targetYear}</span>
+                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                    CapaSuite
+                  </span>
+                </div>
                 <div className="my-2">
                   <div className="text-2xl font-black text-slate-900">
                     {generatedTarget.overall.targetRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    Histórico Base: {histData.overall.totalRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    Histórico Base ({targetYear - 1}): {histData.overall.totalRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </div>
                 </div>
-                <div className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg w-fit">
-                  {growthPercent >= 0 ? "+" + growthPercent + "%" : growthPercent + "%"} vs año {baseYear}
+                <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
+                  🎯 Presupuesto Oficial Fijado
                 </div>
               </div>
 
@@ -2042,39 +2055,39 @@
                   </div>
                 </div>
                 <div className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg w-fit">
-                  Base {baseYear}: {histData.overall.totalRoomNights} hab/noche
+                  Promedio: {Math.round(generatedTarget.overall.targetRoomNights / 12)} hab/mes
                 </div>
               </div>
 
-              {/* Pax Previstos */}
+              {/* Precio Medio ADR */}
               <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Personas (Pax)</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Precio Medio (ADR)</span>
                 <div className="my-2">
                   <div className="text-2xl font-black text-slate-900">
-                    {generatedTarget.overall.targetPax.toLocaleString("es-ES")}
+                    {(generatedTarget.overall.adr || (generatedTarget.overall.targetRoomNights > 0 ? (generatedTarget.overall.targetRevenue / generatedTarget.overall.targetRoomNights) : 75)).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Tarifa media objetivo asignada
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg w-fit border border-indigo-100">
+                  ADR Presupuestado
+                </div>
+              </div>
+
+              {/* Pax y Estado */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Personas (Pax) / Estado</span>
+                <div className="my-2">
+                  <div className="text-2xl font-black text-slate-900">
+                    {generatedTarget.overall.targetPax.toLocaleString("es-ES")} pax
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     Pernoctaciones: {generatedTarget.overall.targetPernoctaciones.toLocaleString("es-ES")}
                   </div>
                 </div>
-                <div className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg w-fit">
-                  Base {baseYear}: {histData.overall.totalPax} pax
-                </div>
-              </div>
-
-              {/* Estado del Objetivo */}
-              <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado del Objetivo</span>
-                <div className="my-2">
-                  <div className={"text-lg font-black " + (generatedTarget.overall.isProvisional ? "text-amber-600" : "text-emerald-600")}>
-                    {generatedTarget.overall.isProvisional ? "Provisional" : "Definitivo"}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {generatedTarget.overall.isProvisional ? "Contiene propuestas estimadas" : "100% distribuciones validadas"}
-                  </div>
-                </div>
-                <div className={"text-[10px] font-bold px-2 py-1 rounded-lg w-fit " + (generatedTarget.overall.isProvisional ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800")}>
-                  {generatedTarget.overall.isProvisional ? "Pendiente Confirmación" : "Validado"}
+                <div className="text-[10px] font-bold px-2 py-1 rounded-lg w-fit bg-emerald-100 text-emerald-800">
+                  {officialDoc ? "Oficial CapaSuite" : "Estimación Base"}
                 </div>
               </div>
             </div>
@@ -2086,7 +2099,7 @@
               onClick={() => setActiveSubView("monthly")}
               className={"px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 " + (activeSubView === "monthly" ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200")}
             >
-              <span>📅</span> Tabla Mensual Real vs Objetivo
+              <span>📅</span> Tabla Mensual Real vs Objetivo (CapaSuite)
             </button>
             <button
               onClick={() => setActiveSubView("regimen")}
@@ -2102,7 +2115,7 @@
             </button>
           </div>
 
-          {/* VISTA 1: TABLA MENSUAL REAL VS OBJETIVO (Req 30 y 31) */}
+          {/* VISTA 1: TABLA MENSUAL REAL VS OBJETIVO (CAPASUITE) */}
           {activeSubView === "monthly" && comparison && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
               <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -2111,43 +2124,18 @@
                     Seguimiento Mensual {targetYear} — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    {scenario === "personalizado" && (!isOfficial || isUnlocked)
-                      ? "✏️ Modo edición activo: introduce el objetivo deseado en la columna 'Ingresos Obj' de cada mes y pulsa 'Grabar Presupuesto'."
-                      : "Haz clic en '✏️ Modificar Objetivos' o sobre cualquier mes para editar directamente los importes objetivo."}
+                    Comparativa en libros frente a los objetivos comerciales fijados en CapaSuite.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {scenario === "personalizado" && (!isOfficial || isUnlocked) ? (
-                    <>
-                      {Object.keys(manualMonthOverrides).length > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleClearManualOverrides}
-                          className="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                          title="Restablecer todos los meses a los valores calculados"
-                        >
-                          <span>🔄</span> Restablecer cálculos
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleSaveOfficialTarget}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                        title="Guardar como presupuesto oficial"
-                      >
-                        <span>💾</span> Grabar Presupuesto
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleStartManualEditing}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                      title="Modificar los importes de ingresos objetivo"
-                    >
-                      <span>✏️</span> Modificar Objetivos
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleSyncFromCapaSuite}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    title="Actualizar y sincronizar con CapaSuite"
+                  >
+                    <span>🔄</span> Sincronizar con CapaSuite
+                  </button>
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -2159,7 +2147,7 @@
                       <th className="p-3 text-center">Hab-Noches (R / O)</th>
                       <th className="p-3 text-center">Pax (R / O)</th>
                       <th className="p-3 text-right">Ingresos Real</th>
-                      <th className="p-3 text-right">Ingresos Obj</th>
+                      <th className="p-3 text-right">Ingresos Obj (CapaSuite)</th>
                       <th className="p-3 text-right">Diferencia</th>
                       <th className="p-3 text-center">% Cumplimiento</th>
                       <th className="p-3 text-center">Estado</th>
@@ -2192,30 +2180,8 @@
                           <td className="p-3 text-right font-bold text-slate-900">
                             {row.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                           </td>
-                          <td className="p-3 text-right text-indigo-700 font-semibold">
-                            {scenario === "personalizado" && (!isOfficial || isUnlocked) ? (
-                              <div className="inline-flex items-center gap-1 justify-end">
-                                <input
-                                  type="number"
-                                  step="100"
-                                  value={manualMonthOverrides[m]?.targetRevenue !== undefined && manualMonthOverrides[m]?.targetRevenue !== null ? manualMonthOverrides[m].targetRevenue : Math.round(row.target.revenue)}
-                                  onChange={(e) => handleMonthOverrideChange(m, "targetRevenue", e.target.value)}
-                                  className="w-28 bg-white border-2 border-indigo-400 focus:border-indigo-600 rounded-lg px-2 py-1 text-right text-xs font-black text-indigo-900 shadow-xs outline-none"
-                                  title="Editar objetivo de ingresos para este mes"
-                                />
-                                <span className="text-[10px] text-slate-400 font-bold">€</span>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={handleStartManualEditing}
-                                className="inline-flex items-center gap-1.5 hover:text-indigo-900 hover:bg-indigo-50 px-2 py-1 rounded-lg transition group cursor-pointer"
-                                title="Haz clic para modificar los objetivos de este mes"
-                              >
-                                <span>{row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
-                                <span className="opacity-0 group-hover:opacity-100 text-[10px] text-indigo-500">✏️</span>
-                              </button>
-                            )}
+                          <td className="p-3 text-right text-indigo-700 font-bold">
+                            {row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                           </td>
                           <td className={"p-3 text-right font-bold " + (isPositive ? "text-emerald-600" : "text-red-500")}>
                             {isPositive ? "+" : ""}{diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
@@ -2226,8 +2192,8 @@
                             </span>
                           </td>
                           <td className="p-3 text-center">
-                            <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (row.status === "Definitivo" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200")}>
-                              {row.status}
+                            <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (officialDoc ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
+                              {officialDoc ? "CapaSuite" : "Base"}
                             </span>
                           </td>
                         </tr>
@@ -2261,8 +2227,8 @@
                         </span>
                       </td>
                       <td className="p-3 text-center">
-                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (comparison.totals.status === "Definitivo" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>
-                          {comparison.totals.status}
+                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (officialDoc ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800")}>
+                          {officialDoc ? "Oficial" : "Base"}
                         </span>
                       </td>
                     </tr>
@@ -2873,7 +2839,7 @@
                   <div className="flex items-center gap-2">
                     <span className="text-xl">🚫</span>
                     <h3 className="text-base font-black text-slate-900 font-outfit">
-                      Reservas Anuladas ({baseYear})
+                      Reservas Anuladas ({targetYear - 1})
                     </h3>
                   </div>
                   <button
@@ -2912,64 +2878,6 @@
                     Entendido
                   </button>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* MODAL DE CLAVE PIN 1234 (Presupuesto Oficial) */}
-          {showPinModal && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">🔒</span>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900">Desbloquear Presupuesto</h3>
-                      <p className="text-[11px] text-slate-500">Solo modificable con clave 1234</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => { setShowPinModal(false); setPinError(null); setPinInput(""); }}
-                    className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <form onSubmit={handleVerifyPin} className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                      Clave de Autorización
-                    </label>
-                    <input
-                      type="password"
-                      value={pinInput}
-                      onChange={(e) => { setPinInput(e.target.value); setPinError(null); }}
-                      placeholder="••••"
-                      autoFocus
-                      className={"w-full bg-slate-50 border rounded-xl px-4 py-3 text-lg font-black text-center tracking-[0.5em] focus:outline-none focus:ring-2 transition " + (pinError ? "border-red-400 focus:ring-red-200" : "border-slate-200 focus:ring-indigo-200")}
-                    />
-                    {pinError && (
-                      <p className="text-[11px] text-red-600 font-bold mt-1.5 flex items-center gap-1">
-                        <span>⚠️</span> {pinError}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setShowPinModal(false); setPinError(null); setPinInput(""); }}
-                      className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
-                    >
-                      Desbloquear
-                    </button>
-                  </div>
-                </form>
               </div>
             </div>
           )}
