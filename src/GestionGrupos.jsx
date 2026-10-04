@@ -3578,7 +3578,12 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           if (window.location.pathname.toLowerCase().includes("objetivo")) return "targets";
           try {
             const sp = new URLSearchParams(window.location.search);
-            if (sp.get("tab") === "targets") return "targets";
+            if (sp.get("tab") === "targets") {
+              if (!window.location.pathname.toLowerCase().includes("objetivo")) {
+                window.location.replace("Objetivos-Grupos.html");
+              }
+              return "targets";
+            }
           } catch(e) {}
         }
         return "groups";
@@ -13134,9 +13139,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         <div className="min-h-screen pb-10 bg-dot-pattern">
           {/* Cabecera unificada administrada por js/navigation.js */}
 
-          <div className="w-full px-4">
-
-            {/* KPI Cards: ENFOQUE COMERCIAL */}
+          <div className={`w-full px-4 ${activeTab === "targets" ? "pt-4" : ""}`}>
+            {activeTab !== "targets" && (
+              <>
+                {/* KPI Cards: ENFOQUE COMERCIAL */}
 
             {/* KPI SECTION: Unificada en una sola línea elegante */}
 
@@ -13805,7 +13811,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 </button>
 
                 <button
-                  onClick={() => setActiveTab("targets")}
+                  onClick={() => {
+                    window.location.href = "Objetivos-Grupos.html";
+                  }}
                   className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === "targets" ? "border-b-2 border-indigo-600 text-indigo-600 font-bold" : "text-gray-500 hover:text-indigo-600 transition"}`}
                 >
                   <span className="text-base">🎯</span> Objetivos de Grupos
@@ -13814,6 +13822,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               </div>
 
             </div>
+          </>
+        )}
 
             {/* --- CONTENT AREA --- */}
 
