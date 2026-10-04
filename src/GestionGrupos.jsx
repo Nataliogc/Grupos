@@ -1341,6 +1341,19 @@
       // Copia editable temporal para el modal de tarifas
       const [editingTariffs, setEditingTariffs] = useState(null);
 
+      // Estado para modal de importación JSON directa desde CapaSuite
+      const [showJsonImportModal, setShowJsonImportModal] = useState(false);
+      const [jsonImportText, setJsonImportText] = useState("");
+      const [jsonImportError, setJsonImportError] = useState(null);
+
+      const getCapaSuiteUrl = () => {
+        if (typeof window === "undefined") return "../CapaSuite/CalculadoraPresupuesto.html";
+        if (window.location.hostname.includes("github.io")) {
+          return window.location.origin + "/CapaSuite/CalculadoraPresupuesto.html";
+        }
+        return "../CapaSuite/CalculadoraPresupuesto.html";
+      };
+
       const showToast = (msg) => {
         setToastMsg(msg);
         setTimeout(() => setToastMsg(null), 4000);
@@ -1901,6 +1914,43 @@
         }
       };
 
+      // Aplicar JSON importado desde CapaSuite
+      const handleApplyJsonImport = () => {
+        setJsonImportError(null);
+        try {
+          if (!jsonImportText.trim()) {
+            setJsonImportError("Por favor, pega el JSON exportado en CapaSuite.");
+            return;
+          }
+          const parsed = JSON.parse(jsonImportText.trim());
+          if (!parsed || (!parsed.monthly && !parsed.overall)) {
+            setJsonImportError("El JSON no tiene una estructura de objetivos válida (requiere 'monthly' u 'overall').");
+            return;
+          }
+          const hKey = gts ? gts.normalizeHotelKey(parsed.hotel || targetHotel) : (targetHotel.includes("cumbria") ? "cumbria" : "guadiana");
+          const yStr = String(parsed.targetYear || targetYear);
+
+          setOfficialDoc(parsed);
+          try {
+            localStorage.setItem(`nexus_target_${hKey}_${yStr}`, JSON.stringify(parsed));
+            localStorage.setItem(`v3_nexus_target_${hKey}_${yStr}`, JSON.stringify(parsed));
+          } catch(e) {}
+
+          if (window.db && typeof window.db.collection === "function") {
+            window.db.collection("settings").doc(`groupTargets_${hKey}_${yStr}`).set(parsed, { merge: true })
+              .catch(err => console.warn("Error guardando JSON importado en Firestore:", err));
+          }
+
+          setShowJsonImportModal(false);
+          setJsonImportText("");
+          const revStr = Number(parsed.overall?.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const rnStr = Number(parsed.overall?.roomNights || 0).toLocaleString("es-ES");
+          showToast(`🎯 Objetivo importado correctamente: ${revStr} € (${rnStr} habs) para ${yStr}.`);
+        } catch(e) {
+          setJsonImportError("Error al interpretar JSON: " + e.message);
+        }
+      };
+
       const monthNames = [
         "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -1953,6 +2003,24 @@
                   title="Sincronizar y recargar objetivos fijados en CapaSuite"
                 >
                   <span>🔄</span> Sincronizar desde CapaSuite
+                </button>
+
+                <a
+                  href={getCapaSuiteUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md shadow-slate-200 transition flex items-center gap-2"
+                  title="Abrir Calculadora de Presupuestos en CapaSuite"
+                >
+                  <span>🏢</span> Abrir en CapaSuite
+                </a>
+
+                <button
+                  onClick={() => { setShowJsonImportModal(true); setJsonImportError(null); }}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-200"
+                  title="Pegar o importar JSON de objetivos exportado desde CapaSuite"
+                >
+                  <span>📋</span> Importar JSON
                 </button>
 
                 <button
@@ -2956,6 +3024,78 @@
                   >
                     Entendido
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DE IMPORTACIÓN DIRECTA DE JSON DESDE CAPASUITE */}
+          {showJsonImportModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📋</span>
+                    <div>
+                      <h3 className="text-base font-black text-slate-900 font-outfit">
+                        Importar Objetivos desde CapaSuite
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Pega el JSON exportado en la Calculadora de Presupuestos
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setShowJsonImportModal(false); setJsonImportError(null); setJsonImportText(""); }}
+                    className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-600">
+                    Si CapaSuite se encuentra en otro navegador, pestaña o entorno sin conexión directa a Firestore, copia los objetivos pulsando <strong>"Sincronizar Nexus Groups"</strong> en CapaSuite y pega el texto resultante aquí:
+                  </p>
+                  <textarea
+                    rows={8}
+                    value={jsonImportText}
+                    onChange={(e) => { setJsonImportText(e.target.value); setJsonImportError(null); }}
+                    placeholder='{"hotel": "guadiana", "targetYear": 2026, "monthly": { ... }}'
+                    className="w-full font-mono text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800"
+                  />
+                  {jsonImportError && (
+                    <p className="text-xs text-red-600 font-bold flex items-center gap-1">
+                      <span>⚠️</span> {jsonImportError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
+                  <a
+                    href={getCapaSuiteUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
+                  >
+                    <span>🏢</span> Abrir CapaSuite
+                  </a>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowJsonImportModal(false); setJsonImportError(null); setJsonImportText(""); }}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyJsonImport}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100"
+                    >
+                      Aplicar Objetivo
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
