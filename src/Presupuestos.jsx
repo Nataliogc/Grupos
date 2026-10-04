@@ -6205,7 +6205,7 @@ ${emailContent}`;
                                    );
                                  })}
                                </tbody>
-                               <tbody className="bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid">
+                               <tbody className="quote-totals font-black break-inside-avoid print:break-inside-avoid">
                                  {(() => {
                                    const docBreakdown = {
                                      descuentos: parseFloat(g.Descuentos) || 0,
@@ -6235,18 +6235,18 @@ ${emailContent}`;
                                              <td className="px-6 py-3 print:py-1.5 print:px-3 text-right whitespace-nowrap">−{formatNum(commissionBreakdown.commissionDeduction)} €</td>
                                            </tr>
                                          )}
-                                         <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
+                                         <tr className="quote-total-row">
                                            <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total presupuesto:</td>
-                                           <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(net)} €</td>
+                                           <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{fontWeight:800}}>{formatNum(net)} €</td>
                                          </tr>
                                        </>
                                      );
                                    }
 
                                    return (
-                                     <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
+                                     <tr className="quote-total-row">
                                        <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total presupuesto:</td>
-                                       <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
+                                       <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{fontWeight:800}}>{formatNum(calculatedTotal)} €</td>
                                      </tr>
                                    );
                                  })()}
