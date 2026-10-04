@@ -3213,7 +3213,7 @@ function App() {
   }();
   var _updateStatus = /*#__PURE__*/function () {
     var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
-      var existing, lockedInfo, newExt, result, _t6;
+      var existing, lockedInfo, result, _t6;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
           case 0:
@@ -3236,19 +3236,6 @@ function App() {
             alert("\u26A0\uFE0F Este presupuesto est\xE1 en estado ".concat(lockedInfo.label, " con ID de reserva del PMS. Queda bloqueado exclusivamente en modo de consulta y no se puede modificar su estado."));
             return _context6.a(2);
           case 2:
-            // Actualización optimista inmediata en la UI
-            newExt = newStatus === "CONFIRMADO" ? "Confirmado" : ["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(newStatus) ? "ANULADA" : "Presupuesto";
-            setGroups(function (prev) {
-              return (prev || []).map(function (item) {
-                if (item.uid === uid || item.Reserva === uid) {
-                  return _objectSpread(_objectSpread({}, item), {}, {
-                    Com_Estado_Interno: newStatus,
-                    Estado: newExt
-                  });
-                }
-                return item;
-              });
-            });
             _context6.n = 3;
             return window.confirmBudget({
               budgetId: uid,
@@ -3259,6 +3246,16 @@ function App() {
             });
           case 3:
             result = _context6.v;
+            if (result !== null && result !== void 0 && result.updates) {
+              setGroups(function (prev) {
+                return (prev || []).map(function (item) {
+                  return item.uid === uid || item.Reserva === uid ? _objectSpread(_objectSpread({}, item), result.updates) : item;
+                });
+              });
+              setSelectedGroup(function (prev) {
+                return prev && (prev.uid === uid || prev.Reserva === uid) ? _objectSpread(_objectSpread({}, prev), result.updates) : prev;
+              });
+            }
             if (result && result.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(result.childIds.join(', ')));
             } else {
@@ -6227,9 +6224,6 @@ function App() {
       onChange: function onChange(e) {
         var newStatus = e.target.value;
         _updateStatus(g.uid, newStatus);
-        setSelectedGroup(_objectSpread(_objectSpread({}, g), {}, {
-          Com_Estado_Interno: newStatus
-        }));
       },
       className: "bg-white text-indigo-700 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer uppercase"
     }, /*#__PURE__*/React.createElement("option", {

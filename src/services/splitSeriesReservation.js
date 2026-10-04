@@ -439,9 +439,9 @@
       throw new Error("Esta serie ya ha sido desglosada previamente.");
     }
 
-    requestedStatus = ({PENDIENTE:"PROSPECTO", SEGUIMIENTO:"PRESUPUESTO"})[requestedStatus] || requestedStatus;
+    requestedStatus = String(requestedStatus || "").trim().toUpperCase();
     const hasReservation = !/^(PRES|COT)-/i.test(String(budget.Reserva || budgetId)) && budget.isBudget !== true;
-    const allowed = hasReservation ? ["TENTATIVA", "CONFIRMADO", "CANCELADO"] : ["PROSPECTO", "PRESUPUESTO", "DESESTIMADO", "TENTATIVA", "CONFIRMADO"];
+    const allowed = hasReservation ? ["TENTATIVA", "CONFIRMADO", "CANCELADO"] : ["PROSPECTO", "PENDIENTE", "PRESUPUESTO", "ENVIADO", "SEGUIMIENTO", "DESESTIMADO", "CANCELADO", "CADUCADO", "TENTATIVA", "CONFIRMADO"];
     if (!allowed.includes(requestedStatus)) throw new Error("Estado no válido para la fase actual del grupo.");
     const previousStatus = (budget.Com_Estado_Interno || budget.Estado || "").toUpperCase();
 

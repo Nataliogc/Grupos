@@ -528,12 +528,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
             }
             throw new Error("Esta serie ya ha sido desglosada previamente.");
           case 4:
-            requestedStatus = {
-              PENDIENTE: "PROSPECTO",
-              SEGUIMIENTO: "PRESUPUESTO"
-            }[requestedStatus] || requestedStatus;
+            requestedStatus = String(requestedStatus || "").trim().toUpperCase();
             hasReservation = !/^(PRES|COT)-/i.test(String(budget.Reserva || budgetId)) && budget.isBudget !== true;
-            allowed = hasReservation ? ["TENTATIVA", "CONFIRMADO", "CANCELADO"] : ["PROSPECTO", "PRESUPUESTO", "DESESTIMADO", "TENTATIVA", "CONFIRMADO"];
+            allowed = hasReservation ? ["TENTATIVA", "CONFIRMADO", "CANCELADO"] : ["PROSPECTO", "PENDIENTE", "PRESUPUESTO", "ENVIADO", "SEGUIMIENTO", "DESESTIMADO", "CANCELADO", "CADUCADO", "TENTATIVA", "CONFIRMADO"];
             if (allowed.includes(requestedStatus)) {
               _context3.n = 5;
               break;

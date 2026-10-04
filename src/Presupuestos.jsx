@@ -2752,15 +2752,6 @@ ${emailContent}`;
             return;
           }
 
-          // Actualización optimista inmediata en la UI
-          const newExt = (newStatus === "CONFIRMADO") ? "Confirmado" : (["CANCELADO", "DESESTIMADO", "CADUCADO"].includes(newStatus) ? "ANULADA" : "Presupuesto");
-          setGroups(prev => (prev || []).map(item => {
-            if (item.uid === uid || item.Reserva === uid) {
-              return { ...item, Com_Estado_Interno: newStatus, Estado: newExt };
-            }
-            return item;
-          }));
-
           const result = await window.confirmBudget({
             budgetId: uid,
             requestedStatus: newStatus,
@@ -2769,6 +2760,11 @@ ${emailContent}`;
             confirmedBy: "Usuario"
           });
           
+          if (result?.updates) {
+            setGroups(prev => (prev || []).map(item => item.uid === uid || item.Reserva === uid ? { ...item, ...result.updates } : item));
+            setSelectedGroup(prev => prev && (prev.uid === uid || prev.Reserva === uid) ? { ...prev, ...result.updates } : prev);
+          }
+
           if (result && result.split) {
             alert(`✅ Serie confirmada y desglosada en reservas individuales: ${result.childIds.join(', ')}`);
           } else {
@@ -5471,7 +5467,6 @@ ${emailContent}`;
                       onChange={e => { 
                         const newStatus = e.target.value;
                         updateStatus(g.uid, newStatus);
-                        setSelectedGroup({...g, Com_Estado_Interno: newStatus});
                       }}
                       className="bg-white text-indigo-700 border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-black outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer uppercase"
                     >

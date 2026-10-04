@@ -39,3 +39,23 @@ test('Excel: Grupo es confirmado y Grupo tanteo es tentativa en Mesa',()=>{
   assert.equal(mesa.resolveMesachefStatus({Reserva:'12345','Segment.':'GRUPO'}),'confirmada');
   assert.equal(mesa.resolveMesachefStatus({Reserva:'12345','Segment.':'GRUPO TANTEO'}),'presupuesto');
 });
+
+test('estados comerciales se guardan con su nombre y se mantienen al recargar', async () => {
+  for (const status of ['ENVIADO', 'SEGUIMIENTO', 'PENDIENTE', 'CANCELADO', 'CADUCADO', 'DESESTIMADO']) {
+    let record = {Reserva:'PRES-449025',isBudget:true,Com_Estado_Interno:'PRESUPUESTO',Estado:'Presupuesto'};
+    const ref = {get:async()=>({exists:true,data:()=>({...record})}),update:async updates=>{record={...record,...updates};}};
+    const db = {collection:()=>({doc:()=>ref})};
+    const result = await confirmBudget({budgetId:'PRES-449025',requestedStatus:status,db});
+    assert.equal(result.updates.Com_Estado_Interno,status);
+    const reloaded = (await ref.get()).data();
+    assert.equal(reloaded.Com_Estado_Interno,status);
+    assert.equal(reloaded.Estado,['CANCELADO','CADUCADO','DESESTIMADO'].includes(status)?'ANULADA':'Presupuesto');
+  }
+});
+
+test('un fallo de escritura no se devuelve como estado guardado', async () => {
+  const record = {Reserva:'PRES-1',isBudget:true,Com_Estado_Interno:'PRESUPUESTO'};
+  const db = {collection:()=>({doc:()=>({get:async()=>({exists:true,data:()=>record}),update:async()=>{throw Error('Sin conexión');}})})};
+  await assert.rejects(confirmBudget({budgetId:'PRES-1',requestedStatus:'ENVIADO',db}),/Sin conexión/);
+  assert.equal(record.Com_Estado_Interno,'PRESUPUESTO');
+});
