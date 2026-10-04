@@ -4361,9 +4361,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             text: "bg-red-100 text-red-700",
             label: (s.includes("CADUC") || e.includes("CADUC"))
               ? "CADUCADO"
-              : (s.includes("CANC") || e.includes("CANC"))
-              ? "CANCELADO"
-              : "DESESTIMADO",
+              : (s.includes("DESESTIM") || e.includes("DESESTIM"))
+              ? "DESESTIMADO"
+              : "CANCELADO",
           };
 
 
@@ -5297,7 +5297,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               ext.includes("ANUL") ||
               ext.includes("BAJA")
             );
-            if (isInactive) return false;
+            if (isInactive && !["all", "anulada", "desestimada", "pasado"].includes(filterStatus)) return false;
           }
           return true;
         });
@@ -5338,8 +5338,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             if (filterStatus === "confirmada") return label === "confirmado" && !isPast;
             if (filterStatus === "tentativa") return label === "tentativa" && !isPast;
             if (filterStatus === "presupuesto") return label === "presupuesto" && !isPast;
-            if (filterStatus === "desestimada") return label === "cancelado" || label === "desestimado" || label === "caducado";
-            if (filterStatus === "pasado") return isPast && label !== "cancelado" && label !== "desestimado" && label !== "caducado";
+            if (filterStatus === "anulada") return label === "cancelado";
+            if (filterStatus === "desestimada") return label === "desestimado" || label === "caducado";
+            if (filterStatus === "pasado") return isPast;
             return true;
           });
         }
@@ -5347,7 +5348,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
 
         // 2. Filtro de Tiempo
-        if (filterTime !== "all" && filterStatus !== "pasado" && !startDate && !endDate && !searchTerm) {
+        if (filterTime !== "all" && !["pasado", "anulada", "desestimada"].includes(filterStatus) && !startDate && !endDate && !searchTerm) {
           filtered = filtered.filter((row) => {
             const arrival = row._normArrival;
             if (!arrival) return false;
@@ -10731,6 +10732,19 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
 
 
+      useEffect(() => {
+        if (!commissionModal.isOpen && !showClientData && !showBudgetLinkModal) return;
+        const closeAuxiliaryDialog = event => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          if (commissionModal.isOpen) setCommissionModal({ isOpen: false, item: null, itemIdx: null, tempCom: null });
+          else if (showClientData) setShowClientData(false);
+          else if (showBudgetLinkModal) setShowBudgetLinkModal(false);
+        };
+        document.addEventListener('keydown', closeAuxiliaryDialog);
+        return () => document.removeEventListener('keydown', closeAuxiliaryDialog);
+      }, [commissionModal.isOpen, showClientData, showBudgetLinkModal]);
+
       const getPaxByRoomType = (type) => {
 
         const found = ROOM_CONFIGURATIONS.find((c) => c.label === type);
@@ -14731,6 +14745,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                       <option value="tentativa">Tentativas</option>
 
                       <option value="presupuesto">Presupuestos</option>
+
+                      <option value="anulada">Anulados</option>
 
                       <option value="desestimada">Desestimados</option>
 
@@ -20367,7 +20383,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
             {showFichaModal && selectedGroupFicha && (
 
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-2">
+              <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-2">
 
                 <div className="bg-white rounded-xl shadow-2xl w-[98vw] h-[95vh] overflow-y-auto flex flex-col animate-fade-in border border-slate-200 text-sm">
 
@@ -25462,9 +25478,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 const modalRegime = activeModalItem.regime || "HD";
                 return (
 
-              <div className="fixed inset-0 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center z-[110] animate-fade-in">
+              <div className="fixed inset-0 bg-slate-900/30 flex items-center justify-center z-[110] p-3">
 
-                <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-[340px] border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-2xl w-[90vw] max-w-[340px] max-h-[90vh] overflow-y-auto border border-slate-200">
 
                   <div className="bg-[#0f172a] px-4 py-3 flex justify-between items-center text-white">
 
@@ -26498,7 +26514,7 @@ const base =
 
             {showClientData && tempClientData && (
 
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
+              <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[200] p-4">
 
                 <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
 
@@ -27825,6 +27841,7 @@ const base =
                           confirmada: "Confirmados",
                           tentativa: "Tentativas",
                           presupuesto: "Presupuestos",
+                          anulada: "Anulados",
                           desestimada: "Desestimados",
                           pasado: "Pasados"
                         };

@@ -2455,7 +2455,8 @@ function App() {
     setFormData(function (prev) {
       return _objectSpread(_objectSpread({}, prev), {}, {
         ratesOnlyGrid: mergedGrid,
-        dailyConfig: newDailyConfig
+        dailyConfig: newDailyConfig,
+        averageStayCondition: null
       });
     });
     alert('Tarifas oficiales ' + validYear + ' aplicadas correctamente a ' + hotel + ' (' + Object.keys(mergedGrid).length + ' regímenes).');
@@ -2517,7 +2518,8 @@ function App() {
       return _objectSpread(_objectSpread({}, prev), {}, {
         capaSuiteDiscountPercent: discount,
         ratesOnlyGrid: mergedGrid,
-        dailyConfig: newDailyConfig
+        dailyConfig: newDailyConfig,
+        averageStayCondition: null
       });
     });
     alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
@@ -2584,7 +2586,11 @@ function App() {
       return _objectSpread(_objectSpread({}, prev), {}, {
         capaSuiteDiscountPercent: discount,
         ratesOnlyGrid: mergedGrid,
-        dailyConfig: newDailyConfig
+        dailyConfig: newDailyConfig,
+        averageStayCondition: {
+          dates: _toConsumableArray(stayDates),
+          nights: stayDates.length
+        }
       });
     });
     alert("\uD83D\uDCCA Tarifa Media de Estancia aplicada con \xE9xito a las ".concat(stayDates.length, " noches para ").concat(hotel, " (Tarifa plana uniforme por tipolog\xEDa)."));
@@ -2619,6 +2625,13 @@ function App() {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
             e.preventDefault();
+            if (!(formData.averageStayCondition && JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates))) {
+              _context2.n = 1;
+              break;
+            }
+            alert('La tarifa media estaba calculada para ' + formData.averageStayCondition.nights + ' noches y las fechas han cambiado. Reaplica Tarifa Media Estancia o elige tarifas oficiales/recomendadas antes de guardar.');
+            return _context2.a(2);
+          case 1:
             uidToCheck = formData.uid || ((_groups$find = groups.find(function (g) {
               return g.Reserva === formData.Reserva;
             })) === null || _groups$find === void 0 ? void 0 : _groups$find.uid);
@@ -2627,14 +2640,14 @@ function App() {
             }) : null;
             isHistoricalReadOnly = isLockedBudget(formData) || oldRec && isLockedBudget(oldRec);
             if (!(isHistoricalReadOnly && formData.uid)) {
-              _context2.n = 1;
+              _context2.n = 2;
               break;
             }
             lockedInfo = getBudgetLockedDetails(formData) || oldRec && getBudgetLockedDetails(oldRec);
             resNum = lockedInfo.pmsId || formData.Reserva;
             alert("⚠️ Este presupuesto ya está en estado " + lockedInfo.label + " y asignado a la Reserva PMS Nº " + resNum + ".\n\nLa referencia oficial y válida es el número de reserva del PMS. Este presupuesto queda bloqueado exclusivamente en modo de consulta y no se puede modificar.\n\nPara aplicar cambios o emitir una nueva oferta, por favor utiliza la opción 'Duplicar'.");
             return _context2.a(2);
-          case 1:
+          case 2:
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             normalizedFormData = normalizeGroupData(formData);
@@ -2648,128 +2661,128 @@ function App() {
             // Validation: Mandatory Hotel
             hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
             if (!(!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "")) {
-              _context2.n = 2;
+              _context2.n = 3;
               break;
             }
             alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
             return _context2.a(2);
-          case 2:
+          case 3:
             // Validation: Dates
             entrada = String(normalizedFormData.Entrada || "").trim();
             salida = String(normalizedFormData.Salida || "").trim();
             if (!(!entrada || !salida)) {
-              _context2.n = 3;
+              _context2.n = 4;
               break;
             }
             alert("⚠️ Error: Debe especificar las fechas de entrada y salida.");
             return _context2.a(2);
-          case 3:
+          case 4:
             if (!(new Date(entrada) >= new Date(salida))) {
-              _context2.n = 4;
+              _context2.n = 5;
               break;
             }
             alert("⚠️ Error: La fecha de salida debe ser estrictamente posterior a la de entrada (mínimo 1 noche).");
             return _context2.a(2);
-          case 4:
+          case 5:
             if (!normalizedFormData.isMultiSegment) {
-              _context2.n = 17;
+              _context2.n = 18;
               break;
             }
             if (!(!Array.isArray(normalizedFormData.segments) || normalizedFormData.segments.length === 0)) {
-              _context2.n = 5;
+              _context2.n = 6;
               break;
             }
             alert("⚠️ Error: En modo multi-estancia debe haber al menos un segmento.");
             return _context2.a(2);
-          case 5:
-            i = 0;
           case 6:
+            i = 0;
+          case 7:
             if (!(i < normalizedFormData.segments.length)) {
-              _context2.n = 16;
+              _context2.n = 17;
               break;
             }
             seg = normalizedFormData.segments[i];
             if (!(!seg.in || !seg.out)) {
-              _context2.n = 7;
+              _context2.n = 8;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe especificar las fechas de entrada y salida."));
             return _context2.a(2);
-          case 7:
+          case 8:
             if (!(seg.in >= seg.out)) {
-              _context2.n = 8;
+              _context2.n = 9;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La fecha de salida (").concat(seg.out, ") debe ser posterior a la de entrada (").concat(seg.in, ")."));
             return _context2.a(2);
-          case 8:
+          case 9:
             if (!(Number(seg.pax || 0) <= 0)) {
-              _context2.n = 9;
+              _context2.n = 10;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero de PAX debe ser mayor que 0."));
             return _context2.a(2);
-          case 9:
+          case 10:
             allocations = seg.roomAllocations || [];
             if (!(allocations.length === 0)) {
-              _context2.n = 10;
+              _context2.n = 11;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Debe tener al menos una asignaci\xF3n de habitaci\xF3n."));
             return _context2.a(2);
-          case 10:
+          case 11:
             totalRooms = allocations.reduce(function (sum, a) {
               return sum + Number(a.rooms || 0);
             }, 0);
             if (!(totalRooms <= 0)) {
-              _context2.n = 11;
+              _context2.n = 12;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": El n\xFAmero total de habitaciones debe ser mayor que 0."));
             return _context2.a(2);
-          case 11:
-            j = 0;
           case 12:
+            j = 0;
+          case 13:
             if (!(j < allocations.length)) {
-              _context2.n = 15;
+              _context2.n = 16;
               break;
             }
             a = allocations[j];
             if (a.roomType) {
-              _context2.n = 13;
+              _context2.n = 14;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": Tipo de habitaci\xF3n no especificado."));
             return _context2.a(2);
-          case 13:
+          case 14:
             if (!(Number(a.rooms || 0) <= 0)) {
-              _context2.n = 14;
+              _context2.n = 15;
               break;
             }
             alert("\u26A0\uFE0F Error en Segmento ".concat(seg.id || i + 1, ": La asignaci\xF3n para ").concat(a.roomType, " debe ser mayor que 0."));
             return _context2.a(2);
-          case 14:
-            j++;
-            _context2.n = 12;
-            break;
           case 15:
-            i++;
-            _context2.n = 6;
+            j++;
+            _context2.n = 13;
             break;
           case 16:
+            i++;
+            _context2.n = 7;
+            break;
+          case 17:
             // Warnings / Confirmations (non-blocking)
             metrics = buildMultiSegmentMetrics(normalizedFormData.segments, normalizedFormData.declaredPax);
             if (!(metrics.declaredPax > 0 && metrics.segmentPaxTotal > metrics.declaredPax)) {
-              _context2.n = 17;
+              _context2.n = 18;
               break;
             }
             confirmSave = window.confirm("\u26A0\uFE0F Advertencia: El n\xFAmero total de PAX en los segmentos (".concat(metrics.segmentPaxTotal, ") supera los PAX declarados por el cliente (").concat(metrics.declaredPax, "). \xBFDesea continuar?"));
             if (confirmSave) {
-              _context2.n = 17;
+              _context2.n = 18;
               break;
             }
             return _context2.a(2);
-          case 17:
+          case 18:
             reservaId = normalizedFormData.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
             isNew = !normalizedFormData.uid;
             releaseDate = normalizedFormData.Com_Vencimiento_Rel || "";
@@ -2817,16 +2830,16 @@ function App() {
                 return newExt;
               });
             }
-            _context2.p = 18;
+            _context2.p = 19;
             if (!_handleSave.running) {
-              _context2.n = 19;
+              _context2.n = 20;
               break;
             }
             return _context2.a(2);
-          case 19:
+          case 20:
             _handleSave.running = true;
             if (!isNew) {
-              _context2.n = 23;
+              _context2.n = 24;
               break;
             }
             groupData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -2836,14 +2849,14 @@ function App() {
               date: formattedDate,
               text: "Presupuesto registrado (Alta Manual)."
             }];
-            _context2.n = 20;
+            _context2.n = 21;
             return db.collection("groups").doc(reservaId).set(groupData);
-          case 20:
+          case 21:
             if (!(groupData.Com_Estado_Interno === "CONFIRMADO")) {
-              _context2.n = 22;
+              _context2.n = 23;
               break;
             }
-            _context2.n = 21;
+            _context2.n = 22;
             return window.confirmBudget({
               budgetId: reservaId,
               requestedStatus: "CONFIRMADO",
@@ -2851,29 +2864,29 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 21:
+          case 22:
             res = _context2.v;
             if (res && res.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(res.childIds.join(', ')));
             }
-          case 22:
-            _context2.n = 29;
-            break;
           case 23:
+            _context2.n = 30;
+            break;
+          case 24:
             uidToUpdate = groupData.uid;
             oldDoc = groups.find(function (g) {
               return g.uid === uidToUpdate;
             }); // Si el presupuesto ya estaba confirmado o en tentativa / PMS, queda como referencia inmutable y no se debe sobreescribir
             isOldDocLocked = oldDoc && isLockedBudget(oldDoc);
             if (!isOldDocLocked) {
-              _context2.n = 24;
+              _context2.n = 25;
               break;
             }
             _lockedInfo = getBudgetLockedDetails(oldDoc);
             alert("⚠️ Este presupuesto ya está en estado " + _lockedInfo.label + " y se conserva como referencia histórica inmutable.\n\nEl presupuesto original último guardado no se debe modificar. Para aplicar cambios o emitir una nueva propuesta, por favor utiliza la opción 'Duplicar'.");
             _handleSave.running = false;
             return _context2.a(2);
-          case 24:
+          case 25:
             // History Tracking: Detect changes
             changes = [];
             fieldsToTrack = {
@@ -2922,26 +2935,26 @@ function App() {
             // Usar update en lugar de set({merge: true}) para que mapas
             // enteros (roomCounts, dailyConfig) se REEMPLACEN, no se deep-mergen.
             if (!(Object.keys(validUpdateData).length > 0)) {
-              _context2.n = 25;
-              break;
-            }
-            _context2.n = 25;
-            return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
-          case 25:
-            if (!(Object.keys(fallbackData).length > 0)) {
               _context2.n = 26;
               break;
             }
             _context2.n = 26;
-            return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
-              merge: true
-            });
+            return db.collection("groups").doc(uidToUpdate).update(validUpdateData);
           case 26:
-            if (!statusChangedToConfirmed) {
-              _context2.n = 28;
+            if (!(Object.keys(fallbackData).length > 0)) {
+              _context2.n = 27;
               break;
             }
             _context2.n = 27;
+            return db.collection("groups").doc(uidToUpdate).set(fallbackData, {
+              merge: true
+            });
+          case 27:
+            if (!statusChangedToConfirmed) {
+              _context2.n = 29;
+              break;
+            }
+            _context2.n = 28;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: "CONFIRMADO",
@@ -2949,21 +2962,21 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 27:
+          case 28:
             _res = _context2.v;
             if (_res && _res.split) {
               alert("\u2705 Serie confirmada y desglosada en reservas individuales: ".concat(_res.childIds.join(', ')));
             } else {
               alert("\u2705 Presupuesto confirmado con \xE9xito.");
             }
-            _context2.n = 29;
+            _context2.n = 30;
             break;
-          case 28:
+          case 29:
             if (!(targetStatus && targetStatus !== oldDoc.Com_Estado_Interno)) {
-              _context2.n = 29;
+              _context2.n = 30;
               break;
             }
-            _context2.n = 29;
+            _context2.n = 30;
             return window.confirmBudget({
               budgetId: uidToUpdate,
               requestedStatus: targetStatus,
@@ -2971,18 +2984,18 @@ function App() {
               db: db,
               confirmedBy: "Usuario"
             });
-          case 29:
-            setCurrentView('dashboard');
-            _context2.n = 31;
-            break;
           case 30:
-            _context2.p = 30;
+            setCurrentView('dashboard');
+            _context2.n = 32;
+            break;
+          case 31:
+            _context2.p = 31;
             _t2 = _context2.v;
             console.error("Error saving budget:", _t2);
-          case 31:
+          case 32:
             return _context2.a(2);
         }
-      }, _callee2, null, [[18, 30]]);
+      }, _callee2, null, [[19, 31]]);
     }));
     return function handleSave(_x) {
       return _ref43.apply(this, arguments);
@@ -4600,7 +4613,12 @@ function App() {
       })), /*#__PURE__*/React.createElement("p", {
         className: "text-[11px]"
       }, "Disponibilidad total del hotel, descontando ocupaci\xF3n y cupos bloqueados. La disponibilidad por tipolog\xEDa debe confirmarse con el hotel."));
-    }(), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    }(), formData.averageStayCondition && /*#__PURE__*/React.createElement("div", {
+      role: "status",
+      className: "rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+    }, /*#__PURE__*/React.createElement("strong", null, "Tarifa media condicionada a ", formData.averageStayCondition.nights, " noches."), " V\xE1lida exclusivamente para las fechas cotizadas (", formData.averageStayCondition.dates.map(formatDate).join(', '), ").", JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates) && /*#__PURE__*/React.createElement("div", {
+      className: "mt-1 font-bold text-rose-700"
+    }, "La estancia ha cambiado. Vuelve a aplicar \xABTarifa Media Estancia\xBB o elige otra tarifa antes de guardar.")), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3"
@@ -6570,7 +6588,9 @@ function App() {
       className: "space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
-    }, "Itinerario y Condiciones Econ\xF3micas"), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
+    }, "Itinerario y Condiciones Econ\xF3micas"), g.averageStayCondition && /*#__PURE__*/React.createElement("div", {
+      className: "rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid"
+    }, /*#__PURE__*/React.createElement("strong", null, "Condici\xF3n de la tarifa media: estancia de ", g.averageStayCondition.nights, " noches."), " Los precios ofertados se han calculado para la estancia completa en las fechas ", g.averageStayCondition.dates.map(formatDate).join(', '), ". Cualquier reducci\xF3n o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente."), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border ".concat(isCumbria ? 'border-blue-900/20' : 'border-orange-600/20', " text-xs print:text-[10px] bg-white shadow-sm")
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse"
@@ -6769,14 +6789,17 @@ function App() {
     })), /*#__PURE__*/React.createElement("tbody", {
       className: "bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid"
     }, function () {
-      var docBreakdown = calculatePriceBreakdown(g);
-      var hasCommission = (docBreakdown.commAmount || 0) > 0;
+      var docBreakdown = {
+        suplementos: parseFloat(g.Suplementos) || 0,
+        descuentos: parseFloat(g.Descuentos) || 0,
+        totalNet: calculatedTotal
+      };
+      docBreakdown.totalGross = calculatedTotal - docBreakdown.suplementos + docBreakdown.descuentos;
       var hasDiscount = (docBreakdown.descuentos || 0) > 0;
       var hasSupplements = (docBreakdown.suplementos || 0) > 0;
-      var gross = docBreakdown.totalGross > 0 ? docBreakdown.totalGross : calculatedTotal;
-      var net = docBreakdown.totalNet > 0 ? docBreakdown.totalNet : calculatedTotal;
-      var baseLabel = docBreakdown.baseMode === 'accommodation_only' ? 'Alojamiento' : docBreakdown.baseMode === 'accommodation_breakfast' ? 'Aloj. y Desayuno' : 'Total Estancia';
-      if (hasCommission || hasDiscount || hasSupplements) {
+      var gross = docBreakdown.totalGross;
+      var net = docBreakdown.totalNet;
+      if (hasDiscount || hasSupplements) {
         return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
           className: "border-b border-slate-700/50 text-slate-300"
         }, /*#__PURE__*/React.createElement("td", {
@@ -6791,14 +6814,7 @@ function App() {
           className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
         }, "+ Suplementos Varios:"), /*#__PURE__*/React.createElement("td", {
           className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-        }, formatNum(docBreakdown.suplementos), " \u20AC")), hasCommission && /*#__PURE__*/React.createElement("tr", {
-          className: "border-b border-slate-700/50 text-amber-300"
-        }, /*#__PURE__*/React.createElement("td", {
-          colSpan: "3",
-          className: "px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]"
-        }, "- Comisi\xF3n Agencia (", formatNum(docBreakdown.commPct), "% s/ ", baseLabel, "):"), /*#__PURE__*/React.createElement("td", {
-          className: "px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap"
-        }, "-", formatNum(docBreakdown.commAmount), " \u20AC")), hasDiscount && /*#__PURE__*/React.createElement("tr", {
+        }, formatNum(docBreakdown.suplementos), " \u20AC")), hasDiscount && /*#__PURE__*/React.createElement("tr", {
           className: "border-b border-slate-700/50 text-rose-300"
         }, /*#__PURE__*/React.createElement("td", {
           colSpan: "3",

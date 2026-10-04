@@ -2139,7 +2139,8 @@
         setFormData(prev => ({
           ...prev,
           ratesOnlyGrid: mergedGrid,
-          dailyConfig: newDailyConfig
+          dailyConfig: newDailyConfig,
+          averageStayCondition: null
         }));
 
         alert('Tarifas oficiales ' + validYear + ' aplicadas correctamente a ' + hotel + ' (' + Object.keys(mergedGrid).length + ' regímenes).');
@@ -2198,7 +2199,8 @@
           ...prev,
           capaSuiteDiscountPercent: discount,
           ratesOnlyGrid: mergedGrid,
-          dailyConfig: newDailyConfig
+          dailyConfig: newDailyConfig,
+          averageStayCondition: null
         }));
 
         alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
@@ -2264,7 +2266,8 @@
           ...prev,
           capaSuiteDiscountPercent: discount,
           ratesOnlyGrid: mergedGrid,
-          dailyConfig: newDailyConfig
+          dailyConfig: newDailyConfig,
+          averageStayCondition: { dates: [...stayDates], nights: stayDates.length }
         }));
 
         alert(`📊 Tarifa Media de Estancia aplicada con éxito a las ${stayDates.length} noches para ${hotel} (Tarifa plana uniforme por tipología).`);
@@ -2295,6 +2298,10 @@
 
       const handleSave = async (e) => {
         e.preventDefault();
+        if (formData.averageStayCondition && JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates)) {
+          alert('La tarifa media estaba calculada para ' + formData.averageStayCondition.nights + ' noches y las fechas han cambiado. Reaplica Tarifa Media Estancia o elige tarifas oficiales/recomendadas antes de guardar.');
+          return;
+        }
         const uidToCheck = formData.uid || (groups.find(g => g.Reserva === formData.Reserva)?.uid);
         const oldRec = uidToCheck ? groups.find(g => g.uid === uidToCheck || g.Reserva === uidToCheck) : null;
         const isHistoricalReadOnly = isLockedBudget(formData) || (oldRec && isLockedBudget(oldRec));
@@ -3873,6 +3880,13 @@ ${emailContent}`;
                   </div>
                 );
               })()}
+
+              {formData.averageStayCondition && (
+                <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  <strong>Tarifa media condicionada a {formData.averageStayCondition.nights} noches.</strong> Válida exclusivamente para las fechas cotizadas ({formData.averageStayCondition.dates.map(formatDate).join(', ')}).
+                  {JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates) && <div className="mt-1 font-bold text-rose-700">La estancia ha cambiado. Vuelve a aplicar «Tarifa Media Estancia» o elige otra tarifa antes de guardar.</div>}
+                </div>
+              )}
 
               {/* Bloque 2: Tipología de Habitaciones y Modo de Cotización Unificado */}
               {!formData.isRatesOnly ? (
@@ -5801,6 +5815,11 @@ ${emailContent}`;
 
                     <div className="space-y-8 print:space-y-4">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
+                      {g.averageStayCondition && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid">
+                          <strong>Condición de la tarifa media: estancia de {g.averageStayCondition.nights} noches.</strong> Los precios ofertados se han calculado para la estancia completa en las fechas {g.averageStayCondition.dates.map(formatDate).join(', ')}. Cualquier reducción o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente.
+                        </div>
+                      )}
                       {dates.length > 0 || g.isRatesOnly ? (
                         g.isRatesOnly ? (
                           <div className={`overflow-hidden print:overflow-visible rounded-2xl border ${isCumbria ? 'border-blue-900/20' : 'border-orange-600/20'} text-xs print:text-[10px] bg-white shadow-sm`}>
@@ -5975,18 +5994,18 @@ ${emailContent}`;
                                </tbody>
                                <tbody className="bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid">
                                  {(() => {
-                                   const docBreakdown = calculatePriceBreakdown(g);
-                                   const hasCommission = (docBreakdown.commAmount || 0) > 0;
+                                   const docBreakdown = {
+                                     suplementos: parseFloat(g.Suplementos) || 0,
+                                     descuentos: parseFloat(g.Descuentos) || 0,
+                                     totalNet: calculatedTotal
+                                   };
+                                   docBreakdown.totalGross = calculatedTotal - docBreakdown.suplementos + docBreakdown.descuentos;
                                    const hasDiscount = (docBreakdown.descuentos || 0) > 0;
                                    const hasSupplements = (docBreakdown.suplementos || 0) > 0;
-                                   const gross = docBreakdown.totalGross > 0 ? docBreakdown.totalGross : calculatedTotal;
-                                   const net = docBreakdown.totalNet > 0 ? docBreakdown.totalNet : calculatedTotal;
+                                   const gross = docBreakdown.totalGross;
+                                   const net = docBreakdown.totalNet;
 
-                                   const baseLabel = docBreakdown.baseMode === 'accommodation_only' 
-                                     ? 'Alojamiento' 
-                                     : (docBreakdown.baseMode === 'accommodation_breakfast' ? 'Aloj. y Desayuno' : 'Total Estancia');
-
-                                   if (hasCommission || hasDiscount || hasSupplements) {
+                                   if (hasDiscount || hasSupplements) {
                                      return (
                                        <>
                                          <tr className="border-b border-slate-700/50 text-slate-300">
@@ -5997,12 +6016,6 @@ ${emailContent}`;
                                            <tr className="border-b border-slate-700/50 text-indigo-300">
                                              <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">+ Suplementos Varios:</td>
                                              <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">{formatNum(docBreakdown.suplementos)} €</td>
-                                           </tr>
-                                         )}
-                                         {hasCommission && (
-                                           <tr className="border-b border-slate-700/50 text-amber-300">
-                                             <td colSpan="3" className="px-6 py-3 print:py-1.5 print:px-3 text-right uppercase tracking-widest text-[10px] print:text-[8px]">- Comisión Agencia ({formatNum(docBreakdown.commPct)}% s/ {baseLabel}):</td>
-                                             <td className="px-6 py-3 print:py-1.5 print:px-3 text-right tabular-nums whitespace-nowrap">-{formatNum(docBreakdown.commAmount)} €</td>
                                            </tr>
                                          )}
                                          {hasDiscount && (
