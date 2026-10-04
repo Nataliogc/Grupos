@@ -471,9 +471,10 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
     var rtNorm = rt.toLowerCase();
     var pax = 2;
     var isDUI = rtNorm.includes('individual') || rtNorm.includes('dui');
-    if (isDUI) pax = 1;else if (rtNorm.includes('supletoria') || rtNorm.includes('triple')) pax = 3;else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
+    if (isDUI) pax = 1;else if (rtNorm.includes('niño') || rtNorm.includes('nino')) pax = 2.5;else if (rtNorm.includes('supletoria') || rtNorm.includes('triple')) pax = 3;else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
     var roomTypeSupplement = offP_HA !== null ? Math.round((offP_HA - offDblHA) * 100) / 100 : 0;
-    var baseHA = Math.round((recDobleHA + roomTypeSupplement) * 100) / 100;
+    var accommodationDelta = recDobleHA - offDblHA;
+    var baseHA = isDUI ? recDobleHA : Math.round(Math.round((offP_HA !== null ? offP_HA : offDblHA) * 100) + Math.round(accommodationDelta * 100) * pax / 2) / 100;
     var roomSupp;
     if (boardCode === 'HA' || boardCode === 'SA') {
       roomSupp = 0;
@@ -4887,8 +4888,8 @@ function App() {
         className: "bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest"
       }, formatDate(date)), /*#__PURE__*/React.createElement("span", {
         className: "text-[7px] text-slate-400 font-bold",
-        title: "PVP Hotel CapaSuite para esta fecha: ".concat(dayComp.hotelDayPrice, " \u20AC")
-      }, "PVP: ", /*#__PURE__*/React.createElement("span", {
+        title: "PVP de habitaci\xF3n doble, solo alojamiento, sin manutenci\xF3n: ".concat(dayComp.hotelDayPrice, " \u20AC")
+      }, "PVP hab. (HA): ", /*#__PURE__*/React.createElement("span", {
         className: "text-slate-600 font-black"
       }, dayComp.hotelDayPrice, " \u20AC")), /*#__PURE__*/React.createElement("select", {
         "aria-label": "Tarifa para toda la fila del ".concat(formatDate(date)),
@@ -5271,7 +5272,7 @@ function App() {
           }, "T/grupo: ", offPriceVal !== null ? "".concat(formatMoney(offPriceVal), "\u20AC") : '—'), /*#__PURE__*/React.createElement("span", {
             className: "text-indigo-600",
             title: priceInfo ? "".concat(formatDate(refDate), " \xB7 ").concat(priceInfo.source, " \xB7 Base doble, solo alojamiento") : 'Selecciona una fecha de entrada para consultar el PVP'
-          }, "- ", isStayAverage ? 'PVP medio' : 'PVP', ": ", comparison ? "".concat(formatMoney(comparison.hotelDayPrice), "\u20AC") : '—'), isBelowMin ? /*#__PURE__*/React.createElement("span", {
+          }, "- ", isStayAverage ? 'PVP hab. medio (HA)' : 'PVP hab. (HA)', ": ", comparison ? "".concat(formatMoney(comparison.hotelDayPrice), "\u20AC") : '—'), isBelowMin ? /*#__PURE__*/React.createElement("span", {
             className: "text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5",
             title: "Por debajo del m\xEDnimo establecido (".concat(minAllowedPrice, " \u20AC)")
           }, /*#__PURE__*/React.createElement("i", {
@@ -5280,7 +5281,7 @@ function App() {
             className: "text-[9px] font-extrabold text-emerald-600"
           }, "-", Math.round((1 - numP / offPriceVal) * 100), "%") : null), comparison && /*#__PURE__*/React.createElement("div", {
             className: "mt-1 text-[9px] leading-relaxed text-slate-500"
-          }, /*#__PURE__*/React.createElement("div", null, priceInfo !== null && priceInfo !== void 0 && priceInfo.isEstimated ? 'PVP estimado' : (priceInfo === null || priceInfo === void 0 ? void 0 : priceInfo.source) || 'Referencia del día'), recommended != null && /*#__PURE__*/React.createElement("div", null, "Sugerida: ", formatMoney(recommended), "\u20AC \xB7 dto. ", discount, "% sobre alojamiento")), offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && /*#__PURE__*/React.createElement("div", {
+          }, /*#__PURE__*/React.createElement("div", null, priceInfo !== null && priceInfo !== void 0 && priceInfo.isEstimated ? 'PVP estimado' : (priceInfo === null || priceInfo === void 0 ? void 0 : priceInfo.source) || 'Referencia del día'), recommended != null && /*#__PURE__*/React.createElement("div", null, "Sugerida ", boardKey, ": ", formatMoney(recommended), "\u20AC \xB7 dto. ", discount, "% solo sobre habitaci\xF3n; suplementos completos")), offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && /*#__PURE__*/React.createElement("div", {
             className: "mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[9px] leading-relaxed text-amber-800"
           }, "Tarifa de grupo sin aplicar: ", numP > offPriceVal ? '+' : '−', formatMoney(Math.abs(numP - offPriceVal)), "\u20AC frente al cat\xE1logo.", recommended != null && Math.abs(numP - recommended) < 0.01 ? " Se usa la ".concat(isStayAverage ? 'media de estancia' : 'sugerida del día', " (PVP \u2212 ").concat(discount, "% en alojamiento + suplementos del r\xE9gimen).") : ' Precio introducido distinto del catálogo.'));
         }());

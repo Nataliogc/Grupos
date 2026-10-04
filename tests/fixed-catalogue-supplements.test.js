@@ -1,34 +1,19 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const service = require('../js/services/capaSuitePricingService');
-const grid = {
- HA: { DOBLE: 62, 'DOBLE DE USO INDIVIDUAL': 62, 'DOBLE + SUPLETORIA': 82, 'CUÁDRUPLE': 101 },
- HD: { DOBLE: 78, 'DOBLE DE USO INDIVIDUAL': 70, 'DOBLE + SUPLETORIA': 106, 'CUÁDRUPLE': 125 },
- MP: { DOBLE: 116, 'DOBLE DE USO INDIVIDUAL': 89, 'DOBLE + SUPLETORIA': 163, 'CUÁDRUPLE': 201 },
- PC: { DOBLE: 154, 'DOBLE DE USO INDIVIDUAL': 108, 'DOBLE + SUPLETORIA': 220, 'CUÁDRUPLE': 258 }
-};
-function compare(discount, board, catalogue = grid, hotel = 'Guadiana', date = '2026-10-10') {
- global.localStorage = { getItem: k => k === 'revenue_data_v2' ? JSON.stringify({ [date]: { hotels: { [hotel]: { price: 231 } } } }) : null };
- return service.getTariffComparison(hotel, date, board, discount, catalogue).recommendedPricesByRoom;
-}
-test('5% discounts double accommodation only and preserves fixed catalogue supplements', () => {
- assert.equal(compare(5, 'HA')['DOBLE + SUPLETORIA'], 239.45);
- assert.equal(compare(5, 'HA')['CUÁDRUPLE'], 258.45);
- assert.equal(compare(5, 'HD')['DOBLE DE USO INDIVIDUAL'], 227.45);
- assert.equal(compare(5, 'HD').DOBLE, 235.45);
- assert.equal(compare(5, 'MP')['DOBLE + SUPLETORIA'], 320.45);
- assert.equal(compare(5, 'PC')['CUÁDRUPLE'], 415.45);
-});
-test('supplements remain fixed as commercial discount changes', () => {
- const zero = compare(0, 'PC');
- const twenty = compare(20, 'PC');
- for (const room of ['DOBLE', 'DOBLE DE USO INDIVIDUAL', 'DOBLE + SUPLETORIA', 'CUÁDRUPLE']) {
-   assert.ok(Math.abs(zero[room] - twenty[room] - 46.2) < 0.001);
+const rooms = ['DOBLE DE USO INDIVIDUAL','DOBLE','DOBLE + SUPLETORIA','CUÁDRUPLE'];
+const catalogue = { HA:[62,62,82,101], HD:[70,78,106,125], MP:[89,116,163,201], PC:[108,154,220,258] };
+const grid = Object.fromEntries(Object.entries(catalogue).map(([b, values])=>[b,Object.fromEntries(rooms.map((r,i)=>[r,values[i]]))]));
+function verify(pvp,discount,expected) {
+ global.localStorage = { getItem:k=>k==='revenue_data_v2'?JSON.stringify({'2026-11-02':{hotels:{Guadiana:{price:pvp}}}}):null };
+ for (const [board, values] of Object.entries(expected)) {
+  const result = service.getTariffComparison('Guadiana','2026-11-02',board,discount,grid).recommendedPricesByRoom;
+  rooms.forEach((room,i)=>assert.equal(result[room],values[i],board+' '+room));
  }
-});
-test('uses supplied hotel/year catalogue rather than default ratios', () => {
- const yearly = { HA: { DOBLE: 65, 'DOBLE + SUPLETORIA': 86.5 }, HD: { DOBLE: 82, 'DOBLE + SUPLETORIA': 112 } };
- assert.equal(compare(5, 'HD', yearly, 'Guadiana', '2027-10-10')['DOBLE + SUPLETORIA'], 266.45);
- const cumbria = { HA: { DOBLE: 60, 'DOBLE + SUPLETORIA': 80 }, HD: { DOBLE: 76, 'DOBLE + SUPLETORIA': 104 } };
- assert.equal(compare(5, 'HD', cumbria, 'Cumbria')['DOBLE + SUPLETORIA'], 263.45);
-});
+}
+test('matches all sixteen values in the supplied 68 EUR / 15% table',()=>verify(68,15,{
+ HA:[57.8,57.8,75.7,92.6], HD:[65.8,73.8,99.7,116.6], MP:[84.8,111.8,156.7,192.6], PC:[103.8,149.8,213.7,249.6]
+}));
+test('also matches the earlier 231 EUR / 5% table when prices rise above the catalogue',()=>verify(231,5,{
+ HA:[219.45,219.45,318.18,415.9], HD:[227.45,235.45,342.18,439.9], MP:[246.45,273.45,399.18,515.9], PC:[265.45,311.45,456.18,572.9]
+}));

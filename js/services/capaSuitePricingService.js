@@ -385,7 +385,9 @@
       else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) pax = 3;
       else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) pax = 4;
       var roomTypeSupplement = offP_HA !== null ? Math.round((offP_HA - offDblHA) * 100) / 100 : 0;
-      var baseHA = Math.round((recDobleHA + roomTypeSupplement) * 100) / 100;
+      // The change vs the catalogue double is allocated per bed; DUI keeps the full double base.
+      var accommodationDelta = recDobleHA - offDblHA;
+      var baseHA = isDUI ? recDobleHA : Math.round(Math.round((offP_HA !== null ? offP_HA : offDblHA) * 100) + Math.round(accommodationDelta * 100) * pax / 2) / 100;
 
       // Suplemento de pensión:
       // Si el catálogo oficial tiene precio cerrado para esta tipología en este régimen,

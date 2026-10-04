@@ -294,11 +294,13 @@
         let pax = 2;
         const isDUI = rtNorm.includes('individual') || rtNorm.includes('dui');
         if (isDUI) pax = 1;
+        else if (rtNorm.includes('niño') || rtNorm.includes('nino')) pax = 2.5;
         else if (rtNorm.includes('supletoria') || rtNorm.includes('triple')) pax = 3;
         else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
 
         const roomTypeSupplement = offP_HA !== null ? Math.round((offP_HA - offDblHA) * 100) / 100 : 0;
-        const baseHA = Math.round((recDobleHA + roomTypeSupplement) * 100) / 100;
+        const accommodationDelta = recDobleHA - offDblHA;
+        const baseHA = isDUI ? recDobleHA : Math.round(Math.round((offP_HA !== null ? offP_HA : offDblHA) * 100) + Math.round(accommodationDelta * 100) * pax / 2) / 100;
 
         let roomSupp;
         if (boardCode === 'HA' || boardCode === 'SA') {
@@ -4128,8 +4130,8 @@ ${emailContent}`;
                             <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center">
                               <div className="shrink-0 w-24 flex flex-col gap-1">
                                 <span className="bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest">{formatDate(date)}</span>
-                                <span className="text-[7px] text-slate-400 font-bold" title={`PVP Hotel CapaSuite para esta fecha: ${dayComp.hotelDayPrice} €`}>
-                                  PVP: <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
+                                <span className="text-[7px] text-slate-400 font-bold" title={`PVP de habitación doble, solo alojamiento, sin manutención: ${dayComp.hotelDayPrice} €`}>
+                                  PVP hab. (HA): <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
                                 </span>
                                 <select
                                   aria-label={`Tarifa para toda la fila del ${formatDate(date)}`}
@@ -4468,7 +4470,7 @@ ${emailContent}`;
                                               T/grupo: {offPriceVal !== null ? `${formatMoney(offPriceVal)}€` : '—'}
                                             </span>
                                             <span className="text-indigo-600" title={priceInfo ? `${formatDate(refDate)} · ${priceInfo.source} · Base doble, solo alojamiento` : 'Selecciona una fecha de entrada para consultar el PVP'}>
-                                              - {isStayAverage ? 'PVP medio' : 'PVP'}: {comparison ? `${formatMoney(comparison.hotelDayPrice)}€` : '—'}
+                                              - {isStayAverage ? 'PVP hab. medio (HA)' : 'PVP hab. (HA)'}: {comparison ? `${formatMoney(comparison.hotelDayPrice)}€` : '—'}
                                             </span>
                                             {isBelowMin ? (
                                               <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5" title={`Por debajo del mínimo establecido (${minAllowedPrice} €)`}>
@@ -4483,7 +4485,7 @@ ${emailContent}`;
                                           {comparison && (
                                             <div className="mt-1 text-[9px] leading-relaxed text-slate-500">
                                               <div>{priceInfo?.isEstimated ? 'PVP estimado' : priceInfo?.source || 'Referencia del día'}</div>
-                                              {recommended != null && <div>Sugerida: {formatMoney(recommended)}€ · dto. {discount}% sobre alojamiento</div>}
+                                              {recommended != null && <div>Sugerida {boardKey}: {formatMoney(recommended)}€ · dto. {discount}% solo sobre habitación; suplementos completos</div>}
                                             </div>
                                           )}
                                           {offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && (
