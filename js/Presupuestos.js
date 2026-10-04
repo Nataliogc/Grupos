@@ -7252,7 +7252,7 @@ function App() {
     }, formatNum(calculatedTotal), " \u20AC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-400 mt-2"
     }, "Detalle de noches no configurado a\xFAn.")), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
-      className: "rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible"
+      className: "quote-payment-plan rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible"
     }, /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50 px-4 py-3 print:py-2 border-b border-slate-100"
     }, /*#__PURE__*/React.createElement("h4", {

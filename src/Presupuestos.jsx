@@ -6261,7 +6261,7 @@ ${emailContent}`;
                       )}
 
                       {documentPaymentPlan.length > 0 && (
-                        <div className="rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible">
+                        <div className="quote-payment-plan rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible">
                           <div className="bg-slate-50 px-4 py-3 print:py-2 border-b border-slate-100">
                             <h4 className="text-[10px] print:text-[8px] font-black text-slate-500 uppercase tracking-widest">Condiciones de pago</h4>
                           </div>
