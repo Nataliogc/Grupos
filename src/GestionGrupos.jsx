@@ -579,6 +579,74 @@
       return result;
     };
 
+    // Helper para calcular con precisión las Habitaciones-Noche y el Precio Medio de Habitación (ADR) de un grupo
+    const calculateGroupAdrAndRoomNights = (group, effectiveAmount = 0) => {
+      if (!group) return { roomNights: 0, adr: 0, lodgingTotal: 0, totalRooms: 0, nights: 0 };
+      const rec = group.records?.[0] || group;
+
+      let rawList = [];
+      try {
+        if (typeof window !== "undefined" && window.roomingCore && typeof window.roomingCore.getGroupEconomicItems === "function") {
+          rawList = window.roomingCore.getGroupEconomicItems(group) || [];
+        }
+      } catch (e) {}
+      if (!rawList || rawList.length === 0) {
+        rawList = parseRoomingListSafe(rec["RoomingList_JSON"], "calculateGroupAdrAndRoomNights");
+      }
+
+      let roomNights = 0;
+      let lodgingTotal = 0;
+      let totalRooms = 0;
+
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        const expanded = expandRoomListByDays(rawList);
+        expanded.forEach((item) => {
+          const rawT = (item.type || "").toLowerCase().trim();
+          const cleanT = rawT.replace(/^(hab\.|habitación|habitacion|hab)\s+/i, "").trim();
+          const isRoomTypology = /^(ind|dui|single|dob|dbl|twin|matrimonial|tri|cua|quin|fami|suite|junior|estudio)/i.test(cleanT);
+          const isPureService = (item.isService && !isRoomTypology) || (typeof isPureServiceItem === "function" && isPureServiceItem(item));
+
+          if (!isPureService) {
+            const q = parseInt(item.qty, 10) || 1;
+            const n = parseInt(item.nights, 10) || 1;
+            roomNights += q * n;
+            lodgingTotal += parseFloat(item.total) || 0;
+          }
+        });
+
+        if (typeof calculateMaxDailyRooms === "function") {
+          totalRooms = calculateMaxDailyRooms(rawList) || 0;
+        }
+      }
+
+      const nightsVal = parseInt(rec["Noches"] || rec["noches"] || rec["Num_Noches"] || group.nights || 0, 10);
+      const habsVal = parseInt(rec["Habitaciones"] || rec["Hab."] || rec["Hab"] || rec["Total_Hab"] || rec["Cant. Habitaciones"] || rec["Cant."] || group.totalRooms || 0, 10);
+
+      if (roomNights === 0) {
+        if (habsVal > 0) {
+          totalRooms = habsVal;
+          roomNights = Math.round(habsVal * Math.max(1, nightsVal || 1));
+        }
+      } else if (totalRooms === 0 && habsVal > 0) {
+        totalRooms = habsVal;
+      }
+
+      if (totalRooms === 0 && roomNights > 0 && nightsVal > 0) {
+        totalRooms = Math.round(roomNights / nightsVal);
+      }
+
+      const baseRevenue = lodgingTotal > 0 ? lodgingTotal : (effectiveAmount || parseFloat(rec["Importe(*)"] || rec.total || group.totalRevenue || 0) || 0);
+      const adr = roomNights > 0 && baseRevenue > 0 ? (baseRevenue / roomNights) : 0;
+
+      return {
+        roomNights,
+        adr,
+        lodgingTotal: lodgingTotal > 0 ? lodgingTotal : baseRevenue,
+        totalRooms,
+        nights: nightsVal || (totalRooms > 0 && roomNights > 0 ? Math.round(roomNights / totalRooms) : 1)
+      };
+    };
+
     // Intercepta la tecla "." (punto) del teclado/numpad y la convierte en "," (coma)
     // para que al meter los decimales en el teclado el punto se coja como coma.
     const handleDotAsComma = (e) => {
@@ -1636,6 +1704,80 @@
         return gts.validateTargetIntegrity(generatedTarget, currentTariffs);
       }, [generatedTarget, currentTariffs]);
 
+      // 7. Desglose analítico por períodos temporales (Meses Cerrados, Mes en Curso, Meses Abiertos)
+      const [periodFilter, setPeriodFilter] = useState("all"); // 'all' | 'closed' | 'current_open'
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1; // 1-12 (Octubre = 10)
+
+      const getMonthPeriodStatus = (m) => {
+        if (targetYear < currentYear) return "closed";
+        if (targetYear > currentYear) return "open";
+        if (m < currentMonth) return "closed";
+        if (m === currentMonth) return "current";
+        return "open";
+      };
+
+      const periodMetrics = useMemo(() => {
+        if (!comparison || !comparison.monthly) return null;
+
+        const makeBucket = () => ({
+          revenueReal: 0, revenueTarget: 0,
+          roomNightsReal: 0, roomNightsTarget: 0,
+          reservasReal: 0, reservasTarget: 0,
+          paxReal: 0, paxTarget: 0,
+          count: 0, months: []
+        });
+
+        const closed = makeBucket();
+        const current = makeBucket();
+        const open = makeBucket();
+
+        for (let m = 1; m <= 12; m++) {
+          const row = comparison.monthly[m];
+          if (!row) continue;
+          const st = getMonthPeriodStatus(m);
+          const bucket = st === "closed" ? closed : st === "current" ? current : open;
+          bucket.revenueReal += row.real.revenue || 0;
+          bucket.revenueTarget += row.target.revenue || 0;
+          bucket.roomNightsReal += row.real.roomNights || 0;
+          bucket.roomNightsTarget += row.target.roomNights || 0;
+          bucket.reservasReal += row.real.reservas || 0;
+          bucket.reservasTarget += row.target.reservas || 0;
+          bucket.paxReal += row.real.pax || 0;
+          bucket.paxTarget += row.target.pax || 0;
+          bucket.count += 1;
+          bucket.months.push(m);
+        }
+
+        const finalizeBucket = (b) => {
+          const diffRevenue = b.revenueReal - b.revenueTarget;
+          const diffPercent = b.revenueTarget > 0 ? (diffRevenue / b.revenueTarget) * 100 : 0;
+          const compliance = b.revenueTarget > 0 ? (b.revenueReal / b.revenueTarget) * 100 : 0;
+          const adrReal = b.roomNightsReal > 0 ? b.revenueReal / b.roomNightsReal : 0;
+          const adrTarget = b.roomNightsTarget > 0 ? b.revenueTarget / b.roomNightsTarget : 0;
+          const adrDiff = adrReal - adrTarget;
+          return { ...b, diffRevenue, diffPercent, compliance, adrReal, adrTarget, adrDiff };
+        };
+
+        const totDiffRev = comparison.totals.diff.revenue || 0;
+        const totTargetRev = comparison.totals.target.revenue || 0;
+        const totDiffPercent = totTargetRev > 0 ? (totDiffRev / totTargetRev) * 100 : 0;
+
+        return {
+          closed: finalizeBucket(closed),
+          current: finalizeBucket(current),
+          open: finalizeBucket(open),
+          totals: {
+            diffRevenue: totDiffRev,
+            diffPercent: totDiffPercent,
+            compliance: comparison.totals.compliancePercent?.revenue || 0,
+            adrReal: comparison.totals.adr?.real || 0,
+            adrTarget: comparison.totals.adr?.target || 0,
+            adrDiff: comparison.totals.adr?.diff || 0
+          }
+        };
+      }, [comparison, targetYear]);
+
       // Manejadores de Modal de Tarifas
       const openTariffModal = (h, y) => {
         const selH = h || targetHotel;
@@ -2263,124 +2405,465 @@
           </div>
 
           {/* VISTA 1: TABLA MENSUAL REAL VS OBJETIVO (CAPASUITE) */}
-          {activeSubView === "monthly" && comparison && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                    Seguimiento Mensual {targetYear} — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
-                  </span>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Comparativa en libros frente a los objetivos comerciales fijados en CapaSuite.
-                  </p>
+          {activeSubView === "monthly" && comparison && periodMetrics && (
+            <div className="space-y-4">
+              {/* 4 EXECUTIVE CARDS: CERRADOS / EN CURSO / EN CARTERA / TOTAL */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* CARD 1: MESES CERRADOS */}
+                <div className="bg-slate-900 text-white rounded-2xl p-4.5 border border-slate-800 shadow-md flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <span>🔒</span> Meses Cerrados ({periodMetrics.closed.count})
+                      </span>
+                      <span className="text-[9px] font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">
+                        Histórico Auditado
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xl font-black tabular-nums">
+                        {periodMetrics.closed.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Obj: {periodMetrics.closed.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2.5 border-t border-slate-800/80 mt-2.5 flex items-end justify-between text-[11px]">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-semibold">Desvío neto</span>
+                      <span className={`font-black ${periodMetrics.closed.diffRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {periodMetrics.closed.diffRevenue >= 0 ? "+" : ""}{periodMetrics.closed.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.closed.diffPercent >= 0 ? "+" : ""}{periodMetrics.closed.diffPercent.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block font-semibold">ADR Cerrado</span>
+                      <span className="font-black text-slate-200">
+                        {periodMetrics.closed.adrReal > 0 ? `${periodMetrics.closed.adrReal.toFixed(2)} €/hab` : "—"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSyncFromCapaSuite}
-                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
-                    title="Actualizar y sincronizar con CapaSuite"
-                  >
-                    <span>🔄</span> Sincronizar con CapaSuite
-                  </button>
+
+                {/* CARD 2: MES EN CURSO */}
+                <div className="bg-white rounded-2xl p-4.5 border-2 border-amber-300 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                        <span className="animate-pulse">⏳</span> Mes en Curso {targetYear === currentYear ? `(${monthNames[currentMonth - 1]})` : ""}
+                      </span>
+                      <span className="text-[9px] font-black bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                        En Gestión
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xl font-black text-slate-900 tabular-nums">
+                        {periodMetrics.current.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Obj: {periodMetrics.current.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2.5 border-t border-slate-100 mt-2.5 flex items-end justify-between text-[11px]">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-semibold">Desvío / Faltante</span>
+                      <span className={`font-black ${periodMetrics.current.diffRevenue >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                        {periodMetrics.current.diffRevenue >= 0 ? "+" : ""}{periodMetrics.current.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.current.diffPercent >= 0 ? "+" : ""}{periodMetrics.current.diffPercent.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block font-semibold">ADR Mes</span>
+                      <span className="font-black text-indigo-700">
+                        {periodMetrics.current.adrReal > 0 ? `${periodMetrics.current.adrReal.toFixed(2)} €/hab` : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 3: EN CARTERA / ABIERTOS */}
+                <div className="bg-white rounded-2xl p-4.5 border border-indigo-200 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                        <span>📅</span> En Cartera / Abiertos ({periodMetrics.open.count})
+                      </span>
+                      <span className="text-[9px] font-black bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
+                        On The Books
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xl font-black text-indigo-950 tabular-nums">
+                        {periodMetrics.open.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Obj: {periodMetrics.open.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2.5 border-t border-slate-100 mt-2.5 flex items-end justify-between text-[11px]">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-semibold">Brecha / Faltante</span>
+                      <span className={`font-black ${periodMetrics.open.diffRevenue >= 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                        {periodMetrics.open.diffRevenue >= 0 ? "+" : ""}{periodMetrics.open.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.open.diffPercent >= 0 ? "+" : ""}{periodMetrics.open.diffPercent.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block font-semibold">ADR Cartera</span>
+                      <span className="font-black text-indigo-700">
+                        {periodMetrics.open.adrReal > 0 ? `${periodMetrics.open.adrReal.toFixed(2)} €/hab` : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 4: TOTAL ANUAL */}
+                <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 text-white rounded-2xl p-4.5 shadow-md flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
+                        <span>🎯</span> Total Anual {targetYear}
+                      </span>
+                      <span className="text-[9px] font-black bg-white/20 text-white px-2 py-0.5 rounded-full">
+                        {periodMetrics.totals.compliance.toFixed(1)}% Obj
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xl font-black tabular-nums">
+                        {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                      <div className="text-[11px] text-indigo-200">
+                        Obj: {comparison.totals.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2.5 border-t border-white/15 mt-2.5 flex items-end justify-between text-[11px]">
+                    <div>
+                      <span className="text-[10px] text-indigo-200 block font-semibold">Desvío Global</span>
+                      <span className={`font-black ${periodMetrics.totals.diffRevenue >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                        {periodMetrics.totals.diffRevenue >= 0 ? "+" : ""}{periodMetrics.totals.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.totals.diffPercent >= 0 ? "+" : ""}{periodMetrics.totals.diffPercent.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-indigo-200 block font-semibold">ADR Medio Real</span>
+                      <span className="font-black text-white">
+                        {periodMetrics.totals.adrReal > 0 ? `${periodMetrics.totals.adrReal.toFixed(2)} €/hab` : "—"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100/75 text-slate-600 font-bold border-b border-slate-200">
-                      <th className="p-3">Mes</th>
-                      <th className="p-3 text-center">Reservas (R / O)</th>
-                      <th className="p-3 text-center">Hab-Noches (R / O)</th>
-                      <th className="p-3 text-center">Pax (R / O)</th>
-                      <th className="p-3 text-right">Ingresos Real</th>
-                      <th className="p-3 text-right">Ingresos Obj (CapaSuite)</th>
-                      <th className="p-3 text-right">Diferencia</th>
-                      <th className="p-3 text-center">% Cumplimiento</th>
-                      <th className="p-3 text-center">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
-                      const row = comparison.monthly[m];
-                      const diff = row.diff.revenue;
-                      const isPositive = diff >= 0;
-                      const cump = row.compliancePercent.revenue;
-                      return (
-                        <tr key={m} className="hover:bg-slate-50/80 transition">
-                          <td className="p-3 font-bold text-slate-900">{monthNames[m - 1]}</td>
+
+              {/* TABLA PRINCIPAL DE SEGUIMIENTO */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div>
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                        Seguimiento Mensual {targetYear} — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Comparativa de ingresos, habitaciones, ADR y desvíos comerciales frente al presupuesto de CapaSuite.
+                      </p>
+                    </div>
+
+                    {/* SELECTOR DE FILTRO TEMPORAL */}
+                    <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter("all")}
+                        className={"px-2.5 py-1 rounded-lg transition " + (periodFilter === "all" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900")}
+                      >
+                        Todos (12)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter("closed")}
+                        className={"px-2.5 py-1 rounded-lg transition flex items-center gap-1 " + (periodFilter === "closed" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900")}
+                      >
+                        <span>🔒</span> Solo Cerrados ({periodMetrics.closed.count})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPeriodFilter("current_open")}
+                        className={"px-2.5 py-1 rounded-lg transition flex items-center gap-1 " + (periodFilter === "current_open" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900")}
+                      >
+                        <span>⏳</span> En Curso y Cartera ({periodMetrics.current.count + periodMetrics.open.count})
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSyncFromCapaSuite}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      title="Actualizar y sincronizar con CapaSuite"
+                    >
+                      <span>🔄</span> Sincronizar con CapaSuite
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/75 text-slate-600 font-bold border-b border-slate-200">
+                        <th className="p-3">Mes</th>
+                        <th className="p-3 text-center">Estado</th>
+                        <th className="p-3 text-center">Reservas (R / O)</th>
+                        <th className="p-3 text-center">Hab-Noches (R / O)</th>
+                        <th className="p-3 text-center">Pax (R / O)</th>
+                        <th className="p-3 text-center">Precio Medio Hab. (ADR)</th>
+                        <th className="p-3 text-right">Ingresos Real</th>
+                        <th className="p-3 text-right">Ingresos Obj (CapaSuite)</th>
+                        <th className="p-3 text-right">Desvío (€ y %)</th>
+                        <th className="p-3 text-center">% Cumplimiento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {Array.from({ length: 12 }, (_, i) => i + 1)
+                        .filter(m => {
+                          if (periodFilter === "closed") return getMonthPeriodStatus(m) === "closed";
+                          if (periodFilter === "current_open") return getMonthPeriodStatus(m) !== "closed";
+                          return true;
+                        })
+                        .map(m => {
+                          const row = comparison.monthly[m];
+                          const diff = row.diff.revenue;
+                          const isPositive = diff >= 0;
+                          const cump = row.compliancePercent.revenue;
+                          const st = getMonthPeriodStatus(m);
+                          const adrReal = row.adr?.real || 0;
+                          const adrTarget = row.adr?.target || 0;
+                          const adrDiff = row.adr?.diff;
+                          const desvioPct = row.desvioPercent?.revenue;
+
+                          return (
+                            <tr
+                              key={m}
+                              className={"transition hover:bg-slate-50/80 " + (st === "current" ? "bg-amber-50/40 font-semibold" : st === "closed" ? "bg-slate-50/20" : "")}
+                            >
+                              <td className="p-3 font-bold text-slate-900">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{monthNames[m - 1]}</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                {st === "closed" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                    🔒 Cerrado
+                                  </span>
+                                ) : st === "current" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                    ⏳ En Curso
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                    📅 En Cartera
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="text-slate-900 font-bold">{row.real.reservas}</span>
+                                <span className="text-slate-400 mx-1">/</span>
+                                <span className="text-indigo-600">{row.target.reservas}</span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="text-slate-900 font-bold">{row.real.roomNights}</span>
+                                <span className="text-slate-400 mx-1">/</span>
+                                <span className="text-indigo-600">{row.target.roomNights}</span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="text-slate-900 font-bold">{row.real.pax}</span>
+                                <span className="text-slate-400 mx-1">/</span>
+                                <span className="text-indigo-600">{row.target.pax}</span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex flex-col items-center">
+                                  <div className="font-bold tabular-nums">
+                                    <span className="text-slate-900">{adrReal > 0 ? `${adrReal.toFixed(2)} €` : "—"}</span>
+                                    <span className="text-slate-400 mx-1">/</span>
+                                    <span className="text-indigo-600">{adrTarget > 0 ? `${adrTarget.toFixed(2)} €` : "—"}</span>
+                                  </div>
+                                  {adrDiff != null && adrReal > 0 && adrTarget > 0 && (
+                                    <span className={"text-[10px] font-bold " + (adrDiff >= 0 ? "text-emerald-600" : "text-rose-500")}>
+                                      {adrDiff >= 0 ? "+" : ""}{adrDiff.toFixed(2)} €/hab
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3 text-right font-bold text-slate-900 tabular-nums">
+                                {row.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                              </td>
+                              <td className="p-3 text-right text-indigo-700 font-bold tabular-nums">
+                                {row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                              </td>
+                              <td className={"p-3 text-right font-black tabular-nums " + (isPositive ? "text-emerald-600" : "text-rose-600")}>
+                                <div>
+                                  {isPositive ? "+" : ""}{diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                </div>
+                                {desvioPct != null && row.target.revenue > 0 && (
+                                  <div className="text-[10px] font-bold opacity-80">
+                                    ({desvioPct >= 0 ? "+" : ""}{desvioPct.toFixed(1)}%)
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (cump >= 100 ? "bg-emerald-100 text-emerald-800" : cump >= 80 ? "bg-blue-100 text-blue-800" : cump > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                                  {cump.toFixed(1)}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                    <tfoot className="font-black text-slate-900 border-t-2 border-slate-300">
+                      {/* SUBTOTAL MESES CERRADOS (si aplica) */}
+                      {periodMetrics.closed.count > 0 && periodFilter !== "current_open" && (
+                        <tr className="bg-slate-100/80 border-b border-slate-200">
+                          <td className="p-3 text-slate-700">🔒 SUBTOTAL MESES CERRADOS ({periodMetrics.closed.count})</td>
                           <td className="p-3 text-center">
-                            <span className="text-slate-900 font-bold">{row.real.reservas}</span>
+                            <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">Auditado</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {periodMetrics.closed.reservasReal} / <span className="text-indigo-600">{periodMetrics.closed.reservasTarget}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {periodMetrics.closed.roomNightsReal} / <span className="text-indigo-600">{periodMetrics.closed.roomNightsTarget}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {periodMetrics.closed.paxReal} / <span className="text-indigo-600">{periodMetrics.closed.paxTarget}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className="text-slate-900">{periodMetrics.closed.adrReal.toFixed(2)} €</span>
                             <span className="text-slate-400 mx-1">/</span>
-                            <span className="text-indigo-600">{row.target.reservas}</span>
+                            <span className="text-indigo-600">{periodMetrics.closed.adrTarget.toFixed(2)} €</span>
+                          </td>
+                          <td className="p-3 text-right tabular-nums">
+                            {periodMetrics.closed.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                          <td className="p-3 text-right text-indigo-700 tabular-nums">
+                            {periodMetrics.closed.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                          <td className={"p-3 text-right tabular-nums " + (periodMetrics.closed.diffRevenue >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                            <div>{periodMetrics.closed.diffRevenue >= 0 ? "+" : ""}{periodMetrics.closed.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                            <div className="text-[10px] font-bold opacity-80">({periodMetrics.closed.diffPercent >= 0 ? "+" : ""}{periodMetrics.closed.diffPercent.toFixed(1)}%)</div>
                           </td>
                           <td className="p-3 text-center">
-                            <span className="text-slate-900 font-bold">{row.real.roomNights}</span>
-                            <span className="text-slate-400 mx-1">/</span>
-                            <span className="text-indigo-600">{row.target.roomNights}</span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className="text-slate-900 font-bold">{row.real.pax}</span>
-                            <span className="text-slate-400 mx-1">/</span>
-                            <span className="text-indigo-600">{row.target.pax}</span>
-                          </td>
-                          <td className="p-3 text-right font-bold text-slate-900">
-                            {row.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                          </td>
-                          <td className="p-3 text-right text-indigo-700 font-bold">
-                            {row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                          </td>
-                          <td className={"p-3 text-right font-bold " + (isPositive ? "text-emerald-600" : "text-red-500")}>
-                            {isPositive ? "+" : ""}{diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (cump >= 100 ? "bg-emerald-100 text-emerald-800" : cump >= 80 ? "bg-blue-100 text-blue-800" : cump > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
-                              {cump.toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (officialDoc ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-blue-50 text-blue-700 border border-blue-200")}>
-                              {officialDoc ? "CapaSuite" : "Base"}
+                            <span className={"px-2.5 py-1 rounded-full text-xs font-black " + (periodMetrics.closed.compliance >= 100 ? "bg-emerald-200 text-emerald-900" : "bg-indigo-100 text-indigo-800")}>
+                              {periodMetrics.closed.compliance.toFixed(1)}%
                             </span>
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-100/90 font-black border-t-2 border-slate-300 text-slate-900">
-                      <td className="p-3">TOTAL ANUAL</td>
-                      <td className="p-3 text-center">
-                        {comparison.totals.real.reservas} / <span className="text-indigo-600">{comparison.totals.target.reservas}</span>
-                      </td>
-                      <td className="p-3 text-center">
-                        {comparison.totals.real.roomNights} / <span className="text-indigo-600">{comparison.totals.target.roomNights}</span>
-                      </td>
-                      <td className="p-3 text-center">
-                        {comparison.totals.real.pax} / <span className="text-indigo-600">{comparison.totals.target.pax}</span>
-                      </td>
-                      <td className="p-3 text-right">
-                        {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </td>
-                      <td className="p-3 text-right text-indigo-700">
-                        {comparison.totals.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </td>
-                      <td className={"p-3 text-right " + (comparison.totals.diff.revenue >= 0 ? "text-emerald-600" : "text-red-500")}>
-                        {comparison.totals.diff.revenue >= 0 ? "+" : ""}{comparison.totals.diff.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={"px-2.5 py-1 rounded-full text-xs font-black " + (comparison.totals.compliancePercent.revenue >= 100 ? "bg-emerald-200 text-emerald-900" : "bg-indigo-100 text-indigo-800")}>
-                          {comparison.totals.compliancePercent.revenue.toFixed(1)}%
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (officialDoc ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800")}>
-                          {officialDoc ? "Oficial" : "Base"}
-                        </span>
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      )}
+
+                      {/* SUBTOTAL EN CARTERA / ABIERTOS (si aplica) */}
+                      {(periodMetrics.open.count + periodMetrics.current.count) > 0 && periodFilter !== "closed" && (
+                        <tr className="bg-blue-50/60 border-b border-slate-200">
+                          <td className="p-3 text-indigo-900">📅 SUBTOTAL EN CARTERA ({periodMetrics.open.count + periodMetrics.current.count})</td>
+                          <td className="p-3 text-center">
+                            <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">En Libros</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {periodMetrics.current.reservasReal + periodMetrics.open.reservasReal} / <span className="text-indigo-600">{periodMetrics.current.reservasTarget + periodMetrics.open.reservasTarget}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {periodMetrics.current.roomNightsReal + periodMetrics.open.roomNightsReal} / <span className="text-indigo-600">{periodMetrics.current.roomNightsTarget + periodMetrics.open.roomNightsTarget}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {periodMetrics.current.paxReal + periodMetrics.open.paxReal} / <span className="text-indigo-600">{periodMetrics.current.paxTarget + periodMetrics.open.paxTarget}</span>
+                          </td>
+                          <td className="p-3 text-center">
+                            {(() => {
+                              const rTot = periodMetrics.current.revenueReal + periodMetrics.open.revenueReal;
+                              const rnTot = periodMetrics.current.roomNightsReal + periodMetrics.open.roomNightsReal;
+                              const tRevTot = periodMetrics.current.revenueTarget + periodMetrics.open.revenueTarget;
+                              const tRnTot = periodMetrics.current.roomNightsTarget + periodMetrics.open.roomNightsTarget;
+                              const adrR = rnTot > 0 ? rTot / rnTot : 0;
+                              const adrT = tRnTot > 0 ? tRevTot / tRnTot : 0;
+                              return (
+                                <>
+                                  <span className="text-slate-900">{adrR.toFixed(2)} €</span>
+                                  <span className="text-slate-400 mx-1">/</span>
+                                  <span className="text-indigo-600">{adrT.toFixed(2)} €</span>
+                                </>
+                              );
+                            })()}
+                          </td>
+                          <td className="p-3 text-right tabular-nums">
+                            {(periodMetrics.current.revenueReal + periodMetrics.open.revenueReal).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                          <td className="p-3 text-right text-indigo-700 tabular-nums">
+                            {(periodMetrics.current.revenueTarget + periodMetrics.open.revenueTarget).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          </td>
+                          <td className={"p-3 text-right tabular-nums " + ((periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue) >= 0 ? "text-emerald-600" : "text-amber-600")}>
+                            <div>{(periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue) >= 0 ? "+" : ""}{(periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                            <div className="text-[10px] font-bold opacity-80">
+                              {(() => {
+                                const tRev = periodMetrics.current.revenueTarget + periodMetrics.open.revenueTarget;
+                                const dRev = periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue;
+                                const pct = tRev > 0 ? (dRev / tRev) * 100 : 0;
+                                return `(${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)`;
+                              })()}
+                            </div>
+                          </td>
+                          <td className="p-3 text-center">
+                            {(() => {
+                              const tRev = periodMetrics.current.revenueTarget + periodMetrics.open.revenueTarget;
+                              const rRev = periodMetrics.current.revenueReal + periodMetrics.open.revenueReal;
+                              const comp = tRev > 0 ? (rRev / tRev) * 100 : 0;
+                              return (
+                                <span className={"px-2.5 py-1 rounded-full text-xs font-black " + (comp >= 100 ? "bg-emerald-200 text-emerald-900" : "bg-indigo-100 text-indigo-800")}>
+                                  {comp.toFixed(1)}%
+                                </span>
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* TOTAL ANUAL */}
+                      <tr className="bg-slate-200/90 text-slate-900 font-black border-t-2 border-slate-400">
+                        <td className="p-3">🎯 TOTAL ANUAL {targetYear}</td>
+                        <td className="p-3 text-center">
+                          <span className={"px-2 py-0.5 rounded-full text-[10px] font-bold " + (officialDoc ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800")}>
+                            {officialDoc ? "Oficial" : "Base"}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          {comparison.totals.real.reservas} / <span className="text-indigo-600">{comparison.totals.target.reservas}</span>
+                        </td>
+                        <td className="p-3 text-center">
+                          {comparison.totals.real.roomNights} / <span className="text-indigo-600">{comparison.totals.target.roomNights}</span>
+                        </td>
+                        <td className="p-3 text-center">
+                          {comparison.totals.real.pax} / <span className="text-indigo-600">{comparison.totals.target.pax}</span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className="text-slate-900">{comparison.totals.adr.real.toFixed(2)} €</span>
+                          <span className="text-slate-400 mx-1">/</span>
+                          <span className="text-indigo-600">{comparison.totals.adr.target.toFixed(2)} €</span>
+                        </td>
+                        <td className="p-3 text-right tabular-nums">
+                          {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </td>
+                        <td className="p-3 text-right text-indigo-700 tabular-nums">
+                          {comparison.totals.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </td>
+                        <td className={"p-3 text-right tabular-nums " + (comparison.totals.diff.revenue >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                          <div>{comparison.totals.diff.revenue >= 0 ? "+" : ""}{comparison.totals.diff.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                          <div className="text-[10px] font-bold opacity-80">({periodMetrics.totals.diffPercent >= 0 ? "+" : ""}{periodMetrics.totals.diffPercent.toFixed(1)}%)</div>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={"px-2.5 py-1 rounded-full text-xs font-black " + (comparison.totals.compliancePercent.revenue >= 100 ? "bg-emerald-200 text-emerald-900" : "bg-indigo-100 text-indigo-800")}>
+                            {comparison.totals.compliancePercent.revenue.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -16936,6 +17419,20 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                             Neto: {formatCurrency(netRev)}
                                           </span>
                                         )}
+                                        {(() => {
+                                          const rowMetrics = calculateGroupAdrAndRoomNights(group, grossRev);
+                                          if (rowMetrics.adr > 0) {
+                                            return (
+                                              <span
+                                                className="text-[8.5px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded mt-0.5 whitespace-nowrap"
+                                                title={`Precio Medio Habitación (ADR): ${rowMetrics.adr.toFixed(2)} €/hab (${rowMetrics.roomNights} hab-noche)`}
+                                              >
+                                                ADR: {rowMetrics.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                              </span>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
                                       </div>
                                       {(() => {
                                         const isRowCredito = Boolean(
@@ -19683,6 +20180,32 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                   <span className="bg-white/10 px-1.5 py-0.5 rounded text-white">
                                     {selectedGroupFicha.totalPax} PAX
                                   </span>
+                                  {(() => {
+                                    const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal);
+                                    if (m.roomNights > 0 || m.adr > 0) {
+                                      return (
+                                        <>
+                                          {m.roomNights > 0 && (
+                                            <>
+                                              <span className="opacity-30">•</span>
+                                              <span className="bg-white/10 px-1.5 py-0.5 rounded text-white font-mono" title={`${m.roomNights} habitaciones-noche contratadas`}>
+                                                {m.roomNights} HAB-NOCHE
+                                              </span>
+                                            </>
+                                          )}
+                                          {m.adr > 0 && (
+                                            <>
+                                              <span className="opacity-30">•</span>
+                                              <span className="bg-emerald-500/25 border border-emerald-400/40 text-emerald-200 px-2 py-0.5 rounded font-black text-[10px] shadow-sm tracking-tight" title={`Precio Medio por Habitación (ADR): ${m.adr.toFixed(2)} €/hab`}>
+                                                🛏️ ADR: {m.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                              </span>
+                                            </>
+                                          )}
+                                        </>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                   <span className="opacity-30">•</span>
                                   <span className="text-white/40">
                                     REF:{" "}

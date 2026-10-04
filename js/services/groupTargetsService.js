@@ -1123,25 +1123,42 @@
       var compPax = objPax > 0 ? Math.round((realPax / objPax) * 10000) / 100 : (realPax > 0 ? 100.0 : 0.0);
       var compRes = objRes > 0 ? Math.round((realRes / objRes) * 10000) / 100 : (realRes > 0 ? 100.0 : 0.0);
 
+      var realADR = realRN > 0 ? Math.round((realRev / realRN) * 100) / 100 : 0;
+      var objADR = objRN > 0 ? Math.round((objRev / objRN) * 100) / 100 : 0;
+      var diffADR = Math.round((realADR - objADR) * 100) / 100;
+      var desvioPercentRev = objRev > 0 ? Math.round(((realRev - objRev) / objRev) * 10000) / 100 : (realRev > 0 ? 100.0 : 0.0);
+
       monthlyComparison[m] = {
         month: m,
         real: {
           reservas: realRes,
           pax: realPax,
           roomNights: realRN,
-          revenue: realRev
+          revenue: realRev,
+          adr: realADR
         },
         target: {
           reservas: objRes,
           pax: objPax,
           roomNights: objRN,
-          revenue: objRev
+          revenue: objRev,
+          adr: objADR
         },
         diff: {
           reservas: realRes - objRes,
           pax: realPax - objPax,
           roomNights: realRN - objRN,
-          revenue: Math.round((realRev - objRev) * 100) / 100
+          revenue: Math.round((realRev - objRev) * 100) / 100,
+          adr: diffADR
+        },
+        desvioPercent: {
+          revenue: desvioPercentRev,
+          adr: objADR > 0 ? Math.round(((realADR - objADR) / objADR) * 10000) / 100 : 0.0
+        },
+        adr: {
+          real: realADR,
+          target: objADR,
+          diff: diffADR
         },
         compliancePercent: {
           revenue: compRevenue,
@@ -1167,6 +1184,11 @@
     var totalCompPax = totalObjPax > 0 ? Math.round((totalRealPax / totalObjPax) * 10000) / 100 : (totalRealPax > 0 ? 100.0 : 0.0);
     var totalCompRes = totalObjRes > 0 ? Math.round((totalRealRes / totalObjRes) * 10000) / 100 : (totalRealRes > 0 ? 100.0 : 0.0);
 
+    var totalRealADR = totalRealRN > 0 ? Math.round((totalRealRev / totalRealRN) * 100) / 100 : 0;
+    var totalObjADR = totalObjRN > 0 ? Math.round((totalObjRev / totalObjRN) * 100) / 100 : 0;
+    var totalDiffADR = Math.round((totalRealADR - totalObjADR) * 100) / 100;
+    var totalDesvioPercentRev = totalObjRev > 0 ? Math.round(((totalRealRev - totalObjRev) / totalObjRev) * 10000) / 100 : (totalRealRev > 0 ? 100.0 : 0.0);
+
     return {
       monthly: monthlyComparison,
       totals: {
@@ -1174,19 +1196,31 @@
           reservas: totalRealRes,
           pax: totalRealPax,
           roomNights: totalRealRN,
-          revenue: Math.round(totalRealRev * 100) / 100
+          revenue: Math.round(totalRealRev * 100) / 100,
+          adr: totalRealADR
         },
         target: {
           reservas: totalObjRes,
           pax: totalObjPax,
           roomNights: totalObjRN,
-          revenue: Math.round(totalObjRev * 100) / 100
+          revenue: Math.round(totalObjRev * 100) / 100,
+          adr: totalObjADR
         },
         diff: {
           reservas: totalRealRes - totalObjRes,
           pax: totalRealPax - totalObjPax,
           roomNights: totalRealRN - totalObjRN,
-          revenue: Math.round((totalRealRev - totalObjRev) * 100) / 100
+          revenue: Math.round((totalRealRev - totalObjRev) * 100) / 100,
+          adr: totalDiffADR
+        },
+        desvioPercent: {
+          revenue: totalDesvioPercentRev,
+          adr: totalObjADR > 0 ? Math.round(((totalRealADR - totalObjADR) / totalObjADR) * 10000) / 100 : 0.0
+        },
+        adr: {
+          real: totalRealADR,
+          target: totalObjADR,
+          diff: totalDiffADR
         },
         compliancePercent: {
           revenue: totalCompRevenue,
