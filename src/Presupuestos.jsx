@@ -3042,7 +3042,7 @@ ${emailContent}`;
         const isFormLocked = Boolean(formData.uid && formLockedInfo.isLocked);
 
         return (
-          <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
+          <div className="w-full space-y-8 animate-fade-in pb-20">
             {isFormLocked && (
               <div className={`border-2 text-amber-950 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm ${
                 formLockedInfo.isTentativa ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300'
@@ -3616,7 +3616,7 @@ ${emailContent}`;
                       <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tipología y Cupo de Habitaciones</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                       {currentRooms.map(type => (
                         <div key={type} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 group hover:border-emerald-200 transition-all">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block truncate" title={type}>{type}</label>
@@ -4866,7 +4866,7 @@ ${emailContent}`;
         const isConfirmedBudget = lockedInfo.isLocked;
 
         return (
-          <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-10">
+          <div className="space-y-6 animate-fade-in w-full pb-10">
             {isConfirmedBudget && (
               <div className={`border-2 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm print:hidden ${
                 lockedInfo.isTentativa ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-emerald-50 border-emerald-300 text-emerald-950'
@@ -5766,7 +5766,7 @@ ${emailContent}`;
         <div className="flex flex-col min-h-screen">
           {/* NAV BAR */}
           <nav className="bg-white border-b border-slate-200 z-50 no-print">
-            <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
+            <div className="w-full px-6 h-18 flex items-center justify-between">
               <div className="flex items-center gap-4 cursor-pointer py-4" onClick={() => setCurrentView('dashboard')}>
                 <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg">
                   <i className="fas fa-layer-group text-white text-sm"></i>
@@ -5796,7 +5796,7 @@ ${emailContent}`;
             </div>
           </nav>
 
-          <main className="flex-grow p-4 md:p-8">
+          <main className="flex-grow p-4 md:p-8 w-full max-w-full">
             {loading ? (
               <div className="h-64 flex flex-col items-center justify-center space-y-4">
                 <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-500 rounded-full animate-spin"></div>

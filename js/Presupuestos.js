@@ -3641,7 +3641,7 @@ function App() {
     var formLockedInfo = getBudgetLockedDetails(formData);
     var isFormLocked = Boolean(formData.uid && formLockedInfo.isLocked);
     return /*#__PURE__*/React.createElement("div", {
-      className: "max-w-5xl mx-auto space-y-8 animate-fade-in pb-20"
+      className: "w-full space-y-8 animate-fade-in pb-20"
     }, isFormLocked && /*#__PURE__*/React.createElement("div", {
       className: "border-2 text-amber-950 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm ".concat(formLockedInfo.isTentativa ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300')
     }, /*#__PURE__*/React.createElement("div", {
@@ -4288,7 +4288,7 @@ function App() {
     })), /*#__PURE__*/React.createElement("h3", {
       className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
     }, "2. Tipolog\xEDa y Cupo de Habitaciones")), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
+      className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
     }, currentRooms.map(function (type) {
       var _formData$roomCounts;
       return /*#__PURE__*/React.createElement("div", {
@@ -5614,7 +5614,7 @@ function App() {
     var lockedInfo = getBudgetLockedDetails(g);
     var isConfirmedBudget = lockedInfo.isLocked;
     return /*#__PURE__*/React.createElement("div", {
-      className: "space-y-6 animate-fade-in max-w-7xl mx-auto pb-10"
+      className: "space-y-6 animate-fade-in w-full pb-10"
     }, isConfirmedBudget && /*#__PURE__*/React.createElement("div", {
       className: "border-2 px-6 py-4 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm print:hidden ".concat(lockedInfo.isTentativa ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-emerald-50 border-emerald-300 text-emerald-950')
     }, /*#__PURE__*/React.createElement("div", {
@@ -6641,7 +6641,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("nav", {
     className: "bg-white border-b border-slate-200 z-50 no-print"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "max-w-7xl mx-auto px-6 h-18 flex items-center justify-between"
+    className: "w-full px-6 h-18 flex items-center justify-between"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-4 cursor-pointer py-4",
     onClick: function onClick() {
@@ -6689,7 +6689,7 @@ function App() {
   }, /*#__PURE__*/React.createElement("i", {
     className: "fas fa-arrow-left"
   }), " Volver a Grupos")))), /*#__PURE__*/React.createElement("main", {
-    className: "flex-grow p-4 md:p-8"
+    className: "flex-grow p-4 md:p-8 w-full max-w-full"
   }, loading ? /*#__PURE__*/React.createElement("div", {
     className: "h-64 flex flex-col items-center justify-center space-y-4"
   }, /*#__PURE__*/React.createElement("div", {
