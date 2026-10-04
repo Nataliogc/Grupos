@@ -18,6 +18,8 @@
 
   var DEFAULT_DISCOUNT_PERCENT = 15;
 
+  function roundRate(value) { return Math.round((Number(value) + Number.EPSILON) * 20) / 20; }
+
   function safeGetStorage(key) {
     if (typeof localStorage === 'undefined') return null;
     try {
@@ -197,6 +199,11 @@
       if (valid(entry.rooms)) occupied = Number(entry.rooms);
       if (valid(entry.cupos)) blocked = Number(entry.cupos);
     } else if (valid(entry)) occupied = Number(entry);
+    if (occupied === null && year && year.daily && year.daily[dateISO] !== undefined) {
+      var actual = year.daily[dateISO];
+      var rooms = actual && typeof actual === 'object' ? actual.rooms : actual;
+      if (valid(rooms)) { occupied = Number(rooms); source = 'Ocupación CapaSuite'; }
+    }
     if (allotment && valid(allotment.cupos)) blocked = Number(allotment.cupos);
     var soldOut = !!((entry && entry.isSoldOut) || (allotment && allotment.isSoldOut));
     if (occupied === null) {
@@ -403,7 +410,7 @@
       }
 
       // Precio final recomendado = Base Alojamiento (HA con descuento) + Suplemento Pensión
-      var recP = Math.round((baseHA + roomSupplement) * 100) / 100;
+      var recP = roundRate(baseHA + roomSupplement);
       recommendedPricesByRoom[rt] = recP;
 
       savingsByRoom[rt] = {
@@ -456,7 +463,7 @@
     var len = comparisons.length;
     var avgHotel = Math.round((sumHotel / len) * 100) / 100;
     var avgOfficial = Math.round((sumOfficialDoble / len) * 100) / 100;
-    var avgRec = Math.round((sumRecDoble / len) * 100) / 100;
+    var avgRec = roundRate(sumRecDoble / len);
     var totalSavingsVsHotel = Math.round((sumHotel - sumRecDoble) * 100) / 100;
 
     return {
@@ -471,6 +478,7 @@
   }
 
   return {
+    roundRate: roundRate,
     getDayAvailability: getDayAvailability,
     DEFAULT_DISCOUNT_PERCENT: DEFAULT_DISCOUNT_PERCENT,
     getCapaSuiteHotelDayPrice: getCapaSuiteHotelDayPrice,

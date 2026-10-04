@@ -6,7 +6,7 @@ const source = fs.readFileSync(require('node:path').join(__dirname, '../src/Pres
 const helper = source.slice(source.indexOf('    const getCapaSuiteStayTariffSummary ='), source.indexOf('    // --- UTILS'));
 function summarize(config) {
   const rates = { HA: 62, HD: 78, MP: 116 };
-  const context = {
+  const context = { roundRate: value => Math.round(value * 20) / 20,
     window: { CapaSuitePricingService: { getStayTariffSummary: () => { throw Error('Must use daily regimes'); } } },
     toInputDate: d => d, getOfficialTariffsGrid: () => ({}),
     getCapaSuiteTariffComparison: (h, d, b) => ({ boardCode: b, hotelDayPrice: 100, officialDoble: rates[b], recDoble: rates[b] + 10, discountPercent: 15 })
@@ -23,6 +23,6 @@ test('all HA nights show 62 even when the general regime is HD', () => {
 test('mixed nights average each daily regime and fall back only for unconfigured nights', () => {
   const result = summarize({ '2026-10-10': { board: 'HA' }, '2026-10-11': { board: 'MP' } });
   assert.equal(result.avgOfficialRate, 85.33);
-  assert.equal(result.avgRecommendedRate, 95.33);
+  assert.equal(result.avgRecommendedRate, 95.35);
   assert.equal(result.comparisons[2].boardCode, 'HD');
 });

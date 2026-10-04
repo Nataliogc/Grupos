@@ -246,6 +246,8 @@
       return { price: base, source: 'CapaSuite Benchmark', isEstimated: true, hotel: hotelName, dateISO };
     };
 
+    const roundRate = value => Math.round((Number(value) + Number.EPSILON) * 20) / 20;
+
     const getCapaSuiteTariffComparison = (hotelName, dateISO, boardName, discountPercent) => {
       const ps = window.CapaSuitePricingService;
       const y = dateISO ? new Date(toInputDate(dateISO)).getFullYear() : 2027;
@@ -311,7 +313,7 @@
           roomSupp = Math.round(suppPerPerson * pax * 100) / 100;
         }
 
-        const recP = Math.round((baseHA + roomSupp) * 100) / 100;
+        const recP = roundRate(baseHA + roomSupp);
         recByRoom[rt] = recP;
         savingsByRoom[rt] = {
           diffVsHotel: Math.round(((priceInfo.price + roomTypeSupplement + roomSupp) - recP) * 100) / 100,
@@ -358,7 +360,7 @@
         nightsCount: len,
         avgHotelPrice: Math.round((sumH / len) * 100) / 100,
         avgOfficialRate: Math.round((sumOff / len) * 100) / 100,
-        avgRecommendedRate: Math.round((sumRec / len) * 100) / 100,
+        avgRecommendedRate: roundRate(sumRec / len),
         discountPercent: comps[0] ? comps[0].discountPercent : 15,
         totalSavingsVsHotel: Math.round((sumH - sumRec) * 100) / 100,
         comparisons: comps
@@ -1593,6 +1595,21 @@
       };
 
       const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
+      const [tariffCatalogRevision, setTariffCatalogRevision] = useState(0);
+      const [, refreshAvailability] = useState(0);
+      useEffect(() => {
+        const refresh = () => refreshAvailability(value => value + 1);
+        window.addEventListener('capasuite-data-synced', refresh);
+        const storageChanged = event => {
+          if (['hotel_manager_db_v2', 'v3_hotel_manager_db_v2', 'revenue_data_v2', 'v3_revenue_data_v2', 'manual_cupos_v1', 'v3_manual_cupos_v1'].includes(event.key)) refresh();
+        };
+        window.addEventListener('storage', storageChanged);
+        return () => {
+          window.removeEventListener('capasuite-data-synced', refresh);
+          window.removeEventListener('storage', storageChanged);
+        };
+      }, []);
+
       const [pastePreview, setPastePreview] = useState({ isOpen: false, parsedData: {}, unrecognizedBoards: [], unrecognizedRooms: [] });
 
       const parseTarifasString = (text) => {
@@ -1763,7 +1780,8 @@
               newDailyConfig[date] = { board: formData["Régimen"] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
               changed = true;
             }
-            const dayConf = newDailyConfig[date];
+            const dayConf = { ...newDailyConfig[date] };
+            newDailyConfig[date] = dayConf;
 
             // If in multi-segment mode, sync counts
             if (formData.isMultiSegment) {
@@ -1793,7 +1811,14 @@
             const boardPrices = (formData.isRatesOnly && grid && grid[boardKey]) ? grid[boardKey] : (officialGrid[boardKey] || {});
 
             const updatedPrices = { ...(dayConf.prices || {}) };
+            const selectedPrices = dayConf.tariffMode === 'recommended'
+              ? getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, formData.capaSuiteDiscountPercent ?? 15).recommendedPricesByRoom
+              : boardPrices;
             roomTypes.forEach(room => {
+              if (dayConf.tariffMode && !formData.averageStayCondition && selectedPrices[room] != null && Number(updatedPrices[room]) !== Number(selectedPrices[room])) {
+                updatedPrices[room] = Number(selectedPrices[room]);
+                changed = true;
+              }
               const hasExistingPrice = updatedPrices[room] !== undefined && updatedPrices[room] !== '' && updatedPrices[room] !== null;
               if (!hasExistingPrice) {
                 const p = boardPrices[room] !== undefined && boardPrices[room] !== '' 
@@ -1823,7 +1848,8 @@
         formData.ratesOnlyGrid,
         formData.isRatesOnly,
         formData.isMultiSegment,
-        formData.segments
+        formData.segments,
+        tariffCatalogRevision
       ]);
 
       // Sincronizar catálogo de tarifas oficiales desde Firestore (settings/groupTariffs)
@@ -1841,6 +1867,7 @@
                   } catch(e) {}
                   const merged = { ...local, ...fsTariffs };
                   try { localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged)); } catch(e) {}
+                  setTariffCatalogRevision(prev => prev + 1);
                 }
               }
             })
@@ -2230,7 +2257,7 @@
             roomTypes.forEach(room => {
               const prices = comparisons.map(comp => comp.recommendedPricesByRoom?.[room]);
               if (prices.every(price => price != null && price !== '' && Number.isFinite(Number(price)))) {
-                mergedGrid[board][room] = Math.round(prices.reduce((sum, price) => sum + Number(price), 0) / stayDates.length * 100) / 100;
+                mergedGrid[board][room] = roundRate(prices.reduce((sum, price) => sum + Number(price), 0) / stayDates.length);
               }
             });
           });
@@ -2253,7 +2280,7 @@
               countDays++;
             }
           });
-          roomAverages[rt] = countDays > 0 ? Math.round((sumPrice / countDays) * 100) / 100 : null;
+          roomAverages[rt] = countDays > 0 ? roundRate(sumPrice / countDays) : null;
         });
 
         const newDailyConfig = { ...(formData.dailyConfig || {}) };
@@ -4015,6 +4042,7 @@ ${emailContent}`;
                                   <h4 className="text-xs font-black text-white tracking-tight">
                                     Tarifa Oficial de Grupo vs Tarifa Recomendada CapaSuite
                                   </h4>
+                                  <p className="text-[9px] text-indigo-200 mt-1">{hotel} · Catálogo {Array.from(new Set(stayDates.map(date => toInputDate(date).slice(0, 4)))).join(' / ')}</p>
                                 </div>
                               </div>
 
@@ -4130,6 +4158,7 @@ ${emailContent}`;
                               <div className="shrink-0 w-24 flex flex-col gap-1">
                                 <span className="bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest">{formatDate(date)}</span>
                                 <span className="text-[7px] text-slate-400 font-bold" title={`PVP de habitación doble, solo alojamiento, sin manutención: ${dayComp.hotelDayPrice} €`}>
+                                  <span className="text-slate-500">{formData.Hotel_Asignado?.toLowerCase().includes('cumbria') ? 'Cumbria' : 'Guadiana'} · {date.slice(0, 4)}</span><br />
                                   PVP hab. (HA): <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
                                 </span>
                                 <select
@@ -4430,7 +4459,7 @@ ${emailContent}`;
                                         const prices = comps.map(comp => comp.recommendedPricesByRoom?.[room]);
                                         comparison = { ...comparison,
                                           hotelDayPrice: Math.round(comps.reduce((sum, comp) => sum + comp.hotelDayPrice, 0) / comps.length * 100) / 100,
-                                          recommendedPricesByRoom: { ...comparison.recommendedPricesByRoom, [room]: prices.every(p => p != null) ? Math.round(prices.reduce((sum, p) => sum + Number(p), 0) / prices.length * 100) / 100 : null },
+                                          recommendedPricesByRoom: { ...comparison.recommendedPricesByRoom, [room]: prices.every(p => p != null) ? roundRate(prices.reduce((sum, p) => sum + Number(p), 0) / prices.length) : null },
                                           hotelPriceInfo: { source: `Media de ${dates.length} noches`, isEstimated: comps.some(comp => comp.hotelPriceInfo?.isEstimated) }
                                         };
                                       }

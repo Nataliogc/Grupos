@@ -1397,13 +1397,18 @@
         window.db.collection("settings").doc("calendar_data").onSnapshot(function (doc) {
           if (doc.exists) {
             var data = doc.data();
-            if (data && data.hotelManagerDb) {
-              window._capasuiteDbCache = data.hotelManagerDb;
-              try {
-                localStorage.setItem("v3_hotel_manager_db_v2", JSON.stringify(data.hotelManagerDb));
-                localStorage.setItem("hotel_manager_db_v2", JSON.stringify(data.hotelManagerDb));
-              } catch (e) {}
-              window.dispatchEvent(new CustomEvent("capasuite-data-synced"));
+            if (data) {
+              var stores = { hotelManagerDb: 'hotel_manager_db_v2', revenueData: 'revenue_data_v2', manualCupos: 'manual_cupos_v1' };
+              Object.keys(stores).forEach(function (field) {
+                if (!data[field]) return;
+                if (field === 'hotelManagerDb') window._capasuiteDbCache = data[field];
+                try {
+                  var serialized = JSON.stringify(data[field]);
+                  localStorage.setItem('v3_' + stores[field], serialized);
+                  localStorage.setItem(stores[field], serialized);
+                } catch (e) {}
+              });
+              window.dispatchEvent(new CustomEvent('capasuite-data-synced'));
             }
           }
         }, function (err) {

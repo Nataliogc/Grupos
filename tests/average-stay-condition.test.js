@@ -8,7 +8,7 @@ test('average records the exact dates and nights alongside the quoted prices', (
  const dates = ['2026-11-06','2026-11-07','2026-11-08'];
  let state = { Hotel_Asignado:'Guadiana', 'Régimen':'HD', dailyConfig:{} };
  const prices = [69.2,79.1,61.1];
- const ctx = { formData:state, getCurrentStayDates:()=>dates, getRoomTypesForHotel:()=>['DUI'], getCapaSuiteTariffComparison:(h,d)=>({recommendedPricesByRoom:{DUI:prices[dates.indexOf(d)]}}), setFormData:fn=>{state=fn(state);}, alert:()=>{} };
+ const ctx = { roundRate: value => Math.round(value * 20) / 20, formData:state, getCurrentStayDates:()=>dates, getRoomTypesForHotel:()=>['DUI'], getCapaSuiteTariffComparison:(h,d)=>({recommendedPricesByRoom:{DUI:prices[dates.indexOf(d)]}}), setFormData:fn=>{state=fn(state);}, alert:()=>{} };
  vm.createContext(ctx); vm.runInContext(handler+'\nhandleApplyAverageStayTariff(10);',ctx);
  assert.equal(state.averageStayCondition.nights,3);
  assert.equal(JSON.stringify(state.averageStayCondition.dates),JSON.stringify(dates));
@@ -23,7 +23,7 @@ test('rates-only average fills all regimes and rooms without requiring a distrib
  const base = [61.2,71.1,53.1];
  const supplements = { HA: 0, HD: 8, MP: 27, PC: 46 };
  let state = { isRatesOnly:true, Hotel_Asignado:'Guadiana', dailyConfig:{}, ratesOnlyGrid:{} };
- const ctx = { formData:state, getCurrentStayDates:()=>dates, getRoomTypesForHotel:()=>['DUI','TRIPLE'], getCapaSuiteTariffComparison:(h,d,b)=>({recommendedPricesByRoom:{DUI:base[dates.indexOf(d)]+supplements[b],TRIPLE:base[dates.indexOf(d)]+20+supplements[b]}}), setFormData:fn=>{state=fn(state);}, alert:()=>{} };
+ const ctx = { roundRate: value => Math.round(value * 20) / 20, formData:state, getCurrentStayDates:()=>dates, getRoomTypesForHotel:()=>['DUI','TRIPLE'], getCapaSuiteTariffComparison:(h,d,b)=>({recommendedPricesByRoom:{DUI:base[dates.indexOf(d)]+supplements[b],TRIPLE:base[dates.indexOf(d)]+20+supplements[b]}}), setFormData:fn=>{state=fn(state);}, alert:()=>{} };
  vm.createContext(ctx); vm.runInContext(handler+'\nhandleApplyAverageStayTariff(10);',ctx);
  assert.equal(state.ratesOnlyGrid.HA.DUI,61.8);
  assert.equal(state.ratesOnlyGrid.HD.DUI,69.8);

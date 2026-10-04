@@ -23,3 +23,9 @@ test('price data alone never implies availability', () => {
   storage({ hotel_manager_db_v2: { guadiana: { 2026: { daily_otb: { '2026-10-10': { price: 231 } } } } } });
   assert.equal(service.getDayAvailability('Guadiana', '2026-10-10').available, null);
 });
+
+test('reads daily production occupancy when OTB is absent', () => {
+ storage({ hotel_manager_db_v2: { cumbria: { 2027: { daily: { '2027-03-12': { rooms: 0 }, '2027-03-13': { rooms: 40 } } } } } });
+ assert.equal(service.getDayAvailability('Cumbria', '2027-03-12').available, 59);
+ assert.equal(service.getDayAvailability('Cumbria', '2027-03-13').available, 19);
+});
