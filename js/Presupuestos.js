@@ -382,25 +382,61 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
   }
   var priceInfo = getCapaSuiteHotelDayPrice(hotelName, dateISO);
   var discount = typeof discountPercent === 'number' && !isNaN(discountPercent) ? discountPercent : 15;
-  var recDoble = Math.round(priceInfo.price * (1 - discount / 100) * 100) / 100;
-  var boardCode = (boardName || 'HD').split(' ')[0];
+  var recDobleHA = Math.round(priceInfo.price * (1 - discount / 100) * 100) / 100;
+  var boardCode = (boardName || 'HD').split(' ')[0].toUpperCase();
   var offPrices = offGrid[boardCode] || offGrid['HD'] || {};
+  var haPrices = offGrid['HA'] || {};
   var offDoble = Number(offPrices['doble'] || 82);
   var rooms = getRoomTypesForHotel(hotelName);
+
+  // Suplementos de pensión por persona
+  var bPerson = 8.50,
+    mPerson = 19.50;
+  try {
+    var rawBpc = localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig');
+    if (rawBpc) {
+      var parsed = JSON.parse(rawBpc);
+      var entry = parsed[hotelName] || parsed['default'];
+      if (entry) {
+        if (typeof entry.breakfast === 'number') bPerson = entry.breakfast;
+        if (typeof entry.meal === 'number') mPerson = entry.meal;
+      }
+    }
+  } catch (e) {}
+  var suppPerPerson = 0;
+  if (boardCode === 'HD') suppPerPerson = bPerson;else if (boardCode === 'MP') suppPerPerson = bPerson + mPerson;else if (boardCode === 'PC') suppPerPerson = bPerson + mPerson * 2;
   var offByRoom = {};
   var recByRoom = {};
   var savingsByRoom = {};
   rooms.forEach(function (rt) {
     var offP = Number(offPrices[rt] || offDoble);
     offByRoom[rt] = offP;
-    var ratio = offDoble > 0 ? offP / offDoble : 1;
-    var recP = Math.round(recDoble * ratio * 100) / 100;
+    var rtNorm = rt.toLowerCase();
+    var pax = 2;
+    if (rtNorm.includes('individual') || rtNorm.includes('dui')) pax = 1;else if (rtNorm.includes('triple')) pax = 3;else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
+    var baseHA = recDobleHA;
+    if (pax === 1) {
+      var offDuiHA = Number(haPrices['individual'] || haPrices['ind'] || haPrices['doble'] || 65);
+      var offDblHA = Number(haPrices['doble'] || 65);
+      baseHA = offDblHA > 0 ? recDobleHA * (offDuiHA / offDblHA) : recDobleHA;
+    } else if (pax === 3) {
+      var offTplHA = Number(haPrices['triple'] || 86.5);
+      var _offDblHA = Number(haPrices['doble'] || 65);
+      baseHA = _offDblHA > 0 ? recDobleHA * (offTplHA / _offDblHA) : recDobleHA * 1.33;
+    } else if (pax === 4) {
+      var offCuaHA = Number(haPrices['cuadruple'] || 107);
+      var _offDblHA2 = Number(haPrices['doble'] || 65);
+      baseHA = _offDblHA2 > 0 ? recDobleHA * (offCuaHA / _offDblHA2) : recDobleHA * 1.65;
+    }
+    var roomSupp = suppPerPerson * pax;
+    var recP = Math.round((baseHA + roomSupp) * 100) / 100;
     recByRoom[rt] = recP;
     savingsByRoom[rt] = {
-      diffVsHotel: Math.round((priceInfo.price - recP) * 100) / 100,
+      diffVsHotel: Math.round((priceInfo.price + roomSupp - recP) * 100) / 100,
       diffVsOfficial: Math.round((recP - offP) * 100) / 100
     };
   });
+  var recDoble = recByRoom['DOBLE'] || Math.round((recDobleHA + suppPerPerson * 2) * 100) / 100;
   return {
     hotelName: hotelName,
     dateISO: dateISO,
@@ -2310,12 +2346,79 @@ function App() {
     });
     alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
   };
+
+  /**
+   * Calcula la tarifa media para cada tipología a lo largo de toda la estancia
+   * y la aplica de forma homogénea a todas las noches.
+   */
+  var handleApplyAverageStayTariff = function handleApplyAverageStayTariff(customDiscount) {
+    var stayDates = getCurrentStayDates(formData);
+    if (stayDates.length === 0) return;
+    var discount = customDiscount !== undefined ? customDiscount : formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+    var hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+    var roomTypes = getRoomTypesForHotel(hotel);
+
+    // Calcular la tarifa media recomendada de cada habitación promediando todas las noches
+    var roomAverages = {};
+    roomTypes.forEach(function (rt) {
+      var sumPrice = 0;
+      var countDays = 0;
+      stayDates.forEach(function (date) {
+        var _formData$dailyConfig, _comp$recommendedPric2;
+        var currentBoard = ((_formData$dailyConfig = formData.dailyConfig) === null || _formData$dailyConfig === void 0 || (_formData$dailyConfig = _formData$dailyConfig[date]) === null || _formData$dailyConfig === void 0 ? void 0 : _formData$dailyConfig.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+        var comp = getCapaSuiteTariffComparison(hotel, date, currentBoard, discount);
+        var p = (_comp$recommendedPric2 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric2 === void 0 ? void 0 : _comp$recommendedPric2[rt];
+        if (p !== undefined && p !== null && p !== '') {
+          sumPrice += Number(p);
+          countDays++;
+        }
+      });
+      roomAverages[rt] = countDays > 0 ? Math.round(sumPrice / countDays * 100) / 100 : null;
+    });
+    var newDailyConfig = _objectSpread({}, formData.dailyConfig || {});
+    stayDates.forEach(function (date) {
+      if (!newDailyConfig[date]) {
+        newDailyConfig[date] = {
+          board: formData['Régimen'] || 'AD (Alojamiento y Desayuno)',
+          prices: {},
+          counts: {},
+          gratuities: {}
+        };
+      }
+      var dayConf = newDailyConfig[date];
+      var updatedPrices = _objectSpread({}, dayConf.prices || {});
+      roomTypes.forEach(function (rt) {
+        if (roomAverages[rt] !== null && roomAverages[rt] !== undefined) {
+          updatedPrices[rt] = roomAverages[rt];
+        }
+      });
+      dayConf.prices = updatedPrices;
+    });
+
+    // Actualizar también ratesOnlyGrid si aplica
+    var mergedGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
+    var refBoardCode = (formData['Régimen'] || 'HD').split(' ')[0].toUpperCase();
+    if (!mergedGrid[refBoardCode]) mergedGrid[refBoardCode] = {};
+    roomTypes.forEach(function (rt) {
+      if (roomAverages[rt] !== null && roomAverages[rt] !== undefined) {
+        mergedGrid[refBoardCode][rt] = roomAverages[rt];
+      }
+    });
+    setFormData(function (prev) {
+      return _objectSpread(_objectSpread({}, prev), {}, {
+        capaSuiteDiscountPercent: discount,
+        ratesOnlyGrid: mergedGrid,
+        dailyConfig: newDailyConfig
+      });
+    });
+    alert("\uD83D\uDCCA Tarifa Media de Estancia aplicada con \xE9xito a las ".concat(stayDates.length, " noches para ").concat(hotel, " (Tarifa plana uniforme por tipolog\xEDa)."));
+  };
   var handleCopyFirstDay = function handleCopyFirstDay() {
-    var _formData$dailyConfig;
+    var _formData$dailyConfig2;
     var stayDates = getCurrentStayDates(formData);
     if (stayDates.length <= 1) return;
     var firstDate = stayDates[0];
-    var firstDayConfig = ((_formData$dailyConfig = formData.dailyConfig) === null || _formData$dailyConfig === void 0 ? void 0 : _formData$dailyConfig[firstDate]) || {};
+    var firstDayConfig = ((_formData$dailyConfig2 = formData.dailyConfig) === null || _formData$dailyConfig2 === void 0 ? void 0 : _formData$dailyConfig2[firstDate]) || {};
     var newDailyConfig = _objectSpread({}, formData.dailyConfig || {});
     for (var i = 1; i < stayDates.length; i++) {
       var targetDate = stayDates[i];
@@ -4391,6 +4494,15 @@ function App() {
         className: "fas fa-bolt text-yellow-300"
       }), "Aplicar Recomendada (-", discount, "%)"), /*#__PURE__*/React.createElement("button", {
         type: "button",
+        onClick: function onClick() {
+          return handleApplyAverageStayTariff(discount);
+        },
+        className: "bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1.5",
+        title: "Aplica una tarifa plana media uniforme para toda la estancia basada en la recomendaci\xF3n de CapaSuite"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-chart-line text-indigo-200"
+      }), "Tarifa Media Estancia"), /*#__PURE__*/React.createElement("button", {
+        type: "button",
         onClick: handleLoadOfficialTariffs,
         className: "bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1",
         title: "Aplica la tarifa oficial de grupos vigente del cat\xE1logo"
@@ -4434,9 +4546,9 @@ function App() {
     }(), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
-      var _formData$dailyConfig2;
+      var _formData$dailyConfig3;
       var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
-      var currentBoard = ((_formData$dailyConfig2 = formData.dailyConfig) === null || _formData$dailyConfig2 === void 0 || (_formData$dailyConfig2 = _formData$dailyConfig2[date]) === null || _formData$dailyConfig2 === void 0 ? void 0 : _formData$dailyConfig2.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+      var currentBoard = ((_formData$dailyConfig3 = formData.dailyConfig) === null || _formData$dailyConfig3 === void 0 || (_formData$dailyConfig3 = _formData$dailyConfig3[date]) === null || _formData$dailyConfig3 === void 0 ? void 0 : _formData$dailyConfig3.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
       var dayComp = getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, discount);
       var selectedTypes = formData.isMultiSegment ? Array.from(new Set((formData.segments || []).flatMap(function (s) {
         var allocations = Array.isArray(s.roomAllocations) && s.roomAllocations.length > 0 ? s.roomAllocations : [{
@@ -4463,8 +4575,8 @@ function App() {
       }, dayComp.hotelDayPrice, " \u20AC"))), /*#__PURE__*/React.createElement("div", {
         className: "flex-1 flex flex-wrap gap-2 items-center"
       }, selectedTypes.map(function (type) {
-        var _formData$dailyConfig3, _formData$dailyConfig4, _formData$dailyConfig5;
-        var dailyCounts = ((_formData$dailyConfig3 = formData.dailyConfig) === null || _formData$dailyConfig3 === void 0 || (_formData$dailyConfig3 = _formData$dailyConfig3[date]) === null || _formData$dailyConfig3 === void 0 ? void 0 : _formData$dailyConfig3.counts) || {};
+        var _formData$dailyConfig4, _formData$dailyConfig5, _formData$dailyConfig6;
+        var dailyCounts = ((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.counts) || {};
         var countVal = formData.isMultiSegment ? function (_segmentCountsByDate$) {
           var segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
           return ((_segmentCountsByDate$ = segmentCountsByDate[date]) === null || _segmentCountsByDate$ === void 0 ? void 0 : _segmentCountsByDate$[type.toUpperCase()]) || 0;
@@ -4495,7 +4607,7 @@ function App() {
           className: "relative group flex w-[68px]"
         }, /*#__PURE__*/React.createElement("input", {
           type: "number",
-          value: (((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.prices) || {})[type] || '',
+          value: (((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.prices) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'prices', e.target.value, type);
           },
@@ -4512,7 +4624,7 @@ function App() {
         }, "Grat."), /*#__PURE__*/React.createElement("input", {
           type: "number",
           min: "0",
-          value: (((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.gratuities) || {})[type] || '',
+          value: (((_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.gratuities) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'gratuities', e.target.value, type);
           },
@@ -4550,8 +4662,8 @@ function App() {
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
       }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
-        value: function (_formData$dailyConfig6) {
-          var b = (_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.board;
+        value: function (_formData$dailyConfig7) {
+          var b = (_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.board;
           if (!b) return 'HD (Alojamiento y Desayuno)';
           if (b.startsWith('SA') || b.startsWith('HA')) return 'HA (Solo Alojamiento)';
           if (b.startsWith('AD') || b.startsWith('HD')) return 'HD (Alojamiento y Desayuno)';
@@ -6871,7 +6983,7 @@ function App() {
       return setEmailContent(e.target.value);
     },
     disabled: isParsingEmail,
-    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa...\r 3 personas: Entrada 14 junio, Salida 19 junio.\r\nY del 21 de junio al...",
+    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa... 3 personas: Entrada 14 junio, Salida 19 junio.\nY del 21 de junio al...",
     className: "w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all min-h-[250px] resize-none"
   }))), /*#__PURE__*/React.createElement("div", {
     className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"

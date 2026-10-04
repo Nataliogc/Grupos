@@ -187,7 +187,7 @@
       : DEFAULT_DISCOUNT_PERCENT;
 
     var hotelPriceInfo = getCapaSuiteHotelDayPrice(hotelName, dateISO);
-    var hotelRoomPrice = hotelPriceInfo.price;
+    var hotelRoomPrice = hotelPriceInfo.price; // En CapaSuite la tarifa es siempre Solo Alojamiento (HA)
 
     var boardCode = (boardName || 'HD').split(' ')[0].toUpperCase();
     if (boardCode === 'AD') boardCode = 'HD';
@@ -203,13 +203,57 @@
 
     // Si no se suministra grid oficial, usar valores por defecto estándar
     var boardTariffs = (officialGrid && officialGrid[boardCode]) ? officialGrid[boardCode] : null;
+    var haTariffs = (officialGrid && officialGrid['HA']) ? officialGrid['HA'] : null;
+
     var officialDoble = (boardTariffs && (boardTariffs['doble'] || boardTariffs['DOBLE']))
       ? Number(boardTariffs['doble'] || boardTariffs['DOBLE'])
       : (isCumbria ? (boardCode === 'HA' ? 63 : 79) : (boardCode === 'HA' ? 65 : 82));
 
     var discountFactor = (100 - discount) / 100;
-    // Tarifa recomendada para habitación doble (PVP Hotel con descuento comercial)
-    var recDoble = Math.round(hotelRoomPrice * discountFactor * 100) / 100;
+    // Tarifa recomendada base de alojamiento (HA) para habitación doble con descuento
+    var recDobleHA = Math.round(hotelRoomPrice * discountFactor * 100) / 100;
+
+    // Suplementos de pensión preconfigurados por persona (Desglose oficial)
+    // Desayuno: 8.50 € / pax | Almuerzo: 19.50 € / pax | Cena: 19.50 € / pax
+    var breakfastPerson = 8.50;
+    var mealPerson = 19.50;
+
+    // 1. Intentar leer desde el catálogo oficial de tarifas (nexus_group_tariffs) para este hotel y año
+    try {
+      var rawCatalog = safeGetStorage('nexus_group_tariffs');
+      if (rawCatalog) {
+        var parsedCat = typeof rawCatalog === 'string' ? JSON.parse(rawCatalog) : rawCatalog;
+        var yKey = dateISO ? String(new Date(dateISO).getFullYear()) : '2027';
+        var entryYear = parsedCat[yKey] && (parsedCat[yKey][hotelKey] || parsedCat[yKey][hotelName]);
+        if (entryYear && entryYear._desglose) {
+          if (typeof entryYear._desglose.breakfast === 'number') breakfastPerson = entryYear._desglose.breakfast;
+          if (typeof entryYear._desglose.lunch === 'number') mealPerson = entryYear._desglose.lunch;
+          else if (typeof entryYear._desglose.meal === 'number') mealPerson = entryYear._desglose.meal;
+        }
+      }
+    } catch (e) {}
+
+    // 2. Si boardPricingConfig está disponible en localStorage, usar como fallback prioritario
+    try {
+      var rawBpc = safeGetStorage('boardPricingConfig');
+      if (rawBpc) {
+        var parsedBpc = typeof rawBpc === 'string' ? JSON.parse(rawBpc) : rawBpc;
+        var bpcEntry = parsedBpc[hotelName] || parsedBpc[hotelKey] || parsedBpc['default'];
+        if (bpcEntry) {
+          if (typeof bpcEntry.breakfast === 'number') breakfastPerson = bpcEntry.breakfast;
+          if (typeof bpcEntry.meal === 'number') mealPerson = bpcEntry.meal;
+        }
+      }
+    } catch (e) {}
+
+    var boardSupplementPerPerson = 0;
+    if (boardCode === 'HD') {
+      boardSupplementPerPerson = breakfastPerson;
+    } else if (boardCode === 'MP') {
+      boardSupplementPerPerson = breakfastPerson + mealPerson;
+    } else if (boardCode === 'PC') {
+      boardSupplementPerPerson = breakfastPerson + (mealPerson * 2);
+    }
 
     var officialPricesByRoom = {};
     var recommendedPricesByRoom = {};
@@ -251,16 +295,42 @@
         return;
       }
 
-      // Proporción oficial para mantener coherencia entre tipologías
-      var ratio = officialDoble > 0 ? (offP / officialDoble) : 1;
-      var recP = Math.round(recDoble * ratio * 100) / 100;
+      // Ocupantes por tipología para aplicar suplemento por persona
+      var pax = 2;
+      if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) pax = 1;
+      else if (rtNorm.indexOf('triple') !== -1) pax = 3;
+      else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) pax = 4;
+
+      // Base HA recomendada para esta tipología
+      var baseHA = recDobleHA;
+      if (pax === 1) {
+        // En HA oficial DUI = Doble (100%) o proporcional
+        var offDuiHA = haTariffs ? Number(haTariffs['individual'] || haTariffs['ind'] || haTariffs['doble'] || 65) : 65;
+        var offDblHA = haTariffs ? Number(haTariffs['doble'] || 65) : 65;
+        baseHA = offDblHA > 0 ? (recDobleHA * (offDuiHA / offDblHA)) : recDobleHA;
+      } else if (pax === 3) {
+        var offTplHA = haTariffs ? Number(haTariffs['triple'] || 86.5) : 86.5;
+        var offDblHA = haTariffs ? Number(haTariffs['doble'] || 65) : 65;
+        baseHA = offDblHA > 0 ? (recDobleHA * (offTplHA / offDblHA)) : (recDobleHA * 1.33);
+      } else if (pax === 4) {
+        var offCuaHA = haTariffs ? Number(haTariffs['cuadruple'] || 107) : 107;
+        var offDblHA = haTariffs ? Number(haTariffs['doble'] || 65) : 65;
+        baseHA = offDblHA > 0 ? (recDobleHA * (offCuaHA / offDblHA)) : (recDobleHA * 1.65);
+      }
+
+      // Precio final recomendado = Base Alojamiento (HA con descuento) + (Suplemento Pensión × Pax)
+      var roomSupplement = boardSupplementPerPerson * pax;
+      var recP = Math.round((baseHA + roomSupplement) * 100) / 100;
       recommendedPricesByRoom[rt] = recP;
 
       savingsByRoom[rt] = {
-        diffVsHotel: Math.round((hotelRoomPrice - recP) * 100) / 100,
+        diffVsHotel: Math.round(((hotelRoomPrice + roomSupplement) - recP) * 100) / 100,
         diffVsOfficial: Math.round((recP - offP) * 100) / 100
       };
     });
+
+    // La tarifa recomendada para doble en el régimen seleccionado es:
+    var recDoble = recommendedPricesByRoom['DOBLE'] || Math.round((recDobleHA + (boardSupplementPerPerson * 2)) * 100) / 100;
 
     return {
       hotelName: hotelName,

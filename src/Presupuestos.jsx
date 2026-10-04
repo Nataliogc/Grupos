@@ -240,25 +240,71 @@
       }
       const priceInfo = getCapaSuiteHotelDayPrice(hotelName, dateISO);
       const discount = typeof discountPercent === 'number' && !isNaN(discountPercent) ? discountPercent : 15;
-      const recDoble = Math.round(priceInfo.price * (1 - discount / 100) * 100) / 100;
-      const boardCode = (boardName || 'HD').split(' ')[0];
+      const recDobleHA = Math.round(priceInfo.price * (1 - discount / 100) * 100) / 100;
+      const boardCode = (boardName || 'HD').split(' ')[0].toUpperCase();
       const offPrices = offGrid[boardCode] || offGrid['HD'] || {};
+      const haPrices = offGrid['HA'] || {};
       const offDoble = Number(offPrices['doble'] || 82);
       const rooms = getRoomTypesForHotel(hotelName);
+
+      // Suplementos de pensión por persona
+      let bPerson = 8.50, mPerson = 19.50;
+      try {
+        const rawBpc = localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig');
+        if (rawBpc) {
+          const parsed = JSON.parse(rawBpc);
+          const entry = parsed[hotelName] || parsed['default'];
+          if (entry) {
+            if (typeof entry.breakfast === 'number') bPerson = entry.breakfast;
+            if (typeof entry.meal === 'number') mPerson = entry.meal;
+          }
+        }
+      } catch (e) {}
+
+      let suppPerPerson = 0;
+      if (boardCode === 'HD') suppPerPerson = bPerson;
+      else if (boardCode === 'MP') suppPerPerson = bPerson + mPerson;
+      else if (boardCode === 'PC') suppPerPerson = bPerson + (mPerson * 2);
+
       const offByRoom = {};
       const recByRoom = {};
       const savingsByRoom = {};
       rooms.forEach(rt => {
         const offP = Number(offPrices[rt] || offDoble);
         offByRoom[rt] = offP;
-        const ratio = offDoble > 0 ? (offP / offDoble) : 1;
-        const recP = Math.round(recDoble * ratio * 100) / 100;
+
+        const rtNorm = rt.toLowerCase();
+        let pax = 2;
+        if (rtNorm.includes('individual') || rtNorm.includes('dui')) pax = 1;
+        else if (rtNorm.includes('triple')) pax = 3;
+        else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
+
+        let baseHA = recDobleHA;
+        if (pax === 1) {
+          const offDuiHA = Number(haPrices['individual'] || haPrices['ind'] || haPrices['doble'] || 65);
+          const offDblHA = Number(haPrices['doble'] || 65);
+          baseHA = offDblHA > 0 ? (recDobleHA * (offDuiHA / offDblHA)) : recDobleHA;
+        } else if (pax === 3) {
+          const offTplHA = Number(haPrices['triple'] || 86.5);
+          const offDblHA = Number(haPrices['doble'] || 65);
+          baseHA = offDblHA > 0 ? (recDobleHA * (offTplHA / offDblHA)) : (recDobleHA * 1.33);
+        } else if (pax === 4) {
+          const offCuaHA = Number(haPrices['cuadruple'] || 107);
+          const offDblHA = Number(haPrices['doble'] || 65);
+          baseHA = offDblHA > 0 ? (recDobleHA * (offCuaHA / offDblHA)) : (recDobleHA * 1.65);
+        }
+
+        const roomSupp = suppPerPerson * pax;
+        const recP = Math.round((baseHA + roomSupp) * 100) / 100;
         recByRoom[rt] = recP;
         savingsByRoom[rt] = {
-          diffVsHotel: Math.round((priceInfo.price - recP) * 100) / 100,
+          diffVsHotel: Math.round(((priceInfo.price + roomSupp) - recP) * 100) / 100,
           diffVsOfficial: Math.round((recP - offP) * 100) / 100
         };
       });
+
+      const recDoble = recByRoom['DOBLE'] || Math.round((recDobleHA + (suppPerPerson * 2)) * 100) / 100;
+
       return {
         hotelName,
         dateISO,
@@ -2045,6 +2091,72 @@
         alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
       };
 
+      /**
+       * Calcula la tarifa media para cada tipología a lo largo de toda la estancia
+       * y la aplica de forma homogénea a todas las noches.
+       */
+      const handleApplyAverageStayTariff = (customDiscount) => {
+        const stayDates = getCurrentStayDates(formData);
+        if (stayDates.length === 0) return;
+
+        const discount = customDiscount !== undefined 
+          ? customDiscount 
+          : (formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15);
+        const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+        const roomTypes = getRoomTypesForHotel(hotel);
+
+        // Calcular la tarifa media recomendada de cada habitación promediando todas las noches
+        const roomAverages = {};
+        roomTypes.forEach(rt => {
+          let sumPrice = 0;
+          let countDays = 0;
+          stayDates.forEach(date => {
+            const currentBoard = formData.dailyConfig?.[date]?.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+            const comp = getCapaSuiteTariffComparison(hotel, date, currentBoard, discount);
+            const p = comp.recommendedPricesByRoom?.[rt];
+            if (p !== undefined && p !== null && p !== '') {
+              sumPrice += Number(p);
+              countDays++;
+            }
+          });
+          roomAverages[rt] = countDays > 0 ? Math.round((sumPrice / countDays) * 100) / 100 : null;
+        });
+
+        const newDailyConfig = { ...(formData.dailyConfig || {}) };
+        stayDates.forEach(date => {
+          if (!newDailyConfig[date]) {
+            newDailyConfig[date] = { board: formData['Régimen'] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
+          }
+          const dayConf = newDailyConfig[date];
+          const updatedPrices = { ...(dayConf.prices || {}) };
+          roomTypes.forEach(rt => {
+            if (roomAverages[rt] !== null && roomAverages[rt] !== undefined) {
+              updatedPrices[rt] = roomAverages[rt];
+            }
+          });
+          dayConf.prices = updatedPrices;
+        });
+
+        // Actualizar también ratesOnlyGrid si aplica
+        const mergedGrid = { ...(formData.ratesOnlyGrid || {}) };
+        const refBoardCode = (formData['Régimen'] || 'HD').split(' ')[0].toUpperCase();
+        if (!mergedGrid[refBoardCode]) mergedGrid[refBoardCode] = {};
+        roomTypes.forEach(rt => {
+          if (roomAverages[rt] !== null && roomAverages[rt] !== undefined) {
+            mergedGrid[refBoardCode][rt] = roomAverages[rt];
+          }
+        });
+
+        setFormData(prev => ({
+          ...prev,
+          capaSuiteDiscountPercent: discount,
+          ratesOnlyGrid: mergedGrid,
+          dailyConfig: newDailyConfig
+        }));
+
+        alert(`📊 Tarifa Media de Estancia aplicada con éxito a las ${stayDates.length} noches para ${hotel} (Tarifa plana uniforme por tipología).`);
+      };
+
 
       const handleCopyFirstDay = () => {
         const stayDates = getCurrentStayDates(formData);
@@ -3740,6 +3852,15 @@ ${emailContent}`;
                                 >
                                   <i className="fas fa-bolt text-yellow-300"></i>
                                   Aplicar Recomendada (-{discount}%)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApplyAverageStayTariff(discount)}
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                  title="Aplica una tarifa plana media uniforme para toda la estancia basada en la recomendación de CapaSuite"
+                                >
+                                  <i className="fas fa-chart-line text-indigo-200"></i>
+                                  Tarifa Media Estancia
                                 </button>
                                 <button
                                   type="button"

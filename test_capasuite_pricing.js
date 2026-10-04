@@ -63,24 +63,34 @@ global.localStorage = {
   console.log("[PASS] Test 4: Prioridad de lectura directa desde hotel_manager_db_v2 (105.00 €)");
 }
 
-// Test 5: Cálculo de Comparativa de Tarifa Oficial vs Recomendada CapaSuite (-15%)
+// Test 5: Cálculo de Comparativa de Tarifa Oficial vs Recomendada CapaSuite (-15%) en HD
 {
-  // Para 2026-11-20 donde PVP es 95 €:
-  // Con 15% de descuento: 95 * 0.85 = 80.75 €
+  // Para 2026-11-20 donde PVP HA es 95 €:
+  // Con 15% de descuento en HA: 95 * 0.85 = 80.75 €
+  // Suplemento Desayuno (HD) para Doble (2 pax @ 8.50 €): +17.00 €
+  // Total Recomendado Doble HD = 80.75 + 17.00 = 97.75 €
   const comp = CapaSuitePricingService.getTariffComparison('Sercotel Guadiana', '2026-11-20', 'HD', 15);
   assert.strictEqual(comp.hotelDayPrice, 95);
   assert.strictEqual(comp.discountPercent, 15);
-  assert.strictEqual(comp.recDoble, 80.75, "Doble con 15% de dto sobre 95€ debe ser 80.75€");
+  assert.strictEqual(comp.recDoble, 97.75, "Doble HD con 15% de dto sobre 95€ HA + 2 desayunos (17€) debe ser 97.75€");
   assert.strictEqual(comp.officialDoble, 82.0, "Oficial Doble Guadiana HD debe ser 82.00€");
-  console.log(`[PASS] Test 5: PVP Hotel ${comp.hotelDayPrice} € -> Tarifa Oficial: ${comp.officialDoble} € | Recomendada CapaSuite (-15%): ${comp.recDoble} €`);
+  console.log(`[PASS] Test 5: PVP Hotel HA ${comp.hotelDayPrice} € -> Tarifa Oficial HD: ${comp.officialDoble} € | Recomendada CapaSuite HD (-15% + 2 desayunos): ${comp.recDoble} €`);
 }
 
-// Test 6: Ajuste dinámico con otro descuento (ej. -20%)
+// Test 6: Ajuste dinámico con otro descuento (ej. -20%) y en PC (Pensión Completa)
 {
-  // 95 * 0.80 = 76.00 €
-  const comp20 = CapaSuitePricingService.getTariffComparison('Sercotel Guadiana', '2026-11-20', 'HD', 20);
-  assert.strictEqual(comp20.recDoble, 76.00, "Doble con 20% de dto sobre 95€ debe ser 76.00€");
-  console.log(`[PASS] Test 6: Descuento dinámico al -20% -> Tarifa Recomendada: ${comp20.recDoble} €`);
+  // 95 * 0.80 = 76.00 € HA
+  // Suplemento PC para Doble (2 pax @ (8.50 + 19.50*2 = 47.50€)) = +95.00 €
+  // Total Recomendado Doble PC = 76.00 + 95.00 = 171.00 €
+  // Total Recomendado Doble HD = 76.00 + 17.00 = 93.00 €
+  const comp20HD = CapaSuitePricingService.getTariffComparison('Sercotel Guadiana', '2026-11-20', 'HD', 20);
+  assert.strictEqual(comp20HD.recDoble, 93.00, "Doble HD con 20% dto = 76€ + 17€ = 93.00€");
+
+  const comp20PC = CapaSuitePricingService.getTariffComparison('Sercotel Guadiana', '2026-11-20', 'PC', 20);
+  assert.strictEqual(comp20PC.recDoble, 171.00, "Doble PC con 20% dto = 76€ + 95€ = 171.00€");
+  // DUI (1 pax) en PC con 20% dto: 76€ (base HA DUI) + 47.50€ (1 PC) = 123.50€ (nunca 38.75€)
+  assert.strictEqual(comp20PC.recommendedPricesByRoom['DOBLE DE USO INDIVIDUAL'], 123.50, "DUI PC debe incluir suplemento completo de 47.50€");
+  console.log(`[PASS] Test 6: Descuento dinámico al -20% -> HD: ${comp20HD.recDoble} € | PC Doble: ${comp20PC.recDoble} € | PC DUI: ${comp20PC.recommendedPricesByRoom['DOBLE DE USO INDIVIDUAL']} €`);
 }
 
 // Test 7: Cumbria Spa no admite cuádruples (debe ser null)
