@@ -1867,7 +1867,7 @@ function App() {
     };
     window.addEventListener('capasuite-data-synced', refresh);
     var storageChanged = function storageChanged(event) {
-      if (['hotel_manager_db_v2', 'v3_hotel_manager_db_v2', 'revenue_data_v2', 'v3_revenue_data_v2', 'manual_cupos_v1', 'v3_manual_cupos_v1'].includes(event.key)) refresh();
+      if (['hotel_manager_db_v2', 'v3_hotel_manager_db_v2', 'revenue_data_v2', 'v3_revenue_data_v2', 'manual_cupos_v1', 'v3_manual_cupos_v1', 'custom_events', 'v3_custom_events'].includes(event.key)) refresh();
     };
     window.addEventListener('storage', storageChanged);
     return function () {
@@ -2397,7 +2397,26 @@ function App() {
       });
       if (average) next.averageStayCondition = {
         dates: _toConsumableArray(dates),
-        nights: dates.length
+        nights: dates.length,
+        hotel: targetHotel
+      };
+      var refs = dates.length ? dates : [toInputDate(next.Entrada)];
+      var sourcePrices = refs.map(function (date) {
+        return getCapaSuiteTariffComparison(targetHotel, date, 'HA', discount);
+      });
+      var estimated = sourcePrices.filter(function (comp) {
+        var _comp$hotelPriceInfo;
+        return (_comp$hotelPriceInfo = comp.hotelPriceInfo) === null || _comp$hotelPriceInfo === void 0 ? void 0 : _comp$hotelPriceInfo.isEstimated;
+      }).length;
+      var mean = sourcePrices.reduce(function (sum, comp) {
+        return sum + Number(comp.hotelDayPrice || 0);
+      }, 0) / sourcePrices.length;
+      next.hotelTariffNotice = {
+        hotel: targetHotel,
+        text: "Precios recalculados para ".concat(targetHotel).concat(average ? " \xB7 tarifa media de ".concat(dates.length, " noches") : '', ". PVP de habitaci\xF3n ").concat(average ? 'medio' : 'de referencia', ": ").concat(mean.toLocaleString('es-ES', {
+          maximumFractionDigits: 2
+        }), " \u20AC.").concat(estimated ? " Atenci\xF3n: ".concat(estimated, " fecha(s) usan PVP estimado porque falta el precio real de este hotel. Revisa las tarifas antes de enviar.") : ' Se utilizan los precios disponibles para este hotel.'),
+        estimated: estimated > 0
       };
       return next;
     });
@@ -4075,7 +4094,7 @@ function App() {
     }, "No hay presupuestos para mostrar")))));
   };
   var renderCreate = function renderCreate() {
-    var _formData$segments3;
+    var _formData$segments3, _formData$hotelTariff;
     var stayDates = getCurrentStayDates(formData);
     var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
     var formLockedInfo = getBudgetLockedDetails(formData);
@@ -4780,7 +4799,12 @@ function App() {
       className: "rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
     }, /*#__PURE__*/React.createElement("strong", null, "Oferta v\xE1lida para una estancia m\xEDnima de ", formData.averageStayCondition.nights, " noches."), " V\xE1lida exclusivamente para las fechas cotizadas (", formData.averageStayCondition.dates.map(formatDate).join(', '), ").", JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates) && /*#__PURE__*/React.createElement("div", {
       className: "mt-1 font-bold text-rose-700"
-    }, "La estancia ha cambiado. Vuelve a aplicar \xABTarifa Media Estancia\xBB o elige otra tarifa antes de guardar.")), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    }, "La estancia ha cambiado. Vuelve a aplicar \xABTarifa Media Estancia\xBB o elige otra tarifa antes de guardar.")), ((_formData$hotelTariff = formData.hotelTariffNotice) === null || _formData$hotelTariff === void 0 ? void 0 : _formData$hotelTariff.hotel) === formData.Hotel_Asignado && /*#__PURE__*/React.createElement("div", {
+      role: "status",
+      className: "rounded-xl border p-3 text-xs ".concat(formData.hotelTariffNotice.estimated ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-indigo-200 bg-indigo-50 text-indigo-800')
+    }, formData.hotelTariffNotice.text, /*#__PURE__*/React.createElement("span", {
+      className: "block mt-1"
+    }, "El alojamiento puede coincidir si ambos hoteles tienen el mismo PVP; los suplementos se calculan con el cat\xE1logo del hotel seleccionado.")), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3"
@@ -5004,10 +5028,29 @@ function App() {
         className: "text-slate-500"
       }, (_formData$Hotel_Asign = formData.Hotel_Asignado) !== null && _formData$Hotel_Asign !== void 0 && _formData$Hotel_Asign.toLowerCase().includes('cumbria') ? 'Cumbria' : 'Guadiana', " \xB7 ", date.slice(0, 4)), /*#__PURE__*/React.createElement("br", null), "PVP hab. (HA): ", /*#__PURE__*/React.createElement("span", {
         className: "text-slate-600 font-black"
-      }, dayComp.hotelDayPrice, " \u20AC"))), /*#__PURE__*/React.createElement("div", {
+      }, dayComp.hotelDayPrice, " \u20AC")), function (_window$CapaSuitePric3, _window$CapaSuitePric4) {
+        var info = (_window$CapaSuitePric3 = window.CapaSuitePricingService) === null || _window$CapaSuitePric3 === void 0 || (_window$CapaSuitePric4 = _window$CapaSuitePric3.getDayEvents) === null || _window$CapaSuitePric4 === void 0 ? void 0 : _window$CapaSuitePric4.call(_window$CapaSuitePric3, date);
+        if (!(info !== null && info !== void 0 && info.known)) return /*#__PURE__*/React.createElement("span", {
+          className: "text-[9px] text-slate-400"
+        }, "Eventos: sin datos sincronizados");
+        if (!info.events.length) return /*#__PURE__*/React.createElement("span", {
+          className: "text-[9px] text-slate-500"
+        }, "Sin eventos registrados");
+        return /*#__PURE__*/React.createElement("div", {
+          className: "flex flex-col gap-1"
+        }, info.events.map(function (event, index) {
+          return /*#__PURE__*/React.createElement("div", {
+            key: "".concat(event.start, "-").concat(index),
+            className: "rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-900",
+            title: "".concat(event.start, " \u2014 ").concat(event.end || event.start)
+          }, /*#__PURE__*/React.createElement("strong", null, event.desc || 'Evento'), event.prio && /*#__PURE__*/React.createElement("span", {
+            className: "block text-[9px]"
+          }, "Prioridad: ", event.prio));
+        }));
+      }()), /*#__PURE__*/React.createElement("div", {
         className: "min-w-0"
-      }, function (_window$CapaSuitePric3, _window$CapaSuitePric4, _formData$dailyConfig5) {
-        var availability = (_window$CapaSuitePric3 = window.CapaSuitePricingService) === null || _window$CapaSuitePric3 === void 0 || (_window$CapaSuitePric4 = _window$CapaSuitePric3.getDayAvailability) === null || _window$CapaSuitePric4 === void 0 ? void 0 : _window$CapaSuitePric4.call(_window$CapaSuitePric3, formData.Hotel_Asignado, date);
+      }, function (_window$CapaSuitePric5, _window$CapaSuitePric6, _formData$dailyConfig5) {
+        var availability = (_window$CapaSuitePric5 = window.CapaSuitePricingService) === null || _window$CapaSuitePric5 === void 0 || (_window$CapaSuitePric6 = _window$CapaSuitePric5.getDayAvailability) === null || _window$CapaSuitePric6 === void 0 ? void 0 : _window$CapaSuitePric6.call(_window$CapaSuitePric5, formData.Hotel_Asignado, date);
         if ((availability === null || availability === void 0 ? void 0 : availability.available) == null || !availability.capacity) {
           return /*#__PURE__*/React.createElement("span", {
             className: "text-[9px] font-bold text-slate-400"
@@ -5372,8 +5415,8 @@ function App() {
               hotelPriceInfo: {
                 source: "Media de ".concat(dates.length, " noches"),
                 isEstimated: comps.some(function (comp) {
-                  var _comp$hotelPriceInfo;
-                  return (_comp$hotelPriceInfo = comp.hotelPriceInfo) === null || _comp$hotelPriceInfo === void 0 ? void 0 : _comp$hotelPriceInfo.isEstimated;
+                  var _comp$hotelPriceInfo2;
+                  return (_comp$hotelPriceInfo2 = comp.hotelPriceInfo) === null || _comp$hotelPriceInfo2 === void 0 ? void 0 : _comp$hotelPriceInfo2.isEstimated;
                 })
               }
             });

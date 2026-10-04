@@ -1601,7 +1601,7 @@
         const refresh = () => refreshAvailability(value => value + 1);
         window.addEventListener('capasuite-data-synced', refresh);
         const storageChanged = event => {
-          if (['hotel_manager_db_v2', 'v3_hotel_manager_db_v2', 'revenue_data_v2', 'v3_revenue_data_v2', 'manual_cupos_v1', 'v3_manual_cupos_v1'].includes(event.key)) refresh();
+          if (['hotel_manager_db_v2', 'v3_hotel_manager_db_v2', 'revenue_data_v2', 'v3_revenue_data_v2', 'manual_cupos_v1', 'v3_manual_cupos_v1', 'custom_events', 'v3_custom_events'].includes(event.key)) refresh();
         };
         window.addEventListener('storage', storageChanged);
         return () => {
@@ -2066,7 +2066,16 @@
             });
             next.dailyConfig[date] = { ...day, prices, tariffMode: average ? 'average' : mode };
           });
-          if (average) next.averageStayCondition = { dates: [...dates], nights: dates.length };
+          if (average) next.averageStayCondition = { dates: [...dates], nights: dates.length, hotel: targetHotel };
+          const refs = dates.length ? dates : [toInputDate(next.Entrada)];
+          const sourcePrices = refs.map(date => getCapaSuiteTariffComparison(targetHotel, date, 'HA', discount));
+          const estimated = sourcePrices.filter(comp => comp.hotelPriceInfo?.isEstimated).length;
+          const mean = sourcePrices.reduce((sum, comp) => sum + Number(comp.hotelDayPrice || 0), 0) / sourcePrices.length;
+          next.hotelTariffNotice = {
+            hotel: targetHotel,
+            text: `Precios recalculados para ${targetHotel}${average ? ` · tarifa media de ${dates.length} noches` : ''}. PVP de habitación ${average ? 'medio' : 'de referencia'}: ${mean.toLocaleString('es-ES', { maximumFractionDigits: 2 })} €.${estimated ? ` Atención: ${estimated} fecha(s) usan PVP estimado porque falta el precio real de este hotel. Revisa las tarifas antes de enviar.` : ' Se utilizan los precios disponibles para este hotel.'}`,
+            estimated: estimated > 0
+          };
           return next;
         });
       };
@@ -3991,6 +4000,13 @@ ${emailContent}`;
                 </div>
               )}
 
+              {formData.hotelTariffNotice?.hotel === formData.Hotel_Asignado && (
+                <div role="status" className={`rounded-xl border p-3 text-xs ${formData.hotelTariffNotice.estimated ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-indigo-200 bg-indigo-50 text-indigo-800'}`}>
+                  {formData.hotelTariffNotice.text}
+                  <span className="block mt-1">El alojamiento puede coincidir si ambos hoteles tienen el mismo PVP; los suplementos se calculan con el catálogo del hotel seleccionado.</span>
+                </div>
+              )}
+
               {/* Bloque 2: Tipología de Habitaciones y Modo de Cotización Unificado */}
               {!formData.isRatesOnly ? (
                 <>
@@ -4208,6 +4224,18 @@ ${emailContent}`;
                                   <span className="text-slate-500">{formData.Hotel_Asignado?.toLowerCase().includes('cumbria') ? 'Cumbria' : 'Guadiana'} · {date.slice(0, 4)}</span><br />
                                   PVP hab. (HA): <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
                                 </span>
+                                {(() => {
+                                  const info = window.CapaSuitePricingService?.getDayEvents?.(date);
+                                  if (!info?.known) return <span className="text-[9px] text-slate-400">Eventos: sin datos sincronizados</span>;
+                                  if (!info.events.length) return <span className="text-[9px] text-slate-500">Sin eventos registrados</span>;
+                                  return <div className="flex flex-col gap-1">{info.events.map((event, index) => (
+                                    <div key={`${event.start}-${index}`} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-900" title={`${event.start} — ${event.end || event.start}`}>
+                                      <strong>{event.desc || 'Evento'}</strong>
+                                      {event.prio && <span className="block text-[9px]">Prioridad: {event.prio}</span>}
+                                    </div>
+                                  ))}</div>;
+                                })()}
+
                               </div>
                               <div className="min-w-0">
                                 {(() => {

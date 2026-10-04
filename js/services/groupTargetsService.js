@@ -1398,7 +1398,7 @@
           if (doc.exists) {
             var data = doc.data();
             if (data) {
-              var stores = { hotelManagerDb: 'hotel_manager_db_v2', revenueData: 'revenue_data_v2', manualCupos: 'manual_cupos_v1' };
+              var stores = { hotelManagerDb: 'hotel_manager_db_v2', revenueData: 'revenue_data_v2', manualCupos: 'manual_cupos_v1', customEvents: 'custom_events' };
               Object.keys(stores).forEach(function (field) {
                 if (!data[field]) return;
                 if (field === 'hotelManagerDb') window._capasuiteDbCache = data[field];

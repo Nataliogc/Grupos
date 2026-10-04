@@ -178,6 +178,18 @@
   }
 
   // Same inventory and blocked-allotment rules as Calendario.html.
+  function getDayEvents(dateISO) {
+    var raw = safeGetStorage('custom_events');
+    if (!raw) return { known: false, events: [] };
+    try {
+      var events = JSON.parse(raw);
+      if (!Array.isArray(events)) return { known: false, events: [] };
+      return { known: true, events: events.filter(function (event) {
+        return event && event.start && dateISO >= event.start && dateISO <= (event.end || event.start);
+      }) };
+    } catch (e) { return { known: false, events: [] }; }
+  }
+
   function getDayAvailability(hotelName, dateISO) {
     var hotelKey = normalizeHotelKey(hotelName);
     var hotelLabel = hotelKey === 'cumbria' ? 'Cumbria' : 'Guadiana';
@@ -479,6 +491,7 @@
 
   return {
     roundRate: roundRate,
+    getDayEvents: getDayEvents,
     getDayAvailability: getDayAvailability,
     DEFAULT_DISCOUNT_PERCENT: DEFAULT_DISCOUNT_PERCENT,
     getCapaSuiteHotelDayPrice: getCapaSuiteHotelDayPrice,
