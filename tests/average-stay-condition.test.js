@@ -17,3 +17,22 @@ test('average records the exact dates and nights alongside the quoted prices', (
  assert.equal(state.averageStayCondition.dates.length,3);
  assert.notEqual(JSON.stringify(dates),JSON.stringify(state.averageStayCondition.dates));
 });
+
+test('rates-only average fills all regimes and rooms without requiring a distribution', () => {
+ const dates = ['2026-11-06','2026-11-07','2026-11-08'];
+ const base = [61.2,71.1,53.1];
+ const supplements = { HA: 0, HD: 8, MP: 27, PC: 46 };
+ let state = { isRatesOnly:true, Hotel_Asignado:'Guadiana', dailyConfig:{}, ratesOnlyGrid:{} };
+ const ctx = { formData:state, getCurrentStayDates:()=>dates, getRoomTypesForHotel:()=>['DUI','TRIPLE'], getCapaSuiteTariffComparison:(h,d,b)=>({recommendedPricesByRoom:{DUI:base[dates.indexOf(d)]+supplements[b],TRIPLE:base[dates.indexOf(d)]+20+supplements[b]}}), setFormData:fn=>{state=fn(state);}, alert:()=>{} };
+ vm.createContext(ctx); vm.runInContext(handler+'\nhandleApplyAverageStayTariff(10);',ctx);
+ assert.equal(state.ratesOnlyGrid.HA.DUI,61.8);
+ assert.equal(state.ratesOnlyGrid.HD.DUI,69.8);
+ assert.equal(state.ratesOnlyGrid.MP.DUI,88.8);
+ assert.equal(state.ratesOnlyGrid.PC.TRIPLE,127.8);
+ assert.equal(state.averageStayCondition.nights,3);
+ assert.equal(Object.keys(state.dailyConfig).length,0);
+ dates.pop(); ctx.formData=state;
+ vm.runInContext('handleApplyAverageStayTariff(10);',ctx);
+ assert.equal(state.ratesOnlyGrid.HD.DUI,74.15);
+ assert.equal(state.averageStayCondition.nights,2);
+});

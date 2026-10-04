@@ -582,7 +582,7 @@
       isRatesOnly: false,
       ratesOnlyGrid: {},
       hiddenGridRows: [],
-      hiddenGridCols: [],
+      hiddenGridCols: ["DOBLE + SUPLETORIA NIÑO", "SUITE", "SUITE SUPERIOR"],
       segments: [],           // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
       isMultiSegment: false,   // NUEVO: modo multi-segmento activo
       declaredPax: '',        // NUEVO: Pax declarados por el cliente
@@ -1161,6 +1161,7 @@
       const newData = { ...groupData };
       newData.isRatesOnly = !!groupData.isRatesOnly;
       newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
+      newData.hiddenGridCols = Array.isArray(groupData.hiddenGridCols) ? [...groupData.hiddenGridCols] : [...DEFAULT_FORM_DATA.hiddenGridCols];
       newData.capaSuiteDiscountPercent = groupData.capaSuiteDiscountPercent !== undefined ? groupData.capaSuiteDiscountPercent : 15;
       
       const rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
@@ -2220,6 +2221,23 @@
         const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
         const roomTypes = getRoomTypesForHotel(hotel);
 
+        if (formData.isRatesOnly) {
+          const mergedGrid = { ...(formData.ratesOnlyGrid || {}) };
+          ['HA', 'HD', 'MP', 'PC'].forEach(board => {
+            const comparisons = stayDates.map(date => getCapaSuiteTariffComparison(hotel, date, board, discount));
+            mergedGrid[board] = { ...(mergedGrid[board] || {}) };
+            roomTypes.forEach(room => {
+              const prices = comparisons.map(comp => comp.recommendedPricesByRoom?.[room]);
+              if (prices.every(price => price != null && price !== '' && Number.isFinite(Number(price)))) {
+                mergedGrid[board][room] = Math.round(prices.reduce((sum, price) => sum + Number(price), 0) / stayDates.length * 100) / 100;
+              }
+            });
+          });
+          setFormData(prev => ({ ...prev, ratesOnlyGrid: mergedGrid, capaSuiteDiscountPercent: discount,
+            averageStayCondition: { dates: [...stayDates], nights: stayDates.length } }));
+          return;
+        }
+
         // Calcular la tarifa media recomendada de cada habitación promediando todas las noches
         const roomAverages = {};
         roomTypes.forEach(rt => {
@@ -2249,7 +2267,7 @@
               updatedPrices[rt] = roomAverages[rt];
             }
           });
-          dayConf.prices = updatedPrices;
+          newDailyConfig[date] = { ...dayConf, prices: updatedPrices, tariffMode: 'average' };
         });
 
         // Actualizar también ratesOnlyGrid si aplica
@@ -3881,9 +3899,19 @@ ${emailContent}`;
                 );
               })()}
 
+              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700">
+                <input type="checkbox" checked={!!formData.averageStayCondition}
+                  disabled={getCurrentStayDates(formData).length === 0}
+                  onChange={e => {
+                    const dates = getCurrentStayDates(formData);
+                    setFormData(prev => ({ ...prev, averageStayCondition: e.target.checked ? { dates: [...dates], nights: dates.length } : null }));
+                  }} />
+                Incluir nota en la oferta: estancia mínima de {getCurrentStayDates(formData).length} noches (tarifa media)
+              </label>
+
               {formData.averageStayCondition && (
                 <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                  <strong>Tarifa media condicionada a {formData.averageStayCondition.nights} noches.</strong> Válida exclusivamente para las fechas cotizadas ({formData.averageStayCondition.dates.map(formatDate).join(', ')}).
+                  <strong>Oferta válida para una estancia mínima de {formData.averageStayCondition.nights} noches.</strong> Válida exclusivamente para las fechas cotizadas ({formData.averageStayCondition.dates.map(formatDate).join(', ')}).
                   {JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates) && <div className="mt-1 font-bold text-rose-700">La estancia ha cambiado. Vuelve a aplicar «Tarifa Media Estancia» o elige otra tarifa antes de guardar.</div>}
                 </div>
               )}
@@ -4114,6 +4142,7 @@ ${emailContent}`;
                                   onChange={e => handleDailyConfigChange(date, 'tariffMode', e.target.value)}
                                   className="w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
                                 >
+                                  {formData.dailyConfig?.[date]?.tariffMode === 'average' && <option value="average">Tarifa media</option>}
                                   <option value="official">Tarifa de grupos</option>
                                   <option value="recommended">Recomendada</option>
                                 </select>
@@ -4322,8 +4351,15 @@ ${emailContent}`;
                           title="Aplica las tarifas sugeridas de CapaSuite con este descuento a toda la matriz"
                         >
                           <i className="fas fa-bolt text-amber-300 text-[10px]"></i>
-                          Aplicar Sugeridas
+                          Sugeridas 1.er día
                         </button>
+                        <button
+                          type="button"
+                          disabled={stayDates.length === 0}
+                          onClick={() => handleApplyAverageStayTariff(formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10)}
+                          className="ml-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-black disabled:opacity-50"
+                          title="Calcula cada tipología y régimen con todas las noches de la estancia"
+                        >Tarifa Media Estancia ({stayDates.length} noches)</button>
                       </div>
 
                       {((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && (
@@ -4385,7 +4421,18 @@ ${emailContent}`;
                                         : (offBoardYear[room.toLowerCase()] !== undefined ? Number(offBoardYear[room.toLowerCase()]) : null);
                                       const refDate = getCurrentStayDates(formData)[0] || (formData.Entrada ? toInputDate(formData.Entrada) : null);
                                       const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10;
-                                      const comparison = refDate ? getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', refDate, boardKey, discount) : null;
+                                      let comparison = refDate ? getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', refDate, boardKey, discount) : null;
+                                      const isStayAverage = !!formData.averageStayCondition;
+                                      if (isStayAverage && comparison) {
+                                        const dates = formData.averageStayCondition.dates;
+                                        const comps = dates.map(date => getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', date, boardKey, discount));
+                                        const prices = comps.map(comp => comp.recommendedPricesByRoom?.[room]);
+                                        comparison = { ...comparison,
+                                          hotelDayPrice: Math.round(comps.reduce((sum, comp) => sum + comp.hotelDayPrice, 0) / comps.length * 100) / 100,
+                                          recommendedPricesByRoom: { ...comparison.recommendedPricesByRoom, [room]: prices.every(p => p != null) ? Math.round(prices.reduce((sum, p) => sum + Number(p), 0) / prices.length * 100) / 100 : null },
+                                          hotelPriceInfo: { source: `Media de ${dates.length} noches`, isEstimated: comps.some(comp => comp.hotelPriceInfo?.isEstimated) }
+                                        };
+                                      }
                                       const priceInfo = comparison?.hotelPriceInfo;
                                       const recommended = comparison?.recommendedPricesByRoom?.[room];
                                       const formatMoney = value => Number(value).toLocaleString('es-ES', { maximumFractionDigits: 2 });
@@ -4421,7 +4468,7 @@ ${emailContent}`;
                                               T/grupo: {offPriceVal !== null ? `${formatMoney(offPriceVal)}€` : '—'}
                                             </span>
                                             <span className="text-indigo-600" title={priceInfo ? `${formatDate(refDate)} · ${priceInfo.source} · Base doble, solo alojamiento` : 'Selecciona una fecha de entrada para consultar el PVP'}>
-                                              - PVP: {comparison ? `${formatMoney(comparison.hotelDayPrice)}€` : '—'}
+                                              - {isStayAverage ? 'PVP medio' : 'PVP'}: {comparison ? `${formatMoney(comparison.hotelDayPrice)}€` : '—'}
                                             </span>
                                             {isBelowMin ? (
                                               <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5" title={`Por debajo del mínimo establecido (${minAllowedPrice} €)`}>
@@ -4443,7 +4490,7 @@ ${emailContent}`;
                                             <div className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[9px] leading-relaxed text-amber-800">
                                               Tarifa de grupo sin aplicar: {numP > offPriceVal ? '+' : '−'}{formatMoney(Math.abs(numP - offPriceVal))}€ frente al catálogo.
                                               {recommended != null && Math.abs(numP - recommended) < 0.01
-                                                ? ` Se usa la sugerida del día (PVP − ${discount}% en alojamiento + suplementos del régimen).`
+                                                ? ` Se usa la ${isStayAverage ? 'media de estancia' : 'sugerida del día'} (PVP − ${discount}% en alojamiento + suplementos del régimen).`
                                                 : ' Precio introducido distinto del catálogo.'}
                                             </div>
                                           )}
@@ -5817,7 +5864,7 @@ ${emailContent}`;
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
                       {g.averageStayCondition && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid">
-                          <strong>Condición de la tarifa media: estancia de {g.averageStayCondition.nights} noches.</strong> Los precios ofertados se han calculado para la estancia completa en las fechas {g.averageStayCondition.dates.map(formatDate).join(', ')}. Cualquier reducción o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente.
+                          <strong>Oferta válida para una estancia mínima de {g.averageStayCondition.nights} noches.</strong> Tarifa media calculada para la estancia completa en las fechas {g.averageStayCondition.dates.map(formatDate).join(', ')}. Cualquier reducción o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente.
                         </div>
                       )}
                       {dates.length > 0 || g.isRatesOnly ? (

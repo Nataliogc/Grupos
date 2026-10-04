@@ -750,7 +750,7 @@ var DEFAULT_FORM_DATA = {
   isRatesOnly: false,
   ratesOnlyGrid: {},
   hiddenGridRows: [],
-  hiddenGridCols: [],
+  hiddenGridCols: ["DOBLE + SUPLETORIA NIÑO", "SUITE", "SUITE SUPERIOR"],
   segments: [],
   // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
   isMultiSegment: false,
@@ -1352,6 +1352,7 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   var newData = _objectSpread({}, groupData);
   newData.isRatesOnly = !!groupData.isRatesOnly;
   newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
+  newData.hiddenGridCols = Array.isArray(groupData.hiddenGridCols) ? _toConsumableArray(groupData.hiddenGridCols) : _toConsumableArray(DEFAULT_FORM_DATA.hiddenGridCols);
   newData.capaSuiteDiscountPercent = groupData.capaSuiteDiscountPercent !== undefined ? groupData.capaSuiteDiscountPercent : 15;
   var rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
   if (rawHotel.toLowerCase().includes("cumbria")) {
@@ -2535,6 +2536,39 @@ function App() {
     var discount = customDiscount !== undefined ? customDiscount : formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
     var hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
     var roomTypes = getRoomTypesForHotel(hotel);
+    if (formData.isRatesOnly) {
+      var _mergedGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
+      ['HA', 'HD', 'MP', 'PC'].forEach(function (board) {
+        var comparisons = stayDates.map(function (date) {
+          return getCapaSuiteTariffComparison(hotel, date, board, discount);
+        });
+        _mergedGrid[board] = _objectSpread({}, _mergedGrid[board] || {});
+        roomTypes.forEach(function (room) {
+          var prices = comparisons.map(function (comp) {
+            var _comp$recommendedPric2;
+            return (_comp$recommendedPric2 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric2 === void 0 ? void 0 : _comp$recommendedPric2[room];
+          });
+          if (prices.every(function (price) {
+            return price != null && price !== '' && Number.isFinite(Number(price));
+          })) {
+            _mergedGrid[board][room] = Math.round(prices.reduce(function (sum, price) {
+              return sum + Number(price);
+            }, 0) / stayDates.length * 100) / 100;
+          }
+        });
+      });
+      setFormData(function (prev) {
+        return _objectSpread(_objectSpread({}, prev), {}, {
+          ratesOnlyGrid: _mergedGrid,
+          capaSuiteDiscountPercent: discount,
+          averageStayCondition: {
+            dates: _toConsumableArray(stayDates),
+            nights: stayDates.length
+          }
+        });
+      });
+      return;
+    }
 
     // Calcular la tarifa media recomendada de cada habitación promediando todas las noches
     var roomAverages = {};
@@ -2542,10 +2576,10 @@ function App() {
       var sumPrice = 0;
       var countDays = 0;
       stayDates.forEach(function (date) {
-        var _formData$dailyConfig, _comp$recommendedPric2;
+        var _formData$dailyConfig, _comp$recommendedPric3;
         var currentBoard = ((_formData$dailyConfig = formData.dailyConfig) === null || _formData$dailyConfig === void 0 || (_formData$dailyConfig = _formData$dailyConfig[date]) === null || _formData$dailyConfig === void 0 ? void 0 : _formData$dailyConfig.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
         var comp = getCapaSuiteTariffComparison(hotel, date, currentBoard, discount);
-        var p = (_comp$recommendedPric2 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric2 === void 0 ? void 0 : _comp$recommendedPric2[rt];
+        var p = (_comp$recommendedPric3 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric3 === void 0 ? void 0 : _comp$recommendedPric3[rt];
         if (p !== undefined && p !== null && p !== '') {
           sumPrice += Number(p);
           countDays++;
@@ -2570,7 +2604,10 @@ function App() {
           updatedPrices[rt] = roomAverages[rt];
         }
       });
-      dayConf.prices = updatedPrices;
+      newDailyConfig[date] = _objectSpread(_objectSpread({}, dayConf), {}, {
+        prices: updatedPrices,
+        tariffMode: 'average'
+      });
     });
 
     // Actualizar también ratesOnlyGrid si aplica
@@ -4613,10 +4650,27 @@ function App() {
       })), /*#__PURE__*/React.createElement("p", {
         className: "text-[11px]"
       }, "Disponibilidad total del hotel, descontando ocupaci\xF3n y cupos bloqueados. La disponibilidad por tipolog\xEDa debe confirmarse con el hotel."));
-    }(), formData.averageStayCondition && /*#__PURE__*/React.createElement("div", {
+    }(), /*#__PURE__*/React.createElement("label", {
+      className: "flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700"
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: !!formData.averageStayCondition,
+      disabled: getCurrentStayDates(formData).length === 0,
+      onChange: function onChange(e) {
+        var dates = getCurrentStayDates(formData);
+        setFormData(function (prev) {
+          return _objectSpread(_objectSpread({}, prev), {}, {
+            averageStayCondition: e.target.checked ? {
+              dates: _toConsumableArray(dates),
+              nights: dates.length
+            } : null
+          });
+        });
+      }
+    }), "Incluir nota en la oferta: estancia m\xEDnima de ", getCurrentStayDates(formData).length, " noches (tarifa media)"), formData.averageStayCondition && /*#__PURE__*/React.createElement("div", {
       role: "status",
       className: "rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
-    }, /*#__PURE__*/React.createElement("strong", null, "Tarifa media condicionada a ", formData.averageStayCondition.nights, " noches."), " V\xE1lida exclusivamente para las fechas cotizadas (", formData.averageStayCondition.dates.map(formatDate).join(', '), ").", JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates) && /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("strong", null, "Oferta v\xE1lida para una estancia m\xEDnima de ", formData.averageStayCondition.nights, " noches."), " V\xE1lida exclusivamente para las fechas cotizadas (", formData.averageStayCondition.dates.map(formatDate).join(', '), ").", JSON.stringify(getCurrentStayDates(formData)) !== JSON.stringify(formData.averageStayCondition.dates) && /*#__PURE__*/React.createElement("div", {
       className: "mt-1 font-bold text-rose-700"
     }, "La estancia ha cambiado. Vuelve a aplicar \xABTarifa Media Estancia\xBB o elige otra tarifa antes de guardar.")), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4"
@@ -4810,7 +4864,7 @@ function App() {
     }(), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
-      var _formData$dailyConfig4, _formData$dailyConfig5;
+      var _formData$dailyConfig4, _formData$dailyConfig5, _formData$dailyConfig7;
       var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
       var currentBoard = ((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
       var dayComp = getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, discount);
@@ -4849,7 +4903,9 @@ function App() {
           return handleDailyConfigChange(date, 'tariffMode', e.target.value);
         },
         className: "w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
-      }, /*#__PURE__*/React.createElement("option", {
+      }, ((_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.tariffMode) === 'average' && /*#__PURE__*/React.createElement("option", {
+        value: "average"
+      }, "Tarifa media"), /*#__PURE__*/React.createElement("option", {
         value: "official"
       }, "Tarifa de grupos"), /*#__PURE__*/React.createElement("option", {
         value: "recommended"
@@ -4857,8 +4913,8 @@ function App() {
         var allOff = selectedTypes.length > 0;
         var allRec = selectedTypes.length > 0;
         selectedTypes.forEach(function (t) {
-          var _formData$dailyConfig7;
-          var p = (((_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.prices) || {})[t];
+          var _formData$dailyConfig8;
+          var p = (((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.prices) || {})[t];
           var offP = dayComp.officialPricesByRoom[t];
           var recP = dayComp.recommendedPricesByRoom[t];
           if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
@@ -4882,8 +4938,8 @@ function App() {
       }()), /*#__PURE__*/React.createElement("div", {
         className: "flex-1 flex flex-wrap gap-2 items-center"
       }, selectedTypes.map(function (type) {
-        var _formData$dailyConfig8, _formData$dailyConfig9, _formData$dailyConfig0;
-        var dailyCounts = ((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.counts) || {};
+        var _formData$dailyConfig9, _formData$dailyConfig0, _formData$dailyConfig1;
+        var dailyCounts = ((_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.counts) || {};
         var countVal = formData.isMultiSegment ? function (_segmentCountsByDate$) {
           var segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
           return ((_segmentCountsByDate$ = segmentCountsByDate[date]) === null || _segmentCountsByDate$ === void 0 ? void 0 : _segmentCountsByDate$[type.toUpperCase()]) || 0;
@@ -4914,7 +4970,7 @@ function App() {
           className: "relative group flex w-[68px]"
         }, /*#__PURE__*/React.createElement("input", {
           type: "number",
-          value: (((_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.prices) || {})[type] || '',
+          value: (((_formData$dailyConfig0 = formData.dailyConfig) === null || _formData$dailyConfig0 === void 0 || (_formData$dailyConfig0 = _formData$dailyConfig0[date]) === null || _formData$dailyConfig0 === void 0 ? void 0 : _formData$dailyConfig0.prices) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'prices', e.target.value, type);
           },
@@ -4931,14 +4987,14 @@ function App() {
         }, "Grat."), /*#__PURE__*/React.createElement("input", {
           type: "number",
           min: "0",
-          value: (((_formData$dailyConfig0 = formData.dailyConfig) === null || _formData$dailyConfig0 === void 0 || (_formData$dailyConfig0 = _formData$dailyConfig0[date]) === null || _formData$dailyConfig0 === void 0 ? void 0 : _formData$dailyConfig0.gratuities) || {})[type] || '',
+          value: (((_formData$dailyConfig1 = formData.dailyConfig) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1[date]) === null || _formData$dailyConfig1 === void 0 ? void 0 : _formData$dailyConfig1.gratuities) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'gratuities', e.target.value, type);
           },
           className: "w-full bg-transparent text-[10px] font-black text-center outline-none text-emerald-700 [&::-webkit-inner-spin-button]:appearance-none placeholder:text-emerald-300",
           placeholder: "0"
-        }))), function (_formData$dailyConfig1) {
-          var currentPrice = (((_formData$dailyConfig1 = formData.dailyConfig) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1[date]) === null || _formData$dailyConfig1 === void 0 ? void 0 : _formData$dailyConfig1.prices) || {})[type];
+        }))), function (_formData$dailyConfig10) {
+          var currentPrice = (((_formData$dailyConfig10 = formData.dailyConfig) === null || _formData$dailyConfig10 === void 0 || (_formData$dailyConfig10 = _formData$dailyConfig10[date]) === null || _formData$dailyConfig10 === void 0 ? void 0 : _formData$dailyConfig10.prices) || {})[type];
           var isOffActive = offPrice !== null && offPrice !== undefined && Number(currentPrice) === Number(offPrice);
           var isRecActive = recPrice !== null && recPrice !== undefined && Number(currentPrice) === Number(recPrice);
           return /*#__PURE__*/React.createElement("div", {
@@ -4978,8 +5034,8 @@ function App() {
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
       }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
-        value: function (_formData$dailyConfig10) {
-          var b = (_formData$dailyConfig10 = formData.dailyConfig) === null || _formData$dailyConfig10 === void 0 || (_formData$dailyConfig10 = _formData$dailyConfig10[date]) === null || _formData$dailyConfig10 === void 0 ? void 0 : _formData$dailyConfig10.board;
+        value: function (_formData$dailyConfig11) {
+          var b = (_formData$dailyConfig11 = formData.dailyConfig) === null || _formData$dailyConfig11 === void 0 || (_formData$dailyConfig11 = _formData$dailyConfig11[date]) === null || _formData$dailyConfig11 === void 0 ? void 0 : _formData$dailyConfig11.board;
           if (!b) return 'HD (Alojamiento y Desayuno)';
           if (b.startsWith('SA') || b.startsWith('HA')) return 'HA (Solo Alojamiento)';
           if (b.startsWith('AD') || b.startsWith('HD')) return 'HD (Alojamiento y Desayuno)';
@@ -5068,7 +5124,15 @@ function App() {
       title: "Aplica las tarifas sugeridas de CapaSuite con este descuento a toda la matriz"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-bolt text-amber-300 text-[10px]"
-    }), "Aplicar Sugeridas")), ((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && /*#__PURE__*/React.createElement("button", {
+    }), "Sugeridas 1.er d\xEDa"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      disabled: stayDates.length === 0,
+      onClick: function onClick() {
+        return handleApplyAverageStayTariff(formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10);
+      },
+      className: "ml-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-black disabled:opacity-50",
+      title: "Calcula cada tipolog\xEDa y r\xE9gimen con todas las noches de la estancia"
+    }, "Tarifa Media Estancia (", stayDates.length, " noches)")), ((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           hiddenGridRows: [],
@@ -5132,7 +5196,7 @@ function App() {
         return /*#__PURE__*/React.createElement("td", {
           key: room,
           className: "p-4"
-        }, function (_comparison$recommend) {
+        }, function (_comparison, _comparison2) {
           var yGrid = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2026;
           var offGridYear = getOfficialTariffsGrid(formData.Hotel_Asignado, isNaN(yGrid) ? 2026 : yGrid);
           var offBoardYear = offGridYear[boardKey] || (boardKey === "HA" ? offGridYear["SA"] : boardKey === "HD" ? offGridYear["AD"] : {}) || {};
@@ -5140,8 +5204,36 @@ function App() {
           var refDate = getCurrentStayDates(formData)[0] || (formData.Entrada ? toInputDate(formData.Entrada) : null);
           var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10;
           var comparison = refDate ? getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', refDate, boardKey, discount) : null;
-          var priceInfo = comparison === null || comparison === void 0 ? void 0 : comparison.hotelPriceInfo;
-          var recommended = comparison === null || comparison === void 0 || (_comparison$recommend = comparison.recommendedPricesByRoom) === null || _comparison$recommend === void 0 ? void 0 : _comparison$recommend[room];
+          var isStayAverage = !!formData.averageStayCondition;
+          if (isStayAverage && comparison) {
+            var dates = formData.averageStayCondition.dates;
+            var comps = dates.map(function (date) {
+              return getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', date, boardKey, discount);
+            });
+            var prices = comps.map(function (comp) {
+              var _comp$recommendedPric4;
+              return (_comp$recommendedPric4 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric4 === void 0 ? void 0 : _comp$recommendedPric4[room];
+            });
+            comparison = _objectSpread(_objectSpread({}, comparison), {}, {
+              hotelDayPrice: Math.round(comps.reduce(function (sum, comp) {
+                return sum + comp.hotelDayPrice;
+              }, 0) / comps.length * 100) / 100,
+              recommendedPricesByRoom: _objectSpread(_objectSpread({}, comparison.recommendedPricesByRoom), {}, _defineProperty({}, room, prices.every(function (p) {
+                return p != null;
+              }) ? Math.round(prices.reduce(function (sum, p) {
+                return sum + Number(p);
+              }, 0) / prices.length * 100) / 100 : null)),
+              hotelPriceInfo: {
+                source: "Media de ".concat(dates.length, " noches"),
+                isEstimated: comps.some(function (comp) {
+                  var _comp$hotelPriceInfo;
+                  return (_comp$hotelPriceInfo = comp.hotelPriceInfo) === null || _comp$hotelPriceInfo === void 0 ? void 0 : _comp$hotelPriceInfo.isEstimated;
+                })
+              }
+            });
+          }
+          var priceInfo = (_comparison = comparison) === null || _comparison === void 0 ? void 0 : _comparison.hotelPriceInfo;
+          var recommended = (_comparison2 = comparison) === null || _comparison2 === void 0 || (_comparison2 = _comparison2.recommendedPricesByRoom) === null || _comparison2 === void 0 ? void 0 : _comparison2[room];
           var formatMoney = function formatMoney(value) {
             return Number(value).toLocaleString('es-ES', {
               maximumFractionDigits: 2
@@ -5179,7 +5271,7 @@ function App() {
           }, "T/grupo: ", offPriceVal !== null ? "".concat(formatMoney(offPriceVal), "\u20AC") : '—'), /*#__PURE__*/React.createElement("span", {
             className: "text-indigo-600",
             title: priceInfo ? "".concat(formatDate(refDate), " \xB7 ").concat(priceInfo.source, " \xB7 Base doble, solo alojamiento") : 'Selecciona una fecha de entrada para consultar el PVP'
-          }, "- PVP: ", comparison ? "".concat(formatMoney(comparison.hotelDayPrice), "\u20AC") : '—'), isBelowMin ? /*#__PURE__*/React.createElement("span", {
+          }, "- ", isStayAverage ? 'PVP medio' : 'PVP', ": ", comparison ? "".concat(formatMoney(comparison.hotelDayPrice), "\u20AC") : '—'), isBelowMin ? /*#__PURE__*/React.createElement("span", {
             className: "text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5",
             title: "Por debajo del m\xEDnimo establecido (".concat(minAllowedPrice, " \u20AC)")
           }, /*#__PURE__*/React.createElement("i", {
@@ -5190,7 +5282,7 @@ function App() {
             className: "mt-1 text-[9px] leading-relaxed text-slate-500"
           }, /*#__PURE__*/React.createElement("div", null, priceInfo !== null && priceInfo !== void 0 && priceInfo.isEstimated ? 'PVP estimado' : (priceInfo === null || priceInfo === void 0 ? void 0 : priceInfo.source) || 'Referencia del día'), recommended != null && /*#__PURE__*/React.createElement("div", null, "Sugerida: ", formatMoney(recommended), "\u20AC \xB7 dto. ", discount, "% sobre alojamiento")), offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && /*#__PURE__*/React.createElement("div", {
             className: "mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[9px] leading-relaxed text-amber-800"
-          }, "Tarifa de grupo sin aplicar: ", numP > offPriceVal ? '+' : '−', formatMoney(Math.abs(numP - offPriceVal)), "\u20AC frente al cat\xE1logo.", recommended != null && Math.abs(numP - recommended) < 0.01 ? " Se usa la sugerida del d\xEDa (PVP \u2212 ".concat(discount, "% en alojamiento + suplementos del r\xE9gimen).") : ' Precio introducido distinto del catálogo.'));
+          }, "Tarifa de grupo sin aplicar: ", numP > offPriceVal ? '+' : '−', formatMoney(Math.abs(numP - offPriceVal)), "\u20AC frente al cat\xE1logo.", recommended != null && Math.abs(numP - recommended) < 0.01 ? " Se usa la ".concat(isStayAverage ? 'media de estancia' : 'sugerida del día', " (PVP \u2212 ").concat(discount, "% en alojamiento + suplementos del r\xE9gimen).") : ' Precio introducido distinto del catálogo.'));
         }());
       }));
     }))))), /*#__PURE__*/React.createElement("div", {
@@ -6590,7 +6682,7 @@ function App() {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
     }, "Itinerario y Condiciones Econ\xF3micas"), g.averageStayCondition && /*#__PURE__*/React.createElement("div", {
       className: "rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid"
-    }, /*#__PURE__*/React.createElement("strong", null, "Condici\xF3n de la tarifa media: estancia de ", g.averageStayCondition.nights, " noches."), " Los precios ofertados se han calculado para la estancia completa en las fechas ", g.averageStayCondition.dates.map(formatDate).join(', '), ". Cualquier reducci\xF3n o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente."), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("strong", null, "Oferta v\xE1lida para una estancia m\xEDnima de ", g.averageStayCondition.nights, " noches."), " Tarifa media calculada para la estancia completa en las fechas ", g.averageStayCondition.dates.map(formatDate).join(', '), ". Cualquier reducci\xF3n o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente."), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border ".concat(isCumbria ? 'border-blue-900/20' : 'border-orange-600/20', " text-xs print:text-[10px] bg-white shadow-sm")
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse"
