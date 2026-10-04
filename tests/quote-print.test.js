@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
-function setup(naturalHeight) {
+function setup(naturalHeight, overflowHeight = naturalHeight) {
   const events = {};
   let scale = 1;
   const quote = {
@@ -11,7 +11,7 @@ function setup(naturalHeight) {
       removeProperty: () => { scale = 1; }
     },
     appendChild() {},
-    get scrollHeight() { return naturalHeight; },
+    get scrollHeight() { return overflowHeight; },
     getBoundingClientRect: () => ({ height: naturalHeight * scale })
   };
   vm.runInNewContext(fs.readFileSync(require.resolve('../js/quotePrint.js'), 'utf8'), {
@@ -26,12 +26,18 @@ function setup(naturalHeight) {
 test('long quotes fit one sheet and reset after printing', () => {
   const state = setup(1500);
   state.events.beforeprint();
-  assert.ok(1500 * state.scale() <= 1040.01);
+  assert.ok(1500 * state.scale() <= 275 * 96 / 25.4 + 0.01);
   state.events.afterprint();
   assert.equal(state.scale(), 1);
 });
 test('short quotes keep their original print size', () => {
   const state = setup(900);
+  state.events.beforeprint();
+  assert.equal(state.scale(), 1);
+});
+
+test('a distant overflowing element cannot shrink the quote repeatedly', () => {
+  const state = setup(900, 20000);
   state.events.beforeprint();
   assert.equal(state.scale(), 1);
 });

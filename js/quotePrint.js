@@ -4,15 +4,13 @@
     const quote = document.getElementById('quote-document');
     if (!quote) return;
     quote.style.setProperty('--quote-print-scale', '1');
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:absolute;visibility:hidden;height:275mm;width:1px;';
-    quote.appendChild(probe);
-    const availableHeight = probe.getBoundingClientRect().height;
-    probe.remove();
-    // Re-measure after scaling: the available width changes text wrapping.
+    // CSS lengths use 96 pixels per inch. A measuring element inside the quote
+    // can itself increase scrollHeight and trigger repeated, excessive shrinking.
+    const availableHeight = 275 * 96 / 25.4;
+    // Keep the layout width fixed, so reducing zoom cannot widen the document.
     let scale = 1;
     for (let pass = 0; pass < 4; pass += 1) {
-      const height = Math.max(quote.scrollHeight * scale, quote.getBoundingClientRect().height);
+      const height = quote.getBoundingClientRect().height;
       if (height <= availableHeight) break;
       scale *= availableHeight / height;
       quote.style.setProperty('--quote-print-scale', String(scale));
