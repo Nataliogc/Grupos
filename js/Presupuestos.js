@@ -7029,17 +7029,33 @@ function App() {
     }, "Tarifas informativas por habitaci\xF3n y noche (IVA incluido)")) : /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]"
     }, /*#__PURE__*/React.createElement("table", {
-      className: "w-full text-left border-collapse"
-    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+      className: "quote-service-table w-full text-left border-collapse"
+    }, /*#__PURE__*/React.createElement("colgroup", null, /*#__PURE__*/React.createElement("col", {
+      style: {
+        width: '14%'
+      }
+    }), /*#__PURE__*/React.createElement("col", {
+      style: {
+        width: '24%'
+      }
+    }), /*#__PURE__*/React.createElement("col", {
+      style: {
+        width: '48%'
+      }
+    }), /*#__PURE__*/React.createElement("col", {
+      style: {
+        width: '14%'
+      }
+    })), /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
       className: "bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100"
     }, /*#__PURE__*/React.createElement("th", {
-      className: "p-4 print:py-1.5 print:px-2"
+      className: "px-3 py-2 print:py-1 print:px-2"
     }, "Fecha (Servicio)"), /*#__PURE__*/React.createElement("th", {
-      className: "p-4 print:py-1.5 print:px-2"
+      className: "px-3 py-2 print:py-1 print:px-2"
     }, "R\xE9gimen"), /*#__PURE__*/React.createElement("th", {
-      className: "p-4 print:py-1.5 print:px-2"
+      className: "px-3 py-2 print:py-1 print:px-2"
     }, "Tipolog\xEDa Alojamiento"), /*#__PURE__*/React.createElement("th", {
-      className: "p-4 print:py-1.5 print:px-2 text-right"
+      className: "px-3 py-2 print:py-1 print:px-2 text-right"
     }, "Subtotal"))), /*#__PURE__*/React.createElement("tbody", {
       className: "divide-y divide-slate-100"
     }, dates.flatMap(function (date, idx) {
@@ -7060,13 +7076,13 @@ function App() {
           key: "ext-".concat(date, "-").concat(extIdx),
           className: "bg-slate-50 border-t border-slate-100"
         }, /*#__PURE__*/React.createElement("td", {
-          className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800"
+          className: "px-3 py-2 print:py-1 print:px-2 align-top font-bold text-slate-800"
         }, formatDate(date)), /*#__PURE__*/React.createElement("td", {
-          className: "p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60"
+          className: "px-3 py-2 print:py-1 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60"
         }, isDaily ? 'Extra Diario' : 'Cargo Extra'), /*#__PURE__*/React.createElement("td", {
-          className: "p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic"
+          className: "px-3 py-2 print:py-1 print:px-2 text-slate-600 font-bold italic"
         }, ext.description || ext.concept, " (", u > 0 ? u : 1, " ", typeLabel, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
-          className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
+          className: "px-3 py-2 print:py-1 print:px-2 align-top text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
       var roomListItems = activeRooms.map(function (_ref69) {
@@ -7114,12 +7130,12 @@ function App() {
         subtotalDate += lineSubtotal;
         return /*#__PURE__*/React.createElement("li", {
           key: type,
-          className: "text-slate-500 mb-1 print:mb-0"
+          className: "text-slate-600 leading-snug"
         }, /*#__PURE__*/React.createElement("div", {
-          className: "flex justify-between"
-        }, /*#__PURE__*/React.createElement("span", null, currentCount, "x ", getRoomDisplayName(type), " ", roomBoard && roomBoard !== boardTitle ? "(".concat(getBoardDisplayName(roomBoard), ")") : '', " (", formatNum(price), "\u20AC)")), gratuities > 0 && /*#__PURE__*/React.createElement("div", {
-          className: "text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0"
-        }, "[-", gratuities, "] Gratuidad"));
+          className: "flex flex-wrap items-baseline gap-x-2"
+        }, /*#__PURE__*/React.createElement("span", null, currentCount, "x ", getRoomDisplayName(type), " ", roomBoard && roomBoard !== boardTitle ? "(".concat(getBoardDisplayName(roomBoard), ")") : '', " (", formatNum(price), "\u20AC)"), gratuities > 0 && /*#__PURE__*/React.createElement("span", {
+          className: "text-emerald-700 font-bold text-[10px] whitespace-nowrap"
+        }, "(", gratuities, " gratis)")));
       }).filter(Boolean);
       if (roomListItems.length === 0) {
         return dailyExtrasRows;
@@ -7128,15 +7144,15 @@ function App() {
         key: "".concat(date, "-base"),
         className: "group hover:bg-slate-50/50"
       }, /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800"
+        className: "px-3 py-2 print:py-1 print:px-2 align-top font-bold text-slate-800"
       }, formatDate(date)), /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-600"
+        className: "px-3 py-2 print:py-1 print:px-2 align-top font-bold text-indigo-600"
       }, boardTitle), /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2"
+        className: "px-3 py-2 print:py-1 print:px-2"
       }, /*#__PURE__*/React.createElement("ul", {
         className: "text-[11px] print:text-[9px]"
       }, roomListItems)), /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
+        className: "px-3 py-2 print:py-1 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums"
       }, formatNum(subtotalDate), " \u20AC"));
       return [roomRow].concat(_toConsumableArray(dailyExtrasRows));
     }), (g.extraCharges || []).filter(function (ext) {
@@ -7153,13 +7169,13 @@ function App() {
         key: "ext-global-".concat(idx),
         className: "bg-indigo-50/30 border-t border-indigo-100/50 italic"
       }, /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900"
+        className: "px-3 py-2 print:py-1 print:px-2 align-top font-bold text-indigo-900"
       }, isDatedCharge ? "".concat(specificDate === toInputDate(g.Salida) ? 'Salida' : 'Día', " ").concat(formatDate(specificDate)) : 'Estancia Completa'), /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest"
+        className: "px-3 py-2 print:py-1 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest"
       }, isDatedCharge ? 'Extra puntual' : 'Extra Global'), /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold"
+        className: "px-3 py-2 print:py-1 print:px-2 text-indigo-800 font-bold"
       }, ext.description || ext.concept, " (", u > 0 ? u : 1, " ", typeLabel, " x ", formatNum(up), "\u20AC)"), /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums"
+        className: "px-3 py-2 print:py-1 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums"
       }, formatNum(px), " \u20AC"));
     })), /*#__PURE__*/React.createElement("tbody", {
       className: "bg-slate-900 text-white font-black break-inside-avoid print:break-inside-avoid"
@@ -7235,17 +7251,7 @@ function App() {
       className: "text-lg font-black text-indigo-700"
     }, formatNum(calculatedTotal), " \u20AC (Total Estimado)"), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-slate-400 mt-2"
-    }, "Detalle de noches no configurado a\xFAn.")), Number(g.agencyCommissionPercent) > 0 && /*#__PURE__*/React.createElement("div", {
-      className: "rounded-2xl border border-slate-100 p-4 text-xs text-slate-600"
-    }, /*#__PURE__*/React.createElement("strong", null, "Comisi\xF3n de agencia: ", formatNum(g.agencyCommissionPercent), "% sobre los servicios indicados"), /*#__PURE__*/React.createElement("p", {
-      className: "mt-1"
-    }, "Servicios: ", (g.agencyCommissionServices || []).map(function (service) {
-      return service === 'Otros servicios' ? g.agencyCommissionOtherServices : service;
-    }).join(', '), "."), /*#__PURE__*/React.createElement("p", {
-      className: "mt-1"
-    }, "Base de comisi\xF3n: ", formatNum(commissionBreakdown.commissionBase), " \u20AC \xB7 Comisi\xF3n: ", formatNum(commissionBreakdown.commissionAmount), " \u20AC."), /*#__PURE__*/React.createElement("p", {
-      className: "mt-1"
-    }, g.agencyIsClient !== false ? 'La comisión está descontada del importe a pagar por la agencia.' : 'El cliente paga el importe completo; la comisión se liquida con la agencia.')), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, "Detalle de noches no configurado a\xFAn.")), documentPaymentPlan.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "rounded-2xl border border-slate-100 overflow-hidden print:overflow-visible"
     }, /*#__PURE__*/React.createElement("div", {
       className: "bg-slate-50 px-4 py-3 print:py-2 border-b border-slate-100"
@@ -7333,7 +7339,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-pen text-[9px]"
     }), " Editar"))), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2"
+      className: "quote-clause-grid grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2"
     }, function () {
       var cls = isEditingClauses ? tempClauses : effectiveClauses;
       if ((!cls || cls.length === 0) && !isEditingClauses) {
@@ -7462,7 +7468,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-pen text-[9px]"
     }), " Editar"))), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2"
+      className: "quote-clause-grid grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2"
     }, function () {
       var cls = isEditingClausesConf ? tempClausesConf : effectiveClauses;
       if ((!cls || cls.length === 0) && !isEditingClausesConf) {

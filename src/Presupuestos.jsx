@@ -6076,13 +6076,14 @@ ${emailContent}`;
                           </div>
                         ) : (
                           <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]">
-                            <table className="w-full text-left border-collapse">
+                            <table className="quote-service-table w-full text-left border-collapse">
+                              <colgroup><col style={{width:'14%'}} /><col style={{width:'24%'}} /><col style={{width:'48%'}} /><col style={{width:'14%'}} /></colgroup>
                               <thead>
                                 <tr className="bg-slate-50 text-slate-500 font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b border-slate-100">
-                                  <th className="p-4 print:py-1.5 print:px-2">Fecha (Servicio)</th>
-                                  <th className="p-4 print:py-1.5 print:px-2">Régimen</th>
-                                  <th className="p-4 print:py-1.5 print:px-2">Tipología Alojamiento</th>
-                                  <th className="p-4 print:py-1.5 print:px-2 text-right">Subtotal</th>
+                                  <th className="px-3 py-2 print:py-1 print:px-2">Fecha (Servicio)</th>
+                                  <th className="px-3 py-2 print:py-1 print:px-2">Régimen</th>
+                                  <th className="px-3 py-2 print:py-1 print:px-2">Tipología Alojamiento</th>
+                                  <th className="px-3 py-2 print:py-1 print:px-2 text-right">Subtotal</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
@@ -6102,14 +6103,14 @@ ${emailContent}`;
                                        const typeLabel = ext.chargeType === 'pax' ? 'pax' : (ext.chargeType === 'room' ? 'hab.' : 'ud.');
                                        return (
                                           <tr key={`ext-${date}-${extIdx}`} className="bg-slate-50 border-t border-slate-100">
-                                            <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
-                                            <td className="p-4 print:py-1.5 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60">
+                                            <td className="px-3 py-2 print:py-1 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
+                                            <td className="px-3 py-2 print:py-1 print:px-2 align-top text-slate-500 font-black uppercase text-[9px] tracking-widest italic opacity-60">
                                               {isDaily ? 'Extra Diario' : 'Cargo Extra'}
                                             </td>
-                                            <td className="p-4 print:py-1.5 print:px-2 text-slate-600 font-bold italic">
+                                            <td className="px-3 py-2 print:py-1 print:px-2 text-slate-600 font-bold italic">
                                               {ext.description || ext.concept} ({u > 0 ? u : 1} {typeLabel} x {formatNum(up)}€)
                                             </td>
-                                            <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(px)} €</td>
+                                            <td className="px-3 py-2 print:py-1 print:px-2 align-top text-right font-black text-slate-800 tabular-nums">{formatNum(px)} €</td>
                                           </tr>
                                        );
                                     });
@@ -6155,11 +6156,11 @@ ${emailContent}`;
 
                                      subtotalDate += lineSubtotal;
                                      return (
-                                       <li key={type} className="text-slate-500 mb-1 print:mb-0">
-                                         <div className="flex justify-between">
+                                       <li key={type} className="text-slate-600 leading-snug">
+                                         <div className="flex flex-wrap items-baseline gap-x-2">
                                            <span>{currentCount}x {getRoomDisplayName(type)} {roomBoard && roomBoard !== boardTitle ? `(${getBoardDisplayName(roomBoard)})` : ''} ({formatNum(price)}€)</span>
+                                           {gratuities > 0 && <span className="text-emerald-700 font-bold text-[10px] whitespace-nowrap">({gratuities} gratis)</span>}
                                          </div>
-                                         {gratuities > 0 && <div className="text-emerald-500 font-bold text-[9px] uppercase tracking-wider mt-0.5 print:mt-0">[-{gratuities}] Gratuidad</div>}
                                        </li>
                                      );
                                    }).filter(Boolean);
@@ -6170,14 +6171,14 @@ ${emailContent}`;
 
                                    const roomRow = (
                                      <tr key={`${date}-base`} className="group hover:bg-slate-50/50">
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-600">{boardTitle}</td>
-                                       <td className="p-4 print:py-1.5 print:px-2">
+                                       <td className="px-3 py-2 print:py-1 print:px-2 align-top font-bold text-slate-800">{formatDate(date)}</td>
+                                       <td className="px-3 py-2 print:py-1 print:px-2 align-top font-bold text-indigo-600">{boardTitle}</td>
+                                       <td className="px-3 py-2 print:py-1 print:px-2">
                                          <ul className="text-[11px] print:text-[9px]">
                                            {roomListItems}
                                          </ul>
                                        </td>
-                                       <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} €</td>
+                                       <td className="px-3 py-2 print:py-1 print:px-2 align-bottom text-right font-black text-slate-800 tabular-nums">{formatNum(subtotalDate)} €</td>
                                      </tr>
                                    );
 
@@ -6196,10 +6197,10 @@ ${emailContent}`;
                                    const typeLabel = ext.chargeType === 'pax' ? 'pax' : (ext.chargeType === 'room' ? 'hab.' : 'ud.');
                                    return (
                                      <tr key={`ext-global-${idx}`} className="bg-indigo-50/30 border-t border-indigo-100/50 italic">
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top font-bold text-indigo-900">{isDatedCharge ? `${specificDate === toInputDate(g.Salida) ? 'Salida' : 'Día'} ${formatDate(specificDate)}` : 'Estancia Completa'}</td>
-                                       <td className="p-4 print:py-1.5 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">{isDatedCharge ? 'Extra puntual' : 'Extra Global'}</td>
-                                       <td className="p-4 print:py-1.5 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({u > 0 ? u : 1} {typeLabel} x {formatNum(up)}€)</td>
-                                       <td className="p-4 print:py-1.5 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
+                                       <td className="px-3 py-2 print:py-1 print:px-2 align-top font-bold text-indigo-900">{isDatedCharge ? `${specificDate === toInputDate(g.Salida) ? 'Salida' : 'Día'} ${formatDate(specificDate)}` : 'Estancia Completa'}</td>
+                                       <td className="px-3 py-2 print:py-1 print:px-2 align-top text-indigo-400 font-black uppercase text-[9px] tracking-widest">{isDatedCharge ? 'Extra puntual' : 'Extra Global'}</td>
+                                       <td className="px-3 py-2 print:py-1 print:px-2 text-indigo-800 font-bold">{ext.description || ext.concept} ({u > 0 ? u : 1} {typeLabel} x {formatNum(up)}€)</td>
+                                       <td className="px-3 py-2 print:py-1 print:px-2 align-bottom text-right font-black text-indigo-900 tabular-nums">{formatNum(px)} €</td>
                                      </tr>
                                    );
                                  })}
@@ -6256,15 +6257,6 @@ ${emailContent}`;
                         <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-200">
                           <p className="text-lg font-black text-indigo-700">{formatNum(calculatedTotal)} € (Total Estimado)</p>
                           <p className="text-xs text-slate-400 mt-2">Detalle de noches no configurado aún.</p>
-                        </div>
-                      )}
-
-                      {Number(g.agencyCommissionPercent) > 0 && (
-                        <div className="rounded-2xl border border-slate-100 p-4 text-xs text-slate-600">
-                          <strong>Comisión de agencia: {formatNum(g.agencyCommissionPercent)}% sobre los servicios indicados</strong>
-                          <p className="mt-1">Servicios: {(g.agencyCommissionServices || []).map(service => service === 'Otros servicios' ? g.agencyCommissionOtherServices : service).join(', ')}.</p>
-                          <p className="mt-1">Base de comisión: {formatNum(commissionBreakdown.commissionBase)} € · Comisión: {formatNum(commissionBreakdown.commissionAmount)} €.</p>
-                          <p className="mt-1">{g.agencyIsClient !== false ? 'La comisión está descontada del importe a pagar por la agencia.' : 'El cliente paga el importe completo; la comisión se liquida con la agencia.'}</p>
                         </div>
                       )}
 
@@ -6359,7 +6351,7 @@ ${emailContent}`;
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2">
+                              <div className="quote-clause-grid grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2">
                                 {(() => {
                                   const cls = isEditingClauses ? tempClauses : effectiveClauses;
                                   if ((!cls || cls.length === 0) && !isEditingClauses) {
@@ -6458,7 +6450,7 @@ ${emailContent}`;
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2">
+                              <div className="quote-clause-grid grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-x-8 gap-y-6 print:gap-x-4 print:gap-y-2">
                                 {(() => {
                                   const cls = isEditingClausesConf ? tempClausesConf : effectiveClauses;
                                   if ((!cls || cls.length === 0) && !isEditingClausesConf) {

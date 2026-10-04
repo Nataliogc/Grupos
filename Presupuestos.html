@@ -156,6 +156,8 @@
         border: 0 !important;
         box-shadow: none !important;
         overflow: visible !important;
+        zoom: 1 !important;
+        transform: none !important;
       }
       body *:has(#quote-document) > :not(:has(#quote-document)):not(#quote-document) {
         display: none !important;
@@ -164,15 +166,39 @@
         width: 190mm !important;
         padding: 0 !important;
         margin: 0 !important;
-        zoom: var(--quote-print-scale, 1);
+        zoom: 1 !important;
+        transform: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        box-sizing: border-box !important;
+        font-size: 10pt !important;
+        line-height: 1.2 !important;
       }
+      #quote-document * {
+        font-size: 9pt !important;
+        line-height: 1.2 !important;
+        letter-spacing: normal !important;
+      }
+      #quote-document h1 { font-size: 16pt !important; }
+      #quote-document h2, #quote-document h3, #quote-document h4 { font-size: 10pt !important; }
+      #quote-document table { width: 100% !important; }
+      #quote-document th { font-size: 8pt !important; }
+      #quote-document li { margin: 0 !important; }
+      #quote-document tbody.bg-slate-900 tr:last-child td:last-child { font-size: 15pt !important; }
+      #quote-document .quote-clause-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 6px 14px !important;
+        break-inside: avoid;
+      }
+      #quote-document .quote-clause-grid > div { padding-top: 0 !important; padding-bottom: 0 !important; }
       #quote-document .print-break-before { break-before: auto !important; }
       #quote-document [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
-        margin-top: 8px !important;
+        margin-top: 6px !important;
       }
       #quote-document td, #quote-document th { padding-top: 4px !important; padding-bottom: 4px !important; }
-      #quote-document .p-4 { padding: 8px !important; }
-      #quote-document .mb-8 { margin-bottom: 12px !important; }
+      #quote-document .p-4 { padding: 6px !important; }
+      #quote-document .mb-8 { margin-bottom: 8px !important; }
       #quote-document .pt-5 { padding-top: 8px !important; }
       #quote-document img { max-height: 42px !important; }
 
@@ -223,8 +249,7 @@
   <div id="root"></div>
 
   <script src="js/agencyCommissionService.js?v=1"></script>
-  <script src="js/quotePrint.js?v=2"></script>
-  <script src="js/Presupuestos.js?v=1.1.38-print-size"></script>
+  <script src="js/Presupuestos.js?v=1.1.41-compact-table"></script>
 </body>
 
 </html>
