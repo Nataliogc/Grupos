@@ -14990,18 +14990,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                 <button
 
-                  onClick={() => window.location.href = 'Proformas.html'}
-
-                  className="pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap text-gray-500 hover:text-emerald-600 transition"
-
-                >
-
-                  <IconFileInvoice size={18} /> Fac Prof.
-
-                </button>
-
-                <button
-
                   onClick={() => setActiveTab("table")}
 
                   className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === "table" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:text-blue-500 transition"}`}
@@ -15016,15 +15004,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                   )}
 
-                </button>
-
-                <button
-                  onClick={() => {
-                    window.location.href = "Objetivos-Grupos.html";
-                  }}
-                  className={`pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap ${activeTab === "targets" ? "border-b-2 border-indigo-600 text-indigo-600 font-bold" : "text-gray-500 hover:text-indigo-600 transition"}`}
-                >
-                  <span className="text-base">🎯</span> Objetivos de Grupos
                 </button>
 
               </div>
