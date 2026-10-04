@@ -2312,15 +2312,17 @@ function App() {
           gratuities: {}
         };
       }
+      newDailyConfig[date] = _objectSpread({}, newDailyConfig[date]);
       if (roomType) {
         newDailyConfig[date][field] = _objectSpread(_objectSpread({}, newDailyConfig[date][field] || {}), {}, _defineProperty({}, roomType, value === '' ? '' : Number(value)));
       } else {
         newDailyConfig[date][field] = value;
 
         // Auto-fill prices coordinated with regime (Recommended or Official) when regime changes
-        if (field === 'board') {
+        if (field === 'board' || field === 'tariffMode') {
           var _prev$dailyConfig, _prev$dailyConfig2;
-          var rawBoardKey = value.split(' ')[0]; // e.g. "PC", "HD", "HA"
+          var nextBoard = field === 'board' ? value : newDailyConfig[date].board || prev['Régimen'] || 'HD';
+          var rawBoardKey = nextBoard.split(' ')[0]; // e.g. PC, HD, HA
           var boardKey = rawBoardKey === "SA" ? "HA" : rawBoardKey === "AD" ? "HD" : rawBoardKey;
           var hotel = prev.Hotel_Asignado || 'Sercotel Guadiana';
           var roomTypes = getRoomTypesForHotel(hotel);
@@ -2347,11 +2349,13 @@ function App() {
               wasUsingRec = true;
             }
           }
-          var newComp = getCapaSuiteTariffComparison(hotel, date, value, discount);
+          var tariffMode = newDailyConfig[date].tariffMode || (wasUsingRec ? 'recommended' : 'official');
+          newDailyConfig[date].tariffMode = tariffMode;
+          var newComp = getCapaSuiteTariffComparison(hotel, date, nextBoard, discount);
           var updatedPrices = _objectSpread({}, newDailyConfig[date].prices || {});
           roomTypes.forEach(function (room) {
             var _newComp$recommendedP, _newComp$recommendedP2;
-            if (wasUsingRec && ((_newComp$recommendedP = newComp.recommendedPricesByRoom) === null || _newComp$recommendedP === void 0 ? void 0 : _newComp$recommendedP[room]) !== undefined && ((_newComp$recommendedP2 = newComp.recommendedPricesByRoom) === null || _newComp$recommendedP2 === void 0 ? void 0 : _newComp$recommendedP2[room]) !== null) {
+            if (tariffMode === 'recommended' && ((_newComp$recommendedP = newComp.recommendedPricesByRoom) === null || _newComp$recommendedP === void 0 ? void 0 : _newComp$recommendedP[room]) !== undefined && ((_newComp$recommendedP2 = newComp.recommendedPricesByRoom) === null || _newComp$recommendedP2 === void 0 ? void 0 : _newComp$recommendedP2[room]) !== null) {
               updatedPrices[room] = Number(newComp.recommendedPricesByRoom[room]);
             } else {
               var p = officialGrid[boardKey] ? officialGrid[boardKey][room] : null;
@@ -2450,7 +2454,10 @@ function App() {
           updatedPrices[rt] = Number(p);
         }
       });
-      dayConf.prices = updatedPrices;
+      newDailyConfig[date] = _objectSpread(_objectSpread({}, dayConf), {}, {
+        prices: updatedPrices,
+        tariffMode: 'official'
+      });
     });
     setFormData(function (prev) {
       return _objectSpread(_objectSpread({}, prev), {}, {
@@ -2493,7 +2500,10 @@ function App() {
           updatedPrices[rt] = Number(recP);
         }
       });
-      dayConf.prices = updatedPrices;
+      newDailyConfig[date] = _objectSpread(_objectSpread({}, dayConf), {}, {
+        prices: updatedPrices,
+        tariffMode: 'recommended'
+      });
     });
 
     // Actualizar también Modo Grid (ratesOnlyGrid) si aplica
@@ -4539,7 +4549,30 @@ function App() {
         setFormData(updated);
       },
       className: "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-200/90 text-slate-600 hover:bg-slate-300 transition-all cursor-pointer"
-    }, "Cambiar a Fecha \xDAnica")))), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    }, "Cambiar a Fecha \xDAnica")))), /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap items-center justify-between gap-3 bg-white rounded-2xl border border-slate-200/80 px-5 py-3"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-xs font-black text-slate-700"
+    }, "Modo de cotizaci\xF3n"), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        if (formData.isRatesOnly) handleToggleToDistribution();
+      },
+      "aria-pressed": !formData.isRatesOnly,
+      className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(!formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800')
+    }, "Con Distribuci\xF3n"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          isRatesOnly: true,
+          ratesOnlyGrid: formData.ratesOnlyGrid || {}
+        }));
+      },
+      "aria-pressed": !!formData.isRatesOnly,
+      className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800')
+    }, "Solo Tarifas (Grid)"))), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3"
@@ -4553,22 +4586,7 @@ function App() {
       className: "text-xs font-black text-slate-800 uppercase tracking-wider"
     }, "2. Tipolog\xEDa y Cupo de Habitaciones"), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] text-slate-400 font-medium mt-0.5"
-    }, "Indica el n\xFAmero de habitaciones previstas por categor\xEDa"))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl"
-    }, /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: handleToggleToDistribution,
-      className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(!formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800')
-    }, "Con Distribuci\xF3n"), /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: function onClick() {
-        return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
-          isRatesOnly: true,
-          ratesOnlyGrid: formData.ratesOnlyGrid || {}
-        }));
-      },
-      className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800')
-    }, "Solo Tarifas (Grid)"))), /*#__PURE__*/React.createElement("div", {
+    }, "Indica el n\xFAmero de habitaciones previstas por categor\xEDa")))), /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-2.5"
     }, currentRooms.map(function (type) {
       var _formData$roomCounts;
@@ -4744,7 +4762,7 @@ function App() {
     }(), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
-      var _formData$dailyConfig3;
+      var _formData$dailyConfig3, _formData$dailyConfig4;
       var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
       var currentBoard = ((_formData$dailyConfig3 = formData.dailyConfig) === null || _formData$dailyConfig3 === void 0 || (_formData$dailyConfig3 = _formData$dailyConfig3[date]) === null || _formData$dailyConfig3 === void 0 ? void 0 : _formData$dailyConfig3.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
       var dayComp = getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, discount);
@@ -4770,12 +4788,29 @@ function App() {
         title: "PVP Hotel CapaSuite para esta fecha: ".concat(dayComp.hotelDayPrice, " \u20AC")
       }, "PVP: ", /*#__PURE__*/React.createElement("span", {
         className: "text-slate-600 font-black"
-      }, dayComp.hotelDayPrice, " \u20AC")), function () {
-        var allOff = true;
-        var allRec = true;
+      }, dayComp.hotelDayPrice, " \u20AC")), /*#__PURE__*/React.createElement("select", {
+        "aria-label": "Tarifa para toda la fila del ".concat(formatDate(date)),
+        title: "Aplica a toda la fila y mantiene esta elecci\xF3n al cambiar de r\xE9gimen",
+        value: ((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.tariffMode) || (selectedTypes.length > 0 && selectedTypes.every(function (t) {
+          var _formData$dailyConfig5, _dayComp$recommendedP;
+          var price = (_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5.prices) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5[t];
+          var recommended = (_dayComp$recommendedP = dayComp.recommendedPricesByRoom) === null || _dayComp$recommendedP === void 0 ? void 0 : _dayComp$recommendedP[t];
+          return price !== undefined && price !== '' && recommended != null && Number(price) === Number(recommended);
+        }) ? 'recommended' : 'official'),
+        onChange: function onChange(e) {
+          return handleDailyConfigChange(date, 'tariffMode', e.target.value);
+        },
+        className: "w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
+      }, /*#__PURE__*/React.createElement("option", {
+        value: "official"
+      }, "Tarifa de grupos"), /*#__PURE__*/React.createElement("option", {
+        value: "recommended"
+      }, "Recomendada")), function () {
+        var allOff = selectedTypes.length > 0;
+        var allRec = selectedTypes.length > 0;
         selectedTypes.forEach(function (t) {
-          var _formData$dailyConfig4;
-          var p = (((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.prices) || {})[t];
+          var _formData$dailyConfig6;
+          var p = (((_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.prices) || {})[t];
           var offP = dayComp.officialPricesByRoom[t];
           var recP = dayComp.recommendedPricesByRoom[t];
           if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
@@ -4799,8 +4834,8 @@ function App() {
       }()), /*#__PURE__*/React.createElement("div", {
         className: "flex-1 flex flex-wrap gap-2 items-center"
       }, selectedTypes.map(function (type) {
-        var _formData$dailyConfig5, _formData$dailyConfig6, _formData$dailyConfig7;
-        var dailyCounts = ((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.counts) || {};
+        var _formData$dailyConfig7, _formData$dailyConfig8, _formData$dailyConfig9;
+        var dailyCounts = ((_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.counts) || {};
         var countVal = formData.isMultiSegment ? function (_segmentCountsByDate$) {
           var segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
           return ((_segmentCountsByDate$ = segmentCountsByDate[date]) === null || _segmentCountsByDate$ === void 0 ? void 0 : _segmentCountsByDate$[type.toUpperCase()]) || 0;
@@ -4831,7 +4866,7 @@ function App() {
           className: "relative group flex w-[68px]"
         }, /*#__PURE__*/React.createElement("input", {
           type: "number",
-          value: (((_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.prices) || {})[type] || '',
+          value: (((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.prices) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'prices', e.target.value, type);
           },
@@ -4848,14 +4883,14 @@ function App() {
         }, "Grat."), /*#__PURE__*/React.createElement("input", {
           type: "number",
           min: "0",
-          value: (((_formData$dailyConfig7 = formData.dailyConfig) === null || _formData$dailyConfig7 === void 0 || (_formData$dailyConfig7 = _formData$dailyConfig7[date]) === null || _formData$dailyConfig7 === void 0 ? void 0 : _formData$dailyConfig7.gratuities) || {})[type] || '',
+          value: (((_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.gratuities) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'gratuities', e.target.value, type);
           },
           className: "w-full bg-transparent text-[10px] font-black text-center outline-none text-emerald-700 [&::-webkit-inner-spin-button]:appearance-none placeholder:text-emerald-300",
           placeholder: "0"
-        }))), function (_formData$dailyConfig8) {
-          var currentPrice = (((_formData$dailyConfig8 = formData.dailyConfig) === null || _formData$dailyConfig8 === void 0 || (_formData$dailyConfig8 = _formData$dailyConfig8[date]) === null || _formData$dailyConfig8 === void 0 ? void 0 : _formData$dailyConfig8.prices) || {})[type];
+        }))), function (_formData$dailyConfig0) {
+          var currentPrice = (((_formData$dailyConfig0 = formData.dailyConfig) === null || _formData$dailyConfig0 === void 0 || (_formData$dailyConfig0 = _formData$dailyConfig0[date]) === null || _formData$dailyConfig0 === void 0 ? void 0 : _formData$dailyConfig0.prices) || {})[type];
           var isOffActive = offPrice !== null && offPrice !== undefined && Number(currentPrice) === Number(offPrice);
           var isRecActive = recPrice !== null && recPrice !== undefined && Number(currentPrice) === Number(recPrice);
           return /*#__PURE__*/React.createElement("div", {
@@ -4895,8 +4930,8 @@ function App() {
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
       }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
-        value: function (_formData$dailyConfig9) {
-          var b = (_formData$dailyConfig9 = formData.dailyConfig) === null || _formData$dailyConfig9 === void 0 || (_formData$dailyConfig9 = _formData$dailyConfig9[date]) === null || _formData$dailyConfig9 === void 0 ? void 0 : _formData$dailyConfig9.board;
+        value: function (_formData$dailyConfig1) {
+          var b = (_formData$dailyConfig1 = formData.dailyConfig) === null || _formData$dailyConfig1 === void 0 || (_formData$dailyConfig1 = _formData$dailyConfig1[date]) === null || _formData$dailyConfig1 === void 0 ? void 0 : _formData$dailyConfig1.board;
           if (!b) return 'HD (Alojamiento y Desayuno)';
           if (b.startsWith('SA') || b.startsWith('HA')) return 'HA (Solo Alojamiento)';
           if (b.startsWith('AD') || b.startsWith('HD')) return 'HD (Alojamiento y Desayuno)';
@@ -4935,7 +4970,7 @@ function App() {
       className: "fas fa-th text-indigo-500"
     }), "Matriz de Precios por R\xE9gimen"), /*#__PURE__*/React.createElement("p", {
       className: "text-[11px] font-bold text-slate-400 mt-0.5"
-    }, "Define los precios por tipolog\xEDa y r\xE9gimen aplicables a todo el presupuesto.")), /*#__PURE__*/React.createElement("div", {
+    }, "Define los precios por tipolog\xEDa y r\xE9gimen aplicables a todo el presupuesto. Referencia diaria: ", formData.Entrada ? formatDate(toInputDate(formData.Entrada)) : 'selecciona una fecha de entrada', ". PVP base de habitaci\xF3n doble en solo alojamiento; las dem\xE1s tipolog\xEDas y reg\xEDmenes se calculan a partir de esta referencia.")), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("button", {
       type: "button",
@@ -5049,11 +5084,21 @@ function App() {
         return /*#__PURE__*/React.createElement("td", {
           key: room,
           className: "p-4"
-        }, function () {
+        }, function (_comparison$recommend) {
           var yGrid = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2026;
           var offGridYear = getOfficialTariffsGrid(formData.Hotel_Asignado, isNaN(yGrid) ? 2026 : yGrid);
           var offBoardYear = offGridYear[boardKey] || (boardKey === "HA" ? offGridYear["SA"] : boardKey === "HD" ? offGridYear["AD"] : {}) || {};
           var offPriceVal = offBoardYear[room] !== undefined && offBoardYear[room] !== null ? Number(offBoardYear[room]) : offBoardYear[room.toLowerCase()] !== undefined ? Number(offBoardYear[room.toLowerCase()]) : null;
+          var refDate = getCurrentStayDates(formData)[0] || (formData.Entrada ? toInputDate(formData.Entrada) : null);
+          var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10;
+          var comparison = refDate ? getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', refDate, boardKey, discount) : null;
+          var priceInfo = comparison === null || comparison === void 0 ? void 0 : comparison.hotelPriceInfo;
+          var recommended = comparison === null || comparison === void 0 || (_comparison$recommend = comparison.recommendedPricesByRoom) === null || _comparison$recommend === void 0 ? void 0 : _comparison$recommend[room];
+          var formatMoney = function formatMoney(value) {
+            return Number(value).toLocaleString('es-ES', {
+              maximumFractionDigits: 2
+            });
+          };
           var minAllowedPrice = offPriceVal !== null ? Math.round(offPriceVal * 0.85 * 100) / 100 : null;
           var numP = parseFloat(priceVal);
           var isBelowMin = offPriceVal !== null && !isNaN(numP) && numP > 0 && minAllowedPrice !== null && numP < minAllowedPrice;
@@ -5079,18 +5124,25 @@ function App() {
           }), /*#__PURE__*/React.createElement("span", {
             className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold"
           }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
-            className: "mt-1 flex items-center justify-between text-[10px] px-0.5 font-bold"
+            className: "mt-1 flex flex-wrap items-center gap-1 text-[10px] px-0.5 font-bold"
           }, /*#__PURE__*/React.createElement("span", {
-            className: "text-slate-400",
-            title: "Tarifa oficial de cat\xE1logo de grupos vigente"
-          }, "Ofi: ", offPriceVal !== null ? "".concat(offPriceVal, "\u20AC") : '—'), isBelowMin ? /*#__PURE__*/React.createElement("span", {
+            className: "text-slate-500",
+            title: "Tarifa de cat\xE1logo de grupos para esta habitaci\xF3n y r\xE9gimen"
+          }, "T/grupo: ", offPriceVal !== null ? "".concat(formatMoney(offPriceVal), "\u20AC") : '—'), /*#__PURE__*/React.createElement("span", {
+            className: "text-indigo-600",
+            title: priceInfo ? "".concat(formatDate(refDate), " \xB7 ").concat(priceInfo.source, " \xB7 Base doble, solo alojamiento") : 'Selecciona una fecha de entrada para consultar el PVP'
+          }, "- PVP: ", comparison ? "".concat(formatMoney(comparison.hotelDayPrice), "\u20AC") : '—'), isBelowMin ? /*#__PURE__*/React.createElement("span", {
             className: "text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5",
             title: "Por debajo del m\xEDnimo establecido (".concat(minAllowedPrice, " \u20AC)")
           }, /*#__PURE__*/React.createElement("i", {
             className: "fas fa-exclamation-triangle text-[8px]"
           }), " < M\xEDn (", minAllowedPrice.toFixed(0), "\u20AC)") : offPriceVal !== null && !isNaN(numP) && numP > 0 && numP < offPriceVal ? /*#__PURE__*/React.createElement("span", {
             className: "text-[9px] font-extrabold text-emerald-600"
-          }, "-", Math.round((1 - numP / offPriceVal) * 100), "%") : null));
+          }, "-", Math.round((1 - numP / offPriceVal) * 100), "%") : null), comparison && /*#__PURE__*/React.createElement("div", {
+            className: "mt-1 text-[9px] leading-relaxed text-slate-500"
+          }, /*#__PURE__*/React.createElement("div", null, priceInfo !== null && priceInfo !== void 0 && priceInfo.isEstimated ? 'PVP estimado' : (priceInfo === null || priceInfo === void 0 ? void 0 : priceInfo.source) || 'Referencia del día'), recommended != null && /*#__PURE__*/React.createElement("div", null, "Sugerida: ", formatMoney(recommended), "\u20AC \xB7 dto. ", discount, "% sobre alojamiento")), offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && /*#__PURE__*/React.createElement("div", {
+            className: "mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[9px] leading-relaxed text-amber-800"
+          }, "Tarifa de grupo sin aplicar: ", numP > offPriceVal ? '+' : '−', formatMoney(Math.abs(numP - offPriceVal)), "\u20AC frente al cat\xE1logo.", recommended != null && Math.abs(numP - recommended) < 0.01 ? " Se usa la sugerida del d\xEDa (PVP \u2212 ".concat(discount, "% en alojamiento + suplementos del r\xE9gimen).") : ' Precio introducido distinto del catálogo.'));
         }());
       }));
     }))))), /*#__PURE__*/React.createElement("div", {

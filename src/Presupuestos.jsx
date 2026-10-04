@@ -2012,14 +2012,16 @@
           if (!newDailyConfig[date]) {
             newDailyConfig[date] = { board: 'HD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
           }
+          newDailyConfig[date] = { ...newDailyConfig[date] };
           if (roomType) {
             newDailyConfig[date][field] = { ...(newDailyConfig[date][field] || {}), [roomType]: value === '' ? '' : Number(value) };
           } else {
             newDailyConfig[date][field] = value;
             
             // Auto-fill prices coordinated with regime (Recommended or Official) when regime changes
-            if (field === 'board') {
-              const rawBoardKey = value.split(' ')[0]; // e.g. "PC", "HD", "HA"
+            if (field === 'board' || field === 'tariffMode') {
+              const nextBoard = field === 'board' ? value : (newDailyConfig[date].board || prev['Régimen'] || 'HD');
+              const rawBoardKey = nextBoard.split(' ')[0]; // e.g. PC, HD, HA
               const boardKey = rawBoardKey === "SA" ? "HA" : (rawBoardKey === "AD" ? "HD" : rawBoardKey);
               const hotel = prev.Hotel_Asignado || 'Sercotel Guadiana';
               const roomTypes = getRoomTypesForHotel(hotel);
@@ -2041,10 +2043,12 @@
                 }
               }
 
-              const newComp = getCapaSuiteTariffComparison(hotel, date, value, discount);
+              const tariffMode = newDailyConfig[date].tariffMode || (wasUsingRec ? 'recommended' : 'official');
+              newDailyConfig[date].tariffMode = tariffMode;
+              const newComp = getCapaSuiteTariffComparison(hotel, date, nextBoard, discount);
               const updatedPrices = { ...(newDailyConfig[date].prices || {}) };
               roomTypes.forEach(room => {
-                if (wasUsingRec && newComp.recommendedPricesByRoom?.[room] !== undefined && newComp.recommendedPricesByRoom?.[room] !== null) {
+                if (tariffMode === 'recommended' && newComp.recommendedPricesByRoom?.[room] !== undefined && newComp.recommendedPricesByRoom?.[room] !== null) {
                   updatedPrices[room] = Number(newComp.recommendedPricesByRoom[room]);
                 } else {
                   const p = (officialGrid[boardKey] ? officialGrid[boardKey][room] : null);
@@ -2138,7 +2142,7 @@
               updatedPrices[rt] = Number(p);
             }
           });
-          dayConf.prices = updatedPrices;
+          newDailyConfig[date] = { ...dayConf, prices: updatedPrices, tariffMode: 'official' };
         });
 
         setFormData(prev => ({
@@ -2180,7 +2184,7 @@
               updatedPrices[rt] = Number(recP);
             }
           });
-          dayConf.prices = updatedPrices;
+          newDailyConfig[date] = { ...dayConf, prices: updatedPrices, tariffMode: 'recommended' };
         });
 
         // Actualizar también Modo Grid (ratesOnlyGrid) si aplica
@@ -3835,6 +3839,29 @@ ${emailContent}`;
                 )}
               </div>
 
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-2xl border border-slate-200/80 px-5 py-3">
+                <span className="text-xs font-black text-slate-700">Modo de cotización</span>
+                      {/* Selector visible en ambos modos de cotización */}
+                      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => { if (formData.isRatesOnly) handleToggleToDistribution(); }}
+                          aria-pressed={!formData.isRatesOnly}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${!formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          Con Distribución
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, isRatesOnly: true, ratesOnlyGrid: formData.ratesOnlyGrid || {} })}
+                          aria-pressed={!!formData.isRatesOnly}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          Solo Tarifas (Grid)
+                        </button>
+                      </div>
+              </div>
+
               {/* Bloque 2: Tipología de Habitaciones y Modo de Cotización Unificado */}
               {!formData.isRatesOnly ? (
                 <>
@@ -3850,23 +3877,7 @@ ${emailContent}`;
                         </div>
                       </div>
 
-                      {/* Modo de Cotización integrado en la cabecera */}
-                      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-                        <button
-                          type="button"
-                          onClick={handleToggleToDistribution}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${!formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                          Con Distribución
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, isRatesOnly: true, ratesOnlyGrid: formData.ratesOnlyGrid || {} })}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'}`}
-                        >
-                          Solo Tarifas (Grid)
-                        </button>
-                      </div>
+
                     </div>
 
                     {/* Casillas compactas y proporcionadas de tipologías de habitación */}
@@ -4066,9 +4077,23 @@ ${emailContent}`;
                                 <span className="text-[7px] text-slate-400 font-bold" title={`PVP Hotel CapaSuite para esta fecha: ${dayComp.hotelDayPrice} €`}>
                                   PVP: <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
                                 </span>
+                                <select
+                                  aria-label={`Tarifa para toda la fila del ${formatDate(date)}`}
+                                  title="Aplica a toda la fila y mantiene esta elección al cambiar de régimen"
+                                  value={formData.dailyConfig?.[date]?.tariffMode || (selectedTypes.length > 0 && selectedTypes.every(t => {
+                                    const price = formData.dailyConfig?.[date]?.prices?.[t];
+                                    const recommended = dayComp.recommendedPricesByRoom?.[t];
+                                    return price !== undefined && price !== '' && recommended != null && Number(price) === Number(recommended);
+                                  }) ? 'recommended' : 'official')}
+                                  onChange={e => handleDailyConfigChange(date, 'tariffMode', e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded-md px-1 py-1 text-[9px] font-bold text-slate-700"
+                                >
+                                  <option value="official">Tarifa de grupos</option>
+                                  <option value="recommended">Recomendada</option>
+                                </select>
                                 {(() => {
-                                  let allOff = true;
-                                  let allRec = true;
+                                  let allOff = selectedTypes.length > 0;
+                                  let allRec = selectedTypes.length > 0;
                                   selectedTypes.forEach(t => {
                                     const p = (formData.dailyConfig?.[date]?.prices || {})[t];
                                     const offP = dayComp.officialPricesByRoom[t];
@@ -4226,7 +4251,7 @@ ${emailContent}`;
                         Matriz de Precios por Régimen
                       </h4>
                       <p className="text-[11px] font-bold text-slate-400 mt-0.5">
-                        Define los precios por tipología y régimen aplicables a todo el presupuesto.
+                        Define los precios por tipología y régimen aplicables a todo el presupuesto. Referencia diaria: {formData.Entrada ? formatDate(toInputDate(formData.Entrada)) : 'selecciona una fecha de entrada'}. PVP base de habitación doble en solo alojamiento; las demás tipologías y regímenes se calculan a partir de esta referencia.
                       </p>
                     </div>
 
@@ -4332,6 +4357,12 @@ ${emailContent}`;
                                       const offPriceVal = offBoardYear[room] !== undefined && offBoardYear[room] !== null 
                                         ? Number(offBoardYear[room]) 
                                         : (offBoardYear[room.toLowerCase()] !== undefined ? Number(offBoardYear[room.toLowerCase()]) : null);
+                                      const refDate = getCurrentStayDates(formData)[0] || (formData.Entrada ? toInputDate(formData.Entrada) : null);
+                                      const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10;
+                                      const comparison = refDate ? getCapaSuiteTariffComparison(formData.Hotel_Asignado || 'Sercotel Guadiana', refDate, boardKey, discount) : null;
+                                      const priceInfo = comparison?.hotelPriceInfo;
+                                      const recommended = comparison?.recommendedPricesByRoom?.[room];
+                                      const formatMoney = value => Number(value).toLocaleString('es-ES', { maximumFractionDigits: 2 });
                                       const minAllowedPrice = offPriceVal !== null ? Math.round(offPriceVal * 0.85 * 100) / 100 : null;
                                       const numP = parseFloat(priceVal);
                                       const isBelowMin = offPriceVal !== null && !isNaN(numP) && numP > 0 && minAllowedPrice !== null && numP < minAllowedPrice;
@@ -4359,9 +4390,12 @@ ${emailContent}`;
                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
                                           </div>
                                           {/* Tarifa Oficial como Referencia y Aviso de Mínimo */}
-                                          <div className="mt-1 flex items-center justify-between text-[10px] px-0.5 font-bold">
-                                            <span className="text-slate-400" title="Tarifa oficial de catálogo de grupos vigente">
-                                              Ofi: {offPriceVal !== null ? `${offPriceVal}€` : '—'}
+                                          <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] px-0.5 font-bold">
+                                            <span className="text-slate-500" title="Tarifa de catálogo de grupos para esta habitación y régimen">
+                                              T/grupo: {offPriceVal !== null ? `${formatMoney(offPriceVal)}€` : '—'}
+                                            </span>
+                                            <span className="text-indigo-600" title={priceInfo ? `${formatDate(refDate)} · ${priceInfo.source} · Base doble, solo alojamiento` : 'Selecciona una fecha de entrada para consultar el PVP'}>
+                                              - PVP: {comparison ? `${formatMoney(comparison.hotelDayPrice)}€` : '—'}
                                             </span>
                                             {isBelowMin ? (
                                               <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5" title={`Por debajo del mínimo establecido (${minAllowedPrice} €)`}>
@@ -4373,6 +4407,20 @@ ${emailContent}`;
                                               </span>
                                             ) : null)}
                                           </div>
+                                          {comparison && (
+                                            <div className="mt-1 text-[9px] leading-relaxed text-slate-500">
+                                              <div>{priceInfo?.isEstimated ? 'PVP estimado' : priceInfo?.source || 'Referencia del día'}</div>
+                                              {recommended != null && <div>Sugerida: {formatMoney(recommended)}€ · dto. {discount}% sobre alojamiento</div>}
+                                            </div>
+                                          )}
+                                          {offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && (
+                                            <div className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[9px] leading-relaxed text-amber-800">
+                                              Tarifa de grupo sin aplicar: {numP > offPriceVal ? '+' : '−'}{formatMoney(Math.abs(numP - offPriceVal))}€ frente al catálogo.
+                                              {recommended != null && Math.abs(numP - recommended) < 0.01
+                                                ? ` Se usa la sugerida del día (PVP − ${discount}% en alojamiento + suplementos del régimen).`
+                                                : ' Precio introducido distinto del catálogo.'}
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })()}
