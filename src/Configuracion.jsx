@@ -537,7 +537,7 @@
                     </div>
 
                     {/* Contenido Principal */}
-                    <main className="ml-64 p-12 w-full max-w-5xl">
+                    <main className="ml-64 p-6 lg:p-10 w-full max-w-full">
                         <header className="mb-12 flex justify-between items-end">
                             <div>
                                 <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Centro de <span className="text-[#2d5a43]">Configuración</span></h1>
@@ -939,7 +939,7 @@
                                         </div>
                                     </div>
                                 ) : activeHotel === 'services' ? (
-                                    <div className="max-w-3xl space-y-8 animate-fade-in">
+                                    <div className="w-full space-y-8 animate-fade-in">
                                         <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
                                             <div className="flex justify-between items-center mb-6">
                                                 <div>
@@ -1022,7 +1022,7 @@
 
                                     </div>
                                 ) : activeHotel === 'clauses' ? (
-                                    <div className="max-w-4xl space-y-8 animate-fade-in">
+                                    <div className="w-full space-y-8 animate-fade-in">
                                         <div>
                                             <h3 className="text-xl font-bold text-slate-900 uppercase">Textos Legales</h3>
                                             <p className="text-xs text-slate-400">Configuración global de las cláusulas para todos los presupuestos y confirmaciones.</p>
@@ -1193,7 +1193,7 @@
                                         </div>
                                     </div>
                                 ) : activeHotel === 'system' ? (
-                                    <div className="max-w-xl space-y-8">
+                                    <div className="w-full space-y-8">
                                         <div className="bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
                                             <LucideIcon name="cpu" className="absolute right-[-10px] bottom-[-10px] w-32 h-32 opacity-10" />
                                             <div className="relative z-10">

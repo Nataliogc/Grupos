@@ -404,6 +404,10 @@
         .spinner-anim {
             animation: nexus-spin 0.8s linear infinite;
         }
+        .container, .\!container {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
     </style>
 </head>
 
@@ -411,7 +415,7 @@
 
     <!-- SUB-BARRA DE CONTROL Y SINCRONIZACIÓN -->
     <div class="w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-6 py-2.5 sticky top-[50px] z-30 shadow-xs">
-        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+        <div class="w-full max-w-full flex flex-wrap items-center justify-between gap-3">
             
             <!-- Título y Hotel Selector -->
             <div class="flex items-center gap-3 flex-wrap">
@@ -480,7 +484,7 @@
     </div>
 
     <!-- CONTENEDOR PRINCIPAL DEL CALENDARIO -->
-    <main class="flex-1 p-3 sm:p-6 max-w-[1920px] w-full mx-auto flex flex-col gap-5">
+    <main class="flex-1 p-3 sm:p-6 w-full max-w-full mx-auto flex flex-col gap-5">
         
         <!-- BARRA SUPERIOR DE FILTROS Y CONTROLES ESTRATÉGICOS -->
         <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">

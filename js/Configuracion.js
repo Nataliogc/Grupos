@@ -912,7 +912,7 @@ var App = function App() {
     name: "save",
     className: "w-4 h-4"
   }), loading ? 'Guardando...' : 'Guardar Todo')), /*#__PURE__*/React.createElement("main", {
-    className: "ml-64 p-12 w-full max-w-5xl"
+    className: "ml-64 p-6 lg:p-10 w-full max-w-full"
   }, /*#__PURE__*/React.createElement("header", {
     className: "mb-12 flex justify-between items-end"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
@@ -1324,7 +1324,7 @@ var App = function App() {
       className: "text-center p-6 border-2 border-dashed border-slate-100 rounded-xl text-xs text-slate-400 italic"
     }, "No hay comerciales inactivos")));
   }()))) : activeHotel === 'services' ? /*#__PURE__*/React.createElement("div", {
-    className: "max-w-3xl space-y-8 animate-fade-in"
+    className: "w-full space-y-8 animate-fade-in"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-slate-200 rounded-3xl shadow-sm p-8"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1411,7 +1411,7 @@ var App = function App() {
   }), (!((_config$common3 = config.common) !== null && _config$common3 !== void 0 && _config$common3.services) || config.common.services.length === 0) && /*#__PURE__*/React.createElement("div", {
     className: "text-center py-8 text-slate-400 font-bold text-sm"
   }, "No hay servicios registrados.")))) : activeHotel === 'clauses' ? /*#__PURE__*/React.createElement("div", {
-    className: "max-w-4xl space-y-8 animate-fade-in"
+    className: "w-full space-y-8 animate-fade-in"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "text-xl font-bold text-slate-900 uppercase"
   }, "Textos Legales"), /*#__PURE__*/React.createElement("p", {
@@ -1606,7 +1606,7 @@ var App = function App() {
     name: "alert-triangle",
     className: "w-3 h-3"
   }), " Resetear Todos los Grupos")))))) : activeHotel === 'system' ? /*#__PURE__*/React.createElement("div", {
-    className: "max-w-xl space-y-8"
+    className: "w-full space-y-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-[#2d5a43] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
