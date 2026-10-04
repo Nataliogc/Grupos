@@ -20572,6 +20572,18 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                 </p>
 
+                                {(() => {
+                                  const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal);
+                                  if (m.adr > 0) {
+                                    return (
+                                      <p className="text-[9px] font-bold text-emerald-300 mt-1 tabular-nums">
+                                        ADR: {m.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/hab
+                                      </p>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+
                               </div>
 
                             </div>
@@ -21415,7 +21427,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 </div>
 
                                 {/* Barra Financiera */}
-                                <div className="bg-white border-b border-slate-100 px-4 py-2 grid grid-cols-3 gap-2">
+                                <div className="bg-white border-b border-slate-100 px-4 py-2.5 grid grid-cols-2 md:grid-cols-4 gap-2">
                                   <div className="text-center">
                                     <div className="text-[8px] font-black uppercase text-slate-400">
                                       {!isBudget && excelAmount > 0 && Math.abs((lodgingTotal || displayTotal) - excelAmount) > 0.50
@@ -21442,7 +21454,34 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                       )}
                                     </div>
                                   </div>
-                                  <div className="text-center border-x border-slate-100">
+
+                                  {/* PRECIO MEDIO HABITACIÓN (ADR) */}
+                                  {(() => {
+                                    const groupMetrics = calculateGroupAdrAndRoomNights(selectedGroupFicha, displayTotal);
+                                    return (
+                                      <div className="text-center border-l border-slate-100">
+                                        <div className="text-[8px] font-black uppercase text-indigo-600 flex items-center justify-center gap-1">
+                                          <span>🛏️</span> Precio Medio Hab. (ADR)
+                                        </div>
+                                        <div className="text-sm font-black text-indigo-700 tabular-nums">
+                                          {groupMetrics.adr > 0 ? (
+                                            `${groupMetrics.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+                                          ) : (
+                                            <span className="text-slate-400 text-xs font-medium">No definido</span>
+                                          )}
+                                        </div>
+                                        <div className="text-[8.5px] font-bold text-slate-400 mt-0.5">
+                                          {groupMetrics.roomNights > 0 ? (
+                                            `${groupMetrics.roomNights} hab-noche ${groupMetrics.totalRooms > 0 ? `(${groupMetrics.totalRooms} hab/d)` : ""}`
+                                          ) : (
+                                            "Tarifa media diaria"
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  <div className="text-center border-l border-slate-100">
                                     <div className="text-[8px] font-black uppercase text-emerald-500">Cobrado / Anticipos</div>
                                     <div className="text-sm font-black text-emerald-700 tabular-nums">{paid.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
                                   </div>
@@ -22626,6 +22665,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                     {bucket.totalPax > 0 && (
                                                       <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
                                                         {bucket.totalPax} pax
+                                                      </span>
+                                                    )}
+                                                    {bucket.totalRooms > 0 && bucket.totalAmount > 0 && (
+                                                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-mono font-bold" title="Precio Medio de Habitación del día (ADR)">
+                                                        ADR: {(bucket.totalAmount / bucket.totalRooms).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                                       </span>
                                                     )}
                                                     {roomTypesSummary && (
