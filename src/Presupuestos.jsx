@@ -2428,6 +2428,13 @@
           normalizePaymentPlan(normalizedFormData.PaymentPlan_JSON, finalTotal, normalizedFormData)
         );
 
+        if (Number(normalizedFormData.agencyCommissionPercent) > 0 &&
+            (!(normalizedFormData.agencyCommissionServices || []).length ||
+             ((normalizedFormData.agencyCommissionServices || []).includes('Otros servicios') && !String(normalizedFormData.agencyCommissionOtherServices || '').trim()))) {
+          alert('Indica los servicios sujetos a comisión y especifica los otros servicios si los has seleccionado.');
+          return;
+        }
+
         // Validation: Mandatory Hotel
         const hotelAsignado = normalizedFormData.Hotel_Asignado || normalizedFormData.Hotel || "";
         if (!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "") {
@@ -4631,47 +4638,33 @@ ${emailContent}`;
                 </div>
               )}
 
-              {/* Bloque 4: Descuentos y Suplementos Globales */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))', gap: '24px', alignItems: 'start' }}>
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center">
-                      <i className="fas fa-tags text-[10px]"></i>
-                    </div>
-                    <div>
-                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4. Descuentos y Suplementos</h3>
-                    </div>
-                  </div>
+                <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4. Comisión de agencia</h3>
+                <label className="block text-xs font-bold text-slate-500">
+                  Comisión (%)
+                  <input type="number" min="0" max="100" step="0.1" value={formData.agencyCommissionPercent || ''}
+                    onChange={e => setFormData({ ...formData, agencyCommissionPercent: e.target.value === '' ? '' : Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                    className="mt-2 w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-indigo-600" placeholder="0" />
+                </label>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Servicios sujetos a comisión</div>
+                <div className="flex flex-wrap gap-3">
+                  {['Alojamiento', 'Desayuno', 'Almuerzo', 'Cena', 'Salas', 'Spa', 'Otros servicios'].map(service => (
+                    <label key={service} className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                      <input type="checkbox" checked={(formData.agencyCommissionServices || []).includes(service)}
+                        onChange={e => setFormData(prev => ({ ...prev, agencyCommissionServices: e.target.checked
+                          ? [...(prev.agencyCommissionServices || []), service]
+                          : (prev.agencyCommissionServices || []).filter(item => item !== service) }))} />
+                      {service}
+                    </label>
+                  ))}
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Suplementos Totales (€)</label>
-                    <div className="relative group">
-                      <input
-                        type="number"
-                        value={formData.Suplementos || ''}
-                        onChange={e => setFormData({ ...formData, Suplementos: e.target.value })}
-                        className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-indigo-600"
-                        placeholder="0"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black">€</span>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Descuento Global (€)</label>
-                    <div className="relative group">
-                      <input
-                        type="number"
-                        value={formData.Descuentos || ''}
-                        onChange={e => setFormData({ ...formData, Descuentos: e.target.value })}
-                        className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all text-rose-600"
-                        placeholder="0"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black">€</span>
-                    </div>
-                  </div>
-                </div>
+                {(formData.agencyCommissionServices || []).includes('Otros servicios') && (
+                  <input aria-label="Especificar otros servicios sujetos a comisión" value={formData.agencyCommissionOtherServices || ''}
+                    onChange={e => setFormData({ ...formData, agencyCommissionOtherServices: e.target.value })}
+                    placeholder="Indica los otros servicios" className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs" />
+                )}
+                <p className="text-xs text-slate-400">Comisión para la agencia sobre los servicios seleccionados. No modifica el total a pagar por el cliente.</p>
               </div>
 
               {/* Bloque 4.1: Condiciones de pago */}
@@ -4867,6 +4860,8 @@ ${emailContent}`;
                     </>
                   );
                 })()}
+              </div>
+
               </div>
 
               {/* Bloque 4.5: Otros Cargos / Extras y Suplementos Detallados */}
@@ -6215,6 +6210,13 @@ ${emailContent}`;
                         <div className="bg-slate-50 p-8 rounded-2xl text-center border border-slate-200">
                           <p className="text-lg font-black text-indigo-700">{formatNum(calculatedTotal)} € (Total Estimado)</p>
                           <p className="text-xs text-slate-400 mt-2">Detalle de noches no configurado aún.</p>
+                        </div>
+                      )}
+
+                      {Number(g.agencyCommissionPercent) > 0 && (
+                        <div className="rounded-2xl border border-slate-100 p-4 text-xs text-slate-600">
+                          <strong>Comisión de agencia: {formatNum(g.agencyCommissionPercent)}%</strong>
+                          <p className="mt-1">Servicios: {(g.agencyCommissionServices || []).map(service => service === 'Otros servicios' ? g.agencyCommissionOtherServices : service).join(', ')}.</p>
                         </div>
                       )}
 
