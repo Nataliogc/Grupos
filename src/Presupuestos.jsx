@@ -1573,7 +1573,7 @@
       }, [searchTerm]);
 
       useEffect(() => {
-        const unsubscribe = db.collection("settings").doc("main").onSnapshot(doc => {
+        const unsubscribe = window.nexusListen(db.collection("settings").doc("main"), doc => {
           if (doc.exists) {
             setGlobalConfig(doc.data());
           }
@@ -1850,8 +1850,7 @@
 
       // Cargar datos y manejar parámetros de URL
       useEffect(() => {
-        const unsubscribe = db.collection("groups")
-          .onSnapshot((snapshot) => {
+        const unsubscribe = window.nexusListen(db.collection("groups"), (snapshot) => {
             const docs = snapshot.docs.map(doc => ({
               uid: doc.id,
               ...doc.data()

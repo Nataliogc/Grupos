@@ -1825,7 +1825,7 @@ function App() {
     };
   }, [searchTerm]);
   useEffect(function () {
-    var unsubscribe = db.collection("settings").doc("main").onSnapshot(function (doc) {
+    var unsubscribe = window.nexusListen(db.collection("settings").doc("main"), function (doc) {
       if (doc.exists) {
         setGlobalConfig(doc.data());
       }
@@ -2164,7 +2164,7 @@ function App() {
 
   // Cargar datos y manejar parámetros de URL
   useEffect(function () {
-    var unsubscribe = db.collection("groups").onSnapshot(function (snapshot) {
+    var unsubscribe = window.nexusListen(db.collection("groups"), function (snapshot) {
       var docs = snapshot.docs.map(function (doc) {
         return _objectSpread({
           uid: doc.id

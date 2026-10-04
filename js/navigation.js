@@ -76,7 +76,7 @@
     function _subscribe() {
         try {
             updateDbStatus(true, "BD Online");
-            window.db.collection('settings').doc('main').onSnapshot(function (doc) {
+            (window.nexusListen || function (ref, next, error) { return ref.onSnapshot(next, error); })(window.db.collection('settings').doc('main'), function (doc) {
                 updateDbStatus(true, "BD Online");
                 if (!doc.exists) {
                     _loadFromLocalStorage();

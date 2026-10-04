@@ -4945,13 +4945,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
       useEffect(() => {
 
-        const unsubscribe = db
-
-          .collection("settings")
-
-          .doc("main")
-
-          .onSnapshot((doc) => {
+        const unsubscribe = window.nexusListen(db.collection("settings").doc("main"), (doc) => {
 
             if (doc.exists) {
 
@@ -9030,7 +9024,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       // --- Persistencia FIREBASE ---
 
       useEffect(() => {
-        const unsubscribe = db.collection("groups").onSnapshot(
+        const unsubscribe = window.nexusListen(db.collection("groups"),
           (snapshot) => {
             const docsMap = new Map();
             snapshot.forEach((doc) => {
