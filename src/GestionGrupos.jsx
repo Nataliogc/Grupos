@@ -2616,7 +2616,23 @@
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* LEYENDA CLARA REAL VS OBJETIVO */}
+                    <div className="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl shadow-2xs">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leyenda:</span>
+                      <span className="inline-flex items-center gap-1.5 font-bold text-slate-800 bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-[11px] shadow-2xs">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-900 inline-block ring-2 ring-slate-200"></span>
+                        <span>Real</span>
+                        <span className="text-[9px] font-medium text-slate-500">(OTB / Albarán)</span>
+                      </span>
+                      <span className="text-slate-300 font-bold text-xs">vs</span>
+                      <span className="inline-flex items-center gap-1.5 font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 text-[11px] shadow-2xs">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block ring-2 ring-indigo-200"></span>
+                        <span>Objetivo</span>
+                        <span className="text-[9px] font-medium text-indigo-500">(CapaSuite)</span>
+                      </span>
+                    </div>
+
                     <button
                       type="button"
                       onClick={handleSyncFromCapaSuite}
@@ -2634,12 +2650,46 @@
                       <tr className="bg-slate-100/75 text-slate-600 font-bold border-b border-slate-200">
                         <th className="p-3">Mes</th>
                         <th className="p-3 text-center">Estado</th>
-                        <th className="p-3 text-center">Reservas (R / O)</th>
-                        <th className="p-3 text-center">Hab-Noches (R / O)</th>
-                        <th className="p-3 text-center">Pax (R / O)</th>
-                        <th className="p-3 text-center">Precio Medio Hab. (ADR)</th>
-                        <th className="p-3 text-right">Ingresos Real</th>
-                        <th className="p-3 text-right">Ingresos Obj (CapaSuite)</th>
+                        <th className="p-3 text-center">
+                          <div className="font-extrabold text-slate-700 text-xs">Reservas</div>
+                          <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
+                            <span className="text-slate-800 bg-slate-200/90 px-1.5 py-0.5 rounded shadow-2xs uppercase">Real</span>
+                            <span className="text-slate-400">/</span>
+                            <span className="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded shadow-2xs uppercase">Obj</span>
+                          </div>
+                        </th>
+                        <th className="p-3 text-center">
+                          <div className="font-extrabold text-slate-700 text-xs">Hab-Noches</div>
+                          <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
+                            <span className="text-slate-800 bg-slate-200/90 px-1.5 py-0.5 rounded shadow-2xs uppercase">Real</span>
+                            <span className="text-slate-400">/</span>
+                            <span className="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded shadow-2xs uppercase">Obj</span>
+                          </div>
+                        </th>
+                        <th className="p-3 text-center">
+                          <div className="font-extrabold text-slate-700 text-xs">Pax</div>
+                          <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
+                            <span className="text-slate-800 bg-slate-200/90 px-1.5 py-0.5 rounded shadow-2xs uppercase">Real</span>
+                            <span className="text-slate-400">/</span>
+                            <span className="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded shadow-2xs uppercase">Obj</span>
+                          </div>
+                        </th>
+                        <th className="p-3 text-center">
+                          <div className="font-extrabold text-slate-700 text-xs">Precio Medio (ADR)</div>
+                          <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
+                            <span className="text-slate-800 bg-slate-200/90 px-1.5 py-0.5 rounded shadow-2xs uppercase">Real</span>
+                            <span className="text-slate-400">/</span>
+                            <span className="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded shadow-2xs uppercase">Obj</span>
+                          </div>
+                        </th>
+                        <th className="p-3 text-right">
+                          <div className="font-extrabold text-slate-700 text-xs">Ingresos Real</div>
+                          <span className="inline-block text-[9px] font-black uppercase tracking-wider bg-slate-200/90 text-slate-800 px-1.5 py-0.5 rounded mt-1 shadow-2xs">Real</span>
+                        </th>
+                        <th className="p-3 text-right">
+                          <div className="font-extrabold text-slate-700 text-xs">Ingresos Obj</div>
+                          <span className="inline-block text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded mt-1 shadow-2xs">CapaSuite</span>
+                        </th>
                         <th className="p-3 text-right">Desvío (€ y %)</th>
                         <th className="p-3 text-center">% Cumplimiento</th>
                       </tr>
@@ -2687,30 +2737,60 @@
                                   </span>
                                 )}
                               </td>
-                              <td className="p-3 text-center">
-                                <span className="text-slate-900 font-bold">{row.real.reservas}</span>
-                                <span className="text-slate-400 mx-1">/</span>
-                                <span className="text-indigo-600">{row.target.reservas}</span>
+                              <td className="p-3 text-center tabular-nums">
+                                <div className="inline-flex items-center justify-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Reservas Reales: ${row.real.reservas}`}>
+                                    <span>{row.real.reservas}</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-300 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Objetivo CapaSuite: ${row.target.reservas}`}>
+                                    <span>{row.target.reservas}</span>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center tabular-nums">
+                                <div className="inline-flex items-center justify-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Hab-Noches Reales: ${row.real.roomNights}`}>
+                                    <span>{row.real.roomNights}</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-300 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Objetivo CapaSuite: ${row.target.roomNights}`}>
+                                    <span>{row.target.roomNights}</span>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center tabular-nums">
+                                <div className="inline-flex items-center justify-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Pax Reales: ${row.real.pax}`}>
+                                    <span>{row.real.pax}</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-300 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Objetivo CapaSuite: ${row.target.pax}`}>
+                                    <span>{row.target.pax}</span>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                  </span>
+                                </div>
                               </td>
                               <td className="p-3 text-center">
-                                <span className="text-slate-900 font-bold">{row.real.roomNights}</span>
-                                <span className="text-slate-400 mx-1">/</span>
-                                <span className="text-indigo-600">{row.target.roomNights}</span>
-                              </td>
-                              <td className="p-3 text-center">
-                                <span className="text-slate-900 font-bold">{row.real.pax}</span>
-                                <span className="text-slate-400 mx-1">/</span>
-                                <span className="text-indigo-600">{row.target.pax}</span>
-                              </td>
-                              <td className="p-3 text-center">
-                                <div className="flex flex-col items-center">
-                                  <div className="font-bold tabular-nums">
-                                    <span className="text-slate-900">{adrReal > 0 ? `${adrReal.toFixed(2)} €` : "—"}</span>
-                                    <span className="text-slate-400 mx-1">/</span>
-                                    <span className="text-indigo-600">{adrTarget > 0 ? `${adrTarget.toFixed(2)} €` : "—"}</span>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="inline-flex items-center justify-center gap-1.5 text-xs tabular-nums">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold" title="ADR Real">
+                                      <span>{adrReal > 0 ? `${adrReal.toFixed(2)} €` : "—"}</span>
+                                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                    </span>
+                                    <span className="text-slate-300 font-bold">/</span>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold" title="ADR Objetivo">
+                                      <span>{adrTarget > 0 ? `${adrTarget.toFixed(2)} €` : "—"}</span>
+                                      <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                    </span>
                                   </div>
                                   {adrDiff != null && adrReal > 0 && adrTarget > 0 && (
-                                    <span className={"text-[10px] font-bold " + (adrDiff >= 0 ? "text-emerald-600" : "text-rose-500")}>
+                                    <span className={"text-[10px] font-bold mt-0.5 " + (adrDiff >= 0 ? "text-emerald-600" : "text-rose-500")}>
                                       {adrDiff >= 0 ? "+" : ""}{adrDiff.toFixed(2)} €/hab
                                     </span>
                                   )}
@@ -2749,19 +2829,57 @@
                           <td className="p-3 text-center">
                             <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">Auditado</span>
                           </td>
-                          <td className="p-3 text-center">
-                            {periodMetrics.closed.reservasReal} / <span className="text-indigo-600">{periodMetrics.closed.reservasTarget}</span>
+                          <td className="p-3 text-center tabular-nums">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{periodMetrics.closed.reservasReal}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{periodMetrics.closed.reservasTarget}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-3 text-center">
-                            {periodMetrics.closed.roomNightsReal} / <span className="text-indigo-600">{periodMetrics.closed.roomNightsTarget}</span>
+                          <td className="p-3 text-center tabular-nums">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{periodMetrics.closed.roomNightsReal}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{periodMetrics.closed.roomNightsTarget}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-3 text-center">
-                            {periodMetrics.closed.paxReal} / <span className="text-indigo-600">{periodMetrics.closed.paxTarget}</span>
+                          <td className="p-3 text-center tabular-nums">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{periodMetrics.closed.paxReal}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{periodMetrics.closed.paxTarget}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-3 text-center">
-                            <span className="text-slate-900">{periodMetrics.closed.adrReal.toFixed(2)} €</span>
-                            <span className="text-slate-400 mx-1">/</span>
-                            <span className="text-indigo-600">{periodMetrics.closed.adrTarget.toFixed(2)} €</span>
+                          <td className="p-3 text-center tabular-nums">
+                            <div className="inline-flex items-center justify-center gap-1.5 text-xs">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold">
+                                <span>{periodMetrics.closed.adrReal.toFixed(2)} €</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold">
+                                <span>{periodMetrics.closed.adrTarget.toFixed(2)} €</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
                           <td className="p-3 text-right tabular-nums">
                             {periodMetrics.closed.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
@@ -2788,16 +2906,46 @@
                           <td className="p-3 text-center">
                             <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">En Libros</span>
                           </td>
-                          <td className="p-3 text-center">
-                            {periodMetrics.current.reservasReal + periodMetrics.open.reservasReal} / <span className="text-indigo-600">{periodMetrics.current.reservasTarget + periodMetrics.open.reservasTarget}</span>
+                          <td className="p-3 text-center tabular-nums">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{periodMetrics.current.reservasReal + periodMetrics.open.reservasReal}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{periodMetrics.current.reservasTarget + periodMetrics.open.reservasTarget}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-3 text-center">
-                            {periodMetrics.current.roomNightsReal + periodMetrics.open.roomNightsReal} / <span className="text-indigo-600">{periodMetrics.current.roomNightsTarget + periodMetrics.open.roomNightsTarget}</span>
+                          <td className="p-3 text-center tabular-nums">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{periodMetrics.current.roomNightsReal + periodMetrics.open.roomNightsReal}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{periodMetrics.current.roomNightsTarget + periodMetrics.open.roomNightsTarget}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-3 text-center">
-                            {periodMetrics.current.paxReal + periodMetrics.open.paxReal} / <span className="text-indigo-600">{periodMetrics.current.paxTarget + periodMetrics.open.paxTarget}</span>
+                          <td className="p-3 text-center tabular-nums">
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{periodMetrics.current.paxReal + periodMetrics.open.paxReal}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{periodMetrics.current.paxTarget + periodMetrics.open.paxTarget}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
-                          <td className="p-3 text-center">
+                          <td className="p-3 text-center tabular-nums">
                             {(() => {
                               const rTot = periodMetrics.current.revenueReal + periodMetrics.open.revenueReal;
                               const rnTot = periodMetrics.current.roomNightsReal + periodMetrics.open.roomNightsReal;
@@ -2806,11 +2954,17 @@
                               const adrR = rnTot > 0 ? rTot / rnTot : 0;
                               const adrT = tRnTot > 0 ? tRevTot / tRnTot : 0;
                               return (
-                                <>
-                                  <span className="text-slate-900">{adrR.toFixed(2)} €</span>
-                                  <span className="text-slate-400 mx-1">/</span>
-                                  <span className="text-indigo-600">{adrT.toFixed(2)} €</span>
-                                </>
+                                <div className="inline-flex items-center justify-center gap-1.5 text-xs">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold">
+                                    <span>{adrR.toFixed(2)} €</span>
+                                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-400 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold">
+                                    <span>{adrT.toFixed(2)} €</span>
+                                    <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                                  </span>
+                                </div>
                               );
                             })()}
                           </td>
@@ -2854,19 +3008,57 @@
                             {officialDoc ? "Oficial" : "Base"}
                           </span>
                         </td>
-                        <td className="p-3 text-center">
-                          {comparison.totals.real.reservas} / <span className="text-indigo-600">{comparison.totals.target.reservas}</span>
+                        <td className="p-3 text-center tabular-nums">
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                              <span>{comparison.totals.real.reservas}</span>
+                              <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                            </span>
+                            <span className="text-slate-400 font-bold">/</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                              <span>{comparison.totals.target.reservas}</span>
+                              <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                            </span>
+                          </div>
                         </td>
-                        <td className="p-3 text-center">
-                          {comparison.totals.real.roomNights} / <span className="text-indigo-600">{comparison.totals.target.roomNights}</span>
+                        <td className="p-3 text-center tabular-nums">
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                              <span>{comparison.totals.real.roomNights}</span>
+                              <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                            </span>
+                            <span className="text-slate-400 font-bold">/</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                              <span>{comparison.totals.target.roomNights}</span>
+                              <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                            </span>
+                          </div>
                         </td>
-                        <td className="p-3 text-center">
-                          {comparison.totals.real.pax} / <span className="text-indigo-600">{comparison.totals.target.pax}</span>
+                        <td className="p-3 text-center tabular-nums">
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                              <span>{comparison.totals.real.pax}</span>
+                              <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                            </span>
+                            <span className="text-slate-400 font-bold">/</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                              <span>{comparison.totals.target.pax}</span>
+                              <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                            </span>
+                          </div>
                         </td>
-                        <td className="p-3 text-center">
-                          <span className="text-slate-900">{comparison.totals.adr.real.toFixed(2)} €</span>
-                          <span className="text-slate-400 mx-1">/</span>
-                          <span className="text-indigo-600">{comparison.totals.adr.target.toFixed(2)} €</span>
+                        <td className="p-3 text-center tabular-nums">
+                          <div className="inline-flex items-center justify-center gap-1.5 text-xs">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold">
+                              <span>{comparison.totals.adr.real.toFixed(2)} €</span>
+                              <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                            </span>
+                            <span className="text-slate-400 font-bold">/</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold">
+                              <span>{comparison.totals.adr.target.toFixed(2)} €</span>
+                              <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                            </span>
+                          </div>
                         </td>
                         <td className="p-3 text-right tabular-nums">
                           {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
@@ -2988,13 +3180,25 @@
               {/* TABLA MENSUAL COMPARATIVA POR RÉGIMEN */}
               <div className="px-6 pb-6">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                  <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      Evolución Mensual por Régimen ({targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} · Año {targetYear})
-                    </span>
-                    <span className="text-[11px] font-medium text-slate-500">
-                      Valores expresados en Habitaciones-Noche (Real / Objetivo / Desvío)
-                    </span>
+                  <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                        Evolución Mensual por Régimen ({targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} · Año {targetYear})
+                      </span>
+                    </div>
+                    {/* LEYENDA CLARA TAB 2 */}
+                    <div className="flex items-center gap-2 text-xs bg-white border border-slate-200/90 px-3 py-1 rounded-xl shadow-2xs">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leyenda:</span>
+                      <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-lg text-[10px]">
+                        <span className="w-2 h-2 rounded-full bg-slate-900 inline-block"></span>
+                        <span>Real</span>
+                      </span>
+                      <span className="text-slate-300 font-bold text-xs">vs</span>
+                      <span className="inline-flex items-center gap-1 font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg text-[10px]">
+                        <span className="w-2 h-2 rounded-full bg-indigo-600 inline-block"></span>
+                        <span>Objetivo CapaSuite</span>
+                      </span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -3006,7 +3210,14 @@
                           <th className="p-3 text-center">Aloj. + Desayuno (HD)</th>
                           <th className="p-3 text-center">Media Pensión (MP)</th>
                           <th className="p-3 text-center">Pensión Completa (PC)</th>
-                          <th className="p-3 text-center">Total Mes (R / O)</th>
+                          <th className="p-3 text-center">
+                            <div className="font-extrabold text-slate-700 text-xs">Total Mes</div>
+                            <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
+                              <span className="text-slate-800 bg-slate-200/90 px-1.5 py-0.5 rounded shadow-2xs uppercase">Real</span>
+                              <span className="text-slate-400">/</span>
+                              <span className="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded shadow-2xs uppercase">Obj</span>
+                            </div>
+                          </th>
                           <th className="p-3 text-right">Desvío Total</th>
                           <th className="p-3 text-center">% Cump.</th>
                         </tr>
@@ -3030,13 +3241,19 @@
                             const dVal = rVal - tVal;
                             return (
                               <td key={code} className="p-3 text-center tabular-nums">
-                                <div>
-                                  <span className="font-bold text-slate-800">{rVal}</span>
-                                  <span className="text-slate-400 mx-1">/</span>
-                                  <span className="text-indigo-600 font-semibold">{tVal}</span>
+                                <div className="inline-flex items-center justify-center gap-1 text-[11px]">
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/70 font-bold text-slate-900" title={`Real: ${rVal}`}>
+                                    <span>{rVal}</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-300 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 font-bold text-indigo-700" title={`Objetivo: ${tVal}`}>
+                                    <span>{tVal}</span>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                  </span>
                                 </div>
                                 {(rVal > 0 || tVal > 0) && (
-                                  <div className={"text-[10px] font-bold " + (dVal >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                  <div className={"text-[10px] font-bold mt-0.5 " + (dVal >= 0 ? "text-emerald-600" : "text-rose-600")}>
                                     {dVal >= 0 ? "+" : ""}{dVal}
                                   </div>
                                 )}
@@ -3061,9 +3278,17 @@
                               {renderRegCell("MP")}
                               {renderRegCell("PC")}
                               <td className="p-3 text-center tabular-nums font-bold">
-                                <span className="text-slate-900">{totMReal}</span>
-                                <span className="text-slate-400 mx-1">/</span>
-                                <span className="text-indigo-600">{totMTarget}</span>
+                                <div className="inline-flex items-center justify-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Total Real: ${totMReal}`}>
+                                    <span>{totMReal}</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-300 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Total Objetivo: ${totMTarget}`}>
+                                    <span>{totMTarget}</span>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                  </span>
+                                </div>
                               </td>
                               <td className={"p-3 text-right tabular-nums font-black " + (diffTotM >= 0 ? "text-emerald-600" : "text-rose-600")}>
                                 {diffTotM >= 0 ? "+" : ""}{diffTotM} habs
@@ -3089,19 +3314,35 @@
                             const dTot = rTot - tTot;
                             return (
                               <td key={code} className="p-3 text-center tabular-nums">
-                                <div>
-                                  <span>{rTot}</span>
-                                  <span className="text-slate-400 mx-1">/</span>
-                                  <span className="text-indigo-700">{tTot}</span>
+                                <div className="inline-flex items-center justify-center gap-1 text-[11px]">
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200/90 text-slate-900 font-extrabold">
+                                    <span>{rTot}</span>
+                                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-400 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-extrabold">
+                                    <span>{tTot}</span>
+                                    <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                                  </span>
                                 </div>
-                                <div className={"text-[10px] " + (dTot >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                <div className={"text-[10px] font-bold mt-0.5 " + (dTot >= 0 ? "text-emerald-600" : "text-rose-600")}>
                                   {dTot >= 0 ? "+" : ""}{dTot}
                                 </div>
                               </td>
                             );
                           })}
                           <td className="p-3 text-center tabular-nums text-slate-900 font-black">
-                            {realDataTargetYear?.overall?.totalRoomNights || 0} / <span className="text-indigo-700">{generatedTarget?.overall?.targetRoomNights || 0}</span>
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{realDataTargetYear?.overall?.totalRoomNights || 0}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{generatedTarget?.overall?.targetRoomNights || 0}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
                           <td className={"p-3 text-right tabular-nums " + (((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "text-emerald-600" : "text-rose-600")}>
                             {((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "+" : ""}
@@ -3231,13 +3472,25 @@
               {/* TABLA MENSUAL COMPARATIVA POR CATEGORÍA DE HABITACIÓN */}
               <div className="px-6 pb-6">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                  <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      Evolución Mensual por Categoría de Ocupación ({targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} · Año {targetYear})
-                    </span>
-                    <span className="text-[11px] font-medium text-slate-500">
-                      Valores expresados en Habitaciones-Noche (Real / Objetivo / Desvío)
-                    </span>
+                  <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                        Evolución Mensual por Categoría de Ocupación ({targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} · Año {targetYear})
+                      </span>
+                    </div>
+                    {/* LEYENDA CLARA TAB 3 */}
+                    <div className="flex items-center gap-2 text-xs bg-white border border-slate-200/90 px-3 py-1 rounded-xl shadow-2xs">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Leyenda:</span>
+                      <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-lg text-[10px]">
+                        <span className="w-2 h-2 rounded-full bg-slate-900 inline-block"></span>
+                        <span>Real</span>
+                      </span>
+                      <span className="text-slate-300 font-bold text-xs">vs</span>
+                      <span className="inline-flex items-center gap-1 font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg text-[10px]">
+                        <span className="w-2 h-2 rounded-full bg-indigo-600 inline-block"></span>
+                        <span>Objetivo CapaSuite</span>
+                      </span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
@@ -3249,7 +3502,14 @@
                           <th className="p-3 text-center">Doble</th>
                           <th className="p-3 text-center">Triple</th>
                           <th className="p-3 text-center">Cuádruple</th>
-                          <th className="p-3 text-center">Total Mes (R / O)</th>
+                          <th className="p-3 text-center">
+                            <div className="font-extrabold text-slate-700 text-xs">Total Mes</div>
+                            <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
+                              <span className="text-slate-800 bg-slate-200/90 px-1.5 py-0.5 rounded shadow-2xs uppercase">Real</span>
+                              <span className="text-slate-400">/</span>
+                              <span className="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded shadow-2xs uppercase">Obj</span>
+                            </div>
+                          </th>
                           <th className="p-3 text-right">Desvío Total</th>
                           <th className="p-3 text-center">% Cump.</th>
                         </tr>
@@ -3280,13 +3540,19 @@
                             const dVal = rVal - tVal;
                             return (
                               <td key={catKey} className="p-3 text-center tabular-nums">
-                                <div>
-                                  <span className="font-bold text-slate-800">{rVal}</span>
-                                  <span className="text-slate-400 mx-1">/</span>
-                                  <span className="text-indigo-600 font-semibold">{tVal}</span>
+                                <div className="inline-flex items-center justify-center gap-1 text-[11px]">
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/70 font-bold text-slate-900" title={`Real: ${rVal}`}>
+                                    <span>{rVal}</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-300 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 font-bold text-indigo-700" title={`Objetivo: ${tVal}`}>
+                                    <span>{tVal}</span>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                  </span>
                                 </div>
                                 {(rVal > 0 || tVal > 0) && (
-                                  <div className={"text-[10px] font-bold " + (dVal >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                  <div className={"text-[10px] font-bold mt-0.5 " + (dVal >= 0 ? "text-emerald-600" : "text-rose-600")}>
                                     {dVal >= 0 ? "+" : ""}{dVal}
                                   </div>
                                 )}
@@ -3311,9 +3577,17 @@
                               {renderCatCell("triple")}
                               {renderCatCell("cuadruple")}
                               <td className="p-3 text-center tabular-nums font-bold">
-                                <span className="text-slate-900">{totMReal}</span>
-                                <span className="text-slate-400 mx-1">/</span>
-                                <span className="text-indigo-600">{totMTarget}</span>
+                                <div className="inline-flex items-center justify-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Total Real: ${totMReal}`}>
+                                    <span>{totMReal}</span>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-300 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Total Objetivo: ${totMTarget}`}>
+                                    <span>{totMTarget}</span>
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
+                                  </span>
+                                </div>
                               </td>
                               <td className={"p-3 text-right tabular-nums font-black " + (diffTotM >= 0 ? "text-emerald-600" : "text-rose-600")}>
                                 {diffTotM >= 0 ? "+" : ""}{diffTotM} habs
@@ -3346,19 +3620,35 @@
                             const dTot = rTot - tTot;
                             return (
                               <td key={catKey} className="p-3 text-center tabular-nums">
-                                <div>
-                                  <span>{rTot}</span>
-                                  <span className="text-slate-400 mx-1">/</span>
-                                  <span className="text-indigo-700">{tTot}</span>
+                                <div className="inline-flex items-center justify-center gap-1 text-[11px]">
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200/90 text-slate-900 font-extrabold">
+                                    <span>{rTot}</span>
+                                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                                  </span>
+                                  <span className="text-slate-400 font-bold">/</span>
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-extrabold">
+                                    <span>{tTot}</span>
+                                    <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                                  </span>
                                 </div>
-                                <div className={"text-[10px] " + (dTot >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                <div className={"text-[10px] font-bold mt-0.5 " + (dTot >= 0 ? "text-emerald-600" : "text-rose-600")}>
                                   {dTot >= 0 ? "+" : ""}{dTot}
                                 </div>
                               </td>
                             );
                           })}
                           <td className="p-3 text-center tabular-nums text-slate-900 font-black">
-                            {realDataTargetYear?.overall?.totalRoomNights || 0} / <span className="text-indigo-700">{generatedTarget?.overall?.targetRoomNights || 0}</span>
+                            <div className="inline-flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
+                                <span>{realDataTargetYear?.overall?.totalRoomNights || 0}</span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
+                              </span>
+                              <span className="text-slate-400 font-bold">/</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
+                                <span>{generatedTarget?.overall?.targetRoomNights || 0}</span>
+                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
+                              </span>
+                            </div>
                           </td>
                           <td className={"p-3 text-right tabular-nums " + (((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "text-emerald-600" : "text-rose-600")}>
                             {((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "+" : ""}
