@@ -3137,135 +3137,148 @@ ${emailContent}`;
 
             <fieldset disabled={isFormLocked} className={`grid grid-cols-1 gap-8 border-none p-0 m-0 ${isFormLocked ? 'opacity-85' : ''}`}>
               {/* Bloque 1: Información Básica */}
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
-                <div className="flex items-center gap-3 border-b border-slate-50 pb-4">
-                  <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                    <i className="fas fa-info-circle text-[10px]"></i>
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+                <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                  <div className="w-5 h-5 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px]">
+                    <i className="fas fa-info-circle"></i>
                   </div>
-                  <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">1. Información del Grupo y Cliente</h3>
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">1. Información del Grupo y Cliente</h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre del Grupo / Evento</label>
+                {/* FILA 1: Nombre de Grupo + Agencia */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  <div className="md:col-span-7 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5">Nombre del Grupo / Evento</label>
                     <input 
                       type="text" 
                       value={formData["Nombre del Grupo"]} 
                       onChange={e => setFormData({ ...formData, "Nombre del Grupo": e.target.value })}
                       placeholder="Ej: Boda García-Pérez o Grupo Jubilados..."
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                      className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Empresa / Agencia</label>
+                  <div className="md:col-span-5 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5">Empresa / Agencia</label>
                     <input 
                       type="text" 
                       value={formData["Empresa/Agencia"]} 
                       onChange={e => setFormData({ ...formData, "Empresa/Agencia": e.target.value })}
                       placeholder="Nombre de la agencia o empresa..."
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                      className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre de Contacto</label>
+                {/* FILA 2: Contacto, Email, Teléfono */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  <div className="sm:col-span-4 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5">Persona de Contacto</label>
                     <input 
                       type="text" 
                       value={formData.Com_Nombre_Contacto} 
                       onChange={e => setFormData({ ...formData, Com_Nombre_Contacto: e.target.value })}
                       placeholder="Persona de contacto..."
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                      className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                  <div className="sm:col-span-5 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5">Email</label>
                     <input 
                       type="email" 
                       value={formData.Com_Email_Contacto} 
                       onChange={e => setFormData({ ...formData, Com_Email_Contacto: e.target.value })}
                       placeholder="email@ejemplo.com"
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                      className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Teléfono</label>
+                  <div className="sm:col-span-3 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5">Teléfono</label>
                     <input 
                       type="text" 
                       value={formData.Com_Telefono_Contacto} 
                       onChange={e => setFormData({ ...formData, Com_Telefono_Contacto: e.target.value })}
                       placeholder="Número de teléfono..."
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+                      className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
                     />
                   </div>
                 </div>
 
+                {/* FILA 3: ESTANCIA Y FECHAS (Compacta, proporcionada y agrupada) */}
                 {!formData.isMultiSegment ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Entrada</label>
-                      <input 
-                        type="date" 
-                        value={toInputDate(formData.Entrada)} 
-                        onChange={e => {
-                          const newIn = e.target.value;
-                          const currentDays = calcStayDays(formData.Entrada, formData.Salida);
-                          const newOut = newIn ? addStayDays(newIn, currentDays) : formData.Salida;
-                          setFormData({ ...formData, Entrada: newIn, Salida: newOut });
-                        }}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Días / Noches</label>
-                      <div className="relative">
+                  <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 mt-1">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Fecha Entrada */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0">Entrada:</label>
                         <input 
-                          type="number" 
-                          min="1"
-                          value={formData.Entrada && formData.Salida ? calcStayDays(formData.Entrada, formData.Salida) : (formData.Entrada ? 1 : '')} 
+                          type="date" 
+                          value={toInputDate(formData.Entrada)} 
                           onChange={e => {
-                            const val = e.target.value;
-                            const days = Math.max(1, parseInt(val, 10) || 1);
-                            const inDate = formData.Entrada || toInputDate(new Date());
-                            const newOut = addStayDays(inDate, days);
-                            setFormData({ ...formData, Entrada: inDate, Salida: newOut });
+                            const newIn = e.target.value;
+                            const currentDays = calcStayDays(formData.Entrada, formData.Salida);
+                            const newOut = newIn ? addStayDays(newIn, currentDays) : formData.Salida;
+                            setFormData({ ...formData, Entrada: newIn, Salida: newOut });
                           }}
-                          className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 text-center"
-                          placeholder="Mín. 1"
-                          title="Número de días de estancia (mínimo 1 día desde la entrada)"
+                          className="bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 outline-none shadow-2xs w-[145px]"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none">días</span>
                       </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Salida</label>
-                      <input 
-                        type="date" 
-                        value={toInputDate(formData.Salida)} 
-                        min={formData.Entrada ? addStayDays(formData.Entrada, 1) : undefined}
-                        onChange={e => {
-                          const newOut = e.target.value;
-                          let validOut = newOut;
-                          if (formData.Entrada && newOut && toInputDate(newOut) <= toInputDate(formData.Entrada)) {
-                            validOut = addStayDays(formData.Entrada, 1);
-                          }
-                          setFormData({ ...formData, Salida: validOut });
-                        }}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Pax Estimados</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        value={formData["Pax."] || ''} 
-                        onChange={e => setFormData({ ...formData, "Pax.": e.target.value === '' ? '' : Number(e.target.value) })}
-                        disabled={!formData.isRatesOnly}
-                        placeholder={!formData.isRatesOnly ? "Auto-calculado" : "Ej: 33"}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 disabled:opacity-60"
-                      />
+                      {/* Días / Noches */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0">Noches:</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            min="1"
+                            value={formData.Entrada && formData.Salida ? calcStayDays(formData.Entrada, formData.Salida) : (formData.Entrada ? 1 : '')} 
+                            onChange={e => {
+                              const val = e.target.value;
+                              const days = Math.max(1, parseInt(val, 10) || 1);
+                              const inDate = formData.Entrada || toInputDate(new Date());
+                              const newOut = addStayDays(inDate, days);
+                              setFormData({ ...formData, Entrada: inDate, Salida: newOut });
+                            }}
+                            className="bg-white border border-slate-200 focus:border-indigo-500 rounded-lg pl-2 pr-7 py-1 text-xs font-black text-slate-800 text-center outline-none shadow-2xs w-[68px]"
+                            placeholder="1"
+                            title="Número de noches de estancia"
+                          />
+                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none">días</span>
+                        </div>
+                      </div>
+                      {/* Fecha Salida */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0">Salida:</label>
+                        <input 
+                          type="date" 
+                          value={toInputDate(formData.Salida)} 
+                          min={formData.Entrada ? addStayDays(formData.Entrada, 1) : undefined}
+                          onChange={e => {
+                            const newOut = e.target.value;
+                            let validOut = newOut;
+                            if (formData.Entrada && newOut && toInputDate(newOut) <= toInputDate(formData.Entrada)) {
+                              validOut = addStayDays(formData.Entrada, 1);
+                            }
+                            setFormData({ ...formData, Salida: validOut });
+                          }}
+                          className="bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 outline-none shadow-2xs w-[145px]"
+                        />
+                      </div>
+                      {/* Pax Estimados */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0">Pax:</label>
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={formData["Pax."] || ''} 
+                            onChange={e => setFormData({ ...formData, "Pax.": e.target.value === '' ? '' : Number(e.target.value) })}
+                            disabled={!formData.isRatesOnly}
+                            placeholder={!formData.isRatesOnly ? "Auto" : "0"}
+                            className="bg-white border border-slate-200 focus:border-indigo-500 rounded-lg pl-2 pr-7 py-1 text-xs font-black text-slate-800 text-center outline-none shadow-2xs w-[72px] disabled:opacity-60 disabled:bg-slate-100"
+                            title={!formData.isRatesOnly ? "Calculado automáticamente por el cupo de habitaciones" : "Pax manual"}
+                          />
+                          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none">pax</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -3543,93 +3556,82 @@ ${emailContent}`;
                   </div>
                 )}
 
-                <div className="flex justify-between items-center pt-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">¿Varios segmentos / Fechas de estancia?</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newIsMulti = !formData.isMultiSegment;
-                        let updated = { ...formData, isMultiSegment: newIsMulti };
-                        if (newIsMulti) {
-                          if (!formData.segments || formData.segments.length === 0) {
-                            updated.segments = [{ id: 'A', travelerGroupId: 'G1', pax: 1, rooms: 1, roomType: 'DOBLE DE USO INDIVIDUAL', in: formData.Entrada || '', out: formData.Salida || '', notes: '' }];
-                          }
-                          // In multi-segment mode, getSegmentStats handles Pax.
-                          const stats = getSegmentStats(updated.segments);
-                          updated["Pax."] = stats.totalPax;
-                        } else {
+                {formData.isMultiSegment && (
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">¿Volver a estancia de fecha única?</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = { ...formData, isMultiSegment: false };
                           if (!formData.isRatesOnly) {
                             const totalPax = Object.entries(updated.roomCounts || {}).reduce((sum, [roomType, count]) => {
                               return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
                             }, 0);
                             if (totalPax > 0) updated["Pax."] = totalPax;
                           }
-                        }
-                        setFormData(updated);
-                      }}
-                      className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${formData.isMultiSegment ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'}`}
-                    >
-                      {formData.isMultiSegment ? 'SÍ (Multi-Segmento)' : 'NO (Fecha Única)'}
-                    </button>
+                          setFormData(updated);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-200/90 text-slate-600 hover:bg-slate-300 transition-all cursor-pointer"
+                      >
+                        Cambiar a Fecha Única
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Modo de Cotización */}
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                    <i className="fas fa-sliders-h text-[12px]"></i>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest leading-none">Modo de Cotización</h4>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-1">Selecciona cómo deseas presupuestar al grupo</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleToggleToDistribution}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
-                  >
-                    Con Distribución
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, isRatesOnly: true, ratesOnlyGrid: formData.ratesOnlyGrid || {} })}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}
-                  >
-                    Solo Tarifas (Grid)
-                  </button>
-                </div>
-              </div>
-
+              {/* Bloque 2: Tipología de Habitaciones y Modo de Cotización Unificado */}
               {!formData.isRatesOnly ? (
                 <>
-                  {/* Bloque 2: Tipología de Habitaciones */}
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                        <i className="fas fa-bed text-[10px]"></i>
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-5 h-5 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center text-[10px]">
+                          <i className="fas fa-bed"></i>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">2. Tipología y Cupo de Habitaciones</h3>
+                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">Indica el número de habitaciones previstas por categoría</p>
+                        </div>
                       </div>
-                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">2. Tipología y Cupo de Habitaciones</h3>
+
+                      {/* Modo de Cotización integrado en la cabecera */}
+                      <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={handleToggleToDistribution}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${!formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          Con Distribución
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, isRatesOnly: true, ratesOnlyGrid: formData.ratesOnlyGrid || {} })}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          Solo Tarifas (Grid)
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {/* Casillas compactas y proporcionadas de tipologías de habitación */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-2.5">
                       {currentRooms.map(type => (
-                        <div key={type} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 group hover:border-emerald-200 transition-all">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block truncate" title={type}>{type}</label>
-                          <div className="relative">
+                        <div key={type} className="bg-slate-50/80 hover:bg-white p-2.5 rounded-xl border border-slate-200/80 hover:border-indigo-300 transition-all shadow-2xs flex flex-col justify-between gap-1.5 group">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase tracking-tight block truncate" title={type}>
+                            {type}
+                          </label>
+                          <div className="flex items-center justify-between gap-1.5 bg-white rounded-lg border border-slate-200 px-2 py-1 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-400">
                             <input 
                               type="number" 
                               min="0"
                               value={formData.roomCounts?.[type] || ''} 
                               onChange={e => handleRoomCountChange(type, e.target.value)}
                               placeholder="0"
-                              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
+                              className="w-full bg-transparent text-xs font-black text-slate-800 outline-none text-center tabular-nums"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold uppercase tracking-widest">Hab</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase pointer-events-none shrink-0">hab</span>
                           </div>
                         </div>
                       ))}

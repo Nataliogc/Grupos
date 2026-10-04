@@ -3733,21 +3733,21 @@ function App() {
       disabled: isFormLocked,
       className: "grid grid-cols-1 gap-8 border-none p-0 m-0 ".concat(isFormLocked ? 'opacity-85' : '')
     }, /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6"
+      className: "bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3 border-b border-slate-50 pb-4"
+      className: "flex items-center gap-2.5 border-b border-slate-100 pb-3"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-6 h-6 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"
+      className: "w-5 h-5 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center text-[10px]"
     }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-info-circle text-[10px]"
+      className: "fas fa-info-circle"
     })), /*#__PURE__*/React.createElement("h3", {
-      className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
+      className: "text-xs font-black text-slate-800 uppercase tracking-wider"
     }, "1. Informaci\xF3n del Grupo y Cliente")), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-2 gap-6"
+      className: "grid grid-cols-1 md:grid-cols-12 gap-3"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "md:col-span-7 space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
+      className: "text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5"
     }, "Nombre del Grupo / Evento"), /*#__PURE__*/React.createElement("input", {
       type: "text",
       value: formData["Nombre del Grupo"],
@@ -3757,11 +3757,11 @@ function App() {
         }));
       },
       placeholder: "Ej: Boda Garc\xEDa-P\xE9rez o Grupo Jubilados...",
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+      className: "w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
     })), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "md:col-span-5 space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
+      className: "text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5"
     }, "Empresa / Agencia"), /*#__PURE__*/React.createElement("input", {
       type: "text",
       value: formData["Empresa/Agencia"],
@@ -3771,14 +3771,14 @@ function App() {
         }));
       },
       placeholder: "Nombre de la agencia o empresa...",
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+      className: "w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
     }))), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 md:grid-cols-3 gap-6"
+      className: "grid grid-cols-1 sm:grid-cols-12 gap-3"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "sm:col-span-4 space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Nombre de Contacto"), /*#__PURE__*/React.createElement("input", {
+      className: "text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5"
+    }, "Persona de Contacto"), /*#__PURE__*/React.createElement("input", {
       type: "text",
       value: formData.Com_Nombre_Contacto,
       onChange: function onChange(e) {
@@ -3787,11 +3787,11 @@ function App() {
         }));
       },
       placeholder: "Persona de contacto...",
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+      className: "w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
     })), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "sm:col-span-5 space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
+      className: "text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5"
     }, "Email"), /*#__PURE__*/React.createElement("input", {
       type: "email",
       value: formData.Com_Email_Contacto,
@@ -3801,11 +3801,11 @@ function App() {
         }));
       },
       placeholder: "email@ejemplo.com",
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+      className: "w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
     })), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "sm:col-span-3 space-y-1"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
+      className: "text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5"
     }, "Tel\xE9fono"), /*#__PURE__*/React.createElement("input", {
       type: "text",
       value: formData.Com_Telefono_Contacto,
@@ -3815,14 +3815,16 @@ function App() {
         }));
       },
       placeholder: "N\xFAmero de tel\xE9fono...",
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+      className: "w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
     }))), !formData.isMultiSegment ? /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2"
+      className: "bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-3 mt-1"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "flex flex-wrap items-center gap-3"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Fecha Entrada"), /*#__PURE__*/React.createElement("input", {
+      className: "text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0"
+    }, "Entrada:"), /*#__PURE__*/React.createElement("input", {
       type: "date",
       value: toInputDate(formData.Entrada),
       onChange: function onChange(e) {
@@ -3834,12 +3836,12 @@ function App() {
           Salida: newOut
         }));
       },
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+      className: "bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 outline-none shadow-2xs w-[145px]"
     })), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "D\xEDas / Noches"), /*#__PURE__*/React.createElement("div", {
+      className: "text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0"
+    }, "Noches:"), /*#__PURE__*/React.createElement("div", {
       className: "relative"
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
@@ -3855,16 +3857,16 @@ function App() {
           Salida: newOut
         }));
       },
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 text-center",
-      placeholder: "M\xEDn. 1",
-      title: "N\xFAmero de d\xEDas de estancia (m\xEDnimo 1 d\xEDa desde la entrada)"
+      className: "bg-white border border-slate-200 focus:border-indigo-500 rounded-lg pl-2 pr-7 py-1 text-xs font-black text-slate-800 text-center outline-none shadow-2xs w-[68px]",
+      placeholder: "1",
+      title: "N\xFAmero de noches de estancia"
     }), /*#__PURE__*/React.createElement("span", {
-      className: "absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none"
+      className: "absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none"
     }, "d\xEDas"))), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Fecha Salida"), /*#__PURE__*/React.createElement("input", {
+      className: "text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0"
+    }, "Salida:"), /*#__PURE__*/React.createElement("input", {
       type: "date",
       value: toInputDate(formData.Salida),
       min: formData.Entrada ? addStayDays(formData.Entrada, 1) : undefined,
@@ -3878,12 +3880,14 @@ function App() {
           Salida: validOut
         }));
       },
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700"
+      className: "bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 outline-none shadow-2xs w-[145px]"
     })), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-1"
+      className: "flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("label", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1"
-    }, "Pax Estimados"), /*#__PURE__*/React.createElement("input", {
+      className: "text-[10px] font-black text-slate-500 uppercase tracking-tight shrink-0"
+    }, "Pax:"), /*#__PURE__*/React.createElement("div", {
+      className: "relative"
+    }, /*#__PURE__*/React.createElement("input", {
       type: "number",
       min: "0",
       value: formData["Pax."] || '',
@@ -3893,9 +3897,12 @@ function App() {
         }));
       },
       disabled: !formData.isRatesOnly,
-      placeholder: !formData.isRatesOnly ? "Auto-calculado" : "Ej: 33",
-      className: "w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-black outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-slate-700 disabled:opacity-60"
-    }))) : /*#__PURE__*/React.createElement("div", {
+      placeholder: !formData.isRatesOnly ? "Auto" : "0",
+      className: "bg-white border border-slate-200 focus:border-indigo-500 rounded-lg pl-2 pr-7 py-1 text-xs font-black text-slate-800 text-center outline-none shadow-2xs w-[72px] disabled:opacity-60 disabled:bg-slate-100",
+      title: !formData.isRatesOnly ? "Calculado automáticamente por el cupo de habitaciones" : "Pax manual"
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase pointer-events-none"
+    }, "pax"))))) : /*#__PURE__*/React.createElement("div", {
       className: "space-y-4 pt-2"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-2"
@@ -4207,67 +4214,50 @@ function App() {
       }, stats.maxSimultaneous, " hab. simult\xE1neas")), /*#__PURE__*/React.createElement("div", null, "Rango: ", /*#__PURE__*/React.createElement("span", {
         className: "text-indigo-600"
       }, stats.globalIn ? formatDate(stats.globalIn) : '---', " al ", stats.globalOut ? formatDate(stats.globalOut) : '---', " (", stats.nights, " noches)")));
-    }())), /*#__PURE__*/React.createElement("div", {
-      className: "flex justify-between items-center pt-2"
+    }())), formData.isMultiSegment && /*#__PURE__*/React.createElement("div", {
+      className: "flex justify-between items-center pt-2 border-t border-slate-100"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-2"
     }, /*#__PURE__*/React.createElement("span", {
-      className: "text-[9px] font-black text-slate-400 uppercase tracking-widest"
-    }, "\xBFVarios segmentos / Fechas de estancia?"), /*#__PURE__*/React.createElement("button", {
+      className: "text-[10px] font-bold text-slate-400 uppercase"
+    }, "\xBFVolver a estancia de fecha \xFAnica?"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
-        var newIsMulti = !formData.isMultiSegment;
         var updated = _objectSpread(_objectSpread({}, formData), {}, {
-          isMultiSegment: newIsMulti
+          isMultiSegment: false
         });
-        if (newIsMulti) {
-          if (!formData.segments || formData.segments.length === 0) {
-            updated.segments = [{
-              id: 'A',
-              travelerGroupId: 'G1',
-              pax: 1,
-              rooms: 1,
-              roomType: 'DOBLE DE USO INDIVIDUAL',
-              in: formData.Entrada || '',
-              out: formData.Salida || '',
-              notes: ''
-            }];
-          }
-          // In multi-segment mode, getSegmentStats handles Pax.
-          var stats = getSegmentStats(updated.segments);
-          updated["Pax."] = stats.totalPax;
-        } else {
-          if (!formData.isRatesOnly) {
-            var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref52) {
-              var _ref53 = _slicedToArray(_ref52, 2),
-                roomType = _ref53[0],
-                count = _ref53[1];
-              return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
-            }, 0);
-            if (totalPax > 0) updated["Pax."] = totalPax;
-          }
+        if (!formData.isRatesOnly) {
+          var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref52) {
+            var _ref53 = _slicedToArray(_ref52, 2),
+              roomType = _ref53[0],
+              count = _ref53[1];
+            return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
+          }, 0);
+          if (totalPax > 0) updated["Pax."] = totalPax;
         }
         setFormData(updated);
       },
-      className: "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ".concat(formData.isMultiSegment ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500')
-    }, formData.isMultiSegment ? 'SÍ (Multi-Segmento)' : 'NO (Fecha Única)')))), /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 flex items-center justify-between gap-4"
+      className: "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-200/90 text-slate-600 hover:bg-slate-300 transition-all cursor-pointer"
+    }, "Cambiar a Fecha \xDAnica")))), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3"
+      className: "flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"
+      className: "flex items-center gap-2.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-5 h-5 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center text-[10px]"
     }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-sliders-h text-[12px]"
-    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h4", {
-      className: "text-xs font-black text-slate-800 uppercase tracking-widest leading-none"
-    }, "Modo de Cotizaci\xF3n"), /*#__PURE__*/React.createElement("p", {
-      className: "text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-1"
-    }, "Selecciona c\xF3mo deseas presupuestar al grupo"))), /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-2"
+      className: "fas fa-bed"
+    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+      className: "text-xs font-black text-slate-800 uppercase tracking-wider"
+    }, "2. Tipolog\xEDa y Cupo de Habitaciones"), /*#__PURE__*/React.createElement("p", {
+      className: "text-[10px] text-slate-400 font-medium mt-0.5"
+    }, "Indica el n\xFAmero de habitaciones previstas por categor\xEDa"))), /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl"
     }, /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: handleToggleToDistribution,
-      className: "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ".concat(!formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600')
+      className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(!formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800')
     }, "Con Distribuci\xF3n"), /*#__PURE__*/React.createElement("button", {
       type: "button",
       onClick: function onClick() {
@@ -4276,29 +4266,19 @@ function App() {
           ratesOnlyGrid: formData.ratesOnlyGrid || {}
         }));
       },
-      className: "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ".concat(formData.isRatesOnly ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:text-slate-600')
-    }, "Solo Tarifas (Grid)"))), !formData.isRatesOnly ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center gap-3"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "w-6 h-6 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center"
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-bed text-[10px]"
-    })), /*#__PURE__*/React.createElement("h3", {
-      className: "text-[10px] font-black text-slate-800 uppercase tracking-widest"
-    }, "2. Tipolog\xEDa y Cupo de Habitaciones")), /*#__PURE__*/React.createElement("div", {
-      className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"
+      className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ".concat(formData.isRatesOnly ? 'bg-white text-indigo-700 shadow-2xs font-extrabold' : 'text-slate-500 hover:text-slate-800')
+    }, "Solo Tarifas (Grid)"))), /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-2.5"
     }, currentRooms.map(function (type) {
       var _formData$roomCounts;
       return /*#__PURE__*/React.createElement("div", {
         key: type,
-        className: "bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 group hover:border-emerald-200 transition-all"
+        className: "bg-slate-50/80 hover:bg-white p-2.5 rounded-xl border border-slate-200/80 hover:border-indigo-300 transition-all shadow-2xs flex flex-col justify-between gap-1.5 group"
       }, /*#__PURE__*/React.createElement("label", {
-        className: "text-[9px] font-black text-slate-400 uppercase tracking-widest block truncate",
+        className: "text-[10px] font-bold text-slate-600 uppercase tracking-tight block truncate",
         title: type
       }, type), /*#__PURE__*/React.createElement("div", {
-        className: "relative"
+        className: "flex items-center justify-between gap-1.5 bg-white rounded-lg border border-slate-200 px-2 py-1 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-400"
       }, /*#__PURE__*/React.createElement("input", {
         type: "number",
         min: "0",
@@ -4307,10 +4287,10 @@ function App() {
           return handleRoomCountChange(type, e.target.value);
         },
         placeholder: "0",
-        className: "w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
+        className: "w-full bg-transparent text-xs font-black text-slate-800 outline-none text-center tabular-nums"
       }), /*#__PURE__*/React.createElement("span", {
-        className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold uppercase tracking-widest"
-      }, "Hab")));
+        className: "text-[9px] font-bold text-slate-400 uppercase pointer-events-none shrink-0"
+      }, "hab")));
     }))), stayDates.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "bg-white rounded-3xl shadow-sm border border-slate-200/60 p-6 space-y-6 animate-slide-up"
     }, /*#__PURE__*/React.createElement("div", {
