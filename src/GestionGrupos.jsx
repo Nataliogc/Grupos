@@ -20613,7 +20613,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                         <div
 
-                          className={`${headerBg} text-white p-4 border-b border-white/10 shrink-0 relative overflow-hidden`}
+                          className={`${headerBg} text-white px-4 py-2 border-b border-white/10 shrink-0 relative overflow-hidden`}
 
                         >
 
@@ -20621,23 +20621,23 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                           <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"></div>
 
-                          <div className="flex justify-between items-center gap-6 relative z-10">
+                          <div className="flex justify-between items-center gap-4 relative z-10">
 
                             {/* LEFT: Identity & Status */}
 
-                            <div className="flex gap-4 items-center">
+                            <div className="flex gap-2.5 items-center min-w-0 flex-1">
 
                               <div
 
-                                className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center shadow-2xl shrink-0 border border-white/20`}
+                                className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center shadow-md shrink-0 border border-white/20`}
 
                               >
 
-                                <IconUsers size={24} />
+                                <IconUsers size={16} />
 
                               </div>
 
-                              <div>
+                              <div className="min-w-0 flex-1">
 
                                 <div className="flex items-center gap-3">
 
@@ -20649,7 +20649,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                         type="text"
 
-                                        className="bg-white/10 border border-white/20 text-2xl font-black tracking-tight leading-none rounded-xl px-3 py-1 text-white outline-none focus:ring-2 focus:ring-white/30 uppercase max-w-[400px]"
+                                        className="bg-white/10 border border-white/20 text-base font-black tracking-tight leading-none rounded-xl px-2.5 py-1 text-white outline-none focus:ring-2 focus:ring-white/30 uppercase max-w-[320px]"
 
                                         value={tempGroupName}
 
@@ -20725,7 +20725,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                         }}
 
-                                        className={`text-2xl font-black tracking-tight leading-none ${titleColor} drop-shadow-sm cursor-pointer hover:opacity-80 transition-opacity`}
+                                        className={`text-base sm:text-lg font-black tracking-tight leading-none ${titleColor} drop-shadow-sm cursor-pointer hover:opacity-80 transition-opacity`}
 
                                         title="Haz clic para editar el nombre del grupo"
 
@@ -20875,7 +20875,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                 </div>
 
-                                <p className="text-slate-300 text-[10px] font-bold uppercase tracking-[0.15em] mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <p className="text-slate-300 text-[10px] font-bold uppercase tracking-wider mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
                                   <span className="text-white/60">
                                     {selectedGroupFicha.records[0]?.["Fiscal_RazonSocial"] || selectedGroupFicha.records[0]?.["Empresa/Agencia"] || selectedGroupFicha.records[0]?.["Empresa"] || "VENTA DIRECTA"}
                                   </span>
@@ -21134,7 +21134,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                             {/* RIGHT: Financial Summary — COBRADO | PENDIENTE | TOTAL */}
 
-                            <div className="flex items-center gap-5 bg-black/20 p-3 px-6 rounded-2xl border border-white/10 shadow-inner backdrop-blur-md">
+                            <div className="flex items-center gap-3 bg-black/30 py-1.5 px-3.5 rounded-xl border border-white/10 shadow-inner backdrop-blur-md shrink-0">
 
                               {/* COBRADO */}
 
@@ -21185,7 +21185,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                               </div>
 
-                              <div className="w-px h-8 bg-white/10"></div>
+                              <div className="w-px h-6 bg-white/10"></div>
 
                                                              {/* PENDIENTE o PAGADO */}
 
@@ -21247,7 +21247,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                })()}
 
-                              <div className="w-px h-8 bg-white/10"></div>
+                              <div className="w-px h-6 bg-white/10"></div>
 
                               {/* TOTAL */}
 
@@ -21259,7 +21259,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                 </p>
 
-                                <p className="text-3xl font-black text-white drop-shadow-lg tabular-nums leading-none">
+                                <p className="text-lg font-black text-white drop-shadow-md tabular-nums leading-none">
 
                                   {netTotal.toLocaleString("es-ES", {
                                     useGrouping: true,

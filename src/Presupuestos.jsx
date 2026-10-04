@@ -492,7 +492,86 @@
       };
     };
 
+    const getCurrentCommercialName = () => {
+      try {
+        if (typeof window.getNexusCurrentUser === 'function') {
+          const u = window.getNexusCurrentUser();
+          if (u && (u.name || u.email)) return u.name || u.email;
+        }
+        const raw = localStorage.getItem('nexus_user') || sessionStorage.getItem('nexus_session');
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u && (u.name || u.email)) return u.name || u.email;
+        }
+        if (window.firebase && window.firebase.auth && window.firebase.auth().currentUser) {
+          const fbUser = window.firebase.auth().currentUser;
+          if (fbUser.displayName) return fbUser.displayName;
+          if (fbUser.email) return fbUser.email;
+        }
+      } catch (e) {}
+      return '';
+    };
+
+    const getGroupTotalPax = (fd) => {
+      if (!fd) return 1;
+      if (fd.isMultiSegment && Array.isArray(fd.segments) && fd.segments.length > 0) {
+        const s = getSegmentStats(fd.segments);
+        const sp = (s && (s.totalPax || s.maxSimultaneousPax || s.segmentPaxTotal)) || 0;
+        if (sp > 0) return sp;
+      }
+      if (Number(fd['Pax.']) > 0) return Number(fd['Pax.']);
+      if (Number(fd.declaredPax) > 0) return Number(fd.declaredPax);
+      if (fd.dailyConfig && typeof fd.dailyConfig === 'object') {
+        let maxPaxDay = 0;
+        Object.values(fd.dailyConfig).forEach(day => {
+          if (day && day.counts) {
+            let dayPax = 0;
+            Object.entries(day.counts).forEach(([rt, cnt]) => {
+              dayPax += (Number(cnt) || 0) * (PAX_PER_ROOM[rt] || 2);
+            });
+            if (dayPax > maxPaxDay) maxPaxDay = dayPax;
+          }
+        });
+        if (maxPaxDay > 0) return maxPaxDay;
+      }
+      if (fd.roomCounts && typeof fd.roomCounts === 'object') {
+        let paxSum = 0;
+        Object.entries(fd.roomCounts).forEach(([rt, cnt]) => {
+          paxSum += (Number(cnt) || 0) * (PAX_PER_ROOM[rt] || 2);
+        });
+        if (paxSum > 0) return paxSum;
+      }
+      return 1;
+    };
+
+    const getGroupTotalRooms = (fd) => {
+      if (!fd) return 1;
+      if (fd.isMultiSegment && Array.isArray(fd.segments) && fd.segments.length > 0) {
+        const s = getSegmentStats(fd.segments);
+        const sr = (s && (s.totalRooms || s.maxSimultaneousRooms)) || 0;
+        if (sr > 0) return sr;
+      }
+      if (fd.roomCounts && typeof fd.roomCounts === 'object') {
+        const sumRooms = Object.values(fd.roomCounts).reduce((s, c) => s + (Number(c) || 0), 0);
+        if (sumRooms > 0) return sumRooms;
+      }
+      if (fd.dailyConfig && typeof fd.dailyConfig === 'object') {
+        let maxRoomsDay = 0;
+        Object.values(fd.dailyConfig).forEach(day => {
+          if (day && day.counts) {
+            const dayRooms = Object.values(day.counts).reduce((s, c) => s + (Number(c) || 0), 0);
+            if (dayRooms > maxRoomsDay) maxRoomsDay = dayRooms;
+          }
+        });
+        if (maxRoomsDay > 0) return maxRoomsDay;
+      }
+      if (Number(fd['Cant. Habitaciones']) > 0) return Number(fd['Cant. Habitaciones']);
+      if (Number(fd['Habitaciones']) > 0) return Number(fd['Habitaciones']);
+      return 1;
+    };
+
     const DEFAULT_FORM_DATA = {
+      Com_Comercial: '',
       Hotel_Asignado: 'Sercotel Guadiana',
       "Nombre del Grupo": '',
       Com_Nombre_Contacto: '',
@@ -1938,24 +2017,40 @@
           } else {
             newDailyConfig[date][field] = value;
             
-            // Auto-fill prices from ratesOnlyGrid or official tariffs when regime changes
+            // Auto-fill prices coordinated with regime (Recommended or Official) when regime changes
             if (field === 'board') {
               const rawBoardKey = value.split(' ')[0]; // e.g. "PC", "HD", "HA"
               const boardKey = rawBoardKey === "SA" ? "HA" : (rawBoardKey === "AD" ? "HD" : rawBoardKey);
               const hotel = prev.Hotel_Asignado || 'Sercotel Guadiana';
               const roomTypes = getRoomTypesForHotel(hotel);
-              const parsedY = date ? new Date(toInputDate(date)).getFullYear() : (prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2027);
-              const targetY = isNaN(parsedY) ? 2027 : parsedY;
+              const discount = prev.capaSuiteDiscountPercent !== undefined ? prev.capaSuiteDiscountPercent : 10;
+              const parsedY = date ? new Date(toInputDate(date)).getFullYear() : (prev.Entrada ? new Date(toInputDate(prev.Entrada)).getFullYear() : 2026);
+              const targetY = isNaN(parsedY) ? 2026 : parsedY;
               const officialGrid = getOfficialTariffsGrid(hotel, targetY);
-              const boardPrices = (prev.isRatesOnly && prev.ratesOnlyGrid && (prev.ratesOnlyGrid[boardKey] || prev.ratesOnlyGrid[rawBoardKey])) || officialGrid[boardKey] || {};
 
+              // Detectar si el usuario venía usando tarifas recomendadas u oficiales para este día
+              const oldBoard = prev.dailyConfig?.[date]?.board || prev['Régimen'] || 'HD';
+              const oldComp = getCapaSuiteTariffComparison(hotel, date, oldBoard, discount);
+              const currentDayPrices = prev.dailyConfig?.[date]?.prices || {};
+              let wasUsingRec = false;
+              const priceEntries = Object.entries(currentDayPrices);
+              if (priceEntries.length > 0) {
+                const recMatches = priceEntries.filter(([rt, p]) => Number(p) === Number(oldComp.recommendedPricesByRoom?.[rt])).length;
+                if (recMatches >= Math.max(1, priceEntries.length / 2)) {
+                  wasUsingRec = true;
+                }
+              }
+
+              const newComp = getCapaSuiteTariffComparison(hotel, date, value, discount);
               const updatedPrices = { ...(newDailyConfig[date].prices || {}) };
               roomTypes.forEach(room => {
-                const p = boardPrices[room] !== undefined && boardPrices[room] !== '' 
-                  ? boardPrices[room] 
-                  : (officialGrid[boardKey] ? officialGrid[boardKey][room] : null);
-                if (p !== null && p !== undefined && p !== '') {
-                  updatedPrices[room] = Number(p);
+                if (wasUsingRec && newComp.recommendedPricesByRoom?.[room] !== undefined && newComp.recommendedPricesByRoom?.[room] !== null) {
+                  updatedPrices[room] = Number(newComp.recommendedPricesByRoom[room]);
+                } else {
+                  const p = (officialGrid[boardKey] ? officialGrid[boardKey][room] : null);
+                  if (p !== null && p !== undefined && p !== '') {
+                    updatedPrices[room] = Number(p);
+                  }
                 }
               });
               newDailyConfig[date].prices = updatedPrices;
@@ -2220,6 +2315,10 @@
         const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
         const normalizedFormData = normalizeGroupData(formData);
+        if (!normalizedFormData.Com_Comercial || String(normalizedFormData.Com_Comercial).trim() === '') {
+          const autoCom = getCurrentCommercialName();
+          if (autoCom) normalizedFormData.Com_Comercial = autoCom;
+        }
         const finalTotal = calculateTotal(normalizedFormData);
         normalizedFormData.PaymentPlan_JSON = JSON.stringify(
           normalizePaymentPlan(normalizedFormData.PaymentPlan_JSON, finalTotal, normalizedFormData)
@@ -3280,27 +3379,47 @@ ${emailContent}`;
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">1. Información del Grupo y Cliente</h3>
                 </div>
 
-                {/* FILA 1: Nombre de Grupo + Agencia */}
+                {/* FILA 1: Nombre de Grupo + Agencia + Comercial Encargado */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                  <div className="md:col-span-7 space-y-1">
+                  <div className="md:col-span-5 space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5">Nombre del Grupo / Evento</label>
                     <input 
                       type="text" 
                       value={formData["Nombre del Grupo"]} 
-                      onChange={e => setFormData({ ...formData, "Nombre del Grupo": e.target.value })}
-                      placeholder="Ej: Boda García-Pérez o Grupo Jubilados..."
+                      onChange={e => setFormData({ ...formData, ["Nombre del Grupo"]: e.target.value })}
+                      placeholder="Ej: Boda o Grupo Jubilados..."
                       className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
                     />
                   </div>
-                  <div className="md:col-span-5 space-y-1">
+                  <div className="md:col-span-4 space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5">Empresa / Agencia</label>
                     <input 
                       type="text" 
                       value={formData["Empresa/Agencia"]} 
-                      onChange={e => setFormData({ ...formData, "Empresa/Agencia": e.target.value })}
+                      onChange={e => setFormData({ ...formData, ["Empresa/Agencia"]: e.target.value })}
                       placeholder="Nombre de la agencia o empresa..."
                       className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
                     />
+                  </div>
+                  <div className="md:col-span-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-tight ml-0.5 flex items-center gap-1">
+                        <i className="fas fa-user-tie text-indigo-500"></i> Comercial Encargado
+                      </label>
+                      <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded" title="Auto-detectado de tus credenciales de sesión activa">
+                        Sesión activa
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={formData.Com_Comercial !== undefined && formData.Com_Comercial !== null && formData.Com_Comercial !== '' ? formData.Com_Comercial : getCurrentCommercialName()} 
+                        onChange={e => setFormData({ ...formData, Com_Comercial: e.target.value })}
+                        placeholder="Comercial asignado..."
+                        className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg pl-3 pr-7 py-1.5 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 shadow-2xs"
+                      />
+                      <i className="fas fa-id-badge absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs pointer-events-none"></i>
+                    </div>
                   </div>
                 </div>
 
@@ -3947,6 +4066,24 @@ ${emailContent}`;
                                 <span className="text-[7px] text-slate-400 font-bold" title={`PVP Hotel CapaSuite para esta fecha: ${dayComp.hotelDayPrice} €`}>
                                   PVP: <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
                                 </span>
+                                {(() => {
+                                  let allOff = true;
+                                  let allRec = true;
+                                  selectedTypes.forEach(t => {
+                                    const p = (formData.dailyConfig?.[date]?.prices || {})[t];
+                                    const offP = dayComp.officialPricesByRoom[t];
+                                    const recP = dayComp.recommendedPricesByRoom[t];
+                                    if (p === undefined || p === '' || Number(p) !== Number(offP)) allOff = false;
+                                    if (p === undefined || p === '' || Number(p) !== Number(recP)) allRec = false;
+                                  });
+                                  if (allOff) {
+                                    return <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">[OK] Oficial</span>;
+                                  } else if (allRec) {
+                                    return <span className="bg-indigo-100 text-indigo-800 border border-indigo-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight flex items-center gap-0.5"><i className="fas fa-bolt text-amber-500 text-[6px]"></i> Rec. CapaSuite</span>;
+                                  } else {
+                                    return <span className="bg-amber-100 text-amber-800 border border-amber-300 px-1 py-0.2 rounded text-[7px] font-black uppercase tracking-tight">Tarifa Mixta</span>;
+                                  }
+                                })()}
                               </div>
 
                               <div className="flex-1 flex flex-wrap gap-2 items-center">
@@ -4000,28 +4137,45 @@ ${emailContent}`;
                                         </div>
                                       </div>
 
-                                      {/* Comparativa directa y botones de aplicación rápida 1-clic */}
-                                      <div className="flex items-center gap-1 mt-0.5 text-[8px] font-bold">
-                                        <button
-                                          type="button"
-                                          onClick={() => offPrice !== null && offPrice !== undefined && handleDailyConfigChange(date, 'prices', offPrice, type)}
-                                          className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-700 transition flex items-center gap-0.5 border border-slate-200/80"
-                                          title={`Tarifa Oficial: ${offPrice !== undefined && offPrice !== null ? offPrice + ' €' : '-'} (Clic para aplicar)`}
-                                        >
-                                          <span className="text-[7px] text-slate-400 uppercase">Ofi:</span>
-                                          <span className="font-black text-slate-700">{offPrice !== undefined && offPrice !== null ? offPrice + '€' : '-'}</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => recPrice !== null && recPrice !== undefined && handleDailyConfigChange(date, 'prices', recPrice, type)}
-                                          className="px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 transition flex items-center gap-0.5 border border-indigo-200"
-                                          title={`Tarifa Recomendada CapaSuite: PVP Hotel ${dayComp.hotelDayPrice} € con -${discount}% dto. = ${recPrice} € (Clic para aplicar)`}
-                                        >
-                                          <i className="fas fa-bolt text-amber-500 text-[7px]"></i>
-                                          <span className="text-[7px] text-indigo-500 uppercase">Rec:</span>
-                                          <span className="font-black text-indigo-700">{recPrice !== undefined && recPrice !== null ? recPrice + '€' : '-'}</span>
-                                        </button>
-                                      </div>
+                                      {/* Comparativa directa y botones de aplicación rápida 1-clic con indicador activo */}
+                                      {(() => {
+                                        const currentPrice = (formData.dailyConfig?.[date]?.prices || {})[type];
+                                        const isOffActive = offPrice !== null && offPrice !== undefined && Number(currentPrice) === Number(offPrice);
+                                        const isRecActive = recPrice !== null && recPrice !== undefined && Number(currentPrice) === Number(recPrice);
+                                        return (
+                                          <div className="flex items-center gap-1 mt-0.5 text-[8px] font-bold">
+                                            <button
+                                              type="button"
+                                              onClick={() => offPrice !== null && offPrice !== undefined && handleDailyConfigChange(date, 'prices', offPrice, type)}
+                                              className={`px-1.5 py-0.5 rounded transition flex items-center gap-0.5 border ${
+                                                isOffActive 
+                                                  ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black ring-1 ring-emerald-400/50" 
+                                                  : "bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-700 border-slate-200/80"
+                                              }`}
+                                              title={`Tarifa Oficial: ${offPrice !== undefined && offPrice !== null ? offPrice + ' €' : '-'} (Clic para aplicar)`}
+                                            >
+                                              {isOffActive && <i className="fas fa-check text-[7px] mr-0.5"></i>}
+                                              <span className={`text-[7px] uppercase ${isOffActive ? "text-emerald-100" : "text-slate-400"}`}>Ofi:</span>
+                                              <span className="font-black">{offPrice !== undefined && offPrice !== null ? offPrice + '€' : '-'}</span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => recPrice !== null && recPrice !== undefined && handleDailyConfigChange(date, 'prices', recPrice, type)}
+                                              className={`px-1.5 py-0.5 rounded transition flex items-center gap-0.5 border ${
+                                                isRecActive 
+                                                  ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs font-black ring-1 ring-indigo-400/50" 
+                                                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border-indigo-200"
+                                              }`}
+                                              title={`Tarifa Recomendada CapaSuite: PVP Hotel ${dayComp.hotelDayPrice} € con -${discount}% dto. = ${recPrice} € (Clic para aplicar)`}
+                                            >
+                                              <i className={`fas fa-bolt text-[7px] ${isRecActive ? "text-amber-300" : "text-amber-500"}`}></i>
+                                              {isRecActive && <i className="fas fa-check text-[7px] mr-0.5"></i>}
+                                              <span className={`text-[7px] uppercase ${isRecActive ? "text-indigo-100" : "text-indigo-500"}`}>Rec:</span>
+                                              <span className="font-black">{recPrice !== undefined && recPrice !== null ? recPrice + '€' : '-'}</span>
+                                            </button>
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   )
                                 })}
@@ -4093,15 +4247,33 @@ ${emailContent}`;
                         <i className="fas fa-magic text-[10px]"></i>
                         Tarifas Oficiales
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleLoadRecommendedTariffs()}
-                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                        title={`Rellena la tabla con las tarifas recomendadas de CapaSuite (-${formData.capaSuiteDiscountPercent || 15}% sobre PVP de habitación)`}
-                      >
-                        <i className="fas fa-bolt text-amber-500 text-[10px]"></i>
-                        Tarifa Rec. CapaSuite (-{formData.capaSuiteDiscountPercent || 15}%)
-                      </button>
+                      {/* Selector de Descuento y Botón Tarifa Sugerida */}
+                      <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 rounded-xl px-2.5 py-1">
+                        <span className="text-[10px] font-black text-indigo-700 uppercase tracking-tight">Desc:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="50"
+                          step="1"
+                          value={formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10}
+                          onChange={(e) => {
+                            const val = Math.max(0, Math.min(50, Number(e.target.value) || 0));
+                            setFormData({ ...formData, capaSuiteDiscountPercent: val });
+                          }}
+                          className="w-12 bg-white border border-indigo-200 rounded-lg text-center text-xs font-black text-indigo-900 py-0.5 outline-none focus:ring-2 focus:ring-indigo-400"
+                          title="Porcentaje de descuento comercial sugerido sobre la habitación"
+                        />
+                        <span className="text-xs font-black text-indigo-700">%</span>
+                        <button
+                          type="button"
+                          onClick={() => handleLoadRecommendedTariffs(formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10)}
+                          className="ml-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 shadow-xs active:scale-95 transition-all"
+                          title="Aplica las tarifas sugeridas de CapaSuite con este descuento a toda la matriz"
+                        >
+                          <i className="fas fa-bolt text-amber-300 text-[10px]"></i>
+                          Aplicar Sugeridas
+                        </button>
+                      </div>
 
                       {((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && (
                         <button
@@ -4153,23 +4325,57 @@ ${emailContent}`;
                                 const priceVal = formData.ratesOnlyGrid?.[boardKey]?.[room] || (boardKey === "HA" ? formData.ratesOnlyGrid?.["SA"]?.[room] : (boardKey === "HD" ? formData.ratesOnlyGrid?.["AD"]?.[room] : '')) || '';
                                 return (
                                   <td key={room} className="p-4">
-                                    <div className="relative max-w-[150px] mx-auto">
-                                      <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={priceVal}
-                                        onChange={e => {
-                                          const grid = { ...formData.ratesOnlyGrid };
-                                          if (!grid[boardKey]) grid[boardKey] = {};
-                                          grid[boardKey][room] = e.target.value;
-                                          setFormData({ ...formData, ratesOnlyGrid: grid });
-                                        }}
-                                        placeholder="0.00"
-                                        className="w-full pl-2 pr-6 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black text-center outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all text-slate-700"
-                                      />
-                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
-                                    </div>
+                                    {(() => {
+                                      const yGrid = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2026;
+                                      const offGridYear = getOfficialTariffsGrid(formData.Hotel_Asignado, isNaN(yGrid) ? 2026 : yGrid);
+                                      const offBoardYear = offGridYear[boardKey] || (boardKey === "HA" ? offGridYear["SA"] : (boardKey === "HD" ? offGridYear["AD"] : {})) || {};
+                                      const offPriceVal = offBoardYear[room] !== undefined && offBoardYear[room] !== null 
+                                        ? Number(offBoardYear[room]) 
+                                        : (offBoardYear[room.toLowerCase()] !== undefined ? Number(offBoardYear[room.toLowerCase()]) : null);
+                                      const minAllowedPrice = offPriceVal !== null ? Math.round(offPriceVal * 0.85 * 100) / 100 : null;
+                                      const numP = parseFloat(priceVal);
+                                      const isBelowMin = offPriceVal !== null && !isNaN(numP) && numP > 0 && minAllowedPrice !== null && numP < minAllowedPrice;
+                                      return (
+                                        <div className="relative max-w-[150px] mx-auto">
+                                          <div className="relative">
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              min="0"
+                                              value={priceVal}
+                                              onChange={e => {
+                                                const grid = { ...formData.ratesOnlyGrid };
+                                                if (!grid[boardKey]) grid[boardKey] = {};
+                                                grid[boardKey][room] = e.target.value;
+                                                setFormData({ ...formData, ratesOnlyGrid: grid });
+                                              }}
+                                              placeholder="0.00"
+                                              className={`w-full pl-2 pr-6 py-2 rounded-xl text-xs font-black text-center outline-none transition-all ${
+                                                isBelowMin 
+                                                  ? "bg-rose-50 border-2 border-rose-400 text-rose-800 ring-2 ring-rose-400/20" 
+                                                  : "bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 text-slate-700"
+                                              }`}
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
+                                          </div>
+                                          {/* Tarifa Oficial como Referencia y Aviso de Mínimo */}
+                                          <div className="mt-1 flex items-center justify-between text-[10px] px-0.5 font-bold">
+                                            <span className="text-slate-400" title="Tarifa oficial de catálogo de grupos vigente">
+                                              Ofi: {offPriceVal !== null ? `${offPriceVal}€` : '—'}
+                                            </span>
+                                            {isBelowMin ? (
+                                              <span className="text-[9px] font-black text-rose-600 bg-rose-100 px-1 py-0.2 rounded flex items-center gap-0.5" title={`Por debajo del mínimo establecido (${minAllowedPrice} €)`}>
+                                                <i className="fas fa-exclamation-triangle text-[8px]"></i> &lt; Mín ({minAllowedPrice.toFixed(0)}€)
+                                              </span>
+                                            ) : (offPriceVal !== null && !isNaN(numP) && numP > 0 && numP < offPriceVal ? (
+                                              <span className="text-[9px] font-extrabold text-emerald-600">
+                                                -{Math.round((1 - numP / offPriceVal) * 100)}%
+                                              </span>
+                                            ) : null)}
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                   </td>
                                 );
                               })}
@@ -4435,6 +4641,7 @@ ${emailContent}`;
                   <button 
                     type="button"
                     onClick={() => {
+                      const groupPax = getGroupTotalPax(formData);
                       const newExtras = [
                         ...(formData.extraCharges || []), 
                         { 
@@ -4442,7 +4649,7 @@ ${emailContent}`;
                           scope: 'total', // 'total' | 'daily' | 'YYYY-MM-DD'
                           chargeType: 'pax', // 'pax' | 'room' | 'unit'
                           concept: '', 
-                          units: 1, 
+                          units: groupPax, 
                           unitPrice: 0, 
                           price: 0 
                         }
@@ -4513,7 +4720,16 @@ ${emailContent}`;
                             value={chargeType}
                             onChange={(e) => {
                               const newExtras = [...formData.extraCharges];
-                              newExtras[index].chargeType = e.target.value;
+                              const newType = e.target.value;
+                              newExtras[index].chargeType = newType;
+                              if (newType === 'pax') {
+                                newExtras[index].units = getGroupTotalPax(formData);
+                              } else if (newType === 'room') {
+                                newExtras[index].units = getGroupTotalRooms(formData);
+                              }
+                              const numU = Number(newExtras[index].units) || 0;
+                              const numUp = Number(newExtras[index].unitPrice) || 0;
+                              newExtras[index].price = numU * numUp;
                               setFormData({ ...formData, extraCharges: newExtras });
                             }}
                             className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-[11px] font-black outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-700"
