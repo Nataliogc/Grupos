@@ -5281,9 +5281,7 @@ function App() {
             className: "text-[9px] font-extrabold text-emerald-600"
           }, "-", Math.round((1 - numP / offPriceVal) * 100), "%") : null), comparison && /*#__PURE__*/React.createElement("div", {
             className: "mt-1 text-[9px] leading-relaxed text-slate-500"
-          }, /*#__PURE__*/React.createElement("div", null, priceInfo !== null && priceInfo !== void 0 && priceInfo.isEstimated ? 'PVP estimado' : (priceInfo === null || priceInfo === void 0 ? void 0 : priceInfo.source) || 'Referencia del día'), recommended != null && /*#__PURE__*/React.createElement("div", null, "Sugerida ", boardKey, ": ", formatMoney(recommended), "\u20AC \xB7 dto. ", discount, "% solo sobre habitaci\xF3n; suplementos completos")), offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && /*#__PURE__*/React.createElement("div", {
-            className: "mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[9px] leading-relaxed text-amber-800"
-          }, "Tarifa de grupo sin aplicar: ", numP > offPriceVal ? '+' : '−', formatMoney(Math.abs(numP - offPriceVal)), "\u20AC frente al cat\xE1logo.", recommended != null && Math.abs(numP - recommended) < 0.01 ? " Se usa la ".concat(isStayAverage ? 'media de estancia' : 'sugerida del día', " (PVP \u2212 ").concat(discount, "% en alojamiento + suplementos del r\xE9gimen).") : ' Precio introducido distinto del catálogo.'));
+          }, /*#__PURE__*/React.createElement("div", null, priceInfo !== null && priceInfo !== void 0 && priceInfo.isEstimated ? 'PVP estimado' : (priceInfo === null || priceInfo === void 0 ? void 0 : priceInfo.source) || 'Referencia del día'), recommended != null && /*#__PURE__*/React.createElement("div", null, "Sugerida ", boardKey, ": ", formatMoney(recommended), "\u20AC \xB7 dto. ", discount, "% solo sobre habitaci\xF3n; suplementos completos")));
         }());
       }));
     }))))), /*#__PURE__*/React.createElement("div", {

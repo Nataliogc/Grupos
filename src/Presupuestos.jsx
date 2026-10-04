@@ -4488,14 +4488,7 @@ ${emailContent}`;
                                               {recommended != null && <div>Sugerida {boardKey}: {formatMoney(recommended)}€ · dto. {discount}% solo sobre habitación; suplementos completos</div>}
                                             </div>
                                           )}
-                                          {offPriceVal !== null && !isNaN(numP) && numP > 0 && Math.abs(numP - offPriceVal) >= 0.01 && (
-                                            <div className="mt-1 rounded-md bg-amber-50 px-1.5 py-1 text-[9px] leading-relaxed text-amber-800">
-                                              Tarifa de grupo sin aplicar: {numP > offPriceVal ? '+' : '−'}{formatMoney(Math.abs(numP - offPriceVal))}€ frente al catálogo.
-                                              {recommended != null && Math.abs(numP - recommended) < 0.01
-                                                ? ` Se usa la ${isStayAverage ? 'media de estancia' : 'sugerida del día'} (PVP − ${discount}% en alojamiento + suplementos del régimen).`
-                                                : ' Precio introducido distinto del catálogo.'}
-                                            </div>
-                                          )}
+
                                         </div>
                                       );
                                     })()}
