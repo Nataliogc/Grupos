@@ -1499,11 +1499,11 @@
       // Carga y verificación automática al cambiar hotel, año o syncKey
       useEffect(() => {
         const doc = getCapaSuiteTargetDoc(targetHotel, targetYear);
-        if (doc) setOfficialDoc(doc);
+        setOfficialDoc(doc || null);
 
         const onDataSynced = () => {
           const freshDoc = getCapaSuiteTargetDoc(targetHotel, targetYear);
-          if (freshDoc) setOfficialDoc(freshDoc);
+          setOfficialDoc(freshDoc || null);
         };
         window.addEventListener("capasuite-data-synced", onDataSynced);
         window.addEventListener("storage", onDataSynced);
@@ -1544,9 +1544,16 @@
                     localStorage.setItem(`v3_nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
                   } catch(e) {}
                 }
+              } else {
+                const freshDoc = getCapaSuiteTargetDoc(targetHotel, targetYear);
+                setOfficialDoc(freshDoc || null);
               }
             })
-            .catch(err => console.warn("Error cargando groupTargets desde Firestore:", err));
+            .catch(err => {
+              console.warn("Error cargando groupTargets desde Firestore:", err);
+              const freshDoc = getCapaSuiteTargetDoc(targetHotel, targetYear);
+              setOfficialDoc(freshDoc || null);
+            });
 
           // Escucha en tiempo real si el usuario actualiza o guarda en CapaSuite
           try {
@@ -1560,6 +1567,9 @@
                     localStorage.setItem(`v3_nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
                   } catch(e) {}
                 }
+              } else {
+                const freshDoc = getCapaSuiteTargetDoc(targetHotel, targetYear);
+                setOfficialDoc(freshDoc || null);
               }
             }, err => console.warn("Error en snapshot groupTargets:", err));
           } catch(e) {}
@@ -1590,7 +1600,11 @@
       // 3. Generación y fijación del objetivo (Fuente: CapaSuite Oficial)
       const generatedTarget = useMemo(() => {
         if (!gts) return null;
-        const capaDoc = officialDoc || getCapaSuiteTargetDoc(targetHotel, targetYear);
+        const currentHotelKey = gts ? gts.normalizeHotelKey(targetHotel) : (String(targetHotel || "").toLowerCase().includes("cumbria") ? "cumbria" : "guadiana");
+        const isMatchingDoc = officialDoc &&
+          gts.normalizeHotelKey(officialDoc.hotel || "") === currentHotelKey &&
+          Number(officialDoc.targetYear) === Number(targetYear);
+        const capaDoc = isMatchingDoc ? officialDoc : getCapaSuiteTargetDoc(targetHotel, targetYear);
 
         if (capaDoc && capaDoc.monthly) {
           const targetMonthly = {};
@@ -2870,83 +2884,494 @@
 
           {/* VISTA 2: DESGLOSE POR RÉGIMEN */}
           {activeSubView === "regimen" && generatedTarget && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  Distribución Prevista por Régimen de Alojamiento ({targetYear})
-                </span>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden space-y-6">
+              {/* CABECERA VISTA RÉGIMEN */}
+              <div className="p-5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-black uppercase tracking-wider text-slate-900">
+                      🍽️ Desglose por Régimen de Alojamiento — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ({targetYear})
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      Año {targetYear}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200/80 text-slate-800 border border-slate-300">
+                      {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Comparativa de habitaciones-noche en Real vs Objetivo Presupuestado (CapaSuite) para cada régimen de pensión alimenticia.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span>Hab-Noches Globales:</span>
+                  <span className="text-slate-900 font-black">{realDataTargetYear?.overall?.totalRoomNights || 0} Real</span>
+                  <span className="text-slate-400">/</span>
+                  <span className="text-indigo-600 font-black">{generatedTarget?.overall?.targetRoomNights || 0} Obj</span>
+                </div>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+              {/* 4 EXECUTIVE CARDS: HA, HD, MP, PC */}
+              <div className="px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { code: "HA", label: "Solo Alojamiento", desc: "Sin desayuno ni comida" },
-                  { code: "HD", label: "Alojamiento y Desayuno", desc: "1 desayuno por persona" },
-                  { code: "MP", label: "Media Pensión", desc: "1 desayuno + 1 comida por persona" },
-                  { code: "PC", label: "Pensión Completa", desc: "1 desayuno + 2 comidas por persona" }
+                  { code: "HA", label: "Solo Alojamiento", desc: "Sin desayuno ni comidas incluidas" },
+                  { code: "HD", label: "Alojamiento y Desayuno", desc: "Desayuno buffet por persona" },
+                  { code: "MP", label: "Media Pensión", desc: "Desayuno + 1 comida principal" },
+                  { code: "PC", label: "Pensión Completa", desc: "Desayuno + Almuerzo + Cena" }
                 ].map(item => {
-                  const nights = generatedTarget.overall.byRegimen[item.code] || 0;
-                  const totalNights = generatedTarget.overall.targetRoomNights || 1;
-                  const pct = ((nights / totalNights) * 100).toFixed(1);
+                  const realNights = (realDataTargetYear?.overall?.byRegimen?.[item.code]) || 0;
+                  const targetNights = (generatedTarget?.overall?.byRegimen?.[item.code]) || 0;
+                  const totalReal = (realDataTargetYear?.overall?.totalRoomNights) || 0;
+                  const totalTarget = (generatedTarget?.overall?.targetRoomNights) || 1;
+                  const realPct = totalReal > 0 ? ((realNights / totalReal) * 100).toFixed(1) : "0.0";
+                  const targetPct = ((targetNights / totalTarget) * 100).toFixed(1);
+                  const diff = realNights - targetNights;
+                  const cumpPct = targetNights > 0 ? ((realNights / targetNights) * 100).toFixed(1) : (realNights > 0 ? "100.0" : "0.0");
+                  const isPositive = diff >= 0;
+
                   return (
-                    <div key={item.code} className="border border-slate-200 rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition">
+                    <div key={item.code} className="border border-slate-200 rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition bg-white">
                       <div>
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-black text-indigo-600">{item.code}</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{pct}%</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full" title="Porcentaje sobre el total real">
+                              Real: {realPct}%
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full" title="Porcentaje sobre el total objetivo">
+                              Obj: {targetPct}%
+                            </span>
+                          </div>
                         </div>
                         <h4 className="font-bold text-slate-900 text-sm mt-1">{item.label}</h4>
                         <p className="text-[11px] text-slate-400 mt-0.5">{item.desc}</p>
                       </div>
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-xs text-slate-500 font-semibold">Hab-Noches:</span>
-                        <span className="text-base font-black text-slate-900">{nights}</span>
+
+                      <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500 font-semibold">Real vs Objetivo:</span>
+                          <div className="text-right">
+                            <span className="text-base font-black text-slate-900">{realNights}</span>
+                            <span className="text-slate-400 text-xs mx-1">/</span>
+                            <span className="text-sm font-bold text-indigo-600">{targetNights}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Desvío:</span>
+                          <span className={"font-bold tabular-nums " + (isPositive ? "text-emerald-600" : "text-rose-600")}>
+                            {isPositive ? "+" : ""}{diff} habs
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-50">
+                          <span className="text-slate-500 font-medium">% Cumplimiento:</span>
+                          <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (Number(cumpPct) >= 100 ? "bg-emerald-100 text-emerald-800" : Number(cumpPct) >= 80 ? "bg-blue-100 text-blue-800" : Number(cumpPct) > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                            {cumpPct}%
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* TABLA MENSUAL COMPARATIVA POR RÉGIMEN */}
+              <div className="px-6 pb-6">
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                  <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                      Evolución Mensual por Régimen ({targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} · Año {targetYear})
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-500">
+                      Valores expresados en Habitaciones-Noche (Real / Objetivo / Desvío)
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100/75 text-slate-600 font-bold border-b border-slate-200">
+                          <th className="p-3">Mes</th>
+                          <th className="p-3 text-center">Estado</th>
+                          <th className="p-3 text-center">Solo Aloj. (HA)</th>
+                          <th className="p-3 text-center">Aloj. + Desayuno (HD)</th>
+                          <th className="p-3 text-center">Media Pensión (MP)</th>
+                          <th className="p-3 text-center">Pensión Completa (PC)</th>
+                          <th className="p-3 text-center">Total Mes (R / O)</th>
+                          <th className="p-3 text-right">Desvío Total</th>
+                          <th className="p-3 text-center">% Cump.</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                          const st = getMonthPeriodStatus(m);
+                          const mReal = realDataTargetYear?.monthly?.[m] || {};
+                          const mTarget = generatedTarget?.monthly?.[m] || {};
+                          const regReal = mReal.byRegimen || {};
+                          const regTarget = mTarget.byRegimen || {};
+
+                          const totMReal = mReal.roomNights || 0;
+                          const totMTarget = mTarget.targetRoomNights || 0;
+                          const diffTotM = totMReal - totMTarget;
+                          const cumpTotM = totMTarget > 0 ? ((totMReal / totMTarget) * 100) : (totMReal > 0 ? 100 : 0);
+
+                          const renderRegCell = (code) => {
+                            const rVal = regReal[code] || 0;
+                            const tVal = regTarget[code] || 0;
+                            const dVal = rVal - tVal;
+                            return (
+                              <td key={code} className="p-3 text-center tabular-nums">
+                                <div>
+                                  <span className="font-bold text-slate-800">{rVal}</span>
+                                  <span className="text-slate-400 mx-1">/</span>
+                                  <span className="text-indigo-600 font-semibold">{tVal}</span>
+                                </div>
+                                {(rVal > 0 || tVal > 0) && (
+                                  <div className={"text-[10px] font-bold " + (dVal >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                    {dVal >= 0 ? "+" : ""}{dVal}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          };
+
+                          return (
+                            <tr key={m} className={"hover:bg-slate-50/80 transition " + (st === "current" ? "bg-amber-50/40 font-semibold" : st === "closed" ? "bg-slate-50/20" : "")}>
+                              <td className="p-3 font-bold text-slate-900">{monthNames[m - 1]}</td>
+                              <td className="p-3 text-center">
+                                {st === "closed" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">🔒 Cerrado</span>
+                                ) : st === "current" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">⏳ En Curso</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">📅 Cartera</span>
+                                )}
+                              </td>
+                              {renderRegCell("HA")}
+                              {renderRegCell("HD")}
+                              {renderRegCell("MP")}
+                              {renderRegCell("PC")}
+                              <td className="p-3 text-center tabular-nums font-bold">
+                                <span className="text-slate-900">{totMReal}</span>
+                                <span className="text-slate-400 mx-1">/</span>
+                                <span className="text-indigo-600">{totMTarget}</span>
+                              </td>
+                              <td className={"p-3 text-right tabular-nums font-black " + (diffTotM >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                {diffTotM >= 0 ? "+" : ""}{diffTotM} habs
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (cumpTotM >= 100 ? "bg-emerald-100 text-emerald-800" : cumpTotM >= 80 ? "bg-blue-100 text-blue-800" : cumpTotM > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                                  {cumpTotM.toFixed(1)}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="font-black text-slate-900 border-t-2 border-slate-300 bg-slate-100/90">
+                        <tr>
+                          <td className="p-3 text-slate-800">TOTAL ANUAL ({targetYear})</td>
+                          <td className="p-3 text-center">
+                            <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">12 Meses</span>
+                          </td>
+                          {["HA", "HD", "MP", "PC"].map(code => {
+                            const rTot = realDataTargetYear?.overall?.byRegimen?.[code] || 0;
+                            const tTot = generatedTarget?.overall?.byRegimen?.[code] || 0;
+                            const dTot = rTot - tTot;
+                            return (
+                              <td key={code} className="p-3 text-center tabular-nums">
+                                <div>
+                                  <span>{rTot}</span>
+                                  <span className="text-slate-400 mx-1">/</span>
+                                  <span className="text-indigo-700">{tTot}</span>
+                                </div>
+                                <div className={"text-[10px] " + (dTot >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                  {dTot >= 0 ? "+" : ""}{dTot}
+                                </div>
+                              </td>
+                            );
+                          })}
+                          <td className="p-3 text-center tabular-nums text-slate-900 font-black">
+                            {realDataTargetYear?.overall?.totalRoomNights || 0} / <span className="text-indigo-700">{generatedTarget?.overall?.targetRoomNights || 0}</span>
+                          </td>
+                          <td className={"p-3 text-right tabular-nums " + (((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                            {((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "+" : ""}
+                            {((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0))} habs
+                          </td>
+                          <td className="p-3 text-center">
+                            {(() => {
+                              const tRN = generatedTarget?.overall?.targetRoomNights || 0;
+                              const rRN = realDataTargetYear?.overall?.totalRoomNights || 0;
+                              const cPct = tRN > 0 ? ((rRN / tRN) * 100) : (rRN > 0 ? 100 : 0);
+                              return (
+                                <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (cPct >= 100 ? "bg-emerald-100 text-emerald-800" : cPct >= 80 ? "bg-blue-100 text-blue-800" : cPct > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                                  {cPct.toFixed(1)}%
+                                </span>
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {/* VISTA 3: DESGLOSE POR CATEGORÍA DE OCUPACIÓN REAL (Req 24, 26) */}
           {activeSubView === "category" && generatedTarget && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  Distribución Prevista por Categoría de Ocupación Real ({targetYear})
-                </span>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden space-y-6">
+              {/* CABECERA VISTA CATEGORÍA */}
+              <div className="p-5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-black uppercase tracking-wider text-slate-900">
+                      🛏️ Desglose por Categoría Ocupación — {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ({targetYear})
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      Año {targetYear}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200/80 text-slate-800 border border-slate-300">
+                      {targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Distribución de habitaciones-noche según la ocupación real por habitación (Individual / DUI, Doble, Triple, Cuádruple).
+                  </p>
+                </div>
+                {targetHotel === "cumbria" ? (
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-50 px-3.5 py-1.5 rounded-xl border border-amber-200">
+                    <span>⚠️</span> Hotel Cumbria no dispone de habitaciones cuádruples (capacidad 0).
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                    <span>Hab-Noches Globales:</span>
+                    <span className="text-slate-900 font-black">{realDataTargetYear?.overall?.totalRoomNights || 0} Real</span>
+                    <span className="text-slate-400">/</span>
+                    <span className="text-indigo-600 font-black">{generatedTarget?.overall?.targetRoomNights || 0} Obj</span>
+                  </div>
+                )}
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+              {/* 4 EXECUTIVE CARDS: INDIVIDUAL, DOBLE, TRIPLE, CUÁDRUPLE */}
+              <div className="px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { cat: "individual", label: "Individual", pax: "1 persona", color: "sky" },
-                  { cat: "doble", label: "Doble", pax: "2 personas", color: "indigo" },
+                  { cat: "individual", label: "Individual / DUI", pax: "1 persona", color: "sky" },
+                  { cat: "doble", label: "Doble Estándar", pax: "2 personas", color: "indigo" },
                   { cat: "triple", label: "Triple", pax: "3 personas", color: "purple" },
                   { cat: "cuadruple", label: "Cuádruple", pax: "4 personas", color: "amber" }
                 ].map(item => {
                   const isCumbriaCuadruple = targetHotel === "cumbria" && item.cat === "cuadruple";
-                  const nights = isCumbriaCuadruple ? 0 : (generatedTarget.overall.byCategory[item.cat] || 0);
-                  const totalNights = generatedTarget.overall.targetRoomNights || 1;
-                  const pct = isCumbriaCuadruple ? "0.0" : ((nights / totalNights) * 100).toFixed(1);
+                  const realNights = isCumbriaCuadruple ? 0 : ((realDataTargetYear?.overall?.byCategory?.[item.cat]) || 0);
+                  const targetNights = isCumbriaCuadruple ? 0 : ((generatedTarget?.overall?.byCategory?.[item.cat]) || 0);
+                  const totalReal = (realDataTargetYear?.overall?.totalRoomNights) || 0;
+                  const totalTarget = (generatedTarget?.overall?.targetRoomNights) || 1;
+                  const realPct = (!isCumbriaCuadruple && totalReal > 0) ? ((realNights / totalReal) * 100).toFixed(1) : "0.0";
+                  const targetPct = !isCumbriaCuadruple ? ((targetNights / totalTarget) * 100).toFixed(1) : "0.0";
+                  const diff = realNights - targetNights;
+                  const cumpPct = (!isCumbriaCuadruple && targetNights > 0) ? ((realNights / targetNights) * 100).toFixed(1) : (realNights > 0 ? "100.0" : "0.0");
+                  const isPositive = diff >= 0;
 
                   return (
-                    <div key={item.cat} className={"border rounded-2xl p-5 flex flex-col justify-between transition " + (isCumbriaCuadruple ? "bg-slate-50 border-slate-200 opacity-60" : "border-slate-200 hover:shadow-md")}>
+                    <div key={item.cat} className={"border rounded-2xl p-5 flex flex-col justify-between transition bg-white " + (isCumbriaCuadruple ? "bg-slate-50/70 border-slate-200 opacity-60" : "border-slate-200 hover:shadow-md")}>
                       <div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-black text-slate-900">{item.label}</span>
+                          <span className="text-base font-black text-slate-900">{item.label}</span>
                           {isCumbriaCuadruple ? (
                             <span className="text-[10px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded-full">No disponible</span>
                           ) : (
-                            <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{pct}%</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full">Real: {realPct}%</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">Obj: {targetPct}%</span>
+                            </div>
                           )}
                         </div>
                         <p className="text-[11px] text-slate-400 mt-1">Ocupantes reales: {item.pax}</p>
                       </div>
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-xs text-slate-500 font-semibold">Hab-Noches:</span>
-                        <span className="text-base font-black text-slate-900">{isCumbriaCuadruple ? "—" : nights}</span>
+
+                      <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500 font-semibold">Real vs Objetivo:</span>
+                          <div className="text-right">
+                            <span className="text-base font-black text-slate-900">{isCumbriaCuadruple ? "—" : realNights}</span>
+                            <span className="text-slate-400 text-xs mx-1">/</span>
+                            <span className="text-sm font-bold text-indigo-600">{isCumbriaCuadruple ? "—" : targetNights}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Desvío:</span>
+                          <span className={"font-bold tabular-nums " + (isCumbriaCuadruple ? "text-slate-400" : isPositive ? "text-emerald-600" : "text-rose-600")}>
+                            {isCumbriaCuadruple ? "—" : `${isPositive ? "+" : ""}${diff} habs`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-50">
+                          <span className="text-slate-500 font-medium">% Cumplimiento:</span>
+                          <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (isCumbriaCuadruple ? "bg-slate-100 text-slate-500" : Number(cumpPct) >= 100 ? "bg-emerald-100 text-emerald-800" : Number(cumpPct) >= 80 ? "bg-blue-100 text-blue-800" : Number(cumpPct) > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                            {isCumbriaCuadruple ? "—" : `${cumpPct}%`}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* TABLA MENSUAL COMPARATIVA POR CATEGORÍA DE HABITACIÓN */}
+              <div className="px-6 pb-6">
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                  <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                      Evolución Mensual por Categoría de Ocupación ({targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} · Año {targetYear})
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-500">
+                      Valores expresados en Habitaciones-Noche (Real / Objetivo / Desvío)
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100/75 text-slate-600 font-bold border-b border-slate-200">
+                          <th className="p-3">Mes</th>
+                          <th className="p-3 text-center">Estado</th>
+                          <th className="p-3 text-center">Individual / DUI</th>
+                          <th className="p-3 text-center">Doble</th>
+                          <th className="p-3 text-center">Triple</th>
+                          <th className="p-3 text-center">Cuádruple</th>
+                          <th className="p-3 text-center">Total Mes (R / O)</th>
+                          <th className="p-3 text-right">Desvío Total</th>
+                          <th className="p-3 text-center">% Cump.</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                          const st = getMonthPeriodStatus(m);
+                          const mReal = realDataTargetYear?.monthly?.[m] || {};
+                          const mTarget = generatedTarget?.monthly?.[m] || {};
+                          const catReal = mReal.byCategory || {};
+                          const catTarget = mTarget.byCategory || {};
+
+                          const totMReal = mReal.roomNights || 0;
+                          const totMTarget = mTarget.targetRoomNights || 0;
+                          const diffTotM = totMReal - totMTarget;
+                          const cumpTotM = totMTarget > 0 ? ((totMReal / totMTarget) * 100) : (totMReal > 0 ? 100 : 0);
+
+                          const renderCatCell = (catKey) => {
+                            if (targetHotel === "cumbria" && catKey === "cuadruple") {
+                              return (
+                                <td key={catKey} className="p-3 text-center text-slate-400">
+                                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-bold">N/D</span>
+                                </td>
+                              );
+                            }
+                            const rVal = catReal[catKey] || 0;
+                            const tVal = catTarget[catKey] || 0;
+                            const dVal = rVal - tVal;
+                            return (
+                              <td key={catKey} className="p-3 text-center tabular-nums">
+                                <div>
+                                  <span className="font-bold text-slate-800">{rVal}</span>
+                                  <span className="text-slate-400 mx-1">/</span>
+                                  <span className="text-indigo-600 font-semibold">{tVal}</span>
+                                </div>
+                                {(rVal > 0 || tVal > 0) && (
+                                  <div className={"text-[10px] font-bold " + (dVal >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                    {dVal >= 0 ? "+" : ""}{dVal}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          };
+
+                          return (
+                            <tr key={m} className={"hover:bg-slate-50/80 transition " + (st === "current" ? "bg-amber-50/40 font-semibold" : st === "closed" ? "bg-slate-50/20" : "")}>
+                              <td className="p-3 font-bold text-slate-900">{monthNames[m - 1]}</td>
+                              <td className="p-3 text-center">
+                                {st === "closed" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">🔒 Cerrado</span>
+                                ) : st === "current" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">⏳ En Curso</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">📅 Cartera</span>
+                                )}
+                              </td>
+                              {renderCatCell("individual")}
+                              {renderCatCell("doble")}
+                              {renderCatCell("triple")}
+                              {renderCatCell("cuadruple")}
+                              <td className="p-3 text-center tabular-nums font-bold">
+                                <span className="text-slate-900">{totMReal}</span>
+                                <span className="text-slate-400 mx-1">/</span>
+                                <span className="text-indigo-600">{totMTarget}</span>
+                              </td>
+                              <td className={"p-3 text-right tabular-nums font-black " + (diffTotM >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                {diffTotM >= 0 ? "+" : ""}{diffTotM} habs
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (cumpTotM >= 100 ? "bg-emerald-100 text-emerald-800" : cumpTotM >= 80 ? "bg-blue-100 text-blue-800" : cumpTotM > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                                  {cumpTotM.toFixed(1)}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="font-black text-slate-900 border-t-2 border-slate-300 bg-slate-100/90">
+                        <tr>
+                          <td className="p-3 text-slate-800">TOTAL ANUAL ({targetYear})</td>
+                          <td className="p-3 text-center">
+                            <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">12 Meses</span>
+                          </td>
+                          {["individual", "doble", "triple", "cuadruple"].map(catKey => {
+                            if (targetHotel === "cumbria" && catKey === "cuadruple") {
+                              return (
+                                <td key={catKey} className="p-3 text-center text-slate-400">
+                                  <span className="text-[10px] text-slate-500 font-bold">No disponible</span>
+                                </td>
+                              );
+                            }
+                            const rTot = realDataTargetYear?.overall?.byCategory?.[catKey] || 0;
+                            const tTot = generatedTarget?.overall?.byCategory?.[catKey] || 0;
+                            const dTot = rTot - tTot;
+                            return (
+                              <td key={catKey} className="p-3 text-center tabular-nums">
+                                <div>
+                                  <span>{rTot}</span>
+                                  <span className="text-slate-400 mx-1">/</span>
+                                  <span className="text-indigo-700">{tTot}</span>
+                                </div>
+                                <div className={"text-[10px] " + (dTot >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                                  {dTot >= 0 ? "+" : ""}{dTot}
+                                </div>
+                              </td>
+                            );
+                          })}
+                          <td className="p-3 text-center tabular-nums text-slate-900 font-black">
+                            {realDataTargetYear?.overall?.totalRoomNights || 0} / <span className="text-indigo-700">{generatedTarget?.overall?.targetRoomNights || 0}</span>
+                          </td>
+                          <td className={"p-3 text-right tabular-nums " + (((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                            {((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0)) >= 0 ? "+" : ""}
+                            {((realDataTargetYear?.overall?.totalRoomNights || 0) - (generatedTarget?.overall?.targetRoomNights || 0))} habs
+                          </td>
+                          <td className="p-3 text-center">
+                            {(() => {
+                              const tRN = generatedTarget?.overall?.targetRoomNights || 0;
+                              const rRN = realDataTargetYear?.overall?.totalRoomNights || 0;
+                              const cPct = tRN > 0 ? ((rRN / tRN) * 100) : (rRN > 0 ? 100 : 0);
+                              return (
+                                <span className={"px-2 py-0.5 rounded-full text-[10px] font-black " + (cPct >= 100 ? "bg-emerald-100 text-emerald-800" : cPct >= 80 ? "bg-blue-100 text-blue-800" : cPct > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500")}>
+                                  {cPct.toFixed(1)}%
+                                </span>
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           )}
