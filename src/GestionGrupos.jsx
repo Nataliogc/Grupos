@@ -2397,53 +2397,62 @@
           )}
 
           {/* SELECTOR DE VISTA: MENSUAL / RÉGIMEN / CATEGORÍA */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-            <button
-              onClick={() => setActiveSubView("monthly")}
-              className={"px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 " + (activeSubView === "monthly" ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200")}
-            >
-              <span>📅</span> Tabla Mensual Real vs Objetivo (CapaSuite)
-            </button>
-            <button
-              onClick={() => setActiveSubView("regimen")}
-              className={"px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 " + (activeSubView === "regimen" ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200")}
-            >
-              <span>🍽️</span> Desglose por Régimen
-            </button>
-            <button
-              onClick={() => setActiveSubView("category")}
-              className={"px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 " + (activeSubView === "category" ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200")}
-            >
-              <span>🛏️</span> Desglose por Categoría Ocupación
-            </button>
+          <div className="bg-white rounded-2xl p-2.5 border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3 mt-6 mb-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveSubView("monthly")}
+                className={"px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 cursor-pointer " + (activeSubView === "monthly" ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600/20" : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80")}
+              >
+                <span>📅</span> Tabla Mensual Real vs Objetivo (CapaSuite)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSubView("regimen")}
+                className={"px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 cursor-pointer " + (activeSubView === "regimen" ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600/20" : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80")}
+              >
+                <span>🍽️</span> Desglose por Régimen
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSubView("category")}
+                className={"px-4 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-2 cursor-pointer " + (activeSubView === "category" ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600/20" : "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80")}
+              >
+                <span>🛏️</span> Desglose por Categoría Ocupación
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 pr-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              <span>{targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} · {targetYear}</span>
+            </div>
           </div>
 
           {/* VISTA 1: TABLA MENSUAL REAL VS OBJETIVO (CAPASUITE) */}
           {activeSubView === "monthly" && comparison && periodMetrics && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* 4 EXECUTIVE CARDS: CERRADOS / EN CURSO / EN CARTERA / TOTAL */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {/* CARD 1: MESES CERRADOS */}
-                <div className="bg-slate-900 text-white rounded-2xl p-4.5 border border-slate-800 shadow-md flex flex-col justify-between">
+                <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 border border-slate-800 shadow-md flex flex-col justify-between min-h-[155px]">
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                         <span>🔒</span> Meses Cerrados ({periodMetrics.closed.count})
                       </span>
-                      <span className="text-[9px] font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700">
+                      <span className="text-[10px] font-bold bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-700 shrink-0">
                         Histórico Auditado
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xl font-black tabular-nums">
+                      <div className="text-2xl font-black tabular-nums tracking-tight">
                         {periodMetrics.closed.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-xs text-slate-400 font-medium">
                         Obj: {periodMetrics.closed.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
                     </div>
                   </div>
-                  <div className="pt-2.5 border-t border-slate-800/80 mt-2.5 flex items-end justify-between text-[11px]">
+                  <div className="pt-3 border-t border-slate-800/90 mt-3.5 flex items-end justify-between text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 block font-semibold">Desvío neto</span>
                       <span className={`font-black ${periodMetrics.closed.diffRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -2460,26 +2469,26 @@
                 </div>
 
                 {/* CARD 2: MES EN CURSO */}
-                <div className="bg-white rounded-2xl p-4.5 border-2 border-amber-300 shadow-sm flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-5 sm:p-6 border-2 border-amber-300 shadow-sm flex flex-col justify-between min-h-[155px]">
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
                         <span className="animate-pulse">⏳</span> Mes en Curso {targetYear === currentYear ? `(${monthNames[currentMonth - 1]})` : ""}
                       </span>
-                      <span className="text-[9px] font-black bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                      <span className="text-[10px] font-black bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">
                         En Gestión
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xl font-black text-slate-900 tabular-nums">
+                      <div className="text-2xl font-black text-slate-900 tabular-nums tracking-tight">
                         {periodMetrics.current.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-xs text-slate-500 font-medium">
                         Obj: {periodMetrics.current.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
                     </div>
                   </div>
-                  <div className="pt-2.5 border-t border-slate-100 mt-2.5 flex items-end justify-between text-[11px]">
+                  <div className="pt-3 border-t border-slate-100 mt-3.5 flex items-end justify-between text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 block font-semibold">Desvío / Faltante</span>
                       <span className={`font-black ${periodMetrics.current.diffRevenue >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
@@ -2496,26 +2505,26 @@
                 </div>
 
                 {/* CARD 3: EN CARTERA / ABIERTOS */}
-                <div className="bg-white rounded-2xl p-4.5 border border-indigo-200 shadow-sm flex flex-col justify-between">
+                <div className="bg-white rounded-2xl p-5 sm:p-6 border border-indigo-200 shadow-sm flex flex-col justify-between min-h-[155px]">
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
                         <span>📅</span> En Cartera / Abiertos ({periodMetrics.open.count})
                       </span>
-                      <span className="text-[9px] font-black bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100">
+                      <span className="text-[10px] font-black bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-100 shrink-0">
                         On The Books
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xl font-black text-indigo-950 tabular-nums">
+                      <div className="text-2xl font-black text-indigo-950 tabular-nums tracking-tight">
                         {periodMetrics.open.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-xs text-slate-500 font-medium">
                         Obj: {periodMetrics.open.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
                     </div>
                   </div>
-                  <div className="pt-2.5 border-t border-slate-100 mt-2.5 flex items-end justify-between text-[11px]">
+                  <div className="pt-3 border-t border-slate-100 mt-3.5 flex items-end justify-between text-xs">
                     <div>
                       <span className="text-[10px] text-slate-400 block font-semibold">Brecha / Faltante</span>
                       <span className={`font-black ${periodMetrics.open.diffRevenue >= 0 ? "text-emerald-600" : "text-amber-600"}`}>
@@ -2532,26 +2541,26 @@
                 </div>
 
                 {/* CARD 4: TOTAL ANUAL */}
-                <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 text-white rounded-2xl p-4.5 shadow-md flex flex-col justify-between">
+                <div className="bg-gradient-to-br from-indigo-700 to-indigo-900 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-col justify-between min-h-[155px]">
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
                         <span>🎯</span> Total Anual {targetYear}
                       </span>
-                      <span className="text-[9px] font-black bg-white/20 text-white px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-black bg-white/20 text-white px-2.5 py-0.5 rounded-full shrink-0">
                         {periodMetrics.totals.compliance.toFixed(1)}% Obj
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xl font-black tabular-nums">
+                      <div className="text-2xl font-black tabular-nums tracking-tight">
                         {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
-                      <div className="text-[11px] text-indigo-200">
+                      <div className="text-xs text-indigo-200 font-medium">
                         Obj: {comparison.totals.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </div>
                     </div>
                   </div>
-                  <div className="pt-2.5 border-t border-white/15 mt-2.5 flex items-end justify-between text-[11px]">
+                  <div className="pt-3 border-t border-white/15 mt-3.5 flex items-end justify-between text-xs">
                     <div>
                       <span className="text-[10px] text-indigo-200 block font-semibold">Desvío Global</span>
                       <span className={`font-black ${periodMetrics.totals.diffRevenue >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
