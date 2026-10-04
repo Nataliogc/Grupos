@@ -10032,19 +10032,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
           let oldTrack = [];
 
-          try { oldTrack = JSON.parse(row.tracking || "[]"); } catch(e){}
+          try { oldTrack = Array.isArray(row.tracking) ? row.tracking : JSON.parse(row.tracking || "[]"); } catch(e){}
+          if (!Array.isArray(oldTrack)) oldTrack = [];
 
-          const importLog = {
-
-            id: Date.now(),
-
-            date: new Date().toLocaleString("es-ES"),
-
-            text: `Importación: Cambio autorizado desde validación.`
-
-          };
-
-
+          const importLog = window.ExcelService.buildImportLog(row);
 
           batch.set(
 
@@ -10557,19 +10548,21 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
         if (!selectedGroupFicha) { setCrmHistory([]); return; }
 
-        const rec = selectedGroupFicha.records[0] || {};
+        const history = [];
+        const seen = new Set();
+        for (const record of selectedGroupFicha.records || []) {
+          try {
+            const raw = record.tracking || record.Com_CRM_History || '[]';
+            const entries = Array.isArray(raw) ? raw : JSON.parse(raw);
+            for (const entry of Array.isArray(entries) ? entries : []) {
+              const key = JSON.stringify([entry.id, entry.date, entry.text]);
+              if (!seen.has(key)) { seen.add(key); history.push(entry); }
+            }
+          } catch (error) {}
+        }
+        setCrmHistory(history);
 
-        try {
-
-          // Unificar: cargar desde 'tracking' como fuente principal de historial
-
-          const hist = JSON.parse(rec['tracking'] || rec['Com_CRM_History'] || '[]');
-
-          setCrmHistory(Array.isArray(hist) ? hist : []);
-
-        } catch { setCrmHistory([]); }
-
-      }, [selectedGroupFicha?.id]);
+      }, [selectedGroupFicha]);
 
 
 
@@ -25402,7 +25395,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                             </div>
 
-                                            <p className="text-xs text-slate-700 leading-relaxed">{h.text}</p>
+                                            <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{h.text}</p>
 
                                         </div>
 

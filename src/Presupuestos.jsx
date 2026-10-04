@@ -6236,7 +6236,7 @@ ${emailContent}`;
                                            </tr>
                                          )}
                                          <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
-                                           <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total a pagar por el cliente:</td>
+                                           <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total presupuesto:</td>
                                            <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(net)} €</td>
                                          </tr>
                                        </>
@@ -6245,7 +6245,7 @@ ${emailContent}`;
 
                                    return (
                                      <tr style={{backgroundColor:'#0f172a', color:'white', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact'}}>
-                                       <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total a pagar por el cliente:</td>
+                                       <td colSpan="3" className="px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black">Total presupuesto:</td>
                                        <td className="px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap" style={{color:'white', fontWeight:900}}>{formatNum(calculatedTotal)} €</td>
                                      </tr>
                                    );
@@ -6285,7 +6285,7 @@ ${emailContent}`;
                         </div>
                       )}
 
-                      <div className="quote-clauses space-y-8 print:space-y-4">
+                      <div id="quote-clauses" className="quote-clauses space-y-8 print:space-y-4">
                         <div className="flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                           <div className="flex gap-1">
                             <button onClick={() => setDocMode('presupuesto')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${docMode === 'presupuesto' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600'}`}>Vista Presupuesto</button>

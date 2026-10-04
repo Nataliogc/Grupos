@@ -7220,7 +7220,7 @@ function App() {
         }, /*#__PURE__*/React.createElement("td", {
           colSpan: "3",
           className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
-        }, "Total a pagar por el cliente:"), /*#__PURE__*/React.createElement("td", {
+        }, "Total presupuesto:"), /*#__PURE__*/React.createElement("td", {
           className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
           style: {
             color: 'white',
@@ -7238,7 +7238,7 @@ function App() {
       }, /*#__PURE__*/React.createElement("td", {
         colSpan: "3",
         className: "px-6 py-5 print:py-3 print:px-3 text-right uppercase tracking-[0.2em] text-xs print:text-[10px] font-black"
-      }, "Total a pagar por el cliente:"), /*#__PURE__*/React.createElement("td", {
+      }, "Total presupuesto:"), /*#__PURE__*/React.createElement("td", {
         className: "px-6 py-5 print:py-3 print:px-3 text-right text-xl print:text-lg tabular-nums whitespace-nowrap",
         style: {
           color: 'white',
@@ -7271,6 +7271,7 @@ function App() {
         className: "font-black text-slate-900 tabular-nums whitespace-nowrap"
       }, formatNum(row.amount || 0), " \u20AC"));
     }))), /*#__PURE__*/React.createElement("div", {
+      id: "quote-clauses",
       className: "quote-clauses space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100"

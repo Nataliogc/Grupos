@@ -895,7 +895,24 @@
       }
   }
 
+  function buildImportLog(row, now = new Date()) {
+    const labels = { 'Segment.': 'Segmento', 'Cant. Habitaciones': 'Habitaciones',
+      'Cant.': 'Habitaciones', 'Pax.': 'Personas', 'Importe(*)': 'Importe',
+      'Hotel_Asignado': 'Hotel', 'Nombre del Grupo': 'Grupo', 'Pernoct.': 'Pernoctaciones' };
+    const display = value => value === null || value === undefined || String(value).trim() === '' || value === '---' ? 'vacío' : String(value);
+    const changes = Object.entries(row._changes || {}).filter(([, value]) => value && display(value.old) !== display(value.new))
+      .map(([field, value]) => ({ field, old: value.old ?? null, new: value.new ?? null }));
+    const line = row._linea || row.precios;
+    const context = line ? ' · Línea ' + line : '';
+    const title = row._diff === 'new' ? 'Importación Excel: Alta de reserva' : 'Importación Excel: Cambios aceptados';
+    return { id: now.getTime() + '-' + String(row._docId || row.Reserva || '') + '-' + String(line || ''),
+      date: now.toLocaleString('es-ES'), source: 'excel', changes,
+      text: title + context + (changes.length ? '\n' + changes.map(change =>
+        (labels[change.field] || change.field) + ': ' + display(change.old) + ' → ' + display(change.new)).join('\n') : '.') };
+  }
+
   var ExcelService = {
+      buildImportLog,
       parseAndMergeFile,
       sanitizeAndMerge,
       processMatrixData,
