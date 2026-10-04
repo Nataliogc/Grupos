@@ -6958,7 +6958,7 @@ function App() {
       var stats = getSegmentStats(g.segments);
       return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, "Total Pax: ", stats.totalPax, " pax"), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "Habitaciones-Noche: ", stats.roomNights, " hab-noc"), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "M\xE1xima Ocupaci\xF3n Simult\xE1nea: ", stats.maxSimultaneous, " hab."), /*#__PURE__*/React.createElement("span", null, "\u2022"), /*#__PURE__*/React.createElement("span", null, "Rango global: ", stats.nights, " noches"));
     }()))), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-8 print:space-y-4"
+      className: "quote-economic space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("h3", {
       className: "text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3"
     }, "Itinerario y Condiciones Econ\xF3micas"), g.averageStayCondition && /*#__PURE__*/React.createElement("div", {
@@ -7271,7 +7271,7 @@ function App() {
         className: "font-black text-slate-900 tabular-nums whitespace-nowrap"
       }, formatNum(row.amount || 0), " \u20AC"));
     }))), /*#__PURE__*/React.createElement("div", {
-      className: "space-y-8 print:space-y-4"
+      className: "quote-clauses space-y-8 print:space-y-4"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100"
     }, /*#__PURE__*/React.createElement("div", {
@@ -7547,7 +7547,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-plus"
     }), " A\xF1adir Cl\xE1usula de Confirmaci\xF3n"))))), /*#__PURE__*/React.createElement("div", {
-      className: "pt-5 print:pt-3 border-t-2 ".concat(isCumbria ? 'border-blue-900' : 'border-orange-600', " print:border-t flex items-end justify-between")
+      className: "quote-footer pt-5 print:pt-3 border-t-2 ".concat(isCumbria ? 'border-blue-900' : 'border-orange-600', " print:border-t flex items-end justify-between")
     }, /*#__PURE__*/React.createElement("div", {
       className: "print:pl-2"
     }, /*#__PURE__*/React.createElement("p", {

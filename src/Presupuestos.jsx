@@ -6023,7 +6023,7 @@ ${emailContent}`;
                       </div>
                     )}
 
-                    <div className="space-y-8 print:space-y-4">
+                    <div className="quote-economic space-y-8 print:space-y-4">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-l-4 border-indigo-500 pl-3">Itinerario y Condiciones Económicas</h3>
                       {g.averageStayCondition && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid">
@@ -6285,7 +6285,7 @@ ${emailContent}`;
                         </div>
                       )}
 
-                      <div className="space-y-8 print:space-y-4">
+                      <div className="quote-clauses space-y-8 print:space-y-4">
                         <div className="flex items-center justify-between no-print mb-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                           <div className="flex gap-1">
                             <button onClick={() => setDocMode('presupuesto')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${docMode === 'presupuesto' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-slate-600'}`}>Vista Presupuesto</button>
@@ -6494,7 +6494,7 @@ ${emailContent}`;
                         </div>
                       </div>
 
-                      <div className={`pt-5 print:pt-3 border-t-2 ${isCumbria ? 'border-blue-900' : 'border-orange-600'} print:border-t flex items-end justify-between`}>
+                      <div className={`quote-footer pt-5 print:pt-3 border-t-2 ${isCumbria ? 'border-blue-900' : 'border-orange-600'} print:border-t flex items-end justify-between`}>
                         <div className="print:pl-2">
                           <p className="text-[9px] print:text-[7px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Generado por</p>
                           <p className={`text-sm print:text-[10px] font-black ${isCumbria ? 'text-blue-900' : 'text-orange-800'}`}>{isCumbria ? "Dpto. Eventos Cumbria" : "Dpto. Grupos Sercotel Guadiana"}</p>
