@@ -75,6 +75,24 @@
     return Math.round(p * 100) / 100;
   }
 
+  // Tarifas Oficiales 2026 (Catálogo Oficial Guadiana y Cumbria)
+  var DEFAULT_GROUP_TARIFFS_2026 = {
+    guadiana: {
+      HA: { individual: 62.0, doble: 62.0, triple: 82.0, cuadruple: 101.0 },
+      HD: { individual: 70.0, doble: 78.0, triple: 106.0, cuadruple: 125.0 },
+      MP: { individual: 89.0, doble: 116.0, triple: 163.0, cuadruple: 201.0 },
+      PC: { individual: 108.0, doble: 154.0, triple: 220.0, cuadruple: 258.0 },
+      _desglose: { breakfast: 8.0, meal: 19.0, lunch: 19.0 }
+    },
+    cumbria: {
+      HA: { individual: 60.0, doble: 60.0, triple: 80.0, cuadruple: null },
+      HD: { individual: 68.0, doble: 76.0, triple: 104.0, cuadruple: null },
+      MP: { individual: 87.0, doble: 114.0, triple: 161.0, cuadruple: null },
+      PC: { individual: 106.0, doble: 152.0, triple: 218.0, cuadruple: null },
+      _desglose: { breakfast: 8.0, meal: 19.0, lunch: 19.0 }
+    }
+  };
+
   // Tarifas Oficiales 2027 (Requisito 26)
   // Cumbria Spa & Hotel no dispone de cuádruples (null)
   var DEFAULT_GROUP_TARIFFS_2027 = {
@@ -82,13 +100,15 @@
       HA: { individual: 65.0, doble: 65.0, triple: 86.5, cuadruple: 107.0 },
       HD: { individual: 73.5, doble: 82.0, triple: 112.0, cuadruple: 141.0 },
       MP: { individual: 93.0, doble: 121.0, triple: 170.5, cuadruple: 219.0 },
-      PC: { individual: 112.5, doble: 160.0, triple: 229.0, cuadruple: 297.0 }
+      PC: { individual: 112.5, doble: 160.0, triple: 229.0, cuadruple: 297.0 },
+      _desglose: { breakfast: 8.5, meal: 19.5, lunch: 19.5 }
     },
     cumbria: {
       HA: { individual: 63.0, doble: 63.0, triple: 84.5, cuadruple: null },
       HD: { individual: 71.0, doble: 79.0, triple: 108.5, cuadruple: null },
       MP: { individual: 90.0, doble: 117.0, triple: 165.5, cuadruple: null },
-      PC: { individual: 109.0, doble: 155.0, triple: 222.5, cuadruple: null }
+      PC: { individual: 109.0, doble: 155.0, triple: 222.5, cuadruple: null },
+      _desglose: { breakfast: 8.0, meal: 19.0, lunch: 19.0 }
     }
   };
 
@@ -205,6 +225,9 @@
     if (catalog && catalog[hKey] && yKey === "2027") {
       return JSON.parse(JSON.stringify(catalog[hKey]));
     }
+    if (yKey === "2026" && DEFAULT_GROUP_TARIFFS_2026[hKey]) {
+      return JSON.parse(JSON.stringify(DEFAULT_GROUP_TARIFFS_2026[hKey]));
+    }
     // Fallback al catálogo 2027 por defecto
     if (DEFAULT_GROUP_TARIFFS_2027[hKey]) {
       return JSON.parse(JSON.stringify(DEFAULT_GROUP_TARIFFS_2027[hKey]));
@@ -225,8 +248,8 @@
         return true;
       }
     }
-    // 2027 es la tarifa oficial base por defecto
-    if (Number(year) === 2027) {
+    // 2026 y 2027 son tarifas oficiales base por defecto
+    if (Number(year) === 2026 || Number(year) === 2027) {
       return true;
     }
     return false;
@@ -1336,6 +1359,7 @@
   // ── 10. EXPORTACIÓN DEL MÓDULO ────────────────────────────────────────
 
   var GroupTargetsService = {
+    DEFAULT_GROUP_TARIFFS_2026: DEFAULT_GROUP_TARIFFS_2026,
     DEFAULT_GROUP_TARIFFS_2027: DEFAULT_GROUP_TARIFFS_2027,
     CATEGORY_OCCUPANTS: CATEGORY_OCCUPANTS,
     ROOM_CATEGORIES: ROOM_CATEGORIES,

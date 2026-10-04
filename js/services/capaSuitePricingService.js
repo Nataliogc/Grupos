@@ -291,27 +291,44 @@
     var savingsByRoom = {};
 
     // Obtener precios base de HA oficial para proporciones
-    var offDblHA = getTariffPrice(haTariffs, 'DOBLE') || (isCumbria ? 63 : 65);
+    var offDblHA = getTariffPrice(haTariffs, 'DOBLE') || (isCumbria ? 60 : 62);
+    // Descuento conseguido en la habitación doble respecto al oficial HA
+    // Ej: Doble oficial 62 € y recDobleHA 58.50 € => ahorro 3.50 € total (1.75 € por persona)
+    var discountTotalDbl = (offDblHA > recDobleHA) ? (offDblHA - recDobleHA) : 0;
+    var discountPerPax = discountTotalDbl > 0 ? (discountTotalDbl / 2) : 0;
 
     roomTypes.forEach(function (rt) {
       var rtNorm = rt.toLowerCase();
       var offP = getTariffPrice(boardTariffs, rt);
+      var offP_HA = getTariffPrice(haTariffs, rt);
 
       if (offP === null) {
         if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) {
-          offP = isCumbria ? (boardCode === 'HA' ? 63 : 71) : (boardCode === 'HA' ? 65 : 73.5);
+          offP = isCumbria ? (boardCode === 'HA' ? 60 : 68) : (boardCode === 'HA' ? 62 : 70);
         } else if (rtNorm.indexOf('niño') !== -1 || rtNorm.indexOf('nino') !== -1) {
-          offP = isCumbria ? (boardCode === 'HA' ? 73.75 : 93.75) : (boardCode === 'HA' ? 75.75 : 97.0);
+          offP = isCumbria ? (boardCode === 'HA' ? 70 : 88) : (boardCode === 'HA' ? 72 : 92);
         } else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) {
-          offP = isCumbria ? (boardCode === 'HA' ? 84.5 : 108.5) : (boardCode === 'HA' ? 86.5 : 112);
+          offP = isCumbria ? (boardCode === 'HA' ? 80 : 104) : (boardCode === 'HA' ? 82 : 106);
         } else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) {
-          offP = isCumbria ? null : (boardCode === 'HA' ? 107 : 141);
+          offP = isCumbria ? null : (boardCode === 'HA' ? 101 : 125);
         } else if (rtNorm.indexOf('superior') !== -1) {
           offP = isCumbria ? null : (boardCode === 'HA' ? 95 : 125);
         } else if (rtNorm.indexOf('suite') !== -1) {
           offP = isCumbria ? (boardCode === 'HA' ? 85 : 105) : (boardCode === 'HA' ? 90 : 118);
         } else {
           offP = officialDoble;
+        }
+      }
+
+      if (offP_HA === null) {
+        if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) {
+          offP_HA = isCumbria ? 60 : 62;
+        } else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) {
+          offP_HA = isCumbria ? 80 : 82;
+        } else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) {
+          offP_HA = isCumbria ? null : 101;
+        } else {
+          offP_HA = offDblHA;
         }
       }
 
@@ -323,32 +340,33 @@
         return;
       }
 
-      // Ocupantes por tipología para aplicar suplemento por persona
+      // Ocupantes por tipología
       var pax = 2;
       var ratioHA = 1.0;
-      if (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1) {
+      var isDUI = (rtNorm.indexOf('individual') !== -1 || rtNorm.indexOf('dui') !== -1);
+      if (isDUI) {
         pax = 1;
-        var offDuiHA = getTariffPrice(haTariffs, 'DOBLE DE USO INDIVIDUAL') || offDblHA;
+        var offDuiHA = offP_HA || offDblHA;
         ratioHA = offDblHA > 0 ? (offDuiHA / offDblHA) : 1.0;
       } else if (rtNorm.indexOf('niño') !== -1 || rtNorm.indexOf('nino') !== -1) {
         pax = 2.5; // 2 adultos + 1 niño con 50% pensión
-        var offTplNinoHA = getTariffPrice(haTariffs, 'DOBLE + SUPLETORIA NIÑO') || (offDblHA * 1.16);
+        var offTplNinoHA = offP_HA || (offDblHA * 1.16);
         ratioHA = offDblHA > 0 ? (offTplNinoHA / offDblHA) : 1.16;
       } else if (rtNorm.indexOf('supletoria') !== -1 || rtNorm.indexOf('triple') !== -1) {
         pax = 3;
-        var offTplHA = getTariffPrice(haTariffs, 'DOBLE + SUPLETORIA') || getTariffPrice(haTariffs, 'triple') || (offDblHA * 1.33);
+        var offTplHA = offP_HA || (offDblHA * 1.33);
         ratioHA = offDblHA > 0 ? (offTplHA / offDblHA) : 1.33;
       } else if (rtNorm.indexOf('cuadruple') !== -1 || rtNorm.indexOf('cuádruple') !== -1) {
         pax = 4;
-        var offCuaHA = getTariffPrice(haTariffs, 'CUÁDRUPLE') || getTariffPrice(haTariffs, 'cuadruple') || (offDblHA * 1.65);
+        var offCuaHA = offP_HA || (offDblHA * 1.65);
         ratioHA = offDblHA > 0 ? (offCuaHA / offDblHA) : 1.65;
       } else if (rtNorm.indexOf('superior') !== -1) {
         pax = 2;
-        var offSuiteSupHA = getTariffPrice(haTariffs, 'SUITE SUPERIOR') || (offDblHA * 1.50);
+        var offSuiteSupHA = offP_HA || (offDblHA * 1.50);
         ratioHA = offDblHA > 0 ? (offSuiteSupHA / offDblHA) : 1.50;
       } else if (rtNorm.indexOf('suite') !== -1) {
         pax = 2;
-        var offSuiteHA = getTariffPrice(haTariffs, 'SUITE') || (offDblHA * 1.35);
+        var offSuiteHA = offP_HA || (offDblHA * 1.35);
         ratioHA = offDblHA > 0 ? (offSuiteHA / offDblHA) : 1.35;
       } else {
         // Doble estándar
@@ -356,11 +374,33 @@
         ratioHA = 1.0;
       }
 
-      // Base HA recomendada para esta tipología
-      var baseHA = Math.round(recDobleHA * ratioHA * 100) / 100;
+      // Base HA recomendada para esta tipología:
+      // - Para DUI: es la misma habitación doble en solo alojamiento (58.50 €)
+      // - Para Doble: recDobleHA (58.50 €)
+      // - Para Triple/Cuádruple: Oficial HA menos el ahorro lineal por plaza (1.75 € * pax)
+      var baseHA;
+      if (isDUI) {
+        baseHA = recDobleHA;
+      } else if (offP_HA !== null && offP_HA > 0 && discountPerPax > 0) {
+        baseHA = Math.round((offP_HA - (discountPerPax * pax)) * 100) / 100;
+      } else {
+        baseHA = Math.round(recDobleHA * ratioHA * 100) / 100;
+      }
 
-      // Precio final recomendado = Base Alojamiento (HA con descuento) + (Suplemento Pensión × Pax)
-      var roomSupplement = Math.round(boardSupplementPerPerson * pax * 100) / 100;
+      // Suplemento de pensión:
+      // Si el catálogo oficial tiene precio cerrado para esta tipología en este régimen,
+      // usamos el suplemento oficial de catálogo: (Oficial Régimen - Oficial HA)
+      // (ej. Cuádruple Guadiana: HD = +24 €, MP = +100 €, PC = +157 €)
+      var roomSupplement;
+      if (boardCode === 'HA' || boardCode === 'SA') {
+        roomSupplement = 0;
+      } else if (offP !== null && offP_HA !== null && (offP - offP_HA) > 0) {
+        roomSupplement = Math.round((offP - offP_HA) * 100) / 100;
+      } else {
+        roomSupplement = Math.round(boardSupplementPerPerson * pax * 100) / 100;
+      }
+
+      // Precio final recomendado = Base Alojamiento (HA con descuento) + Suplemento Pensión
       var recP = Math.round((baseHA + roomSupplement) * 100) / 100;
       recommendedPricesByRoom[rt] = recP;
 

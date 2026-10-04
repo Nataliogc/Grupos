@@ -269,7 +269,61 @@ var getOfficialTariffsGrid = function getOfficialTariffsGrid(hotelName, year) {
   if (gts && typeof gts.getTariffsForHotelAndYear === "function") {
     tariffs = gts.getTariffsForHotelAndYear(catalog, hotelKey, validYear);
   } else {
-    var defaults = {
+    var defaults2026 = {
+      guadiana: {
+        HA: {
+          individual: 62.0,
+          doble: 62.0,
+          triple: 82.0,
+          cuadruple: 101.0
+        },
+        HD: {
+          individual: 70.0,
+          doble: 78.0,
+          triple: 106.0,
+          cuadruple: 125.0
+        },
+        MP: {
+          individual: 89.0,
+          doble: 116.0,
+          triple: 163.0,
+          cuadruple: 201.0
+        },
+        PC: {
+          individual: 108.0,
+          doble: 154.0,
+          triple: 220.0,
+          cuadruple: 258.0
+        }
+      },
+      cumbria: {
+        HA: {
+          individual: 60.0,
+          doble: 60.0,
+          triple: 80.0,
+          cuadruple: null
+        },
+        HD: {
+          individual: 68.0,
+          doble: 76.0,
+          triple: 104.0,
+          cuadruple: null
+        },
+        MP: {
+          individual: 87.0,
+          doble: 114.0,
+          triple: 161.0,
+          cuadruple: null
+        },
+        PC: {
+          individual: 106.0,
+          doble: 152.0,
+          triple: 218.0,
+          cuadruple: null
+        }
+      }
+    };
+    var defaults2027 = {
       guadiana: {
         HA: {
           individual: 65.0,
@@ -323,7 +377,8 @@ var getOfficialTariffsGrid = function getOfficialTariffsGrid(hotelName, year) {
         }
       }
     };
-    tariffs = defaults[hotelKey] || defaults.guadiana;
+    var activeDefs = validYear === 2026 ? defaults2026 : defaults2027;
+    tariffs = activeDefs[hotelKey] || activeDefs.guadiana;
   }
   var grid = {};
   var rooms = getRoomTypesForHotel(hotelName);
@@ -408,27 +463,33 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
   var offByRoom = {};
   var recByRoom = {};
   var savingsByRoom = {};
+  var offDblHA = Number(haPrices['doble'] || haPrices['DOBLE'] || 62);
+  var discountTotalDbl = offDblHA > recDobleHA ? offDblHA - recDobleHA : 0;
+  var discountPerPax = discountTotalDbl > 0 ? discountTotalDbl / 2 : 0;
   rooms.forEach(function (rt) {
-    var offP = Number(offPrices[rt] || offDoble);
+    var offP = Number(offPrices[rt] || offPrices[rt.toLowerCase()] || offDoble);
+    var offP_HA = haPrices[rt] !== undefined && haPrices[rt] !== null ? Number(haPrices[rt]) : haPrices[rt.toLowerCase()] !== undefined ? Number(haPrices[rt.toLowerCase()]) : null;
     offByRoom[rt] = offP;
     var rtNorm = rt.toLowerCase();
     var pax = 2;
-    if (rtNorm.includes('individual') || rtNorm.includes('dui')) pax = 1;else if (rtNorm.includes('triple')) pax = 3;else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
-    var baseHA = recDobleHA;
-    if (pax === 1) {
-      var offDuiHA = Number(haPrices['individual'] || haPrices['ind'] || haPrices['doble'] || 65);
-      var offDblHA = Number(haPrices['doble'] || 65);
-      baseHA = offDblHA > 0 ? recDobleHA * (offDuiHA / offDblHA) : recDobleHA;
-    } else if (pax === 3) {
-      var offTplHA = Number(haPrices['triple'] || 86.5);
-      var _offDblHA = Number(haPrices['doble'] || 65);
-      baseHA = _offDblHA > 0 ? recDobleHA * (offTplHA / _offDblHA) : recDobleHA * 1.33;
-    } else if (pax === 4) {
-      var offCuaHA = Number(haPrices['cuadruple'] || 107);
-      var _offDblHA2 = Number(haPrices['doble'] || 65);
-      baseHA = _offDblHA2 > 0 ? recDobleHA * (offCuaHA / _offDblHA2) : recDobleHA * 1.65;
+    var isDUI = rtNorm.includes('individual') || rtNorm.includes('dui');
+    if (isDUI) pax = 1;else if (rtNorm.includes('supletoria') || rtNorm.includes('triple')) pax = 3;else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
+    var baseHA;
+    if (isDUI) {
+      baseHA = recDobleHA;
+    } else if (offP_HA !== null && offP_HA > 0 && discountPerPax > 0) {
+      baseHA = Math.round((offP_HA - discountPerPax * pax) * 100) / 100;
+    } else {
+      baseHA = recDobleHA;
     }
-    var roomSupp = suppPerPerson * pax;
+    var roomSupp;
+    if (boardCode === 'HA' || boardCode === 'SA') {
+      roomSupp = 0;
+    } else if (offP !== null && offP_HA !== null && offP - offP_HA > 0) {
+      roomSupp = Math.round((offP - offP_HA) * 100) / 100;
+    } else {
+      roomSupp = Math.round(suppPerPerson * pax * 100) / 100;
+    }
     var recP = Math.round((baseHA + roomSupp) * 100) / 100;
     recByRoom[rt] = recP;
     savingsByRoom[rt] = {

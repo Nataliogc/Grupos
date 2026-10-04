@@ -171,7 +171,21 @@
       if (gts && typeof gts.getTariffsForHotelAndYear === "function") {
         tariffs = gts.getTariffsForHotelAndYear(catalog, hotelKey, validYear);
       } else {
-        const defaults = {
+        const defaults2026 = {
+          guadiana: {
+            HA: { individual: 62.0, doble: 62.0, triple: 82.0, cuadruple: 101.0 },
+            HD: { individual: 70.0, doble: 78.0, triple: 106.0, cuadruple: 125.0 },
+            MP: { individual: 89.0, doble: 116.0, triple: 163.0, cuadruple: 201.0 },
+            PC: { individual: 108.0, doble: 154.0, triple: 220.0, cuadruple: 258.0 }
+          },
+          cumbria: {
+            HA: { individual: 60.0, doble: 60.0, triple: 80.0, cuadruple: null },
+            HD: { individual: 68.0, doble: 76.0, triple: 104.0, cuadruple: null },
+            MP: { individual: 87.0, doble: 114.0, triple: 161.0, cuadruple: null },
+            PC: { individual: 106.0, doble: 152.0, triple: 218.0, cuadruple: null }
+          }
+        };
+        const defaults2027 = {
           guadiana: {
             HA: { individual: 65.0, doble: 65.0, triple: 86.5, cuadruple: 107.0 },
             HD: { individual: 73.5, doble: 82.0, triple: 112.0, cuadruple: 141.0 },
@@ -185,7 +199,8 @@
             PC: { individual: 109.0, doble: 155.0, triple: 222.5, cuadruple: null }
           }
         };
-        tariffs = defaults[hotelKey] || defaults.guadiana;
+        const activeDefs = validYear === 2026 ? defaults2026 : defaults2027;
+        tariffs = activeDefs[hotelKey] || activeDefs.guadiana;
       }
 
       const grid = {};
@@ -269,32 +284,40 @@
       const offByRoom = {};
       const recByRoom = {};
       const savingsByRoom = {};
+      const offDblHA = Number(haPrices['doble'] || haPrices['DOBLE'] || 62);
+      const discountTotalDbl = (offDblHA > recDobleHA) ? (offDblHA - recDobleHA) : 0;
+      const discountPerPax = discountTotalDbl > 0 ? (discountTotalDbl / 2) : 0;
+
       rooms.forEach(rt => {
-        const offP = Number(offPrices[rt] || offDoble);
+        const offP = Number(offPrices[rt] || offPrices[rt.toLowerCase()] || offDoble);
+        const offP_HA = haPrices[rt] !== undefined && haPrices[rt] !== null ? Number(haPrices[rt]) : (haPrices[rt.toLowerCase()] !== undefined ? Number(haPrices[rt.toLowerCase()]) : null);
         offByRoom[rt] = offP;
 
         const rtNorm = rt.toLowerCase();
         let pax = 2;
-        if (rtNorm.includes('individual') || rtNorm.includes('dui')) pax = 1;
-        else if (rtNorm.includes('triple')) pax = 3;
+        const isDUI = rtNorm.includes('individual') || rtNorm.includes('dui');
+        if (isDUI) pax = 1;
+        else if (rtNorm.includes('supletoria') || rtNorm.includes('triple')) pax = 3;
         else if (rtNorm.includes('cuadruple') || rtNorm.includes('cuádruple')) pax = 4;
 
-        let baseHA = recDobleHA;
-        if (pax === 1) {
-          const offDuiHA = Number(haPrices['individual'] || haPrices['ind'] || haPrices['doble'] || 65);
-          const offDblHA = Number(haPrices['doble'] || 65);
-          baseHA = offDblHA > 0 ? (recDobleHA * (offDuiHA / offDblHA)) : recDobleHA;
-        } else if (pax === 3) {
-          const offTplHA = Number(haPrices['triple'] || 86.5);
-          const offDblHA = Number(haPrices['doble'] || 65);
-          baseHA = offDblHA > 0 ? (recDobleHA * (offTplHA / offDblHA)) : (recDobleHA * 1.33);
-        } else if (pax === 4) {
-          const offCuaHA = Number(haPrices['cuadruple'] || 107);
-          const offDblHA = Number(haPrices['doble'] || 65);
-          baseHA = offDblHA > 0 ? (recDobleHA * (offCuaHA / offDblHA)) : (recDobleHA * 1.65);
+        let baseHA;
+        if (isDUI) {
+          baseHA = recDobleHA;
+        } else if (offP_HA !== null && offP_HA > 0 && discountPerPax > 0) {
+          baseHA = Math.round((offP_HA - (discountPerPax * pax)) * 100) / 100;
+        } else {
+          baseHA = recDobleHA;
         }
 
-        const roomSupp = suppPerPerson * pax;
+        let roomSupp;
+        if (boardCode === 'HA' || boardCode === 'SA') {
+          roomSupp = 0;
+        } else if (offP !== null && offP_HA !== null && (offP - offP_HA) > 0) {
+          roomSupp = Math.round((offP - offP_HA) * 100) / 100;
+        } else {
+          roomSupp = Math.round(suppPerPerson * pax * 100) / 100;
+        }
+
         const recP = Math.round((baseHA + roomSupp) * 100) / 100;
         recByRoom[rt] = recP;
         savingsByRoom[rt] = {
