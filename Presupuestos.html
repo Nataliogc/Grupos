@@ -142,7 +142,40 @@
       border-radius: 4px;
     }
 
+    @page { size: A4 portrait; margin: 10mm; }
+
     @media print {
+      html, body { margin: 0 !important; padding: 0 !important; }
+      body *:has(#quote-document) {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+      body *:has(#quote-document) > :not(:has(#quote-document)):not(#quote-document) {
+        display: none !important;
+      }
+      #quote-document {
+        width: calc(190mm / var(--quote-print-scale, 1)) !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        zoom: var(--quote-print-scale, 1);
+      }
+      #quote-document .print-break-before { break-before: auto !important; }
+      #quote-document [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 8px !important;
+      }
+      #quote-document td, #quote-document th { padding-top: 4px !important; padding-bottom: 4px !important; }
+      #quote-document .p-4 { padding: 8px !important; }
+      #quote-document .mb-8 { margin-bottom: 12px !important; }
+      #quote-document .pt-5 { padding-top: 8px !important; }
+      #quote-document img { max-height: 42px !important; }
+
       .no-print {
         display: none !important;
       }
@@ -189,7 +222,8 @@
 <body class="bg-slate-50 min-h-screen">
   <div id="root"></div>
 
-  <script src="js/Presupuestos.js?v=1.1.35-daily-events"></script>
+  <script src="js/quotePrint.js?v=1"></script>
+  <script src="js/Presupuestos.js?v=1.1.36-single-page"></script>
 </body>
 
 </html>
