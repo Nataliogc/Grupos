@@ -30,5 +30,7 @@ test_*.js
 !test_rooming.js
 !test_integration.js
 !test_excel_sync.js
+!test_group_targets.js
+!test_capasuite_pricing.js
 test_*.csv
 patch_*.py

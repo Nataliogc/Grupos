@@ -351,6 +351,103 @@ var getOfficialTariffsGrid = function getOfficialTariffsGrid(hotelName, year) {
   return grid;
 };
 
+/**
+ * Helpers de integración con CapaSuite Pricing Service
+ */
+var getCapaSuiteHotelDayPrice = function getCapaSuiteHotelDayPrice(hotelName, dateISO) {
+  var ps = window.CapaSuitePricingService;
+  if (ps && typeof ps.getCapaSuiteHotelDayPrice === 'function') {
+    return ps.getCapaSuiteHotelDayPrice(hotelName, dateISO);
+  }
+  var isCumbria = (hotelName || '').toLowerCase().includes('cumbria');
+  var d = dateISO ? new Date(toInputDate(dateISO) + 'T00:00:00') : new Date();
+  var dow = d.getDay();
+  var isWeekend = dow === 5 || dow === 6;
+  var base = isCumbria ? 62 : 68;
+  if (isWeekend) base += 18;
+  return {
+    price: base,
+    source: 'CapaSuite Benchmark',
+    isEstimated: true,
+    hotel: hotelName,
+    dateISO: dateISO
+  };
+};
+var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelName, dateISO, boardName, discountPercent) {
+  var ps = window.CapaSuitePricingService;
+  var y = dateISO ? new Date(toInputDate(dateISO)).getFullYear() : 2027;
+  var offGrid = getOfficialTariffsGrid(hotelName, isNaN(y) ? 2027 : y);
+  if (ps && typeof ps.getTariffComparison === 'function') {
+    return ps.getTariffComparison(hotelName, dateISO, boardName, discountPercent, offGrid);
+  }
+  var priceInfo = getCapaSuiteHotelDayPrice(hotelName, dateISO);
+  var discount = typeof discountPercent === 'number' && !isNaN(discountPercent) ? discountPercent : 15;
+  var recDoble = Math.round(priceInfo.price * (1 - discount / 100) * 100) / 100;
+  var boardCode = (boardName || 'HD').split(' ')[0];
+  var offPrices = offGrid[boardCode] || offGrid['HD'] || {};
+  var offDoble = Number(offPrices['doble'] || 82);
+  var rooms = getRoomTypesForHotel(hotelName);
+  var offByRoom = {};
+  var recByRoom = {};
+  var savingsByRoom = {};
+  rooms.forEach(function (rt) {
+    var offP = Number(offPrices[rt] || offDoble);
+    offByRoom[rt] = offP;
+    var ratio = offDoble > 0 ? offP / offDoble : 1;
+    var recP = Math.round(recDoble * ratio * 100) / 100;
+    recByRoom[rt] = recP;
+    savingsByRoom[rt] = {
+      diffVsHotel: Math.round((priceInfo.price - recP) * 100) / 100,
+      diffVsOfficial: Math.round((recP - offP) * 100) / 100
+    };
+  });
+  return {
+    hotelName: hotelName,
+    dateISO: dateISO,
+    boardCode: boardCode,
+    hotelDayPrice: priceInfo.price,
+    hotelPriceInfo: priceInfo,
+    discountPercent: discount,
+    officialDoble: offDoble,
+    recDoble: recDoble,
+    roomTypes: rooms,
+    officialPricesByRoom: offByRoom,
+    recommendedPricesByRoom: recByRoom,
+    savingsByRoom: savingsByRoom
+  };
+};
+var getCapaSuiteStayTariffSummary = function getCapaSuiteStayTariffSummary(hotelName, stayDates, boardName, discountPercent) {
+  var ps = window.CapaSuitePricingService;
+  var firstDate = stayDates && stayDates[0];
+  var y = firstDate ? new Date(toInputDate(firstDate)).getFullYear() : 2027;
+  var offGrid = getOfficialTariffsGrid(hotelName, isNaN(y) ? 2027 : y);
+  if (ps && typeof ps.getStayTariffSummary === 'function') {
+    return ps.getStayTariffSummary(hotelName, stayDates, boardName, discountPercent, offGrid);
+  }
+  if (!stayDates || stayDates.length === 0) return null;
+  var comps = stayDates.map(function (d) {
+    return getCapaSuiteTariffComparison(hotelName, d, boardName, discountPercent);
+  });
+  var len = comps.length;
+  var sumH = 0,
+    sumOff = 0,
+    sumRec = 0;
+  comps.forEach(function (c) {
+    sumH += c.hotelDayPrice;
+    sumOff += c.officialDoble;
+    sumRec += c.recDoble;
+  });
+  return {
+    nightsCount: len,
+    avgHotelPrice: Math.round(sumH / len * 100) / 100,
+    avgOfficialRate: Math.round(sumOff / len * 100) / 100,
+    avgRecommendedRate: Math.round(sumRec / len * 100) / 100,
+    discountPercent: comps[0] ? comps[0].discountPercent : 15,
+    totalSavingsVsHotel: Math.round((sumH - sumRec) * 100) / 100,
+    comparisons: comps
+  };
+};
+
 // --- UTILS (cargadas desde js/utils.js) ---
 var generateDates = NexusUtils.generateDates;
 var generateSeriesDates = NexusUtils.generateSeriesDates;
@@ -482,7 +579,9 @@ var DEFAULT_FORM_DATA = {
   // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
   isMultiSegment: false,
   // NUEVO: modo multi-segmento activo
-  declaredPax: '' // NUEVO: Pax declarados por el cliente
+  declaredPax: '',
+  // NUEVO: Pax declarados por el cliente
+  capaSuiteDiscountPercent: 15 // Descuento comercial recomendado CapaSuite (por defecto 15%)
 };
 
 // ── Calcula cupos diarios a partir de los segmentos ─────────────────
@@ -1077,6 +1176,7 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   var newData = _objectSpread({}, groupData);
   newData.isRatesOnly = !!groupData.isRatesOnly;
   newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
+  newData.capaSuiteDiscountPercent = groupData.capaSuiteDiscountPercent !== undefined ? groupData.capaSuiteDiscountPercent : 15;
   var rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
   if (rawHotel.toLowerCase().includes("cumbria")) {
     newData.Hotel_Asignado = "Cumbria Spa&Hotel";
@@ -2150,6 +2250,65 @@ function App() {
       });
     });
     alert('Tarifas oficiales ' + validYear + ' aplicadas correctamente a ' + hotel + ' (' + Object.keys(mergedGrid).length + ' regímenes).');
+  };
+
+  /**
+   * Carga las tarifas recomendadas de CapaSuite aplicando el descuento comercial
+   * sobre los precios de habitación del hotel para cada día.
+   */
+  var handleLoadRecommendedTariffs = function handleLoadRecommendedTariffs(customDiscount) {
+    var discount = customDiscount !== undefined ? customDiscount : formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+    var parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+    var validYear = isNaN(parsedY) ? 2027 : parsedY;
+    var hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+    var roomTypes = getRoomTypesForHotel(hotel);
+    var stayDates = getCurrentStayDates(formData);
+    var newDailyConfig = _objectSpread({}, formData.dailyConfig || {});
+    stayDates.forEach(function (date) {
+      if (!newDailyConfig[date]) {
+        newDailyConfig[date] = {
+          board: formData['Régimen'] || 'AD (Alojamiento y Desayuno)',
+          prices: {},
+          counts: {},
+          gratuities: {}
+        };
+      }
+      var dayConf = newDailyConfig[date];
+      var currentBoard = dayConf.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+      var comp = getCapaSuiteTariffComparison(hotel, date, currentBoard, discount);
+      var updatedPrices = _objectSpread({}, dayConf.prices || {});
+      roomTypes.forEach(function (rt) {
+        var _comp$recommendedPric;
+        var recP = (_comp$recommendedPric = comp.recommendedPricesByRoom) === null || _comp$recommendedPric === void 0 ? void 0 : _comp$recommendedPric[rt];
+        if (recP !== undefined && recP !== null && recP !== '') {
+          updatedPrices[rt] = Number(recP);
+        }
+      });
+      dayConf.prices = updatedPrices;
+    });
+
+    // Actualizar también Modo Grid (ratesOnlyGrid) si aplica
+    var mergedGrid = _objectSpread({}, formData.ratesOnlyGrid || {});
+    var refDate = stayDates[0] || formData.Entrada || new Date().toISOString().split('T')[0];
+    ['HA', 'HD', 'MP', 'PC'].forEach(function (bCode) {
+      var bComp = getCapaSuiteTariffComparison(hotel, refDate, bCode, discount);
+      if (bComp && bComp.recommendedPricesByRoom) {
+        if (!mergedGrid[bCode]) mergedGrid[bCode] = {};
+        roomTypes.forEach(function (rt) {
+          if (bComp.recommendedPricesByRoom[rt] !== undefined && bComp.recommendedPricesByRoom[rt] !== null) {
+            mergedGrid[bCode][rt] = bComp.recommendedPricesByRoom[rt];
+          }
+        });
+      }
+    });
+    setFormData(function (prev) {
+      return _objectSpread(_objectSpread({}, prev), {}, {
+        capaSuiteDiscountPercent: discount,
+        ratesOnlyGrid: mergedGrid,
+        dailyConfig: newDailyConfig
+      });
+    });
+    alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
   };
   var handleCopyFirstDay = function handleCopyFirstDay() {
     var _formData$dailyConfig;
@@ -4180,9 +4339,125 @@ function App() {
       title: "Copiar precios y cupos del primer d\xEDa a todos los siguientes"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-copy"
-    }), " Copiar 1\xBA D\xEDa a Todos"))), /*#__PURE__*/React.createElement("div", {
+    }), " Copiar 1\xBA D\xEDa a Todos"))), function () {
+      var hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+      var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+      var board = formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+      var staySummary = getCapaSuiteStayTariffSummary(hotel, stayDates, board, discount);
+      if (!staySummary) return null;
+      return /*#__PURE__*/React.createElement("div", {
+        className: "bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 text-white shadow-sm border border-indigo-500/20 space-y-3"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-col md:flex-row md:items-center justify-between gap-3"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2.5"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-bolt text-amber-400 text-xs"
+      })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[9px] font-black uppercase tracking-widest text-indigo-300"
+      }, "Inteligencia de Precios CapaSuite"), /*#__PURE__*/React.createElement("span", {
+        className: "text-[8px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold"
+      }, staySummary.nightsCount, " ", staySummary.nightsCount === 1 ? 'noche' : 'noches')), /*#__PURE__*/React.createElement("h4", {
+        className: "text-xs font-black text-white tracking-tight"
+      }, "Tarifa Oficial de Grupo vs Tarifa Recomendada CapaSuite"))), /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-wrap items-center gap-2"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl border border-white/10"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[8px] font-black uppercase tracking-wider text-slate-300 mr-1"
+      }, "Descuento CapaSuite:"), [10, 15, 20, 25].map(function (pct) {
+        return /*#__PURE__*/React.createElement("button", {
+          key: pct,
+          type: "button",
+          onClick: function onClick() {
+            setFormData(function (prev) {
+              return _objectSpread(_objectSpread({}, prev), {}, {
+                capaSuiteDiscountPercent: pct
+              });
+            });
+          },
+          className: "px-1.5 py-0.5 rounded text-[9px] font-black transition-all ".concat(discount === pct ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white/10 text-slate-300 hover:bg-white/20')
+        }, "-", pct, "%");
+      }), /*#__PURE__*/React.createElement("div", {
+        className: "relative w-12 ml-1"
+      }, /*#__PURE__*/React.createElement("input", {
+        type: "number",
+        min: "0",
+        max: "80",
+        value: discount,
+        onChange: function onChange(e) {
+          return setFormData(function (prev) {
+            return _objectSpread(_objectSpread({}, prev), {}, {
+              capaSuiteDiscountPercent: Math.max(0, Math.min(80, Number(e.target.value) || 0))
+            });
+          });
+        },
+        className: "w-full bg-white/10 border border-white/20 rounded px-1 py-0.5 text-center text-[9px] font-black text-white outline-none focus:border-emerald-400 [&::-webkit-inner-spin-button]:appearance-none",
+        title: "Porcentaje de descuento sobre la tarifa de habitaci\xF3n del hotel"
+      }), /*#__PURE__*/React.createElement("span", {
+        className: "absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-slate-400 font-bold"
+      }, "%"))), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          return handleLoadRecommendedTariffs(discount);
+        },
+        className: "bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1.5",
+        title: "Aplica a todas las noches la tarifa recomendada de CapaSuite (-".concat(discount, "% de descuento)")
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-bolt text-yellow-300"
+      }), "Aplicar Recomendada (-", discount, "%)"), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: handleLoadOfficialTariffs,
+        className: "bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1",
+        title: "Aplica la tarifa oficial de grupos vigente del cat\xE1logo"
+      }, /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-tags text-indigo-300"
+      }), "Tarifa Oficial"))), /*#__PURE__*/React.createElement("div", {
+        className: "grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-[10px]"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "bg-white/5 rounded-xl p-2 border border-white/5"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-[8px] font-bold text-slate-400 uppercase tracking-wider"
+      }, "PVP Hotel (D\xEDa)"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm font-black text-white mt-0.5"
+      }, staySummary.avgHotelPrice.toFixed(2), " \u20AC"), /*#__PURE__*/React.createElement("div", {
+        className: "text-[7px] text-slate-400 truncate"
+      }, "Precio hab. CapaSuite")), /*#__PURE__*/React.createElement("div", {
+        className: "bg-white/5 rounded-xl p-2 border border-white/5"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-[8px] font-bold text-emerald-400 uppercase tracking-wider"
+      }, "Tarifa Oficial Grupo"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm font-black text-emerald-300 mt-0.5"
+      }, staySummary.avgOfficialRate.toFixed(2), " \u20AC"), /*#__PURE__*/React.createElement("div", {
+        className: "text-[7px] text-slate-400 truncate"
+      }, "Cat\xE1logo de grupos")), /*#__PURE__*/React.createElement("div", {
+        className: "bg-white/5 rounded-xl p-2 border border-white/5"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-[8px] font-bold text-amber-400 uppercase tracking-wider"
+      }, "Descuento CapaSuite"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm font-black text-amber-300 mt-0.5"
+      }, "-", discount, "%"), /*#__PURE__*/React.createElement("div", {
+        className: "text-[7px] text-slate-400 truncate"
+      }, "Ahorro -", (staySummary.avgHotelPrice * (discount / 100)).toFixed(2), " \u20AC/hab")), /*#__PURE__*/React.createElement("div", {
+        className: "bg-indigo-500/20 rounded-xl p-2 border border-indigo-400/30"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "text-[8px] font-bold text-indigo-300 uppercase tracking-wider"
+      }, "Tarifa Recomendada"), /*#__PURE__*/React.createElement("div", {
+        className: "text-sm font-black text-indigo-200 mt-0.5"
+      }, staySummary.avgRecommendedRate.toFixed(2), " \u20AC"), /*#__PURE__*/React.createElement("div", {
+        className: "text-[7px] text-indigo-300/80 truncate"
+      }, "PVP - dto. comercial"))));
+    }(), /*#__PURE__*/React.createElement("div", {
       className: "space-y-3"
     }, stayDates.map(function (date) {
+      var _formData$dailyConfig2;
+      var discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+      var currentBoard = ((_formData$dailyConfig2 = formData.dailyConfig) === null || _formData$dailyConfig2 === void 0 || (_formData$dailyConfig2 = _formData$dailyConfig2[date]) === null || _formData$dailyConfig2 === void 0 ? void 0 : _formData$dailyConfig2.board) || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+      var dayComp = getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, discount);
       var selectedTypes = formData.isMultiSegment ? Array.from(new Set((formData.segments || []).flatMap(function (s) {
         var allocations = Array.isArray(s.roomAllocations) && s.roomAllocations.length > 0 ? s.roomAllocations : [{
           roomType: s.roomType || "DOBLE DE USO INDIVIDUAL"
@@ -4200,18 +4475,25 @@ function App() {
         className: "shrink-0 w-24 flex flex-col gap-1"
       }, /*#__PURE__*/React.createElement("span", {
         className: "bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest"
-      }, formatDate(date))), /*#__PURE__*/React.createElement("div", {
+      }, formatDate(date)), /*#__PURE__*/React.createElement("span", {
+        className: "text-[7px] text-slate-400 font-bold",
+        title: "PVP Hotel CapaSuite para esta fecha: ".concat(dayComp.hotelDayPrice, " \u20AC")
+      }, "PVP: ", /*#__PURE__*/React.createElement("span", {
+        className: "text-slate-600 font-black"
+      }, dayComp.hotelDayPrice, " \u20AC"))), /*#__PURE__*/React.createElement("div", {
         className: "flex-1 flex flex-wrap gap-2 items-center"
       }, selectedTypes.map(function (type) {
-        var _formData$dailyConfig2, _formData$dailyConfig3, _formData$dailyConfig4;
-        var dailyCounts = ((_formData$dailyConfig2 = formData.dailyConfig) === null || _formData$dailyConfig2 === void 0 || (_formData$dailyConfig2 = _formData$dailyConfig2[date]) === null || _formData$dailyConfig2 === void 0 ? void 0 : _formData$dailyConfig2.counts) || {};
+        var _formData$dailyConfig3, _formData$dailyConfig4, _formData$dailyConfig5;
+        var dailyCounts = ((_formData$dailyConfig3 = formData.dailyConfig) === null || _formData$dailyConfig3 === void 0 || (_formData$dailyConfig3 = _formData$dailyConfig3[date]) === null || _formData$dailyConfig3 === void 0 ? void 0 : _formData$dailyConfig3.counts) || {};
         var countVal = formData.isMultiSegment ? function (_segmentCountsByDate$) {
           var segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
           return ((_segmentCountsByDate$ = segmentCountsByDate[date]) === null || _segmentCountsByDate$ === void 0 ? void 0 : _segmentCountsByDate$[type.toUpperCase()]) || 0;
         }() : dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '';
+        var offPrice = dayComp.officialPricesByRoom[type];
+        var recPrice = dayComp.recommendedPricesByRoom[type];
         return /*#__PURE__*/React.createElement("div", {
           key: type,
-          className: "flex flex-col gap-0.5 min-w-[120px]"
+          className: "flex flex-col gap-0.5 min-w-[125px]"
         }, /*#__PURE__*/React.createElement("label", {
           className: "text-[7px] font-black text-slate-500 uppercase truncate px-1",
           title: type
@@ -4233,7 +4515,7 @@ function App() {
           className: "relative group flex w-[68px]"
         }, /*#__PURE__*/React.createElement("input", {
           type: "number",
-          value: (((_formData$dailyConfig3 = formData.dailyConfig) === null || _formData$dailyConfig3 === void 0 || (_formData$dailyConfig3 = _formData$dailyConfig3[date]) === null || _formData$dailyConfig3 === void 0 ? void 0 : _formData$dailyConfig3.prices) || {})[type] || '',
+          value: (((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.prices) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'prices', e.target.value, type);
           },
@@ -4250,20 +4532,46 @@ function App() {
         }, "Grat."), /*#__PURE__*/React.createElement("input", {
           type: "number",
           min: "0",
-          value: (((_formData$dailyConfig4 = formData.dailyConfig) === null || _formData$dailyConfig4 === void 0 || (_formData$dailyConfig4 = _formData$dailyConfig4[date]) === null || _formData$dailyConfig4 === void 0 ? void 0 : _formData$dailyConfig4.gratuities) || {})[type] || '',
+          value: (((_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.gratuities) || {})[type] || '',
           onChange: function onChange(e) {
             return handleDailyConfigChange(date, 'gratuities', e.target.value, type);
           },
           className: "w-full bg-transparent text-[10px] font-black text-center outline-none text-emerald-700 [&::-webkit-inner-spin-button]:appearance-none placeholder:text-emerald-300",
           placeholder: "0"
-        }))));
+        }))), /*#__PURE__*/React.createElement("div", {
+          className: "flex items-center gap-1 mt-0.5 text-[8px] font-bold"
+        }, /*#__PURE__*/React.createElement("button", {
+          type: "button",
+          onClick: function onClick() {
+            return offPrice !== null && offPrice !== undefined && handleDailyConfigChange(date, 'prices', offPrice, type);
+          },
+          className: "px-1.5 py-0.5 rounded bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-700 transition flex items-center gap-0.5 border border-slate-200/80",
+          title: "Tarifa Oficial: ".concat(offPrice !== undefined && offPrice !== null ? offPrice + ' €' : '-', " (Clic para aplicar)")
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "text-[7px] text-slate-400 uppercase"
+        }, "Ofi:"), /*#__PURE__*/React.createElement("span", {
+          className: "font-black text-slate-700"
+        }, offPrice !== undefined && offPrice !== null ? offPrice + '€' : '-')), /*#__PURE__*/React.createElement("button", {
+          type: "button",
+          onClick: function onClick() {
+            return recPrice !== null && recPrice !== undefined && handleDailyConfigChange(date, 'prices', recPrice, type);
+          },
+          className: "px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 transition flex items-center gap-0.5 border border-indigo-200",
+          title: "Tarifa Recomendada CapaSuite: PVP Hotel ".concat(dayComp.hotelDayPrice, " \u20AC con -").concat(discount, "% dto. = ").concat(recPrice, " \u20AC (Clic para aplicar)")
+        }, /*#__PURE__*/React.createElement("i", {
+          className: "fas fa-bolt text-amber-500 text-[7px]"
+        }), /*#__PURE__*/React.createElement("span", {
+          className: "text-[7px] text-indigo-500 uppercase"
+        }, "Rec:"), /*#__PURE__*/React.createElement("span", {
+          className: "font-black text-indigo-700"
+        }, recPrice !== undefined && recPrice !== null ? recPrice + '€' : '-'))));
       })), /*#__PURE__*/React.createElement("div", {
         className: "shrink-0 w-32 flex flex-col gap-0.5"
       }, /*#__PURE__*/React.createElement("label", {
         className: "text-[7px] font-black text-indigo-500 uppercase px-1"
       }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
-        value: function (_formData$dailyConfig5) {
-          var b = (_formData$dailyConfig5 = formData.dailyConfig) === null || _formData$dailyConfig5 === void 0 || (_formData$dailyConfig5 = _formData$dailyConfig5[date]) === null || _formData$dailyConfig5 === void 0 ? void 0 : _formData$dailyConfig5.board;
+        value: function (_formData$dailyConfig6) {
+          var b = (_formData$dailyConfig6 = formData.dailyConfig) === null || _formData$dailyConfig6 === void 0 || (_formData$dailyConfig6 = _formData$dailyConfig6[date]) === null || _formData$dailyConfig6 === void 0 ? void 0 : _formData$dailyConfig6.board;
           if (!b) return 'HD (Alojamiento y Desayuno)';
           if (b.startsWith('SA') || b.startsWith('HA')) return 'HA (Solo Alojamiento)';
           if (b.startsWith('AD') || b.startsWith('HD')) return 'HD (Alojamiento y Desayuno)';
@@ -4323,7 +4631,16 @@ function App() {
       title: "Rellena la tabla con las tarifas oficiales vigentes para este hotel"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-magic text-[10px]"
-    }), "Tarifas Oficiales"), ((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && /*#__PURE__*/React.createElement("button", {
+    }), "Tarifas Oficiales"), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return handleLoadRecommendedTariffs();
+      },
+      className: "px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95",
+      title: "Rellena la tabla con las tarifas recomendadas de CapaSuite (-".concat(formData.capaSuiteDiscountPercent || 15, "% sobre PVP de habitaci\xF3n)")
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-bolt text-amber-500 text-[10px]"
+    }), "Tarifa Rec. CapaSuite (-", formData.capaSuiteDiscountPercent || 15, "%)"), ((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           hiddenGridRows: [],

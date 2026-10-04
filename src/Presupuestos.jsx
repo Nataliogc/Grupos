@@ -214,6 +214,95 @@
       return grid;
     };
 
+    /**
+     * Helpers de integración con CapaSuite Pricing Service
+     */
+    const getCapaSuiteHotelDayPrice = (hotelName, dateISO) => {
+      const ps = window.CapaSuitePricingService;
+      if (ps && typeof ps.getCapaSuiteHotelDayPrice === 'function') {
+        return ps.getCapaSuiteHotelDayPrice(hotelName, dateISO);
+      }
+      const isCumbria = (hotelName || '').toLowerCase().includes('cumbria');
+      const d = dateISO ? new Date(toInputDate(dateISO) + 'T00:00:00') : new Date();
+      const dow = d.getDay();
+      const isWeekend = (dow === 5 || dow === 6);
+      let base = isCumbria ? 62 : 68;
+      if (isWeekend) base += 18;
+      return { price: base, source: 'CapaSuite Benchmark', isEstimated: true, hotel: hotelName, dateISO };
+    };
+
+    const getCapaSuiteTariffComparison = (hotelName, dateISO, boardName, discountPercent) => {
+      const ps = window.CapaSuitePricingService;
+      const y = dateISO ? new Date(toInputDate(dateISO)).getFullYear() : 2027;
+      const offGrid = getOfficialTariffsGrid(hotelName, isNaN(y) ? 2027 : y);
+      if (ps && typeof ps.getTariffComparison === 'function') {
+        return ps.getTariffComparison(hotelName, dateISO, boardName, discountPercent, offGrid);
+      }
+      const priceInfo = getCapaSuiteHotelDayPrice(hotelName, dateISO);
+      const discount = typeof discountPercent === 'number' && !isNaN(discountPercent) ? discountPercent : 15;
+      const recDoble = Math.round(priceInfo.price * (1 - discount / 100) * 100) / 100;
+      const boardCode = (boardName || 'HD').split(' ')[0];
+      const offPrices = offGrid[boardCode] || offGrid['HD'] || {};
+      const offDoble = Number(offPrices['doble'] || 82);
+      const rooms = getRoomTypesForHotel(hotelName);
+      const offByRoom = {};
+      const recByRoom = {};
+      const savingsByRoom = {};
+      rooms.forEach(rt => {
+        const offP = Number(offPrices[rt] || offDoble);
+        offByRoom[rt] = offP;
+        const ratio = offDoble > 0 ? (offP / offDoble) : 1;
+        const recP = Math.round(recDoble * ratio * 100) / 100;
+        recByRoom[rt] = recP;
+        savingsByRoom[rt] = {
+          diffVsHotel: Math.round((priceInfo.price - recP) * 100) / 100,
+          diffVsOfficial: Math.round((recP - offP) * 100) / 100
+        };
+      });
+      return {
+        hotelName,
+        dateISO,
+        boardCode,
+        hotelDayPrice: priceInfo.price,
+        hotelPriceInfo: priceInfo,
+        discountPercent: discount,
+        officialDoble: offDoble,
+        recDoble,
+        roomTypes: rooms,
+        officialPricesByRoom: offByRoom,
+        recommendedPricesByRoom: recByRoom,
+        savingsByRoom
+      };
+    };
+
+    const getCapaSuiteStayTariffSummary = (hotelName, stayDates, boardName, discountPercent) => {
+      const ps = window.CapaSuitePricingService;
+      const firstDate = stayDates && stayDates[0];
+      const y = firstDate ? new Date(toInputDate(firstDate)).getFullYear() : 2027;
+      const offGrid = getOfficialTariffsGrid(hotelName, isNaN(y) ? 2027 : y);
+      if (ps && typeof ps.getStayTariffSummary === 'function') {
+        return ps.getStayTariffSummary(hotelName, stayDates, boardName, discountPercent, offGrid);
+      }
+      if (!stayDates || stayDates.length === 0) return null;
+      const comps = stayDates.map(d => getCapaSuiteTariffComparison(hotelName, d, boardName, discountPercent));
+      const len = comps.length;
+      let sumH = 0, sumOff = 0, sumRec = 0;
+      comps.forEach(c => {
+        sumH += c.hotelDayPrice;
+        sumOff += c.officialDoble;
+        sumRec += c.recDoble;
+      });
+      return {
+        nightsCount: len,
+        avgHotelPrice: Math.round((sumH / len) * 100) / 100,
+        avgOfficialRate: Math.round((sumOff / len) * 100) / 100,
+        avgRecommendedRate: Math.round((sumRec / len) * 100) / 100,
+        discountPercent: comps[0] ? comps[0].discountPercent : 15,
+        totalSavingsVsHotel: Math.round((sumH - sumRec) * 100) / 100,
+        comparisons: comps
+      };
+    };
+
     // --- UTILS (cargadas desde js/utils.js) ---
     const generateDates = NexusUtils.generateDates;
     const generateSeriesDates = NexusUtils.generateSeriesDates;
@@ -357,7 +446,8 @@
       hiddenGridCols: [],
       segments: [],           // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
       isMultiSegment: false,   // NUEVO: modo multi-segmento activo
-      declaredPax: ''         // NUEVO: Pax declarados por el cliente
+      declaredPax: '',        // NUEVO: Pax declarados por el cliente
+      capaSuiteDiscountPercent: 15 // Descuento comercial recomendado CapaSuite (por defecto 15%)
     };
 
     // ── Calcula cupos diarios a partir de los segmentos ─────────────────
@@ -932,6 +1022,7 @@
       const newData = { ...groupData };
       newData.isRatesOnly = !!groupData.isRatesOnly;
       newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
+      newData.capaSuiteDiscountPercent = groupData.capaSuiteDiscountPercent !== undefined ? groupData.capaSuiteDiscountPercent : 15;
       
       const rawHotel = groupData.Hotel_Asignado || groupData.Hotel || "";
       if (rawHotel.toLowerCase().includes("cumbria")) {
@@ -1893,6 +1984,65 @@
         }));
 
         alert('Tarifas oficiales ' + validYear + ' aplicadas correctamente a ' + hotel + ' (' + Object.keys(mergedGrid).length + ' regímenes).');
+      };
+
+      /**
+       * Carga las tarifas recomendadas de CapaSuite aplicando el descuento comercial
+       * sobre los precios de habitación del hotel para cada día.
+       */
+      const handleLoadRecommendedTariffs = (customDiscount) => {
+        const discount = customDiscount !== undefined 
+          ? customDiscount 
+          : (formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15);
+        const parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+        const validYear = isNaN(parsedY) ? 2027 : parsedY;
+        const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+        const roomTypes = getRoomTypesForHotel(hotel);
+        const stayDates = getCurrentStayDates(formData);
+        const newDailyConfig = { ...(formData.dailyConfig || {}) };
+
+        stayDates.forEach(date => {
+          if (!newDailyConfig[date]) {
+            newDailyConfig[date] = { board: formData['Régimen'] || 'AD (Alojamiento y Desayuno)', prices: {}, counts: {}, gratuities: {} };
+          }
+          const dayConf = newDailyConfig[date];
+          const currentBoard = dayConf.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+          const comp = getCapaSuiteTariffComparison(hotel, date, currentBoard, discount);
+
+          const updatedPrices = { ...(dayConf.prices || {}) };
+          roomTypes.forEach(rt => {
+            const recP = comp.recommendedPricesByRoom?.[rt];
+            if (recP !== undefined && recP !== null && recP !== '') {
+              updatedPrices[rt] = Number(recP);
+            }
+          });
+          dayConf.prices = updatedPrices;
+        });
+
+        // Actualizar también Modo Grid (ratesOnlyGrid) si aplica
+        const mergedGrid = { ...(formData.ratesOnlyGrid || {}) };
+        const refDate = stayDates[0] || formData.Entrada || new Date().toISOString().split('T')[0];
+
+        ['HA', 'HD', 'MP', 'PC'].forEach(bCode => {
+          const bComp = getCapaSuiteTariffComparison(hotel, refDate, bCode, discount);
+          if (bComp && bComp.recommendedPricesByRoom) {
+            if (!mergedGrid[bCode]) mergedGrid[bCode] = {};
+            roomTypes.forEach(rt => {
+              if (bComp.recommendedPricesByRoom[rt] !== undefined && bComp.recommendedPricesByRoom[rt] !== null) {
+                mergedGrid[bCode][rt] = bComp.recommendedPricesByRoom[rt];
+              }
+            });
+          }
+        });
+
+        setFormData(prev => ({
+          ...prev,
+          capaSuiteDiscountPercent: discount,
+          ratesOnlyGrid: mergedGrid,
+          dailyConfig: newDailyConfig
+        }));
+
+        alert('⚡ Tarifas recomendadas CapaSuite aplicadas con -' + discount + '% de descuento sobre precios de habitación del hotel para ' + hotel + '.');
       };
 
 
@@ -3518,8 +3668,122 @@ ${emailContent}`;
                         </div>
                       </div>
 
+                      {/* Panel de Inteligencia CapaSuite vs Tarifas Oficiales */}
+                      {(() => {
+                        const hotel = formData.Hotel_Asignado || 'Sercotel Guadiana';
+                        const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+                        const board = formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+                        const staySummary = getCapaSuiteStayTariffSummary(hotel, stayDates, board, discount);
+                        if (!staySummary) return null;
+
+                        return (
+                          <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 text-white shadow-sm border border-indigo-500/20 space-y-3">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                                  <i className="fas fa-bolt text-amber-400 text-xs"></i>
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300">Inteligencia de Precios CapaSuite</span>
+                                    <span className="text-[8px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                                      {staySummary.nightsCount} {staySummary.nightsCount === 1 ? 'noche' : 'noches'}
+                                    </span>
+                                  </div>
+                                  <h4 className="text-xs font-black text-white tracking-tight">
+                                    Tarifa Oficial de Grupo vs Tarifa Recomendada CapaSuite
+                                  </h4>
+                                </div>
+                              </div>
+
+                              {/* Selector y Controles de Descuento CapaSuite */}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl border border-white/10">
+                                  <span className="text-[8px] font-black uppercase tracking-wider text-slate-300 mr-1">Descuento CapaSuite:</span>
+                                  {[10, 15, 20, 25].map(pct => (
+                                    <button
+                                      key={pct}
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, capaSuiteDiscountPercent: pct }));
+                                      }}
+                                      className={`px-1.5 py-0.5 rounded text-[9px] font-black transition-all ${
+                                        discount === pct
+                                          ? 'bg-emerald-500 text-white shadow-sm'
+                                          : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                                      }`}
+                                    >
+                                      -{pct}%
+                                    </button>
+                                  ))}
+                                  <div className="relative w-12 ml-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="80"
+                                      value={discount}
+                                      onChange={e => setFormData(prev => ({ ...prev, capaSuiteDiscountPercent: Math.max(0, Math.min(80, Number(e.target.value) || 0)) }))}
+                                      className="w-full bg-white/10 border border-white/20 rounded px-1 py-0.5 text-center text-[9px] font-black text-white outline-none focus:border-emerald-400 [&::-webkit-inner-spin-button]:appearance-none"
+                                      title="Porcentaje de descuento sobre la tarifa de habitación del hotel"
+                                    />
+                                    <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-slate-400 font-bold">%</span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleLoadRecommendedTariffs(discount)}
+                                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 flex items-center gap-1.5"
+                                  title={`Aplica a todas las noches la tarifa recomendada de CapaSuite (-${discount}% de descuento)`}
+                                >
+                                  <i className="fas fa-bolt text-yellow-300"></i>
+                                  Aplicar Recomendada (-{discount}%)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleLoadOfficialTariffs}
+                                  className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1"
+                                  title="Aplica la tarifa oficial de grupos vigente del catálogo"
+                                >
+                                  <i className="fas fa-tags text-indigo-300"></i>
+                                  Tarifa Oficial
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Tarjetas resumen de precio medio */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-[10px]">
+                              <div className="bg-white/5 rounded-xl p-2 border border-white/5">
+                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">PVP Hotel (Día)</div>
+                                <div className="text-sm font-black text-white mt-0.5">{staySummary.avgHotelPrice.toFixed(2)} €</div>
+                                <div className="text-[7px] text-slate-400 truncate">Precio hab. CapaSuite</div>
+                              </div>
+                              <div className="bg-white/5 rounded-xl p-2 border border-white/5">
+                                <div className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Tarifa Oficial Grupo</div>
+                                <div className="text-sm font-black text-emerald-300 mt-0.5">{staySummary.avgOfficialRate.toFixed(2)} €</div>
+                                <div className="text-[7px] text-slate-400 truncate">Catálogo de grupos</div>
+                              </div>
+                              <div className="bg-white/5 rounded-xl p-2 border border-white/5">
+                                <div className="text-[8px] font-bold text-amber-400 uppercase tracking-wider">Descuento CapaSuite</div>
+                                <div className="text-sm font-black text-amber-300 mt-0.5">-{discount}%</div>
+                                <div className="text-[7px] text-slate-400 truncate">Ahorro -{(staySummary.avgHotelPrice * (discount / 100)).toFixed(2)} €/hab</div>
+                              </div>
+                              <div className="bg-indigo-500/20 rounded-xl p-2 border border-indigo-400/30">
+                                <div className="text-[8px] font-bold text-indigo-300 uppercase tracking-wider">Tarifa Recomendada</div>
+                                <div className="text-sm font-black text-indigo-200 mt-0.5">{staySummary.avgRecommendedRate.toFixed(2)} €</div>
+                                <div className="text-[7px] text-indigo-300/80 truncate">PVP - dto. comercial</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       <div className="space-y-3">
                         {stayDates.map(date => {
+                          const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 15;
+                          const currentBoard = formData.dailyConfig?.[date]?.board || formData['Régimen'] || 'AD (Alojamiento y Desayuno)';
+                          const dayComp = getCapaSuiteTariffComparison(formData.Hotel_Asignado, date, currentBoard, discount);
+
                           const selectedTypes = formData.isMultiSegment
                             ? Array.from(new Set(
                                 (formData.segments || []).flatMap(s => {
@@ -3534,6 +3798,9 @@ ${emailContent}`;
                             <div key={date} className="group bg-slate-50/50 rounded-xl p-3 border border-slate-100 hover:border-indigo-200 transition-all flex flex-row flex-wrap gap-3 items-center">
                               <div className="shrink-0 w-24 flex flex-col gap-1">
                                 <span className="bg-slate-800 text-white px-2 py-1 rounded text-[8px] font-black w-fit uppercase tracking-widest">{formatDate(date)}</span>
+                                <span className="text-[7px] text-slate-400 font-bold" title={`PVP Hotel CapaSuite para esta fecha: ${dayComp.hotelDayPrice} €`}>
+                                  PVP: <span className="text-slate-600 font-black">{dayComp.hotelDayPrice} €</span>
+                                </span>
                               </div>
 
                               <div className="flex-1 flex flex-wrap gap-2 items-center">
@@ -3545,8 +3812,12 @@ ${emailContent}`;
                                         return segmentCountsByDate[date]?.[type.toUpperCase()] || 0;
                                       })()
                                     : (dailyCounts[type] !== undefined ? dailyCounts[type] : (formData.roomCounts || {})[type] || '');
+
+                                  const offPrice = dayComp.officialPricesByRoom[type];
+                                  const recPrice = dayComp.recommendedPricesByRoom[type];
+
                                   return (
-                                    <div key={type} className="flex flex-col gap-0.5 min-w-[120px]">
+                                    <div key={type} className="flex flex-col gap-0.5 min-w-[125px]">
                                       <label className="text-[7px] font-black text-slate-500 uppercase truncate px-1" title={type}>{type}</label>
                                       <div className="relative group flex gap-1 items-center">
                                         <input
@@ -3581,6 +3852,29 @@ ${emailContent}`;
                                             placeholder="0"
                                           />
                                         </div>
+                                      </div>
+
+                                      {/* Comparativa directa y botones de aplicación rápida 1-clic */}
+                                      <div className="flex items-center gap-1 mt-0.5 text-[8px] font-bold">
+                                        <button
+                                          type="button"
+                                          onClick={() => offPrice !== null && offPrice !== undefined && handleDailyConfigChange(date, 'prices', offPrice, type)}
+                                          className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-700 transition flex items-center gap-0.5 border border-slate-200/80"
+                                          title={`Tarifa Oficial: ${offPrice !== undefined && offPrice !== null ? offPrice + ' €' : '-'} (Clic para aplicar)`}
+                                        >
+                                          <span className="text-[7px] text-slate-400 uppercase">Ofi:</span>
+                                          <span className="font-black text-slate-700">{offPrice !== undefined && offPrice !== null ? offPrice + '€' : '-'}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => recPrice !== null && recPrice !== undefined && handleDailyConfigChange(date, 'prices', recPrice, type)}
+                                          className="px-1.5 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 transition flex items-center gap-0.5 border border-indigo-200"
+                                          title={`Tarifa Recomendada CapaSuite: PVP Hotel ${dayComp.hotelDayPrice} € con -${discount}% dto. = ${recPrice} € (Clic para aplicar)`}
+                                        >
+                                          <i className="fas fa-bolt text-amber-500 text-[7px]"></i>
+                                          <span className="text-[7px] text-indigo-500 uppercase">Rec:</span>
+                                          <span className="font-black text-indigo-700">{recPrice !== undefined && recPrice !== null ? recPrice + '€' : '-'}</span>
+                                        </button>
                                       </div>
                                     </div>
                                   )
@@ -3652,6 +3946,15 @@ ${emailContent}`;
                       >
                         <i className="fas fa-magic text-[10px]"></i>
                         Tarifas Oficiales
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadRecommendedTariffs()}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black tracking-tight transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                        title={`Rellena la tabla con las tarifas recomendadas de CapaSuite (-${formData.capaSuiteDiscountPercent || 15}% sobre PVP de habitación)`}
+                      >
+                        <i className="fas fa-bolt text-amber-500 text-[10px]"></i>
+                        Tarifa Rec. CapaSuite (-{formData.capaSuiteDiscountPercent || 15}%)
                       </button>
 
                       {((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && (
