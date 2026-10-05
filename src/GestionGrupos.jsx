@@ -971,6 +971,7 @@
       const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos}));
       const begin = () => {
         try {
+          if (!service?.getMealSchedule || !service?.getAutomaticMealDocuments) throw new Error("Recarga la página para cargar la programación de comidas actualizada.");
           const defaults = automatic();
           setIncluded(defaults.reduce((sum,r)=>sum+r.pax,0));
           setRows(service.getMealSchedule(record) ?? defaults);
@@ -994,12 +995,12 @@
         } catch (e) { setError(e.message || "No se pudo guardar la programación."); }
         finally { setSaving(false); }
       };
-      if (!service?.getMealSchedule) return null;
+
       return <div className="bg-white border border-blue-200 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div><h4 className="font-bold text-slate-800 text-sm">Comidas del grupo</h4>
             <p className="text-xs text-slate-500">Elige las fechas y los turnos de las comidas incluidas en la pensión.</p></div>
-          {!open && <button type="button" onClick={begin} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-xs font-bold">Programar comidas</button>}
+          {!open && <button type="button" onClick={begin} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-xs font-bold">Programar comidas · día y servicio</button>}
         </div>
         {!open && record.MealSchedule_JSON && <p className="text-xs text-blue-700">Este grupo tiene una programación personalizada.</p>}
         {open && <>
@@ -21292,17 +21293,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                 </p>
 
-                                {(() => {
-                                  const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal, officialTariffsCatalog);
-                                  if (m.adr > 0) {
-                                    return (
-                                      <p className="text-[9px] font-bold text-emerald-300 mt-1 tabular-nums" title="Precio medio de alojamiento por habitación y noche, sin pensiones">
-                                        Media aloj.: {m.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/hab
-                                      </p>
-                                    );
-                                  }
-                                  return null;
-                                })()}
+
 
                               </div>
 
@@ -22177,8 +22168,15 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                   {/* DESGLOSE OFICIAL POR PERSONA */}
                                   {(() => {
+                                    const metrics = calculateGroupAdrAndRoomNights(selectedGroupFicha, displayTotal, officialTariffsCatalog);
                                     const summaries = getGroupBoardPriceSummary(selectedGroupFicha, officialTariffsCatalog);
-                                    return <div className="text-center col-span-2 md:col-span-5 border-slate-100 md:border-x px-3">
+                                    return <div className="text-center col-span-2 md:col-span-5 border-slate-100 md:border-x px-3 flex flex-wrap items-center justify-center gap-4">
+                                      <div className="shrink-0" title="Precio medio de alojamiento por habitación y noche, sin pensiones">
+                                        <div className="text-[9px] font-black uppercase text-indigo-500 mb-1">Precio medio habitación</div>
+                                        <div className="text-sm font-black text-indigo-700 tabular-nums">{metrics.roomNights > 0 ? `${metrics.adr.toLocaleString("es-ES", {minimumFractionDigits:2, maximumFractionDigits:2})} €` : "—"}</div>
+                                        <div className="text-[9px] font-bold text-slate-400">Solo alojamiento · por noche</div>
+                                      </div>
+                                      <div className="flex-1 min-w-[200px]">
                                       <div className="text-[9px] font-black uppercase text-indigo-500 mb-1">Pensión · importe oficial por persona</div>
                                       {summaries.length ? summaries.map(summary => <div key={summary.key} className="space-y-1">
                                         <div className="text-[9px] text-slate-400 font-bold">{summary.hotel} · {summary.year}</div>
@@ -22188,10 +22186,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                           </div>)}
                                         </div>
                                       </div>) : <div className="text-xs font-bold text-slate-500">Solo alojamiento</div>}
+                                      </div>
                                     </div>;
                                   })()}
 
-                                  <div className="text-center border-l border-slate-100">
+                                  <div className="text-center md:col-span-2 border-l border-slate-100">
                                     <div className="text-[8px] font-black uppercase text-emerald-500">Cobrado / Anticipos</div>
                                     <div className="text-sm font-black text-emerald-700 tabular-nums">{paid.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
                                   </div>
@@ -22215,6 +22214,13 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 )}
 
                                 {/* Lista de incidencias */}
+                                <div className="px-4 pb-3 bg-white">
+                            <GroupMealPlanner key={selectedGroupFicha.id} group={selectedGroupFicha} onSave={async (value) => {
+                              const result = await updateGroupMetadata(selectedGroupFicha.id, {MealSchedule_JSON:value});
+                              if (!result?.success) throw new Error("La programación se ha guardado, pero MesaChef no ha podido sincronizarla. Vuelve a guardar para reintentarlo.");
+                            }} />
+                                </div>
+
                                 {!isHealthy && (
                                   <div className="bg-white border-t border-slate-100 px-4 py-2 flex flex-col gap-1.5">
                                     {issues.map((issue, i) => (
@@ -22946,10 +22952,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             </div>
 
                             {/* BANNER DE SERVICIOS DESVINCULADOS EN MESACHEF */}
-                            <GroupMealPlanner key={selectedGroupFicha.id} group={selectedGroupFicha} onSave={async (value) => {
-                              const result = await updateGroupMetadata(selectedGroupFicha.id, {MealSchedule_JSON:value});
-                              if (!result?.success) throw new Error("La programación se ha guardado, pero MesaChef no ha podido sincronizarla. Vuelve a guardar para reintentarlo.");
-                            }} />
+
 
                             {mesachefUnlinkedServices && mesachefUnlinkedServices.length > 0 && (
                               <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex flex-col md:flex-row items-start justify-between gap-3 shadow-xs animate-fade-in">
