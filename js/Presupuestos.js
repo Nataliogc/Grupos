@@ -448,21 +448,16 @@ var getCapaSuiteTariffComparison = function getCapaSuiteTariffComparison(hotelNa
   var rooms = getRoomTypesForHotel(hotelName);
 
   // Suplementos de pensión por persona
-  var bPerson = 8.50,
-    mPerson = 19.50;
+  var catalog = {};
   try {
-    var rawBpc = localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig');
-    if (rawBpc) {
-      var parsed = JSON.parse(rawBpc);
-      var entry = parsed[hotelName] || parsed['default'];
-      if (entry) {
-        if (typeof entry.breakfast === 'number') bPerson = entry.breakfast;
-        if (typeof entry.meal === 'number') mPerson = entry.meal;
-      }
-    }
+    catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}');
   } catch (e) {}
+  var officialBoard = window.GroupTargetsService.getOfficialBoardPrices(catalog, hotelName, dateISO);
+  var bPerson = officialBoard.breakfast;
+  var mPerson = officialBoard.lunch;
+  var dPerson = officialBoard.dinner;
   var suppPerPerson = 0;
-  if (boardCode === 'HD') suppPerPerson = bPerson;else if (boardCode === 'MP') suppPerPerson = bPerson + mPerson;else if (boardCode === 'PC') suppPerPerson = bPerson + mPerson * 2;
+  if (boardCode === 'HD') suppPerPerson = bPerson;else if (boardCode === 'MP') suppPerPerson = bPerson + mPerson;else if (boardCode === 'PC') suppPerPerson = bPerson + mPerson + dPerson;
   var offByRoom = {};
   var recByRoom = {};
   var savingsByRoom = {};
@@ -1600,26 +1595,11 @@ var calculateTotal = function calculateTotal(rawGroupData) {
         });
         var unitPrice = Number(config.prices ? config.prices[priceKey] : roomConfig.price) || 0;
         var hotel = groupData.Hotel_Asignado || groupData.Hotel || '';
-        var hotelKey = hotel.toLowerCase().includes('cumbria') ? 'cumbria' : 'guadiana';
-        var pricing = {
-          breakfast: 8.5,
-          lunch: 19.5,
-          dinner: 19.5
-        };
+        var catalog = {};
         try {
-          var _ref33, _catalog$String$slice, _catalog$String$slice2;
-          var catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}');
-          var breakdown = (_ref33 = ((_catalog$String$slice = catalog[String(date).slice(0, 4)]) === null || _catalog$String$slice === void 0 ? void 0 : _catalog$String$slice[hotelKey]) || ((_catalog$String$slice2 = catalog[String(date).slice(0, 4)]) === null || _catalog$String$slice2 === void 0 ? void 0 : _catalog$String$slice2[hotel])) === null || _ref33 === void 0 ? void 0 : _ref33._desglose;
-          var configs = JSON.parse(localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig') || '{}');
-          var custom = configs[hotel] || configs[hotelKey] || configs.default || {};
-          for (var _i = 0, _arr = [breakdown || {}, custom]; _i < _arr.length; _i++) {
-            var _entry$breakfast, _ref34, _entry$lunch, _ref35, _ref36, _entry$dinner;
-            var entry = _arr[_i];
-            pricing.breakfast = Number((_entry$breakfast = entry.breakfast) !== null && _entry$breakfast !== void 0 ? _entry$breakfast : pricing.breakfast);
-            pricing.lunch = Number((_ref34 = (_entry$lunch = entry.lunch) !== null && _entry$lunch !== void 0 ? _entry$lunch : entry.meal) !== null && _ref34 !== void 0 ? _ref34 : pricing.lunch);
-            pricing.dinner = Number((_ref35 = (_ref36 = (_entry$dinner = entry.dinner) !== null && _entry$dinner !== void 0 ? _entry$dinner : entry.meal) !== null && _ref36 !== void 0 ? _ref36 : entry.lunch) !== null && _ref35 !== void 0 ? _ref35 : pricing.dinner);
-          }
-        } catch (error) {}
+          catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}');
+        } catch (e) {}
+        var pricing = window.GroupTargetsService.getOfficialBoardPrices(catalog, hotel, date);
         commissionBase += window.AgencyCommissionService.roomBase(_objectSpread({
           subtotal: lineSubtotal,
           unitPrice: unitPrice,
@@ -2134,10 +2114,10 @@ function App() {
       if (formData.isMultiSegment && Array.isArray(formData.segments) && formData.segments.length > 0) {
         segmentCountsByDate = buildDailyCountsFromSegments(formData.segments);
         Object.values(segmentCountsByDate).forEach(function (countsByType) {
-          Object.entries(countsByType).forEach(function (_ref37) {
-            var _ref38 = _slicedToArray(_ref37, 2),
-              rt = _ref38[0],
-              cnt = _ref38[1];
+          Object.entries(countsByType).forEach(function (_ref33) {
+            var _ref34 = _slicedToArray(_ref33, 2),
+              rt = _ref34[0],
+              cnt = _ref34[1];
             if (cnt > (maxByType[rt] || 0)) {
               maxByType[rt] = cnt;
             }
@@ -2167,10 +2147,10 @@ function App() {
           });
           // Set the actual counts for this date
           var countsForDate = segmentCountsByDate[date] || {};
-          Object.entries(countsForDate).forEach(function (_ref39) {
-            var _ref40 = _slicedToArray(_ref39, 2),
-              rt = _ref40[0],
-              cnt = _ref40[1];
+          Object.entries(countsForDate).forEach(function (_ref35) {
+            var _ref36 = _slicedToArray(_ref35, 2),
+              rt = _ref36[0],
+              cnt = _ref36[1];
             newCounts[rt] = cnt;
           });
           if (JSON.stringify(dayConf.counts) !== JSON.stringify(newCounts)) {
@@ -2363,10 +2343,10 @@ function App() {
     var newRoomCounts = _objectSpread(_objectSpread({}, formData.roomCounts || {}), {}, _defineProperty({}, type, Number(value)));
     // Auto-calcular PAX total (solo para los tipos válidos del hotel actual)
     var currentRooms = getRoomTypesForHotel(formData.Hotel_Asignado);
-    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref41) {
-      var _ref42 = _slicedToArray(_ref41, 2),
-        roomType = _ref42[0],
-        count = _ref42[1];
+    var totalPax = Object.entries(newRoomCounts).reduce(function (sum, _ref37) {
+      var _ref38 = _slicedToArray(_ref37, 2),
+        roomType = _ref38[0],
+        count = _ref38[1];
       if (currentRooms.includes(roomType)) {
         return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
       }
@@ -2505,11 +2485,11 @@ function App() {
           var wasUsingRec = false;
           var priceEntries = Object.entries(currentDayPrices);
           if (priceEntries.length > 0) {
-            var recMatches = priceEntries.filter(function (_ref43) {
+            var recMatches = priceEntries.filter(function (_ref39) {
               var _oldComp$recommendedP;
-              var _ref44 = _slicedToArray(_ref43, 2),
-                rt = _ref44[0],
-                p = _ref44[1];
+              var _ref40 = _slicedToArray(_ref39, 2),
+                rt = _ref40[0],
+                p = _ref40[1];
               return Number(p) === Number((_oldComp$recommendedP = oldComp.recommendedPricesByRoom) === null || _oldComp$recommendedP === void 0 ? void 0 : _oldComp$recommendedP[rt]);
             }).length;
             if (recMatches >= Math.max(1, priceEntries.length / 2)) {
@@ -2569,10 +2549,10 @@ function App() {
       }
     });
     setFormData(function (prev) {
-      var totalPax = Object.entries(prev.roomCounts || {}).reduce(function (sum, _ref45) {
-        var _ref46 = _slicedToArray(_ref45, 2),
-          roomType = _ref46[0],
-          count = _ref46[1];
+      var totalPax = Object.entries(prev.roomCounts || {}).reduce(function (sum, _ref41) {
+        var _ref42 = _slicedToArray(_ref41, 2),
+          roomType = _ref42[0],
+          count = _ref42[1];
         return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
       }, 0);
       return _objectSpread(_objectSpread({}, prev), {}, {
@@ -2830,7 +2810,7 @@ function App() {
     });
   };
   var _handleSave = /*#__PURE__*/function () {
-    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
+    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
       var _groups$find;
       var uidToCheck, oldRec, isHistoricalReadOnly, lockedInfo, resNum, now, formattedDate, normalizedFormData, autoCom, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, isOldDocLocked, _lockedInfo, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
       return _regenerator().w(function (_context2) {
@@ -3116,10 +3096,10 @@ function App() {
               "Empresa/Agencia": "Empresa",
               "Pax.": "Pax"
             };
-            Object.entries(fieldsToTrack).forEach(function (_ref48) {
-              var _ref49 = _slicedToArray(_ref48, 2),
-                field = _ref49[0],
-                label = _ref49[1];
+            Object.entries(fieldsToTrack).forEach(function (_ref44) {
+              var _ref45 = _slicedToArray(_ref44, 2),
+                field = _ref45[0],
+                label = _ref45[1];
               if (String(formData[field] || "") !== String(oldDoc[field] || "")) {
                 changes.push("".concat(label, ": ").concat(oldDoc[field] || 'vacío', " \u2794 ").concat(formData[field] || 'vacío'));
               }
@@ -3216,7 +3196,7 @@ function App() {
       }, _callee2, null, [[20, 32]]);
     }));
     return function handleSave(_x) {
-      return _ref47.apply(this, arguments);
+      return _ref43.apply(this, arguments);
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
@@ -3231,7 +3211,7 @@ function App() {
     setCurrentView('detail');
   };
   var handleTranslateClause = /*#__PURE__*/function () {
-    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
+    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(idx) {
       var type,
         clauses,
         textToTranslate,
@@ -3275,11 +3255,11 @@ function App() {
       }, _callee3, null, [[1, 3]]);
     }));
     return function handleTranslateClause(_x2) {
-      return _ref50.apply(this, arguments);
+      return _ref46.apply(this, arguments);
     };
   }();
   var handleParseEmailIA = /*#__PURE__*/function () {
-    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
       var currentYear, _prompt2, aiResult, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
@@ -3375,7 +3355,7 @@ function App() {
       }, _callee4, null, [[2, 6, 7, 8]]);
     }));
     return function handleParseEmailIA() {
-      return _ref51.apply(this, arguments);
+      return _ref47.apply(this, arguments);
     };
   }();
   var renderClauseText = function renderClauseText(text) {
@@ -3402,7 +3382,7 @@ function App() {
     return parseBold(text);
   };
   var handleDelete = /*#__PURE__*/function () {
-    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
+    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(uid) {
       var itemToDelete, _t5;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
@@ -3439,11 +3419,11 @@ function App() {
       }, _callee5, null, [[2, 4]]);
     }));
     return function handleDelete(_x3) {
-      return _ref52.apply(this, arguments);
+      return _ref48.apply(this, arguments);
     };
   }();
   var _updateStatus = /*#__PURE__*/function () {
-    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
+    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(uid, newStatus) {
       var existing, lockedInfo, result, _t6;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
@@ -3509,11 +3489,11 @@ function App() {
       }, _callee6, null, [[0, 4, 5, 6]]);
     }));
     return function updateStatus(_x4, _x5) {
-      return _ref53.apply(this, arguments);
+      return _ref49.apply(this, arguments);
     };
   }();
   var duplicateBudget = /*#__PURE__*/function () {
-    var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(budget) {
+    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(budget) {
       var changeHotel,
         source,
         currentHotel,
@@ -3603,11 +3583,11 @@ function App() {
       }, _callee7, null, [[2, 4]]);
     }));
     return function duplicateBudget(_x6) {
-      return _ref54.apply(this, arguments);
+      return _ref50.apply(this, arguments);
     };
   }();
   var duplicateBudgetToOtherHotel = /*#__PURE__*/function () {
-    var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(budget) {
+    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(budget) {
       var source, targetHotel;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.n) {
@@ -3631,11 +3611,11 @@ function App() {
       }, _callee8);
     }));
     return function duplicateBudgetToOtherHotel(_x7) {
-      return _ref55.apply(this, arguments);
+      return _ref51.apply(this, arguments);
     };
   }();
   var addTrackingNote = /*#__PURE__*/function () {
-    var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(e) {
+    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(e) {
       var now, formattedDate, newTracking, _t8;
       return _regenerator().w(function (_context9) {
         while (1) switch (_context9.p = _context9.n) {
@@ -3673,11 +3653,11 @@ function App() {
       }, _callee9, null, [[1, 3]]);
     }));
     return function addTrackingNote(_x8) {
-      return _ref56.apply(this, arguments);
+      return _ref52.apply(this, arguments);
     };
   }();
   var addQuickNote = /*#__PURE__*/function () {
-    var _ref57 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(uid, note) {
+    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(uid, note) {
       var now, formattedDate, budget, newTracking, _t9;
       return _regenerator().w(function (_context0) {
         while (1) switch (_context0.p = _context0.n) {
@@ -3716,7 +3696,7 @@ function App() {
       }, _callee0, null, [[1, 3]]);
     }));
     return function addQuickNote(_x9, _x0) {
-      return _ref57.apply(this, arguments);
+      return _ref53.apply(this, arguments);
     };
   }();
 
@@ -3887,10 +3867,10 @@ function App() {
       var hotelName = g.Hotel_Asignado || g.Hotel || "N/A";
       var isCumbria = hotelName.toLowerCase().includes("cumbria");
       var normalizedRooms = {};
-      Object.entries(g.roomCounts || {}).forEach(function (_ref58) {
-        var _ref59 = _slicedToArray(_ref58, 2),
-          t = _ref59[0],
-          c = _ref59[1];
+      Object.entries(g.roomCounts || {}).forEach(function (_ref54) {
+        var _ref55 = _slicedToArray(_ref54, 2),
+          t = _ref55[0],
+          c = _ref55[1];
         if (c > 0) {
           var lower = t.toLowerCase();
           if (normalizedRooms[lower]) {
@@ -3997,10 +3977,10 @@ function App() {
         var activeRooms = Object.values(normalizedRooms).map(function (v) {
           return [v.type, v.count];
         });
-        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref60) {
-          var _ref61 = _slicedToArray(_ref60, 2),
-            _ = _ref61[0],
-            b = _ref61[1];
+        var totalRoomsNumeric = activeRooms.reduce(function (a, _ref56) {
+          var _ref57 = _slicedToArray(_ref56, 2),
+            _ = _ref57[0],
+            b = _ref57[1];
           return a + Number(b);
         }, 0);
         var roomsCountText = totalRoomsNumeric > 0 ? totalRoomsNumeric : g["Cant. Habitaciones"] || g["Habitaciones"] || g["Cant."] || 0;
@@ -4757,10 +4737,10 @@ function App() {
           isMultiSegment: false
         });
         if (!formData.isRatesOnly) {
-          var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref62) {
-            var _ref63 = _slicedToArray(_ref62, 2),
-              roomType = _ref63[0],
-              count = _ref63[1];
+          var totalPax = Object.entries(updated.roomCounts || {}).reduce(function (sum, _ref58) {
+            var _ref59 = _slicedToArray(_ref58, 2),
+              roomType = _ref59[0],
+              count = _ref59[1];
             return sum + (Number(count) || 0) * (PAX_PER_ROOM[roomType] || 2);
           }, 0);
           if (totalPax > 0) updated["Pax."] = totalPax;
@@ -6350,7 +6330,7 @@ function App() {
     };
     var effectiveClauses = getEffectiveClauses();
     var handleSaveDocClauses = /*#__PURE__*/function () {
-      var _ref64 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+      var _ref60 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
         var mode,
           isBudget,
           targetDocId,
@@ -6414,7 +6394,7 @@ function App() {
         }, _callee1, null, [[1, 3]]);
       }));
       return function handleSaveDocClauses() {
-        return _ref64.apply(this, arguments);
+        return _ref60.apply(this, arguments);
       };
     }();
     var handleResetToGeneral = function handleResetToGeneral() {
@@ -6494,10 +6474,10 @@ function App() {
       parsed = parsed.replace(/{RELEASE_7}/g, getRelDate(7));
       return parsed;
     };
-    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref65) {
-      var _ref66 = _slicedToArray(_ref65, 2),
-        type = _ref66[0],
-        count = _ref66[1];
+    var activeRoomsMap = Object.entries(g.roomCounts || {}).reduce(function (acc, _ref61) {
+      var _ref62 = _slicedToArray(_ref61, 2),
+        type = _ref62[0],
+        count = _ref62[1];
       if (count > 0) {
         var _acc$lowerType, _acc$lowerType2;
         var lowerType = type.toLowerCase();
@@ -6513,10 +6493,10 @@ function App() {
     });
     var dates = getCurrentStayDates(g);
     var calculatedPax = 0;
-    activeRooms.forEach(function (_ref67) {
-      var _ref68 = _slicedToArray(_ref67, 2),
-        type = _ref68[0],
-        c = _ref68[1];
+    activeRooms.forEach(function (_ref63) {
+      var _ref64 = _slicedToArray(_ref63, 2),
+        type = _ref64[0],
+        c = _ref64[1];
       var t = type.toUpperCase();
       var multiplier = 2;
       if (t.includes('INDIVIDUAL') || t.includes('DUI') || t.includes('SINGLE')) multiplier = 1;else if (t.includes('TRIPLE')) multiplier = 3;else if (t.includes('CUADRUPLE') || t.includes('CUÁDRUPLE') || t.includes('FAMILIAR')) multiplier = 4;else if (t.includes('QUINTUPLE')) multiplier = 5;
@@ -7085,10 +7065,10 @@ function App() {
           className: "px-3 py-2 print:py-1 print:px-2 align-top text-right font-black text-slate-800 tabular-nums"
         }, formatNum(px), " \u20AC"));
       });
-      var roomListItems = activeRooms.map(function (_ref69) {
-        var _ref70 = _slicedToArray(_ref69, 2),
-          type = _ref70[0],
-          count = _ref70[1];
+      var roomListItems = activeRooms.map(function (_ref65) {
+        var _ref66 = _slicedToArray(_ref65, 2),
+          type = _ref66[0],
+          count = _ref66[1];
         var typeKey = type.toUpperCase();
         var currentCount = config.counts && config.counts[typeKey] !== undefined && config.counts[typeKey] !== '' ? Number(config.counts[typeKey]) : count;
         if (currentCount <= 0) return null;

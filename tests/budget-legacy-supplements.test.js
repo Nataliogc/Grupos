@@ -6,7 +6,7 @@ const source = fs.readFileSync(require.resolve('../src/Presupuestos.jsx'), 'utf8
 const start = source.indexOf('const calculateTotal = (rawGroupData,');
 const end = source.indexOf('const parsePaymentPlan', start);
 const calculateTotal = vm.runInNewContext(source.slice(start, end) + '\ncalculateTotal;', {
-  window: { AgencyCommissionService: require('../js/agencyCommissionService') },
+  window: { GroupTargetsService: require("../js/services/groupTargetsService"), AgencyCommissionService: require('../js/agencyCommissionService') },
   localStorage: { getItem: () => null },
   normalizeGroupData: data => data,
   generateDates: () => ['2026-10-06', '2026-10-07', '2026-10-08']
@@ -34,9 +34,9 @@ test('agency commission reduces the net total only for selected services', () =>
   const agency = { ...group, agencyCommissionPercent: 12 };
   const result = calculateTotal(agency, true);
   // MP excludes dinner; PC excludes lunch and dinner. 44 paying guests per day.
-  assert.equal(result.commissionBase, 7348.2);
-  assert.equal(result.commissionDeduction, 881.78);
-  assert.equal(result.total, 9443.42);
+  assert.equal(result.commissionBase, 7414.2);
+  assert.equal(result.commissionDeduction, 889.7);
+  assert.equal(result.total, 9435.5);
   assert.equal(calculateTotal({ ...agency, agencyIsClient: false }), 10325.2);
 });
 test('selected extras contribute to the commission base', () => {

@@ -235,6 +235,28 @@
     return JSON.parse(JSON.stringify(DEFAULT_GROUP_TARIFFS_2027.guadiana));
   }
 
+  function getOfficialBoardPrices(catalog, hotel, dateStr) {
+    var date = parseDateFlexible(dateStr);
+    var year = date ? date.getFullYear() : 2026;
+    var tariffs = getTariffsForHotelAndYear(catalog, hotel, year);
+    var breakdown = tariffs._desglose || {};
+    function officialPrice(name, upper, lower) {
+      if (breakdown[name] != null && Number.isFinite(Number(breakdown[name]))) return Number(breakdown[name]);
+      if (name !== "breakfast" && breakdown.meal != null) return Number(breakdown.meal);
+      var high = tariffs[upper] && tariffs[upper].doble;
+      var low = tariffs[lower] && tariffs[lower].doble;
+      if (high != null && low != null) return Math.round((Number(high) - Number(low)) * 50) / 100;
+      throw new Error("Falta el desglose oficial de " + name + " para " + hotel + " (" + year + ").");
+    }
+    return {
+      breakfast: officialPrice("breakfast", "HD", "HA"),
+      lunch: officialPrice("lunch", "MP", "HD"),
+      dinner: officialPrice("dinner", "PC", "MP"),
+      meal: officialPrice("lunch", "MP", "HD"),
+      version: "official-" + normalizeHotelKey(hotel) + "-" + year,
+      year: year
+    };
+  }
   /**
    * Determina si un hotel y año cuenta con tarifa oficial establecida
    */
@@ -1373,6 +1395,8 @@
     calculatePricePerPerson: calculatePricePerPerson,
     enrichTariffsWithPricePerPerson: enrichTariffsWithPricePerPerson,
     getTariffsForHotelAndYear: getTariffsForHotelAndYear,
+    getOfficialBoardPrices: getOfficialBoardPrices,
+    parseDateFlexible: parseDateFlexible,
     isOfficialTariff: isOfficialTariff,
     copyTariffsWithAdjustment: copyTariffsWithAdjustment,
     suggestTariffsForYear: suggestTariffsForYear,

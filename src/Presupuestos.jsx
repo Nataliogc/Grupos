@@ -265,23 +265,17 @@
       const rooms = getRoomTypesForHotel(hotelName);
 
       // Suplementos de pensión por persona
-      let bPerson = 8.50, mPerson = 19.50;
-      try {
-        const rawBpc = localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig');
-        if (rawBpc) {
-          const parsed = JSON.parse(rawBpc);
-          const entry = parsed[hotelName] || parsed['default'];
-          if (entry) {
-            if (typeof entry.breakfast === 'number') bPerson = entry.breakfast;
-            if (typeof entry.meal === 'number') mPerson = entry.meal;
-          }
-        }
-      } catch (e) {}
+      let catalog = {};
+      try { catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}'); } catch (e) {}
+      const officialBoard = window.GroupTargetsService.getOfficialBoardPrices(catalog, hotelName, dateISO);
+      const bPerson = officialBoard.breakfast;
+      const mPerson = officialBoard.lunch;
+      const dPerson = officialBoard.dinner;
 
       let suppPerPerson = 0;
       if (boardCode === 'HD') suppPerPerson = bPerson;
       else if (boardCode === 'MP') suppPerPerson = bPerson + mPerson;
-      else if (boardCode === 'PC') suppPerPerson = bPerson + (mPerson * 2);
+      else if (boardCode === 'PC') suppPerPerson = bPerson + mPerson + dPerson;
 
       const offByRoom = {};
       const recByRoom = {};
@@ -1387,19 +1381,9 @@
             const priceKey = Object.keys(config.prices || {}).find(key => key.toLowerCase() === type.toLowerCase());
             const unitPrice = Number(config.prices ? config.prices[priceKey] : roomConfig.price) || 0;
             const hotel = groupData.Hotel_Asignado || groupData.Hotel || '';
-            const hotelKey = hotel.toLowerCase().includes('cumbria') ? 'cumbria' : 'guadiana';
-            let pricing = { breakfast: 8.5, lunch: 19.5, dinner: 19.5 };
-            try {
-              const catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}');
-              const breakdown = (catalog[String(date).slice(0, 4)]?.[hotelKey] || catalog[String(date).slice(0, 4)]?.[hotel])?._desglose;
-              const configs = JSON.parse(localStorage.getItem('v3_boardPricingConfig') || localStorage.getItem('boardPricingConfig') || '{}');
-              const custom = configs[hotel] || configs[hotelKey] || configs.default || {};
-              for (const entry of [breakdown || {}, custom]) {
-                pricing.breakfast = Number(entry.breakfast ?? pricing.breakfast);
-                pricing.lunch = Number(entry.lunch ?? entry.meal ?? pricing.lunch);
-                pricing.dinner = Number(entry.dinner ?? entry.meal ?? entry.lunch ?? pricing.dinner);
-              }
-            } catch (error) {}
+            let catalog = {};
+            try { catalog = JSON.parse(localStorage.getItem('nexus_group_tariffs') || '{}'); } catch (e) {}
+            const pricing = window.GroupTargetsService.getOfficialBoardPrices(catalog, hotel, date);
             commissionBase += window.AgencyCommissionService.roomBase({ subtotal: lineSubtotal, unitPrice, roomType: type, board, services, ...pricing });
           }
         });

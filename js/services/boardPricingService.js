@@ -3,7 +3,7 @@
  * NEXUS GROUPS — Board Pricing & Economic Breakdown Service (Reqs 13-21)
  * ═════════════════════════════════════════════════════════════════════
  * Pure functions for:
- * 1. Board pricing configuration per hotel & validity period (Req 13).
+ * 1. Official board tariff lookup per hotel & year (Req 13).
  * 2. Regimen interpretation: HA, HD, MP, PC and custom aliases (Req 14).
  * 3. Daily economic breakdown: Net Accommodation = Total - Board costs (Req 15).
  * 4. Negative accommodation detection & warnings (Req 16).
@@ -19,12 +19,6 @@
 
 (function (global) {
   "use strict";
-
-  // Precios predeterminados de manutención por persona
-  var DEFAULT_BOARD_PRICES = {
-    breakfast: 6.0,
-    meal: 16.0
-  };
 
   // Catálogo base de regímenes: número de desayunos y comidas por persona y día
   var DEFAULT_REGIMEN_MEALS = {
@@ -77,39 +71,14 @@
    * Obtiene la configuración de precios activa para un hotel y fecha dada
    */
   function getPricingForHotelAndDate(hotelName, dateStr, configMap) {
-    configMap = configMap || {};
-    var defaultCfg = {
-      breakfast: DEFAULT_BOARD_PRICES.breakfast,
-      meal: DEFAULT_BOARD_PRICES.meal,
-      version: "default-v1.0"
-    };
-
-    if (!hotelName) return defaultCfg;
-
-    var hotelConfig = configMap[hotelName] || configMap["default"] || null;
-    if (!hotelConfig) return defaultCfg;
-
-    // Si tiene periodos de vigencia
-    if (Array.isArray(hotelConfig.periods) && hotelConfig.periods.length > 0 && dateStr) {
-      for (var i = 0; i < hotelConfig.periods.length; i++) {
-        var p = hotelConfig.periods[i];
-        var from = p.from || "1900-01-01";
-        var to = p.to || "2099-12-31";
-        if (dateStr >= from && dateStr <= to) {
-          return {
-            breakfast: typeof p.breakfast === "number" ? p.breakfast : DEFAULT_BOARD_PRICES.breakfast,
-            meal: typeof p.meal === "number" ? p.meal : DEFAULT_BOARD_PRICES.meal,
-            version: p.version || ("period-" + from + "_" + to)
-          };
-        }
-      }
+    var targets = global.GroupTargetsService;
+    if (!targets && typeof require === "function") targets = require("./groupTargetsService");
+    if (!targets) throw new Error("El catálogo oficial de tarifas no está disponible.");
+    var catalog = configMap;
+    if (!catalog) {
+      try { catalog = JSON.parse(global.localStorage.getItem("nexus_group_tariffs") || "{}"); } catch (e) { catalog = {}; }
     }
-
-    return {
-      breakfast: typeof hotelConfig.breakfast === "number" ? hotelConfig.breakfast : DEFAULT_BOARD_PRICES.breakfast,
-      meal: typeof hotelConfig.meal === "number" ? hotelConfig.meal : DEFAULT_BOARD_PRICES.meal,
-      version: hotelConfig.version || "hotel-default"
-    };
+    return targets.getOfficialBoardPrices(catalog, hotelName, dateStr);
   }
 
   /**
@@ -124,17 +93,22 @@
     var pax = parseInt(params.pax, 10) || 0;
     var regimen = params.regimen || "HA";
     var dailyAmount = parseFloat(params.dailyAmount) || 0.0;
-    var pricingConfig = params.pricingConfig || DEFAULT_BOARD_PRICES;
+    var pricingConfig = params.pricingConfig || getPricingForHotelAndDate(params.hotel, params.fecha);
 
-    var breakfastPrice = typeof pricingConfig.breakfast === "number" ? pricingConfig.breakfast : DEFAULT_BOARD_PRICES.breakfast;
-    var mealPrice = typeof pricingConfig.meal === "number" ? pricingConfig.meal : DEFAULT_BOARD_PRICES.meal;
+    var breakfastPrice = pricingConfig.breakfast;
+    var mealPrice = typeof pricingConfig.lunch === "number" ? pricingConfig.lunch : pricingConfig.meal;
+    var dinnerPrice = typeof pricingConfig.dinner === "number" ? pricingConfig.dinner : mealPrice;
     var version = pricingConfig.version || "default";
 
     var mealCounts = getMealCounts(regimen, params.customRegimenMapping);
 
     // Ocupación real: el cálculo se hace por personas reales, no camas (Req 17)
     var breakfastCost = pax * mealCounts.breakfasts * breakfastPrice;
-    var mealCost = pax * mealCounts.meals * mealPrice;
+    var lunchCount = mealCounts.meals === 2 || (mealCounts.meals === 1 && params.mpMeal !== "cena") ? 1 : 0;
+    var dinnerCount = mealCounts.meals === 2 || (mealCounts.meals === 1 && params.mpMeal === "cena") ? 1 : 0;
+    var lunchCost = pax * lunchCount * mealPrice;
+    var dinnerCost = pax * dinnerCount * dinnerPrice;
+    var mealCost = lunchCost + dinnerCost;
     var totalBoardCost = breakfastCost + mealCost;
 
     // Precio habitación neto = Precio total − Coste manutención (Req 15)
@@ -151,6 +125,9 @@
       dailyAmount: dailyAmount,
       breakfastPrice: breakfastPrice,
       mealPrice: mealPrice,
+      dinnerPrice: dinnerPrice,
+      lunchCost: lunchCost,
+      dinnerCost: dinnerCost,
       breakfastsCount: mealCounts.breakfasts,
       mealsCount: mealCounts.meals,
       breakfastCost: breakfastCost,
@@ -272,6 +249,7 @@
       var eco = calculateDailyEconomicBreakdown({
         pax: pax,
         regimen: dayItem.regimen,
+        mpMeal: dayItem.mpMeal,
         dailyAmount: dailyAmount,
         pricingConfig: pricing
       });
@@ -372,7 +350,6 @@
 
   // ── Public Export ───────────────────────────────────────────
   var BoardPricingService = {
-    DEFAULT_BOARD_PRICES: DEFAULT_BOARD_PRICES,
     DEFAULT_REGIMEN_MEALS: DEFAULT_REGIMEN_MEALS,
     normalizeRegimenCode: normalizeRegimenCode,
     getMealCounts: getMealCounts,

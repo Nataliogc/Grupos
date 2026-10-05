@@ -352,7 +352,7 @@
       return candidates.sort((a, b) => b.score - a.score);
     };
 
-    const calculateLodgingRevenue = (row) => {
+    const calculateLodgingRevenue = (row, catalog) => {
       const totalImporte = parseNum(row["Importe(*)"]);
       if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]") {
         try {
@@ -379,7 +379,7 @@
                   const n = parseInt(item.nights, 10) || 1;
                   lineTot = p * q * n;
                 }
-                return acc + (isNaN(lineTot) ? 0 : lineTot);
+                return acc + getRoomAccommodationAmount({...item, total:isNaN(lineTot)?0:lineTot}, row, catalog);
               }, 0);
             } else {
               return 0;
@@ -387,7 +387,18 @@
           }
         } catch (e) {}
       }
-      return !isNaN(totalImporte) ? totalImporte : 0;
+      if (!Number.isFinite(totalImporte)) return 0;
+      const nights = Math.max(1,parseInt(row.Noches || row.noches,10)||1);
+      const pax = parseInt(row["Pax."] || row.pax,10)||0;
+      const date = window.GroupTargetsService.parseDateFlexible(row.Entrada);
+      let boardTotal = 0;
+      for (let i=0;i<nights;i++) {
+        const day = date ? new Date(date.getFullYear(),date.getMonth(),date.getDate()+i,12) : null;
+        const dayIso = day ? `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,"0")}-${String(day.getDate()).padStart(2,"0")}` : row.Entrada;
+        const prices = window.BoardPricingService.getPricingForHotelAndDate(row.Hotel_Asignado || row.Hotel,dayIso,catalog);
+        boardTotal += window.BoardPricingService.calculateDailyEconomicBreakdown({pax,regimen:row["Régimen"] || row.regimen || "HA",mpMeal:row.mpMeal,dailyAmount:0,pricingConfig:prices}).totalBoardCost;
+      }
+      return totalImporte - boardTotal;
     };
     const parseDateToComparable = (dStr) => {
       if (!dStr) return "9999-99-99";
@@ -587,7 +598,7 @@
       if (!service) return amount;
       const record = group?.records?.[0] || group || {};
       const hotel = item.hotel || group?.hotel || record.Hotel_Asignado || record.Hotel || "default";
-      const prices = service.getPricingForHotelAndDate(hotel, item.dateIn || item.date, pricingConfig);
+      const prices = service.getPricingForHotelAndDate(hotel, item.dateIn || item.date || record.Entrada || group?.arrival, pricingConfig);
       const type = String(item.type || item.roomType || "").toUpperCase();
       let inferredPax = /DUI|JS1|SS1|INDIV|SINGLE|SGL/.test(type) ? 1 : /TPL|TRIPLE/.test(type) ? 3 : /CUA|CUAD/.test(type) ? 4 : /QUIN/.test(type) ? 5 : 2;
       if (/SUPLETORIA|SUPLE|CUNA/.test(type)) inferredPax += 1;
@@ -595,9 +606,43 @@
       return service.calculateDailyEconomicBreakdown({
         pax: qty * pax,
         regimen: item.regime || item.regimen || "HA",
+        mpMeal: item.mpMeal,
         dailyAmount: amount / nights,
         pricingConfig: prices
       }).netAccommodationPrice * nights;
+    };
+
+    const getGroupBoardPriceSummary = (group, catalog) => {
+      const record = group?.records?.[0] || group || {};
+      const service = window.BoardPricingService;
+      const defaultHotel = group?.hotel || record.Hotel_Asignado || record.Hotel || "Guadiana";
+      let rooms = parseRoomingListSafe(record.RoomingList_JSON, "board-summary");
+      rooms = Array.isArray(rooms) ? rooms.filter(r => r && !r.isService) : [];
+      if (!rooms.length) rooms = [{dateIn:record.Entrada || group?.arrival, regime:record["Régimen"] || record.regimen || group?.regimen}];
+      let schedule = null;
+      try { schedule = window.MesaChefService?.getMealSchedule(record); } catch (e) {}
+      const summaries = new Map();
+      const add = (hotel, date, breakfast, lunch, dinner) => {
+        const prices = service.getPricingForHotelAndDate(hotel, date, catalog);
+        const hotelKey = window.GroupTargetsService.normalizeHotelKey(hotel);
+        const key = `${hotelKey}_${prices.year}_${prices.breakfast}_${prices.lunch}_${prices.dinner}`;
+        if (!summaries.has(key)) summaries.set(key, {key, hotel:hotelKey === "cumbria" ? "Cumbria" : hotelKey === "guadiana" ? "Guadiana" : hotel, year:prices.year, prices, breakfast:false, lunch:false, dinner:false});
+        const summary = summaries.get(key);
+        summary.breakfast ||= breakfast;
+        summary.lunch ||= lunch;
+        summary.dinner ||= dinner;
+      };
+      expandRoomListByDays(rooms).forEach(room => {
+        const counts = service.getMealCounts(room.regime || room.regimen || "HA");
+        const hotel = room.hotel || defaultHotel;
+        const date = room.dateIn || room.date || record.Entrada || group?.arrival;
+        const twoLunches = room.pcMeal === "dos_almuerzos" && (parseInt(room.nights,10)||1) === 1;
+        add(hotel, date, counts.breakfasts > 0,
+          schedule == null && (counts.meals === 2 || (counts.meals === 1 && room.mpMeal === "almuerzo")),
+          schedule == null && !twoLunches && (counts.meals === 2 || (counts.meals === 1 && room.mpMeal !== "almuerzo")));
+      });
+      if (schedule != null) schedule.forEach(row => add(defaultHotel, row.fecha, false, row.jornada === "almuerzo", row.jornada === "cena"));
+      return [...summaries.values()].filter(s => s.breakfast || s.lunch || s.dinner);
     };
 
     // Helper para calcular con precisión las Habitaciones-Noche y el Precio Medio de Habitación (ADR) de un grupo
@@ -658,7 +703,10 @@
         totalRooms = Math.round(roomNights / nightsVal);
       }
 
-      const baseRevenue = hasRoomRevenue ? lodgingTotal : (effectiveAmount || parseFloat(rec["Importe(*)"] || rec.total || group.totalRevenue || 0) || 0);
+      const baseRevenue = hasRoomRevenue ? lodgingTotal : (rawList.length ? 0 : calculateLodgingRevenue({
+        ...rec, Entrada:rec.Entrada || group.arrival, Hotel_Asignado:rec.Hotel_Asignado || group.hotel,
+        RoomingList_JSON:"[]", "Importe(*)":effectiveAmount || rec["Importe(*)"] || rec.total || group.totalRevenue || 0
+      }, pricingConfig));
       const adr = roomNights > 0 ? (baseRevenue / roomNights) : 0;
 
       return {
@@ -1420,7 +1468,7 @@
     // ══════════════════════════════════════════════════════════════════════════
     // NEXUS GROUPS — MÓDULO OBJETIVOS DE GRUPOS Y TARIFAS (Reqs 22-33)
     // ══════════════════════════════════════════════════════════════════════════
-    const GroupTargetsModule = ({ data, processedData, dailyOccupancyList, boardPricingConfig }) => {
+    const GroupTargetsModule = ({ data, processedData, dailyOccupancyList }) => {
       const gts = window.GroupTargetsService;
 
       // Estados de control
@@ -1611,7 +1659,7 @@
                 const fsTariffs = snap.data();
                 if (fsTariffs && typeof fsTariffs === "object") {
                   setTariffsCatalog(prev => {
-                    const merged = { ...fsTariffs, ...prev };
+                    const merged = { ...prev, ...fsTariffs };
                     try { localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged)); } catch(e) {}
                     return merged;
                   });
@@ -2035,24 +2083,7 @@
             .catch(err => console.warn("Error guardando groupTariffs en Firestore:", err));
         }
 
-        // Sincronizar desgloses oficiales con boardPricingConfig
-        if (savedData._desglose) {
-          const hotelFullName = tariffModalHotel === "guadiana" ? "Sercotel Guadiana" : "Cumbria Spa&Hotel";
-          const newBoardPricing = {
-            ...boardPricingConfig,
-            [hotelFullName]: {
-              breakfast: Number(savedData._desglose.breakfast) || 8.5,
-              meal: Number(savedData._desglose.lunch || savedData._desglose.meal) || 19.5,
-            }
-          };
-          setBoardPricingConfig(newBoardPricing);
-          try {
-            window.NexusUtils?.safeStorage?.setItem("boardPricingConfig", JSON.stringify(newBoardPricing));
-            if (window.db && typeof window.db.collection === "function") {
-              window.db.collection("settings").doc("boardPricing").set(newBoardPricing, { merge: true });
-            }
-          } catch(e) {}
-        }
+        window.dispatchEvent(new Event("official-tariffs-updated"));
 
         setShowTariffModal(false);
         showToast("🔒 Tarifa Oficial " + tariffModalYear + " guardada y bloqueada para " + (tariffModalHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"));
@@ -4897,21 +4928,24 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [dailyHotelFilter, setDailyHotelFilter] = useState("");
       const [editingDistribution, setEditingDistribution] = useState(null);
       // Estados para Configuración y Desglose Económico de Precios por Régimen (Reqs 13-21)
-      const [boardPricingConfig, setBoardPricingConfig] = useState(() => {
-        try {
-          const saved = window.NexusUtils?.safeStorage?.getItem("boardPricingConfig");
-          if (saved) return JSON.parse(saved);
-        } catch (e) {}
-        return {
-          default: { breakfast: 6.0, meal: 16.0, version: "v1.0" }
+      const [officialTariffsCatalog, setOfficialTariffsCatalog] = useState(() => {
+        try { return JSON.parse(localStorage.getItem("nexus_group_tariffs") || "{}"); } catch (e) { return {}; }
+      });
+      useEffect(() => {
+        const reload = () => {
+          try { setOfficialTariffsCatalog(JSON.parse(localStorage.getItem("nexus_group_tariffs") || "{}")); } catch (e) {}
         };
-      });
-      const [showBoardPricingModal, setShowBoardPricingModal] = useState(false);
-      const [editingBoardPrices, setEditingBoardPrices] = useState({
-        hotel: "default",
-        breakfast: 6.0,
-        meal: 16.0
-      });
+        window.addEventListener("official-tariffs-updated", reload);
+        window.addEventListener("storage", reload);
+        let active = true;
+        if (window.db) window.db.collection("settings").doc("groupTariffs").get().then(snap => {
+          if (!active || !snap.exists) return;
+          const merged = {...JSON.parse(localStorage.getItem("nexus_group_tariffs") || "{}"), ...snap.data()};
+          localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged));
+          setOfficialTariffsCatalog(merged);
+        }).catch(err => console.warn("No se pudo cargar el catálogo oficial", err));
+        return () => { active = false; window.removeEventListener("official-tariffs-updated", reload); window.removeEventListener("storage", reload); };
+      }, []);
       const [dailyViewSection, setDailyViewSection] = useState("breakdown"); // 'breakdown' | 'statistics'
       const [dailyGroupingMode, setDailyGroupingMode] = useState("reserva"); // 'reserva' | 'lineas'
       const [expandedReservas, setExpandedReservas] = useState(new Set());
@@ -6516,8 +6550,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             totalImp += dayImp;
 
             const pricing = window.BoardPricingService
-              ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
-              : { breakfast: 6.0, meal: 16.0 };
+              ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, officialTariffsCatalog)
+              : window.GroupTargetsService.getOfficialBoardPrices(officialTariffsCatalog, day.hotel, day.fecha);
 
             const effPax = (day.payingPax !== undefined && day.payingPax > 0)
               ? day.payingPax
@@ -6527,6 +6561,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               ? window.BoardPricingService.calculateDailyEconomicBreakdown({
                   pax: effPax,
                   regimen: day.regimen,
+                                          mpMeal: day.mpMeal,
                   dailyAmount: dayImp,
                   pricingConfig: pricing
                 })
@@ -6605,7 +6640,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         });
 
         return result;
-      }, [filteredDailyOccupancy, boardPricingConfig]);
+      }, [filteredDailyOccupancy, officialTariffsCatalog]);
 
       // --- TOTALES DE REPORTE DIARIO ---
       const dailyReportTotals = useMemo(() => {
@@ -6616,8 +6651,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       // --- ESTADÍSTICAS ECONÓMICAS POR RÉGIMEN Y CATEGORÍA (Reqs 18-21) ---
       const dailyEconomicStats = useMemo(() => {
         if (!window.BoardPricingService) return null;
-        return window.BoardPricingService.calculateEconomicStatistics(filteredDailyOccupancy, boardPricingConfig);
-      }, [filteredDailyOccupancy, boardPricingConfig]);
+        return window.BoardPricingService.calculateEconomicStatistics(filteredDailyOccupancy, officialTariffsCatalog);
+      }, [filteredDailyOccupancy, officialTariffsCatalog]);
 
       // --- MAPA DE DÍAS POR RESERVA PARA ESTADO OPERATIVO / REVISIÓN ---
       const dailyOccupancyByReservaMap = useMemo(() => {
@@ -7701,7 +7736,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           const roomNights = roomCount * noches;
 
           if (!isNaN(importe)) segments[segName].revenue += importe;
-          segments[segName].roomRevenue += calculateLodgingRevenue(row);
+          segments[segName].roomRevenue += calculateLodgingRevenue(row, officialTariffsCatalog);
           segments[segName].pax += pax;
           segments[segName].nights += isNaN(noches) ? 0 : noches;
           segments[segName].roomNights += roomNights;
@@ -7796,7 +7831,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                 map[key].pax += isNaN(pax) ? 0 : pax;
                 map[key].revenue += isNaN(importe) ? 0 : importe;
-                map[key].roomRevenue = (map[key].roomRevenue || 0) + calculateLodgingRevenue(row);
+                map[key].roomRevenue = (map[key].roomRevenue || 0) + calculateLodgingRevenue(row, officialTariffsCatalog);
                 map[key].nights += isNaN(noches) ? 0 : noches;
                 map[key].roomNights += isNaN(roomNights) ? 0 : roomNights;
                 map[key].count += 1;
@@ -7869,7 +7904,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
               item.pax += isNaN(pax) ? 0 : pax;
               item.revenue += isNaN(importe) ? 0 : importe;
-              item.roomRevenue = (item.roomRevenue || 0) + calculateLodgingRevenue(row);
+              item.roomRevenue = (item.roomRevenue || 0) + calculateLodgingRevenue(row, officialTariffsCatalog);
               item.nights += isNaN(noches) ? 0 : noches;
               item.roomNights += isNaN(roomNights) ? 0 : roomNights;
               item.count += 1;
@@ -7897,8 +7932,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           const diffRevenue = item.revenue - prevItem.revenue;
           const pctRevenue = prevItem.revenue > 0 ? ((diffRevenue / prevItem.revenue) * 100) : (item.revenue > 0 ? 100 : 0);
 
-          const adr = item.roomNights > 0 ? (item.roomRevenue || item.revenue) / item.roomNights : (item.nights > 0 ? (item.roomRevenue || item.revenue) / item.nights : 0);
-          const prevAdr = prevItem.roomNights > 0 ? (prevItem.roomRevenue || prevItem.revenue) / prevItem.roomNights : (prevItem.nights > 0 ? (prevItem.roomRevenue || prevItem.revenue) / prevItem.nights : 0);
+          const adr = item.roomNights > 0 ? (item.roomRevenue ?? item.revenue) / item.roomNights : (item.nights > 0 ? (item.roomRevenue ?? item.revenue) / item.nights : 0);
+          const prevAdr = prevItem.roomNights > 0 ? (prevItem.roomRevenue ?? prevItem.revenue) / prevItem.roomNights : (prevItem.nights > 0 ? (prevItem.roomRevenue ?? prevItem.revenue) / prevItem.nights : 0);
           const diffAdr = adr - prevAdr;
           const pctAdr = prevAdr > 0 ? ((diffAdr / prevAdr) * 100) : (adr > 0 ? 100 : 0);
 
@@ -7938,7 +7973,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         });
 
         return { barData };
-      }, [studyData, historicalByYearMonth, studyYear]);
+      }, [studyData, historicalByYearMonth, studyYear, officialTariffsCatalog]);
 
       // --- Rendimiento y Estudio por Comercial (Acotado a Producción del Año de Estudio) ---
       const commercialStats = useMemo(() => {
@@ -7983,7 +8018,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           const gName = row["Nombre del Grupo"] || row["Reserva"] || "Grupo";
 
           if (!isNaN(importe)) commMap[comName].revenue += importe;
-          commMap[comName].roomRevenue += calculateLodgingRevenue(row);
+          commMap[comName].roomRevenue += calculateLodgingRevenue(row, officialTariffsCatalog);
           commMap[comName].pax += pax;
           commMap[comName].nights += isNaN(noches) ? 0 : noches;
           commMap[comName].roomNights += roomNights;
@@ -8007,7 +8042,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             };
           })
           .sort((a, b) => b.revenue - a.revenue);
-      }, [studyData]);
+      }, [studyData, officialTariffsCatalog]);
 
       // --- Métricas Globales Consolidadas con Comparativa YoY ---
       const globalStatsYoY = useMemo(() => {
@@ -10870,6 +10905,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         type,
         hotelName,
         customPax,
+        serviceDate,
+        mpMeal,
       ) => {
         const p = parseFloat(price) || 0;
         const q = parseInt(qty) || 1;
@@ -10881,29 +10918,31 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
         let porcentaje = 0; // Default commission 0% per request
 
-        // Obtener precios de manutención establecidos para el hotel desde boardPricingConfig
+        // Obtener precios de manutención establecidos para el hotel desde officialTariffsCatalog
         const hotel = hotelName || (selectedGroupFicha ? (selectedGroupFicha.hotel || selectedGroupFicha.records?.[0]?.["Hotel_Asignado"] || selectedGroupFicha.records?.[0]?.["Hotel"]) : "") || "Sercotel Guadiana";
         const pricing = window.BoardPricingService
-          ? window.BoardPricingService.getPricingForHotelAndDate(hotel, null, boardPricingConfig)
-          : (boardPricingConfig?.[hotel] || boardPricingConfig?.default || { breakfast: 6.0, meal: 16.0 });
+          ? window.BoardPricingService.getPricingForHotelAndDate(hotel, serviceDate || selectedGroupFicha?.arrival || selectedGroupFicha?.records?.[0]?.Entrada, officialTariffsCatalog)
+          : window.GroupTargetsService.getOfficialBoardPrices(officialTariffsCatalog, hotel, serviceDate || selectedGroupFicha?.arrival);
 
-        const bCost = typeof pricing.breakfast === "number" ? pricing.breakfast : 6.0;
-        const mCost = typeof pricing.meal === "number" ? pricing.meal : 16.0;
+        const bCost = pricing.breakfast;
+        const mCost = pricing.lunch;
+        const dinnerCost = pricing.dinner;
 
         let desPerPax = 0;
         let almPerPax = 0;
         let cenPerPax = 0;
 
-        if (p > 0) {
+        if (p >= 0) {
           if (r === "AD" || r === "HD" || r === "BB") {
             desPerPax = bCost;
           } else if (r === "MP" || r === "HB") {
             desPerPax = bCost;
-            almPerPax = mCost;
+            if (mpMeal === "cena") cenPerPax = dinnerCost;
+            else almPerPax = mCost;
           } else if (r === "PC" || r === "FB" || r === "TI") {
             desPerPax = bCost;
             almPerPax = mCost;
-            cenPerPax = mCost;
+            cenPerPax = dinnerCost;
           }
         }
 
@@ -10912,7 +10951,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         const totalAlm = parseFloat((almPerPax * paxPerRoom).toFixed(2));
         const totalCen = parseFloat((cenPerPax * paxPerRoom).toFixed(2));
         const mealsTotal = totalDes + totalAlm + totalCen;
-        const totalAloj = Math.max(0, parseFloat((p - mealsTotal).toFixed(2)));
+        const totalAloj = parseFloat((p - mealsTotal).toFixed(2));
 
         // Desglose unitario inicial
         let desglose = {
@@ -10939,6 +10978,19 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       };
 
 
+
+      const getOfficialRoomCommission = (item) => {
+        const result = calculateDefaultCommission(item.price, item.regime, item.qty, item.nights, item.type, item.hotel, item.pax, item.dateIn || item.date, item.mpMeal);
+        result.porcentaje = item.comision?.porcentaje || 0;
+        result.modo = "auto";
+        for (const key of Object.keys(result.desglose)) {
+          if (item.comision?.desglose?.[key]) result.desglose[key].comisionable = item.comision.desglose[key].comisionable;
+        }
+        result.base_unitaria = Math.max(0,Object.values(result.desglose).reduce((sum,row)=>sum+(row.comisionable?row.valor:0),0));
+        result.comision_unitaria = Math.round(result.base_unitaria * result.porcentaje) / 100;
+        result.total_comision = Math.round(result.comision_unitaria * (parseInt(item.qty,10)||1) * (parseInt(item.nights,10)||1) * 100) / 100;
+        return result;
+      };
 
       const openFicha = (groupOrRow) => {
 
@@ -12449,7 +12501,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                 1,
 
-                roomManagerForm.type,
+                roomManagerForm.type, roomManagerForm.hotel, roomManagerForm.pax, checkinStr, roomManagerForm.mpMeal,
 
               ),
 
@@ -12513,7 +12565,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               roomManagerForm.isService ? "" : roomManagerForm.regime,
               roomManagerForm.qty,
               nights,
-              roomManagerForm.type,
+              roomManagerForm.type, roomManagerForm.hotel, roomManagerForm.pax, roomManagerForm.dateIn, roomManagerForm.mpMeal,
             ),
           });
 
@@ -12690,7 +12742,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             primary.isService ? "" : (primary.regime || ""),
             newQty,
             nights,
-            primary.type
+            primary.type, primary.hotel, primary.pax, primary.dateIn || primary.date, primary.mpMeal
           );
           // Si había varios items agrupados, consolidar en el principal
           if (matchedIndices.length > 1) {
@@ -12723,7 +12775,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 r.isService ? "" : (r.regime || ""),
                 qty,
                 nights,
-                r.type
+                r.type, r.hotel, r.pax, r.dateIn || r.date, r.mpMeal
               );
             } else if (field === "isService") {
               r.isService = !!rawValue;
@@ -12740,7 +12792,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 r.isService ? "" : (r.regime || ""),
                 qty,
                 nights,
-                r.type
+                r.type, r.hotel, r.pax, r.dateIn || r.date, r.mpMeal
               );
             } else if (field === "isGratuity") {
               const shouldBeGrat = Boolean(rawValue);
@@ -12804,7 +12856,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 r.isService ? "" : (r.regime || ""),
                 qty,
                 newNights,
-                r.type
+                r.type, r.hotel, r.pax, r.dateIn || r.date, r.mpMeal
               );
             } else if (field === "pax") {
               r.pax = Math.max(1, parseInt(rawValue, 10) || 1);
@@ -12826,11 +12878,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 const newCounts = window.BoardPricingService.getMealCounts(newRegime);
                 
                 const hotelForPricing = r.hotel || selectedGroupFicha.hotel || "Sercotel Guadiana";
-                const pricing = window.BoardPricingService.getPricingForHotelAndDate(hotelForPricing, r.dateIn || r.date, boardPricingConfig);
-                const bPrice = typeof pricing.breakfast === "number" ? pricing.breakfast : 6.0;
-                const mPrice = typeof pricing.meal === "number" ? pricing.meal : 16.0;
+                const pricing = window.BoardPricingService.getPricingForHotelAndDate(hotelForPricing, r.dateIn || r.date, officialTariffsCatalog);
+                const bPrice = pricing.breakfast;
+                const mPrice = pricing.lunch;
                 
-                const deltaPerPax = ((newCounts.breakfasts - oldCounts.breakfasts) * bPrice) + ((newCounts.meals - oldCounts.meals) * mPrice);
+                const deltaPerPax = ((newCounts.breakfasts - oldCounts.breakfasts) * bPrice) + ((Math.min(1,newCounts.meals) - Math.min(1,oldCounts.meals)) * mPrice) + ((Math.max(0,newCounts.meals-1) - Math.max(0,oldCounts.meals-1)) * pricing.dinner);
                 const paxInRoom = Math.max(1, parseInt(r.pax, 10) || getPaxByRoomType(r.type));
                 const deltaTotal = deltaPerPax * paxInRoom;
                 
@@ -12847,7 +12899,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 r.isService ? "" : (r.regime || ""),
                 qty,
                 nights,
-                r.type
+                r.type, r.hotel, r.pax, r.dateIn || r.date, r.mpMeal
               );
             } else if (field === "price") {
               const newPrice = Math.max(0, parseFloat(rawValue) || 0);
@@ -12860,7 +12912,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 r.isService ? "" : (r.regime || ""),
                 qty,
                 nights,
-                r.type
+                r.type, r.hotel, r.pax, r.dateIn || r.date, r.mpMeal
               );
             } else if (field === "iva") {
               r.iva = parseInt(rawValue, 10) || 10;
@@ -16836,22 +16888,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                         </button>
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const curDef = boardPricingConfig[dailyHotelFilter] || boardPricingConfig.default || { breakfast: 6.0, meal: 16.0 };
-                        setEditingBoardPrices({
-                          hotel: dailyHotelFilter || "default",
-                          breakfast: curDef.breakfast,
-                          meal: curDef.meal
-                        });
-                        setShowBoardPricingModal(true);
-                      }}
-                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-                      title="Configurar precios de desayuno y comidas por hotel"
-                    >
-                      <span>⚙️</span> Precios Manutención
-                    </button>
+
                   </div>
                 </div>
 
@@ -17437,8 +17474,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                            }
 
                                            const pricing = window.BoardPricingService
-                                             ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, boardPricingConfig)
-                                             : { breakfast: 6.0, meal: 16.0 };
+                                             ? window.BoardPricingService.getPricingForHotelAndDate(day.hotel, day.fecha, officialTariffsCatalog)
+                                             : window.GroupTargetsService.getOfficialBoardPrices(officialTariffsCatalog, day.hotel, day.fecha);
 
                                             const effDayPax = (day.payingPax !== undefined && day.payingPax > 0)
                                               ? day.payingPax
@@ -17448,6 +17485,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                               ? window.BoardPricingService.calculateDailyEconomicBreakdown({
                                                   pax: effDayPax,
                                                   regimen: day.regimen,
+                                          mpMeal: day.mpMeal,
                                                   dailyAmount: dayImp,
                                                   pricingConfig: pricing
                                                 })
@@ -17544,8 +17582,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     }
 
                                     const pricing = window.BoardPricingService
-                                      ? window.BoardPricingService.getPricingForHotelAndDate(item.hotel, item.fecha, boardPricingConfig)
-                                      : { breakfast: 6.0, meal: 16.0 };
+                                      ? window.BoardPricingService.getPricingForHotelAndDate(item.hotel, item.fecha, officialTariffsCatalog)
+                                      : window.GroupTargetsService.getOfficialBoardPrices(officialTariffsCatalog, item.hotel, item.fecha);
 
                                     const effItemPax = (item.payingPax !== undefined && item.payingPax > 0)
                                       ? item.payingPax
@@ -17555,6 +17593,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                       ? window.BoardPricingService.calculateDailyEconomicBreakdown({
                                           pax: effItemPax,
                                           regimen: item.regimen,
+                                          mpMeal: item.mpMeal,
                                           dailyAmount: dailyImp,
                                           pricingConfig: pricing
                                         })
@@ -18223,7 +18262,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                           </span>
                                         )}
                                         {(() => {
-                                          const rowMetrics = calculateGroupAdrAndRoomNights(group, grossRev, boardPricingConfig);
+                                          const rowMetrics = calculateGroupAdrAndRoomNights(group, grossRev, officialTariffsCatalog);
                                           if (rowMetrics.adr > 0) {
                                             return (
                                               <span
@@ -18346,119 +18385,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             )}
 
             {/* MODAL DE CONFIGURACIÓN DE PRECIOS DE MANUTENCIÓN (Req 13) */}
-            {showBoardPricingModal && (
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[220] flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-fade-in">
-                  <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-sm text-white">⚙️ Precios de Manutención por Persona</h3>
-                      <p className="text-xs text-slate-400 mt-0.5">Configuración de costes de desayuno y comida</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowBoardPricingModal(false)}
-                      className="text-slate-400 hover:text-white font-bold text-lg leading-none"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="p-5 space-y-4 text-xs">
-                    <div className="bg-blue-50 border border-blue-200 text-blue-900 p-3 rounded-xl">
-                      <strong className="block font-bold">Sin impacto en habitaciones confirmadas (Req 20)</strong>
-                      <span>
-                        Los cambios de precios actualizan el desglose y las estadísticas económicas, pero no modifican los datos del Excel ni invalidan la distribución de habitaciones validada.
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Hotel aplicable:</label>
-                      <select
-                        value={editingBoardPrices.hotel}
-                        onChange={(e) => {
-                          const h = e.target.value;
-                          const cur = boardPricingConfig[h] || boardPricingConfig.default || { breakfast: 6.0, meal: 16.0 };
-                          setEditingBoardPrices({ hotel: h, breakfast: cur.breakfast, meal: cur.meal });
-                        }}
-                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                      >
-                        <option value="default">Predeterminado (Todos los hoteles)</option>
-                        {dailyHotelOptions.map(h => (
-                          <option key={h} value={h}>{h}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                          Desayuno (€ / pax)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          value={editingBoardPrices.breakfast}
-                          onChange={(e) => setEditingBoardPrices({ ...editingBoardPrices, breakfast: e.target.value })}
-                          className="w-full bg-white border border-slate-300 rounded-lg p-2 font-black text-slate-900 text-right text-sm"
-                        />
-                        <div className="text-[10px] text-slate-400 mt-1">Por defecto: 6,00 €</div>
-                      </div>
-
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                          Comida / Cena (€ / pax)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          value={editingBoardPrices.meal}
-                          onChange={(e) => setEditingBoardPrices({ ...editingBoardPrices, meal: e.target.value })}
-                          className="w-full bg-white border border-slate-300 rounded-lg p-2 font-black text-slate-900 text-right text-sm"
-                        />
-                        <div className="text-[10px] text-slate-400 mt-1">Por defecto: 16,00 €</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowBoardPricingModal(false)}
-                      className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const hKey = editingBoardPrices.hotel || "default";
-                        const newCfg = {
-                          ...boardPricingConfig,
-                          [hKey]: {
-                            breakfast: parseFloat(editingBoardPrices.breakfast) || 6.0,
-                            meal: parseFloat(editingBoardPrices.meal) || 16.0,
-                            version: "v-" + Date.now().toString(36),
-                            updatedAt: new Date().toISOString()
-                          }
-                        };
-                        setBoardPricingConfig(newCfg);
-                        try {
-                          window.NexusUtils?.safeStorage?.setItem("boardPricingConfig", JSON.stringify(newCfg));
-                          await db.collection("settings").doc("boardPricing").set(newCfg, { merge: true });
-                        } catch (e) {}
-                        setShowBoardPricingModal(false);
-                      }}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-sm"
-                    >
-                      Guardar Precios
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* VENTANA EMERGENTE (MODAL) DE REVISIÓN DE HABITACIONES (Reqs 12-20) */}
             {editingDistribution && (() => {
               const isCumbria = normalizeHotelNameLocal(editingDistribution.hotel, "Sercotel Guadiana") === "Cumbria Spa&Hotel" ||
@@ -18482,8 +18408,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
               // Cálculo económico para este día
               const pricing = window.BoardPricingService
-                ? window.BoardPricingService.getPricingForHotelAndDate(editingDistribution.hotel, editingDistribution.fecha, boardPricingConfig)
-                : { breakfast: 6.0, meal: 16.0 };
+                ? window.BoardPricingService.getPricingForHotelAndDate(editingDistribution.hotel, editingDistribution.fecha, officialTariffsCatalog)
+                : window.GroupTargetsService.getOfficialBoardPrices(officialTariffsCatalog, editingDistribution.hotel, editingDistribution.fecha);
 
               const pInd = parseNum(editingDistribution.priceInd) || 0;
               const pDbl = parseNum(editingDistribution.priceDbl) || 0;
@@ -18522,9 +18448,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               if (window.BoardPricingService && origDayReg && currentModalReg && origDayReg !== currentModalReg) {
                 const oldCounts = window.BoardPricingService.getMealCounts(origDayReg);
                 const newCounts = window.BoardPricingService.getMealCounts(currentModalReg);
-                const bCost = typeof pricing.breakfast === "number" ? pricing.breakfast : 6.0;
-                const mCost = typeof pricing.meal === "number" ? pricing.meal : 16.0;
-                const deltaPerPerson = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((newCounts.meals - oldCounts.meals) * mCost);
+                const bCost = pricing.breakfast;
+                const mCost = pricing.lunch;
+                const deltaPerPerson = ((newCounts.breakfasts - oldCounts.breakfasts) * bCost) + ((Math.min(1,newCounts.meals) - Math.min(1,oldCounts.meals)) * mCost) + ((Math.max(0,newCounts.meals-1) - Math.max(0,oldCounts.meals-1)) * pricing.dinner);
                 dailyImp = Math.max(0, dailyImp + (deltaPerPerson * effectiveEcoPax));
               }
 
@@ -20019,7 +19945,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 data={data}
                 processedData={processedData}
                 dailyOccupancyList={dailyOccupancyList}
-                boardPricingConfig={boardPricingConfig}
               />
             )}
 
@@ -20984,7 +20909,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     {selectedGroupFicha.totalPax} PAX
                                   </span>
                                   {(() => {
-                                    const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal, boardPricingConfig);
+                                    const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal, officialTariffsCatalog);
                                     if (m.roomNights > 0 || m.adr > 0) {
                                       return (
                                         <>
@@ -21368,11 +21293,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 </p>
 
                                 {(() => {
-                                  const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal, boardPricingConfig);
+                                  const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal, officialTariffsCatalog);
                                   if (m.adr > 0) {
                                     return (
-                                      <p className="text-[9px] font-bold text-emerald-300 mt-1 tabular-nums">
-                                        ADR: {m.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/hab
+                                      <p className="text-[9px] font-bold text-emerald-300 mt-1 tabular-nums" title="Precio medio de alojamiento por habitación y noche, sin pensiones">
+                                        Media aloj.: {m.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/hab
                                       </p>
                                     );
                                   }
@@ -22222,8 +22147,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 </div>
 
                                 {/* Barra Financiera */}
-                                <div className="bg-white border-b border-slate-100 px-4 py-2.5 grid grid-cols-2 md:grid-cols-4 gap-2">
-                                  <div className="text-center">
+                                <div className="bg-white border-b border-slate-100 px-4 py-2.5 grid grid-cols-2 md:grid-cols-12 gap-2">
+                                  <div className="text-center md:col-span-3">
                                     <div className="text-[8px] font-black uppercase text-slate-400">
                                       {!isBudget && excelAmount > 0 && Math.abs((lodgingTotal || displayTotal) - excelAmount) > 0.50
                                         ? "Ficha vs Excel"
@@ -22250,37 +22175,27 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     </div>
                                   </div>
 
-                                  {/* PRECIO MEDIO HABITACIÓN (ADR) */}
+                                  {/* DESGLOSE OFICIAL POR PERSONA */}
                                   {(() => {
-                                    const groupMetrics = calculateGroupAdrAndRoomNights(selectedGroupFicha, displayTotal, boardPricingConfig);
-                                    return (
-                                      <div className="text-center border-l border-slate-100">
-                                        <div className="text-[8px] font-black uppercase text-indigo-600 flex items-center justify-center gap-1">
-                                          <span>🛏️</span> Precio Medio Hab. (ADR)
+                                    const summaries = getGroupBoardPriceSummary(selectedGroupFicha, officialTariffsCatalog);
+                                    return <div className="text-center col-span-2 md:col-span-5 border-slate-100 md:border-x px-3">
+                                      <div className="text-[9px] font-black uppercase text-indigo-500 mb-1">Pensión · importe oficial por persona</div>
+                                      {summaries.length ? summaries.map(summary => <div key={summary.key} className="space-y-1">
+                                        <div className="text-[9px] text-slate-400 font-bold">{summary.hotel} · {summary.year}</div>
+                                        <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
+                                          {[["Desayuno", "breakfast"], ["Almuerzo", "lunch"], ["Cena", "dinner"]].filter(([,key])=>summary[key]).map(([label,key])=><div key={key} className="text-xs text-slate-600">
+                                            <span>{label}</span> <span className="font-black text-slate-800 tabular-nums">{summary.prices[key].toLocaleString("es-ES", {minimumFractionDigits:2, maximumFractionDigits:2})} €</span>
+                                          </div>)}
                                         </div>
-                                        <div className="text-sm font-black text-indigo-700 tabular-nums">
-                                          {groupMetrics.adr > 0 ? (
-                                            `${groupMetrics.adr.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
-                                          ) : (
-                                            <span className="text-slate-400 text-xs font-medium">No definido</span>
-                                          )}
-                                        </div>
-                                        <div className="text-[8.5px] font-bold text-slate-400 mt-0.5">
-                                          {groupMetrics.roomNights > 0 ? (
-                                            `${groupMetrics.roomNights} hab-noche ${groupMetrics.totalRooms > 0 ? `(${groupMetrics.totalRooms} hab/d)` : ""}`
-                                          ) : (
-                                            "Tarifa media diaria"
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
+                                      </div>) : <div className="text-xs font-bold text-slate-500">Solo alojamiento</div>}
+                                    </div>;
                                   })()}
 
                                   <div className="text-center border-l border-slate-100">
                                     <div className="text-[8px] font-black uppercase text-emerald-500">Cobrado / Anticipos</div>
                                     <div className="text-sm font-black text-emerald-700 tabular-nums">{paid.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
                                   </div>
-                                  <div className="text-center">
+                                  <div className="text-center md:col-span-2">
                                     <div className={`text-[8px] font-black uppercase ${pending > 0 ? "text-red-400" : "text-emerald-400"}`}>Pendiente de Cobro</div>
                                     <div className={`text-sm font-black tabular-nums ${pending > 0 ? "text-red-700" : "text-emerald-600"}`}>{pending.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
                                   </div>
@@ -23412,12 +23327,12 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                        const isRoomTypology = /^(ind|dui|single|dob|dbl|twin|matrimonial|tri|cua|quin|fami|suite|junior|estudio)/i.test(cleanT);
                                        const isPureService = item.isService && !isRoomTypology;
 
-                                       b.items.push({ ...item, globalIndex: index });
+                                       b.items.push({ ...item, comision:isPureService ? item.comision : getOfficialRoomCommission(item), globalIndex: index });
                                        b.totalRooms += (isPureService ? 0 : qty);
                                        b.roomNights += isPureService ? 0 : qty * (parseInt(item.nights, 10) || 1);
                                        b.totalPax += (isPureService ? 0 : (qty * pax));
                                        b.totalAmount += tot;
-                                       if (!isPureService) b.accommodationAmount += getRoomAccommodationAmount(item, selectedGroupFicha, boardPricingConfig);
+                                       if (!isPureService) b.accommodationAmount += getRoomAccommodationAmount(item, selectedGroupFicha, officialTariffsCatalog);
 
                                        const tName = item.type || "Habitación";
                                        b.roomTypes[tName] = (b.roomTypes[tName] || 0) + qty;
@@ -23472,8 +23387,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                       </span>
                                                     )}
                                                     {bucket.totalRooms > 0 && bucket.totalAmount > 0 && (
-                                                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-mono font-bold" title="Precio Medio de Habitación del día (ADR)">
-                                                        ADR: {(bucket.accommodationAmount / bucket.roomNights).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-mono font-bold" title="Precio medio de alojamiento por habitación y noche, sin pensiones">
+                                                        Aloj.: {(bucket.accommodationAmount / bucket.roomNights).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                                       </span>
                                                     )}
                                                     {roomTypesSummary && (
@@ -23835,22 +23750,13 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                onClick={() => {
                                                  const hotelForPricing = item.hotel || selectedGroupFicha?.hotel || selectedGroupFicha?.records?.[0]?.["Hotel_Asignado"] || selectedGroupFicha?.records?.[0]?.["Hotel"] || "Sercotel Guadiana";
                                                  const itemPax = item.pax || getPaxByRoomType(item.type);
+                                                 const officialCom = getOfficialRoomCommission(item);
                                                  setCommissionModal({
                                                    isOpen: true,
                                                    item: item,
                                                    itemIdx: item.originalIndices?.[0] ?? 0,
                                                    itemIds: item.ids || [item.id],
-                                                   tempCom: item.comision?.desglose
-                                                     ? JSON.parse(JSON.stringify(item.comision))
-                                                     : calculateDefaultCommission(
-                                                         item.price,
-                                                         item.regime,
-                                                         item.qty,
-                                                         item.nights,
-                                                         item.type,
-                                                         hotelForPricing,
-                                                         itemPax,
-                                                       ),
+                                                   tempCom: officialCom,
                                                  });
                                                }}
                                                className="p-1 hover:bg-blue-100 text-blue-400 hover:text-blue-600 rounded transition-colors"
@@ -25365,6 +25271,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                       } catch(e) {}
                                     }
 
+                                    currentRL = (currentRL || []).map(item => item.isService ? item : {...item, comision:getOfficialRoomCommission(item)});
+
                                     let distMap = {};
                                     if (currentRec.DailyDistribution_JSON) {
                                       try {
@@ -25900,6 +25808,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     className="w-full h-7 bg-transparent border-none rounded text-xs font-black px-1 outline-none text-right pr-4"
 
                                     value={data.valor}
+                                    readOnly
+                                    title="Importe calculado con el desglose oficial del hotel y año"
 
                                     onChange={(e) => {
 

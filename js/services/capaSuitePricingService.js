@@ -305,38 +305,14 @@
     // Tarifa recomendada base de alojamiento (HA) para habitación doble con descuento
     var recDobleHA = Math.round(hotelRoomPrice * discountFactor * 100) / 100;
 
-    // Suplementos de pensión preconfigurados por persona (Desglose oficial)
-    // Desayuno: 8.50 € / pax | Almuerzo: 19.50 € / pax | Cena: 19.50 € / pax
-    var breakfastPerson = 8.50;
-    var mealPerson = 19.50;
-
-    // 1. Intentar leer desde el catálogo oficial de tarifas (nexus_group_tariffs) para este hotel y año
-    try {
-      var rawCatalog = safeGetStorage('nexus_group_tariffs');
-      if (rawCatalog) {
-        var parsedCat = typeof rawCatalog === 'string' ? JSON.parse(rawCatalog) : rawCatalog;
-        var yKey = dateISO ? String(new Date(dateISO).getFullYear()) : '2027';
-        var entryYear = parsedCat[yKey] && (parsedCat[yKey][hotelKey] || parsedCat[yKey][hotelName]);
-        if (entryYear && entryYear._desglose) {
-          if (typeof entryYear._desglose.breakfast === 'number') breakfastPerson = entryYear._desglose.breakfast;
-          if (typeof entryYear._desglose.lunch === 'number') mealPerson = entryYear._desglose.lunch;
-          else if (typeof entryYear._desglose.meal === 'number') mealPerson = entryYear._desglose.meal;
-        }
-      }
-    } catch (e) {}
-
-    // 2. Si boardPricingConfig está disponible en localStorage, usar como fallback prioritario
-    try {
-      var rawBpc = safeGetStorage('boardPricingConfig');
-      if (rawBpc) {
-        var parsedBpc = typeof rawBpc === 'string' ? JSON.parse(rawBpc) : rawBpc;
-        var bpcEntry = parsedBpc[hotelName] || parsedBpc[hotelKey] || parsedBpc['default'];
-        if (bpcEntry) {
-          if (typeof bpcEntry.breakfast === 'number') breakfastPerson = bpcEntry.breakfast;
-          if (typeof bpcEntry.meal === 'number') mealPerson = bpcEntry.meal;
-        }
-      }
-    } catch (e) {}
+    var targets = typeof window !== "undefined" ? window.GroupTargetsService : null;
+    if (!targets && typeof require === 'function') targets = require('./groupTargetsService');
+    var catalog = {};
+    try { var rawCatalog = safeGetStorage('nexus_group_tariffs'); catalog = typeof rawCatalog === 'string' ? JSON.parse(rawCatalog) : (rawCatalog || {}); } catch (e) {}
+    var officialBoard = targets.getOfficialBoardPrices(catalog, hotelName, dateISO);
+    var breakfastPerson = officialBoard.breakfast;
+    var mealPerson = officialBoard.lunch;
+    var dinnerPerson = officialBoard.dinner;
 
     var boardSupplementPerPerson = 0;
     if (boardCode === 'HD') {
@@ -344,7 +320,7 @@
     } else if (boardCode === 'MP') {
       boardSupplementPerPerson = breakfastPerson + mealPerson;
     } else if (boardCode === 'PC') {
-      boardSupplementPerPerson = breakfastPerson + (mealPerson * 2);
+      boardSupplementPerPerson = breakfastPerson + mealPerson + dinnerPerson;
     }
 
     var officialPricesByRoom = {};
