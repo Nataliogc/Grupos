@@ -84,6 +84,15 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     await service.syncGroupToMesachef(group);
 
     const dinnerKey = 'reservas_salones/nexus_213521_2027-02-03_cena';
+    const withOrder={...group,ServiceOrder_JSON:JSON.stringify({savedAt:'revision-1',grupo:'Grupo',notasText:'Notas',planRows:[{fecha:'2027-02-03',dia:'Mié 03/02',serv:'Cena',menu:'Menú 1',hora:'20:30'}],incidenciaRows:[]})};
+    await service.syncGroupToMesachef(withOrder);
+    assert.equal(data.get(dinnerKey).ordenServicio.planServicios[0].menu,'Menú 1');
+    data.set(dinnerKey,{...data.get(dinnerKey),ordenServicio:{...data.get(dinnerKey).ordenServicio,notas:'Cambio en sala'}});
+    await service.syncGroupToMesachef(withOrder);
+    assert.equal(data.get(dinnerKey).ordenServicio.notas,'Cambio en sala');
+    await service.syncGroupToMesachef({...withOrder,ServiceOrder_JSON:JSON.stringify({...JSON.parse(withOrder.ServiceOrder_JSON),savedAt:'revision-2',notasText:'Notas nuevas'})});
+    assert.equal(data.get(dinnerKey).ordenServicio.notas,'Notas nuevas');
+
     data.set(dinnerKey, {...data.get(dinnerKey), salon:'Salón Guadiana', salonOverride:'Salón Guadiana'});
     await service.syncGroupToMesachef({...group, Com_Estado_Interno:'CONFIRMADO'});
     assert.equal(data.get(dinnerKey).salon, 'Salón Guadiana');
@@ -205,4 +214,18 @@ test('comidas por encima de las incluidas se marcan como extras pendientes de va
   assert.equal(docs[0].detalles.pax_extra,6);
   assert.equal(docs[0].detalles.incluido,false);
   assert.equal(docs[0].servicios[0].total,0);
+});
+
+
+test('cada orden de MesaChef importa solo menu, hora e incidencias de su fecha y comida',()=>{
+ const record={...group,Entrada:'2026-10-10',Salida:'2026-10-11',RoomingList_JSON:JSON.stringify([room('2026-10-10',1,17,'PC')]),MealSchedule_JSON:JSON.stringify([{fecha:'2026-10-10',jornada:'almuerzo',pax:17},{fecha:'2026-10-11',jornada:'almuerzo',pax:17}]),ServiceOrder_JSON:JSON.stringify({
+  savedAt:'2026-10-05T19:00:00Z',grupo:'INES FRONTON',notasText:'Llegan en autobús. Preparar agua.',
+  planRows:[{fecha:'2026-10-10',dia:'Sáb 10/10',serv:'Almuerzo',pax:'34',menu:'Menú A',hora:'14:30 h'},{fecha:'2026-10-11',dia:'Dom 11/10',serv:'Almuerzo',pax:'17',menu:'Menú B',hora:'13:15'}],
+  incidenciaRows:[{tipo:'Celíaco',numPax:'1',detalle:'Sin gluten',serv:'Almuerzo'},{tipo:'Vegetariano',numPax:'2',detalle:'Sin carne',serv:'Cena'},{tipo:'Alergia',numPax:'1',detalle:'Sin frutos secos',serv:'Todos'},{tipo:'---',numPax:'---',detalle:'---',serv:'---'}]
+ })};
+ const docs=service.prepareSalonDocuments(record);
+ assert.deepEqual(docs.map(d=>[d.detalles.hora,d.ordenServicio.planServicios[0].menu,d.ordenServicio.planServicios[0].pax]),[['14:30','Menú A','17'],['13:15','Menú B','17']]);
+ assert.ok(docs.every(d=>d.ordenServicio.incidencias.length===2));
+ assert.equal(docs[0].ordenServicio.notas,'Llegan en autobús. Preparar agua.');
+ assert.equal(docs[1].servicios[0].hora,'13:15');
 });

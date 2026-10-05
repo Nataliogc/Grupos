@@ -441,6 +441,45 @@
     return prepareSalonDocuments(copy);
   }
 
+  function applyServiceOrderDetails(docs, groupRecord) {
+    var raw = groupRecord.ServiceOrder_JSON || (groupRecord.records && groupRecord.records[0] && groupRecord.records[0].ServiceOrder_JSON);
+    if (!raw) return docs;
+    var order = typeof raw === "string" ? JSON.parse(raw) : raw;
+    var entryIso = toIsoDate(groupRecord.Entrada || groupRecord.entrada) || "";
+    function rowDate(row) {
+      if (row.fecha) return toIsoDate(row.fecha);
+      var match = String(row.dia || "").match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+      if (!match) return "";
+      var year = Number(match[3]) || Number(entryIso.slice(0,4));
+      if (!match[3] && Number(match[2]) < Number(entryIso.slice(5,7))) year += 1;
+      return year + "-" + match[2].padStart(2,"0") + "-" + match[1].padStart(2,"0");
+    }
+    function clean(value) { return String(value || "").trim(); }
+    return docs.map(function (doc) {
+      var meal = doc.detalles.jornada;
+      var row = (order.planRows || []).find(function (r) { return rowDate(r) === doc.fecha && clean(r.serv).toLowerCase().includes(meal); });
+      var hour = row && clean(row.hora);
+      if (hour && /\d{1,2}:\d{2}/.test(hour)) {
+        hour = hour.match(/\d{1,2}:\d{2}/)[0];
+        doc.detalles.hora = hour;
+        doc.servicios.forEach(function (svc) { svc.hora = hour; });
+      }
+      var incidents = (order.incidenciaRows || []).filter(function (r) {
+        if (![r.tipo,r.numPax,r.detalle].some(function (v) { return clean(v) && clean(v) !== "---"; })) return false;
+        var affected = clean(r.serv).toLowerCase();
+        return !affected || affected === "---" || /todos|todas|general/.test(affected) || affected.includes(meal);
+      }).map(function (r) { return {tipo:clean(r.tipo),pax:clean(r.numPax),detalle:clean(r.detalle),servicios:clean(r.serv)}; });
+      doc.nexusServiceOrderRevision = order.savedAt || JSON.stringify(order);
+      doc.ordenServicio = {
+        origen:"Nexus Groups", grupo:order.grupo || doc.cliente, salon:doc.salon,
+        pax:String(doc.detalles.pax_adultos), notas:order.notasText || "", guardadoEl:order.savedAt || "",
+        planServicios:[{dia:row ? row.dia : doc.fecha,servicio:meal === "almuerzo" ? "Almuerzo" : "Cena",pax:String(doc.detalles.pax_adultos),menu:row ? clean(row.menu) : "",hora:doc.detalles.hora}],
+        incidencias:incidents
+      };
+      return doc;
+    });
+  }
+
   function prepareSalonDocuments(groupRecord) {
     if (!groupRecord) return [];
 
@@ -466,7 +505,7 @@
       }
       if (!template) return [];
       var allowance = automatic.reduce(function (sum, doc) { return sum + doc.detalles.pax_adultos; }, 0);
-      return schedule.filter(function (row) { return isEligibleDate(row.fecha); }).map(function (row) {
+      return applyServiceOrderDetails(schedule.filter(function (row) { return isEligibleDate(row.fecha); }).map(function (row) {
         var doc = JSON.parse(JSON.stringify(template));
         var included = Math.min(allowance, row.pax);
         allowance -= included;
@@ -481,7 +520,7 @@
         doc.servicios = [{fecha:row.fecha, hora:doc.detalles.hora,
           concepto:(row.jornada === "almuerzo" ? "Almuerzo" : "Cena") + " Grupo (programado)", uds:row.pax, precio:0, total:0}];
         return doc;
-      });
+      }), groupRecord);
     }
 
     var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
@@ -924,7 +963,7 @@
       return hA.localeCompare(hB);
     });
 
-    return docs;
+    return applyServiceOrderDetails(docs, groupRecord);
   }
 
   /**
@@ -1108,6 +1147,13 @@
             if (existing && !hotelChanged) {
               docData.salon = existing.salonOverride || existing.salon || docData.salon;
             }
+            if (docData.ordenServicio) {
+              docData.ordenServicio.salon = docData.salon;
+              if (existing && !hotelChanged && existing.nexusServiceOrderRevision === docData.nexusServiceOrderRevision) {
+                // Keep operational edits made in MesaChef until a new source order is saved.
+                delete docData.ordenServicio;
+              }
+            }
             if (!existing) {
               isDifferent = true;
             } else {
@@ -1130,7 +1176,8 @@
                 oldDetalles.montaje !== newDetalles.montaje ||
                 oldFirstSvc.uds !== newFirstSvc.uds ||
                 oldFirstSvc.concepto !== newFirstSvc.concepto ||
-                oldNotas.interna !== newNotas.interna
+                oldNotas.interna !== newNotas.interna ||
+                (docData.ordenServicio && existing.nexusServiceOrderRevision !== docData.nexusServiceOrderRevision)
               ) {
                 isDifferent = true;
               }
@@ -1414,6 +1461,7 @@
     resolveMesachefStatus: resolveMesachefStatus,
     mapMesachefStatus: mapMesachefStatus,
     resolveHotelAndSalon: resolveHotelAndSalon,
+    applyServiceOrderDetails: applyServiceOrderDetails,
     getMealSchedule: getMealSchedule,
     getAutomaticMealDocuments: getAutomaticMealDocuments,
     prepareSalonDocuments: prepareSalonDocuments,

@@ -97,7 +97,7 @@
             &larr; Volver a la Reserva
         </button>
         <div class="flex items-center gap-3">
-            <button onclick="handleExplicitRoomingSave()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer" title="Guardar explícitamente los cambios localmente">
+            <button onclick="handleExplicitRoomingSave()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors text-sm shadow cursor-pointer" title="Guardar la orden y sincronizar menús, horas e incidencias con MesaChef">
                 GUARDAR CAMBIOS
             </button>
             <span id="save-status" class="text-xs text-emerald-600 font-bold opacity-0 transition-opacity">Autoguardado ✓</span>
@@ -190,6 +190,13 @@
         </div>
     </div>
     <!-- Script principal de lógica de guardado y carga -->
+    <script src="js/vendor/firebase-app-compat.js"></script>
+    <script src="js/vendor/firebase-auth-9.22.1-compat.js"></script>
+    <script src="js/vendor/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/firebase-init.js?v=2-persistent-cache"></script>
+    <script src="js/services/mesachefService.js?v=1.7-service-order"></script>
+    <script src="js/services/serviceOrderPlanService.js?v=1.0-meal-schedule"></script>
     <script>
         let currentReservaId = "unknown";
         let isDiscardingChanges = false;
@@ -252,9 +259,25 @@
 
             isExplicitSaveInProgress = true;
             try {
-                saveStateToCache();
+                const savedOrder = saveStateToCache();
+                if (!savedOrder) throw new Error("No hay una orden para guardar.");
+                const group = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                const record = group.records?.[0] || group;
+                const payload = JSON.stringify(savedOrder);
+                if (!window.db || typeof firebase === 'undefined') throw new Error("La orden está guardada localmente. No hay conexión para compartirla con MesaChef.");
+                const sourceBatch = window.db.batch();
+                const docIds = new Set([window.MesaChefService.normalizeReservaId(currentReservaId)]);
+                (group.records || []).forEach(r=>{ if (r._docId) docIds.add(r._docId); });
+                docIds.forEach(id=>sourceBatch.set(window.db.collection('groups').doc(id), {ServiceOrder_JSON:payload}, {merge:true}));
+                await sourceBatch.commit();
+                const updated = {...record, ServiceOrder_JSON:payload};
+                if (group.records) group.records = group.records.map(r=>({...r,ServiceOrder_JSON:payload}));
+                else Object.assign(group, updated);
+                localStorage.setItem('selectedGroup',JSON.stringify(group));
+                const result = await window.MesaChefService.syncGroupToMesachef({...updated,Reserva:currentReservaId});
+                if (!result?.success) throw new Error("La orden se ha guardado, pero MesaChef no pudo sincronizarla. Vuelve a guardar para reintentarlo.");
                 hasUserEditedView = false;
-                alert("Cambios guardados localmente para impresión.");
+                alert(result.hasUnlinked ? "Orden guardada y sincronizada. Los servicios desvinculados en MesaChef se han respetado." : "Orden guardada y enviada a MesaChef con menús, horas, incidencias y notas.");
             } catch(e) {
                 alert("Error al guardar: " + e.message);
             } finally {
@@ -271,9 +294,10 @@
             td.oninput = triggerSave;
             return td;
         }
-        function addRowPlan(dia, serv, pax, menu, hora) {
+        function addRowPlan(dia, serv, pax, menu, hora, fecha = "") {
             const tbody = document.querySelector('#table-plan tbody');
             const tr = document.createElement('tr');
+            if (fecha) tr.dataset.fecha = fecha;
             tr.appendChild(createEditableCell(dia));
             tr.appendChild(createEditableCell(serv));
             tr.appendChild(createEditableCell(pax));
@@ -342,6 +366,7 @@
                 const cells = tr.querySelectorAll('td.editable');
                 if (cells.length === 5) {
                     planRows.push({
+                    fecha: tr.dataset.fecha || "",
                         dia: cells[0].innerText,
                         serv: cells[1].innerText,
                         pax: cells[2].innerText,
@@ -371,6 +396,8 @@
                 regimen: sanitizeText(document.getElementById('regimen-val').innerText),
                 comercial: sanitizeText(document.getElementById('comercial-val').innerText),
                 notasHTML: document.getElementById('notas-val').innerHTML,
+                notasText: document.getElementById('notas-val').innerText,
+                savedAt: new Date().toISOString(),
                 planRows,
                 incidenciaRows
             };
@@ -387,6 +414,7 @@
                     localStorage.removeItem('roomingServicios_' + currentReservaId);
                 }
             }
+            return saveData;
         }
         function discardUnsavedViewChanges() {
             const message = 'Se descartarán únicamente los cambios no guardados de esta pantalla.\n\n' +
@@ -433,6 +461,9 @@
             }
             const group = JSON.parse(rawGroupData);
             const rec = group.records ? (group.records[0] || {}) : group;
+            const mealSchedule = window.ServiceOrderPlanService.readSchedule(rec);
+            const reconcilePlan = rows => window.ServiceOrderPlanService.reconcileMealPlan(rows, mealSchedule, formatD, rec.Entrada || group.arrival);
+
             // Extract core logic
             currentReservaId = rec['Reserva'] || group.id || group.reserva || 'unknown';
             document.getElementById('title-reserva').innerText = currentReservaId;
@@ -442,7 +473,7 @@
                 sessionStorage.removeItem("discardUnsavedChanges");
                 console.log("[DESCARTAR CAMBIOS] Vista restaurada desde datos persistidos");
             } else {
-                savedStateStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+                savedStateStr = rec.ServiceOrder_JSON || localStorage.getItem('ordenServicio_' + currentReservaId);
             }
             const eventName = rec['Nombre del Grupo'] || group.name || '---';
             document.title = `${currentReservaId} - Ord Servicio - ${eventName}`;
@@ -484,23 +515,32 @@
                 document.getElementById('pax-val').innerText = sanitizeText(s.pax || '');
                 document.getElementById('regimen-val').innerText = sanitizeText(s.regimen || '');
                 document.getElementById('comercial-val').innerText = sanitizeText(s.comercial || '---');
-                document.getElementById('notas-val').innerHTML = s.notasHTML || '';
+                if (typeof s.notasText === 'string') {
+                    const notesList = document.getElementById('notas-ul');
+                    notesList.replaceChildren();
+                    s.notasText.split(/\n/).filter(line=>line.trim()).forEach(line=>{
+                        const li = document.createElement('li');
+                        li.textContent = line.trim();
+                        notesList.appendChild(li);
+                    });
+                } else document.getElementById('notas-val').innerHTML = s.notasHTML || '';
                 
                 // Only use cache if it actually contains plan rows. 
                 if (s.planRows && s.planRows.length > 0) {
-                    s.planRows.forEach(r => addRowPlan(
+                    reconcilePlan(s.planRows).forEach(r => addRowPlan(
                         sanitizeText(r.dia), 
                         sanitizeText(r.serv), 
                         sanitizeText(r.pax), 
                         sanitizeText(r.menu), 
-                        sanitizeText(r.hora)
+                        sanitizeText(r.hora), r.fecha || ""
                     ));
-                    s.incidenciaRows.forEach(r => addRowIncidencia(
+                    (s.incidenciaRows || []).forEach(r => addRowIncidencia(
                         sanitizeText(r.tipo), 
                         sanitizeText(r.numPax), 
                         sanitizeText(r.detalle), 
                         sanitizeText(r.serv)
                     ));
+                    isInitializingView = false;
                     return; 
                 }
             }
@@ -743,7 +783,7 @@
                                                 }
                                             });
                                         }
-                                        addRowPlan(dayLabel, sName, String(p), '', matchedHour);
+                                        addRowPlan(dayLabel, sName, String(p), '', matchedHour, dKey);
                                     }
                                 });
                             });
@@ -812,11 +852,22 @@
                 if (notesList.children.length === 0) {
                      notesList.innerHTML = '<li>Sin notas operativas registradas en la reserva.</li>';
                 }
+                // La programación guardada manda sobre las comidas generadas por PC y cargos extra.
+                if (mealSchedule !== null) {
+                    const body = document.querySelector('#table-plan tbody');
+                    const rows = [...body.querySelectorAll('tr')].map(tr => {
+                        const cells = tr.querySelectorAll('td');
+                        return {fecha:tr.dataset.fecha || "",dia:cells[0].innerText,serv:cells[1].innerText,pax:cells[2].innerText,menu:cells[3].innerText,hora:cells[4].innerText};
+                    });
+                    const reconciled = reconcilePlan(rows);
+                    body.replaceChildren();
+                    reconciled.forEach(row=>addRowPlan(row.dia,row.serv,row.pax,row.menu,row.hora,row.fecha));
+                }
                 // --- FINAL SAFETY CHECK ---
                 // If even after regeneration/fallback the table is empty, something is wrong with dates/regime.
                 // We add at least one generic row for today so the user isn't faced with a blank screen.
                 const tableBody = document.querySelector('#table-plan tbody');
-                if (tableBody.children.length === 0) {
+                if (tableBody.children.length === 0 && mealSchedule === null) {
                     const today = new Date().toISOString().split('T')[0];
                     const reg = document.getElementById('regimen-val').innerText || 'MP';
                     const svcs = getServicesForRegime(reg);

@@ -20902,6 +20902,17 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 </div>
 
                                 <p className="text-slate-300 text-[10px] font-bold uppercase tracking-wider mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                                  {(() => {
+                                    const hotel = selectedGroupFicha.records[0]?.Hotel_Asignado || selectedGroupFicha.records[0]?.Hotel || selectedGroupFicha.hotel;
+                                    return hotel ? <>
+                                      <span className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-400/20 text-blue-100 px-2 py-0.5 rounded" title="Hotel del grupo">
+                                        <IconBuildingSkyscraper size={11} />
+                                        {hotel}
+                                      </span>
+                                      <span className="opacity-30">•</span>
+                                    </> : null;
+                                  })()}
+
                                   <span className="text-white/60">
                                     {selectedGroupFicha.records[0]?.["Fiscal_RazonSocial"] || selectedGroupFicha.records[0]?.["Empresa/Agencia"] || selectedGroupFicha.records[0]?.["Empresa"] || "VENTA DIRECTA"}
                                   </span>
@@ -25168,7 +25179,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                 localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
 
-                                window.location.href = "Orden Servicio.html";
+                                window.location.href = "Orden Servicio.html?v=1.1-meal-schedule";
 
                               }}
 
