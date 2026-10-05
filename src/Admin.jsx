@@ -1601,7 +1601,7 @@
         </div>
 
         <!-- Bank Details Card si no es interno -->
-        ${(!isInternal && data.hotelIban) ? `
+        ${(!isInternal && data.includeBankDetails && data.hotelIban) ? `
         <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
           <tr>
             <td bgcolor="#0f172a" style="background-color: #0f172a; border-radius: 8px; padding: 16px 20px; color: #ffffff;">
@@ -1715,9 +1715,16 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
           clientSubject = `Aviso de Plazo / Release - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
           clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde ${hotelOfficial} con respecto a la reserva del grupo "${grupoName}" (Ref: #${resId}), cuya fecha de entrada está fijada para el ${entrada || "próximamente"}.\n\nSituación del plazo: ${alert.detail}\nImporte pendiente: ${fmt(fin.pending)}\n\nA fin de mantener el bloqueo de habitaciones solicitado y no liberar automáticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al trámite de garantía antes de la fecha límite.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isDatos) {
-          const missingItems = alert.details ? alert.details.map(d => `• ${d.text}`).join("\n") : `• ${alert.detail}`;
-          clientSubject = `Solicitud de Documentación Operativa - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ${hotelOfficial} para ultimar los preparativos de la llegada del grupo "${grupoName}" (Localizador #${resId}), con fecha de entrada el ${entrada || "próximamente"}.\n\nINFORMACIÓN PENDIENTE:\n${missingItems}\n\nLe rogamos nos haga llegar estos datos a la mayor brevedad posible.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
+          const missing = (alert.details?.length ? alert.details.map(d => d.text) : [alert.detail]).filter(Boolean);
+          const onlyRooming = missing.length === 1 && /rooming/i.test(missing[0]);
+          const missingItems = missing.map(text => `• ${text.replace(/^Falta\s+/i, "")}`).join("\n");
+          const request = onlyRooming
+            ? "Le agradeceríamos que nos enviara la rooming list (listado de huéspedes y distribución de habitaciones) a la mayor brevedad posible, respondiendo a este correo."
+            : missing.length === 1
+              ? `Está pendiente de recibir: ${missing[0].replace(/^Falta\s+/i, "")}.\n\nLe agradeceríamos que nos enviara esta información a la mayor brevedad posible, respondiendo a este correo.`
+              : `Está pendiente de recibir la siguiente información:\n${missingItems}\n\nLe agradeceríamos que nos enviara esta información a la mayor brevedad posible, respondiendo a este correo.`;
+          clientSubject = `${onlyRooming ? "Solicitud de Rooming List" : "Solicitud de Información Pendiente"} - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ${hotelOfficial} para ultimar los preparativos de la llegada del grupo "${grupoName}" (Localizador #${resId}), con fecha de entrada el ${entrada || "próximamente"}.\n\n${request}\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isCrm) {
           clientSubject = `Seguimiento de Propuesta para Grupo - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
           clientBody = `Estimado/a cliente,\n\nLe escribimos desde ${hotelOfficial} para dar seguimiento a la propuesta para el grupo "${grupoName}" (Ref: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.\n\nNos gustaría conocer si han tenido ocasión de valorar las condiciones o si necesitan realizar alguna modificación.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
@@ -1740,6 +1747,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
           hotelLogo,
           hotelBank,
           hotelIban,
+          includeBankDetails: isFinanciera || (isRelease && fin.pending > 0.05),
           fin,
           entrada,
           salida,
@@ -2522,7 +2530,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                         </div>
 
                         {/* Tarjeta Ejecutiva de Datos Bancarios */}
-                        {selectedEmailAlert.hotelIban && (
+                        {selectedEmailAlert.mode === "client" && selectedEmailAlert.includeBankDetails && selectedEmailAlert.hotelIban && (
                           <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-slate-700">
                             <div className="flex items-center justify-between gap-2 mb-3">
                               <div className="flex items-center gap-2">
