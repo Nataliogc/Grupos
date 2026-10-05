@@ -602,16 +602,20 @@
           // 4. Column 4: CRM Tasks
           if (!seenCrm.has(resId)) {
             const dFollow = parseDate(g.Com_Seguimiento);
-            if (dFollow && dFollow <= endOfToday) {
+            const followDay = dFollow && new Date(dFollow.getFullYear(), dFollow.getMonth(), dFollow.getDate());
+            if (followDay && followDay <= fifteenDaysFromNow) {
               seenCrm.add(resId);
               const isPastDue = dFollow < startOfToday;
+              const isToday = followDay.getTime() === startOfToday.getTime();
+              const daysUntil = Math.round((followDay - startOfToday) / (1000 * 60 * 60 * 24));
               crmAlerts.push({
                 group: g,
                 icon: "phone-call",
-                label: isPastDue ? "CRM Retrasado" : "CRM Hoy",
+                label: isPastDue ? "CRM Retrasado" : isToday ? "CRM Hoy" : "CRM Próximo",
                 detail: isPastDue
                   ? `Planificado para el ${formatDate(dFollow)}`
-                  : `Programado para hoy (${formatDate(dFollow)})`,
+                  : isToday ? `Programado para hoy (${formatDate(dFollow)})`
+                    : `Seguimiento en ${daysUntil} día${daysUntil === 1 ? "" : "s"} (${formatDate(dFollow)})`,
                 type: isPastDue ? "danger" : "info"
               });
             }
