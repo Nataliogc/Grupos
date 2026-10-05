@@ -1617,7 +1617,7 @@ var Dashboard = function Dashboard(_ref2) {
         key: idx,
         onClick: function onClick() {
           localStorage.setItem("nexus_return_reserva", g.Reserva);
-          window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(g.Reserva));
+          window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(g.Reserva), "&returnTo=").concat(encodeURIComponent(window.location.href));
         },
         className: "bg-white p-4 rounded-[1.5rem] border border-slate-100/80 cursor-pointer shadow-sm hover:-translate-y-1 hover:scale-[1.01] transition-all duration-300 ".concat(theme.cardHover, " flex flex-col gap-2 relative group")
       }, /*#__PURE__*/React.createElement("div", {
@@ -2645,7 +2645,7 @@ var GroupsManager = function GroupsManager(_ref4) {
       onClick: function onClick() {
         var resId = group["Reserva"];
         localStorage.setItem("nexus_return_reserva", resId);
-        window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(resId));
+        window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(resId), "&returnTo=").concat(encodeURIComponent(window.location.href));
       },
       title: group["Nombre del Grupo"]
     }, group["Nombre del Grupo"]), /*#__PURE__*/React.createElement("p", {
@@ -2918,7 +2918,7 @@ var BudgetManager = function BudgetManager(_ref5) {
       className: "flex gap-2 pt-4 border-t border-slate-50"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        window.location.href = "Gestion-de-Grupos.html?reserva=" + budget.Reserva;
+        window.location.href = "Gestion-de-Grupos.html?reserva=" + encodeURIComponent(budget.Reserva) + "&returnTo=" + encodeURIComponent(window.location.href);
       },
       className: "px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center justify-center shadow-lg shadow-emerald-100",
       title: "Abrir en Panel de Gesti\xF3n"
@@ -2962,10 +2962,21 @@ var BudgetManager = function BudgetManager(_ref5) {
   }, "No hay presupuestos en esta secci\xF3n")))));
 };
 var App = function App() {
-  var _useState = useState("dashboard"),
+  var _useState = useState(function () {
+      try {
+        return sessionStorage.getItem("nexus_admin_active_tab") || "dashboard";
+      } catch (_) {
+        return "dashboard";
+      }
+    }),
     _useState2 = _slicedToArray(_useState, 2),
     activeTab = _useState2[0],
     setActiveTab = _useState2[1];
+  useEffect(function () {
+    try {
+      sessionStorage.setItem("nexus_admin_active_tab", activeTab);
+    } catch (_) {}
+  }, [activeTab]);
   var _useState3 = useState([]),
     _useState4 = _slicedToArray(_useState3, 2),
     data = _useState4[0],

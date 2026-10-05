@@ -1942,7 +1942,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                     key={idx}
                     onClick={() => {
                       localStorage.setItem("nexus_return_reserva", g.Reserva);
-                      window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(g.Reserva)}`;
+                      window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(g.Reserva)}&returnTo=${encodeURIComponent(window.location.href)}`;
                     }}
                     className={`bg-white p-4 rounded-[1.5rem] border border-slate-100/80 cursor-pointer shadow-sm hover:-translate-y-1 hover:scale-[1.01] transition-all duration-300 ${theme.cardHover} flex flex-col gap-2 relative group`}
                   >
@@ -3125,7 +3125,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                       onClick={() => {
                         const resId = group["Reserva"];
                         localStorage.setItem("nexus_return_reserva", resId);
-                        window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(resId)}`;
+                        window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(resId)}&returnTo=${encodeURIComponent(window.location.href)}`;
                       }}
                       title={group["Nombre del Grupo"]}
                     >
@@ -3481,7 +3481,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                     <button
                       onClick={() => {
                         window.location.href =
-                          "Gestion-de-Grupos.html?reserva=" + budget.Reserva;
+                          "Gestion-de-Grupos.html?reserva=" + encodeURIComponent(budget.Reserva) + "&returnTo=" + encodeURIComponent(window.location.href);
                       }}
                       className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center justify-center shadow-lg shadow-emerald-100"
                       title="Abrir en Panel de Gestión"
@@ -3544,7 +3544,14 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
     };
 
     const App = () => {
-      const [activeTab, setActiveTab] = useState("dashboard");
+      const [activeTab, setActiveTab] = useState(() => {
+        try { return sessionStorage.getItem("nexus_admin_active_tab") || "dashboard"; }
+        catch (_) { return "dashboard"; }
+      });
+      useEffect(() => {
+        try { sessionStorage.setItem("nexus_admin_active_tab", activeTab); }
+        catch (_) {}
+      }, [activeTab]);
       const [data, setData] = useState([]);
       const [arrivals, setArrivals] = useState([]);
       const [timeRange, setTimeRange] = useState(30);

@@ -5152,7 +5152,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
             if (showFichaModal) {
 
-              setShowFichaModal(false);
+              closeGroupFicha();
 
               return;
 
@@ -10579,6 +10579,23 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [showFichaModal, setShowFichaModal] = useState(false);
 
       const [selectedGroupFicha, setSelectedGroupFicha] = useState(null);
+
+      const [fichaReturnUrl] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (!params.get("reserva")) return null;
+        try {
+          const origin = params.get("returnTo") || document.referrer;
+          if (!origin) return null;
+          const target = new URL(origin, window.location.href);
+          const current = new URL(window.location.href);
+          return target.origin === current.origin && target.pathname !== current.pathname
+            ? target.href : null;
+        } catch (_) { return null; }
+      });
+      const closeGroupFicha = () => {
+        setShowFichaModal(false);
+        if (fichaReturnUrl) window.location.assign(fichaReturnUrl);
+      };
 
       const [isEditingGroupName, setIsEditingGroupName] = useState(false);
 
@@ -25260,7 +25277,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                             <button
 
-                              onClick={() => setShowFichaModal(false)}
+                              onClick={closeGroupFicha}
 
                               className="px-6 h-11 text-[11px] font-black uppercase text-slate-400 hover:text-slate-600 transition-all tracking-widest"
 
@@ -25352,7 +25369,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     alert("No se ha podido completar el guardado y la sincronización. Revisa los datos y vuelve a intentarlo.");
                                   }
                                 }
-                                setShowFichaModal(false);
+                                closeGroupFicha();
                               }}
 
                               className="px-10 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"
