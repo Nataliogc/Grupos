@@ -592,8 +592,8 @@ var Dashboard = function Dashboard(_ref2) {
         } catch (e) {}
       }
 
-      // 2. Column 2: Releases y Plazos (sólo aplica a reservas NO confirmadas)
-      if (!isConfirmed && !isCredito && pending > 0.1 && !seenRelease.has(resId)) {
+      // El plazo de confirmación es independiente del saldo y de la forma de pago.
+      if (!isConfirmed && !seenRelease.has(resId)) {
         var dRel = parseDate(g.Com_Vencimiento_Rel);
         if (dRel && dRel <= fiveDaysFromNow) {
           seenRelease.add(resId);
@@ -603,8 +603,8 @@ var Dashboard = function Dashboard(_ref2) {
           releaseAlerts.push({
             group: g,
             icon: "clock",
-            label: isOverdue ? "Release Vencido" : "Próximo Release",
-            detail: isOverdue ? "Venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ") - Pend: ").concat(pending.toFixed(2), "\u20AC - Est: ").concat(status) : "Vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ") - Pend: ").concat(pending.toFixed(2), "\u20AC"),
+            label: isOverdue ? "Plazo de confirmación vencido" : "Confirmación próxima a vencer",
+            detail: isOverdue ? "Confirmaci\xF3n pendiente: el plazo venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ")") : "Confirmaci\xF3n pendiente: el plazo vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ")"),
             type: isOverdue ? "danger" : "warning"
           });
         }
@@ -820,8 +820,8 @@ var Dashboard = function Dashboard(_ref2) {
       alerts: internalReportModal.sections.financial ? filterAlerts(columnsData.financialAlerts) : []
     }, {
       id: "release",
-      title: "Releases y Plazos Críticos",
-      shortTitle: "Releases",
+      title: "Reservas pendientes de confirmar",
+      shortTitle: "Confirmaciones",
       icon: "clock",
       colorClass: "amber",
       badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
@@ -1386,7 +1386,7 @@ var Dashboard = function Dashboard(_ref2) {
     // Email del comercial asignado o administración por defecto
     var staffEmail = getStaffEmail(comercial) || "comunicaciones@hotelguadiana.es";
     var isFinanciera = columnTitle.toLowerCase().includes("financ");
-    var isRelease = columnTitle.toLowerCase().includes("release");
+    var isRelease = /release|pendientes de confirmar/i.test(columnTitle);
     var isDatos = columnTitle.toLowerCase().includes("dato");
     var isCrm = columnTitle.toLowerCase().includes("crm") || columnTitle.toLowerCase().includes("seguimiento");
     var internalSubject = "[CONTROL INTERNO] ".concat(columnTitle, " - Reserva #").concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
@@ -1397,8 +1397,8 @@ var Dashboard = function Dashboard(_ref2) {
       clientSubject = "Recordatorio de Pago Pendiente - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
       clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ".concat(hotelOfficial, " en relaci\xF3n a la reserva del grupo \"").concat(grupoName, "\" (Localizador: #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nESTADO ECON\xD3MICO DE LA RESERVA\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Importe Total Contratado:      ").concat(fmt(fin.total), "\n\u2022 Importe Abonado y Confirmado:  ").concat(fmt(fin.paid), "\n\u2022 Importe Pendiente de Pago:     ").concat(fmt(fin.pending), "\n\nDetalle del vencimiento pendiente:\n").concat(alert.detail || "Hito de pago pendiente según las condiciones pactadas.", "\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularizaci\xF3n del importe pendiente a la mayor brevedad posible.\n\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nDATOS OFICIALES PARA TRANSFERENCIA BANCARIA\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Entidad Bancaria:        ").concat(hotelBank, "\n\u2022 IBAN:                    ").concat(hotelIban, "\n\u2022 Beneficiario:            ").concat(hotelOfficial, "\n\u2022 Concepto imprescindible: Reserva #").concat(resId, " - ").concat(grupoName, "\n\nUna vez realizada la transferencia, le agradecer\xEDamos que nos remita el correspondiente justificante bancario respondiendo a este correo.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isRelease) {
-      clientSubject = "Aviso de Plazo / Release - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " con respecto a la reserva del grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), cuya fecha de entrada est\xE1 fijada para el ").concat(entrada || "próximamente", ".\n\nSituaci\xF3n del plazo: ").concat(alert.detail, "\nImporte pendiente: ").concat(fmt(fin.pending), "\n\nA fin de mantener el bloqueo de habitaciones solicitado y no liberar autom\xE1ticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al tr\xE1mite de garant\xEDa antes de la fecha l\xEDmite.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
+      clientSubject = "Confirmaci\xF3n de Reserva Pendiente - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " con respecto a la reserva del grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), cuya fecha de entrada est\xE1 fijada para el ").concat(entrada || "próximamente", ".\n\n").concat(alert.detail, "\n\nLe agradecer\xEDamos que nos confirmara si desea mantener la reserva y el bloqueo de habitaciones, respondiendo a este correo a la mayor brevedad posible.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isDatos) {
       var _alert$details;
       var missing = ((_alert$details = alert.details) !== null && _alert$details !== void 0 && _alert$details.length ? alert.details.map(function (d) {
@@ -1431,7 +1431,7 @@ var Dashboard = function Dashboard(_ref2) {
       hotelLogo: hotelLogo,
       hotelBank: hotelBank,
       hotelIban: hotelIban,
-      includeBankDetails: isFinanciera || isRelease && fin.pending > 0.05,
+      includeBankDetails: isFinanciera,
       fin: fin,
       entrada: entrada,
       salida: salida,
@@ -1724,7 +1724,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-3xl font-black tracking-tight mt-4 mb-2"
   }, "Panel de Alertas y Actuaciones Cr\xEDticas"), /*#__PURE__*/React.createElement("p", {
     className: "text-sm text-slate-300 font-medium leading-relaxed"
-  }, "Supervisa vencimientos financieros, plazos de release, informaci\xF3n log\xEDstica ausente y tareas CRM pendientes. Filtra por establecimiento y abre las fichas correspondientes con un clic."))), /*#__PURE__*/React.createElement("div", {
+  }, "Supervisa vencimientos financieros, plazos de confirmaci\xF3n, informaci\xF3n log\xEDstica ausente y tareas CRM pendientes. Filtra por establecimiento y abre las fichas correspondientes con un clic."))), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center justify-between gap-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex bg-slate-100/80 p-1.5 rounded-[2rem] border border-slate-200/50 w-fit gap-1.5 shadow-sm"
@@ -1845,7 +1845,7 @@ var Dashboard = function Dashboard(_ref2) {
     colorClass: "rose",
     alerts: columnsData.financialAlerts
   }), /*#__PURE__*/React.createElement(AlertColumn, {
-    title: "Releases y Plazos",
+    title: "Reservas pendientes de confirmar",
     icon: "clock",
     colorClass: "amber",
     alerts: columnsData.releaseAlerts
@@ -2372,7 +2372,7 @@ var Dashboard = function Dashboard(_ref2) {
     color: "text-rose-700 bg-rose-50 border-rose-200"
   }, {
     key: "release",
-    label: "⏰ Releases",
+    label: "⏰ Confirmaciones",
     count: columnsData.releaseAlerts.length,
     color: "text-amber-700 bg-amber-50 border-amber-200"
   }, {

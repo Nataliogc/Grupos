@@ -550,8 +550,8 @@
             } catch (e) {}
           }
 
-          // 2. Column 2: Releases y Plazos (sólo aplica a reservas NO confirmadas)
-          if (!isConfirmed && (!isCredito && pending > 0.1) && !seenRelease.has(resId)) {
+          // El plazo de confirmación es independiente del saldo y de la forma de pago.
+          if (!isConfirmed && !seenRelease.has(resId)) {
             const dRel = parseDate(g.Com_Vencimiento_Rel);
             if (dRel && dRel <= fiveDaysFromNow) {
               seenRelease.add(resId);
@@ -562,10 +562,10 @@
               releaseAlerts.push({
                 group: g,
                 icon: "clock",
-                label: isOverdue ? "Release Vencido" : "Próximo Release",
+                label: isOverdue ? "Plazo de confirmación vencido" : "Confirmación próxima a vencer",
                 detail: isOverdue 
-                  ? `Venció hace ${Math.abs(diffDays)} días (${formatDate(dRel)}) - Pend: ${pending.toFixed(2)}€ - Est: ${status}`
-                  : `Vence en ${diffDays} días (${formatDate(dRel)}) - Pend: ${pending.toFixed(2)}€`,
+                  ? `Confirmación pendiente: el plazo venció hace ${Math.abs(diffDays)} días (${formatDate(dRel)})`
+                  : `Confirmación pendiente: el plazo vence en ${diffDays} días (${formatDate(dRel)})`,
                 type: isOverdue ? "danger" : "warning"
               });
             }
@@ -796,8 +796,8 @@
           },
           {
             id: "release",
-            title: "Releases y Plazos Críticos",
-            shortTitle: "Releases",
+            title: "Reservas pendientes de confirmar",
+            shortTitle: "Confirmaciones",
             icon: "clock",
             colorClass: "amber",
             badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
@@ -1675,7 +1675,7 @@
         const staffEmail = getStaffEmail(comercial) || "comunicaciones@hotelguadiana.es";
 
         const isFinanciera = columnTitle.toLowerCase().includes("financ");
-        const isRelease = columnTitle.toLowerCase().includes("release");
+        const isRelease = /release|pendientes de confirmar/i.test(columnTitle);
         const isDatos = columnTitle.toLowerCase().includes("dato");
         const isCrm = columnTitle.toLowerCase().includes("crm") || columnTitle.toLowerCase().includes("seguimiento");
 
@@ -1712,8 +1712,8 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
           clientSubject = `Recordatorio de Pago Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
           clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} en relación a la reserva del grupo "${grupoName}" (Localizador: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.\n\n═══════════════════════════════════════════════════════════\nESTADO ECONÓMICO DE LA RESERVA\n═══════════════════════════════════════════════════════════\n• Importe Total Contratado:      ${fmt(fin.total)}\n• Importe Abonado y Confirmado:  ${fmt(fin.paid)}\n• Importe Pendiente de Pago:     ${fmt(fin.pending)}\n\nDetalle del vencimiento pendiente:\n${alert.detail || "Hito de pago pendiente según las condiciones pactadas."}\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularización del importe pendiente a la mayor brevedad posible.\n\n═══════════════════════════════════════════════════════════\nDATOS OFICIALES PARA TRANSFERENCIA BANCARIA\n═══════════════════════════════════════════════════════════\n• Entidad Bancaria:        ${hotelBank}\n• IBAN:                    ${hotelIban}\n• Beneficiario:            ${hotelOfficial}\n• Concepto imprescindible: Reserva #${resId} - ${grupoName}\n\nUna vez realizada la transferencia, le agradeceríamos que nos remita el correspondiente justificante bancario respondiendo a este correo.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isRelease) {
-          clientSubject = `Aviso de Plazo / Release - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde ${hotelOfficial} con respecto a la reserva del grupo "${grupoName}" (Ref: #${resId}), cuya fecha de entrada está fijada para el ${entrada || "próximamente"}.\n\nSituación del plazo: ${alert.detail}\nImporte pendiente: ${fmt(fin.pending)}\n\nA fin de mantener el bloqueo de habitaciones solicitado y no liberar automáticamente las plazas, le rogamos nos confirme el estado final del grupo y proceda al trámite de garantía antes de la fecha límite.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
+          clientSubject = `Confirmación de Reserva Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde ${hotelOfficial} con respecto a la reserva del grupo "${grupoName}" (Ref: #${resId}), cuya fecha de entrada está fijada para el ${entrada || "próximamente"}.\n\n${alert.detail}\n\nLe agradeceríamos que nos confirmara si desea mantener la reserva y el bloqueo de habitaciones, respondiendo a este correo a la mayor brevedad posible.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isDatos) {
           const missing = (alert.details?.length ? alert.details.map(d => d.text) : [alert.detail]).filter(Boolean);
           const onlyRooming = missing.length === 1 && /rooming/i.test(missing[0]);
@@ -1747,7 +1747,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
           hotelLogo,
           hotelBank,
           hotelIban,
-          includeBankDetails: isFinanciera || (isRelease && fin.pending > 0.05),
+          includeBankDetails: isFinanciera,
           fin,
           entrada,
           salida,
@@ -2089,7 +2089,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                 Panel de Alertas y Actuaciones Críticas
               </h2>
               <p className="text-sm text-slate-300 font-medium leading-relaxed">
-                Supervisa vencimientos financieros, plazos de release, información logística ausente y tareas CRM pendientes. Filtra por establecimiento y abre las fichas correspondientes con un clic.
+                Supervisa vencimientos financieros, plazos de confirmación, información logística ausente y tareas CRM pendientes. Filtra por establecimiento y abre las fichas correspondientes con un clic.
               </p>
             </div>
           </div>
@@ -2205,7 +2205,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
               alerts={columnsData.financialAlerts}
             />
             <AlertColumn
-              title="Releases y Plazos"
+              title="Reservas pendientes de confirmar"
               icon="clock"
               colorClass="amber"
               alerts={columnsData.releaseAlerts}
@@ -2801,7 +2801,7 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
                       </span>
                       {[
                         { key: "financial", label: "💳 Financieras", count: columnsData.financialAlerts.length, color: "text-rose-700 bg-rose-50 border-rose-200" },
-                        { key: "release", label: "⏰ Releases", count: columnsData.releaseAlerts.length, color: "text-amber-700 bg-amber-50 border-amber-200" },
+                        { key: "release", label: "⏰ Confirmaciones", count: columnsData.releaseAlerts.length, color: "text-amber-700 bg-amber-50 border-amber-200" },
                         { key: "logistics", label: "📄 Datos Faltantes", count: columnsData.logisticsAlerts.length, color: "text-orange-700 bg-orange-50 border-orange-200" },
                         { key: "crm", label: "📞 CRM", count: columnsData.crmAlerts.length, color: "text-indigo-700 bg-indigo-50 border-indigo-200" },
                         { key: "tentative", label: "⏱️ Tentativas", count: columnsData.tentativeAlerts.length, color: "text-violet-700 bg-violet-50 border-violet-200" }
