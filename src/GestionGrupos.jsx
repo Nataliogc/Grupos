@@ -6154,7 +6154,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 
                 const rlTotal = rlClean.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
                 if (rlTotal > 0) {
-                   groups[key].totalRevenue = rlTotal + suplementos - descuentos;
+                   // Las líneas económicas ya incluyen los cargos y ajustes de la ficha.
+                   groups[key].totalRevenue = rlTotal;
                    groups[key].hasRoomingListOverride = true;
                 }
               } catch(e) {}
