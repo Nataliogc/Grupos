@@ -579,8 +579,26 @@
       return result;
     };
 
+    const getRoomAccommodationAmount = (item, group, pricingConfig = {}) => {
+      const qty = parseInt(item.qty, 10) || 1;
+      const nights = parseInt(item.nights, 10) || 1;
+      const amount = parseFloat(item.total) || 0;
+      const service = typeof window !== "undefined" && window.BoardPricingService;
+      if (!service) return amount;
+      const record = group?.records?.[0] || group || {};
+      const hotel = item.hotel || group?.hotel || record.Hotel_Asignado || record.Hotel || "default";
+      const prices = service.getPricingForHotelAndDate(hotel, item.dateIn || item.date, pricingConfig);
+      const pax = parseInt(item.pax, 10) || getPaxByRoomType(item.type || item.roomType);
+      return service.calculateDailyEconomicBreakdown({
+        pax: qty * pax,
+        regimen: item.regime || item.regimen || "HA",
+        dailyAmount: amount / nights,
+        pricingConfig: prices
+      }).netAccommodationPrice * nights;
+    };
+
     // Helper para calcular con precisión las Habitaciones-Noche y el Precio Medio de Habitación (ADR) de un grupo
-    const calculateGroupAdrAndRoomNights = (group, effectiveAmount = 0) => {
+    const calculateGroupAdrAndRoomNights = (group, effectiveAmount = 0, pricingConfig = {}) => {
       if (!group) return { roomNights: 0, adr: 0, lodgingTotal: 0, totalRooms: 0, nights: 0 };
       const rec = group.records?.[0] || group;
 
@@ -597,6 +615,7 @@
       let roomNights = 0;
       let lodgingTotal = 0;
       let totalRooms = 0;
+      let hasRoomRevenue = false;
 
       if (Array.isArray(rawList) && rawList.length > 0) {
         const expanded = expandRoomListByDays(rawList);
@@ -610,7 +629,8 @@
             const q = parseInt(item.qty, 10) || 1;
             const n = parseInt(item.nights, 10) || 1;
             roomNights += q * n;
-            lodgingTotal += parseFloat(item.total) || 0;
+            hasRoomRevenue = true;
+            lodgingTotal += getRoomAccommodationAmount(item, group, pricingConfig);
           }
         });
 
@@ -635,13 +655,13 @@
         totalRooms = Math.round(roomNights / nightsVal);
       }
 
-      const baseRevenue = lodgingTotal > 0 ? lodgingTotal : (effectiveAmount || parseFloat(rec["Importe(*)"] || rec.total || group.totalRevenue || 0) || 0);
-      const adr = roomNights > 0 && baseRevenue > 0 ? (baseRevenue / roomNights) : 0;
+      const baseRevenue = hasRoomRevenue ? lodgingTotal : (effectiveAmount || parseFloat(rec["Importe(*)"] || rec.total || group.totalRevenue || 0) || 0);
+      const adr = roomNights > 0 ? (baseRevenue / roomNights) : 0;
 
       return {
         roomNights,
         adr,
-        lodgingTotal: lodgingTotal > 0 ? lodgingTotal : baseRevenue,
+        lodgingTotal: baseRevenue,
         totalRooms,
         nights: nightsVal || (totalRooms > 0 && roomNights > 0 ? Math.round(roomNights / totalRooms) : 1)
       };
@@ -12322,6 +12342,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
               regime: roomManagerForm.regime,
               mpMeal: roomManagerForm.mpMeal || "cena",
+            pcMeal: roomManagerForm.pcMeal || "almuerzo_cena",
 
               price: formPrice,
 
@@ -12389,6 +12410,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
             regime: roomManagerForm.isService ? "" : roomManagerForm.regime,
             mpMeal: roomManagerForm.mpMeal || "cena",
+            pcMeal: roomManagerForm.pcMeal || "almuerzo_cena",
 
             price: formPrice,
 
@@ -12537,6 +12559,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
           regime: item.regime,
           mpMeal: item.mpMeal || "cena",
+          pcMeal: item.pcMeal || "almuerzo_cena",
 
           price: item.price !== undefined && item.price !== null ? String(item.price).replace('.', ',') : 0,
 
@@ -12712,6 +12735,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               );
             } else if (field === "pax") {
               r.pax = Math.max(1, parseInt(rawValue, 10) || 1);
+            } else if (field === "pcMeal") {
+              r.pcMeal = rawValue === "dos_almuerzos" ? "dos_almuerzos" : "almuerzo_cena";
             } else if (field === "mpMeal") {
               r.mpMeal = rawValue === "almuerzo" ? "almuerzo" : "cena";
             } else if (field === "regime") {
@@ -13889,7 +13914,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
         const grouped = [];
         currentList.forEach((item) => {
-          const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${item.mpMeal || 'cena'}_${!!item.isService}`;
+          const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${item.mpMeal || 'cena'}_${item.pcMeal || 'almuerzo_cena'}_${!!item.isService}`;
           const existing = grouped.find(g => g.key === key);
           if (existing) {
             existing.items.push(item);
@@ -18125,7 +18150,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                           </span>
                                         )}
                                         {(() => {
-                                          const rowMetrics = calculateGroupAdrAndRoomNights(group, grossRev);
+                                          const rowMetrics = calculateGroupAdrAndRoomNights(group, grossRev, boardPricingConfig);
                                           if (rowMetrics.adr > 0) {
                                             return (
                                               <span
@@ -20886,7 +20911,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     {selectedGroupFicha.totalPax} PAX
                                   </span>
                                   {(() => {
-                                    const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal);
+                                    const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal, boardPricingConfig);
                                     if (m.roomNights > 0 || m.adr > 0) {
                                       return (
                                         <>
@@ -21270,7 +21295,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 </p>
 
                                 {(() => {
-                                  const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal);
+                                  const m = calculateGroupAdrAndRoomNights(selectedGroupFicha, netTotal, boardPricingConfig);
                                   if (m.adr > 0) {
                                     return (
                                       <p className="text-[9px] font-bold text-emerald-300 mt-1 tabular-nums">
@@ -22154,7 +22179,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                   {/* PRECIO MEDIO HABITACIÓN (ADR) */}
                                   {(() => {
-                                    const groupMetrics = calculateGroupAdrAndRoomNights(selectedGroupFicha, displayTotal);
+                                    const groupMetrics = calculateGroupAdrAndRoomNights(selectedGroupFicha, displayTotal, boardPricingConfig);
                                     return (
                                       <div className="text-center border-l border-slate-100">
                                         <div className="text-[8px] font-black uppercase text-indigo-600 flex items-center justify-center gap-1">
@@ -23253,7 +23278,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                      const grouped = [];
                                      rawRL.forEach((item, index) => {
-                                       const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${item.mpMeal || 'cena'}_${!!item.isService}`;
+                                       const key = `${item.hotel || ''}_${item.type || ''}_${item.dateIn || ''}_${item.dateOut || ''}_${item.price || 0}_${item.iva || 10}_${item.regime || ''}_${item.mpMeal || 'cena'}_${item.pcMeal || 'almuerzo_cena'}_${!!item.isService}`;
                                        const existing = grouped.find(g => g.key === key);
                                        if (existing) {
                                          existing.qty = (existing.qty || 0) + (parseInt(item.qty) || 1);
@@ -23292,6 +23317,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                            totalRooms: 0,
                                            totalPax: 0,
                                            totalAmount: 0,
+                                           accommodationAmount: 0,
+                                           roomNights: 0,
                                            roomTypes: {}
                                          };
                                          dayBucketMap.set(dayKey, bucket);
@@ -23309,8 +23336,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                        b.items.push({ ...item, globalIndex: index });
                                        b.totalRooms += (isPureService ? 0 : qty);
+                                       b.roomNights += isPureService ? 0 : qty * (parseInt(item.nights, 10) || 1);
                                        b.totalPax += (isPureService ? 0 : (qty * pax));
                                        b.totalAmount += tot;
+                                       if (!isPureService) b.accommodationAmount += getRoomAccommodationAmount(item, selectedGroupFicha, boardPricingConfig);
 
                                        const tName = item.type || "Habitación";
                                        b.roomTypes[tName] = (b.roomTypes[tName] || 0) + qty;
@@ -23366,7 +23395,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                     )}
                                                     {bucket.totalRooms > 0 && bucket.totalAmount > 0 && (
                                                       <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 font-mono font-bold" title="Precio Medio de Habitación del día (ADR)">
-                                                        ADR: {(bucket.totalAmount / bucket.totalRooms).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                                        ADR: {(bucket.accommodationAmount / bucket.roomNights).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                                                       </span>
                                                     )}
                                                     {roomTypesSummary && (
@@ -23651,6 +23680,18 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                             <option value="PC">PC</option>
                                             <option value="-">-</option>
                                           </select>
+                                          {!item.isService && String(item.regime || "").toUpperCase() === "PC" && (parseInt(item.nights, 10) || 1) === 1 && (
+                                            <select
+                                              className="block mt-1 border border-slate-200 rounded text-[10px] text-slate-700"
+                                              value={item.pcMeal || "almuerzo_cena"}
+                                              onChange={(e) => handleInlineRoomItemUpdate(item, "pcMeal", e.target.value)}
+                                              title="Comidas incluidas en la pensión completa de una noche"
+                                              aria-label="Comidas incluidas en PC"
+                                            >
+                                              <option value="almuerzo_cena">PC · Almuerzo y cena</option>
+                                              <option value="dos_almuerzos">PC · Almuerzos entrada y salida</option>
+                                            </select>
+                                          )}
                                           {!item.isService && String(item.regime || "").toUpperCase() === "MP" && (
                                             <select
                                               className="block mt-1 border border-slate-200 rounded text-[10px] text-slate-700"

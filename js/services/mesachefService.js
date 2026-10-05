@@ -492,6 +492,7 @@
     var startDate = new Date(startIso + "T12:00:00");
     var endDate = new Date(endIso + "T12:00:00");
     var hasLineDates = false;
+    var checkoutLunches = {};
     // The economic breakdown may extend beyond the dates in the group header.
     cleanRoomingList.forEach(function (rm) {
       if (!rm) return;
@@ -499,10 +500,22 @@
       if (!date) return;
       var first = new Date(date + 'T12:00:00');
       var last = new Date(first);
+      var reg = String(rm.regime || rm.regimen || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (!rm.isService && rm.pcMeal === "dos_almuerzos" && (parseInt(rm.nights, 10) || 1) === 1 && /\bPC\b|PENSION COMPLETA/.test(reg)) {
+        var checkout = new Date(first);
+        checkout.setDate(checkout.getDate() + 1);
+        var checkoutIso = checkout.toISOString().split("T")[0];
+        var people = (parseInt(rm.qty, 10) || 1) * (parseInt(rm.pax, 10) || getPaxPerRoomType(rm.type || rm.roomType));
+        checkoutLunches[checkoutIso] = (checkoutLunches[checkoutIso] || 0) + people;
+      }
       last.setDate(last.getDate() + (rm.isService ? 0 : Math.max(1, parseInt(rm.nights, 10) || 1) - 1));
       if (!hasLineDates || first < startDate) startDate = first;
       if (!hasLineDates || last > endDate) endDate = last;
       hasLineDates = true;
+    });
+    Object.keys(checkoutLunches).forEach(function (date) {
+      var checkout = new Date(date + 'T12:00:00');
+      if (checkout > endDate) endDate = checkout;
     });
     Object.keys(cleanDailyDist).forEach(function (date) {
       var explicitDate = new Date(date + 'T12:00:00');
@@ -565,7 +578,7 @@
             var mealReg = String(reg).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             if (/\bPC\b|PENSION COMPLETA/.test(mealReg)) {
               roomLunchPax += q * px;
-              roomDinnerPax += q * px;
+              if (rm.pcMeal !== "dos_almuerzos" || rmNights !== 1) roomDinnerPax += q * px;
               roomPcPax += q * px;
             } else if (/\bMP\b|MEDIA PENSION|CENA/.test(mealReg)) {
               var mpMeal = rm.mpMeal || "cena";
@@ -580,11 +593,11 @@
       var hasExplicitService = cleanRoomingList.some(function (rm) {
         return rm && rm.isService && toIsoDate(rm.dateIn || rm.date || rm.fecha) === iso;
       });
-      if (cleanRoomingList.length && !rlHasRooms && !hasExplicitService) {
+      if (cleanRoomingList.length && !rlHasRooms && !hasExplicitService && !checkoutLunches[iso]) {
         current.setDate(current.getDate() + 1);
         continue;
       }
-      if (isLastDay && !isSingleDayStay && !rlHasRooms && !hasExplicitService && (!distForDay || !distForDay.regimen)) {
+      if (isLastDay && !isSingleDayStay && !rlHasRooms && !hasExplicitService && !checkoutLunches[iso] && (!distForDay || !distForDay.regimen)) {
         current.setDate(current.getDate() + 1);
         continue;
       }
@@ -654,7 +667,11 @@
       var mpLunch = ((distForDay && distForDay.mpMeal) || groupRecord.mpMeal) === "almuerzo";
       var lunchPax = rlHasRooms ? roomLunchPax : ((isDayPc || (isDayMp && mpLunch)) ? dayPax : 0);
       var dinnerPax = rlHasRooms ? roomDinnerPax : ((isDayPc || (isDayMp && !mpLunch)) ? dayPax : 0);
-      var hasPc = rlHasRooms ? roomPcPax > 0 : isDayPc;
+      if (checkoutLunches[iso]) {
+        lunchPax = (rlHasRooms ? roomLunchPax : 0) + checkoutLunches[iso];
+        dinnerPax = rlHasRooms ? roomDinnerPax : 0;
+      }
+      var hasPc = !!checkoutLunches[iso] || (rlHasRooms ? roomPcPax > 0 : isDayPc);
       var lunchLabel = hasPc ? (rlHasRooms && roomLunchPax > roomPcPax ? "PC / MP" : "PC") : "MP";
       var dinnerLabel = hasPc ? (rlHasRooms && roomDinnerPax > roomPcPax ? "PC / MP" : "PC") : "MP";
 

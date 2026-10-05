@@ -145,3 +145,26 @@ test('MP de cabecera o distribución admite almuerzo sin desglose de habitacione
     assert.deepEqual(docs.map(d=>[d.detalles.jornada,d.detalles.pax_adultos]),[['almuerzo',15]]);
   }
 });
+
+
+test('PC de una noche permite almuerzos de entrada y salida sin cena', () => {
+  const docs = service.prepareSalonDocuments({...group, Entrada:'2026-10-10', Salida:'2026-10-11', DailyDistribution_JSON:'{}', RoomingList_JSON:JSON.stringify([
+    {...room('2026-10-10',1,1,'PC'),pcMeal:'dos_almuerzos'},
+    {...room('2026-10-10',5,2,'PC'),pcMeal:'dos_almuerzos'},
+    {...room('2026-10-10',2,3,'PC'),pcMeal:'dos_almuerzos'}
+  ])});
+  assert.deepEqual(docs.map(d=>[d.fecha,d.detalles.jornada,d.detalles.pax_adultos]), [
+    ['2026-10-10','almuerzo',17],['2026-10-11','almuerzo',17]
+  ]);
+  assert.ok(docs.every(d=>d.servicios[0].concepto === 'Almuerzo Grupo PC'));
+});
+
+test('PC con dos almuerzos respeta las otras habitaciones y no añade cena en salida', () => {
+  const docs = service.prepareSalonDocuments({...group, DailyDistribution_JSON:'{}', RoomingList_JSON:JSON.stringify([
+    {...room('2027-02-01',1,3,'PC'),pcMeal:'dos_almuerzos'},
+    room('2027-02-01',1,2,'PC'), room('2027-02-02',1,2,'HA')
+  ])});
+  assert.deepEqual(docs.map(d=>[d.fecha,d.detalles.jornada,d.detalles.pax_adultos]), [
+    ['2027-02-01','almuerzo',5],['2027-02-01','cena',2],['2027-02-02','almuerzo',3]
+  ]);
+});
