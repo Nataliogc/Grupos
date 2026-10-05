@@ -71,6 +71,18 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     assert.equal((await service.syncGroupToMesachef(group)).success,true);
     assert.equal(data.get(old).estado,'cancelada');
     assert.equal(data.get('mesachef_grupos/213521').totalServicios,3);
+    const custom = {...group, MealSchedule_JSON:JSON.stringify([
+      {fecha:'2027-02-02',jornada:'almuerzo',pax:5},
+      {fecha:'2027-02-04',jornada:'almuerzo',pax:12}
+    ])};
+    assert.equal((await service.syncGroupToMesachef(custom)).success,true);
+    assert.equal(data.get('reservas_salones/nexus_213521_2027-02-02_cena').estado,'cancelada');
+    assert.equal(data.get('reservas_salones/nexus_213521_2027-02-04_almuerzo').detalles.pax_adultos,12);
+    assert.equal(data.get('reservas_salones/manual').estado,'confirmada');
+    await service.syncGroupToMesachef({...custom, MealSchedule_JSON:'[]'});
+    assert.equal(data.get('mesachef_grupos/213521').totalServicios,0);
+    await service.syncGroupToMesachef(group);
+
     const dinnerKey = 'reservas_salones/nexus_213521_2027-02-03_cena';
     data.set(dinnerKey, {...data.get(dinnerKey), salon:'Salón Guadiana', salonOverride:'Salón Guadiana'});
     await service.syncGroupToMesachef({...group, Com_Estado_Interno:'CONFIRMADO'});
@@ -167,4 +179,30 @@ test('PC con dos almuerzos respeta las otras habitaciones y no añade cena en sa
   assert.deepEqual(docs.map(d=>[d.fecha,d.detalles.jornada,d.detalles.pax_adultos]), [
     ['2027-02-01','almuerzo',5],['2027-02-01','cena',2],['2027-02-02','almuerzo',3]
   ]);
+});
+
+
+test('programacion personalizada mueve cena a almuerzo de salida sin duplicar comidas',()=>{
+  const record={...group, Entrada:'2026-10-10',Salida:'2026-10-11',DailyDistribution_JSON:'{}',RoomingList_JSON:JSON.stringify([room('2026-10-10',8,2,'PC')]),MealSchedule_JSON:JSON.stringify([
+    {fecha:'2026-10-10',jornada:'almuerzo',pax:16},{fecha:'2026-10-11',jornada:'almuerzo',pax:16}
+  ])};
+  assert.deepEqual(service.prepareSalonDocuments(record).map(d=>[d.fecha,d.detalles.jornada,d.detalles.pax_adultos]),[
+    ['2026-10-10','almuerzo',16],['2026-10-11','almuerzo',16]
+  ]);
+  assert.equal(service.getAutomaticMealDocuments(record)[1].detalles.jornada,'cena');
+  assert.equal(service.prepareSalonDocuments({...record,MealSchedule_JSON:'[]'}).length,0);
+  assert.equal(service.prepareSalonDocuments({...record,MealSchedule_JSON:null})[1].detalles.jornada,'cena');
+});
+test('programacion rechaza filas duplicadas, turnos y comensales invalidos',()=>{
+  const row={fecha:'2027-02-02',jornada:'almuerzo',pax:10};
+  for (const rows of [[row,row],[{...row,pax:0}],[{...row,pax:1.5}],[{...row,jornada:'desayuno'}],[{...row,fecha:''}]]) {
+    assert.throws(()=>service.prepareSalonDocuments({...group,MealSchedule_JSON:JSON.stringify(rows)}));
+  }
+  assert.throws(()=>service.getMealSchedule({...group,MealSchedule_JSON:'malformed'}));
+});
+test('comidas por encima de las incluidas se marcan como extras pendientes de valorar',()=>{
+  const docs=service.prepareSalonDocuments({...group,MealSchedule_JSON:JSON.stringify([{fecha:'2027-02-04',jornada:'cena',pax:35}])});
+  assert.equal(docs[0].detalles.pax_extra,6);
+  assert.equal(docs[0].detalles.incluido,false);
+  assert.equal(docs[0].servicios[0].total,0);
 });

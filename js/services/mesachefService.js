@@ -415,6 +415,32 @@
    * Recuerda: En PC (Pensión Completa) se genera tanto Almuerzo (14:00) como Cena (21:00).
    * En MP (Media Pensión) se genera únicamente Cena (21:00).
    */
+  function getMealSchedule(groupRecord) {
+    var raw = groupRecord && groupRecord.MealSchedule_JSON;
+    if (raw == null && groupRecord && groupRecord.records && groupRecord.records[0]) raw = groupRecord.records[0].MealSchedule_JSON;
+    if (raw == null || raw === "") return null;
+    var rows = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(rows)) throw new Error("La programación de comidas debe ser una lista.");
+    var seen = {};
+    return rows.map(function (row) {
+      var date = toIsoDate(row.fecha);
+      var pax = Number(row.pax);
+      if (!date || date !== row.fecha || new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date || !["almuerzo", "cena"].includes(row.jornada) || !Number.isInteger(pax) || pax <= 0) {
+        throw new Error("Revisa la fecha, el turno y los comensales de cada comida.");
+      }
+      var key = date + "_" + row.jornada;
+      if (seen[key]) throw new Error("Solo puede haber una fila por fecha y turno.");
+      seen[key] = true;
+      return {fecha: date, jornada: row.jornada, pax: pax};
+    });
+  }
+
+  function getAutomaticMealDocuments(groupRecord) {
+    var copy = Object.assign({}, groupRecord, {MealSchedule_JSON: null});
+    if (copy.records) copy.records = copy.records.map(function (record) { return Object.assign({}, record, {MealSchedule_JSON: null}); });
+    return prepareSalonDocuments(copy);
+  }
+
   function prepareSalonDocuments(groupRecord) {
     if (!groupRecord) return [];
 
@@ -427,6 +453,36 @@
       groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva || groupRecord.uid
     );
     if (!reservaId) return [];
+
+    var schedule = getMealSchedule(groupRecord);
+    if (schedule !== null) {
+      if (!schedule.length) return [];
+      var automatic = getAutomaticMealDocuments(groupRecord);
+      var template = automatic[0];
+      if (!template) {
+        var seed = Object.assign({}, groupRecord, {MealSchedule_JSON: null, Entrada: schedule[0].fecha, Salida: schedule[0].fecha,
+          RoomingList_JSON: JSON.stringify([{dateIn: schedule[0].fecha, nights: 1, qty: 1, pax: 1, regime: "PC"}])});
+        template = prepareSalonDocuments(seed)[0];
+      }
+      if (!template) return [];
+      var allowance = automatic.reduce(function (sum, doc) { return sum + doc.detalles.pax_adultos; }, 0);
+      return schedule.filter(function (row) { return isEligibleDate(row.fecha); }).map(function (row) {
+        var doc = JSON.parse(JSON.stringify(template));
+        var included = Math.min(allowance, row.pax);
+        allowance -= included;
+        doc.id = "nexus_" + reservaId + "_" + row.fecha + "_" + row.jornada;
+        doc.fecha = row.fecha;
+        doc.detalles.jornada = row.jornada;
+        doc.detalles.hora = row.jornada === "almuerzo" ? "14:00" : "21:00";
+        doc.detalles.pax_adultos = row.pax;
+        doc.detalles.incluido = included === row.pax;
+        doc.detalles.pax_extra = row.pax - included;
+        doc.notas.interna = "[Nexus Groups] Ref: " + reservaId + " | Programación de comidas | Pax: " + row.pax + (row.pax > included ? " | Extras pendientes de valorar: " + (row.pax - included) : "");
+        doc.servicios = [{fecha:row.fecha, hora:doc.detalles.hora,
+          concepto:(row.jornada === "almuerzo" ? "Almuerzo" : "Cena") + " Grupo (programado)", uds:row.pax, precio:0, total:0}];
+        return doc;
+      });
+    }
 
     var entryDate = groupRecord.Entrada || groupRecord.entrada || groupRecord.fechaEntrada || groupRecord.fecha;
 
@@ -1358,6 +1414,8 @@
     resolveMesachefStatus: resolveMesachefStatus,
     mapMesachefStatus: mapMesachefStatus,
     resolveHotelAndSalon: resolveHotelAndSalon,
+    getMealSchedule: getMealSchedule,
+    getAutomaticMealDocuments: getAutomaticMealDocuments,
     prepareSalonDocuments: prepareSalonDocuments,
     syncGroupToMesachef: syncGroupToMesachef,
     checkUnlinkedServices: checkUnlinkedServices,

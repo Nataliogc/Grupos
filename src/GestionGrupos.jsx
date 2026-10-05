@@ -588,7 +588,10 @@
       const record = group?.records?.[0] || group || {};
       const hotel = item.hotel || group?.hotel || record.Hotel_Asignado || record.Hotel || "default";
       const prices = service.getPricingForHotelAndDate(hotel, item.dateIn || item.date, pricingConfig);
-      const pax = parseInt(item.pax, 10) || getPaxByRoomType(item.type || item.roomType);
+      const type = String(item.type || item.roomType || "").toUpperCase();
+      let inferredPax = /DUI|JS1|SS1|INDIV|SINGLE|SGL/.test(type) ? 1 : /TPL|TRIPLE/.test(type) ? 3 : /CUA|CUAD/.test(type) ? 4 : /QUIN/.test(type) ? 5 : 2;
+      if (/SUPLETORIA|SUPLE|CUNA/.test(type)) inferredPax += 1;
+      const pax = parseInt(item.pax, 10) || inferredPax;
       return service.calculateDailyEconomicBreakdown({
         pax: qty * pax,
         regimen: item.regime || item.regimen || "HA",
@@ -904,6 +907,73 @@
       });
 
       return result;
+    };
+
+    const GroupMealPlanner = ({ group, onSave }) => {
+      const [open, setOpen] = React.useState(false);
+      const [rows, setRows] = React.useState([]);
+      const [included, setIncluded] = React.useState(0);
+      const [saving, setSaving] = React.useState(false);
+      const [error, setError] = React.useState("");
+      const service = window.MesaChefService;
+      const record = {...(group.records?.[0] || {}), Reserva:group.id,
+        Entrada:group.arrival || group.records?.[0]?.Entrada,
+        Salida:group.departure || group.records?.[0]?.Salida,
+        Hotel_Asignado:group.hotel || group.records?.[0]?.Hotel_Asignado};
+      const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos}));
+      const begin = () => {
+        try {
+          const defaults = automatic();
+          setIncluded(defaults.reduce((sum,r)=>sum+r.pax,0));
+          setRows(service.getMealSchedule(record) ?? defaults);
+          setError(""); setOpen(true);
+        } catch (e) { setError(e.message); }
+      };
+      const change = (index, field, value) => setRows(prev=>prev.map((r,i)=>i===index?{...r,[field]:value}:r));
+      const planned = rows.reduce((sum,r)=>sum+(Number(r.pax)||0),0);
+      const save = async (automaticMode = false) => {
+        setError(""); setSaving(true);
+        try {
+          const value = automaticMode ? null : JSON.stringify(rows);
+          if (!automaticMode) {
+            const checked = service.getMealSchedule({...record, MealSchedule_JSON:value});
+            if (checked.some(r => (record.Entrada && r.fecha < toInputDate(record.Entrada)) || (record.Salida && r.fecha > toInputDate(record.Salida)))) {
+              throw new Error("Elige fechas dentro de la estancia, incluido el día de salida.");
+            }
+          }
+          await onSave(value);
+          setOpen(false);
+        } catch (e) { setError(e.message || "No se pudo guardar la programación."); }
+        finally { setSaving(false); }
+      };
+      if (!service?.getMealSchedule) return null;
+      return <div className="bg-white border border-blue-200 rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div><h4 className="font-bold text-slate-800 text-sm">Comidas del grupo</h4>
+            <p className="text-xs text-slate-500">Elige las fechas y los turnos de las comidas incluidas en la pensión.</p></div>
+          {!open && <button type="button" onClick={begin} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-xs font-bold">Programar comidas</button>}
+        </div>
+        {!open && record.MealSchedule_JSON && <p className="text-xs text-blue-700">Este grupo tiene una programación personalizada.</p>}
+        {open && <>
+          <p className="text-xs font-bold text-slate-700">Incluidas: {included} · Programadas: {planned} · Pendientes: {Math.max(0,included-planned)} · Extras: {Math.max(0,planned-included)}</p>
+          <p className="text-xs text-slate-500">El contador suma comensales de cada comida. Los extras requieren un cargo adicional; aquí se programa el servicio, sin cambiar el precio contratado.</p>
+          <table className="w-full text-xs"><thead><tr className="text-left"><th>Fecha</th><th>Comida</th><th>Personas</th><th></th></tr></thead><tbody>
+            {rows.map((row,index)=><tr key={index}>
+              <td className="py-1"><input aria-label="Fecha de comida" type="date" min={toInputDate(record.Entrada)} max={toInputDate(record.Salida)} value={row.fecha} disabled={saving} onChange={e=>change(index,"fecha",e.target.value)} className="border rounded p-1" /></td>
+              <td><select aria-label="Turno de comida" value={row.jornada} disabled={saving} onChange={e=>change(index,"jornada",e.target.value)} className="border rounded p-1"><option value="almuerzo">Almuerzo</option><option value="cena">Cena</option></select></td>
+              <td><input aria-label="Comensales" type="number" min="1" step="1" value={row.pax} disabled={saving} onChange={e=>change(index,"pax",Number(e.target.value))} className="border rounded p-1 w-20" /></td>
+              <td><button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600">Eliminar</button></td>
+            </tr>)}
+          </tbody></table>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:group.totalPax || 1}])} className="text-blue-700 text-xs font-bold">+ Añadir comida</button>
+            <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 text-white rounded px-3 py-2 text-xs font-bold">{saving?"Guardando…":"Guardar programación"}</button>
+            <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600">Usar programación automática</button>
+            <button type="button" disabled={saving} onClick={()=>{setOpen(false);setError("");}} className="text-xs text-slate-600">Cancelar</button>
+          </div>
+        </>}
+        {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
+      </div>;
     };
 
     const BudgetManager = ({ data, openFicha, formatDate }) => {
@@ -12151,6 +12221,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               id: targetNormId,
               reserva: targetNormId
             };
+            if (Object.prototype.hasOwnProperty.call(updates, "MealSchedule_JSON")) {
+              return await window.MesaChefService.syncGroupToMesachef(mergedForSync);
+            }
             window.MesaChefService.syncGroupToMesachef(mergedForSync);
           }
 
@@ -22958,6 +23031,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             </div>
 
                             {/* BANNER DE SERVICIOS DESVINCULADOS EN MESACHEF */}
+                            <GroupMealPlanner key={selectedGroupFicha.id} group={selectedGroupFicha} onSave={async (value) => {
+                              const result = await updateGroupMetadata(selectedGroupFicha.id, {MealSchedule_JSON:value});
+                              if (!result?.success) throw new Error("La programación se ha guardado, pero MesaChef no ha podido sincronizarla. Vuelve a guardar para reintentarlo.");
+                            }} />
+
                             {mesachefUnlinkedServices && mesachefUnlinkedServices.length > 0 && (
                               <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex flex-col md:flex-row items-start justify-between gap-3 shadow-xs animate-fade-in">
                                 <div className="flex items-start gap-3">
@@ -23680,18 +23758,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                             <option value="PC">PC</option>
                                             <option value="-">-</option>
                                           </select>
-                                          {!item.isService && String(item.regime || "").toUpperCase() === "PC" && (parseInt(item.nights, 10) || 1) === 1 && (
-                                            <select
-                                              className="block mt-1 border border-slate-200 rounded text-[10px] text-slate-700"
-                                              value={item.pcMeal || "almuerzo_cena"}
-                                              onChange={(e) => handleInlineRoomItemUpdate(item, "pcMeal", e.target.value)}
-                                              title="Comidas incluidas en la pensión completa de una noche"
-                                              aria-label="Comidas incluidas en PC"
-                                            >
-                                              <option value="almuerzo_cena">PC · Almuerzo y cena</option>
-                                              <option value="dos_almuerzos">PC · Almuerzos entrada y salida</option>
-                                            </select>
-                                          )}
                                           {!item.isService && String(item.regime || "").toUpperCase() === "MP" && (
                                             <select
                                               className="block mt-1 border border-slate-200 rounded text-[10px] text-slate-700"
