@@ -1902,8 +1902,8 @@ var Dashboard = function Dashboard(_ref2) {
       return setToastInfo(null);
     },
     className: "text-slate-400 hover:text-white ml-auto text-xs p-1 cursor-pointer"
-  }, "\u2715")), selectedEmailAlert && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in",
+  }, "\u2715")), selectedEmailAlert && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in",
     onClick: function onClick() {
       return setSelectedEmailAlert(null);
     }
@@ -2025,9 +2025,9 @@ var Dashboard = function Dashboard(_ref2) {
     className: "flex items-center justify-between mb-1"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-[10px] font-black uppercase text-slate-500 tracking-wider"
-  }, "Destinatario (Para):"), !selectedEmailAlert.emailTo && /*#__PURE__*/React.createElement("span", {
+  }, "Destinatario (Para):"), !selectedEmailAlert.emailTo && (/*#__PURE__*/React.createElement("span", {
     className: "text-[9px] font-bold text-rose-600 animate-pulse"
-  }, "\u26A0\uFE0F Email requerido")), /*#__PURE__*/React.createElement("div", {
+  }, "\u26A0\uFE0F Email requerido"), document.body)), /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("input", {
     type: "email",
@@ -2063,7 +2063,7 @@ var Dashboard = function Dashboard(_ref2) {
     size: 13,
     className: "absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
   }))))), emailModalTab === "preview" ? /*#__PURE__*/React.createElement("div", {
-    className: "p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70"
+    className: "p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 custom-scrollbar bg-slate-100/70"
   }, /*#__PURE__*/React.createElement("div", {
     className: "max-w-2xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200/90 overflow-hidden"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2268,7 +2268,7 @@ var Dashboard = function Dashboard(_ref2) {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "send",
     size: 14
-  }), /*#__PURE__*/React.createElement("span", null, "Abrir en Gestor de Correo")))))), internalReportModal && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "Abrir en Gestor de Correo"))))))), internalReportModal && /*#__PURE__*/React.createElement("div", {
     className: "fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in",
     onClick: function onClick() {
       return setInternalReportModal(null);

@@ -2355,9 +2355,9 @@ ${comercial}`;
           )}
 
           {/* Modal de Notificación de Alerta por Email */}
-          {selectedEmailAlert && (
+          {selectedEmailAlert && ReactDOM.createPortal(
             <div
-              className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in"
+              className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in"
               onClick={() => setSelectedEmailAlert(null)}
             >
               <div
@@ -2506,7 +2506,7 @@ ${comercial}`;
                           <span className="text-[9px] font-bold text-rose-600 animate-pulse">
                             ⚠️ Email requerido
                           </span>
-                        )}
+                        , document.body)}
                       </div>
                       <div className="relative">
                         <input
@@ -2543,7 +2543,7 @@ ${comercial}`;
 
                 {/* Contenido Dinámico según Pestaña */}
                 {emailModalTab === "preview" ? (
-                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70">
+                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 custom-scrollbar bg-slate-100/70">
                     {/* Contenedor tipo Carta Ejecutiva */}
                     <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200/90 overflow-hidden">
                       
