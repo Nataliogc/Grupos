@@ -1783,66 +1783,85 @@ function App() {
     _useState18 = _slicedToArray(_useState17, 2),
     selectedGroup = _useState18[0],
     setSelectedGroup = _useState18[1];
-  var _useState19 = useState(''),
+  var _useState19 = useState(false),
     _useState20 = _slicedToArray(_useState19, 2),
-    newNote = _useState20[0],
-    setNewNote = _useState20[1];
-  var _useState21 = useState(null),
+    showTracking = _useState20[0],
+    setShowTracking = _useState20[1];
+  useEffect(function () {
+    if (currentView !== 'detail' || !showTracking) return;
+    var wall = document.getElementById('budget-tracking-wall');
+    if (wall) {
+      var _wall$querySelector;
+      wall.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+      (_wall$querySelector = wall.querySelector('textarea')) === null || _wall$querySelector === void 0 || _wall$querySelector.focus({
+        preventScroll: true
+      });
+      setShowTracking(false);
+    }
+  }, [currentView, selectedGroup, showTracking]);
+  var _useState21 = useState(''),
     _useState22 = _slicedToArray(_useState21, 2),
-    globalConfig = _useState22[0],
-    setGlobalConfig = _useState22[1];
-  var _useState23 = useState(false),
+    newNote = _useState22[0],
+    setNewNote = _useState22[1];
+  var _useState23 = useState(null),
     _useState24 = _slicedToArray(_useState23, 2),
-    isEditingClauses = _useState24[0],
-    setIsEditingClauses = _useState24[1];
-  var _useState25 = useState([]),
+    globalConfig = _useState24[0],
+    setGlobalConfig = _useState24[1];
+  var _useState25 = useState(false),
     _useState26 = _slicedToArray(_useState25, 2),
-    tempClauses = _useState26[0],
-    setTempClauses = _useState26[1];
+    isEditingClauses = _useState26[0],
+    setIsEditingClauses = _useState26[1];
   var _useState27 = useState([]),
     _useState28 = _slicedToArray(_useState27, 2),
-    tempClausesConf = _useState28[0],
-    setTempClausesConf = _useState28[1];
-  var _useState29 = useState(false),
+    tempClauses = _useState28[0],
+    setTempClauses = _useState28[1];
+  var _useState29 = useState([]),
     _useState30 = _slicedToArray(_useState29, 2),
-    isEditingClausesConf = _useState30[0],
-    setIsEditingClausesConf = _useState30[1];
-  var _useState31 = useState('presupuesto'),
+    tempClausesConf = _useState30[0],
+    setTempClausesConf = _useState30[1];
+  var _useState31 = useState(false),
     _useState32 = _slicedToArray(_useState31, 2),
-    docMode = _useState32[0],
-    setDocMode = _useState32[1]; // 'presupuesto' o 'confirmacion'
-  var _useState33 = useState('activos'),
+    isEditingClausesConf = _useState32[0],
+    setIsEditingClausesConf = _useState32[1];
+  var _useState33 = useState('presupuesto'),
     _useState34 = _slicedToArray(_useState33, 2),
-    filterTab = _useState34[0],
-    setFilterTab = _useState34[1]; // 'activos', 'confirmados', 'desestimados'
-  var _useState35 = useState(''),
+    docMode = _useState34[0],
+    setDocMode = _useState34[1]; // 'presupuesto' o 'confirmacion'
+  var _useState35 = useState('activos'),
     _useState36 = _slicedToArray(_useState35, 2),
-    searchTerm = _useState36[0],
-    setSearchTerm = _useState36[1];
+    filterTab = _useState36[0],
+    setFilterTab = _useState36[1]; // 'activos', 'confirmados', 'desestimados'
   var _useState37 = useState(''),
     _useState38 = _slicedToArray(_useState37, 2),
-    debouncedSearchTerm = _useState38[0],
-    setDebouncedSearchTerm = _useState38[1];
+    searchTerm = _useState38[0],
+    setSearchTerm = _useState38[1];
   var _useState39 = useState(''),
     _useState40 = _slicedToArray(_useState39, 2),
-    startDate = _useState40[0],
-    setStartDate = _useState40[1];
+    debouncedSearchTerm = _useState40[0],
+    setDebouncedSearchTerm = _useState40[1];
   var _useState41 = useState(''),
     _useState42 = _slicedToArray(_useState41, 2),
-    endDate = _useState42[0],
-    setEndDate = _useState42[1];
-  var _useState43 = useState(false),
+    startDate = _useState42[0],
+    setStartDate = _useState42[1];
+  var _useState43 = useState(''),
     _useState44 = _slicedToArray(_useState43, 2),
-    showEmailParseModal = _useState44[0],
-    setShowEmailParseModal = _useState44[1];
-  var _useState45 = useState(''),
+    endDate = _useState44[0],
+    setEndDate = _useState44[1];
+  var _useState45 = useState(false),
     _useState46 = _slicedToArray(_useState45, 2),
-    emailContent = _useState46[0],
-    setEmailContent = _useState46[1];
-  var _useState47 = useState(false),
+    showEmailParseModal = _useState46[0],
+    setShowEmailParseModal = _useState46[1];
+  var _useState47 = useState(''),
     _useState48 = _slicedToArray(_useState47, 2),
-    isParsingEmail = _useState48[0],
-    setIsParsingEmail = _useState48[1];
+    emailContent = _useState48[0],
+    setEmailContent = _useState48[1];
+  var _useState49 = useState(false),
+    _useState50 = _slicedToArray(_useState49, 2),
+    isParsingEmail = _useState50[0],
+    setIsParsingEmail = _useState50[1];
 
   // Debounce search term
   useEffect(function () {
@@ -1874,17 +1893,17 @@ function App() {
     }
     return generateDates(data.Entrada, data.Salida);
   };
-  var _useState49 = useState(DEFAULT_FORM_DATA),
-    _useState50 = _slicedToArray(_useState49, 2),
-    formData = _useState50[0],
-    setFormData = _useState50[1];
-  var _useState51 = useState(0),
+  var _useState51 = useState(DEFAULT_FORM_DATA),
     _useState52 = _slicedToArray(_useState51, 2),
-    tariffCatalogRevision = _useState52[0],
-    setTariffCatalogRevision = _useState52[1];
+    formData = _useState52[0],
+    setFormData = _useState52[1];
   var _useState53 = useState(0),
     _useState54 = _slicedToArray(_useState53, 2),
-    refreshAvailability = _useState54[1];
+    tariffCatalogRevision = _useState54[0],
+    setTariffCatalogRevision = _useState54[1];
+  var _useState55 = useState(0),
+    _useState56 = _slicedToArray(_useState55, 2),
+    refreshAvailability = _useState56[1];
   useEffect(function () {
     var refresh = function refresh() {
       return refreshAvailability(function (value) {
@@ -1901,15 +1920,15 @@ function App() {
       window.removeEventListener('storage', storageChanged);
     };
   }, []);
-  var _useState55 = useState({
+  var _useState57 = useState({
       isOpen: false,
       parsedData: {},
       unrecognizedBoards: [],
       unrecognizedRooms: []
     }),
-    _useState56 = _slicedToArray(_useState55, 2),
-    pastePreview = _useState56[0],
-    setPastePreview = _useState56[1];
+    _useState58 = _slicedToArray(_useState57, 2),
+    pastePreview = _useState58[0],
+    setPastePreview = _useState58[1];
   var parseTarifasString = function parseTarifasString(text) {
     if (!text || typeof text !== 'string') return null;
     var rowsData = text.split(/\r?\n/).filter(function (r) {
@@ -3203,6 +3222,8 @@ function App() {
     };
   }();
   var handleOpenDetail = function handleOpenDetail(g) {
+    var tracking = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+    setShowTracking(tracking);
     setSelectedGroup(g);
     var intEst = (g.Com_Estado_Interno || "").toUpperCase();
     var extEst = (g.Estado || "").toUpperCase();
@@ -3218,7 +3239,7 @@ function App() {
       var type,
         clauses,
         textToTranslate,
-        _prompt,
+        prompt,
         aiResult,
         _args3 = arguments,
         _t3;
@@ -3235,9 +3256,9 @@ function App() {
             return _context3.a(2);
           case 1:
             _context3.p = 1;
-            _prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xE9s. Mant\xE9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
+            prompt = "Traduce el siguiente texto de un presupuesto de hotel al ingl\xE9s. Mant\xE9n un tono profesional y corporativo. Devuelve SOLO el texto traducido, sin comillas ni introducciones: \"".concat(textToTranslate, "\"");
             _context3.n = 2;
-            return window.callGemini(_prompt);
+            return window.callGemini(prompt);
           case 2:
             aiResult = _context3.v;
             if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
@@ -3263,7 +3284,7 @@ function App() {
   }();
   var handleParseEmailIA = /*#__PURE__*/function () {
     var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var currentYear, _prompt2, aiResult, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
+      var currentYear, prompt, aiResult, cleanJson, parsed, segments, normalizedSegments, stats, _t4;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
           case 0:
@@ -3277,7 +3298,7 @@ function App() {
             setIsParsingEmail(true);
             _context4.p = 2;
             currentYear = new Date().getFullYear();
-            _prompt2 = "Analiza el siguiente email de solicitud de habitaciones de hotel.\nExtrae el n\xFAmero total de personas declaradas por el cliente en el email (\"declaredPax\") y TODOS los segmentos de estancia de los subgrupos (cada segmento con su id, travelerGroupId, pax, fechas in y out, y asignaci\xF3n de habitaciones \"roomAllocations\").\nResponde EXCLUSIVAMENTE con JSON v\xE1lido (sin formato markdown ```json ni texto explicativo) con esta estructura exacta:\n{\n  \"groupName\": \"Nombre empresa o grupo\",\n  \"contactName\": \"Nombre contacto\",\n  \"contactEmail\": \"email@ejemplo.com\",\n  \"hotel\": \"nombre del hotel si se menciona\",\n  \"observations\": \"preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales\",\n  \"declaredPax\": 9,\n  \"segments\": [\n    {\n      \"id\": \"A\",\n      \"travelerGroupId\": \"G1\",\n      \"pax\": 3,\n      \"in\": \"YYYY-MM-DD\",\n      \"out\": \"YYYY-MM-DD\",\n      \"roomAllocations\": [\n        { \"pax\": 3, \"roomType\": \"DOBLE DE USO INDIVIDUAL\", \"rooms\": 3 }\n      ],\n      \"notes\": \"\"\n    }\n  ]\n}\nReglas para los segmentos:\n1. Por defecto, asigna 1 habitaci\xF3n por persona (\"rooms\" = \"pax\") y tipo \"DOBLE DE USO INDIVIDUAL\" en el array \"roomAllocations\", a menos que se indique lo contrario.\n2. Si no se especifica el a\xF1o para las fechas, usa ".concat(currentYear, ".\n3. El formato de las fechas \"in\" y \"out\" debe ser estrictamente YYYY-MM-DD.\n\nEmail a analizar:\n").concat(emailContent);
+            prompt = "Analiza el siguiente email de solicitud de habitaciones de hotel.\nExtrae el n\xFAmero total de personas declaradas por el cliente en el email (\"declaredPax\") y TODOS los segmentos de estancia de los subgrupos (cada segmento con su id, travelerGroupId, pax, fechas in y out, y asignaci\xF3n de habitaciones \"roomAllocations\").\nResponde EXCLUSIVAMENTE con JSON v\xE1lido (sin formato markdown ```json ni texto explicativo) con esta estructura exacta:\n{\n  \"groupName\": \"Nombre empresa o grupo\",\n  \"contactName\": \"Nombre contacto\",\n  \"contactEmail\": \"email@ejemplo.com\",\n  \"hotel\": \"nombre del hotel si se menciona\",\n  \"observations\": \"preguntas, notas, solicitudes del pool/gimnasio u observaciones adicionales\",\n  \"declaredPax\": 9,\n  \"segments\": [\n    {\n      \"id\": \"A\",\n      \"travelerGroupId\": \"G1\",\n      \"pax\": 3,\n      \"in\": \"YYYY-MM-DD\",\n      \"out\": \"YYYY-MM-DD\",\n      \"roomAllocations\": [\n        { \"pax\": 3, \"roomType\": \"DOBLE DE USO INDIVIDUAL\", \"rooms\": 3 }\n      ],\n      \"notes\": \"\"\n    }\n  ]\n}\nReglas para los segmentos:\n1. Por defecto, asigna 1 habitaci\xF3n por persona (\"rooms\" = \"pax\") y tipo \"DOBLE DE USO INDIVIDUAL\" en el array \"roomAllocations\", a menos que se indique lo contrario.\n2. Si no se especifica el a\xF1o para las fechas, usa ".concat(currentYear, ".\n3. El formato de las fechas \"in\" y \"out\" debe ser estrictamente YYYY-MM-DD.\n\nEmail a analizar:\n").concat(emailContent);
             if (window.callGemini) {
               _context4.n = 3;
               break;
@@ -3285,7 +3306,7 @@ function App() {
             throw new Error('La API de Gemini no está disponible.');
           case 3:
             _context4.n = 4;
-            return window.callGemini(_prompt2);
+            return window.callGemini(prompt);
           case 4:
             aiResult = _context4.v;
             if (aiResult !== null && aiResult !== void 0 && aiResult.ok) {
@@ -3908,16 +3929,15 @@ function App() {
       }, g["Nombre del Grupo"], /*#__PURE__*/React.createElement("button", {
         onClick: function onClick(e) {
           e.stopPropagation();
-          var note = prompt("Añadir nota rápida de seguimiento:");
-          if (note) addQuickNote(g.uid, note);
+          handleOpenDetail(g, true);
         },
         className: "group relative inline-flex items-center align-middle"
       }, g.Com_Notas || g.tracking && g.tracking.length > 0 ? /*#__PURE__*/React.createElement("i", {
         className: "fas fa-comment-dots text-indigo-500 ml-2 text-xs",
-        title: g.Com_Notas || "Ver seguimiento"
+        title: "Ver seguimiento"
       }) : /*#__PURE__*/React.createElement("i", {
         className: "far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all",
-        title: "A\xF1adir nota"
+        title: "Ver seguimiento"
       }))), /*#__PURE__*/React.createElement("p", {
         className: "text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5 opacity-60"
       }, hotelName, " \u2022 ID: ", g.Reserva)))), /*#__PURE__*/React.createElement("td", {
@@ -6687,6 +6707,7 @@ function App() {
     }, "Este presupuesto se basa en una grid de tarifas informativas y no tiene un importe total cerrado."), /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-indigo-700/80 leading-relaxed font-medium"
     }, "Si el cliente te confirma la distribuci\xF3n, haz clic en ", /*#__PURE__*/React.createElement("strong", null, "Editar Datos"), ", selecciona ", /*#__PURE__*/React.createElement("strong", null, "\"Con Distribuci\xF3n\""), " y define el cupo de habitaciones para transferir los precios autom\xE1ticamente.")), /*#__PURE__*/React.createElement("div", {
+      id: "budget-tracking-wall",
       className: "bg-slate-900 rounded-3xl p-6 shadow-xl shadow-slate-200/50 flex flex-col h-full max-h-[600px]"
     }, /*#__PURE__*/React.createElement("div", {
       className: "flex items-center justify-between mb-6"

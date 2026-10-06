@@ -1562,6 +1562,17 @@
       const [loading, setLoading] = useState(true);
       const [currentView, setCurrentView] = useState('dashboard');
       const [selectedGroup, setSelectedGroup] = useState(null);
+      const [showTracking, setShowTracking] = useState(false);
+      useEffect(() => {
+        if (currentView !== 'detail' || !showTracking) return;
+        const wall = document.getElementById('budget-tracking-wall');
+        if (wall) {
+          wall.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          wall.querySelector('textarea')?.focus({ preventScroll: true });
+          setShowTracking(false);
+        }
+      }, [currentView, selectedGroup, showTracking]);
+
       const [newNote, setNewNote] = useState('');
       const [globalConfig, setGlobalConfig] = useState(null);
       const [isEditingClauses, setIsEditingClauses] = useState(false);
@@ -2691,7 +2702,8 @@
         }
       };
 
-      const handleOpenDetail = (g) => {
+      const handleOpenDetail = (g, tracking = false) => {
+        setShowTracking(tracking);
         setSelectedGroup(g);
         const intEst = (g.Com_Estado_Interno || "").toUpperCase();
         const extEst = (g.Estado || "").toUpperCase();
@@ -3179,15 +3191,14 @@ ${emailContent}`;
                                 <button 
                                   onClick={(e) => { 
                                     e.stopPropagation(); 
-                                    const note = prompt("Añadir nota rápida de seguimiento:");
-                                    if(note) addQuickNote(g.uid, note);
+                                    handleOpenDetail(g, true);
                                   }}
                                   className="group relative inline-flex items-center align-middle"
                                 >
                                   { (g.Com_Notas || (g.tracking && g.tracking.length > 0)) ? (
-                                    <i className="fas fa-comment-dots text-indigo-500 ml-2 text-xs" title={g.Com_Notas || "Ver seguimiento"}></i>
+                                    <i className="fas fa-comment-dots text-indigo-500 ml-2 text-xs" title="Ver seguimiento"></i>
                                   ) : (
-                                    <i className="far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all" title="Añadir nota"></i>
+                                    <i className="far fa-comment text-slate-200 hover:text-indigo-400 ml-2 text-xs opacity-0 group-hover:opacity-100 transition-all" title="Ver seguimiento"></i>
                                   )}
                                 </button>
                               </h4>
@@ -5769,7 +5780,7 @@ ${emailContent}`;
                 )}
 
                 {/* SEGUIMIENTO & CHAT-STYLE NOTES */}
-                <div className="bg-slate-900 rounded-3xl p-6 shadow-xl shadow-slate-200/50 flex flex-col h-full max-h-[600px]">
+                <div id="budget-tracking-wall" className="bg-slate-900 rounded-3xl p-6 shadow-xl shadow-slate-200/50 flex flex-col h-full max-h-[600px]">
                    <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400">
