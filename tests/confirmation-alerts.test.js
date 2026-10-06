@@ -42,3 +42,21 @@ test('the confirmation deadline today generates a clear alert', () => {
   assert.equal(result[0].label, 'Confirmación vence hoy');
   assert.match(result[0].detail, /vence hoy/);
 });
+
+test('a PMS group with GRUPO TANTEO segment appears in both alert columns', () => {
+  const start = source.indexOf('      const columnsData = React.useMemo');
+  const end = source.indexOf('      }, [filteredGroups]);', start) + '      }, [filteredGroups]);'.length;
+  class FixedDate extends Date {
+    constructor(...args) { super(...(args.length ? args : ['2026-10-06T12:00:00'])); }
+  }
+  const group = { Reserva: '211520', Estado: 'RESERVA', 'Segment.': 'GRUPO TANTEO', Entrada: '2026-10-21', Salida: '2026-10-22', Com_Vencimiento_Rel: '2026-10-06' };
+  const ctx = { Date: FixedDate, React: { useMemo: fn => fn() }, filteredGroups: [group],
+    parseDate: value => value ? new Date(value + 'T00:00:00') : null,
+    formatDate: value => value.toISOString().slice(0, 10),
+    getGroupFinancialInfo: () => ({total: 1140, paid: 0, pending: 1140}), isCreditoGroup: () => false };
+  vm.runInNewContext(source.slice(start, end) + '\nthis.result = columnsData;', ctx);
+  assert.equal(ctx.result.releaseAlerts.length, 1);
+  assert.equal(ctx.result.releaseAlerts[0].label, 'Confirmación vence hoy');
+  assert.equal(ctx.result.tentativeAlerts.length, 1);
+  assert.equal(ctx.result.logisticsAlerts.length, 0);
+});

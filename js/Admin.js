@@ -464,7 +464,7 @@ var Dashboard = function Dashboard(_ref2) {
     var twentyFiveDaysFromNow = new Date(startOfToday);
     twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
     (data || []).forEach(function (g) {
-      var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
+      var status = ((g.Com_Estado_Interno || g["Segment."] || "") + " " + (g.Estado || "")).toUpperCase();
       var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO"].some(function (s) {
         return status.includes(s);
       }) || g.excludeFromStatistics === true;
@@ -553,7 +553,7 @@ var Dashboard = function Dashboard(_ref2) {
     twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
     filteredGroups.forEach(function (g) {
       var resId = g.Reserva || g.Com_Id || "";
-      var status = ((g.Estado || "") + " " + (g.Com_Estado_Interno || "")).toUpperCase();
+      var status = ((g.Com_Estado_Interno || g["Segment."] || "") + " " + (g.Estado || "")).toUpperCase();
       var isCancelled = ["CANCEL", "ANUL", "BAJA", "DESESTIMADO", "GASTOS", "DESGLOSADO", "CADUC"].some(function (s) {
         return status.includes(s);
       }) || g.excludeFromStatistics === true;
