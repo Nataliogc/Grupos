@@ -26,3 +26,8 @@ test('la ficha abierta en Grupos permanece en Grupos y no acepta destinos extern
   assert.deepEqual(close('?reserva=123&returnTo=https://other.example'), [false]);
   assert.deepEqual(close('?reserva=123', 'https://example.com/Gestion-de-Grupos.html'), [false]);
 });
+
+test('al volver de la confirmación o proforma, cerrar la ficha termina en Grupos', () => {
+  assert.deepEqual(close('?reserva=208017', 'https://example.com/Fac%20Prof.html'), [false]);
+  assert.deepEqual(close('?reserva=208017&returnTo=Fac%20Prof.html'), [false]);
+});

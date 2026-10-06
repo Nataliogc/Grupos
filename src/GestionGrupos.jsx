@@ -10588,6 +10588,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           if (!origin) return null;
           const target = new URL(origin, window.location.href);
           const current = new URL(window.location.href);
+          // Closing a document returns to this ficha, not back into the document.
+          const targetFile = decodeURIComponent(target.pathname.split('/').pop() || '').toLowerCase();
+          if (targetFile === 'fac prof.html') return null;
           return target.origin === current.origin && target.pathname !== current.pathname
             ? target.href : null;
         } catch (_) { return null; }
