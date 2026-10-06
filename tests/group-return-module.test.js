@@ -31,3 +31,8 @@ test('al volver de la confirmación o proforma, cerrar la ficha termina en Grupo
   assert.deepEqual(close('?reserva=208017', 'https://example.com/Fac%20Prof.html'), [false]);
   assert.deepEqual(close('?reserva=208017&returnTo=Fac%20Prof.html'), [false]);
 });
+
+test('al volver de la orden de servicio, cerrar la ficha permanece en Grupos', () => {
+  assert.deepEqual(close('?reserva=208017', 'https://example.com/Orden%20Servicio.html?v=1.1-meal-schedule'), [false]);
+  assert.deepEqual(close('?reserva=208017&returnTo=Orden%20Servicio.html'), [false]);
+});
