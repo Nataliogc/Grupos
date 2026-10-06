@@ -1717,8 +1717,25 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
           clientSubject = `Recordatorio de Pago Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
           clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} en relación a la reserva del grupo "${grupoName}" (Localizador: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.\n\n═══════════════════════════════════════════════════════════\nESTADO ECONÓMICO DE LA RESERVA\n═══════════════════════════════════════════════════════════\n• Importe Total Contratado:      ${fmt(fin.total)}\n• Importe Abonado y Confirmado:  ${fmt(fin.paid)}\n• Importe Pendiente de Pago:     ${fmt(fin.pending)}\n\nDetalle del vencimiento pendiente:\n${alert.detail || "Hito de pago pendiente según las condiciones pactadas."}\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularización del importe pendiente a la mayor brevedad posible.\n\n═══════════════════════════════════════════════════════════\nDATOS OFICIALES PARA TRANSFERENCIA BANCARIA\n═══════════════════════════════════════════════════════════\n• Entidad Bancaria:        ${hotelBank}\n• IBAN:                    ${hotelIban}\n• Beneficiario:            ${hotelOfficial}\n• Concepto imprescindible: Reserva #${resId} - ${grupoName}\n\nUna vez realizada la transferencia, le agradeceríamos que nos remita el correspondiente justificante bancario respondiendo a este correo.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isRelease) {
-          clientSubject = `Confirmación de Reserva Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde ${hotelOfficial} con respecto a la reserva del grupo "${grupoName}" (Ref: #${resId}), cuya fecha de entrada está fijada para el ${entrada || "próximamente"}.\n\n${alert.detail}\n\nLe agradeceríamos que nos confirmara si desea mantener la reserva y el bloqueo de habitaciones, respondiendo a este correo a la mayor brevedad posible.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
+          const deadline = formatDate(g.Com_Vencimiento_Rel) || "la fecha límite acordada";
+          clientSubject = `Aviso de próximo vencimiento – Grupo ${grupoName} | Ref. #${resId}`;
+          clientBody = `Estimado/a cliente:
+
+Nos ponemos en contacto desde ${hotelOfficial} en relación con la reserva del grupo "${grupoName}" (Ref. #${resId}), con entrada prevista el ${entrada || "la fecha acordada"}.
+
+Les recordamos que el próximo ${deadline} finaliza el plazo establecido para la confirmación definitiva de la reserva.
+
+A partir de dicha fecha, y conforme a las condiciones aceptadas, la reserva se considerará confirmada y quedará sujeta a los gastos de cancelación, reducción de habitaciones, no show y demás condiciones previstas para el grupo.
+
+Si necesitan realizar alguna modificación, ajuste o cancelación antes de la entrada en gastos, les rogamos que nos lo comuniquen por escrito antes de la fecha indicada.
+
+En caso contrario, no será necesario realizar ninguna gestión adicional y la reserva continuará conforme a las condiciones acordadas.
+
+Quedamos a su disposición para cualquier consulta.
+
+Atentamente,
+${comercial}
+${hotelOfficial}`;
         } else if (isDatos) {
           const missing = (alert.details?.length ? alert.details.map(d => d.text) : [alert.detail]).filter(Boolean);
           const onlyRooming = missing.length === 1 && /rooming/i.test(missing[0]);
