@@ -27,3 +27,18 @@ test('no avisa de reservas confirmadas, sin plazo o con plazo lejano', () => {
 test('distingue plazos vencidos', () => {
   assert.equal(alerts({g: {Com_Vencimiento_Rel: '2026-10-02'}})[0].type, 'danger');
 });
+
+test('a tentative group segment is not mistaken for confirmed', () => {
+  const start = source.indexOf('          const isTentative =');
+  const end = source.indexOf('          const entryDate =', start);
+  const ctx = { status: 'TENTATIVA GRUPO TANTEO' };
+  vm.runInNewContext(source.slice(start, end) + '\nthis.confirmed = isConfirmed; this.tentative = isTentative;', ctx);
+  assert.equal(ctx.confirmed, false);
+  assert.equal(ctx.tentative, true);
+});
+test('the confirmation deadline today generates a clear alert', () => {
+  const result = alerts({g: {Com_Vencimiento_Rel: '2026-10-05'}});
+  assert.equal(result.length, 1);
+  assert.equal(result[0].label, 'Confirmación vence hoy');
+  assert.match(result[0].detail, /vence hoy/);
+});

@@ -29,7 +29,7 @@ var _React = React,
 var db = window.db;
 var ContactFollowUp = function ContactFollowUp(_ref) {
   var group = _ref.group;
-  var savedDate = group.Contacto_Fecha || "";
+  var savedDate = toInputDate(group.Com_Seguimiento || group.Contacto_Fecha || "");
   var savedNote = group.Contacto_Nota || "";
   var _useState = useState(savedDate),
     _useState2 = _slicedToArray(_useState, 2),
@@ -79,6 +79,7 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
             _context.n = 3;
             return db.collection("groups").doc(group.uid).update({
               Contacto_Fecha: date,
+              Com_Seguimiento: date,
               Contacto_Nota: note.trim()
             });
           case 3:
@@ -111,11 +112,11 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
       setEditing(true);
       setMessage("");
     },
-    title: savedNote || "Editar próximo contacto",
+    title: savedNote || "Programar o cambiar la fecha de seguimiento",
     className: "mt-1 block w-full text-left text-[10px] leading-tight text-slate-500 hover:text-indigo-600"
   }, /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, savedDate ? "Contacto: ".concat(savedDate.split('-').reverse().join('/')) : "+ Programar contacto"), savedNote && /*#__PURE__*/React.createElement("span", {
+  }, savedDate ? "Seguimiento: ".concat(savedDate.split('-').reverse().join('/')) : "+ Programar seguimiento"), savedNote && /*#__PURE__*/React.createElement("span", {
     className: "block truncate mt-0.5"
   }, savedNote));
   return /*#__PURE__*/React.createElement("div", {
@@ -125,7 +126,7 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
     }
   }, /*#__PURE__*/React.createElement("label", {
     className: "block text-[9px] font-bold text-slate-500"
-  }, "Pr\xF3ximo contacto", /*#__PURE__*/React.createElement("input", {
+  }, "Fecha de seguimiento", /*#__PURE__*/React.createElement("input", {
     type: "date",
     value: date,
     disabled: saving,
@@ -153,7 +154,7 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
     disabled: saving,
     onClick: save,
     className: "text-[10px] font-bold text-indigo-600 disabled:opacity-50"
-  }, saving ? "Guardando…" : "Guardar contacto"), /*#__PURE__*/React.createElement("button", {
+  }, saving ? "Guardando…" : "Guardar seguimiento"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     disabled: saving,
     onClick: function onClick() {
@@ -2326,16 +2327,6 @@ function App() {
         if (isCancelled || isLocked || isPast && !isActiveStatus) return false;
       }
 
-      // Filtro de Búsqueda (usar debouncedSearchTerm)
-      if (debouncedSearchTerm) {
-        var term = debouncedSearchTerm.toLowerCase();
-        var groupName = (g["Nombre del Grupo"] || "").toLowerCase();
-        var agency = (g["Empresa/Agencia"] || "").toLowerCase();
-        var resId = String(g.Reserva || "").toLowerCase();
-        var fullId = (g.uid || "").toLowerCase();
-        if (!groupName.includes(term) && !agency.includes(term) && !resId.includes(term) && !fullId.includes(term)) return false;
-      }
-
       // Filtro de Fecha (Rango Manual)
       if (startDate || endDate) {
         var entry = toInputDate(g.Entrada);
@@ -2349,6 +2340,17 @@ function App() {
       var dateA = (_a$createdAt = a.createdAt) !== null && _a$createdAt !== void 0 && _a$createdAt.seconds ? a.createdAt.seconds : a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0;
       var dateB = (_b$createdAt = b.createdAt) !== null && _b$createdAt !== void 0 && _b$createdAt.seconds ? b.createdAt.seconds : b.createdAt ? new Date(b.createdAt).getTime() / 1000 : 0;
       return dateB - dateA;
+    }).slice(0, startDate || endDate ? undefined : 10).filter(function (g) {
+      // Filtro de Búsqueda (usar debouncedSearchTerm)
+      if (debouncedSearchTerm) {
+        var term = debouncedSearchTerm.toLowerCase();
+        var groupName = (g["Nombre del Grupo"] || "").toLowerCase();
+        var agency = (g["Empresa/Agencia"] || "").toLowerCase();
+        var resId = String(g.Reserva || "").toLowerCase();
+        var fullId = (g.uid || "").toLowerCase();
+        if (!groupName.includes(term) && !agency.includes(term) && !resId.includes(term) && !fullId.includes(term)) return false;
+      }
+      return true;
     });
   }, [groups, filterTab, debouncedSearchTerm, startDate, endDate]);
   var handleHotelChange = function handleHotelChange(e) {
@@ -3834,7 +3836,9 @@ function App() {
       title: "Limpiar filtros"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-times-circle"
-    })))), /*#__PURE__*/React.createElement("div", {
+    })))), /*#__PURE__*/React.createElement("p", {
+      className: "px-6 pb-3 text-xs text-slate-500"
+    }, startDate || endDate ? 'Mostrando los grupos del periodo seleccionado.' : 'Se muestran los 10 últimos grupos. Usa el filtro de fechas para consultar los anteriores.'), /*#__PURE__*/React.createElement("div", {
       className: "overflow-x-auto"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse min-w-[1080px] table-fixed"

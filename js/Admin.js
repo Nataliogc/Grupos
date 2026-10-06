@@ -471,8 +471,8 @@ var Dashboard = function Dashboard(_ref2) {
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;
-      var isConfirmed = status.includes("CONFIRM") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
       var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
+      var isConfirmed = !isTentative && (status.includes("CONFIRM") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
       var entryDate = parseDate(g.Entrada);
       var fin = getGroupFinancialInfo(g);
       var totalAmt = fin.total;
@@ -560,8 +560,8 @@ var Dashboard = function Dashboard(_ref2) {
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;
-      var isConfirmed = status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
       var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
+      var isConfirmed = !isTentative && (status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
       var entryDate = parseDate(g.Entrada);
       var fin = getGroupFinancialInfo(g);
       var total = fin.total;
@@ -597,14 +597,14 @@ var Dashboard = function Dashboard(_ref2) {
         var dRel = parseDate(g.Com_Vencimiento_Rel);
         if (dRel && dRel <= fiveDaysFromNow) {
           seenRelease.add(resId);
-          var diffTime = dRel - now;
+          var diffTime = dRel - startOfToday;
           var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           var isOverdue = dRel < startOfToday;
           releaseAlerts.push({
             group: g,
             icon: "clock",
-            label: isOverdue ? "Plazo de confirmación vencido" : "Confirmación próxima a vencer",
-            detail: isOverdue ? "Confirmaci\xF3n pendiente: el plazo venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ")") : "Confirmaci\xF3n pendiente: el plazo vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ")"),
+            label: isOverdue ? "Plazo de confirmación vencido" : diffDays === 0 ? "Confirmación vence hoy" : "Confirmación próxima a vencer",
+            detail: isOverdue ? "Confirmaci\xF3n pendiente: el plazo venci\xF3 hace ".concat(Math.abs(diffDays), " d\xEDas (").concat(formatDate(dRel), ")") : diffDays === 0 ? "Confirmaci\xF3n pendiente: el plazo vence hoy (".concat(formatDate(dRel), ")") : "Confirmaci\xF3n pendiente: el plazo vence en ".concat(diffDays, " d\xEDas (").concat(formatDate(dRel), ")"),
             type: isOverdue ? "danger" : "warning"
           });
         }

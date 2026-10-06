@@ -421,8 +421,8 @@
 
           if (isCancelled || isPast) return;
 
-          const isConfirmed = status.includes("CONFIRM") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
           const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
+          const isConfirmed = !isTentative && (status.includes("CONFIRM") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
           const entryDate = parseDate(g.Entrada);
 
           const fin = getGroupFinancialInfo(g);
@@ -516,8 +516,8 @@
 
           if (isCancelled || isPast) return;
 
-          const isConfirmed = status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO");
           const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
+          const isConfirmed = !isTentative && (status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
           const entryDate = parseDate(g.Entrada);
 
           const fin = getGroupFinancialInfo(g);
@@ -555,17 +555,18 @@
             const dRel = parseDate(g.Com_Vencimiento_Rel);
             if (dRel && dRel <= fiveDaysFromNow) {
               seenRelease.add(resId);
-              const diffTime = dRel - now;
+              const diffTime = dRel - startOfToday;
               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
               const isOverdue = dRel < startOfToday;
               
               releaseAlerts.push({
                 group: g,
                 icon: "clock",
-                label: isOverdue ? "Plazo de confirmación vencido" : "Confirmación próxima a vencer",
+                label: isOverdue ? "Plazo de confirmación vencido" : diffDays === 0 ? "Confirmación vence hoy" : "Confirmación próxima a vencer",
                 detail: isOverdue 
                   ? `Confirmación pendiente: el plazo venció hace ${Math.abs(diffDays)} días (${formatDate(dRel)})`
-                  : `Confirmación pendiente: el plazo vence en ${diffDays} días (${formatDate(dRel)})`,
+                  : diffDays === 0 ? `Confirmación pendiente: el plazo vence hoy (${formatDate(dRel)})`
+                    : `Confirmación pendiente: el plazo vence en ${diffDays} días (${formatDate(dRel)})`,
                 type: isOverdue ? "danger" : "warning"
               });
             }

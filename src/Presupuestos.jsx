@@ -5,7 +5,7 @@
     const db = window.db;
 
     const ContactFollowUp = ({ group }) => {
-      const savedDate = group.Contacto_Fecha || "";
+      const savedDate = toInputDate(group.Com_Seguimiento || group.Contacto_Fecha || "");
       const savedNote = group.Contacto_Nota || "";
       const [date, setDate] = useState(savedDate);
       const [note, setNote] = useState(savedNote);
@@ -22,7 +22,7 @@
         setMessage("");
         try {
           await db.collection("groups").doc(group.uid).update({
-            Contacto_Fecha: date, Contacto_Nota: note.trim()
+            Contacto_Fecha: date, Com_Seguimiento: date, Contacto_Nota: note.trim()
           });
           setDirty(false);
           setMessage("Guardado");
@@ -33,16 +33,16 @@
       };
       if (!editing) return (
         <button type="button" onClick={e => { e.stopPropagation(); setEditing(true); setMessage(""); }}
-          title={savedNote || "Editar próximo contacto"}
+          title={savedNote || "Programar o cambiar la fecha de seguimiento"}
           className="mt-1 block w-full text-left text-[10px] leading-tight text-slate-500 hover:text-indigo-600">
-          <span className="font-bold">{savedDate ? `Contacto: ${savedDate.split('-').reverse().join('/')}` : "+ Programar contacto"}</span>
+          <span className="font-bold">{savedDate ? `Seguimiento: ${savedDate.split('-').reverse().join('/')}` : "+ Programar seguimiento"}</span>
           {savedNote && <span className="block truncate mt-0.5">{savedNote}</span>}
         </button>
       );
       return (
         <div className="mt-2 space-y-1" onClick={e => e.stopPropagation()}>
           <label className="block text-[9px] font-bold text-slate-500">
-            Próximo contacto
+            Fecha de seguimiento
             <input type="date" value={date} disabled={saving}
               onChange={e => { setDate(e.target.value); setDirty(true); setMessage(""); }}
               className="block w-full mt-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700" />
@@ -53,7 +53,7 @@
             className="block w-full rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 resize-y" />
           {dirty && <button type="button" disabled={saving} onClick={save}
             className="text-[10px] font-bold text-indigo-600 disabled:opacity-50">
-            {saving ? "Guardando…" : "Guardar contacto"}
+            {saving ? "Guardando…" : "Guardar seguimiento"}
           </button>}
           <button type="button" disabled={saving} onClick={() => {
             setDate(savedDate); setNote(savedNote); setDirty(false); setEditing(false); setMessage("");
@@ -1996,16 +1996,6 @@
               if (isCancelled || isLocked || (isPast && !isActiveStatus)) return false;
             }
 
-            // Filtro de Búsqueda (usar debouncedSearchTerm)
-            if (debouncedSearchTerm) {
-              const term = debouncedSearchTerm.toLowerCase();
-              const groupName = (g["Nombre del Grupo"] || "").toLowerCase();
-              const agency = (g["Empresa/Agencia"] || "").toLowerCase();
-              const resId = String(g.Reserva || "").toLowerCase();
-              const fullId = (g.uid || "").toLowerCase();
-              if (!groupName.includes(term) && !agency.includes(term) && !resId.includes(term) && !fullId.includes(term)) return false;
-            }
-
             // Filtro de Fecha (Rango Manual)
             if (startDate || endDate) {
               const entry = toInputDate(g.Entrada);
@@ -2019,6 +2009,20 @@
             const dateA = a.createdAt?.seconds ? a.createdAt.seconds : (a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0);
             const dateB = b.createdAt?.seconds ? b.createdAt.seconds : (b.createdAt ? new Date(b.createdAt).getTime() / 1000 : 0);
             return dateB - dateA;
+          })
+          .slice(0, startDate || endDate ? undefined : 10)
+          .filter(g => {
+            // Filtro de Búsqueda (usar debouncedSearchTerm)
+            if (debouncedSearchTerm) {
+              const term = debouncedSearchTerm.toLowerCase();
+              const groupName = (g["Nombre del Grupo"] || "").toLowerCase();
+              const agency = (g["Empresa/Agencia"] || "").toLowerCase();
+              const resId = String(g.Reserva || "").toLowerCase();
+              const fullId = (g.uid || "").toLowerCase();
+              if (!groupName.includes(term) && !agency.includes(term) && !resId.includes(term) && !fullId.includes(term)) return false;
+            }
+
+            return true;
           });
       }, [groups, filterTab, debouncedSearchTerm, startDate, endDate]);
 
@@ -3117,6 +3121,9 @@ ${emailContent}`;
                 )}
               </div>
             </div>
+            <p className="px-6 pb-3 text-xs text-slate-500">
+              {startDate || endDate ? 'Mostrando los grupos del periodo seleccionado.' : 'Se muestran los 10 últimos grupos. Usa el filtro de fechas para consultar los anteriores.'}
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1080px] table-fixed">
                 <colgroup>
