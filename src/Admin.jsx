@@ -1793,11 +1793,51 @@ ${hotelOfficial}`;
             : missing.length === 1
               ? `Está pendiente de recibir: ${missing[0].replace(/^Falta\s+/i, "")}.\n\nLe agradeceríamos que nos enviara esta información a la mayor brevedad posible, respondiendo a este correo.`
               : `Está pendiente de recibir la siguiente información:\n${missingItems}\n\nLe agradeceríamos que nos enviara esta información a la mayor brevedad posible, respondiendo a este correo.`;
-          clientSubject = `${onlyRooming ? "Solicitud de Rooming List" : "Solicitud de Información Pendiente"} - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ${hotelOfficial} para ultimar los preparativos de la llegada del grupo "${grupoName}" (Localizador #${resId}), con fecha de entrada el ${entrada || "próximamente"}.\n\n${request}\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
+          clientSubject = onlyRooming
+            ? `Solicitud de rooming list – Grupo ${grupoName} | Localizador #${resId}`
+            : `Solicitud de Información Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
+          clientBody = onlyRooming
+            ? `Estimado/a cliente:
+
+Nos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} para ultimar la organización de la llegada del grupo “${grupoName}” (Localizador #${resId}), con entrada prevista el ${entrada || "la fecha acordada"}.
+
+Para poder preparar correctamente la distribución de habitaciones y agilizar el proceso de llegada, les agradeceríamos que nos enviaran la rooming list definitiva a la mayor brevedad posible.
+
+El listado deberá incluir, al menos:
+
+• Nombre y apellidos de los huéspedes.
+• Distribución por habitaciones.
+• Tipo de habitación asignado.
+• Cualquier observación relevante para la estancia.
+
+Pueden remitirnos la información respondiendo directamente a este correo.
+
+Si ya nos hubieran enviado la rooming list, pueden ignorar este aviso.
+
+Quedamos a su disposición para cualquier consulta.
+
+Un cordial saludo,
+${comercial}
+${hotelOfficial}`
+            : `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ${hotelOfficial} para ultimar los preparativos de la llegada del grupo "${grupoName}" (Localizador #${resId}), con fecha de entrada el ${entrada || "próximamente"}.\n\n${request}\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
         } else if (isCrm) {
-          clientSubject = `Seguimiento de Propuesta para Grupo - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          clientBody = `Estimado/a cliente,\n\nLe escribimos desde ${hotelOfficial} para dar seguimiento a la propuesta para el grupo "${grupoName}" (Ref: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.\n\nNos gustaría conocer si han tenido ocasión de valorar las condiciones o si necesitan realizar alguna modificación.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
+          clientSubject = `Seguimiento de propuesta – ${grupoName} | Ref. #${resId}`;
+          clientBody = `Estimado/a cliente:
+
+Nos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} para realizar seguimiento de la propuesta enviada para el grupo “${grupoName}” (Ref. #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.
+
+Nos gustaría saber si han tenido ocasión de revisar la propuesta y las condiciones ofrecidas.
+
+Si necesitan realizar algún ajuste en el número de habitaciones, distribución, régimen de alojamiento o servicios incluidos, estaremos encantados de revisar la propuesta para adaptarla a sus necesidades.
+
+En caso de estar interesados en continuar con la reserva, pueden confirmárnoslo respondiendo directamente a este correo para que podamos proceder con los siguientes pasos.
+
+La propuesta permanece sujeta a disponibilidad en el momento de su confirmación y al plazo de validez indicado en la oferta.
+
+Quedamos a su disposición para cualquier consulta o modificación que necesiten.
+
+Un cordial saludo,
+${comercial}`;
         } else {
           clientSubject = `Gestión Urgente: Próxima Llegada - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
           clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde ${hotelOfficial} en relación a la reserva tentativa para el grupo "${grupoName}" (Ref: #${resId}), con fecha de entrada muy próxima (${entrada || "en los próximos días"}).\n\nSituación actual: ${alert.detail}\n\nDada la cercanía de la fecha de llegada, le rogamos nos confirme en firme si continuarán con la reserva antes de liberar el bloqueo de plazas.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
