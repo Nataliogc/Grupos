@@ -572,7 +572,7 @@ var isLockedBudget = function isLockedBudget(g) {
   var isConfirmed = effective.includes("CONFIRM") || g.splitCompleted === true || effective === "DESGLOSADO";
   var isTentativa = effective.includes("TENTA") || effective.includes("TANTEO") || effective.includes("BLOQ") || effective.includes("OPCI");
   var res = String(g.Reserva || "").trim();
-  var hasPmsId = res !== "" && !res.toUpperCase().startsWith("PRES-") || Boolean(g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
+  var hasPmsId = res !== "" && !res.toUpperCase().startsWith("PRES-") || Boolean(g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && !res.toUpperCase().startsWith("PRES-") && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
   var isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
   return Boolean(isConfirmed || isTentativa || hasPmsId || isExplicitReadOnly);
 };
@@ -592,7 +592,7 @@ var getBudgetLockedDetails = function getBudgetLockedDetails(g) {
   var isTentativa = effective.includes("TENTA") || effective.includes("TANTEO") || effective.includes("BLOQ") || effective.includes("OPCI");
   var res = String(g.Reserva || "").trim();
   var rawPmsId = res !== "" && !res.toUpperCase().startsWith("PRES-") ? res : g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS || '';
-  var hasPmsId = Boolean(rawPmsId) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
+  var hasPmsId = Boolean(rawPmsId) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && !res.toUpperCase().startsWith("PRES-") && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
   var isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
   var isLocked = Boolean(isConfirmed || isTentativa || hasPmsId || isExplicitReadOnly);
   var label = "CONFIRMADO";
@@ -2357,94 +2357,97 @@ function App() {
       "Pax.": totalPax
     }));
   };
+  var repriceBudgetForHotel = function repriceBudgetForHotel(prev, targetHotel) {
+    var _prev$capaSuiteDiscou;
+    var next = remapBudgetRoomsForHotel(prev, targetHotel);
+    var dates = getCurrentStayDates(next);
+    var rooms = getRoomTypesForHotel(targetHotel);
+    var discount = (_prev$capaSuiteDiscou = prev.capaSuiteDiscountPercent) !== null && _prev$capaSuiteDiscou !== void 0 ? _prev$capaSuiteDiscou : 15;
+    var average = !!prev.averageStayCondition;
+    var recommendedGrid = prev.gridTariffMode === 'recommended';
+    var year = Number(toInputDate(next.Entrada).slice(0, 4)) || 2027;
+    next.ratesOnlyGrid = {};
+    ['HA', 'HD', 'MP', 'PC'].forEach(function (board) {
+      next.ratesOnlyGrid[board] = {};
+      var refs = average && dates.length ? dates : [dates[0] || toInputDate(next.Entrada)];
+      var comps = refs.map(function (date) {
+        return getCapaSuiteTariffComparison(targetHotel, date, board, discount);
+      });
+      var official = getOfficialTariffsGrid(targetHotel, year)[board] || {};
+      rooms.forEach(function (room) {
+        var values = comps.map(function (comp) {
+          var _comp$recommendedPric;
+          return (_comp$recommendedPric = comp.recommendedPricesByRoom) === null || _comp$recommendedPric === void 0 ? void 0 : _comp$recommendedPric[room];
+        });
+        var price = average || recommendedGrid ? values.every(function (v) {
+          return v != null;
+        }) ? roundRate(values.reduce(function (sum, v) {
+          return sum + Number(v);
+        }, 0) / values.length) : null : official[room];
+        if (price != null) next.ratesOnlyGrid[board][room] = price;
+      });
+    });
+    dates.forEach(function (date) {
+      var _prev$dailyConfig;
+      var day = next.dailyConfig[date] || {
+        board: next['Régimen'] || 'HD',
+        counts: {},
+        gratuities: {}
+      };
+      var oldDay = ((_prev$dailyConfig = prev.dailyConfig) === null || _prev$dailyConfig === void 0 ? void 0 : _prev$dailyConfig[date]) || {};
+      var board = day.board || next['Régimen'] || 'HD';
+      var mode = oldDay.tariffMode || 'official';
+      var refs = average ? dates : [date];
+      var comps = refs.map(function (d) {
+        return getCapaSuiteTariffComparison(targetHotel, d, board, discount);
+      });
+      var prices = {};
+      rooms.forEach(function (room) {
+        var _comps$0$officialPric;
+        var values = comps.map(function (comp) {
+          var _comp$recommendedPric2;
+          return (_comp$recommendedPric2 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric2 === void 0 ? void 0 : _comp$recommendedPric2[room];
+        });
+        var price = average || mode === 'recommended' ? values.every(function (v) {
+          return v != null;
+        }) ? roundRate(values.reduce(function (sum, v) {
+          return sum + Number(v);
+        }, 0) / values.length) : null : (_comps$0$officialPric = comps[0].officialPricesByRoom) === null || _comps$0$officialPric === void 0 ? void 0 : _comps$0$officialPric[room];
+        if (price != null) prices[room] = price;
+      });
+      next.dailyConfig[date] = _objectSpread(_objectSpread({}, day), {}, {
+        prices: prices,
+        tariffMode: average ? 'average' : mode
+      });
+    });
+    if (average) next.averageStayCondition = {
+      dates: _toConsumableArray(dates),
+      nights: dates.length,
+      hotel: targetHotel
+    };
+    var refs = dates.length ? dates : [toInputDate(next.Entrada)];
+    var sourcePrices = refs.map(function (date) {
+      return getCapaSuiteTariffComparison(targetHotel, date, 'HA', discount);
+    });
+    var estimated = sourcePrices.filter(function (comp) {
+      var _comp$hotelPriceInfo;
+      return (_comp$hotelPriceInfo = comp.hotelPriceInfo) === null || _comp$hotelPriceInfo === void 0 ? void 0 : _comp$hotelPriceInfo.isEstimated;
+    }).length;
+    var mean = sourcePrices.reduce(function (sum, comp) {
+      return sum + Number(comp.hotelDayPrice || 0);
+    }, 0) / sourcePrices.length;
+    next.hotelTariffNotice = {
+      hotel: targetHotel,
+      text: "Precios recalculados para ".concat(targetHotel).concat(average ? " \xB7 tarifa media de ".concat(dates.length, " noches") : '', ". PVP de habitaci\xF3n ").concat(average ? 'medio' : 'de referencia', ": ").concat(mean.toLocaleString('es-ES', {
+        maximumFractionDigits: 2
+      }), " \u20AC.").concat(estimated ? " Atenci\xF3n: ".concat(estimated, " fecha(s) usan PVP estimado porque falta el precio real de este hotel. Revisa las tarifas antes de enviar.") : ' Se utilizan los precios disponibles para este hotel.'),
+      estimated: estimated > 0
+    };
+    return next;
+  };
   var handleBudgetHotelChange = function handleBudgetHotelChange(targetHotel) {
     setFormData(function (prev) {
-      var _prev$capaSuiteDiscou;
-      var next = remapBudgetRoomsForHotel(prev, targetHotel);
-      var dates = getCurrentStayDates(next);
-      var rooms = getRoomTypesForHotel(targetHotel);
-      var discount = (_prev$capaSuiteDiscou = prev.capaSuiteDiscountPercent) !== null && _prev$capaSuiteDiscou !== void 0 ? _prev$capaSuiteDiscou : 15;
-      var average = !!prev.averageStayCondition;
-      var recommendedGrid = prev.gridTariffMode === 'recommended';
-      var year = Number(toInputDate(next.Entrada).slice(0, 4)) || 2027;
-      next.ratesOnlyGrid = {};
-      ['HA', 'HD', 'MP', 'PC'].forEach(function (board) {
-        next.ratesOnlyGrid[board] = {};
-        var refs = average && dates.length ? dates : [dates[0] || toInputDate(next.Entrada)];
-        var comps = refs.map(function (date) {
-          return getCapaSuiteTariffComparison(targetHotel, date, board, discount);
-        });
-        var official = getOfficialTariffsGrid(targetHotel, year)[board] || {};
-        rooms.forEach(function (room) {
-          var values = comps.map(function (comp) {
-            var _comp$recommendedPric;
-            return (_comp$recommendedPric = comp.recommendedPricesByRoom) === null || _comp$recommendedPric === void 0 ? void 0 : _comp$recommendedPric[room];
-          });
-          var price = average || recommendedGrid ? values.every(function (v) {
-            return v != null;
-          }) ? roundRate(values.reduce(function (sum, v) {
-            return sum + Number(v);
-          }, 0) / values.length) : null : official[room];
-          if (price != null) next.ratesOnlyGrid[board][room] = price;
-        });
-      });
-      dates.forEach(function (date) {
-        var _prev$dailyConfig;
-        var day = next.dailyConfig[date] || {
-          board: next['Régimen'] || 'HD',
-          counts: {},
-          gratuities: {}
-        };
-        var oldDay = ((_prev$dailyConfig = prev.dailyConfig) === null || _prev$dailyConfig === void 0 ? void 0 : _prev$dailyConfig[date]) || {};
-        var board = day.board || next['Régimen'] || 'HD';
-        var mode = oldDay.tariffMode || 'official';
-        var refs = average ? dates : [date];
-        var comps = refs.map(function (d) {
-          return getCapaSuiteTariffComparison(targetHotel, d, board, discount);
-        });
-        var prices = {};
-        rooms.forEach(function (room) {
-          var _comps$0$officialPric;
-          var values = comps.map(function (comp) {
-            var _comp$recommendedPric2;
-            return (_comp$recommendedPric2 = comp.recommendedPricesByRoom) === null || _comp$recommendedPric2 === void 0 ? void 0 : _comp$recommendedPric2[room];
-          });
-          var price = average || mode === 'recommended' ? values.every(function (v) {
-            return v != null;
-          }) ? roundRate(values.reduce(function (sum, v) {
-            return sum + Number(v);
-          }, 0) / values.length) : null : (_comps$0$officialPric = comps[0].officialPricesByRoom) === null || _comps$0$officialPric === void 0 ? void 0 : _comps$0$officialPric[room];
-          if (price != null) prices[room] = price;
-        });
-        next.dailyConfig[date] = _objectSpread(_objectSpread({}, day), {}, {
-          prices: prices,
-          tariffMode: average ? 'average' : mode
-        });
-      });
-      if (average) next.averageStayCondition = {
-        dates: _toConsumableArray(dates),
-        nights: dates.length,
-        hotel: targetHotel
-      };
-      var refs = dates.length ? dates : [toInputDate(next.Entrada)];
-      var sourcePrices = refs.map(function (date) {
-        return getCapaSuiteTariffComparison(targetHotel, date, 'HA', discount);
-      });
-      var estimated = sourcePrices.filter(function (comp) {
-        var _comp$hotelPriceInfo;
-        return (_comp$hotelPriceInfo = comp.hotelPriceInfo) === null || _comp$hotelPriceInfo === void 0 ? void 0 : _comp$hotelPriceInfo.isEstimated;
-      }).length;
-      var mean = sourcePrices.reduce(function (sum, comp) {
-        return sum + Number(comp.hotelDayPrice || 0);
-      }, 0) / sourcePrices.length;
-      next.hotelTariffNotice = {
-        hotel: targetHotel,
-        text: "Precios recalculados para ".concat(targetHotel).concat(average ? " \xB7 tarifa media de ".concat(dates.length, " noches") : '', ". PVP de habitaci\xF3n ").concat(average ? 'medio' : 'de referencia', ": ").concat(mean.toLocaleString('es-ES', {
-          maximumFractionDigits: 2
-        }), " \u20AC.").concat(estimated ? " Atenci\xF3n: ".concat(estimated, " fecha(s) usan PVP estimado porque falta el precio real de este hotel. Revisa las tarifas antes de enviar.") : ' Se utilizan los precios disponibles para este hotel.'),
-        estimated: estimated > 0
-      };
-      return next;
+      return repriceBudgetForHotel(prev, targetHotel);
     });
   };
   var handleDailyConfigChange = function handleDailyConfigChange(date, field, value) {
@@ -3530,7 +3533,7 @@ function App() {
               return String(g.uid) === newReservaId || String(g.Reserva) === newReservaId;
             }));
             serializableSource = JSON.parse(JSON.stringify(source));
-            duplicatedBudget = changeHotel ? remapBudgetRoomsForHotel(serializableSource, targetHotel) : serializableSource;
+            duplicatedBudget = changeHotel ? repriceBudgetForHotel(serializableSource, targetHotel) : serializableSource;
             duplicatedTotal = calculateTotal(duplicatedBudget);
             roomingList = buildRoomingList(duplicatedBudget, duplicatedBudget.RoomingList_JSON || "");
             delete duplicatedBudget.uid;

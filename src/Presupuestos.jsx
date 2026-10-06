@@ -403,7 +403,7 @@
       const res = String(g.Reserva || "").trim();
       const hasPmsId = (res !== "" && !res.toUpperCase().startsWith("PRES-")) ||
                        Boolean(g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS) ||
-                       Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
+                       Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && !res.toUpperCase().startsWith("PRES-") && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
 
       const isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
 
@@ -423,7 +423,7 @@
       const rawPmsId = (res !== "" && !res.toUpperCase().startsWith("PRES-")) 
         ? res 
         : (g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS || '');
-      const hasPmsId = Boolean(rawPmsId) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
+      const hasPmsId = Boolean(rawPmsId) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && !res.toUpperCase().startsWith("PRES-") && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
 
       const isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
       const isLocked = Boolean(isConfirmed || isTentativa || hasPmsId || isExplicitReadOnly);
@@ -2038,8 +2038,7 @@
         });
       };
 
-      const handleBudgetHotelChange = targetHotel => {
-        setFormData(prev => {
+      const repriceBudgetForHotel = (prev, targetHotel) => {
           const next = remapBudgetRoomsForHotel(prev, targetHotel);
           const dates = getCurrentStayDates(next);
           const rooms = getRoomTypesForHotel(targetHotel);
@@ -2089,7 +2088,10 @@
             estimated: estimated > 0
           };
           return next;
-        });
+      };
+
+      const handleBudgetHotelChange = targetHotel => {
+        setFormData(prev => repriceBudgetForHotel(prev, targetHotel));
       };
 
       const handleDailyConfigChange = (date, field, value, roomType = null) => {
@@ -2922,7 +2924,7 @@ ${emailContent}`;
         } while (groups.some(g => String(g.uid) === newReservaId || String(g.Reserva) === newReservaId));
 
         const serializableSource = JSON.parse(JSON.stringify(source));
-        const duplicatedBudget = changeHotel ? remapBudgetRoomsForHotel(serializableSource, targetHotel) : serializableSource;
+        const duplicatedBudget = changeHotel ? repriceBudgetForHotel(serializableSource, targetHotel) : serializableSource;
         const duplicatedTotal = calculateTotal(duplicatedBudget);
         const roomingList = buildRoomingList(duplicatedBudget, duplicatedBudget.RoomingList_JSON || "");
 
