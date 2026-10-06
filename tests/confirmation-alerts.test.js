@@ -60,3 +60,16 @@ test('a PMS group with GRUPO TANTEO segment appears in both alert columns', () =
   assert.equal(ctx.result.tentativeAlerts.length, 1);
   assert.equal(ctx.result.logisticsAlerts.length, 0);
 });
+
+test('payment wording follows calendar dates and selects the earliest unpaid milestone', () => {
+  const start = source.indexOf('      const getPaymentNotice =');
+  const end = source.indexOf('      // Filtrado por hotel seleccionado', start);
+  const ctx = {parseDate: value => value ? new Date(value + 'T00:00:00') : null};
+  vm.runInNewContext(source.slice(start, end) + '\nthis.notice = getPaymentNotice;', ctx);
+  const group = {PaymentPlan_JSON: JSON.stringify([{date:'2026-10-09',status:'Pendiente'}, {date:'2026-10-06',status:'Pendiente'}, {date:'2026-10-01',status:'Cobrado'}])};
+  assert.equal(ctx.notice(group, new Date(2026,9,1,12)).label, 'Próximo vencimiento de pago');
+  assert.equal(ctx.notice(group, new Date(2026,9,1,12)).days, 5);
+  assert.equal(ctx.notice(group, new Date(2026,9,6,23)).label, 'Pago con vencimiento hoy');
+  assert.equal(ctx.notice(group, new Date(2026,9,7)).label, 'Pago pendiente vencido');
+  assert.equal(ctx.notice({}), null);
+});

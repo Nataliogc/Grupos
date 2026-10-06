@@ -386,6 +386,21 @@
         return isNaN(d.getTime()) ? null : d;
       };
 
+      const getPaymentNotice = (g, today = new Date()) => {
+        const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        let plan = [];
+        try { plan = JSON.parse(g.PaymentPlan_JSON || "[]"); } catch (_) {}
+        const milestones = (Array.isArray(plan) ? plan : []).filter(p =>
+          p.status !== 'Cobrado' && p.status !== 'Pagado' && parseDate(p.date)
+        ).sort((a, b) => parseDate(a.date) - parseDate(b.date));
+        const milestone = milestones[0];
+        if (!milestone) return null;
+        const date = parseDate(milestone.date);
+        const days = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - day) / 86400000);
+        return { date: milestone.date, days,
+          label: days < 0 ? 'Pago pendiente vencido' : days === 0 ? 'Pago con vencimiento hoy' : 'Próximo vencimiento de pago' };
+      };
+
       // Filtrado por hotel seleccionado
       const filteredGroups = React.useMemo(() => {
         if (selectedHotel === "todos") return data || [];
@@ -530,21 +545,15 @@
           // 1. Column 1: Financial Alerts (ignorar si es crédito)
           if (!isCredito && (isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
             try {
-              const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-              const pastDueMilestones = plan.filter(p => {
-                const pDate = parseDate(p.date);
-                return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
-              });
-              if (pastDueMilestones.length > 0) {
+              const notice = getPaymentNotice(g, startOfToday);
+              if (notice && notice.days <= 5) {
                 seenFinancial.add(resId);
-                const firstPastDue = pastDueMilestones[0];
-                const amt = parseFloat(firstPastDue.amount) || 0;
                 financialAlerts.push({
                   group: g,
                   icon: "alert-triangle",
-                  label: "Hito Vencido",
-                  detail: `Pago de ${fmt(amt)} vencido el ${formatDate(firstPastDue.date)}`,
-                  type: "danger"
+                  label: notice.label,
+                  detail: `${notice.label}: ${fmt(pending)} pendiente. Fecha de vencimiento: ${formatDate(notice.date)}`,
+                  type: notice.days < 0 ? "danger" : "warning"
                 });
               }
             } catch (e) {}
@@ -1714,8 +1723,47 @@ Por favor revisar con urgencia las actuaciones necesarias para mantener la opera
         let clientBody = "";
 
         if (isFinanciera) {
-          clientSubject = `Recordatorio de Pago Pendiente - Reserva #${resId} (${grupoName}) - ${hotelOfficial}`;
-          clientBody = `Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} en relación a la reserva del grupo "${grupoName}" (Localizador: #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.\n\n═══════════════════════════════════════════════════════════\nESTADO ECONÓMICO DE LA RESERVA\n═══════════════════════════════════════════════════════════\n• Importe Total Contratado:      ${fmt(fin.total)}\n• Importe Abonado y Confirmado:  ${fmt(fin.paid)}\n• Importe Pendiente de Pago:     ${fmt(fin.pending)}\n\nDetalle del vencimiento pendiente:\n${alert.detail || "Hito de pago pendiente según las condiciones pactadas."}\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularización del importe pendiente a la mayor brevedad posible.\n\n═══════════════════════════════════════════════════════════\nDATOS OFICIALES PARA TRANSFERENCIA BANCARIA\n═══════════════════════════════════════════════════════════\n• Entidad Bancaria:        ${hotelBank}\n• IBAN:                    ${hotelIban}\n• Beneficiario:            ${hotelOfficial}\n• Concepto imprescindible: Reserva #${resId} - ${grupoName}\n\nUna vez realizada la transferencia, le agradeceríamos que nos remita el correspondiente justificante bancario respondiendo a este correo.\n\nAtentamente,\n${comercial}\n${hotelOfficial}`;
+          const notice = getPaymentNotice(g);
+          const deadline = notice ? formatDate(notice.date) : "Sin fecha indicada";
+          const paymentState = notice?.label || "Pago pendiente";
+          const situation = notice?.days < 0
+            ? `A fecha de hoy, consta pendiente de regularización el importe de ${fmt(fin.pending)}, cuyo plazo de pago ha vencido.`
+            : notice?.days === 0
+              ? `Les recordamos que hoy vence el plazo de pago del importe pendiente de ${fmt(fin.pending)}.`
+              : `Les recordamos que el próximo ${deadline} vence el plazo de pago del importe pendiente de ${fmt(fin.pending)}.`;
+          const request = notice?.days < 0 ? "a la mayor brevedad posible" : notice?.days === 0 ? "a lo largo del día de hoy" : "antes de la fecha de vencimiento indicada";
+          clientSubject = `${paymentState} – Reserva #${resId} | ${grupoName}`;
+          clientBody = `Estimado/a cliente:
+
+Nos ponemos en contacto desde el Departamento de Reservas y Grupos de ${hotelOfficial} en relación con la reserva del grupo “${grupoName}” (Localizador #${resId}), con estancia prevista del ${entrada || "---"} al ${salida || "---"}.
+
+ESTADO ECONÓMICO DE LA RESERVA
+
+• Importe total contratado: ${fmt(fin.total)}
+• Importe abonado y confirmado: ${fmt(fin.paid)}
+• Importe pendiente de pago: ${fmt(fin.pending)}
+• Fecha de vencimiento: ${deadline}
+
+${situation}
+
+Les rogamos que procedan al abono del importe pendiente ${request}, de acuerdo con las condiciones económicas establecidas para la reserva.
+
+DATOS PARA TRANSFERENCIA BANCARIA
+
+• Entidad bancaria: ${hotelBank}
+• IBAN: ${hotelIban}
+• Beneficiario: ${hotelOfficial}
+• Concepto: Reserva #${resId} – ${grupoName}
+
+Una vez realizada la transferencia, les agradeceríamos que nos remitieran el justificante bancario respondiendo a este mismo correo, para poder actualizar el estado de la reserva.
+
+Si el pago ya hubiera sido efectuado, pueden ignorar este aviso y enviarnos únicamente el justificante para su comprobación.
+
+Quedamos a su disposición para cualquier consulta.
+
+Un cordial saludo,
+${comercial}
+${hotelOfficial}`;
         } else if (isRelease) {
           const deadline = formatDate(g.Com_Vencimiento_Rel) || "la fecha límite acordada";
           clientSubject = `Aviso de próximo vencimiento – Grupo ${grupoName} | Ref. #${resId}`;

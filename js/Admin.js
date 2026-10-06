@@ -437,6 +437,28 @@ var Dashboard = function Dashboard(_ref2) {
     var d = new Date(str);
     return isNaN(d.getTime()) ? null : d;
   };
+  var getPaymentNotice = function getPaymentNotice(g) {
+    var today = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : new Date();
+    var day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var plan = [];
+    try {
+      plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+    } catch (_) {}
+    var milestones = (Array.isArray(plan) ? plan : []).filter(function (p) {
+      return p.status !== 'Cobrado' && p.status !== 'Pagado' && parseDate(p.date);
+    }).sort(function (a, b) {
+      return parseDate(a.date) - parseDate(b.date);
+    });
+    var milestone = milestones[0];
+    if (!milestone) return null;
+    var date = parseDate(milestone.date);
+    var days = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()) - day) / 86400000);
+    return {
+      date: milestone.date,
+      days: days,
+      label: days < 0 ? 'Pago pendiente vencido' : days === 0 ? 'Pago con vencimiento hoy' : 'Próximo vencimiento de pago'
+    };
+  };
 
   // Filtrado por hotel seleccionado
   var filteredGroups = React.useMemo(function () {
@@ -572,21 +594,15 @@ var Dashboard = function Dashboard(_ref2) {
       // 1. Column 1: Financial Alerts (ignorar si es crédito)
       if (!isCredito && (isConfirmed || isTentative) && pending > 0.1 && !seenFinancial.has(resId)) {
         try {
-          var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-          var pastDueMilestones = plan.filter(function (p) {
-            var pDate = parseDate(p.date);
-            return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
-          });
-          if (pastDueMilestones.length > 0) {
+          var notice = getPaymentNotice(g, startOfToday);
+          if (notice && notice.days <= 5) {
             seenFinancial.add(resId);
-            var firstPastDue = pastDueMilestones[0];
-            var amt = parseFloat(firstPastDue.amount) || 0;
             financialAlerts.push({
               group: g,
               icon: "alert-triangle",
-              label: "Hito Vencido",
-              detail: "Pago de ".concat(fmt(amt), " vencido el ").concat(formatDate(firstPastDue.date)),
-              type: "danger"
+              label: notice.label,
+              detail: "".concat(notice.label, ": ").concat(fmt(pending), " pendiente. Fecha de vencimiento: ").concat(formatDate(notice.date)),
+              type: notice.days < 0 ? "danger" : "warning"
             });
           }
         } catch (e) {}
@@ -1397,12 +1413,17 @@ var Dashboard = function Dashboard(_ref2) {
     var clientSubject = "";
     var clientBody = "";
     if (isFinanciera) {
-      clientSubject = "Recordatorio de Pago Pendiente - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ".concat(hotelOfficial, " en relaci\xF3n a la reserva del grupo \"").concat(grupoName, "\" (Localizador: #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nESTADO ECON\xD3MICO DE LA RESERVA\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Importe Total Contratado:      ").concat(fmt(fin.total), "\n\u2022 Importe Abonado y Confirmado:  ").concat(fmt(fin.paid), "\n\u2022 Importe Pendiente de Pago:     ").concat(fmt(fin.pending), "\n\nDetalle del vencimiento pendiente:\n").concat(alert.detail || "Hito de pago pendiente según las condiciones pactadas.", "\n\nCon el fin de mantener la reserva debidamente garantizada y confirmada en nuestro sistema, le rogamos proceda a la regularizaci\xF3n del importe pendiente a la mayor brevedad posible.\n\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\nDATOS OFICIALES PARA TRANSFERENCIA BANCARIA\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n\u2022 Entidad Bancaria:        ").concat(hotelBank, "\n\u2022 IBAN:                    ").concat(hotelIban, "\n\u2022 Beneficiario:            ").concat(hotelOfficial, "\n\u2022 Concepto imprescindible: Reserva #").concat(resId, " - ").concat(grupoName, "\n\nUna vez realizada la transferencia, le agradecer\xEDamos que nos remita el correspondiente justificante bancario respondiendo a este correo.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
+      var notice = getPaymentNotice(g);
+      var deadline = notice ? formatDate(notice.date) : "Sin fecha indicada";
+      var paymentState = (notice === null || notice === void 0 ? void 0 : notice.label) || "Pago pendiente";
+      var situation = (notice === null || notice === void 0 ? void 0 : notice.days) < 0 ? "A fecha de hoy, consta pendiente de regularizaci\xF3n el importe de ".concat(fmt(fin.pending), ", cuyo plazo de pago ha vencido.") : (notice === null || notice === void 0 ? void 0 : notice.days) === 0 ? "Les recordamos que hoy vence el plazo de pago del importe pendiente de ".concat(fmt(fin.pending), ".") : "Les recordamos que el pr\xF3ximo ".concat(deadline, " vence el plazo de pago del importe pendiente de ").concat(fmt(fin.pending), ".");
+      var request = (notice === null || notice === void 0 ? void 0 : notice.days) < 0 ? "a la mayor brevedad posible" : (notice === null || notice === void 0 ? void 0 : notice.days) === 0 ? "a lo largo del día de hoy" : "antes de la fecha de vencimiento indicada";
+      clientSubject = "".concat(paymentState, " \u2013 Reserva #").concat(resId, " | ").concat(grupoName);
+      clientBody = "Estimado/a cliente:\n\nNos ponemos en contacto desde el Departamento de Reservas y Grupos de ".concat(hotelOfficial, " en relaci\xF3n con la reserva del grupo \u201C").concat(grupoName, "\u201D (Localizador #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\nESTADO ECON\xD3MICO DE LA RESERVA\n\n\u2022 Importe total contratado: ").concat(fmt(fin.total), "\n\u2022 Importe abonado y confirmado: ").concat(fmt(fin.paid), "\n\u2022 Importe pendiente de pago: ").concat(fmt(fin.pending), "\n\u2022 Fecha de vencimiento: ").concat(deadline, "\n\n").concat(situation, "\n\nLes rogamos que procedan al abono del importe pendiente ").concat(request, ", de acuerdo con las condiciones econ\xF3micas establecidas para la reserva.\n\nDATOS PARA TRANSFERENCIA BANCARIA\n\n\u2022 Entidad bancaria: ").concat(hotelBank, "\n\u2022 IBAN: ").concat(hotelIban, "\n\u2022 Beneficiario: ").concat(hotelOfficial, "\n\u2022 Concepto: Reserva #").concat(resId, " \u2013 ").concat(grupoName, "\n\nUna vez realizada la transferencia, les agradecer\xEDamos que nos remitieran el justificante bancario respondiendo a este mismo correo, para poder actualizar el estado de la reserva.\n\nSi el pago ya hubiera sido efectuado, pueden ignorar este aviso y enviarnos \xFAnicamente el justificante para su comprobaci\xF3n.\n\nQuedamos a su disposici\xF3n para cualquier consulta.\n\nUn cordial saludo,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isRelease) {
-      var deadline = formatDate(g.Com_Vencimiento_Rel) || "la fecha límite acordada";
+      var _deadline = formatDate(g.Com_Vencimiento_Rel) || "la fecha límite acordada";
       clientSubject = "Aviso de pr\xF3ximo vencimiento \u2013 Grupo ".concat(grupoName, " | Ref. #").concat(resId);
-      clientBody = "Estimado/a cliente:\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " en relaci\xF3n con la reserva del grupo \"").concat(grupoName, "\" (Ref. #").concat(resId, "), con entrada prevista el ").concat(entrada || "la fecha acordada", ".\n\nLes recordamos que el pr\xF3ximo ").concat(deadline, " finaliza el plazo establecido para la confirmaci\xF3n definitiva de la reserva.\n\nA partir de dicha fecha, y conforme a las condiciones aceptadas, la reserva se considerar\xE1 confirmada y quedar\xE1 sujeta a los gastos de cancelaci\xF3n, reducci\xF3n de habitaciones, no show y dem\xE1s condiciones previstas para el grupo.\n\nSi necesitan realizar alguna modificaci\xF3n, ajuste o cancelaci\xF3n antes de la entrada en gastos, les rogamos que nos lo comuniquen por escrito antes de la fecha indicada.\n\nEn caso contrario, no ser\xE1 necesario realizar ninguna gesti\xF3n adicional y la reserva continuar\xE1 conforme a las condiciones acordadas.\n\nQuedamos a su disposici\xF3n para cualquier consulta.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente:\n\nNos ponemos en contacto desde ".concat(hotelOfficial, " en relaci\xF3n con la reserva del grupo \"").concat(grupoName, "\" (Ref. #").concat(resId, "), con entrada prevista el ").concat(entrada || "la fecha acordada", ".\n\nLes recordamos que el pr\xF3ximo ").concat(_deadline, " finaliza el plazo establecido para la confirmaci\xF3n definitiva de la reserva.\n\nA partir de dicha fecha, y conforme a las condiciones aceptadas, la reserva se considerar\xE1 confirmada y quedar\xE1 sujeta a los gastos de cancelaci\xF3n, reducci\xF3n de habitaciones, no show y dem\xE1s condiciones previstas para el grupo.\n\nSi necesitan realizar alguna modificaci\xF3n, ajuste o cancelaci\xF3n antes de la entrada en gastos, les rogamos que nos lo comuniquen por escrito antes de la fecha indicada.\n\nEn caso contrario, no ser\xE1 necesario realizar ninguna gesti\xF3n adicional y la reserva continuar\xE1 conforme a las condiciones acordadas.\n\nQuedamos a su disposici\xF3n para cualquier consulta.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isDatos) {
       var _alert$details;
       var missing = ((_alert$details = alert.details) !== null && _alert$details !== void 0 && _alert$details.length ? alert.details.map(function (d) {
@@ -1412,9 +1433,9 @@ var Dashboard = function Dashboard(_ref2) {
       var missingItems = missing.map(function (text) {
         return "\u2022 ".concat(text.replace(/^Falta\s+/i, ""));
       }).join("\n");
-      var request = onlyRooming ? "Le agradeceríamos que nos enviara la rooming list (listado de huéspedes y distribución de habitaciones) a la mayor brevedad posible, respondiendo a este correo." : missing.length === 1 ? "Est\xE1 pendiente de recibir: ".concat(missing[0].replace(/^Falta\s+/i, ""), ".\n\nLe agradecer\xEDamos que nos enviara esta informaci\xF3n a la mayor brevedad posible, respondiendo a este correo.") : "Est\xE1 pendiente de recibir la siguiente informaci\xF3n:\n".concat(missingItems, "\n\nLe agradecer\xEDamos que nos enviara esta informaci\xF3n a la mayor brevedad posible, respondiendo a este correo.");
+      var _request = onlyRooming ? "Le agradeceríamos que nos enviara la rooming list (listado de huéspedes y distribución de habitaciones) a la mayor brevedad posible, respondiendo a este correo." : missing.length === 1 ? "Est\xE1 pendiente de recibir: ".concat(missing[0].replace(/^Falta\s+/i, ""), ".\n\nLe agradecer\xEDamos que nos enviara esta informaci\xF3n a la mayor brevedad posible, respondiendo a este correo.") : "Est\xE1 pendiente de recibir la siguiente informaci\xF3n:\n".concat(missingItems, "\n\nLe agradecer\xEDamos que nos enviara esta informaci\xF3n a la mayor brevedad posible, respondiendo a este correo.");
       clientSubject = "".concat(onlyRooming ? "Solicitud de Rooming List" : "Solicitud de Información Pendiente", " - Reserva #").concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
-      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ".concat(hotelOfficial, " para ultimar los preparativos de la llegada del grupo \"").concat(grupoName, "\" (Localizador #").concat(resId, "), con fecha de entrada el ").concat(entrada || "próximamente", ".\n\n").concat(request, "\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
+      clientBody = "Estimado/a cliente,\n\nNos ponemos en contacto desde el Departamento de Reservas de ".concat(hotelOfficial, " para ultimar los preparativos de la llegada del grupo \"").concat(grupoName, "\" (Localizador #").concat(resId, "), con fecha de entrada el ").concat(entrada || "próximamente", ".\n\n").concat(_request, "\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
     } else if (isCrm) {
       clientSubject = "Seguimiento de Propuesta para Grupo - Reserva #".concat(resId, " (").concat(grupoName, ") - ").concat(hotelOfficial);
       clientBody = "Estimado/a cliente,\n\nLe escribimos desde ".concat(hotelOfficial, " para dar seguimiento a la propuesta para el grupo \"").concat(grupoName, "\" (Ref: #").concat(resId, "), con estancia prevista del ").concat(entrada || "---", " al ").concat(salida || "---", ".\n\nNos gustar\xEDa conocer si han tenido ocasi\xF3n de valorar las condiciones o si necesitan realizar alguna modificaci\xF3n.\n\nAtentamente,\n").concat(comercial, "\n").concat(hotelOfficial);
