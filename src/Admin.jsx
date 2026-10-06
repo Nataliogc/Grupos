@@ -2506,7 +2506,7 @@ ${comercial}`;
                           <span className="text-[9px] font-bold text-rose-600 animate-pulse">
                             ⚠️ Email requerido
                           </span>
-                        , document.body)}
+                        )}
                       </div>
                       <div className="relative">
                         <input
@@ -2769,7 +2769,7 @@ ${comercial}`;
                 </div>
               </div>
             </div>
-          )}
+          , document.body)}
 
           {/* Modal de Informe Interno de Control de Operaciones por Secciones */}
           {internalReportModal && (
