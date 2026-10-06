@@ -30,37 +30,25 @@ var db = window.db;
 var ContactFollowUp = function ContactFollowUp(_ref) {
   var group = _ref.group;
   var savedDate = toInputDate(group.Com_Seguimiento || group.Contacto_Fecha || "");
-  var savedNote = group.Contacto_Nota || "";
   var _useState = useState(savedDate),
     _useState2 = _slicedToArray(_useState, 2),
     date = _useState2[0],
     setDate = _useState2[1];
-  var _useState3 = useState(savedNote),
+  var _useState3 = useState(false),
     _useState4 = _slicedToArray(_useState3, 2),
-    note = _useState4[0],
-    setNote = _useState4[1];
-  var _useState5 = useState(false),
+    saving = _useState4[0],
+    setSaving = _useState4[1];
+  var _useState5 = useState(""),
     _useState6 = _slicedToArray(_useState5, 2),
-    saving = _useState6[0],
-    setSaving = _useState6[1];
-  var _useState7 = useState(""),
+    message = _useState6[0],
+    setMessage = _useState6[1];
+  var _useState7 = useState(false),
     _useState8 = _slicedToArray(_useState7, 2),
-    message = _useState8[0],
-    setMessage = _useState8[1];
-  var _useState9 = useState(false),
-    _useState0 = _slicedToArray(_useState9, 2),
-    dirty = _useState0[0],
-    setDirty = _useState0[1];
-  var _useState1 = useState(false),
-    _useState10 = _slicedToArray(_useState1, 2),
-    editing = _useState10[0],
-    setEditing = _useState10[1];
+    dirty = _useState8[0],
+    setDirty = _useState8[1];
   useEffect(function () {
-    if (!dirty) {
-      setDate(savedDate);
-      setNote(savedNote);
-    }
-  }, [savedDate, savedNote, dirty]);
+    if (!dirty) setDate(savedDate);
+  }, [savedDate, dirty]);
   var save = /*#__PURE__*/function () {
     var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
       var _t;
@@ -79,13 +67,11 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
             _context.n = 3;
             return db.collection("groups").doc(group.uid).update({
               Contacto_Fecha: date,
-              Com_Seguimiento: date,
-              Contacto_Nota: note.trim()
+              Com_Seguimiento: date
             });
           case 3:
             setDirty(false);
             setMessage("Guardado");
-            setEditing(false);
             _context.n = 5;
             break;
           case 4:
@@ -105,67 +91,39 @@ var ContactFollowUp = function ContactFollowUp(_ref) {
       return _ref2.apply(this, arguments);
     };
   }();
-  if (!editing) return /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: function onClick(e) {
-      e.stopPropagation();
-      setEditing(true);
-      setMessage("");
-    },
-    title: savedNote || "Programar o cambiar la fecha de seguimiento",
-    className: "mt-1 block w-full text-left text-[10px] leading-tight text-slate-500 hover:text-indigo-600"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "font-bold"
-  }, savedDate ? "Seguimiento: ".concat(savedDate.split('-').reverse().join('/')) : "+ Programar seguimiento"), savedNote && /*#__PURE__*/React.createElement("span", {
-    className: "block truncate mt-0.5"
-  }, savedNote));
   return /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 space-y-1",
+    className: "space-y-1",
     onClick: function onClick(e) {
       return e.stopPropagation();
     }
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "block text-[9px] font-bold text-slate-500"
-  }, "Fecha de seguimiento", /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("input", {
     type: "date",
     value: date,
     disabled: saving,
+    "aria-label": "Fecha de seguimiento de ".concat(group["Nombre del Grupo"] || group.Reserva),
     onChange: function onChange(e) {
       setDate(e.target.value);
       setDirty(true);
       setMessage("");
     },
-    className: "block w-full mt-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700"
-  })), /*#__PURE__*/React.createElement("textarea", {
-    "aria-label": "Nota de contacto de ".concat(group["Nombre del Grupo"] || group.Reserva),
-    placeholder: "Nota breve\u2026",
-    rows: 2,
-    maxLength: 240,
-    value: note,
-    disabled: saving,
-    onChange: function onChange(e) {
-      setNote(e.target.value);
-      setDirty(true);
-      setMessage("");
-    },
-    className: "block w-full rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 resize-y"
-  }), dirty && /*#__PURE__*/React.createElement("button", {
+    className: "block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
+  }), dirty && /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
     type: "button",
     disabled: saving,
     onClick: save,
     className: "text-[10px] font-bold text-indigo-600 disabled:opacity-50"
-  }, saving ? "Guardando…" : "Guardar seguimiento"), /*#__PURE__*/React.createElement("button", {
+  }, saving ? "Guardando…" : "Guardar"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     disabled: saving,
     onClick: function onClick() {
       setDate(savedDate);
-      setNote(savedNote);
       setDirty(false);
-      setEditing(false);
       setMessage("");
     },
-    className: "ml-2 text-[10px] text-slate-500 hover:text-slate-800"
-  }, "Cancelar"), message && /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-500"
+  }, "Cancelar")), message && /*#__PURE__*/React.createElement("p", {
     role: "status",
     className: "text-[10px] text-slate-600"
   }, message));
@@ -1768,26 +1726,26 @@ var normalizePaymentPlan = function normalizePaymentPlan(plan, total, groupData)
   return rows;
 };
 function App() {
-  var _useState11 = useState([]),
+  var _useState9 = useState([]),
+    _useState0 = _slicedToArray(_useState9, 2),
+    groups = _useState0[0],
+    setGroups = _useState0[1];
+  var _useState1 = useState(true),
+    _useState10 = _slicedToArray(_useState1, 2),
+    loading = _useState10[0],
+    setLoading = _useState10[1];
+  var _useState11 = useState('dashboard'),
     _useState12 = _slicedToArray(_useState11, 2),
-    groups = _useState12[0],
-    setGroups = _useState12[1];
-  var _useState13 = useState(true),
+    currentView = _useState12[0],
+    setCurrentView = _useState12[1];
+  var _useState13 = useState(null),
     _useState14 = _slicedToArray(_useState13, 2),
-    loading = _useState14[0],
-    setLoading = _useState14[1];
-  var _useState15 = useState('dashboard'),
+    selectedGroup = _useState14[0],
+    setSelectedGroup = _useState14[1];
+  var _useState15 = useState(false),
     _useState16 = _slicedToArray(_useState15, 2),
-    currentView = _useState16[0],
-    setCurrentView = _useState16[1];
-  var _useState17 = useState(null),
-    _useState18 = _slicedToArray(_useState17, 2),
-    selectedGroup = _useState18[0],
-    setSelectedGroup = _useState18[1];
-  var _useState19 = useState(false),
-    _useState20 = _slicedToArray(_useState19, 2),
-    showTracking = _useState20[0],
-    setShowTracking = _useState20[1];
+    showTracking = _useState16[0],
+    setShowTracking = _useState16[1];
   useEffect(function () {
     if (currentView !== 'detail' || !showTracking) return;
     var wall = document.getElementById('budget-tracking-wall');
@@ -1803,66 +1761,66 @@ function App() {
       setShowTracking(false);
     }
   }, [currentView, selectedGroup, showTracking]);
-  var _useState21 = useState(''),
+  var _useState17 = useState(''),
+    _useState18 = _slicedToArray(_useState17, 2),
+    newNote = _useState18[0],
+    setNewNote = _useState18[1];
+  var _useState19 = useState(null),
+    _useState20 = _slicedToArray(_useState19, 2),
+    globalConfig = _useState20[0],
+    setGlobalConfig = _useState20[1];
+  var _useState21 = useState(false),
     _useState22 = _slicedToArray(_useState21, 2),
-    newNote = _useState22[0],
-    setNewNote = _useState22[1];
-  var _useState23 = useState(null),
+    isEditingClauses = _useState22[0],
+    setIsEditingClauses = _useState22[1];
+  var _useState23 = useState([]),
     _useState24 = _slicedToArray(_useState23, 2),
-    globalConfig = _useState24[0],
-    setGlobalConfig = _useState24[1];
-  var _useState25 = useState(false),
+    tempClauses = _useState24[0],
+    setTempClauses = _useState24[1];
+  var _useState25 = useState([]),
     _useState26 = _slicedToArray(_useState25, 2),
-    isEditingClauses = _useState26[0],
-    setIsEditingClauses = _useState26[1];
-  var _useState27 = useState([]),
+    tempClausesConf = _useState26[0],
+    setTempClausesConf = _useState26[1];
+  var _useState27 = useState(false),
     _useState28 = _slicedToArray(_useState27, 2),
-    tempClauses = _useState28[0],
-    setTempClauses = _useState28[1];
-  var _useState29 = useState([]),
+    isEditingClausesConf = _useState28[0],
+    setIsEditingClausesConf = _useState28[1];
+  var _useState29 = useState('presupuesto'),
     _useState30 = _slicedToArray(_useState29, 2),
-    tempClausesConf = _useState30[0],
-    setTempClausesConf = _useState30[1];
-  var _useState31 = useState(false),
+    docMode = _useState30[0],
+    setDocMode = _useState30[1]; // 'presupuesto' o 'confirmacion'
+  var _useState31 = useState('activos'),
     _useState32 = _slicedToArray(_useState31, 2),
-    isEditingClausesConf = _useState32[0],
-    setIsEditingClausesConf = _useState32[1];
-  var _useState33 = useState('presupuesto'),
+    filterTab = _useState32[0],
+    setFilterTab = _useState32[1]; // 'activos', 'confirmados', 'desestimados'
+  var _useState33 = useState(''),
     _useState34 = _slicedToArray(_useState33, 2),
-    docMode = _useState34[0],
-    setDocMode = _useState34[1]; // 'presupuesto' o 'confirmacion'
-  var _useState35 = useState('activos'),
+    searchTerm = _useState34[0],
+    setSearchTerm = _useState34[1];
+  var _useState35 = useState(''),
     _useState36 = _slicedToArray(_useState35, 2),
-    filterTab = _useState36[0],
-    setFilterTab = _useState36[1]; // 'activos', 'confirmados', 'desestimados'
+    debouncedSearchTerm = _useState36[0],
+    setDebouncedSearchTerm = _useState36[1];
   var _useState37 = useState(''),
     _useState38 = _slicedToArray(_useState37, 2),
-    searchTerm = _useState38[0],
-    setSearchTerm = _useState38[1];
+    startDate = _useState38[0],
+    setStartDate = _useState38[1];
   var _useState39 = useState(''),
     _useState40 = _slicedToArray(_useState39, 2),
-    debouncedSearchTerm = _useState40[0],
-    setDebouncedSearchTerm = _useState40[1];
-  var _useState41 = useState(''),
+    endDate = _useState40[0],
+    setEndDate = _useState40[1];
+  var _useState41 = useState(false),
     _useState42 = _slicedToArray(_useState41, 2),
-    startDate = _useState42[0],
-    setStartDate = _useState42[1];
+    showEmailParseModal = _useState42[0],
+    setShowEmailParseModal = _useState42[1];
   var _useState43 = useState(''),
     _useState44 = _slicedToArray(_useState43, 2),
-    endDate = _useState44[0],
-    setEndDate = _useState44[1];
+    emailContent = _useState44[0],
+    setEmailContent = _useState44[1];
   var _useState45 = useState(false),
     _useState46 = _slicedToArray(_useState45, 2),
-    showEmailParseModal = _useState46[0],
-    setShowEmailParseModal = _useState46[1];
-  var _useState47 = useState(''),
-    _useState48 = _slicedToArray(_useState47, 2),
-    emailContent = _useState48[0],
-    setEmailContent = _useState48[1];
-  var _useState49 = useState(false),
-    _useState50 = _slicedToArray(_useState49, 2),
-    isParsingEmail = _useState50[0],
-    setIsParsingEmail = _useState50[1];
+    isParsingEmail = _useState46[0],
+    setIsParsingEmail = _useState46[1];
 
   // Debounce search term
   useEffect(function () {
@@ -1894,17 +1852,17 @@ function App() {
     }
     return generateDates(data.Entrada, data.Salida);
   };
-  var _useState51 = useState(DEFAULT_FORM_DATA),
+  var _useState47 = useState(DEFAULT_FORM_DATA),
+    _useState48 = _slicedToArray(_useState47, 2),
+    formData = _useState48[0],
+    setFormData = _useState48[1];
+  var _useState49 = useState(0),
+    _useState50 = _slicedToArray(_useState49, 2),
+    tariffCatalogRevision = _useState50[0],
+    setTariffCatalogRevision = _useState50[1];
+  var _useState51 = useState(0),
     _useState52 = _slicedToArray(_useState51, 2),
-    formData = _useState52[0],
-    setFormData = _useState52[1];
-  var _useState53 = useState(0),
-    _useState54 = _slicedToArray(_useState53, 2),
-    tariffCatalogRevision = _useState54[0],
-    setTariffCatalogRevision = _useState54[1];
-  var _useState55 = useState(0),
-    _useState56 = _slicedToArray(_useState55, 2),
-    refreshAvailability = _useState56[1];
+    refreshAvailability = _useState52[1];
   useEffect(function () {
     var refresh = function refresh() {
       return refreshAvailability(function (value) {
@@ -1921,15 +1879,15 @@ function App() {
       window.removeEventListener('storage', storageChanged);
     };
   }, []);
-  var _useState57 = useState({
+  var _useState53 = useState({
       isOpen: false,
       parsedData: {},
       unrecognizedBoards: [],
       unrecognizedRooms: []
     }),
-    _useState58 = _slicedToArray(_useState57, 2),
-    pastePreview = _useState58[0],
-    setPastePreview = _useState58[1];
+    _useState54 = _slicedToArray(_useState53, 2),
+    pastePreview = _useState54[0],
+    setPastePreview = _useState54[1];
   var parseTarifasString = function parseTarifasString(text) {
     if (!text || typeof text !== 'string') return null;
     var rowsData = text.split(/\r?\n/).filter(function (r) {
@@ -3843,7 +3801,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse min-w-[1080px] table-fixed"
     }, /*#__PURE__*/React.createElement("colgroup", null, /*#__PURE__*/React.createElement("col", {
-      className: "w-[22%]"
+      className: "w-[20%]"
     }), /*#__PURE__*/React.createElement("col", {
       className: "w-[9%]"
     }), /*#__PURE__*/React.createElement("col", {
@@ -3853,15 +3811,17 @@ function App() {
     }), /*#__PURE__*/React.createElement("col", {
       className: "w-[7%]"
     }), /*#__PURE__*/React.createElement("col", {
-      className: "w-[21%]"
+      className: "w-[16%]"
     }), /*#__PURE__*/React.createElement("col", {
-      className: "w-[13%]"
+      className: "w-[12%]"
+    }), /*#__PURE__*/React.createElement("col", {
+      className: "w-[11%]"
     }), /*#__PURE__*/React.createElement("col", {
       className: "w-[12%]"
     })), /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
       className: "bg-slate-50/50 border-b border-slate-100"
     }, /*#__PURE__*/React.createElement("th", {
-      className: "w-[22%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+      className: "w-[20%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Grupo / Hotel"), /*#__PURE__*/React.createElement("th", {
       className: "w-[9%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Entrada"), /*#__PURE__*/React.createElement("th", {
@@ -3873,6 +3833,8 @@ function App() {
     }, "Pax / Hab"), /*#__PURE__*/React.createElement("th", {
       className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
     }, "Gesti\xF3n"), /*#__PURE__*/React.createElement("th", {
+      className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest"
+    }, "Seguimiento"), /*#__PURE__*/React.createElement("th", {
       className: "px-4 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center"
     }, "Estado"), /*#__PURE__*/React.createElement("th", {
       className: "px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right"
@@ -3957,15 +3919,27 @@ function App() {
         className: "text-[8px] font-bold text-slate-400 uppercase tracking-widest"
       }, "Click p/ Gesti\xF3n"))), /*#__PURE__*/React.createElement("td", {
         className: "px-4 py-4 text-center"
-      }, function (_g$createdAt) {
-        var created = (_g$createdAt = g.createdAt) !== null && _g$createdAt !== void 0 && _g$createdAt.seconds ? new Date(g.createdAt.seconds * 1000) : g.createdAt ? new Date(g.createdAt) : null;
-        if (!created) return /*#__PURE__*/React.createElement("span", {
-          className: "text-[10px] font-bold text-slate-300"
-        }, "N/A");
-        var diff = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
-        var daysLeft = 7 - diff;
+      }, function () {
+        var followUpDate = toInputDate(g.Com_Seguimiento || g.Contacto_Fecha || "");
+        if (!followUpDate) return /*#__PURE__*/React.createElement("span", {
+          className: "text-[10px] font-bold text-slate-400"
+        }, "Sin seguimiento");
+        var todayParts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Europe/Madrid',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(new Date());
+        var part = function part(type) {
+          return todayParts.find(function (p) {
+            return p.type === type;
+          }).value;
+        };
+        var today = "".concat(part('year'), "-").concat(part('month'), "-").concat(part('day'));
+        var daysLeft = 7 - Math.round((Date.parse(today) - Date.parse(followUpDate)) / 86400000);
         var color = daysLeft <= 1 ? "text-rose-600 bg-rose-50" : daysLeft <= 3 ? "text-amber-600 bg-amber-50" : "text-emerald-600 bg-emerald-50";
         return /*#__PURE__*/React.createElement("div", {
+          title: "L\xEDmite: 7 d\xEDas desde la fecha de seguimiento",
           className: "inline-flex flex-col items-center px-2 py-1 rounded-lg ".concat(color)
         }, /*#__PURE__*/React.createElement("span", {
           className: "text-xs font-black"
@@ -4031,7 +4005,9 @@ function App() {
       }), /*#__PURE__*/React.createElement("span", {
         className: "text-[9px] font-bold uppercase truncate max-w-[150px]",
         title: "Comercial Asignado"
-      }, g["Com_Comercial"] && g["Com_Comercial"].trim() !== "" ? g["Com_Comercial"] : "SIN ASIGNAR"))), /*#__PURE__*/React.createElement(ContactFollowUp, {
+      }, g["Com_Comercial"] && g["Com_Comercial"].trim() !== "" ? g["Com_Comercial"] : "SIN ASIGNAR")))), /*#__PURE__*/React.createElement("td", {
+        className: "px-4 py-4"
+      }, /*#__PURE__*/React.createElement(ContactFollowUp, {
         key: g.uid,
         group: g
       })), /*#__PURE__*/React.createElement("td", {

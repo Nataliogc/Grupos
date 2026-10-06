@@ -6,58 +6,42 @@
 
     const ContactFollowUp = ({ group }) => {
       const savedDate = toInputDate(group.Com_Seguimiento || group.Contacto_Fecha || "");
-      const savedNote = group.Contacto_Nota || "";
       const [date, setDate] = useState(savedDate);
-      const [note, setNote] = useState(savedNote);
       const [saving, setSaving] = useState(false);
       const [message, setMessage] = useState("");
       const [dirty, setDirty] = useState(false);
-      const [editing, setEditing] = useState(false);
       useEffect(() => {
-        if (!dirty) { setDate(savedDate); setNote(savedNote); }
-      }, [savedDate, savedNote, dirty]);
+        if (!dirty) setDate(savedDate);
+      }, [savedDate, dirty]);
       const save = async () => {
         if (saving) return;
         setSaving(true);
         setMessage("");
         try {
           await db.collection("groups").doc(group.uid).update({
-            Contacto_Fecha: date, Com_Seguimiento: date, Contacto_Nota: note.trim()
+            Contacto_Fecha: date, Com_Seguimiento: date
           });
           setDirty(false);
           setMessage("Guardado");
-          setEditing(false);
         } catch (error) {
           setMessage("No se pudo guardar. Inténtalo de nuevo.");
         } finally { setSaving(false); }
       };
-      if (!editing) return (
-        <button type="button" onClick={e => { e.stopPropagation(); setEditing(true); setMessage(""); }}
-          title={savedNote || "Programar o cambiar la fecha de seguimiento"}
-          className="mt-1 block w-full text-left text-[10px] leading-tight text-slate-500 hover:text-indigo-600">
-          <span className="font-bold">{savedDate ? `Seguimiento: ${savedDate.split('-').reverse().join('/')}` : "+ Programar seguimiento"}</span>
-          {savedNote && <span className="block truncate mt-0.5">{savedNote}</span>}
-        </button>
-      );
       return (
-        <div className="mt-2 space-y-1" onClick={e => e.stopPropagation()}>
-          <label className="block text-[9px] font-bold text-slate-500">
-            Fecha de seguimiento
-            <input type="date" value={date} disabled={saving}
-              onChange={e => { setDate(e.target.value); setDirty(true); setMessage(""); }}
-              className="block w-full mt-1 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700" />
-          </label>
-          <textarea aria-label={`Nota de contacto de ${group["Nombre del Grupo"] || group.Reserva}`}
-            placeholder="Nota breve…" rows={2} maxLength={240} value={note} disabled={saving}
-            onChange={e => { setNote(e.target.value); setDirty(true); setMessage(""); }}
-            className="block w-full rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 resize-y" />
-          {dirty && <button type="button" disabled={saving} onClick={save}
-            className="text-[10px] font-bold text-indigo-600 disabled:opacity-50">
-            {saving ? "Guardando…" : "Guardar seguimiento"}
-          </button>}
-          <button type="button" disabled={saving} onClick={() => {
-            setDate(savedDate); setNote(savedNote); setDirty(false); setEditing(false); setMessage("");
-          }} className="ml-2 text-[10px] text-slate-500 hover:text-slate-800">Cancelar</button>
+        <div className="space-y-1" onClick={e => e.stopPropagation()}>
+          <input type="date" value={date} disabled={saving}
+            aria-label={`Fecha de seguimiento de ${group["Nombre del Grupo"] || group.Reserva}`}
+            onChange={e => { setDate(e.target.value); setDirty(true); setMessage(""); }}
+            className="block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700" />
+          {dirty && <div className="flex gap-2">
+            <button type="button" disabled={saving} onClick={save}
+              className="text-[10px] font-bold text-indigo-600 disabled:opacity-50">
+              {saving ? "Guardando…" : "Guardar"}
+            </button>
+            <button type="button" disabled={saving} onClick={() => {
+              setDate(savedDate); setDirty(false); setMessage("");
+            }} className="text-[10px] text-slate-500">Cancelar</button>
+          </div>}
           {message && <p role="status" className="text-[10px] text-slate-600">{message}</p>}
         </div>
       );
@@ -3127,23 +3111,25 @@ ${emailContent}`;
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1080px] table-fixed">
                 <colgroup>
-                  <col className="w-[22%]" />
+                  <col className="w-[20%]" />
                   <col className="w-[9%]" />
                   <col className="w-[7%]" />
                   <col className="w-[9%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[21%]" />
-                  <col className="w-[13%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[11%]" />
                   <col className="w-[12%]" />
                 </colgroup>
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="w-[22%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Grupo / Hotel</th>
+                    <th className="w-[20%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Grupo / Hotel</th>
                     <th className="w-[9%] px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Entrada</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Límite 7d</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Importe</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Pax / Hab</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Gestión</th>
+                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Seguimiento</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">Estado</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
                   </tr>
@@ -3230,15 +3216,18 @@ ${emailContent}`;
                         {/* Countdown 7d */}
                         <td className="px-4 py-4 text-center">
                           {(() => {
-                            const created = g.createdAt?.seconds ? new Date(g.createdAt.seconds * 1000) : (g.createdAt ? new Date(g.createdAt) : null);
-                            if (!created) return <span className="text-[10px] font-bold text-slate-300">N/A</span>;
-                            
-                            const diff = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
-                            const daysLeft = 7 - diff;
+                            const followUpDate = toInputDate(g.Com_Seguimiento || g.Contacto_Fecha || "");
+                            if (!followUpDate) return <span className="text-[10px] font-bold text-slate-400">Sin seguimiento</span>;
+                            const todayParts = new Intl.DateTimeFormat('en-CA', {
+                              timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit'
+                            }).formatToParts(new Date());
+                            const part = type => todayParts.find(p => p.type === type).value;
+                            const today = `${part('year')}-${part('month')}-${part('day')}`;
+                            const daysLeft = 7 - Math.round((Date.parse(today) - Date.parse(followUpDate)) / 86400000);
                             const color = daysLeft <= 1 ? "text-rose-600 bg-rose-50" : (daysLeft <= 3 ? "text-amber-600 bg-amber-50" : "text-emerald-600 bg-emerald-50");
                             
                             return (
-                              <div className={`inline-flex flex-col items-center px-2 py-1 rounded-lg ${color}`}>
+                              <div title="Límite: 7 días desde la fecha de seguimiento" className={`inline-flex flex-col items-center px-2 py-1 rounded-lg ${color}`}>
                                 <span className="text-xs font-black">{daysLeft}d</span>
                                 <span className="text-[7px] font-bold uppercase tracking-tighter">Restantes</span>
                               </div>
@@ -3300,6 +3289,8 @@ ${emailContent}`;
                               </span>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-4">
                           <ContactFollowUp key={g.uid} group={g} />
                         </td>
 
