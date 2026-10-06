@@ -232,7 +232,11 @@
       }
     }
     if (soldOut) occupied = capacity;
-    if (occupied === null) return { dateISO: dateISO, available: null, capacity: capacity, source: 'Sin datos de disponibilidad' };
+    // Dates without recorded occupancy represent zero occupied rooms.
+    if (occupied === null) {
+      occupied = 0;
+      source = 'CapaSuite: 0 habitaciones ocupadas';
+    }
     return { dateISO: dateISO, available: Math.max(0, Math.floor(capacity - occupied - blocked)), occupied: occupied, blocked: blocked, capacity: capacity, source: source };
   }
 
