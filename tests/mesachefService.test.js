@@ -229,3 +229,74 @@ test('cada orden de MesaChef importa solo menu, hora e incidencias de su fecha y
  assert.equal(docs[0].ordenServicio.notas,'Llegan en autobús. Preparar agua.');
  assert.equal(docs[1].servicios[0].hora,'13:15');
 });
+
+test('si el grupo no tiene hora programada no pasa hora y pone ---, solo pasa hora si esta registrada en grupos',()=>{
+  // 1. Grupo estándar sin horas registradas: todas las comidas llevan '---'
+  const docsDefault = service.prepareSalonDocuments(group);
+  assert.ok(docsDefault.length > 0);
+  assert.ok(docsDefault.every(d => d.detalles.hora === '---'), 'Todas las comidas deben tener hora "---"');
+  assert.ok(docsDefault.every(d => d.servicios[0].hora === '---'), 'Todos los servicios deben tener hora "---"');
+
+  // 2. Grupo con orden de servicio pero sin hora válida (placeholder '___:___ h' o vacía): pone '---'
+  const withBlankOrder = {
+    ...group,
+    ServiceOrder_JSON: JSON.stringify({
+      savedAt: 'rev-blank',
+      planRows: [
+        { fecha: '2027-02-02', serv: 'Cena', hora: '___:___ h' },
+        { fecha: '2027-02-03', serv: 'Almuerzo', hora: '' },
+        { fecha: '2027-02-03', serv: 'Cena', hora: 'PENDIENTE' }
+      ]
+    })
+  };
+  const docsBlank = service.prepareSalonDocuments(withBlankOrder);
+  assert.ok(docsBlank.every(d => d.detalles.hora === '---'));
+  assert.ok(docsBlank.every(d => d.servicios[0].hora === '---'));
+  assert.ok(docsBlank.every(d => d.ordenServicio.planServicios[0].hora === '---'));
+
+  // 3. Grupo con hora registrada en Orden de Servicio: se pone la hora registrada
+  const withRegisteredHour = {
+    ...group,
+    ServiceOrder_JSON: JSON.stringify({
+      savedAt: 'rev-hora',
+      planRows: [
+        { fecha: '2027-02-02', serv: 'Cena', hora: '21:30' },
+        { fecha: '2027-02-03', serv: 'Almuerzo', hora: '14:15 h' }
+      ]
+    })
+  };
+  const docsWithHour = service.prepareSalonDocuments(withRegisteredHour);
+  const cena02 = docsWithHour.find(d => d.fecha === '2027-02-02' && d.detalles.jornada === 'cena');
+  const lunch03 = docsWithHour.find(d => d.fecha === '2027-02-03' && d.detalles.jornada === 'almuerzo');
+  const cena03 = docsWithHour.find(d => d.fecha === '2027-02-03' && d.detalles.jornada === 'cena');
+  assert.equal(cena02.detalles.hora, '21:30');
+  assert.equal(cena02.servicios[0].hora, '21:30');
+  assert.equal(lunch03.detalles.hora, '14:15');
+  assert.equal(lunch03.servicios[0].hora, '14:15');
+  assert.equal(cena03.detalles.hora, '---'); // Esta cena no tenía hora registrada
+
+  // 4. Grupo con hora registrada en RoomingList_JSON o MealSchedule_JSON
+  const withRoomingHour = {
+    ...group,
+    RoomingList_JSON: JSON.stringify([
+      { dateIn: '2027-02-02', nights: 1, qty: 1, pax: 2, regime: 'MP', hora: '21:00' },
+      { dateIn: '2027-02-03', nights: 1, qty: 1, pax: 2, regime: 'PC' }
+    ])
+  };
+  const docsRooming = service.prepareSalonDocuments(withRoomingHour);
+  const rCena02 = docsRooming.find(d => d.fecha === '2027-02-02' && d.detalles.jornada === 'cena');
+  const rCena03 = docsRooming.find(d => d.fecha === '2027-02-03' && d.detalles.jornada === 'cena');
+  assert.equal(rCena02.detalles.hora, '21:00');
+  assert.equal(rCena03.detalles.hora, '---');
+
+  // 5. extractRegisteredHour helper unit testing
+  assert.equal(service.extractRegisteredHour('21:00'), '21:00');
+  assert.equal(service.extractRegisteredHour('14:30 h'), '14:30');
+  assert.equal(service.extractRegisteredHour('9:15'), '09:15');
+  assert.equal(service.extractRegisteredHour('___:___ h'), null);
+  assert.equal(service.extractRegisteredHour('---'), null);
+  assert.equal(service.extractRegisteredHour(''), null);
+  assert.equal(service.extractRegisteredHour(null), null);
+  assert.equal(service.extractRegisteredHour('PENDIENTE'), null);
+});
+

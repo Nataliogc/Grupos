@@ -410,10 +410,24 @@
   }
 
   /**
+   * Extrae una hora programada válida (formato HH:MM) si está registrada.
+   * Si no está programada (null, vacío, "---", "___:___ h", "PENDIENTE", etc.), devuelve null.
+   */
+  function extractRegisteredHour(value) {
+    if (!value) return null;
+    var str = String(value).trim();
+    if (!str || str === "---" || str === "___:___ h" || str.toUpperCase() === "PENDIENTE") return null;
+    var match = str.match(/(?:^|[^\d])([01]?\d|2[0-3]):([0-5]\d)(?=[^\d]|$)/);
+    if (match) {
+      return match[1].padStart(2, "0") + ":" + match[2];
+    }
+    return null;
+  }
+
+  /**
    * Prepara los documentos diarios para la colección `reservas_salones` de MesaChef Matrix
    * Soporta regímenes y pax distintos para cada día de estancia (extraídos de DailyDistribution_JSON / RoomingList_JSON).
-   * Recuerda: En PC (Pensión Completa) se genera tanto Almuerzo (14:00) como Cena (21:00).
-   * En MP (Media Pensión) se genera únicamente Cena (21:00).
+   * La hora del servicio es "---" salvo que esté explícitamente programada/registrada en el grupo.
    */
   function getMealSchedule(groupRecord) {
     var raw = groupRecord && groupRecord.MealSchedule_JSON;
@@ -431,7 +445,8 @@
       var key = date + "_" + row.jornada;
       if (seen[key]) throw new Error("Solo puede haber una fila por fecha y turno.");
       seen[key] = true;
-      return {fecha: date, jornada: row.jornada, pax: pax};
+      var h = extractRegisteredHour(row.hora || row.hour);
+      return {fecha: date, jornada: row.jornada, pax: pax, hora: h || "---"};
     });
   }
 
@@ -459,10 +474,13 @@
       var meal = doc.detalles.jornada;
       var row = (order.planRows || []).find(function (r) { return rowDate(r) === doc.fecha && clean(r.serv).toLowerCase().includes(meal); });
       var hour = row && clean(row.hora);
-      if (hour && /\d{1,2}:\d{2}/.test(hour)) {
-        hour = hour.match(/\d{1,2}:\d{2}/)[0];
-        doc.detalles.hora = hour;
-        doc.servicios.forEach(function (svc) { svc.hora = hour; });
+      var registeredHour = extractRegisteredHour(hour);
+      if (registeredHour) {
+        doc.detalles.hora = registeredHour;
+        doc.servicios.forEach(function (svc) { svc.hora = registeredHour; });
+      } else if (row) {
+        doc.detalles.hora = "---";
+        doc.servicios.forEach(function (svc) { svc.hora = "---"; });
       }
       var incidents = (order.incidenciaRows || []).filter(function (r) {
         if (![r.tipo,r.numPax,r.detalle].some(function (v) { return clean(v) && clean(v) !== "---"; })) return false;
@@ -509,15 +527,16 @@
         var doc = JSON.parse(JSON.stringify(template));
         var included = Math.min(allowance, row.pax);
         allowance -= included;
+        var scheduleHour = (row.hora && row.hora !== "---") ? row.hora : (extractRegisteredHour(row.hora || row.hour) || "---");
         doc.id = "nexus_" + reservaId + "_" + row.fecha + "_" + row.jornada;
         doc.fecha = row.fecha;
         doc.detalles.jornada = row.jornada;
-        doc.detalles.hora = row.jornada === "almuerzo" ? "14:00" : "21:00";
+        doc.detalles.hora = scheduleHour;
         doc.detalles.pax_adultos = row.pax;
         doc.detalles.incluido = included === row.pax;
         doc.detalles.pax_extra = row.pax - included;
         doc.notas.interna = "[Nexus Groups] Ref: " + reservaId + " | Programación de comidas | Pax: " + row.pax + (row.pax > included ? " | Extras pendientes de valorar: " + (row.pax - included) : "");
-        doc.servicios = [{fecha:row.fecha, hora:doc.detalles.hora,
+        doc.servicios = [{fecha:row.fecha, hora:scheduleHour,
           concepto:(row.jornada === "almuerzo" ? "Almuerzo" : "Cena") + " Grupo (programado)", uds:row.pax, precio:0, total:0}];
         return doc;
       }), groupRecord);
@@ -619,6 +638,45 @@
       if (!hasLineDates || explicitDate > endDate) endDate = explicitDate;
       hasLineDates = true;
     });
+    function findRegisteredHour(isoDate, meal) {
+      if (cleanRoomingList && cleanRoomingList.length) {
+        for (var i = 0; i < cleanRoomingList.length; i++) {
+          var item = cleanRoomingList[i];
+          if (!item) continue;
+          var rDate = toIsoDate(item.dateIn || item.date || item.fecha);
+          if (rDate !== isoDate) continue;
+          var typeStr = String(item.type || item.concept || item.label || item.serviceType || "").toUpperCase();
+          var reg = String(item.regime || item.regimen || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          var isTargetMeal = false;
+          if (meal === "almuerzo") {
+            isTargetMeal = typeStr.includes("ALMUERZO") || typeStr.includes("COMIDA") || item.mpMeal === "almuerzo" || (item.pcMeal && item.pcMeal.includes("almuerzo")) || (/\bPC\b|PENSION COMPLETA/.test(reg) && item.pcMeal !== "solo_cena");
+          } else if (meal === "cena") {
+            isTargetMeal = typeStr.includes("CENA") || (item.mpMeal === "cena" || (!item.mpMeal && (/\bMP\b|MEDIA PENSION/.test(reg)))) || (/\bPC\b|PENSION COMPLETA/.test(reg) && item.pcMeal !== "dos_almuerzos");
+          }
+          if (isTargetMeal) {
+            var h = extractRegisteredHour(item.hora || item.hour || item.time || (meal === "almuerzo" ? item.horaAlmuerzo : item.horaCena));
+            if (h) return h;
+          }
+        }
+      }
+      if (cleanDailyDist && cleanDailyDist[isoDate]) {
+        var dayObj = cleanDailyDist[isoDate];
+        var dayH = meal === "almuerzo" 
+          ? extractRegisteredHour(dayObj.horaAlmuerzo || dayObj.hora)
+          : extractRegisteredHour(dayObj.horaCena || dayObj.hora);
+        if (dayH) return dayH;
+      }
+      if (meal === "almuerzo" && (groupRecord.Hora_Almuerzo || groupRecord.horaAlmuerzo)) {
+        var gh = extractRegisteredHour(groupRecord.Hora_Almuerzo || groupRecord.horaAlmuerzo);
+        if (gh) return gh;
+      }
+      if (meal === "cena" && (groupRecord.Hora_Cena || groupRecord.horaCena)) {
+        var gh2 = extractRegisteredHour(groupRecord.Hora_Cena || groupRecord.horaCena);
+        if (gh2) return gh2;
+      }
+      return "---";
+    }
+
     var isSingleDayStay = (startIso === endIso);
     var current = new Date(startDate);
 
@@ -773,6 +831,7 @@
       // ── ALMUERZO (En PC: una Pensión Completa incluye almuerzo y cena) ──
       if (lunchPax > 0) {
         var docIdAlmuerzo = "nexus_" + reservaId + "_" + iso + "_almuerzo";
+        var lunchHour = findRegisteredHour(iso, "almuerzo");
         docs.push({
           id: docIdAlmuerzo,
           reservaId: reservaId,
@@ -790,7 +849,7 @@
           detalles: {
             jornada: "almuerzo",
             montaje: "Grupo",
-            hora: "14:00",
+            hora: lunchHour,
             pax_adultos: lunchPax,
             pax_ninos: 0,
             incluido: true
@@ -802,7 +861,7 @@
           servicios: [
             {
               fecha: iso,
-              hora: "14:00",
+              hora: lunchHour,
               concepto: "Almuerzo Grupo " + lunchLabel,
               uds: lunchPax,
               precio: 0,
@@ -817,6 +876,7 @@
       if (dinnerPax > 0) {
         var docIdCena = "nexus_" + reservaId + "_" + iso + "_cena";
         var regLabel = dinnerLabel;
+        var dinnerHour = findRegisteredHour(iso, "cena");
         docs.push({
           id: docIdCena,
           reservaId: reservaId,
@@ -834,7 +894,7 @@
           detalles: {
             jornada: "cena",
             montaje: "Grupo",
-            hora: "21:00",
+            hora: dinnerHour,
             pax_adultos: dinnerPax,
             pax_ninos: 0,
             incluido: true
@@ -846,7 +906,7 @@
           servicios: [
             {
               fecha: iso,
-              hora: "21:00",
+              hora: dinnerHour,
               concepto: "Cena Grupo " + regLabel,
               uds: dinnerPax,
               precio: 0,
@@ -869,6 +929,7 @@
 
           if ((c.includes("ALMUERZO") || c.includes("COMIDA")) && lunchPax === 0) {
             var docIdExtraAlm = "nexus_" + reservaId + "_" + iso + "_almuerzo";
+            var extraAlmHour = extractRegisteredHour(rm.hora || rm.hour || rm.time) || "---";
             docs.push({
               id: docIdExtraAlm,
               reservaId: reservaId,
@@ -886,7 +947,7 @@
               detalles: {
                 jornada: "almuerzo",
                 montaje: "Grupo",
-                hora: "14:00",
+                hora: extraAlmHour,
                 pax_adultos: svcQty,
                 pax_ninos: 0,
                 incluido: true
@@ -898,7 +959,7 @@
               servicios: [
                 {
                   fecha: iso,
-                  hora: "14:00",
+                  hora: extraAlmHour,
                   concepto: "Almuerzo Grupo " + (rm.type || "Extra"),
                   uds: svcQty,
                   precio: 0,
@@ -911,6 +972,7 @@
 
           if (c.includes("CENA") && dinnerPax === 0) {
             var docIdExtraCena = "nexus_" + reservaId + "_" + iso + "_cena";
+            var extraCenaHour = extractRegisteredHour(rm.hora || rm.hour || rm.time) || "---";
             docs.push({
               id: docIdExtraCena,
               reservaId: reservaId,
@@ -928,7 +990,7 @@
               detalles: {
                 jornada: "cena",
                 montaje: "Grupo",
-                hora: "21:00",
+                hora: extraCenaHour,
                 pax_adultos: svcQty,
                 pax_ninos: 0,
                 incluido: true
@@ -940,7 +1002,7 @@
               servicios: [
                 {
                   fecha: iso,
-                  hora: "21:00",
+                  hora: extraCenaHour,
                   concepto: "Cena Grupo " + (rm.type || "Extra"),
                   uds: svcQty,
                   precio: 0,
@@ -958,6 +1020,10 @@
 
     docs.sort(function (a, b) {
       if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+      var jOrder = { almuerzo: 1, cena: 2 };
+      var jA = jOrder[(a.detalles && a.detalles.jornada)] || 99;
+      var jB = jOrder[(b.detalles && b.detalles.jornada)] || 99;
+      if (jA !== jB) return jA - jB;
       var hA = (a.detalles && a.detalles.hora) || "";
       var hB = (b.detalles && b.detalles.hora) || "";
       return hA.localeCompare(hB);
@@ -1176,6 +1242,7 @@
                 oldDetalles.montaje !== newDetalles.montaje ||
                 oldFirstSvc.uds !== newFirstSvc.uds ||
                 oldFirstSvc.concepto !== newFirstSvc.concepto ||
+                oldFirstSvc.hora !== newFirstSvc.hora ||
                 oldNotas.interna !== newNotas.interna ||
                 (docData.ordenServicio && existing.nexusServiceOrderRevision !== docData.nexusServiceOrderRevision)
               ) {
@@ -1461,6 +1528,7 @@
     resolveMesachefStatus: resolveMesachefStatus,
     mapMesachefStatus: mapMesachefStatus,
     resolveHotelAndSalon: resolveHotelAndSalon,
+    extractRegisteredHour: extractRegisteredHour,
     applyServiceOrderDetails: applyServiceOrderDetails,
     getMealSchedule: getMealSchedule,
     getAutomaticMealDocuments: getAutomaticMealDocuments,
