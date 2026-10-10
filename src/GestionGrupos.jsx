@@ -23656,6 +23656,39 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                     <span className="text-xs font-bold leading-none">⚡</span>
                                                     <span>Replicar precios</span>
                                                   </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const resId = normalizeId(selectedGroupFicha.id || selectedGroupFicha.records?.[0]?.["Reserva"]);
+                                                      const groupDays = (dailyOccupancyList || []).filter(d => normalizeId(d.reserva) === resId);
+                                                      let dayItem = groupDays.find(d => d.fecha === bucket.dayKey);
+                                                      if (!dayItem) {
+                                                        const rec0 = selectedGroupFicha.records?.[0] || {};
+                                                        const dayPax = bucket.items
+                                                          .filter(it => !it.isService)
+                                                          .reduce((acc, it) => acc + ((parseInt(it.qty, 10) || 1) * (parseInt(it.pax, 10) || getPaxByRoomType(it.type) || 1)), 0)
+                                                          || parseInt(selectedGroupFicha.totalPax || rec0["Pax."] || rec0["Pax"] || 0, 10) || 1;
+                                                        dayItem = {
+                                                          hotel: normalizeHotelNameLocal(rec0["Hotel_Asignado"] || rec0["Hotel"] || selectedGroupFicha.hotel, "Sercotel Guadiana"),
+                                                          reserva: selectedGroupFicha.id || rec0["Reserva"],
+                                                          nombreGrupo: selectedGroupFicha.name || rec0["Nombre del Grupo"] || "Grupo",
+                                                          fecha: bucket.dayKey,
+                                                          pax: dayPax,
+                                                          regimen: bucket.items.find(it => it.regime && it.regime !== "-")?.regime || rec0["Régimen"] || "HD",
+                                                          isDefinitive: false,
+                                                          distributionStatus: "pendiente",
+                                                          contributingLines: selectedGroupFicha.records || []
+                                                        };
+                                                      }
+                                                      openDistributionModal(dayItem);
+                                                    }}
+                                                    className="flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                                                    title={`Abrir Ficha Económica y Distribución de Habitaciones para el día ${formatDateWithWeekday(bucket.dayKey)}`}
+                                                  >
+                                                    <span className="text-xs font-bold leading-none">🛏️</span>
+                                                    <span>Distribución</span>
+                                                  </button>
                                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
                                                     isCollapsed
                                                       ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
@@ -25353,11 +25386,32 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             <button
                               type="button"
                               onClick={() => {
-                                setHighlightSyncCharges(true);
-                                syncChargesRef.current?.focus({ preventScroll: true });
-                                syncChargesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                if (!selectedGroupFicha) return;
+                                const resId = normalizeId(selectedGroupFicha.id || selectedGroupFicha.records?.[0]?.["Reserva"]);
+                                const groupDays = (dailyOccupancyList || []).filter(d => normalizeId(d.reserva) === resId);
+                                let targetDay = groupDays.find(d => d.distributionStatus === "pendiente" || d.distributionStatus === "revision_necesaria") 
+                                  || groupDays[0];
+                                
+                                if (!targetDay) {
+                                  const rec0 = selectedGroupFicha.records?.[0] || {};
+                                  const arrivalDate = toInputDate(rec0["Entrada"] || selectedGroupFicha.arrival) || new Date().toISOString().split("T")[0];
+                                  const totalPax = parseInt(selectedGroupFicha.totalPax || rec0["Pax."] || rec0["Pax"] || 0, 10) || 1;
+                                  targetDay = {
+                                    hotel: normalizeHotelNameLocal(rec0["Hotel_Asignado"] || rec0["Hotel"] || selectedGroupFicha.hotel, "Sercotel Guadiana"),
+                                    reserva: selectedGroupFicha.id || rec0["Reserva"],
+                                    nombreGrupo: selectedGroupFicha.name || rec0["Nombre del Grupo"] || "Grupo",
+                                    fecha: arrivalDate,
+                                    pax: totalPax,
+                                    regimen: rec0["Régimen"] || rec0["Regimen"] || "HD",
+                                    isDefinitive: false,
+                                    distributionStatus: "pendiente",
+                                    contributingLines: selectedGroupFicha.records || []
+                                  };
+                                }
+                                openDistributionModal(targetDay);
                               }}
-                              className="px-4 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex items-center gap-2 text-[11px] font-black uppercase tracking-widest"
+                              className="px-4 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex items-center gap-2 text-[11px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-blue-500/20 cursor-pointer"
+                              title="Abrir la Ficha de Revisión Económica y Distribución de Habitaciones de la estancia"
                             >
                               <IconFileInvoice size={18} stroke={2} />
                               Ficha económica
