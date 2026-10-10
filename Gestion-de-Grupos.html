@@ -70,52 +70,50 @@
 
 
 
-  <!-- React & ReactDOM (Versión 18 - PRODUCCIÓN) -->
+  <!-- React & ReactDOM (Versión 18 - Local con fallback) -->
+  <script src="js/vendor/react-18.3.1.production.min.js"></script>
+  <script>
+    if (typeof React === "undefined") {
+      document.write('<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"><\/script>');
+    }
+  </script>
+  <script src="js/vendor/react-dom-18.3.1.production.min.js"></script>
+  <script>
+    if (typeof ReactDOM === "undefined") {
+      document.write('<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"><\/script>');
+    }
+  </script>
 
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <!-- Prop Types (Local con fallback) -->
+  <script src="js/vendor/prop-types.min.js"></script>
+  <script>
+    if (typeof PropTypes === "undefined") {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js"><\/script>');
+    }
+  </script>
 
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-
-
-  <!-- Prop Types -->
-
-  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-
-
-
-  <!-- Recharts -->
-
-  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
-
-
+  <!-- Recharts (Local con fallback) -->
+  <script src="js/vendor/recharts.min.js"></script>
+  <script>
+    if (typeof Recharts === "undefined") {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/recharts@2.8.0/umd/Recharts.js"><\/script>');
+    }
+  </script>
 
   <!-- PapaParse -->
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-
-
   <!-- SheetJS -->
-
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-
-
-
-
-
   <!-- Markdown Parser -->
-
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-
 
   <!-- Lucide Icons (Local con fallback) -->
   <script src="js/vendor/lucide.min.js"></script>
   <script>
     if (typeof lucide === "undefined") {
-      document.write('<script src="https://unpkg.com/lucide@latest"><\/script>');
+      document.write('<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"><\/script>');
     }
   </script>
 

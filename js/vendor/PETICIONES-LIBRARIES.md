@@ -6,6 +6,8 @@ La pantalla carga las mismas versiones del SDK de Firebase y versiones fijadas d
 | --- | --- | --- |
 | react-18.3.1.production.min.js | React 18.3.1 | https://unpkg.com/react@18.3.1/umd/react.production.min.js |
 | react-dom-18.3.1.production.min.js | React DOM 18.3.1 | https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js |
+| prop-types.min.js | PropTypes 15.8.1 | https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js |
+| recharts.min.js | Recharts 2.8.0 | https://cdn.jsdelivr.net/npm/recharts@2.8.0/umd/Recharts.js |
 | firebase-app-9.22.1-compat.js | Firebase 9.22.1 | https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js |
 | firebase-auth-9.22.1-compat.js | Firebase 9.22.1 | https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js |
 | firebase-functions-9.22.1-compat.js | Firebase 9.22.1 | https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js |
