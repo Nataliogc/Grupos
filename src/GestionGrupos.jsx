@@ -19192,7 +19192,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             <span>✓</span> Reconfirmar anterior
                           </button>
                         )}
-                        {hasProposal && !isRevisionNecesaria && (
+                        {hasProposal && !isRevisionNecesaria && editingDistribution.status !== "pendiente" && (
                           <button
                             type="button"
                             onClick={() => handleSaveDistribution("confirmar_propuesta")}
