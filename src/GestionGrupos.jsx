@@ -6679,18 +6679,20 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           totalHabitaciones: Math.floor(dailyItem.pax / 2) + (dailyItem.pax % 2)
         };
 
-        let currentInd = dailyItem.individuales !== null && dailyItem.individuales !== undefined 
+        const isNewGroupPending = (dailyItem.distributionStatus === "pendiente" || dailyItem.individuales === null || dailyItem.dobles === null) && !dailyItem.isDefinitive;
+
+        let currentInd = (dailyItem.individuales !== null && dailyItem.individuales !== undefined)
           ? dailyItem.individuales 
-          : proposal.individuales;
-        let currentDbl = dailyItem.dobles !== null && dailyItem.dobles !== undefined 
+          : (isNewGroupPending ? 0 : proposal.individuales);
+        let currentDbl = (dailyItem.dobles !== null && dailyItem.dobles !== undefined)
           ? dailyItem.dobles 
-          : proposal.dobles;
-        let currentTpl = dailyItem.triples !== null && dailyItem.triples !== undefined 
+          : (isNewGroupPending ? 0 : proposal.dobles);
+        let currentTpl = (dailyItem.triples !== null && dailyItem.triples !== undefined)
           ? dailyItem.triples 
-          : proposal.triples;
-        let currentCua = dailyItem.cuadruples !== null && dailyItem.cuadruples !== undefined 
+          : (isNewGroupPending ? 0 : proposal.triples);
+        let currentCua = (dailyItem.cuadruples !== null && dailyItem.cuadruples !== undefined)
           ? dailyItem.cuadruples 
-          : proposal.cuadruples;
+          : (isNewGroupPending ? 0 : proposal.cuadruples);
 
         // ── LEER GRATUIDADES EXISTENTES DEL ROOMINGLIST PARA ESTA FECHA ──────
         const targetResId = normalizeId(dailyItem.reserva);
@@ -6917,8 +6919,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           gratuitiesCua: initialFreeCua,
           gratuitiesCount: totalInitialFree,
           observations: dailyItem.observations || "",
-          status: hasFichaRooms ? "confirmada" : (dailyItem.distributionStatus || "propuesta"),
-          revisionReasons: hasFichaRooms ? [] : (dailyItem.revisionReasons || []),
+          status: hasFichaRooms ? "confirmada" : (dailyItem.distributionStatus || (isNewGroupPending ? "pendiente" : "propuesta")),
+          revisionReasons: hasFichaRooms ? [] : ((dailyItem.revisionReasons && dailyItem.revisionReasons.length > 0) ? dailyItem.revisionReasons : (isNewGroupPending ? ["Grupo nuevo: distribución pendiente de revisión manual"] : [])),
           previousDistribution: hasFichaRooms ? null : (dailyItem.previousDistribution || null),
           applyToAllHomogeneous: false
         });
@@ -18485,41 +18487,122 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                   })
                 : null;
 
+              const handleJumpToFicha = () => {
+                const reservaId = editingDistribution?.reserva;
+                const groupName = editingDistribution?.nombreGrupo;
+                let targetGroup = (groupedData || []).find(g => normalizeId(g.id) === normalizeId(reservaId));
+                if (!targetGroup && groupName) {
+                  targetGroup = (groupedData || []).find(g => g.name === groupName);
+                }
+                if (!targetGroup) {
+                  const matchingRecords = (data || []).filter(r => normalizeId(r.Reserva) === normalizeId(reservaId));
+                  if (matchingRecords.length > 0) {
+                    targetGroup = {
+                      id: reservaId,
+                      name: groupName || matchingRecords[0]?.["Nombre del Grupo"] || reservaId,
+                      records: matchingRecords
+                    };
+                  }
+                }
+                if (targetGroup) {
+                  if (data && data.length > 0 && targetGroup.records) {
+                    const allMatching = data.filter(r => normalizeId(r.Reserva) === normalizeId(reservaId));
+                    if (allMatching.length > targetGroup.records.length) {
+                      targetGroup = {
+                        ...targetGroup,
+                        records: allMatching
+                      };
+                    }
+                  }
+                  setEditingDistribution(null);
+                  setCollapsedFichaDays(new Set()); // Desplegar TODOS los días de la estancia
+                  openFicha(targetGroup);
+                  setTimeout(() => {
+                    syncChargesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 200);
+                } else {
+                  alert("No se encontró la ficha del grupo asociada a esta reserva.");
+                }
+              };
+
               return (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-                  <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
-                    {/* Header */}
-                    <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold text-base text-white">Revisión de Distribución de Habitaciones</h3>
-                        <p className="text-xs text-slate-300 mt-0.5">
-                          {editingDistribution.hotel} • Reserva #{editingDistribution.reserva} • {formatDate(editingDistribution.fecha)}
-                        </p>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-3 sm:p-5">
+                  <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden animate-fade-in flex flex-col max-h-[92vh]">
+                    {/* Header Mejorado */}
+                    <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+                          <IconFileInvoice size={22} stroke={2} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-black text-base text-white tracking-tight truncate">
+                              Revisión de Distribución de Habitaciones
+                            </h3>
+                            <span className="text-[10px] font-black uppercase bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 shrink-0">
+                              Ficha Económica
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5 flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-white">{editingDistribution.hotel}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="font-mono bg-slate-800 text-blue-300 px-2 py-0.5 rounded text-[11px] font-bold">
+                              Reserva #{editingDistribution.reserva}
+                            </span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-200">📅 {formatDate(editingDistribution.fecha)}</span>
+                          </p>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setEditingDistribution(null)}
-                        className="text-slate-400 hover:text-white text-lg font-bold p-1 leading-none"
-                      >
-                        ✕
-                      </button>
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleJumpToFicha}
+                          className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl flex items-center gap-2 text-xs font-black uppercase tracking-wider shadow-md shadow-blue-900/50 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                          title="Saltar a la Ficha Económica del Grupo con todos los días y líneas"
+                        >
+                          <IconFileInvoice size={16} stroke={2} />
+                          <span className="hidden sm:inline">Ficha Económica</span>
+                          <span className="text-xs font-bold opacity-90">↗</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingDistribution(null)}
+                          className="text-slate-400 hover:text-white text-lg font-bold p-1.5 leading-none rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                          title="Cerrar ventana"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
 
                     {/* Modal Body */}
-                    <div className="p-6 space-y-5 overflow-y-auto flex-1">
-                      {/* Booking Summary Card */}
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-6 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
+                      {/* Booking Summary Card Mejorada */}
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                         <div>
-                          <span className="text-slate-400 block font-medium">Grupo</span>
-                          <span className="font-bold text-slate-800 truncate block">{editingDistribution.nombreGrupo}</span>
+                          <span className="text-slate-400 block font-medium mb-0.5">Grupo</span>
+                          <button
+                            type="button"
+                            onClick={handleJumpToFicha}
+                            className="font-black text-blue-600 hover:text-blue-800 hover:underline truncate block text-left w-full group cursor-pointer"
+                            title="Haz clic para abrir la Ficha de Grupo completa"
+                          >
+                            <span className="truncate block text-sm">{editingDistribution.nombreGrupo}</span>
+                            <span className="text-[10px] font-bold text-blue-500 inline-flex items-center gap-1 mt-0.5 group-hover:text-blue-700">
+                              Ver Ficha de Grupo ↗
+                            </span>
+                          </button>
                         </div>
                         <div>
-                          <span className="text-slate-400 block font-medium">Fecha estancia</span>
-                          <span className="font-bold text-slate-800">{formatDate(editingDistribution.fecha)}</span>
+                          <span className="text-slate-400 block font-medium mb-0.5">Fecha estancia</span>
+                          <span className="font-bold text-slate-800 text-sm block">📅 {formatDate(editingDistribution.fecha)}</span>
+                          <span className="text-[10px] text-slate-500 font-medium">{formatDateWithWeekday(editingDistribution.fecha)}</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block font-medium">Personas (Pax)</span>
-                          <span className="font-black text-blue-600 text-sm">{editingDistribution.pax} personas</span>
+                          <span className="text-slate-400 block font-medium mb-0.5">Personas (Pax)</span>
+                          <span className="font-black text-blue-600 text-base block">{editingDistribution.pax} personas</span>
+                          <span className="text-[10px] text-slate-500 font-medium">Ocupación requerida</span>
                         </div>
                         <div>
                           <label className="text-slate-400 block font-medium mb-1">Régimen</label>
@@ -18532,7 +18615,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 regimen: newReg
                               }));
                             }}
-                            className="font-bold text-slate-800 font-mono bg-white border border-slate-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full shadow-sm cursor-pointer"
+                            className="font-bold text-slate-800 font-mono bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full shadow-sm cursor-pointer"
                             title="Seleccionar régimen oficial"
                           >
                             <option value="HA">HA (Solo Alojamiento)</option>
@@ -18545,14 +18628,14 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                       {/* AVISO INFORMATIVO: DIFERENCIAS RESPECTO AL EXCEL ORIGINAL */}
                       {matchedDay?.excelDifference?.hasDiff && (
-                        <div className="bg-blue-50 border border-blue-200 text-blue-950 p-3.5 rounded-xl text-xs space-y-1.5">
-                          <div className="flex items-center gap-1.5 font-bold text-blue-900 text-xs">
+                        <div className="bg-blue-50 border border-blue-200 text-blue-950 p-4 rounded-xl text-xs space-y-2">
+                          <div className="flex items-center gap-2 font-bold text-blue-900 text-xs">
                             <span className="text-sm">ℹ️</span> Diferencia con datos originales de Excel
                           </div>
                           <p className="text-blue-800 text-[11px]">
                             La Ficha de Grupo tiene prioridad soberana sobre el Excel. Se han detectado las siguientes particularidades:
                           </p>
-                          <ul className="list-disc list-inside space-y-0.5 font-semibold text-blue-900 bg-white/70 p-2 rounded-lg border border-blue-100 text-[11px]">
+                          <ul className="list-disc list-inside space-y-0.5 font-semibold text-blue-900 bg-white/70 p-2.5 rounded-lg border border-blue-100 text-[11px]">
                             {matchedDay.excelDifference.reasons.map((r, i) => (
                               <li key={i}>{r}</li>
                             ))}
@@ -18583,32 +18666,92 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                         </div>
                       )}
 
-                      {/* DESGLOSE ECONÓMICO DIARIO (Reqs 15-18) */}
+                      {/* DESGLOSE ECONÓMICO DIARIO MEJORADO (Reqs 15-18) */}
                       {eco && (
-                        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5">
-                          <div className="flex justify-between font-bold text-slate-700">
-                            <span>Desglose Económico del Día:</span>
-                            <span className="font-mono text-slate-900">{dailyImp.toFixed(2)} € total</span>
+                        <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 p-4 rounded-xl border border-slate-200 text-xs space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">💶</span>
+                              <span className="font-black text-slate-800 text-sm">Desglose Económico del Día</span>
+                              <span className="text-[11px] text-slate-500 font-medium">({editingDistribution.regimen || "HD"})</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-500 font-medium">Total estimado del día:</span>
+                              <span className="font-mono font-black text-slate-900 text-sm bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                                {dailyImp.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                              </span>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 pt-1 text-[11px]">
-                            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-                              <span className="text-slate-400 block text-[10px]">Desayunos</span>
-                              <span className="font-bold font-mono text-slate-700">{eco.breakfastCost.toFixed(2)} €</span>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-0.5">
+                            <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs text-center">
+                              <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">☕ Desayunos</span>
+                              <span className="font-black font-mono text-slate-800 text-sm block mt-0.5">{eco.breakfastCost.toFixed(2)} €</span>
+                              <span className="text-[10px] text-slate-400 font-medium">{(pricing?.breakfast || 6).toFixed(2)} € / pax</span>
                             </div>
-                            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-                              <span className="text-slate-400 block text-[10px]">Comidas</span>
-                              <span className="font-bold font-mono text-slate-700">{eco.mealCost.toFixed(2)} €</span>
+                            <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs text-center">
+                              <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">🍽️ Comidas / Cenas</span>
+                              <span className="font-black font-mono text-slate-800 text-sm block mt-0.5">{eco.mealCost.toFixed(2)} €</span>
+                              <span className="text-[10px] text-slate-400 font-medium">{(pricing?.lunch || 16).toFixed(2)} € / pax</span>
                             </div>
-                            <div className={`p-2 rounded-lg border text-center ${
-                              eco.isNegativeAccommodation ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-white border-slate-200 text-blue-700"
+                            <div className={`p-2.5 rounded-xl border shadow-2xs text-center ${
+                              eco.isNegativeAccommodation ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-blue-50/70 border-blue-200 text-blue-900"
                             }`}>
-                              <span className="block text-[10px] opacity-75">Aloj. Neto</span>
-                              <span className="font-bold font-mono">{eco.netAccommodationPrice.toFixed(2)} €</span>
+                              <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">🏨 Alojamiento Neto</span>
+                              <span className="font-black font-mono text-base block mt-0.5">{eco.netAccommodationPrice.toFixed(2)} €</span>
+                              <span className="text-[10px] opacity-75 font-medium">
+                                {calcRooms > 0 ? `${(eco.netAccommodationPrice / calcRooms).toFixed(2)} € / hab` : "Sin hab."}
+                              </span>
+                            </div>
+                            <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs text-center">
+                              <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">📊 Precio Medio Total</span>
+                              <span className="font-black font-mono text-slate-800 text-sm block mt-0.5">
+                                {calcRooms > 0 ? (dailyImp / calcRooms).toFixed(2) : "0.00"} €
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-medium">por hab / noche</span>
                             </div>
                           </div>
                           {eco.isNegativeAccommodation && (
-                            <div className="bg-rose-100 border border-rose-300 text-rose-900 p-2 rounded-lg text-[11px] font-bold flex items-center gap-1.5">
-                              <span>⚠️</span> {eco.warning}
+                            <div className="bg-rose-100 border border-rose-300 text-rose-900 p-2.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                              <span className="text-base">⚠️</span> {eco.warning}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Banner Grupo Nuevo: Revisión Requerida */}
+                      {editingDistribution.status === "pendiente" && (
+                        <div className="bg-rose-50 border border-rose-300 text-rose-900 p-4 rounded-xl text-xs space-y-2 shadow-2xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 font-black text-rose-900 text-sm">
+                              <span>⚠️</span> Grupo nuevo: distribución pendiente de revisión manual
+                            </div>
+                            <span className="text-[10px] uppercase font-black bg-rose-200 text-rose-800 px-2 py-0.5 rounded">
+                              Revisión requerida
+                            </span>
+                          </div>
+                          <p className="text-rose-800 text-xs">
+                            No se ha calculado la distribución automáticamente para este grupo nuevo. Por favor, introduzca las habitaciones (Individuales, Dobles, Triples...) y guarde los cambios.
+                          </p>
+                          {editingDistribution.proposal && (
+                            <div className="pt-2 border-t border-rose-200 flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-[11px] text-rose-700 font-medium">
+                                Sugerencia estándar disponible: <strong>{editingDistribution.proposal.dobles || 0} dobles</strong> y <strong>{editingDistribution.proposal.individuales || 0} individuales</strong> ({editingDistribution.pax} Pax)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingDistribution(prev => ({
+                                    ...prev,
+                                    individuales: prev.proposal?.individuales ?? 0,
+                                    dobles: prev.proposal?.dobles ?? 0,
+                                    triples: prev.proposal?.triples ?? 0,
+                                    cuadruples: prev.proposal?.cuadruples ?? 0
+                                  }));
+                                }}
+                                className="px-3 py-1 bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 rounded-lg text-xs font-bold transition shadow-2xs cursor-pointer"
+                              >
+                                Cargar sugerencia estándar
+                              </button>
                             </div>
                           )}
                         </div>
@@ -18627,32 +18770,43 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                         </div>
                       )}
 
-                      {/* Inputs Grid */}
+                      {/* Inputs Grid Mejorado */}
                       <div>
-                        <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
-                          Distribución de Habitaciones
-                        </label>
-                        <div className={`grid grid-cols-2 ${isCumbria ? "sm:grid-cols-3" : "sm:grid-cols-4"} gap-3`}>
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                              Individuales (1 pax)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editingDistribution.individuales}
-                              onChange={(e) => setEditingDistribution({
-                                ...editingDistribution,
-                                individuales: e.target.value
-                              })}
-                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
-                            />
-                            <div className="text-[10px] text-slate-400 text-center mt-1">
-                              {curInd * 1} pax
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-xs font-black text-slate-700 uppercase tracking-wider">
+                            Distribución de Habitaciones
+                          </label>
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {calcRooms} habitaciones asignadas ({calcPax} Pax)
+                          </span>
+                        </div>
+                        <div className={`grid grid-cols-1 sm:grid-cols-2 ${isCumbria ? "lg:grid-cols-3" : "lg:grid-cols-4"} gap-3`}>
+                          {/* INDIVIDUALES */}
+                          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                  <span>👤</span> Individuales
+                                </label>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">1 Pax</span>
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                value={editingDistribution.individuales}
+                                onChange={(e) => setEditingDistribution({
+                                  ...editingDistribution,
+                                  individuales: e.target.value
+                                })}
+                                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-base font-black text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                              />
+                              <div className="text-[11px] font-bold text-blue-600 text-center mt-1">
+                                {curInd * 1} Pax
+                              </div>
                             </div>
 
-                            {/* Campo editable de gratuidades para Individuales */}
-                            <div className="mt-2 pt-2 border-t border-slate-200">
+                            {/* Gratuidades */}
+                            <div className="mt-2.5 pt-2 border-t border-slate-200">
                               <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
                                 🎁 Gratuitas (0 €):
                               </label>
@@ -18677,7 +18831,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                               </div>
                             </div>
 
-                            {/* Campo editable de precio (€/hab) */}
+                            {/* Precio (€/hab) */}
                             <div className="mt-2 pt-2 border-t border-slate-200">
                               <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
                                 💶 Precio (€/hab):
@@ -18694,32 +18848,38 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
                                 title="Precio por habitación (€)"
                               />
-                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                              <div className="text-[10px] font-bold text-slate-700 text-center mt-1">
                                 Subtotal: {(payingIndRooms * (parseNum(editingDistribution.priceInd) || 0)).toFixed(2)} €
                               </div>
                             </div>
                           </div>
 
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                              Dobles (2 pax)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editingDistribution.dobles}
-                              onChange={(e) => setEditingDistribution({
-                                ...editingDistribution,
-                                dobles: e.target.value
-                              })}
-                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
-                            />
-                            <div className="text-[10px] text-slate-400 text-center mt-1">
-                              {curDbl * 2} pax
+                          {/* DOBLES */}
+                          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                  <span>👥</span> Dobles
+                                </label>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">2 Pax</span>
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                value={editingDistribution.dobles}
+                                onChange={(e) => setEditingDistribution({
+                                  ...editingDistribution,
+                                  dobles: e.target.value
+                                })}
+                                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-base font-black text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                              />
+                              <div className="text-[11px] font-bold text-blue-600 text-center mt-1">
+                                {curDbl * 2} Pax
+                              </div>
                             </div>
 
-                            {/* Campo editable de gratuidades para Dobles */}
-                            <div className="mt-2 pt-2 border-t border-slate-200">
+                            {/* Gratuidades */}
+                            <div className="mt-2.5 pt-2 border-t border-slate-200">
                               <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
                                 🎁 Gratuitas (0 €):
                               </label>
@@ -18744,7 +18904,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                               </div>
                             </div>
 
-                            {/* Campo editable de precio (€/hab) */}
+                            {/* Precio (€/hab) */}
                             <div className="mt-2 pt-2 border-t border-slate-200">
                               <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
                                 💶 Precio (€/hab):
@@ -18761,32 +18921,38 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
                                 title="Precio por habitación (€)"
                               />
-                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                              <div className="text-[10px] font-bold text-slate-700 text-center mt-1">
                                 Subtotal: {(payingDblRooms * (parseNum(editingDistribution.priceDbl) || 0)).toFixed(2)} €
                               </div>
                             </div>
                           </div>
 
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                              Triples (3 pax)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={editingDistribution.triples}
-                              onChange={(e) => setEditingDistribution({
-                                ...editingDistribution,
-                                triples: e.target.value
-                              })}
-                              className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
-                            />
-                            <div className="text-[10px] text-slate-400 text-center mt-1">
-                              {curTpl * 3} pax
+                          {/* TRIPLES */}
+                          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                  <span>👨‍👩‍👧</span> Triples
+                                </label>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">3 Pax</span>
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                value={editingDistribution.triples}
+                                onChange={(e) => setEditingDistribution({
+                                  ...editingDistribution,
+                                  triples: e.target.value
+                                })}
+                                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-base font-black text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                              />
+                              <div className="text-[11px] font-bold text-blue-600 text-center mt-1">
+                                {curTpl * 3} Pax
+                              </div>
                             </div>
 
-                            {/* Campo editable de gratuidades para Triples */}
-                            <div className="mt-2 pt-2 border-t border-slate-200">
+                            {/* Gratuidades */}
+                            <div className="mt-2.5 pt-2 border-t border-slate-200">
                               <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
                                 🎁 Gratuitas (0 €):
                               </label>
@@ -18811,7 +18977,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                               </div>
                             </div>
 
-                            {/* Campo editable de precio (€/hab) */}
+                            {/* Precio (€/hab) */}
                             <div className="mt-2 pt-2 border-t border-slate-200">
                               <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
                                 💶 Precio (€/hab):
@@ -18828,33 +18994,39 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
                                 title="Precio por habitación (€)"
                               />
-                              <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                              <div className="text-[10px] font-bold text-slate-700 text-center mt-1">
                                 Subtotal: {(payingTplRooms * (parseNum(editingDistribution.priceTpl) || 0)).toFixed(2)} €
                               </div>
                             </div>
                           </div>
 
+                          {/* CUÁDRUPLES */}
                           {!isCumbria && (
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                              <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                                Cuádruples (4 pax)
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={editingDistribution.cuadruples}
-                                onChange={(e) => setEditingDistribution({
-                                  ...editingDistribution,
-                                  cuadruples: e.target.value
-                                })}
-                                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:border-blue-500"
-                              />
-                              <div className="text-[10px] text-slate-400 text-center mt-1">
-                                {curCua * 4} pax
+                            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between">
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                    <span>👨‍👩‍👧‍👦</span> Cuádruples
+                                  </label>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">4 Pax</span>
+                                </div>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editingDistribution.cuadruples}
+                                  onChange={(e) => setEditingDistribution({
+                                    ...editingDistribution,
+                                    cuadruples: e.target.value
+                                  })}
+                                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-base font-black text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                                />
+                                <div className="text-[11px] font-bold text-blue-600 text-center mt-1">
+                                  {curCua * 4} Pax
+                                </div>
                               </div>
 
-                              {/* Campo editable de gratuidades para Cuádruples */}
-                              <div className="mt-2 pt-2 border-t border-slate-200">
+                              {/* Gratuidades */}
+                              <div className="mt-2.5 pt-2 border-t border-slate-200">
                                 <label className="block text-[10px] font-bold text-amber-800 mb-0.5 text-center">
                                   🎁 Gratuitas (0 €):
                                 </label>
@@ -18879,7 +19051,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 </div>
                               </div>
 
-                              {/* Campo editable de precio (€/hab) */}
+                              {/* Precio (€/hab) */}
                               <div className="mt-2 pt-2 border-t border-slate-200">
                                 <label className="block text-[10px] font-bold text-slate-600 mb-0.5 text-center">
                                   💶 Precio (€/hab):
@@ -18896,7 +19068,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                   className="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-xs font-black text-blue-900 text-center focus:outline-none focus:border-blue-500"
                                   title="Precio por habitación (€)"
                                 />
-                                <div className="text-[9px] text-slate-500 text-center mt-0.5 font-medium">
+                                <div className="text-[10px] font-bold text-slate-700 text-center mt-1">
                                   Subtotal: {(payingCuaRooms * (parseNum(editingDistribution.priceCua) || 0)).toFixed(2)} €
                                 </div>
                               </div>
@@ -18905,32 +19077,37 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                         </div>
                       </div>
 
-                      {/* Real-time Pax / Room Match Validator */}
-                      <div className={`p-4 rounded-xl border flex items-center justify-between ${
+                      {/* Validador de Pax en Tiempo Real Mejorado */}
+                      <div className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
                         isPaxMatch 
-                          ? "bg-emerald-50 border-emerald-200 text-emerald-900" 
-                          : "bg-rose-50 border-rose-300 text-rose-900"
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs" 
+                          : "bg-rose-50 border-rose-300 text-rose-900 shadow-2xs"
                       }`}>
                         <div className="flex items-center gap-3 text-xs">
-                          <span className="text-xl">{isPaxMatch ? "✅" : "⚠️"}</span>
+                          <span className="text-2xl">{isPaxMatch ? "✅" : "⚠️"}</span>
                           <div>
                             <div className="font-black text-sm">
-                              {isPaxMatch ? "Distribución correcta" : "La distribución no coincide con el número total de personas."}
+                              {isPaxMatch ? "Distribución correcta de plazas" : "Descuadre en número total de personas"}
                             </div>
-                            <div className="text-[11px] opacity-80 mt-0.5">
+                            <div className="text-[11px] opacity-85 mt-0.5">
                               Calculadas: <strong>{calcPax}</strong> Pax ({calcRooms} habitaciones){totGratuities > 0 ? ` • ${totGratuities} gratuita${totGratuities > 1 ? "s" : ""} (${payingPax} de pago)` : ""} • Requeridas: <strong>{editingDistribution.pax}</strong> Pax
+                              {!isPaxMatch && (
+                                <span className="font-black ml-1.5 underline">
+                                  ({calcPax > editingDistribution.pax ? `Sobran ${calcPax - editingDistribution.pax} Pax` : `Faltan ${editingDistribution.pax - calcPax} Pax`})
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <span className="text-xs font-bold uppercase tracking-wider block opacity-70">Habitaciones</span>
-                          <span className="text-lg font-black">{calcRooms}</span>
+                        <div className="text-right pl-4 border-l border-current/20">
+                          <span className="text-[10px] font-bold uppercase tracking-wider block opacity-70">Total Hab.</span>
+                          <span className="text-xl font-black font-mono">{calcRooms}</span>
                         </div>
                       </div>
 
                       {distributionFormError && (
-                        <div className="bg-rose-100 border border-rose-400 text-rose-800 text-xs px-3 py-2 rounded-lg font-bold">
-                          {distributionFormError}
+                        <div className="bg-rose-100 border border-rose-400 text-rose-800 text-xs px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-2">
+                          <span>⚠️</span> {distributionFormError}
                         </div>
                       )}
 
@@ -18944,12 +19121,12 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                           value={editingDistribution.observations}
                           onChange={(e) => setEditingDistribution({ ...editingDistribution, observations: e.target.value })}
                           placeholder="Notas internas sobre esta distribución..."
-                          className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
 
                       {/* Checkbox: Homogeneous Batch Apply */}
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-start gap-2.5">
+                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex items-start gap-3">
                         <input
                           id="homo-checkbox"
                           type="checkbox"
@@ -18958,7 +19135,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             ...editingDistribution,
                             applyToAllHomogeneous: e.target.checked
                           })}
-                          className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                          className="mt-1 rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                         />
                         <label htmlFor="homo-checkbox" className="text-xs text-slate-700 cursor-pointer">
                           <strong className="block font-semibold">Aplicar a todos los días de la estancia con {editingDistribution.pax} Pax</strong>
@@ -18969,14 +19146,14 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                       </div>
                     </div>
 
-                    {/* Modal Footer / Actions */}
-                    <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex gap-2">
+                    {/* Modal Footer / Actions con botón FICHA ECONÓMICA destacado */}
+                    <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setEditingDistribution(null)}
                           disabled={isSavingDistribution}
-                          className="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition"
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
                         >
                           Cancelar
                         </button>
@@ -18984,21 +19161,35 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                           type="button"
                           onClick={() => handleSaveDistribution("dejar_pendiente")}
                           disabled={isSavingDistribution}
-                          className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 transition"
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
                         >
                           Dejar pendiente
                         </button>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
+                      {/* Botón FICHA ECONÓMICA (Centro) */}
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={handleJumpToFicha}
+                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-2.5 text-xs font-black uppercase tracking-wider shadow-md shadow-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                          title="Saltar a la Ficha Económica del Grupo con todos los días y líneas desplegadas"
+                        >
+                          <IconFileInvoice size={18} stroke={2} />
+                          <span>FICHA ECONÓMICA</span>
+                          <span className="text-xs opacity-90">↗</span>
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
                         {isRevisionNecesaria && (
                           <button
                             type="button"
                             onClick={() => handleSaveDistribution("reconfirmar_anterior")}
                             disabled={isSavingDistribution}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition flex items-center gap-1"
+                            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition flex items-center gap-1.5 cursor-pointer"
                           >
-                            <span>✓</span> Reconfirmar distribución anterior
+                            <span>✓</span> Reconfirmar anterior
                           </button>
                         )}
                         {hasProposal && !isRevisionNecesaria && (
@@ -19006,7 +19197,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             type="button"
                             onClick={() => handleSaveDistribution("confirmar_propuesta")}
                             disabled={isSavingDistribution}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition"
+                            className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 transition cursor-pointer"
                           >
                             Confirmar sin cambios
                           </button>
@@ -19015,10 +19206,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                           type="button"
                           onClick={() => handleSaveDistribution("guardar")}
                           disabled={!isPaxMatch || isSavingDistribution}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                          className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                             !isPaxMatch || isSavingDistribution
                               ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200"
+                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200"
                           }`}
                         >
                           {isSavingDistribution ? "Guardando..." : "Guardar distribución"}

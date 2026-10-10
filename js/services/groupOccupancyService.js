@@ -589,14 +589,16 @@
           };
         }
       } else {
-        status = "propuesta";
+        // En grupos nuevos: NO calcular automáticamente la distribución, requerir revisión manual
+        status = "pendiente";
         activeDist = {
-          individuales: proposal.individuales,
-          dobles: proposal.dobles,
-          triples: proposal.triples,
-          cuadruples: proposal.cuadruples,
-          totalHabitaciones: proposal.totalHabitaciones
+          individuales: null,
+          dobles: null,
+          triples: null,
+          cuadruples: null,
+          totalHabitaciones: null
         };
+        revisionReasons = ["Grupo nuevo: distribución pendiente de revisión manual"];
       }
 
       var isDefinitive = (status === "confirmada" || status === "modificada" || status === "validada_sin_cambios");
