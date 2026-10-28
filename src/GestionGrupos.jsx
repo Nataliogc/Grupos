@@ -1799,8 +1799,15 @@
 
           for (let m = 1; m <= 12; m++) {
             const cm = capaDoc.monthly[m] || {};
-            const rev = Number(cm.revenue !== undefined ? cm.revenue : (cm.targetRevenue || 0));
-            const rn = Number(cm.rooms !== undefined ? cm.rooms : (cm.targetRoomNights || 0));
+            let rev = Math.max(0, Number(cm.revenue !== undefined ? cm.revenue : (cm.targetRevenue || 0)));
+            let rn = Math.max(0, Number(cm.rooms !== undefined ? cm.rooms : (cm.targetRoomNights || 0)));
+            if (rev <= 0 && Number(targetYear) === 2027 && gts && typeof gts.getCapaSuiteGroupData === "function") {
+              const defaultTargets = gts.getCapaSuiteGroupData(targetHotel, 2027);
+              if (defaultTargets && defaultTargets[m]) {
+                rev = Math.max(0, Number(defaultTargets[m].revenue || 0));
+                rn = Math.max(0, Number(defaultTargets[m].rooms || 0));
+              }
+            }
             const pax = Number(cm.pax !== undefined ? cm.pax : (cm.targetPax || Math.round(rn * 1.9)));
             const res = Number(cm.reservas !== undefined ? cm.reservas : (cm.targetReservas || (rn > 0 ? Math.max(1, Math.round(rn / 15)) : 0)));
 
