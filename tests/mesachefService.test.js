@@ -216,6 +216,26 @@ test('comidas por encima de las incluidas se marcan como extras pendientes de va
   assert.equal(docs[0].servicios[0].total,0);
 });
 
+test('sincroniza los comensales de la programacion cuando el grupo cambia de pax (ej. 62 a 66)', () => {
+  const customSched = [
+    { fecha: '2026-11-20', jornada: 'cena', pax: 62 },
+    { fecha: '2026-11-22', jornada: 'almuerzo', pax: 62 }
+  ];
+  const group66 = {
+    ...group,
+    Entrada: '2026-11-20',
+    Salida: '2026-11-22',
+    totalPax: 66,
+    'Pax.': '66',
+    RoomingList_JSON: JSON.stringify([
+      { dateIn: '2026-11-20', qty: 6, pax: 1, type: 'INDIVIDUAL', regime: 'MP' },
+      { dateIn: '2026-11-20', qty: 30, pax: 2, type: 'DOBLE', regime: 'MP' }
+    ])
+  };
+  const synced = service.syncMealSchedulePax(customSched, group66);
+  assert.deepEqual(synced.map(r => r.pax), [66, 66]);
+});
+
 
 test('cada orden de MesaChef importa solo menu, hora e incidencias de su fecha y comida',()=>{
  const record={...group,Entrada:'2026-10-10',Salida:'2026-10-11',RoomingList_JSON:JSON.stringify([room('2026-10-10',1,17,'PC')]),MealSchedule_JSON:JSON.stringify([{fecha:'2026-10-10',jornada:'almuerzo',pax:17},{fecha:'2026-10-11',jornada:'almuerzo',pax:17}]),ServiceOrder_JSON:JSON.stringify({

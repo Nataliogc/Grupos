@@ -465,6 +465,105 @@
     });
   }
 
+  function getDailyPaxForGroup(groupRecord, isoDate) {
+    if (!groupRecord) return 1;
+    var targetIso = toIsoDate(isoDate);
+    var rlRaw = groupRecord.RoomingList_JSON || groupRecord.roomingList || groupRecord.roomList || groupRecord.economicItems;
+    if (!rlRaw && groupRecord.records && Array.isArray(groupRecord.records)) {
+      for (var ri = 0; ri < groupRecord.records.length; ri++) {
+        var rRec = groupRecord.records[ri];
+        if (rRec && (rRec.RoomingList_JSON || rRec.roomingList || rRec.roomList)) {
+          rlRaw = rRec.RoomingList_JSON || rRec.roomingList || rRec.roomList;
+          if (rlRaw && rlRaw !== "[]") break;
+        }
+      }
+    }
+    var cleanRL = [];
+    if (rlRaw) {
+      try {
+        var parsedRL = typeof rlRaw === "string" ? JSON.parse(rlRaw) : rlRaw;
+        if (Array.isArray(parsedRL)) cleanRL = parsedRL;
+      } catch (e) {}
+    }
+
+    if (cleanRL.length > 0 && targetIso) {
+      var dayPax = 0;
+      var curTime = new Date(targetIso + "T12:00:00").getTime();
+      cleanRL.forEach(function (rm) {
+        if (!rm || rm.isService) return;
+        var rmDate = toIsoDate(rm.dateIn || rm.date || rm.fecha);
+        var rmNights = parseInt(rm.nights, 10) || 1;
+        var matches = false;
+        if (rmDate) {
+          if (rmNights <= 1) {
+            matches = (rmDate === targetIso);
+          } else {
+            var rmStart = new Date(rmDate + "T12:00:00");
+            var rmEnd = new Date(rmStart);
+            rmEnd.setDate(rmEnd.getDate() + rmNights);
+            matches = (curTime >= rmStart.getTime() && curTime < rmEnd.getTime());
+          }
+        }
+        if (matches) {
+          var q = parseInt(rm.qty, 10) || 1;
+          var explicitPax = parseInt(rm.pax, 10);
+          var px = (!isNaN(explicitPax) && explicitPax > 0) ? explicitPax : getPaxPerRoomType(rm.type || rm.roomType);
+          dayPax += (q * px);
+        }
+      });
+      if (dayPax > 0) return dayPax;
+    }
+
+    // DailyDistribution_JSON
+    var distRaw = groupRecord.DailyDistribution_JSON || (groupRecord.records && groupRecord.records[0] && groupRecord.records[0].DailyDistribution_JSON);
+    if (distRaw && targetIso) {
+      try {
+        var dist = typeof distRaw === "string" ? JSON.parse(distRaw) : distRaw;
+        if (dist && dist[targetIso]) {
+          var dp = parseInt(dist[targetIso].pax || dist[targetIso].pax_adultos || 0, 10);
+          if (dp > 0) return dp;
+        }
+      } catch (e) {}
+    }
+
+    // Fallback: globalPax
+    var globalPax = parseInt(groupRecord.totalPax || groupRecord["Pax."] || groupRecord.pax || groupRecord.Pax || groupRecord.comensales || 0, 10);
+    if (globalPax > 0) return globalPax;
+
+    if (cleanRL.length > 0) {
+      var occByDay = {};
+      cleanRL.forEach(function (rm) {
+        if (!rm || rm.isService) return;
+        var d = toIsoDate(rm.dateIn || rm.date || rm.fecha);
+        var n = parseInt(rm.nights, 10) || 1;
+        var q = parseInt(rm.qty, 10) || 1;
+        var px = parseInt(rm.pax, 10) || getPaxPerRoomType(rm.type || rm.roomType);
+        if (!d) return;
+        for (var i = 0; i < n; i++) {
+          var cur = new Date(d + "T12:00:00");
+          cur.setDate(cur.getDate() + i);
+          var k = cur.toISOString().split("T")[0];
+          occByDay[k] = (occByDay[k] || 0) + (q * px);
+        }
+      });
+      var maxO = 0;
+      Object.keys(occByDay).forEach(function (k) {
+        if (occByDay[k] > maxO) maxO = occByDay[k];
+      });
+      if (maxO > 0) return maxO;
+    }
+
+    return 1;
+  }
+
+  function syncMealSchedulePax(scheduleRows, groupRecord) {
+    if (!Array.isArray(scheduleRows) || !scheduleRows.length || !groupRecord) return scheduleRows;
+    return scheduleRows.map(function (row) {
+      var targetPax = getDailyPaxForGroup(groupRecord, row.fecha);
+      return Object.assign({}, row, { pax: targetPax });
+    });
+  }
+
   function getAutomaticMealDocuments(groupRecord) {
     var copy = Object.assign({}, groupRecord, {MealSchedule_JSON: null});
     if (copy.records) copy.records = copy.records.map(function (record) { return Object.assign({}, record, {MealSchedule_JSON: null}); });
@@ -1546,6 +1645,8 @@
     extractRegisteredHour: extractRegisteredHour,
     applyServiceOrderDetails: applyServiceOrderDetails,
     getMealSchedule: getMealSchedule,
+    getDailyPaxForGroup: getDailyPaxForGroup,
+    syncMealSchedulePax: syncMealSchedulePax,
     getAutomaticMealDocuments: getAutomaticMealDocuments,
     prepareSalonDocuments: prepareSalonDocuments,
     syncGroupToMesachef: syncGroupToMesachef,

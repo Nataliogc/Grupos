@@ -1012,17 +1012,51 @@
       const record = {...(group.records?.[0] || {}), Reserva:group.id,
         Entrada:group.arrival || group.records?.[0]?.Entrada,
         Salida:group.departure || group.records?.[0]?.Salida,
-        Hotel_Asignado:group.hotel || group.records?.[0]?.Hotel_Asignado};
+        Hotel_Asignado:group.hotel || group.records?.[0]?.Hotel_Asignado,
+        totalPax:group.totalPax,
+        RoomingList_JSON:group.RoomingList_JSON || group.records?.[0]?.RoomingList_JSON,
+        DailyDistribution_JSON:group.DailyDistribution_JSON || group.records?.[0]?.DailyDistribution_JSON};
       const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos}));
+
+      const getTargetPax = (fecha) => {
+        if (service?.getDailyPaxForGroup) return service.getDailyPaxForGroup(record, fecha);
+        return group.totalPax || parseInt(record["Pax."] || 0, 10) || 1;
+      };
+
+      const syncAllRowsPax = (sourceRows) => {
+        const list = sourceRows || rows;
+        return list.map(r => ({ ...r, pax: getTargetPax(r.fecha) }));
+      };
+
       const begin = () => {
         try {
           if (!service?.getMealSchedule || !service?.getAutomaticMealDocuments) throw new Error("Recarga la página para cargar la programación de comidas actualizada.");
           const defaults = automatic();
-          setIncluded(defaults.reduce((sum,r)=>sum+r.pax,0));
-          setRows(service.getMealSchedule(record) ?? defaults);
+          const totalInc = defaults.reduce((sum,r)=>sum+r.pax,0);
+          setIncluded(totalInc);
+          const savedSchedule = service.getMealSchedule(record);
+          if (savedSchedule && savedSchedule.length > 0) {
+            setRows(syncAllRowsPax(savedSchedule));
+          } else {
+            setRows(defaults);
+          }
           setError(""); setOpen(true);
         } catch (e) { setError(e.message); }
       };
+
+      React.useEffect(() => {
+        if (!open) return;
+        try {
+          const defaults = automatic();
+          const totalInc = defaults.reduce((sum,r)=>sum+r.pax,0);
+          setIncluded(totalInc);
+          setRows(prev => {
+            if (!prev || prev.length === 0) return prev;
+            return syncAllRowsPax(prev);
+          });
+        } catch (e) {}
+      }, [group.totalPax, record.RoomingList_JSON, record.DailyDistribution_JSON]);
+
       const change = (index, field, value) => setRows(prev=>prev.map((r,i)=>i===index?{...r,[field]:value}:r));
       const planned = rows.reduce((sum,r)=>sum+(Number(r.pax)||0),0);
       const save = async (automaticMode = false) => {
@@ -1059,8 +1093,9 @@
               <td><button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600">Eliminar</button></td>
             </tr>)}
           </tbody></table>
-          <div className="flex flex-wrap gap-3">
-            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:group.totalPax || 1}])} className="text-blue-700 text-xs font-bold">+ Añadir comida</button>
+          <div className="flex flex-wrap gap-3 items-center">
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:getTargetPax(record.Entrada)}])} className="text-blue-700 text-xs font-bold">+ Añadir comida</button>
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>syncAllRowsPax(prev))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Sincronizar comensales de todas las comidas con las personas del grupo">🔄 Sincronizar comensales ({getTargetPax(record.Entrada)} pax)</button>
             <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 text-white rounded px-3 py-2 text-xs font-bold">{saving?"Guardando…":"Guardar programación"}</button>
             <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600">Usar programación automática</button>
             <button type="button" disabled={saving} onClick={()=>{setOpen(false);setError("");}} className="text-xs text-slate-600">Cancelar</button>
@@ -12726,6 +12761,29 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
         }
 
+        // Sincronizar automáticamente MealSchedule_JSON cuando cambian las habitaciones o el pax del grupo
+        const rawMealSched = updates.MealSchedule_JSON !== undefined ? updates.MealSchedule_JSON : currentGroupRows[0]?.MealSchedule_JSON;
+        if (rawMealSched && updates.RoomingList_JSON && !Object.prototype.hasOwnProperty.call(fieldOrUpdates, "MealSchedule_JSON")) {
+          try {
+            const parsedSched = typeof rawMealSched === "string" ? JSON.parse(rawMealSched) : rawMealSched;
+            if (Array.isArray(parsedSched) && parsedSched.length > 0) {
+              const firstRow = currentGroupRows[0] || {};
+              const tempRecord = { ...firstRow, ...updates };
+              const service = window.MesaChefService;
+              if (service && typeof service.syncMealSchedulePax === "function") {
+                updates.MealSchedule_JSON = JSON.stringify(service.syncMealSchedulePax(parsedSched, tempRecord));
+              } else if (service && typeof service.getDailyPaxForGroup === "function") {
+                updates.MealSchedule_JSON = JSON.stringify(parsedSched.map(r => ({
+                  ...r,
+                  pax: service.getDailyPaxForGroup(tempRecord, r.fecha)
+                })));
+              }
+            }
+          } catch (mealErr) {
+            console.error("Error auto-syncing MealSchedule_JSON in updateGroupMetadata:", mealErr);
+          }
+        }
+
         // 1. Optimistic UI Update
         setData((prevData) => {
 
@@ -12825,6 +12883,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             ...(updates.RoomingList_JSON ? { RoomingList_JSON: updates.RoomingList_JSON } : {}),
 
             ...(updates.DailyDistribution_JSON ? { DailyDistribution_JSON: updates.DailyDistribution_JSON } : {}),
+
+            ...(updates.MealSchedule_JSON !== undefined ? { MealSchedule_JSON: updates.MealSchedule_JSON } : {}),
 
             records: updatedRecords,
 
@@ -23247,7 +23307,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                 {/* Lista de incidencias */}
                                 <div className="px-4 pb-3 bg-white">
-                            <GroupMealPlanner key={selectedGroupFicha.id} group={selectedGroupFicha} onSave={async (value) => {
+                            <GroupMealPlanner key={`${selectedGroupFicha.id}_${selectedGroupFicha.totalPax || ''}`} group={selectedGroupFicha} onSave={async (value) => {
                               const result = await updateGroupMetadata(selectedGroupFicha.id, {MealSchedule_JSON:value});
                               if (!result?.success) throw new Error("La programación se ha guardado, pero MesaChef no ha podido sincronizarla. Vuelve a guardar para reintentarlo.");
                             }} />
@@ -26435,6 +26495,22 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     };
                                     if (firstValidRegime) {
                                       savePayload["Régimen"] = firstValidRegime;
+                                    }
+                                    if (currentRec.MealSchedule_JSON) {
+                                      try {
+                                        const parsedSched = typeof currentRec.MealSchedule_JSON === "string" ? JSON.parse(currentRec.MealSchedule_JSON) : currentRec.MealSchedule_JSON;
+                                        if (Array.isArray(parsedSched) && parsedSched.length > 0) {
+                                          const tempRec = { ...currentRec, ...savePayload };
+                                          const service = window.MesaChefService;
+                                          if (service && typeof service.syncMealSchedulePax === "function") {
+                                            savePayload.MealSchedule_JSON = JSON.stringify(service.syncMealSchedulePax(parsedSched, tempRec));
+                                          } else if (service && typeof service.getDailyPaxForGroup === "function") {
+                                            savePayload.MealSchedule_JSON = JSON.stringify(parsedSched.map(r => ({ ...r, pax: service.getDailyPaxForGroup(tempRec, r.fecha) })));
+                                          }
+                                        }
+                                      } catch (mErr) {
+                                        console.error("Error syncing MealSchedule_JSON in Grabar Cambios:", mErr);
+                                      }
                                     }
                                     await updateGroupMetadata(selectedGroupFicha.id, savePayload);
 
