@@ -771,6 +771,44 @@
     var yStr = String(year);
     var hotelKeyTitle = hNorm === "cumbria" ? "Cumbria" : "Guadiana";
 
+    // Presupuestos Oficiales Aprobados 2027 (Fuente de verdad oficial de CapaSuite y Dirección)
+    if (Number(year) === 2027) {
+      if (hNorm === "guadiana") {
+        return {
+          1:  { revenue: 24512.16, rooms: 437, pax: 874, adr: 56.09, isOfficial: true },
+          2:  { revenue: 29462.60, rooms: 534, pax: 1068, adr: 55.17, isOfficial: true },
+          3:  { revenue: 42198.43, rooms: 657, pax: 1314, adr: 64.23, isOfficial: true },
+          4:  { revenue: 51179.24, rooms: 937, pax: 1874, adr: 54.62, isOfficial: true },
+          5:  { revenue: 69393.34, rooms: 957, pax: 1914, adr: 72.51, isOfficial: true },
+          6:  { revenue: 49167.52, rooms: 752, pax: 1504, adr: 65.38, isOfficial: true },
+          7:  { revenue: 40305.35, rooms: 665, pax: 1330, adr: 60.61, isOfficial: true },
+          8:  { revenue: 52257.04, rooms: 849, pax: 1698, adr: 61.55, isOfficial: true },
+          9:  { revenue: 52054.35, rooms: 885, pax: 1770, adr: 58.82, isOfficial: true },
+          10: { revenue: 60038.64, rooms: 991, pax: 1982, adr: 60.58, isOfficial: true },
+          11: { revenue: 39278.40, rooms: 713, pax: 1426, adr: 55.09, isOfficial: true },
+          12: { revenue: 34979.93, rooms: 603, pax: 1206, adr: 58.01, isOfficial: true }
+        };
+      } else {
+        return {
+          1:  { revenue: 3975.00, rooms: 75, pax: 150, adr: 53.00, isOfficial: true },
+          2:  { revenue: 3975.00, rooms: 75, pax: 150, adr: 53.00, isOfficial: true },
+          3:  { revenue: 4400.00, rooms: 80, pax: 160, adr: 55.00, isOfficial: true },
+          4:  { revenue: 4500.00, rooms: 75, pax: 150, adr: 60.00, isOfficial: true },
+          5:  { revenue: 4810.00, rooms: 65, pax: 130, adr: 74.00, isOfficial: true },
+          6:  { revenue: 4760.00, rooms: 85, pax: 170, adr: 56.00, isOfficial: true },
+          7:  { revenue: 5580.00, rooms: 90, pax: 180, adr: 62.00, isOfficial: true },
+          8:  { revenue: 5130.00, rooms: 90, pax: 180, adr: 57.00, isOfficial: true },
+          9:  { revenue: 5015.00, rooms: 85, pax: 170, adr: 59.00, isOfficial: true },
+          10: { revenue: 4550.00, rooms: 70, pax: 140, adr: 65.00, isOfficial: true },
+          11: { revenue: 5225.00, rooms: 95, pax: 190, adr: 55.00, isOfficial: true },
+          12: { revenue: 4640.00, rooms: 80, pax: 160, adr: 58.00, isOfficial: true }
+        };
+      }
+    }
+    var hNorm = normalizeHotelKey(hotel);
+    var yStr = String(year);
+    var hotelKeyTitle = hNorm === "cumbria" ? "Cumbria" : "Guadiana";
+
     // 1. PRIMERA PRIORIDAD: Comprobar si existe un objetivo oficial de Grupos fijado/sincronizado desde CapaSuite
     var nexusTargetKeys = [
       "nexus_target_" + hNorm + "_" + yStr,

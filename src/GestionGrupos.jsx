@@ -2817,14 +2817,7 @@
                       <tr className="bg-slate-100/75 text-slate-600 font-bold border-b border-slate-200">
                         <th className="p-3">Mes</th>
                         <th className="p-3 text-center">Estado</th>
-                        <th className="p-3 text-center">
-                          <div className="font-extrabold text-slate-700 text-xs">Reservas</div>
-                          <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
-                            <span className="text-slate-800 bg-slate-200/90 px-1.5 py-0.5 rounded shadow-2xs uppercase">Real</span>
-                            <span className="text-slate-400">/</span>
-                            <span className="text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded shadow-2xs uppercase">Obj</span>
-                          </div>
-                        </th>
+                        
                         <th className="p-3 text-center">
                           <div className="font-extrabold text-slate-700 text-xs">Hab-Noches</div>
                           <div className="inline-flex items-center justify-center gap-1 mt-1 text-[9px] font-black tracking-wider">
@@ -2904,19 +2897,7 @@
                                   </span>
                                 )}
                               </td>
-                              <td className="p-3 text-center tabular-nums">
-                                <div className="inline-flex items-center justify-center gap-1.5">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Reservas Reales: ${row.real.reservas}`}>
-                                    <span>{row.real.reservas}</span>
-                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
-                                  </span>
-                                  <span className="text-slate-300 font-bold">/</span>
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Objetivo CapaSuite: ${row.target.reservas}`}>
-                                    <span>{row.target.reservas}</span>
-                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
-                                  </span>
-                                </div>
-                              </td>
+                              
                               <td className="p-3 text-center tabular-nums">
                                 <div className="inline-flex items-center justify-center gap-1.5">
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Hab-Noches Reales: ${row.real.roomNights}`}>
@@ -2996,19 +2977,7 @@
                           <td className="p-3 text-center">
                             <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">Auditado</span>
                           </td>
-                          <td className="p-3 text-center tabular-nums">
-                            <div className="inline-flex items-center justify-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                                <span>{periodMetrics.closed.reservasReal}</span>
-                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
-                              </span>
-                              <span className="text-slate-400 font-bold">/</span>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                                <span>{periodMetrics.closed.reservasTarget}</span>
-                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
-                              </span>
-                            </div>
-                          </td>
+                          
                           <td className="p-3 text-center tabular-nums">
                             <div className="inline-flex items-center justify-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
@@ -3073,19 +3042,7 @@
                           <td className="p-3 text-center">
                             <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded">En Libros</span>
                           </td>
-                          <td className="p-3 text-center tabular-nums">
-                            <div className="inline-flex items-center justify-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                                <span>{periodMetrics.current.reservasReal + periodMetrics.open.reservasReal}</span>
-                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
-                              </span>
-                              <span className="text-slate-400 font-bold">/</span>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                                <span>{periodMetrics.current.reservasTarget + periodMetrics.open.reservasTarget}</span>
-                                <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
-                              </span>
-                            </div>
-                          </td>
+                          
                           <td className="p-3 text-center tabular-nums">
                             <div className="inline-flex items-center justify-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
@@ -3175,19 +3132,7 @@
                             {officialDoc ? "Oficial" : "Base"}
                           </span>
                         </td>
-                        <td className="p-3 text-center tabular-nums">
-                          <div className="inline-flex items-center justify-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                              <span>{comparison.totals.real.reservas}</span>
-                              <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
-                            </span>
-                            <span className="text-slate-400 font-bold">/</span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                              <span>{comparison.totals.target.reservas}</span>
-                              <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
-                            </span>
-                          </div>
-                        </td>
+                        
                         <td className="p-3 text-center tabular-nums">
                           <div className="inline-flex items-center justify-center gap-1.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
