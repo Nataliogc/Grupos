@@ -1599,6 +1599,23 @@
         }
       };
 
+      // Formateadores numéricos con separador estricto de miles (ej: 1.000,00 € / 3.975,00 €)
+      const formatMoney = (n) => {
+        if (n === null || n === undefined || isNaN(n)) return "0,00 €";
+        const num = Number(n);
+        const sign = num < 0 ? "-" : "";
+        const parts = Math.abs(num).toFixed(2).split(".");
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return sign + parts.join(",") + " €";
+      };
+
+      const formatInt = (n) => {
+        if (n === null || n === undefined || isNaN(n)) return "0";
+        const num = Math.round(Number(n));
+        const sign = num < 0 ? "-" : "";
+        return sign + Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      };
+
       // Catálogo de tarifas local y editable
       const [tariffsCatalog, setTariffsCatalog] = useState(() => {
         let initial = {};
@@ -1665,7 +1682,14 @@
             if (raw) {
               const parsed = JSON.parse(raw);
               if (parsed && (parsed.monthly || parsed.overall)) {
-                return parsed;
+                // Si es Guadiana 2027 y el documento en caché tiene el objetivo histórico no actualizado (< 20000€ en enero), omitir para cargar el oficial
+                const m1Rev = parsed.monthly && (parsed.monthly[1] || parsed.monthly["1"]);
+                const m1Val = m1Rev ? Number(m1Rev.revenue || m1Rev.targetRevenue || 0) : 0;
+                if (Number(year) === 2027 && hKey === "guadiana" && m1Val > 0 && m1Val < 20000) {
+                  // ignorar documento en caché desactualizado
+                } else {
+                  return parsed;
+                }
               }
             }
           } catch(e) {}
@@ -1836,7 +1860,7 @@
             const cm = capaDoc.monthly[m] || {};
             let rev = Math.max(0, Number(cm.revenue !== undefined ? cm.revenue : (cm.targetRevenue || 0)));
             let rn = Math.max(0, Number(cm.rooms !== undefined ? cm.rooms : (cm.targetRoomNights || 0)));
-            if (rev <= 0 && Number(targetYear) === 2027 && gts && typeof gts.getCapaSuiteGroupData === "function") {
+            if ((rev <= 0 || (Number(targetYear) === 2027 && currentHotelKey === "guadiana" && m === 1 && rev < 20000)) && Number(targetYear) === 2027 && gts && typeof gts.getCapaSuiteGroupData === "function") {
               const defaultTargets = gts.getCapaSuiteGroupData(targetHotel, 2027);
               if (defaultTargets && defaultTargets[m]) {
                 rev = Math.max(0, Number(defaultTargets[m].revenue || 0));
@@ -2544,10 +2568,10 @@
                 </div>
                 <div className="my-2">
                   <div className="text-2xl font-black text-slate-900">
-                    {generatedTarget.overall.targetRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    {formatMoney(generatedTarget.overall.targetRevenue)}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    Histórico Base ({targetYear - 1}): {histData.overall.totalRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    Histórico Base ({targetYear - 1}): {formatMoney(histData.overall.totalRevenue)}
                   </div>
                 </div>
                 <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
@@ -2560,14 +2584,14 @@
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Habitaciones-Noche</span>
                 <div className="my-2">
                   <div className="text-2xl font-black text-slate-900">
-                    {generatedTarget.overall.targetRoomNights.toLocaleString("es-ES")}
+                    {formatInt(generatedTarget.overall.targetRoomNights)}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     Ind: {generatedTarget.overall.byCategory.individual} · Dbl: {generatedTarget.overall.byCategory.doble} · Tpl: {generatedTarget.overall.byCategory.triple} {targetHotel !== "cumbria" ? "· Cua: " + generatedTarget.overall.byCategory.cuadruple : ""}
                   </div>
                 </div>
                 <div className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg w-fit">
-                  Promedio: {Math.round(generatedTarget.overall.targetRoomNights / 12)} hab/mes
+                  Promedio: {formatInt(Math.round(generatedTarget.overall.targetRoomNights / 12))} hab/mes
                 </div>
               </div>
 
@@ -2576,7 +2600,7 @@
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Precio Medio (ADR)</span>
                 <div className="my-2">
                   <div className="text-2xl font-black text-slate-900">
-                    {(generatedTarget.overall.adr || (generatedTarget.overall.targetRoomNights > 0 ? (generatedTarget.overall.targetRevenue / generatedTarget.overall.targetRoomNights) : 75)).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    {formatMoney(generatedTarget.overall.adr || (generatedTarget.overall.targetRoomNights > 0 ? (generatedTarget.overall.targetRevenue / generatedTarget.overall.targetRoomNights) : 75))}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     Tarifa media objetivo asignada
@@ -2592,10 +2616,10 @@
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Personas (Pax) / Estado</span>
                 <div className="my-2">
                   <div className="text-2xl font-black text-slate-900">
-                    {generatedTarget.overall.targetPax.toLocaleString("es-ES")} pax
+                    {formatInt(generatedTarget.overall.targetPax)} pax
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    Pernoctaciones: {generatedTarget.overall.targetPernoctaciones.toLocaleString("es-ES")}
+                    Pernoctaciones: {formatInt(generatedTarget.overall.targetPernoctaciones)}
                   </div>
                 </div>
                 <div className="text-[10px] font-bold px-2 py-1 rounded-lg w-fit bg-emerald-100 text-emerald-800">
@@ -2654,10 +2678,10 @@
                     </div>
                     <div className="space-y-1">
                       <div className="text-2xl font-black tabular-nums tracking-tight">
-                        {periodMetrics.closed.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        {formatMoney(periodMetrics.closed.revenueReal)}
                       </div>
                       <div className="text-xs text-slate-400 font-medium">
-                        Obj: {periodMetrics.closed.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        Obj: {formatMoney(periodMetrics.closed.revenueTarget)}
                       </div>
                     </div>
                   </div>
@@ -2665,13 +2689,13 @@
                     <div>
                       <span className="text-[10px] text-slate-400 block font-semibold">Desvío neto</span>
                       <span className={`font-black ${periodMetrics.closed.diffRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {periodMetrics.closed.diffRevenue >= 0 ? "+" : ""}{periodMetrics.closed.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.closed.diffPercent >= 0 ? "+" : ""}{periodMetrics.closed.diffPercent.toFixed(1)}%)
+                        {(periodMetrics.closed.diffRevenue >= 0 ? "+" : "") + formatMoney(periodMetrics.closed.diffRevenue)} ({periodMetrics.closed.diffPercent >= 0 ? "+" : ""}{periodMetrics.closed.diffPercent.toFixed(1)}%)
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400 block font-semibold">ADR Cerrado</span>
                       <span className="font-black text-slate-200">
-                        {periodMetrics.closed.adrReal > 0 ? `${periodMetrics.closed.adrReal.toFixed(2)} €/hab` : "—"}
+                        {periodMetrics.closed.adrReal > 0 ? `${formatMoney(periodMetrics.closed.adrReal).replace(' €', '')} €/hab` : "—"}
                       </span>
                     </div>
                   </div>
@@ -2690,10 +2714,10 @@
                     </div>
                     <div className="space-y-1">
                       <div className="text-2xl font-black text-slate-900 tabular-nums tracking-tight">
-                        {periodMetrics.current.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        {formatMoney(periodMetrics.current.revenueReal)}
                       </div>
                       <div className="text-xs text-slate-500 font-medium">
-                        Obj: {periodMetrics.current.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        Obj: {formatMoney(periodMetrics.current.revenueTarget)}
                       </div>
                     </div>
                   </div>
@@ -2701,13 +2725,13 @@
                     <div>
                       <span className="text-[10px] text-slate-400 block font-semibold">Desvío / Faltante</span>
                       <span className={`font-black ${periodMetrics.current.diffRevenue >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                        {periodMetrics.current.diffRevenue >= 0 ? "+" : ""}{periodMetrics.current.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.current.diffPercent >= 0 ? "+" : ""}{periodMetrics.current.diffPercent.toFixed(1)}%)
+                        {(periodMetrics.current.diffRevenue >= 0 ? "+" : "") + formatMoney(periodMetrics.current.diffRevenue)} ({periodMetrics.current.diffPercent >= 0 ? "+" : ""}{periodMetrics.current.diffPercent.toFixed(1)}%)
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400 block font-semibold">ADR Mes</span>
                       <span className="font-black text-indigo-700">
-                        {periodMetrics.current.adrReal > 0 ? `${periodMetrics.current.adrReal.toFixed(2)} €/hab` : "—"}
+                        {periodMetrics.current.adrReal > 0 ? `${formatMoney(periodMetrics.current.adrReal).replace(' €', '')} €/hab` : "—"}
                       </span>
                     </div>
                   </div>
@@ -2726,10 +2750,10 @@
                     </div>
                     <div className="space-y-1">
                       <div className="text-2xl font-black text-indigo-950 tabular-nums tracking-tight">
-                        {periodMetrics.open.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        {formatMoney(periodMetrics.open.revenueReal)}
                       </div>
                       <div className="text-xs text-slate-500 font-medium">
-                        Obj: {periodMetrics.open.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        Obj: {formatMoney(periodMetrics.open.revenueTarget)}
                       </div>
                     </div>
                   </div>
@@ -2737,13 +2761,13 @@
                     <div>
                       <span className="text-[10px] text-slate-400 block font-semibold">Brecha / Faltante</span>
                       <span className={`font-black ${periodMetrics.open.diffRevenue >= 0 ? "text-emerald-600" : "text-amber-600"}`}>
-                        {periodMetrics.open.diffRevenue >= 0 ? "+" : ""}{periodMetrics.open.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.open.diffPercent >= 0 ? "+" : ""}{periodMetrics.open.diffPercent.toFixed(1)}%)
+                        {(periodMetrics.open.diffRevenue >= 0 ? "+" : "") + formatMoney(periodMetrics.open.diffRevenue)} ({periodMetrics.open.diffPercent >= 0 ? "+" : ""}{periodMetrics.open.diffPercent.toFixed(1)}%)
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-400 block font-semibold">ADR Cartera</span>
                       <span className="font-black text-indigo-700">
-                        {periodMetrics.open.adrReal > 0 ? `${periodMetrics.open.adrReal.toFixed(2)} €/hab` : "—"}
+                        {periodMetrics.open.adrReal > 0 ? `${formatMoney(periodMetrics.open.adrReal).replace(' €', '')} €/hab` : "—"}
                       </span>
                     </div>
                   </div>
@@ -2762,10 +2786,10 @@
                     </div>
                     <div className="space-y-1">
                       <div className="text-2xl font-black tabular-nums tracking-tight">
-                        {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        {formatMoney(comparison.totals.real.revenue)}
                       </div>
                       <div className="text-xs text-indigo-200 font-medium">
-                        Obj: {comparison.totals.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        Obj: {formatMoney(comparison.totals.target.revenue)}
                       </div>
                     </div>
                   </div>
@@ -2773,13 +2797,13 @@
                     <div>
                       <span className="text-[10px] text-indigo-200 block font-semibold">Desvío Global</span>
                       <span className={`font-black ${periodMetrics.totals.diffRevenue >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                        {periodMetrics.totals.diffRevenue >= 0 ? "+" : ""}{periodMetrics.totals.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ({periodMetrics.totals.diffPercent >= 0 ? "+" : ""}{periodMetrics.totals.diffPercent.toFixed(1)}%)
+                        {(periodMetrics.totals.diffRevenue >= 0 ? "+" : "") + formatMoney(periodMetrics.totals.diffRevenue)} ({periodMetrics.totals.diffPercent >= 0 ? "+" : ""}{periodMetrics.totals.diffPercent.toFixed(1)}%)
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-indigo-200 block font-semibold">ADR Medio Real</span>
                       <span className="font-black text-white">
-                        {periodMetrics.totals.adrReal > 0 ? `${periodMetrics.totals.adrReal.toFixed(2)} €/hab` : "—"}
+                        {periodMetrics.totals.adrReal > 0 ? `${formatMoney(periodMetrics.totals.adrReal).replace(' €', '')} €/hab` : "—"}
                       </span>
                     </div>
                   </div>
@@ -2943,12 +2967,12 @@
                               <td className="p-3 text-center tabular-nums">
                                 <div className="inline-flex items-center justify-center gap-1.5">
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Hab-Noches Reales: ${row.real.roomNights}`}>
-                                    <span>{row.real.roomNights}</span>
+                                    <span>{formatInt(row.real.roomNights)}</span>
                                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
                                   </span>
                                   <span className="text-slate-300 font-bold">/</span>
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Objetivo CapaSuite: ${row.target.roomNights}`}>
-                                    <span>{row.target.roomNights}</span>
+                                    <span>{formatInt(row.target.roomNights)}</span>
                                     <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
                                   </span>
                                 </div>
@@ -2956,12 +2980,12 @@
                               <td className="p-3 text-center tabular-nums">
                                 <div className="inline-flex items-center justify-center gap-1.5">
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold text-xs" title={`Pax Reales: ${row.real.pax}`}>
-                                    <span>{row.real.pax}</span>
+                                    <span>{formatInt(row.real.pax)}</span>
                                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
                                   </span>
                                   <span className="text-slate-300 font-bold">/</span>
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold text-xs" title={`Objetivo CapaSuite: ${row.target.pax}`}>
-                                    <span>{row.target.pax}</span>
+                                    <span>{formatInt(row.target.pax)}</span>
                                     <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
                                   </span>
                                 </div>
@@ -2970,31 +2994,31 @@
                                 <div className="flex flex-col items-center gap-0.5">
                                   <div className="inline-flex items-center justify-center gap-1.5 text-xs tabular-nums">
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/90 border border-slate-200/80 text-slate-900 font-extrabold" title="ADR Real">
-                                      <span>{adrReal > 0 ? `${adrReal.toFixed(2)} €` : "—"}</span>
+                                      <span>{adrReal > 0 ? formatMoney(adrReal) : "—"}</span>
                                       <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">real</span>
                                     </span>
                                     <span className="text-slate-300 font-bold">/</span>
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold" title="ADR Objetivo">
-                                      <span>{adrTarget > 0 ? `${adrTarget.toFixed(2)} €` : "—"}</span>
+                                      <span>{adrTarget > 0 ? formatMoney(adrTarget) : "—"}</span>
                                       <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">obj</span>
                                     </span>
                                   </div>
                                   {adrDiff != null && adrReal > 0 && adrTarget > 0 && (
                                     <span className={"text-[10px] font-bold mt-0.5 " + (adrDiff >= 0 ? "text-emerald-600" : "text-rose-500")}>
-                                      {adrDiff >= 0 ? "+" : ""}{adrDiff.toFixed(2)} €/hab
+                                      {(adrDiff >= 0 ? "+" : "") + formatMoney(adrDiff).replace(' €', '')} €/hab
                                     </span>
                                   )}
                                 </div>
                               </td>
                               <td className="p-3 text-right font-bold text-slate-900 tabular-nums">
-                                {row.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                {formatMoney(row.real.revenue)}
                               </td>
                               <td className="p-3 text-right text-indigo-700 font-bold tabular-nums">
-                                {row.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                {formatMoney(row.target.revenue)}
                               </td>
                               <td className={"p-3 text-right font-black tabular-nums " + (isPositive ? "text-emerald-600" : "text-rose-600")}>
                                 <div>
-                                  {isPositive ? "+" : ""}{diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                                  {(isPositive ? "+" : "") + formatMoney(diff)}
                                 </div>
                                 {desvioPct != null && row.target.revenue > 0 && (
                                   <div className="text-[10px] font-bold opacity-80">
