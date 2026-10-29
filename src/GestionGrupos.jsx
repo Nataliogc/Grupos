@@ -3047,12 +3047,12 @@
                           <td className="p-3 text-center tabular-nums">
                             <div className="inline-flex items-center justify-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                                <span>{periodMetrics.closed.roomNightsReal}</span>
+                                <span>{formatInt(periodMetrics.closed.roomNightsReal)}</span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                               </span>
                               <span className="text-slate-400 font-bold">/</span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                                <span>{periodMetrics.closed.roomNightsTarget}</span>
+                                <span>{formatInt(periodMetrics.closed.roomNightsTarget)}</span>
                                 <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                               </span>
                             </div>
@@ -3060,12 +3060,12 @@
                           <td className="p-3 text-center tabular-nums">
                             <div className="inline-flex items-center justify-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                                <span>{periodMetrics.closed.paxReal}</span>
+                                <span>{formatInt(periodMetrics.closed.paxReal)}</span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                               </span>
                               <span className="text-slate-400 font-bold">/</span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                                <span>{periodMetrics.closed.paxTarget}</span>
+                                <span>{formatInt(periodMetrics.closed.paxTarget)}</span>
                                 <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                               </span>
                             </div>
@@ -3073,24 +3073,24 @@
                           <td className="p-3 text-center tabular-nums">
                             <div className="inline-flex items-center justify-center gap-1.5 text-xs">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold">
-                                <span>{periodMetrics.closed.adrReal.toFixed(2)} €</span>
+                                <span>{periodMetrics.closed.adrReal > 0 ? formatMoney(periodMetrics.closed.adrReal) : "—"}</span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                               </span>
                               <span className="text-slate-400 font-bold">/</span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold">
-                                <span>{periodMetrics.closed.adrTarget.toFixed(2)} €</span>
+                                <span>{periodMetrics.closed.adrTarget > 0 ? formatMoney(periodMetrics.closed.adrTarget) : "—"}</span>
                                 <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                               </span>
                             </div>
                           </td>
                           <td className="p-3 text-right tabular-nums">
-                            {periodMetrics.closed.revenueReal.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                            {formatMoney(periodMetrics.closed.revenueReal)}
                           </td>
                           <td className="p-3 text-right text-indigo-700 tabular-nums">
-                            {periodMetrics.closed.revenueTarget.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                            {formatMoney(periodMetrics.closed.revenueTarget)}
                           </td>
                           <td className={"p-3 text-right tabular-nums " + (periodMetrics.closed.diffRevenue >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                            <div>{periodMetrics.closed.diffRevenue >= 0 ? "+" : ""}{periodMetrics.closed.diffRevenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                            <div>{(periodMetrics.closed.diffRevenue >= 0 ? "+" : "") + formatMoney(periodMetrics.closed.diffRevenue)}</div>
                             <div className="text-[10px] font-bold opacity-80">({periodMetrics.closed.diffPercent >= 0 ? "+" : ""}{periodMetrics.closed.diffPercent.toFixed(1)}%)</div>
                           </td>
                           <td className="p-3 text-center">
@@ -3112,12 +3112,12 @@
                           <td className="p-3 text-center tabular-nums">
                             <div className="inline-flex items-center justify-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                                <span>{periodMetrics.current.roomNightsReal + periodMetrics.open.roomNightsReal}</span>
+                                <span>{formatInt(periodMetrics.current.roomNightsReal + periodMetrics.open.roomNightsReal)}</span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                               </span>
                               <span className="text-slate-400 font-bold">/</span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                                <span>{periodMetrics.current.roomNightsTarget + periodMetrics.open.roomNightsTarget}</span>
+                                <span>{formatInt(periodMetrics.current.roomNightsTarget + periodMetrics.open.roomNightsTarget)}</span>
                                 <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                               </span>
                             </div>
@@ -3125,12 +3125,12 @@
                           <td className="p-3 text-center tabular-nums">
                             <div className="inline-flex items-center justify-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                                <span>{periodMetrics.current.paxReal + periodMetrics.open.paxReal}</span>
+                                <span>{formatInt(periodMetrics.current.paxReal + periodMetrics.open.paxReal)}</span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                               </span>
                               <span className="text-slate-400 font-bold">/</span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                                <span>{periodMetrics.current.paxTarget + periodMetrics.open.paxTarget}</span>
+                                <span>{formatInt(periodMetrics.current.paxTarget + periodMetrics.open.paxTarget)}</span>
                                 <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                               </span>
                             </div>
@@ -3146,12 +3146,12 @@
                               return (
                                 <div className="inline-flex items-center justify-center gap-1.5 text-xs">
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold">
-                                    <span>{adrR.toFixed(2)} €</span>
+                                    <span>{adrR > 0 ? formatMoney(adrR) : "—"}</span>
                                     <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                                   </span>
                                   <span className="text-slate-400 font-bold">/</span>
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold">
-                                    <span>{adrT.toFixed(2)} €</span>
+                                    <span>{adrT > 0 ? formatMoney(adrT) : "—"}</span>
                                     <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                                   </span>
                                 </div>
@@ -3159,13 +3159,13 @@
                             })()}
                           </td>
                           <td className="p-3 text-right tabular-nums">
-                            {(periodMetrics.current.revenueReal + periodMetrics.open.revenueReal).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                            {formatMoney(periodMetrics.current.revenueReal + periodMetrics.open.revenueReal)}
                           </td>
                           <td className="p-3 text-right text-indigo-700 tabular-nums">
-                            {(periodMetrics.current.revenueTarget + periodMetrics.open.revenueTarget).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                            {formatMoney(periodMetrics.current.revenueTarget + periodMetrics.open.revenueTarget)}
                           </td>
                           <td className={"p-3 text-right tabular-nums " + ((periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue) >= 0 ? "text-emerald-600" : "text-amber-600")}>
-                            <div>{(periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue) >= 0 ? "+" : ""}{(periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                            <div>{((periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue) >= 0 ? "+" : "") + formatMoney(periodMetrics.current.diffRevenue + periodMetrics.open.diffRevenue)}</div>
                             <div className="text-[10px] font-bold opacity-80">
                               {(() => {
                                 const tRev = periodMetrics.current.revenueTarget + periodMetrics.open.revenueTarget;
@@ -3202,12 +3202,12 @@
                         <td className="p-3 text-center tabular-nums">
                           <div className="inline-flex items-center justify-center gap-1.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                              <span>{comparison.totals.real.roomNights}</span>
+                              <span>{formatInt(comparison.totals.real.roomNights)}</span>
                               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                             </span>
                             <span className="text-slate-400 font-bold">/</span>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                              <span>{comparison.totals.target.roomNights}</span>
+                              <span>{formatInt(comparison.totals.target.roomNights)}</span>
                               <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                             </span>
                           </div>
@@ -3215,12 +3215,12 @@
                         <td className="p-3 text-center tabular-nums">
                           <div className="inline-flex items-center justify-center gap-1.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold text-xs">
-                              <span>{comparison.totals.real.pax}</span>
+                              <span>{formatInt(comparison.totals.real.pax)}</span>
                               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                             </span>
                             <span className="text-slate-400 font-bold">/</span>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold text-xs">
-                              <span>{comparison.totals.target.pax}</span>
+                              <span>{formatInt(comparison.totals.target.pax)}</span>
                               <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                             </span>
                           </div>
@@ -3228,24 +3228,24 @@
                         <td className="p-3 text-center tabular-nums">
                           <div className="inline-flex items-center justify-center gap-1.5 text-xs">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/90 text-slate-900 font-extrabold">
-                              <span>{comparison.totals.adr.real.toFixed(2)} €</span>
+                              <span>{comparison.totals.adr.real > 0 ? formatMoney(comparison.totals.adr.real) : "—"}</span>
                               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter">real</span>
                             </span>
                             <span className="text-slate-400 font-bold">/</span>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-extrabold">
-                              <span>{comparison.totals.adr.target.toFixed(2)} €</span>
+                              <span>{comparison.totals.adr.target > 0 ? formatMoney(comparison.totals.adr.target) : "—"}</span>
                               <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-tighter">obj</span>
                             </span>
                           </div>
                         </td>
                         <td className="p-3 text-right tabular-nums">
-                          {comparison.totals.real.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          {formatMoney(comparison.totals.real.revenue)}
                         </td>
                         <td className="p-3 text-right text-indigo-700 tabular-nums">
-                          {comparison.totals.target.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                          {formatMoney(comparison.totals.target.revenue)}
                         </td>
                         <td className={"p-3 text-right tabular-nums " + (comparison.totals.diff.revenue >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                          <div>{comparison.totals.diff.revenue >= 0 ? "+" : ""}{comparison.totals.diff.revenue.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+                          <div>{(comparison.totals.diff.revenue >= 0 ? "+" : "") + formatMoney(comparison.totals.diff.revenue)}</div>
                           <div className="text-[10px] font-bold opacity-80">({periodMetrics.totals.diffPercent >= 0 ? "+" : ""}{periodMetrics.totals.diffPercent.toFixed(1)}%)</div>
                         </td>
                         <td className="p-3 text-center">
