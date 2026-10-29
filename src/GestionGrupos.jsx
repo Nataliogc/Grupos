@@ -2271,33 +2271,33 @@
                     localStorage.setItem(`nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
                     localStorage.setItem(`v3_nexus_target_${hKey}_${yStr}`, JSON.stringify(fsDoc));
                   } catch(e) {}
-                  const revStr = Number(fsDoc.overall?.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                  const rnStr = Number(fsDoc.overall?.roomNights || 0).toLocaleString("es-ES");
-                  showToast(`⚡ Sincronizado en tiempo real con CapaSuite: ${revStr} € (${rnStr} hab-noches) para ${targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ${targetYear}.`);
+                  const revStr = formatMoney(fsDoc.overall?.totalRevenue || 0);
+                  const rnStr = formatInt(fsDoc.overall?.roomNights || 0);
+                  showToast(`⚡ Sincronizado en tiempo real con CapaSuite: ${revStr} (${rnStr} hab-noches) para ${targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ${targetYear}.`);
                   return;
                 }
               }
               if (doc && doc.overall) {
-                const revStr = Number(doc.overall.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                const rnStr = Number(doc.overall.roomNights || 0).toLocaleString("es-ES");
-                showToast(`🎯 Sincronizado con CapaSuite: ${revStr} € (${rnStr} hab-noches) vinculados.`);
+                const revStr = formatMoney(doc.overall.totalRevenue || 0);
+                const rnStr = formatInt(doc.overall.roomNights || 0);
+                showToast(`🎯 Sincronizado con CapaSuite: ${revStr} (${rnStr} hab-noches) vinculados.`);
               } else {
                 showToast(`ℹ️ No hay presupuesto fijado para ${targetYear} en CapaSuite. Se muestra el histórico base.`);
               }
             })
             .catch(() => {
               if (doc && doc.overall) {
-                const revStr = Number(doc.overall.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                const rnStr = Number(doc.overall.roomNights || 0).toLocaleString("es-ES");
-                showToast(`🎯 Sincronizado con CapaSuite (Local): ${revStr} € (${rnStr} hab-noches).`);
+                const revStr = formatMoney(doc.overall.totalRevenue || 0);
+                const rnStr = formatInt(doc.overall.roomNights || 0);
+                showToast(`🎯 Sincronizado con CapaSuite (Local): ${revStr} (${rnStr} hab-noches).`);
               } else {
                 showToast(`ℹ️ No hay presupuesto fijado para ${targetYear} en CapaSuite. Se muestra el histórico base.`);
               }
             });
         } else if (doc && doc.overall) {
-          const revStr = Number(doc.overall.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          const rnStr = Number(doc.overall.roomNights || 0).toLocaleString("es-ES");
-          showToast(`🎯 Sincronizado con CapaSuite: ${revStr} € (${rnStr} hab-noches) vinculados para ${targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ${targetYear}.`);
+          const revStr = formatMoney(doc.overall.totalRevenue || 0);
+          const rnStr = formatInt(doc.overall.roomNights || 0);
+          showToast(`🎯 Sincronizado con CapaSuite: ${revStr} (${rnStr} hab-noches) vinculados para ${targetHotel === "guadiana" ? "Hotel Guadiana" : "Hotel Cumbria"} ${targetYear}.`);
         } else {
           showToast(`ℹ️ No hay presupuesto fijado para ${targetYear} en CapaSuite. Se muestra el histórico base.`);
         }
@@ -2332,9 +2332,9 @@
 
           setShowJsonImportModal(false);
           setJsonImportText("");
-          const revStr = Number(parsed.overall?.totalRevenue || 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          const rnStr = Number(parsed.overall?.roomNights || 0).toLocaleString("es-ES");
-          showToast(`🎯 Objetivo importado correctamente: ${revStr} € (${rnStr} habs) para ${yStr}.`);
+          const revStr = formatMoney(parsed.overall?.totalRevenue || 0);
+          const rnStr = formatInt(parsed.overall?.roomNights || 0);
+          showToast(`🎯 Objetivo importado correctamente: ${revStr} (${rnStr} habs) para ${yStr}.`);
         } catch(e) {
           setJsonImportError("Error al interpretar JSON: " + e.message);
         }
