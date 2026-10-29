@@ -168,12 +168,12 @@
       if (window.NexusUtils && window.NexusUtils.formatCurrency && maxDecimals === 2) {
         return window.NexusUtils.formatCurrency(val);
       }
-      return new Intl.NumberFormat('es-ES', {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: maxDecimals === 0 ? 0 : 2,
-        maximumFractionDigits: maxDecimals,
-      }).format(Number(val) || 0);
+      const num = Number(val) || 0;
+      const sign = num < 0 ? "-" : "";
+      const dec = maxDecimals === 0 ? 0 : 2;
+      const parts = Math.abs(num).toFixed(dec).split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return sign + (dec === 0 ? parts[0] : parts.join(",")) + " €";
     };
 
     // Helpers para ocupación máxima y habitaciones simultáneas
@@ -16631,20 +16631,19 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
             {/* 2. PANEL DE ESTUDIO Y SEGMENTACIÓN */}
             {activeTab === "segments" && (() => {
-              const formatCurrency = (val) =>
-                new Intl.NumberFormat("es-ES", {
-                  style: "currency",
-                  currency: "EUR",
-                  maximumFractionDigits: 0,
-                }).format(val || 0);
+              const formatCurrency = (val) => {
+                const num = Math.round(Number(val) || 0);
+                const sign = num < 0 ? "-" : "";
+                return sign + Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " €";
+              };
 
-              const formatAdr = (val) =>
-                new Intl.NumberFormat("es-ES", {
-                  style: "currency",
-                  currency: "EUR",
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }).format(val || 0);
+              const formatAdr = (val) => {
+                const num = Number(val) || 0;
+                const sign = num < 0 ? "-" : "";
+                const parts = Math.abs(num).toFixed(2).split(".");
+                parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                return sign + parts.join(",") + " €";
+              };
 
               const CustomYoYTooltip = ({ active, payload }) => {
                 if (!active || !payload || !payload.length) return null;

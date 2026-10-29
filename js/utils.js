@@ -185,14 +185,13 @@
     });
   }
 
-  // ── Formateo numérico con separador de miles ──────────
+  // ── Formateo numérico con separador de miles (ej: 1.000,00 €) ──────────
   function formatCurrency(n) {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(n || 0);
+    var val = Number(n) || 0;
+    var sign = val < 0 ? "-" : "";
+    var parts = Math.abs(val).toFixed(2).split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return sign + parts.join(",") + " €";
   }
 
   // ── Acceso seguro a localStorage ───────────────────────
