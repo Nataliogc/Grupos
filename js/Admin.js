@@ -687,8 +687,8 @@ var Dashboard = function Dashboard(_ref2) {
     fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
     var fifteenDaysFromNow = new Date(startOfToday);
     fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
-    var twentyFiveDaysFromNow = new Date(startOfToday);
-    twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
+    var twentyDaysFromNow = new Date(startOfToday);
+    twentyDaysFromNow.setDate(twentyDaysFromNow.getDate() + 20);
     consolidatedData.forEach(function (g) {
       if (selectedComercial !== "todos") {
         var cName = (g.Com_Comercial || g.Comercial || "").trim().toUpperCase();
@@ -705,9 +705,14 @@ var Dashboard = function Dashboard(_ref2) {
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;
+      var entryDate = parseDate(g.Entrada);
+      if (!entryDate || isNaN(entryDate.getTime())) return;
+      var entryDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+      var daysToArrival = Math.round((entryDay - startOfToday) / (1000 * 60 * 60 * 24));
+      // Solo alertas con menos de 20 días de aviso (días para la llegada < 20)
+      if (daysToArrival >= 20) return;
       var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
       var isConfirmed = !isTentative && (status.includes("CONFIRM") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
-      var entryDate = parseDate(g.Entrada);
       var fin = getGroupFinancialInfo(g);
       var totalAmt = fin.total;
       var paid = fin.paid;
@@ -747,8 +752,8 @@ var Dashboard = function Dashboard(_ref2) {
         hasAlert = true;
       }
 
-      // 5. Tentativa Urgente (< 25 días para la llegada)
-      if (!hasAlert && isTentative && entryDate && entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+      // 5. Tentativa Urgente (< 20 días para la llegada)
+      if (!hasAlert && isTentative && entryDate && entryDate >= startOfToday && entryDate < twentyDaysFromNow) {
         hasAlert = true;
       }
       if (hasAlert) {
@@ -774,8 +779,8 @@ var Dashboard = function Dashboard(_ref2) {
     fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
     var fifteenDaysFromNow = new Date(startOfToday);
     fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
-    var twentyFiveDaysFromNow = new Date(startOfToday);
-    twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
+    var twentyDaysFromNow = new Date(startOfToday);
+    twentyDaysFromNow.setDate(twentyDaysFromNow.getDate() + 20);
     filteredGroups.forEach(function (g) {
       var resId = String(g.Reserva || g.Com_Id || g.id || "").trim();
       if (!resId || seenReservas.has(resId)) return;
@@ -787,9 +792,14 @@ var Dashboard = function Dashboard(_ref2) {
       var departureDate = parseDate(g.Salida || g.Entrada);
       var isPast = departureDate && departureDate < startOfToday;
       if (isCancelled || isPast) return;
+      var entryDate = parseDate(g.Entrada);
+      if (!entryDate || isNaN(entryDate.getTime())) return;
+      var entryDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+      var daysToArrival = Math.round((entryDay - startOfToday) / (1000 * 60 * 60 * 24));
+      // Solo alertas con menos de 20 días de aviso (días a la llegada < 20)
+      if (daysToArrival >= 20) return;
       var isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
       var isConfirmed = !isTentative && (status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
-      var entryDate = parseDate(g.Entrada);
       var fin = getGroupFinancialInfo(g);
       var pending = fin.pending;
       var isCredito = _isCreditoGroup(g);
@@ -836,8 +846,8 @@ var Dashboard = function Dashboard(_ref2) {
         }
       }
 
-      // 3. Tentativas Urgentes (< 25 días para la llegada)
-      if (isTentative && entryDate && entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+      // 3. Tentativas Urgentes (< 20 días para la llegada)
+      if (isTentative && entryDate && entryDate >= startOfToday && entryDate < twentyDaysFromNow) {
         var _diffDays = Math.ceil((entryDate - startOfToday) / (1000 * 60 * 60 * 24));
         var urgency = _diffDays <= 7 ? "danger" : _diffDays <= 14 ? "warning" : "info";
         groupAlerts.push({
@@ -1172,7 +1182,7 @@ var Dashboard = function Dashboard(_ref2) {
       alerts: internalReportModal.sections.crm ? filterAlerts(columnsData.crmAlerts) : []
     }, {
       id: "tentative",
-      title: "Tentativas Urgentes (< 25 días a llegada)",
+      title: "Tentativas Urgentes (< 20 días a llegada)",
       shortTitle: "Tentativas Urgentes",
       icon: "calendar-clock",
       colorClass: "violet",
@@ -3267,7 +3277,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.11 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.12 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,

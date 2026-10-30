@@ -634,8 +634,8 @@
         fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
         const fifteenDaysFromNow = new Date(startOfToday);
         fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
-        const twentyFiveDaysFromNow = new Date(startOfToday);
-        twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
+        const twentyDaysFromNow = new Date(startOfToday);
+        twentyDaysFromNow.setDate(twentyDaysFromNow.getDate() + 20);
 
         consolidatedData.forEach(g => {
           if (selectedComercial !== "todos") {
@@ -653,9 +653,15 @@
 
           if (isCancelled || isPast) return;
 
+          const entryDate = parseDate(g.Entrada);
+          if (!entryDate || isNaN(entryDate.getTime())) return;
+          const entryDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+          const daysToArrival = Math.round((entryDay - startOfToday) / (1000 * 60 * 60 * 24));
+          // Solo alertas con menos de 20 días de aviso (días para la llegada < 20)
+          if (daysToArrival >= 20) return;
+
           const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
           const isConfirmed = !isTentative && (status.includes("CONFIRM") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
-          const entryDate = parseDate(g.Entrada);
 
           const fin = getGroupFinancialInfo(g);
           const totalAmt = fin.total;
@@ -698,8 +704,8 @@
             hasAlert = true;
           }
 
-          // 5. Tentativa Urgente (< 25 días para la llegada)
-          if (!hasAlert && isTentative && entryDate && entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+          // 5. Tentativa Urgente (< 20 días para la llegada)
+          if (!hasAlert && isTentative && entryDate && entryDate >= startOfToday && entryDate < twentyDaysFromNow) {
             hasAlert = true;
           }
 
@@ -724,8 +730,8 @@
         fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
         const fifteenDaysFromNow = new Date(startOfToday);
         fifteenDaysFromNow.setDate(fifteenDaysFromNow.getDate() + 15);
-        const twentyFiveDaysFromNow = new Date(startOfToday);
-        twentyFiveDaysFromNow.setDate(twentyFiveDaysFromNow.getDate() + 25);
+        const twentyDaysFromNow = new Date(startOfToday);
+        twentyDaysFromNow.setDate(twentyDaysFromNow.getDate() + 20);
 
         filteredGroups.forEach((g) => {
           const resId = String(g.Reserva || g.Com_Id || g.id || "").trim();
@@ -739,9 +745,15 @@
 
           if (isCancelled || isPast) return;
 
+          const entryDate = parseDate(g.Entrada);
+          if (!entryDate || isNaN(entryDate.getTime())) return;
+          const entryDay = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+          const daysToArrival = Math.round((entryDay - startOfToday) / (1000 * 60 * 60 * 24));
+          // Solo alertas con menos de 20 días de aviso (días a la llegada < 20)
+          if (daysToArrival >= 20) return;
+
           const isTentative = status.includes("BLOQ") || status.includes("OPCI") || status.includes("TENTAT") || status.includes("TANTEO");
           const isConfirmed = !isTentative && (status.includes("CONF") || status.includes("OK") || status.includes("GARANT") || status.includes("RESERVA") || status.includes("GRUPO"));
-          const entryDate = parseDate(g.Entrada);
 
           const fin = getGroupFinancialInfo(g);
           const pending = fin.pending;
@@ -795,8 +807,8 @@
             }
           }
 
-          // 3. Tentativas Urgentes (< 25 días para la llegada)
-          if (isTentative && entryDate && entryDate >= startOfToday && entryDate <= twentyFiveDaysFromNow) {
+          // 3. Tentativas Urgentes (< 20 días para la llegada)
+          if (isTentative && entryDate && entryDate >= startOfToday && entryDate < twentyDaysFromNow) {
             const diffDays = Math.ceil((entryDate - startOfToday) / (1000 * 60 * 60 * 24));
             const urgency = diffDays <= 7 ? "danger" : diffDays <= 14 ? "warning" : "info";
             groupAlerts.push({
@@ -1143,7 +1155,7 @@
           },
           {
             id: "tentative",
-            title: "Tentativas Urgentes (< 25 días a llegada)",
+            title: "Tentativas Urgentes (< 20 días a llegada)",
             shortTitle: "Tentativas Urgentes",
             icon: "calendar-clock",
             colorClass: "violet",
@@ -3787,7 +3799,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.11 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.12 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
