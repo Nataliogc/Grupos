@@ -1122,8 +1122,87 @@
         });
       });
 
+      const regimesToFilter = ["PC", "MP", "AD", "HB", "FB", "SA", "RO", "BB", "HD", "TI"];
+      const generatedExtraIds = new Set();
+      const generatedExtraConcepts = new Set();
+
+      (group.extraCharges || []).forEach((ext, extIdx) => {
+        const conceptRaw = (ext.concept || ext.description || ext.type || "").trim();
+        const conceptNorm = conceptRaw.toUpperCase();
+        const rawUnits = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : (ext.qty !== undefined && ext.qty !== '' ? Number(ext.qty) : (ext.pax !== undefined && ext.pax !== '' ? Number(ext.pax) : 1));
+        const qty = (!isNaN(rawUnits) && rawUnits > 0) ? rawUnits : 1;
+        const hasUnitPrice = ext.unitPrice !== undefined && ext.unitPrice !== '' && !isNaN(Number(ext.unitPrice));
+        const rawPrice = parseFloat(ext.price) || 0;
+        const unitPrice = hasUnitPrice ? Number(ext.unitPrice) : (qty > 1 && rawPrice > 0 ? +(rawPrice / qty).toFixed(4) : rawPrice);
+        const lineTotal = hasUnitPrice ? (qty * unitPrice) : rawPrice;
+
+        if (!conceptRaw && lineTotal === 0) return;
+        if (regimesToFilter.includes(conceptNorm)) return;
+
+        const typeLabel = conceptNorm || "CARGO EXTRA";
+        const baseId = ext.id || `ext_${extIdx}`;
+        generatedExtraIds.add(String(baseId));
+        generatedExtraConcepts.add(typeLabel);
+
+        const sc = ext.scope || (ext.date === 'daily' ? 'daily' : (ext.date && ext.date !== 'Todas' ? ext.date : 'total'));
+        const iva = ext.iva !== undefined ? Number(ext.iva) : 10;
+
+        if (sc === 'daily') {
+          dates.forEach(d => {
+            const dayExtId = `${baseId}_${d}`;
+            generatedExtraIds.add(String(dayExtId));
+            newList.push({
+              id: dayExtId,
+              sourceBudgetItemId: baseId,
+              hotel: hotelName,
+              type: typeLabel,
+              dateIn: d,
+              dateOut: d,
+              qty: qty,
+              pax: 1,
+              regime: "-",
+              price: unitPrice,
+              iva: iva,
+              nights: 1,
+              total: lineTotal.toFixed(2),
+              isService: true,
+              isEconomicItem: true,
+              isEconomicRepresentation: true,
+              isAccommodation: false
+            });
+          });
+        } else {
+          const isSpecificDate = /^\d{4}-\d{2}-\d{2}$/.test(sc) ? sc : (/^\d{4}-\d{2}-\d{2}$/.test(ext.date || '') ? ext.date : '');
+          const targetDate = isSpecificDate || dates[0] || toInputDate(group.Entrada) || "";
+          newList.push({
+            id: baseId,
+            sourceBudgetItemId: baseId,
+            hotel: hotelName,
+            type: typeLabel,
+            dateIn: targetDate,
+            dateOut: targetDate,
+            qty: qty,
+            pax: 1,
+            regime: "-",
+            price: unitPrice,
+            iva: iva,
+            nights: 1,
+            total: lineTotal.toFixed(2),
+            isService: true,
+            isEconomicItem: true,
+            isEconomicRepresentation: true,
+            isAccommodation: false
+          });
+        }
+      });
+
       existingList.forEach(item => {
-        if (item.isService && !dates.includes(item.dateIn)) {
+        if (item.isService) {
+          const itemIdStr = item.id !== undefined && item.id !== null ? String(item.id) : "";
+          const srcIdStr = item.sourceBudgetItemId !== undefined && item.sourceBudgetItemId !== null ? String(item.sourceBudgetItemId) : "";
+          const itemConcept = (item.type || "").trim().toUpperCase();
+          if (srcIdStr) return; // Fue generado por extraCharges (y ya fue regenerado arriba o eliminado)
+          if (generatedExtraIds.has(itemIdStr) || generatedExtraConcepts.has(itemConcept)) return;
           newList.push(item);
         }
       });
@@ -1368,9 +1447,9 @@
       // Otros Cargos (Extras Dinámicos)
       const extras = groupData.extraCharges || [];
       extras.forEach(extra => {
-        const isGlobal = !extra.date;
+        const isDaily = extra.scope ? extra.scope === 'daily' : (!extra.date || extra.date === 'daily');
         const px = parseFloat(extra.price) || 0;
-        const amount = isGlobal ? (px * Math.max(1, dates.length)) : px;
+        const amount = isDaily ? (px * Math.max(1, dates.length)) : px;
         total += amount;
         if (extra.commissionService && services.includes(extra.commissionService)) commissionBase += amount;
       });
@@ -2637,22 +2716,11 @@
           }
         }
 
-        const generatedRoomingList = buildRoomingList(normalizedFormData, normalizedFormData.RoomingList_JSON || "");
-        const groupData = {
-          ...normalizedFormData,
-          Reserva: reservaId,
-          "Com_Vencimiento_Rel": releaseDate,
-          "Segment.": normalizedFormData["Segment."] || "GRUPOS",
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          "Importe(*)": formatNum(finalTotal),
-          "RoomingList_JSON": JSON.stringify(generatedRoomingList)
-        };
-
         const uidToUpdateForExtras = isNew ? null : normalizedFormData.uid;
         const oldDocForExtras = isNew ? null : groups.find(g => g.uid === uidToUpdateForExtras);
 
-        if (groupData.extraCharges && Array.isArray(groupData.extraCharges)) {
-          groupData.extraCharges = groupData.extraCharges.map(ext => {
+        if (normalizedFormData.extraCharges && Array.isArray(normalizedFormData.extraCharges)) {
+          normalizedFormData.extraCharges = normalizedFormData.extraCharges.map(ext => {
              const newExt = { ...ext };
              if (!newExt.id) {
                newExt.id = "ext_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
@@ -2673,6 +2741,17 @@
              return newExt;
           });
         }
+
+        const generatedRoomingList = buildRoomingList(normalizedFormData, normalizedFormData.RoomingList_JSON || "");
+        const groupData = {
+          ...normalizedFormData,
+          Reserva: reservaId,
+          "Com_Vencimiento_Rel": releaseDate,
+          "Segment.": normalizedFormData["Segment."] || "GRUPOS",
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          "Importe(*)": formatNum(finalTotal),
+          "RoomingList_JSON": JSON.stringify(generatedRoomingList)
+        };
 
         try {
           if (handleSave.running) return;

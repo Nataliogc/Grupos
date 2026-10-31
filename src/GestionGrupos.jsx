@@ -635,6 +635,107 @@
       return result;
     };
 
+    const buildExtraChargeRoomingItems = (extraCharges, stayDates = [], arrivalDate = "", hotelName = "Sercotel Guadiana", existingItems = [], deletedExtraIds = []) => {
+      if (!Array.isArray(extraCharges) || extraCharges.length === 0) return [];
+      const toDateFn = typeof toInputDate === "function"
+        ? toInputDate
+        : (window.NexusUtils && window.NexusUtils.toInputDate) || ((v) => String(v || "").split("T")[0]);
+      const cleanArrival = toDateFn(arrivalDate) || (Array.isArray(stayDates) && stayDates[0]) || "";
+      const effectiveDates = Array.isArray(stayDates) && stayDates.length > 0 ? stayDates : (cleanArrival ? [cleanArrival] : []);
+      const regimesToFilter = ["PC", "MP", "AD", "HB", "FB", "SA", "RO", "BB", "HD", "TI"];
+
+      const existingIdSet = new Set((deletedExtraIds || []).map(id => String(id)));
+      const existingServiceKeys = new Set();
+      (existingItems || []).forEach(item => {
+        if (!item) return;
+        if (item.id !== undefined && item.id !== null) existingIdSet.add(String(item.id));
+        if (item.sourceBudgetItemId !== undefined && item.sourceBudgetItemId !== null) existingIdSet.add(String(item.sourceBudgetItemId));
+        if (item.isService || item.isAccommodation === false) {
+          const cNorm = String(item.type || item.concept || "").trim().toUpperCase();
+          const dNorm = toDateFn(item.dateIn || item.date || "") || cleanArrival;
+          if (cNorm) {
+            existingServiceKeys.add(`${cNorm}|${dNorm}`);
+            existingServiceKeys.add(`${cNorm}|ANY`);
+          }
+        }
+      });
+
+      const added = [];
+      extraCharges.forEach((ext, extIdx) => {
+        if (!ext) return;
+        const conceptRaw = (ext.concept || ext.description || ext.type || "").trim();
+        const conceptNorm = conceptRaw.toUpperCase();
+        const rawUnits = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : (ext.qty !== undefined && ext.qty !== '' ? Number(ext.qty) : (ext.pax !== undefined && ext.pax !== '' ? Number(ext.pax) : 1));
+        const qty = (!isNaN(rawUnits) && rawUnits > 0) ? rawUnits : 1;
+        const hasUnitPrice = ext.unitPrice !== undefined && ext.unitPrice !== '' && !isNaN(Number(ext.unitPrice));
+        const rawPrice = parseFloat(ext.price !== undefined && ext.price !== '' ? ext.price : ext.total) || 0;
+        const unitPrice = hasUnitPrice ? Number(ext.unitPrice) : (qty > 1 && rawPrice > 0 ? +(rawPrice / qty).toFixed(4) : rawPrice);
+        const lineTotal = hasUnitPrice ? (qty * unitPrice) : (ext.total !== undefined ? (parseFloat(ext.total) || 0) : rawPrice);
+
+        if (!conceptRaw && lineTotal === 0) return;
+        if (regimesToFilter.includes(conceptNorm)) return;
+
+        const typeLabel = conceptNorm || "CARGO EXTRA";
+        const baseId = ext.id !== undefined && ext.id !== null ? ext.id : `ext_${extIdx}`;
+        if (existingIdSet.has(String(baseId))) return;
+
+        const sc = ext.scope || (ext.date === 'daily' ? 'daily' : (ext.date && ext.date !== 'Todas' ? ext.date : 'total'));
+        const iva = ext.iva !== undefined ? Number(ext.iva) : 10;
+
+        if (sc === 'daily' && effectiveDates.length > 0) {
+          effectiveDates.forEach(d => {
+            const dayExtId = `${baseId}_${d}`;
+            if (existingIdSet.has(String(dayExtId))) return;
+            if (!ext.id && existingServiceKeys.has(`${typeLabel}|${d}`)) return;
+            added.push({
+              id: dayExtId,
+              sourceBudgetItemId: baseId,
+              hotel: hotelName,
+              type: typeLabel,
+              dateIn: d,
+              dateOut: d,
+              qty: qty,
+              pax: 1,
+              regime: "-",
+              price: unitPrice,
+              iva: iva,
+              nights: 1,
+              total: lineTotal.toFixed(2),
+              isService: true,
+              isEconomicItem: true,
+              isEconomicRepresentation: true,
+              isAccommodation: false
+            });
+          });
+        } else {
+          const isSpecificDate = /^\d{4}-\d{2}-\d{2}$/.test(sc) ? sc : (/^\d{4}-\d{2}-\d{2}$/.test(ext.date || '') ? ext.date : '');
+          const targetDate = isSpecificDate || effectiveDates[0] || cleanArrival || "";
+          if (!ext.id && existingServiceKeys.has(`${typeLabel}|${targetDate}`)) return;
+          added.push({
+            id: baseId,
+            sourceBudgetItemId: baseId,
+            hotel: hotelName,
+            type: typeLabel,
+            dateIn: targetDate,
+            dateOut: targetDate,
+            qty: qty,
+            pax: 1,
+            regime: "-",
+            price: unitPrice,
+            iva: iva,
+            nights: 1,
+            total: lineTotal.toFixed(2),
+            isService: true,
+            isEconomicItem: true,
+            isEconomicRepresentation: true,
+            isAccommodation: false
+          });
+        }
+      });
+
+      return added;
+    };
+
     const getRoomAccommodationAmount = (item, group, pricingConfig = {}) => {
       const qty = parseInt(item.qty, 10) || 1;
       const nights = parseInt(item.nights, 10) || 1;
@@ -6349,6 +6450,12 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           let bestTpv = "";
           let bestNotas = "";
           let isCredito = group.isCredito || false;
+          let bestExtraCharges = Array.isArray(group.extraCharges) && group.extraCharges.length > 0 ? group.extraCharges : [];
+          let bestDailyConfig = group.dailyConfig && Object.keys(group.dailyConfig).length > 0 ? group.dailyConfig : null;
+          let bestRoomCounts = group.roomCounts && Object.keys(group.roomCounts).length > 0 ? group.roomCounts : null;
+          let bestRatesOnlyGrid = group.ratesOnlyGrid && Object.keys(group.ratesOnlyGrid).length > 0 ? group.ratesOnlyGrid : null;
+          let bestPtoOrigen = "";
+          const deletedExtraIdsSet = new Set();
 
           group.records.forEach((r) => {
             if (!bestComercial && (r["Com_Comercial"] || r["Comercial"])) {
@@ -6375,7 +6482,83 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             if (!bestTpv && r.Enlace_TPV) bestTpv = r.Enlace_TPV;
             if (!bestNotas && r.Com_Notas) bestNotas = r.Com_Notas;
             if (r.Es_Credito === true || r.Es_Credito === "true" || r.Com_Es_Credito === true) isCredito = true;
+            if (bestExtraCharges.length === 0 && Array.isArray(r.extraCharges) && r.extraCharges.length > 0) {
+              bestExtraCharges = r.extraCharges;
+            }
+            if (!bestDailyConfig && r.dailyConfig && typeof r.dailyConfig === "object" && Object.keys(r.dailyConfig).length > 0) {
+              bestDailyConfig = r.dailyConfig;
+            }
+            if (!bestRoomCounts && r.roomCounts && typeof r.roomCounts === "object" && Object.keys(r.roomCounts).length > 0) {
+              bestRoomCounts = r.roomCounts;
+            }
+            if (!bestRatesOnlyGrid && r.ratesOnlyGrid && typeof r.ratesOnlyGrid === "object" && Object.keys(r.ratesOnlyGrid).length > 0) {
+              bestRatesOnlyGrid = r.ratesOnlyGrid;
+            }
+            if (!bestPtoOrigen && (r["Presupuesto_Origen"] || r["sourceQuoteId"])) {
+              bestPtoOrigen = String(r["Presupuesto_Origen"] || r["sourceQuoteId"]).trim();
+            }
+            if (Array.isArray(r.deletedExtraChargeIds)) {
+              r.deletedExtraChargeIds.forEach(id => deletedExtraIdsSet.add(String(id)));
+            }
           });
+
+          if (bestExtraCharges.length === 0 && Array.isArray(data) && data.length > 0) {
+            const normGroupId = normalizeId(group.id);
+            const normPto = bestPtoOrigen ? normalizeId(bestPtoOrigen) : "";
+            const sourceBudgetRow = data.find(row => {
+              if (!row) return false;
+              const rowResId = normalizeId(row["Reserva"] || row.id || row.uid);
+              if (normPto && rowResId === normPto) return true;
+              const convId = normalizeId(row.convertedToReservation || row.targetReservationId);
+              if (normGroupId && convId && convId === normGroupId) return true;
+              return false;
+            });
+            if (sourceBudgetRow) {
+              if (Array.isArray(sourceBudgetRow.extraCharges) && sourceBudgetRow.extraCharges.length > 0) {
+                bestExtraCharges = sourceBudgetRow.extraCharges;
+              }
+              if (!bestDailyConfig && sourceBudgetRow.dailyConfig && typeof sourceBudgetRow.dailyConfig === "object" && Object.keys(sourceBudgetRow.dailyConfig).length > 0) {
+                bestDailyConfig = sourceBudgetRow.dailyConfig;
+              }
+              if (!bestRoomCounts && sourceBudgetRow.roomCounts && typeof sourceBudgetRow.roomCounts === "object" && Object.keys(sourceBudgetRow.roomCounts).length > 0) {
+                bestRoomCounts = sourceBudgetRow.roomCounts;
+              }
+              if (!bestRatesOnlyGrid && sourceBudgetRow.ratesOnlyGrid && typeof sourceBudgetRow.ratesOnlyGrid === "object" && Object.keys(sourceBudgetRow.ratesOnlyGrid).length > 0) {
+                bestRatesOnlyGrid = sourceBudgetRow.ratesOnlyGrid;
+              }
+            }
+          }
+
+          if (bestExtraCharges.length > 0 && bestRoomingList && bestRoomingList !== "[]") {
+            try {
+              const parsedRL = parseRoomingListSafe(bestRoomingList, "group-consolidate-extras");
+              const arrivalIso = toInputDate(group.arrival || group.records[0]?.["Entrada"] || "");
+              const departureIso = toInputDate(group.departure || group.records[0]?.["Salida"] || "");
+              const stayDates = bestDailyConfig && Object.keys(bestDailyConfig).length > 0
+                ? Object.keys(bestDailyConfig).sort()
+                : (typeof window.NexusUtils !== "undefined" && window.NexusUtils.getStayDates
+                    ? window.NexusUtils.getStayDates({ Entrada: arrivalIso, Salida: departureIso })
+                    : (arrivalIso ? [arrivalIso] : []));
+              const hotelNorm = normalizeHotelNameLocal(
+                group.hotel || group.records[0]?.["Hotel_Asignado"] || group.records[0]?.["Hotel"],
+                "Sercotel Guadiana"
+              );
+              const missingExtras = buildExtraChargeRoomingItems(
+                bestExtraCharges,
+                stayDates,
+                arrivalIso,
+                hotelNorm,
+                parsedRL,
+                Array.from(deletedExtraIdsSet)
+              );
+              if (missingExtras.length > 0) {
+                const mergedRL = [...parsedRL, ...missingExtras];
+                mergedRL.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+                bestRoomingList = JSON.stringify(mergedRL);
+                group._needsExtraChargesPersist = true;
+              }
+            } catch (e) {}
+          }
 
           group.comercial = bestComercial;
           group.dailyDistribution = bestDailyDist;
@@ -6387,12 +6570,27 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           group.enlaceTpv = bestTpv;
           group.comNotas = bestNotas;
           group.isCredito = isCredito;
+          group.extraCharges = bestExtraCharges;
+          if (bestDailyConfig) group.dailyConfig = bestDailyConfig;
+          if (bestRoomCounts) group.roomCounts = bestRoomCounts;
+          if (bestRatesOnlyGrid) group.ratesOnlyGrid = bestRatesOnlyGrid;
+
+          if (group._needsExtraChargesPersist && bestRoomingList && bestRoomingList !== "[]") {
+            try {
+              const rlClean = getEconomicRoomingItems(bestRoomingList, "groups-comm-total-reconciled");
+              const rlTotal = rlClean.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+              if (rlTotal > 0) {
+                group.totalRevenue = rlTotal;
+                group.hasRoomingListOverride = true;
+              }
+            } catch (e) {}
+          }
 
           // Propagar al registro maestro records[0] y a todos los demás para que cualquier vista tenga los datos completos
           group.records.forEach((r) => {
             if (bestComercial && !r["Com_Comercial"]) r["Com_Comercial"] = bestComercial;
             if (bestDailyDist && !r.DailyDistribution_JSON) r.DailyDistribution_JSON = bestDailyDist;
-            if (bestRoomingList && (!r.RoomingList_JSON || r.RoomingList_JSON === "[]")) r.RoomingList_JSON = bestRoomingList;
+            if (bestRoomingList && (!r.RoomingList_JSON || r.RoomingList_JSON === "[]" || group._needsExtraChargesPersist)) r.RoomingList_JSON = bestRoomingList;
             if (bestPaymentPlan && (!r.PaymentPlan_JSON || r.PaymentPlan_JSON === "[]")) r.PaymentPlan_JSON = bestPaymentPlan;
             if (bestLogRooming && !r["Logistica_Rooming"]) r["Logistica_Rooming"] = bestLogRooming;
             if (bestLogMenuMP && !r["Logistica_MenuMP"]) r["Logistica_MenuMP"] = bestLogMenuMP;
@@ -6400,6 +6598,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             if (bestTpv && !r.Enlace_TPV) r.Enlace_TPV = bestTpv;
             if (bestNotas && !r.Com_Notas) r.Com_Notas = bestNotas;
             if (isCredito) r.Es_Credito = true;
+            if (bestExtraCharges.length > 0 && (!r.extraCharges || r.extraCharges.length === 0)) r.extraCharges = bestExtraCharges;
+            if (bestDailyConfig && (!r.dailyConfig || Object.keys(r.dailyConfig).length === 0)) r.dailyConfig = bestDailyConfig;
+            if (bestRoomCounts && (!r.roomCounts || Object.keys(r.roomCounts).length === 0)) r.roomCounts = bestRoomCounts;
+            if (bestRatesOnlyGrid && (!r.ratesOnlyGrid || Object.keys(r.ratesOnlyGrid).length === 0)) r.ratesOnlyGrid = bestRatesOnlyGrid;
           });
 
           // Recalcular group.totalPaid deduplicando planes de pago por hotel para evitar duplicidad al tener múltiples líneas
@@ -7657,8 +7859,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 }
               });
 
-              generatedDayItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
-              roomingJsonToSave = generatedDayItems.length > 0 ? JSON.stringify(generatedDayItems) : null;
+              const keptServices = (existingRooming || []).filter((item) => item && item.isService);
+              const combinedDayItems = [...keptServices, ...generatedDayItems];
+              combinedDayItems.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+              roomingJsonToSave = combinedDayItems.length > 0 ? JSON.stringify(combinedDayItems) : null;
             }
           }
 
@@ -11926,39 +12130,20 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 }
               });
 
-              if (group.extraCharges && group.extraCharges.length > 0) {
+              const effectiveExtrasForAuto = (Array.isArray(group.extraCharges) && group.extraCharges.length > 0)
+                ? group.extraCharges
+                : (group.records?.[0]?.extraCharges || []);
+              if (effectiveExtrasForAuto.length > 0) {
                 const hotelName = normalizeHotelNameLocal(group.hotel || group.records[0]?.["Hotel_Asignado"] || group.records[0]?.["Hotel"] || "Sercotel Guadiana");
-                
-                // Filtramos cargos extra que sean duplicados del régimen
-                const regimesToFilter = ["PC", "MP", "AD", "HB", "FB", "SA", "RO", "BB", "HD", "TI"];
-                
-                group.extraCharges.forEach(ext => {
-                   const conceptNorm = (ext.concept || "").trim().toUpperCase();
-                   // Si el concepto es exactamente un régimen, lo saltamos (ya está en la línea de la habitación)
-                   if (regimesToFilter.includes(conceptNorm)) return;
-
-                   const isGlobal = !ext.date || ext.date === 'Todas';
-                   const d = isGlobal ? (dates[0] || "") : ext.date;
-                   const u = ext.units !== undefined ? ext.units : 1;
-                   const up = ext.unitPrice !== undefined ? ext.unitPrice : parseFloat(ext.price || 0);
-                   let qty = u;
-                   let nights = isGlobal ? Math.max(1, dates.length) : 1;
-                   
-                   newAutoList.push({
-                     id: Date.now() + Math.random(),
-                     hotel: hotelName,
-                     type: (ext.concept || "Cargo Extra").toUpperCase(),
-                     dateIn: d,
-                     dateOut: d,
-                     qty: qty,
-                     regime: "-",
-                     price: up,
-                     pax: 0, // for extra, pax isn't strictly meaningful in the table usually
-                     nights: nights,
-                     total: (qty * up * nights).toFixed(2),
-                     isService: true
-                   });
-                });
+                const extraItems = buildExtraChargeRoomingItems(
+                  effectiveExtrasForAuto,
+                  dates,
+                  startDate,
+                  hotelName,
+                  newAutoList,
+                  group.records?.[0]?.deletedExtraChargeIds || []
+                );
+                newAutoList.push(...extraItems);
               }
             } else {
               // Iterate through all records (multi-hotel) - Fallback
@@ -12158,33 +12343,16 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
         } catch (e) { }
 
-        // Asegurar que elementos multi-noche se desglosen por días
-        try {
-          const rec0 = group.records && group.records[0];
-          if (rec0 && rec0["RoomingList_JSON"]) {
-            const parsedRL = parseRoomingListSafe(rec0["RoomingList_JSON"], "openFicha-expand");
-            const hasMulti = parsedRL.some(i => !i.isService && (parseInt(i.nights, 10) || 1) > 1);
-            if (hasMulti) {
-              const expandedRL = expandRoomListByDays(parsedRL);
-              expandedRL.sort((a, b) => compareRoomItemsByDateAndType(a, b));
-              const jsonStr = JSON.stringify(expandedRL);
-              group.records.forEach(r => {
-                r["RoomingList_JSON"] = jsonStr;
-              });
-              updateGroupMetadata(group.id, { RoomingList_JSON: jsonStr }).catch(console.error);
-            }
-          }
-        } catch (e) {}
-
         // Detección y vinculación automática de Presupuesto Origen si no está vinculado
         try {
           const rec0 = group.records && group.records[0];
-          const curPto = rec0 && (rec0["Presupuesto_Origen"] || rec0["sourceQuoteId"]);
+          let curPto = rec0 && (rec0["Presupuesto_Origen"] || rec0["sourceQuoteId"]);
           const resId = String(group.id || rec0?.["Reserva"] || "").trim();
           if (rec0 && (!curPto || String(curPto).trim() === resId) && !resId.toUpperCase().startsWith("PRES-") && data && data.length > 0) {
             const matches = findMatchingBudgetsForGroup(rec0, data);
             if (matches.length > 0 && matches[0].score >= 70) {
               const bestMatch = matches[0];
+              curPto = bestMatch.id;
               console.log(`✨ [AutoLink openFicha] Presupuesto origen detectado para ${resId} (${group.name}): ${bestMatch.id}`);
               group.records.forEach(r => {
                 r["Presupuesto_Origen"] = bestMatch.id;
@@ -12196,8 +12364,90 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               }).catch(console.error);
             }
           }
+
+          // Resolver extraCharges efectivos desde el grupo, sus registros o el presupuesto vinculado
+          let effectiveExtras = Array.isArray(group.extraCharges) && group.extraCharges.length > 0
+            ? group.extraCharges
+            : (group.records?.find(r => Array.isArray(r.extraCharges) && r.extraCharges.length > 0)?.extraCharges || []);
+          if (effectiveExtras.length === 0 && curPto && Array.isArray(data) && data.length > 0) {
+            const normPto = normalizeId(curPto);
+            const ptoDoc = data.find(r => r && normalizeId(r["Reserva"] || r.id || r.uid) === normPto);
+            if (ptoDoc && Array.isArray(ptoDoc.extraCharges) && ptoDoc.extraCharges.length > 0) {
+              effectiveExtras = ptoDoc.extraCharges;
+            }
+          }
+          if (effectiveExtras.length > 0) {
+            group.extraCharges = effectiveExtras;
+            group.records.forEach(r => {
+              if (!r.extraCharges || r.extraCharges.length === 0) r.extraCharges = effectiveExtras;
+            });
+          }
+
+          // Asegurar que elementos multi-noche se desglosen por días y que los extras de la estancia estén importados
+          if (rec0 && rec0["RoomingList_JSON"]) {
+            let parsedRL = parseRoomingListSafe(rec0["RoomingList_JSON"], "openFicha-expand");
+            const arrivalIso = toInputDate(group.arrival || rec0["Entrada"] || "");
+            const departureIso = toInputDate(group.departure || rec0["Salida"] || "");
+            const stayDates = group.dailyConfig && Object.keys(group.dailyConfig).length > 0
+              ? Object.keys(group.dailyConfig).sort()
+              : (typeof window.NexusUtils !== "undefined" && window.NexusUtils.getStayDates
+                  ? window.NexusUtils.getStayDates({ Entrada: arrivalIso, Salida: departureIso })
+                  : (arrivalIso ? [arrivalIso] : []));
+            let rlChanged = Boolean(group._needsExtraChargesPersist);
+
+            // Corregir líneas de servicio con fecha "Varias" o vacía asignándolas al día de entrada
+            if (arrivalIso) {
+              parsedRL = parsedRL.map(it => {
+                if (it && it.isService && (!it.dateIn || it.dateIn === "Varias" || it.dateIn === "Todas")) {
+                  rlChanged = true;
+                  return { ...it, dateIn: arrivalIso, dateOut: arrivalIso, nights: it.nights || 1, regime: it.regime || "-" };
+                }
+                return it;
+              });
+            }
+
+            const hasMulti = parsedRL.some(i => !i.isService && (parseInt(i.nights, 10) || 1) > 1);
+            if (hasMulti) {
+              parsedRL = expandRoomListByDays(parsedRL);
+              rlChanged = true;
+            }
+
+            if (effectiveExtras.length > 0) {
+              const deletedIds = Array.isArray(rec0.deletedExtraChargeIds) ? rec0.deletedExtraChargeIds : [];
+              const missingExtras = buildExtraChargeRoomingItems(
+                effectiveExtras,
+                stayDates,
+                arrivalIso,
+                hotelPrincipal,
+                parsedRL,
+                deletedIds
+              );
+              if (missingExtras.length > 0) {
+                parsedRL = [...parsedRL, ...missingExtras];
+                rlChanged = true;
+              }
+            }
+
+            if (rlChanged) {
+              parsedRL.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+              const jsonStr = JSON.stringify(parsedRL);
+              const newTotalSum = parsedRL.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+              group.records.forEach(r => {
+                r["RoomingList_JSON"] = jsonStr;
+                if (newTotalSum > 0) r["Importe(*)"] = newTotalSum.toFixed(2);
+              });
+              if (newTotalSum > 0) group.totalRevenue = newTotalSum;
+              group._needsExtraChargesPersist = false;
+              const metaUpdates = {
+                RoomingList_JSON: jsonStr,
+                ...(newTotalSum > 0 ? { "Importe(*)": newTotalSum.toFixed(2) } : {}),
+                ...(effectiveExtras.length > 0 ? { extraCharges: effectiveExtras } : {})
+              };
+              updateGroupMetadata(group.id, metaUpdates).catch(console.error);
+            }
+          }
         } catch (autoLinkErr) {
-          console.error("Error en detección automática de presupuesto en openFicha:", autoLinkErr);
+          console.error("Error en detección automática de presupuesto / extras en openFicha:", autoLinkErr);
         }
 
         setSelectedGroupFicha(group);
@@ -12301,11 +12551,54 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                 String(row["Com_Estado_Interno"] || "").toUpperCase().includes("PRESUP");
             const origBudget = row["Presupuesto_Origen"] || row["sourceQuoteId"] || (isOldBudget ? (row["Reserva"] || oldId) : null);
 
+            const mergedExtras = (Array.isArray(row.extraCharges) && row.extraCharges.length > 0)
+              ? row.extraCharges
+              : (Array.isArray(sourceGroup.extraCharges) && sourceGroup.extraCharges.length > 0
+                  ? sourceGroup.extraCharges
+                  : (destDoc.exists && Array.isArray(destDoc.data().extraCharges) ? destDoc.data().extraCharges : []));
+
+            let baseRLStr = row.RoomingList_JSON;
+            if ((!baseRLStr || baseRLStr === "[]") && destDoc.exists && destDoc.data().RoomingList_JSON) {
+              baseRLStr = destDoc.data().RoomingList_JSON;
+            }
+            let mergedRLStr = baseRLStr;
+            let mergedTotalStr = row["Importe(*)"];
+            if (mergedExtras.length > 0) {
+              const currentRL = parseRoomingListSafe(baseRLStr || "[]", "merge-group-extras");
+              const arrivalIso = toInputDate(row["Entrada"] || (destDoc.exists ? destDoc.data()["Entrada"] : "") || "");
+              const departureIso = toInputDate(row["Salida"] || (destDoc.exists ? destDoc.data()["Salida"] : "") || "");
+              const stayDates = typeof window.NexusUtils !== "undefined" && window.NexusUtils.getStayDates
+                ? window.NexusUtils.getStayDates({ Entrada: arrivalIso, Salida: departureIso })
+                : (arrivalIso ? [arrivalIso] : []);
+              const hotelNorm = normalizeHotelNameLocal(
+                row["Hotel_Asignado"] || row["Hotel"] || (destDoc.exists ? (destDoc.data()["Hotel_Asignado"] || destDoc.data()["Hotel"]) : ""),
+                "Sercotel Guadiana"
+              );
+              const missingExtras = buildExtraChargeRoomingItems(
+                mergedExtras,
+                stayDates,
+                arrivalIso,
+                hotelNorm,
+                currentRL,
+                []
+              );
+              if (missingExtras.length > 0) {
+                const combinedRL = [...currentRL, ...missingExtras];
+                combinedRL.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+                mergedRLStr = JSON.stringify(combinedRL);
+                const sumTot = combinedRL.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+                if (sumTot > 0) mergedTotalStr = sumTot.toFixed(2);
+              }
+            }
+
             const payload = {
               ...row,
               Reserva: targetReserva,
               "Nombre del Grupo": targetName,
               ...(origBudget ? { Presupuesto_Origen: origBudget, sourceQuoteId: origBudget } : {}),
+              ...(mergedExtras.length > 0 ? { extraCharges: mergedExtras } : {}),
+              ...(mergedRLStr ? { RoomingList_JSON: mergedRLStr } : {}),
+              ...(mergedTotalStr ? { "Importe(*)": mergedTotalStr } : {}),
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
 
@@ -12360,18 +12653,67 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         const trimmed = budgetId ? String(budgetId).trim() : null;
         try {
           setIsSaving(true);
+          const rec0 = selectedGroupFicha.records?.[0] || {};
+          let extraUpdates = {};
+          let inheritedExtras = selectedGroupFicha.extraCharges || [];
+          let updatedRLStr = null;
+          let updatedTotalNum = null;
+
+          if (trimmed && Array.isArray(data)) {
+            const normPto = normalizeId(trimmed);
+            const ptoDoc = data.find(r => r && normalizeId(r["Reserva"] || r.id || r.uid) === normPto);
+            if (ptoDoc && Array.isArray(ptoDoc.extraCharges) && ptoDoc.extraCharges.length > 0) {
+              inheritedExtras = ptoDoc.extraCharges;
+              extraUpdates.extraCharges = inheritedExtras;
+              const currentRL = parseRoomingListSafe(rec0["RoomingList_JSON"], "link-budget-extras");
+              const arrivalIso = toInputDate(selectedGroupFicha.arrival || rec0["Entrada"] || ptoDoc["Entrada"] || "");
+              const departureIso = toInputDate(selectedGroupFicha.departure || rec0["Salida"] || ptoDoc["Salida"] || "");
+              const stayDates = typeof window.NexusUtils !== "undefined" && window.NexusUtils.getStayDates
+                ? window.NexusUtils.getStayDates({ Entrada: arrivalIso, Salida: departureIso })
+                : (arrivalIso ? [arrivalIso] : []);
+              const hotelNorm = normalizeHotelNameLocal(
+                selectedGroupFicha.hotel || rec0["Hotel_Asignado"] || rec0["Hotel"] || ptoDoc["Hotel_Asignado"],
+                "Sercotel Guadiana"
+              );
+              const missingExtras = buildExtraChargeRoomingItems(
+                inheritedExtras,
+                stayDates,
+                arrivalIso,
+                hotelNorm,
+                currentRL,
+                []
+              );
+              if (missingExtras.length > 0) {
+                const mergedRL = [...currentRL, ...missingExtras];
+                mergedRL.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+                updatedRLStr = JSON.stringify(mergedRL);
+                updatedTotalNum = mergedRL.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
+                extraUpdates.RoomingList_JSON = updatedRLStr;
+                extraUpdates.deletedExtraChargeIds = [];
+                if (updatedTotalNum > 0) extraUpdates["Importe(*)"] = updatedTotalNum.toFixed(2);
+              }
+            }
+          }
+
           await updateGroupMetadata(selectedGroupFicha.id, {
             Presupuesto_Origen: trimmed || null,
-            sourceQuoteId: trimmed || null
+            sourceQuoteId: trimmed || null,
+            ...extraUpdates
           });
           setSelectedGroupFicha(prev => {
             if (!prev) return prev;
             const updatedRecs = (prev.records || []).map(r => ({
               ...r,
               Presupuesto_Origen: trimmed || null,
-              sourceQuoteId: trimmed || null
+              sourceQuoteId: trimmed || null,
+              ...extraUpdates
             }));
-            return { ...prev, records: updatedRecs };
+            return {
+              ...prev,
+              extraCharges: inheritedExtras,
+              ...(updatedTotalNum > 0 ? { totalRevenue: updatedTotalNum } : {}),
+              records: updatedRecs
+            };
           });
           setShowBudgetLinkModal(false);
           if (trimmed) {
@@ -15177,10 +15519,30 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
         const idSet = new Set(normalizeRoomIds(ids));
 
+        const removedItems = currentList.filter((item) => {
+          const itemIds = normalizeRoomIds(item.id);
+          return itemIds.some((itemId) => idSet.has(itemId));
+        });
+
         const rawList = currentList.filter((item) => {
           const itemIds = normalizeRoomIds(item.id);
           return !itemIds.some((itemId) => idSet.has(itemId));
         });
+
+        const existingDeleted = Array.isArray(currentRecord.deletedExtraChargeIds)
+          ? [...currentRecord.deletedExtraChargeIds]
+          : [];
+        removedItems.forEach((rm) => {
+          if (rm && rm.isService) {
+            if (rm.sourceBudgetItemId !== undefined && rm.sourceBudgetItemId !== null) {
+              existingDeleted.push(String(rm.sourceBudgetItemId));
+            }
+            if (rm.id !== undefined && rm.id !== null) {
+              existingDeleted.push(String(rm.id));
+            }
+          }
+        });
+        const uniqueDeletedExtraIds = Array.from(new Set(existingDeleted));
 
         const newList = cleanRoomingListIds(rawList);
 
@@ -15205,6 +15567,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           "Pax.": newTotalPax.toString(),
 
           "Cant.": newTotalRooms.toString(),
+
+          deletedExtraChargeIds: uniqueDeletedExtraIds,
 
         });
 
@@ -24155,15 +24519,21 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             )}
 
                             {(() => {
-                              const extraCharges = selectedGroupFicha?.extraCharges || [];
+                              const extraCharges = (Array.isArray(selectedGroupFicha?.extraCharges) && selectedGroupFicha.extraCharges.length > 0)
+                                ? selectedGroupFicha.extraCharges
+                                : (selectedGroupFicha?.records?.[0]?.extraCharges || []);
                               if (!extraCharges.length) return null;
                               
                               const rl = typeof window.roomingCore !== "undefined" && window.roomingCore.getGroupEconomicItems
                                 ? window.roomingCore.getGroupEconomicItems(selectedGroupFicha)
                                 : parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
                               
-                              const rlIds = new Set(rl.map(item => item.id || item.sourceBudgetItemId));
-                              const pending = extraCharges.filter(ec => !rlIds.has(ec.id));
+                              const rlIds = new Set();
+                              rl.forEach(item => {
+                                if (item.id !== undefined && item.id !== null) rlIds.add(String(item.id));
+                                if (item.sourceBudgetItemId !== undefined && item.sourceBudgetItemId !== null) rlIds.add(String(item.sourceBudgetItemId));
+                              });
+                              const pending = extraCharges.filter(ec => !rlIds.has(String(ec.id)));
                               
                               if (pending.length > 0) {
                                 const pendingTotal = pending.reduce((acc, ec) => acc + (parseFloat(ec.price) || 0), 0);
@@ -24184,24 +24554,32 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     </div>
                                     <button
                                       onClick={() => {
-                                        // This is a complex update because we need to append them to the persisted RoomingList_JSON array
-                                        // so that they become persisted in the UI data.
-                                        const currentRL = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "selectedGroupFicha");
-                                        const newRL = [...currentRL, ...pending.map(ec => ({
-                                          id: ec.id,
-                                          type: ec.concept || ec.type || "Extra",
-                                          dateIn: ec.date || "Varias",
-                                          qty: ec.units || ec.qty || 1,
-                                          price: ec.unitPrice !== undefined ? ec.unitPrice : ec.price,
-                                          total: ec.price !== undefined ? ec.price : 0,
-                                          isService: true,
-                                          isEconomicItem: true,
-                                          isEconomicRepresentation: true,
-                                          isAccommodation: false,
-                                          hotel: selectedGroupFicha?.records[0]?.["Hotel_Asignado"] || selectedGroupFicha?.records[0]?.["Hotel"]
-                                        }))];
+                                        const rec0 = selectedGroupFicha.records?.[0] || {};
+                                        const currentRL = parseRoomingListSafe(rec0["RoomingList_JSON"], "selectedGroupFicha");
+                                        const arrivalIso = toInputDate(selectedGroupFicha.arrival || rec0["Entrada"] || "");
+                                        const departureIso = toInputDate(selectedGroupFicha.departure || rec0["Salida"] || "");
+                                        const stayDates = typeof window.NexusUtils !== "undefined" && window.NexusUtils.getStayDates
+                                          ? window.NexusUtils.getStayDates({ Entrada: arrivalIso, Salida: departureIso })
+                                          : (arrivalIso ? [arrivalIso] : []);
+                                        const hotelNorm = normalizeHotelNameLocal(
+                                          selectedGroupFicha?.hotel || rec0["Hotel_Asignado"] || rec0["Hotel"],
+                                          "Sercotel Guadiana"
+                                        );
+                                        const newItems = buildExtraChargeRoomingItems(
+                                          pending,
+                                          stayDates,
+                                          arrivalIso,
+                                          hotelNorm,
+                                          currentRL,
+                                          []
+                                        );
+                                        const newRL = [...currentRL, ...newItems];
+                                        newRL.sort((a, b) => compareRoomItemsByDateAndType(a, b));
+                                        const newTotalSum = newRL.reduce((acc, i) => acc + (parseFloat(i.total) || 0), 0);
                                         updateGroupMetadata(selectedGroupFicha.id, {
-                                          RoomingList_JSON: JSON.stringify(newRL)
+                                          RoomingList_JSON: JSON.stringify(newRL),
+                                          deletedExtraChargeIds: [],
+                                          ...(newTotalSum > 0 ? { "Importe(*)": newTotalSum.toFixed(2) } : {})
                                         });
                                       }}
                                       className="whitespace-nowrap px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded shadow-sm transition-colors"

@@ -33,20 +33,38 @@
         } catch (e) { return []; }
     }
 
-    function parseEconomicExtraCharges(extraCharges) {
+    function parseEconomicExtraCharges(extraCharges, defaultDate = "") {
         if (!Array.isArray(extraCharges)) return [];
-        return extraCharges.map(ec => ({
-            id: ec.id || (Math.random().toString(36).substr(2, 9)),
-            type: ec.concept || ec.type || "Extra",
-            dateIn: ec.date || "Varias",
-            qty: ec.units || ec.qty || 1,
-            price: ec.unitPrice !== undefined ? ec.unitPrice : ec.price,
-            total: ec.price !== undefined ? ec.price : 0,
-            isService: true,
-            isEconomicItem: true,
-            isEconomicRepresentation: true,
-            isAccommodation: false
-        }));
+        return extraCharges.map(ec => {
+            const rawUnits = ec.units !== undefined && ec.units !== '' ? Number(ec.units) : (ec.qty !== undefined && ec.qty !== '' ? Number(ec.qty) : 1);
+            const qty = (!isNaN(rawUnits) && rawUnits > 0) ? rawUnits : 1;
+            const hasUnitPrice = ec.unitPrice !== undefined && ec.unitPrice !== '' && !isNaN(Number(ec.unitPrice));
+            const rawPrice = ec.price !== undefined && ec.price !== '' ? Number(ec.price) : (ec.total !== undefined ? Number(ec.total) : 0);
+            const unitPrice = hasUnitPrice ? Number(ec.unitPrice) : (ec.price !== undefined ? ec.price : rawPrice);
+            const totalVal = ec.total !== undefined ? ec.total : (ec.price !== undefined && ec.price !== '' ? Number(ec.price) : (qty * unitPrice));
+            const sc = ec.scope || ec.date || "";
+            const isSpecificDate = /^\d{4}-\d{2}-\d{2}$/.test(sc) ? sc : (/^\d{4}-\d{2}-\d{2}$/.test(ec.date || '') ? ec.date : '');
+            const resolvedDate = isSpecificDate || defaultDate || ec.date || "Varias";
+            const itemId = ec.id || (Math.random().toString(36).substr(2, 9));
+            return {
+                id: itemId,
+                sourceBudgetItemId: ec.id || itemId,
+                type: ec.concept || ec.description || ec.type || "Extra",
+                dateIn: resolvedDate,
+                dateOut: resolvedDate,
+                nights: 1,
+                qty: qty,
+                pax: 1,
+                regime: "-",
+                iva: ec.iva !== undefined ? Number(ec.iva) : 10,
+                price: unitPrice,
+                total: totalVal,
+                isService: true,
+                isEconomicItem: true,
+                isEconomicRepresentation: true,
+                isAccommodation: false
+            };
+        });
     }
 
     function deduplicateEconomicItems(items) {
@@ -1274,22 +1292,43 @@
         return parseRoomingListSafe(value, context).filter(item => item && !isAccommodationItem(item));
     }
 
-    function reconcileEconomicItems({ extraCharges, existingEconomicItems, hotelName }) {
+    function reconcileEconomicItems({ extraCharges, existingEconomicItems, hotelName, defaultDate, stayDates }) {
         const addedItems = [];
         const existingIds = new Set();
         (existingEconomicItems || []).forEach(item => {
-            if (item.id) existingIds.add(item.id);
-            if (item.sourceBudgetItemId) existingIds.add(item.sourceBudgetItemId);
+            if (item.id !== undefined && item.id !== null) {
+                existingIds.add(item.id);
+                existingIds.add(String(item.id));
+            }
+            if (item.sourceBudgetItemId !== undefined && item.sourceBudgetItemId !== null) {
+                existingIds.add(item.sourceBudgetItemId);
+                existingIds.add(String(item.sourceBudgetItemId));
+            }
         });
         (extraCharges || []).forEach(ec => {
-            if (!existingIds.has(ec.id)) {
+            if (!existingIds.has(ec.id) && !existingIds.has(String(ec.id))) {
+                const rawUnits = ec.units !== undefined && ec.units !== '' ? Number(ec.units) : (ec.qty !== undefined && ec.qty !== '' ? Number(ec.qty) : 1);
+                const qty = (!isNaN(rawUnits) && rawUnits > 0) ? rawUnits : 1;
+                const hasUnitPrice = ec.unitPrice !== undefined && ec.unitPrice !== '' && !isNaN(Number(ec.unitPrice));
+                const rawPrice = ec.price !== undefined && ec.price !== '' ? Number(ec.price) : (ec.total !== undefined ? Number(ec.total) : 0);
+                const unitPrice = hasUnitPrice ? Number(ec.unitPrice) : (ec.price !== undefined ? ec.price : rawPrice);
+                const totalVal = ec.total !== undefined ? ec.total : (ec.price !== undefined && ec.price !== '' ? Number(ec.price) : (qty * unitPrice));
+                const sc = ec.scope || ec.date || "";
+                const isSpecificDate = /^\d{4}-\d{2}-\d{2}$/.test(sc) ? sc : (/^\d{4}-\d{2}-\d{2}$/.test(ec.date || '') ? ec.date : '');
+                const resolvedDate = isSpecificDate || defaultDate || (Array.isArray(stayDates) && stayDates[0]) || ec.date || "Varias";
                 addedItems.push({
                     id: ec.id,
-                    type: ec.concept || ec.type || "Extra",
-                    dateIn: ec.date || "Varias",
-                    qty: ec.units || ec.qty || 1,
-                    price: ec.unitPrice !== undefined ? ec.unitPrice : ec.price,
-                    total: ec.price !== undefined ? ec.price : 0,
+                    sourceBudgetItemId: ec.id,
+                    type: ec.concept || ec.description || ec.type || "Extra",
+                    dateIn: resolvedDate,
+                    dateOut: resolvedDate,
+                    nights: 1,
+                    qty: qty,
+                    pax: 1,
+                    regime: "-",
+                    iva: ec.iva !== undefined ? Number(ec.iva) : 10,
+                    price: unitPrice,
+                    total: totalVal,
                     isService: true,
                     isEconomicItem: true,
                     isEconomicRepresentation: true,

@@ -1301,8 +1301,81 @@ var buildRoomingList = function buildRoomingList(group) {
       }
     });
   });
+  var regimesToFilter = ["PC", "MP", "AD", "HB", "FB", "SA", "RO", "BB", "HD", "TI"];
+  var generatedExtraIds = new Set();
+  var generatedExtraConcepts = new Set();
+  (group.extraCharges || []).forEach(function (ext, extIdx) {
+    var conceptRaw = (ext.concept || ext.description || ext.type || "").trim();
+    var conceptNorm = conceptRaw.toUpperCase();
+    var rawUnits = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : ext.qty !== undefined && ext.qty !== '' ? Number(ext.qty) : ext.pax !== undefined && ext.pax !== '' ? Number(ext.pax) : 1;
+    var qty = !isNaN(rawUnits) && rawUnits > 0 ? rawUnits : 1;
+    var hasUnitPrice = ext.unitPrice !== undefined && ext.unitPrice !== '' && !isNaN(Number(ext.unitPrice));
+    var rawPrice = parseFloat(ext.price) || 0;
+    var unitPrice = hasUnitPrice ? Number(ext.unitPrice) : qty > 1 && rawPrice > 0 ? +(rawPrice / qty).toFixed(4) : rawPrice;
+    var lineTotal = hasUnitPrice ? qty * unitPrice : rawPrice;
+    if (!conceptRaw && lineTotal === 0) return;
+    if (regimesToFilter.includes(conceptNorm)) return;
+    var typeLabel = conceptNorm || "CARGO EXTRA";
+    var baseId = ext.id || "ext_".concat(extIdx);
+    generatedExtraIds.add(String(baseId));
+    generatedExtraConcepts.add(typeLabel);
+    var sc = ext.scope || (ext.date === 'daily' ? 'daily' : ext.date && ext.date !== 'Todas' ? ext.date : 'total');
+    var iva = ext.iva !== undefined ? Number(ext.iva) : 10;
+    if (sc === 'daily') {
+      dates.forEach(function (d) {
+        var dayExtId = "".concat(baseId, "_").concat(d);
+        generatedExtraIds.add(String(dayExtId));
+        newList.push({
+          id: dayExtId,
+          sourceBudgetItemId: baseId,
+          hotel: hotelName,
+          type: typeLabel,
+          dateIn: d,
+          dateOut: d,
+          qty: qty,
+          pax: 1,
+          regime: "-",
+          price: unitPrice,
+          iva: iva,
+          nights: 1,
+          total: lineTotal.toFixed(2),
+          isService: true,
+          isEconomicItem: true,
+          isEconomicRepresentation: true,
+          isAccommodation: false
+        });
+      });
+    } else {
+      var isSpecificDate = /^\d{4}-\d{2}-\d{2}$/.test(sc) ? sc : /^\d{4}-\d{2}-\d{2}$/.test(ext.date || '') ? ext.date : '';
+      var targetDate = isSpecificDate || dates[0] || toInputDate(group.Entrada) || "";
+      newList.push({
+        id: baseId,
+        sourceBudgetItemId: baseId,
+        hotel: hotelName,
+        type: typeLabel,
+        dateIn: targetDate,
+        dateOut: targetDate,
+        qty: qty,
+        pax: 1,
+        regime: "-",
+        price: unitPrice,
+        iva: iva,
+        nights: 1,
+        total: lineTotal.toFixed(2),
+        isService: true,
+        isEconomicItem: true,
+        isEconomicRepresentation: true,
+        isAccommodation: false
+      });
+    }
+  });
   existingList.forEach(function (item) {
-    if (item.isService && !dates.includes(item.dateIn)) {
+    if (item.isService) {
+      var itemIdStr = item.id !== undefined && item.id !== null ? String(item.id) : "";
+      var srcIdStr = item.sourceBudgetItemId !== undefined && item.sourceBudgetItemId !== null ? String(item.sourceBudgetItemId) : "";
+      var itemConcept = (item.type || "").trim().toUpperCase();
+      if (srcIdStr) return; // Fue generado por extraCharges (y ya fue regenerado arriba o eliminado)
+      if (generatedExtraIds.has(itemIdStr) || generatedExtraConcepts.has(itemConcept)) return;
       newList.push(item);
     }
   });
@@ -1577,9 +1650,9 @@ var calculateTotal = function calculateTotal(rawGroupData) {
   // Otros Cargos (Extras Dinámicos)
   var extras = groupData.extraCharges || [];
   extras.forEach(function (extra) {
-    var isGlobal = !extra.date;
+    var isDaily = extra.scope ? extra.scope === 'daily' : !extra.date || extra.date === 'daily';
     var px = parseFloat(extra.price) || 0;
-    var amount = isGlobal ? px * Math.max(1, dates.length) : px;
+    var amount = isDaily ? px * Math.max(1, dates.length) : px;
     total += amount;
     if (extra.commissionService && services.includes(extra.commissionService)) commissionBase += amount;
   });
@@ -2914,7 +2987,7 @@ function App() {
   var _handleSave = /*#__PURE__*/function () {
     var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(e) {
       var _groups$find;
-      var uidToCheck, oldRec, isHistoricalReadOnly, lockedInfo, resNum, now, formattedDate, normalizedFormData, autoCom, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, generatedRoomingList, groupData, uidToUpdateForExtras, oldDocForExtras, res, uidToUpdate, oldDoc, isOldDocLocked, _lockedInfo, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
+      var uidToCheck, oldRec, isHistoricalReadOnly, lockedInfo, resNum, now, formattedDate, normalizedFormData, autoCom, finalTotal, hotelAsignado, entrada, salida, i, seg, allocations, totalRooms, j, a, metrics, confirmSave, reservaId, isNew, releaseDate, d, uidToUpdateForExtras, oldDocForExtras, generatedRoomingList, groupData, res, uidToUpdate, oldDoc, isOldDocLocked, _lockedInfo, changes, fieldsToTrack, targetStatus, statusChangedToConfirmed, validUpdateData, fallbackData, _res, _t2;
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.p = _context2.n) {
           case 0:
@@ -3100,21 +3173,12 @@ function App() {
                 releaseDate = d.toISOString().split("T")[0];
               }
             }
-            generatedRoomingList = buildRoomingList(normalizedFormData, normalizedFormData.RoomingList_JSON || "");
-            groupData = _objectSpread(_objectSpread({}, normalizedFormData), {}, {
-              Reserva: reservaId,
-              "Com_Vencimiento_Rel": releaseDate,
-              "Segment.": normalizedFormData["Segment."] || "GRUPOS",
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              "Importe(*)": formatNum(finalTotal),
-              "RoomingList_JSON": JSON.stringify(generatedRoomingList)
-            });
             uidToUpdateForExtras = isNew ? null : normalizedFormData.uid;
             oldDocForExtras = isNew ? null : groups.find(function (g) {
               return g.uid === uidToUpdateForExtras;
             });
-            if (groupData.extraCharges && Array.isArray(groupData.extraCharges)) {
-              groupData.extraCharges = groupData.extraCharges.map(function (ext) {
+            if (normalizedFormData.extraCharges && Array.isArray(normalizedFormData.extraCharges)) {
+              normalizedFormData.extraCharges = normalizedFormData.extraCharges.map(function (ext) {
                 var newExt = _objectSpread({}, ext);
                 if (!newExt.id) {
                   newExt.id = "ext_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
@@ -3137,6 +3201,15 @@ function App() {
                 return newExt;
               });
             }
+            generatedRoomingList = buildRoomingList(normalizedFormData, normalizedFormData.RoomingList_JSON || "");
+            groupData = _objectSpread(_objectSpread({}, normalizedFormData), {}, {
+              Reserva: reservaId,
+              "Com_Vencimiento_Rel": releaseDate,
+              "Segment.": normalizedFormData["Segment."] || "GRUPOS",
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              "Importe(*)": formatNum(finalTotal),
+              "RoomingList_JSON": JSON.stringify(generatedRoomingList)
+            });
             _context2.p = 21;
             if (!_handleSave.running) {
               _context2.n = 22;
@@ -8099,7 +8172,7 @@ function App() {
       return setEmailContent(e.target.value);
     },
     disabled: isParsingEmail,
-    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa...\r 3 personas: Entrada 14 junio, Salida 19 junio.\r\nY del 21 de junio al...",
+    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa... 3 personas: Entrada 14 junio, Salida 19 junio.\nY del 21 de junio al...",
     className: "w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all min-h-[250px] resize-none"
   }))), /*#__PURE__*/React.createElement("div", {
     className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"

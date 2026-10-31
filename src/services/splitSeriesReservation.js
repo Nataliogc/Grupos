@@ -549,6 +549,98 @@
         serverTimestampVal = db.app.firebase_.firestore.FieldValue.serverTimestamp();
       }
 
+      // Asegurar que los cargos extra de la estancia (extraCharges) estén incorporados en RoomingList_JSON al confirmar
+      let reconciledRLJson = budget.RoomingList_JSON;
+      if (Array.isArray(budget.extraCharges) && budget.extraCharges.length > 0) {
+        try {
+          const currentRL = JSON.parse(budget.RoomingList_JSON || "[]");
+          if (Array.isArray(currentRL)) {
+            const existingIds = new Set();
+            const existingConcepts = new Set();
+            currentRL.forEach(it => {
+              if (!it) return;
+              if (it.id !== undefined && it.id !== null) existingIds.add(String(it.id));
+              if (it.sourceBudgetItemId !== undefined && it.sourceBudgetItemId !== null) existingIds.add(String(it.sourceBudgetItemId));
+              if (it.isService) {
+                const c = String(it.type || it.concept || "").trim().toUpperCase();
+                if (c) existingConcepts.add(c);
+              }
+            });
+            const stayDates = generateDatesLocal(budget.Entrada, budget.Salida);
+            const firstDate = stayDates[0] || String(budget.Entrada || "").split("T")[0] || "";
+            const hotelName = budget.Hotel_Asignado || budget.Hotel || "Sercotel Guadiana";
+            const added = [];
+            budget.extraCharges.forEach((ext, extIdx) => {
+              if (!ext) return;
+              const conceptRaw = (ext.concept || ext.description || ext.type || "").trim();
+              const conceptNorm = conceptRaw.toUpperCase();
+              const rawUnits = ext.units !== undefined && ext.units !== '' ? Number(ext.units) : (ext.qty !== undefined && ext.qty !== '' ? Number(ext.qty) : (ext.pax !== undefined && ext.pax !== '' ? Number(ext.pax) : 1));
+              const qty = (!isNaN(rawUnits) && rawUnits > 0) ? rawUnits : 1;
+              const hasUnitPrice = ext.unitPrice !== undefined && ext.unitPrice !== '' && !isNaN(Number(ext.unitPrice));
+              const rawPrice = parseFloat(ext.price) || 0;
+              const unitPrice = hasUnitPrice ? Number(ext.unitPrice) : (qty > 1 && rawPrice > 0 ? +(rawPrice / qty).toFixed(4) : rawPrice);
+              const lineTotal = hasUnitPrice ? (qty * unitPrice) : rawPrice;
+              if (!conceptRaw && lineTotal === 0) return;
+              const baseId = ext.id !== undefined && ext.id !== null ? ext.id : `ext_${extIdx}`;
+              if (existingIds.has(String(baseId)) || (!ext.id && existingConcepts.has(conceptNorm))) return;
+              const sc = ext.scope || (ext.date === 'daily' ? 'daily' : (ext.date && ext.date !== 'Todas' ? ext.date : 'total'));
+              const iva = ext.iva !== undefined ? Number(ext.iva) : 10;
+              const typeLabel = conceptNorm || "CARGO EXTRA";
+              if (sc === 'daily' && stayDates.length > 0) {
+                stayDates.forEach(d => {
+                  const dayExtId = `${baseId}_${d}`;
+                  if (existingIds.has(String(dayExtId))) return;
+                  added.push({
+                    id: dayExtId,
+                    sourceBudgetItemId: baseId,
+                    hotel: hotelName,
+                    type: typeLabel,
+                    dateIn: d,
+                    dateOut: d,
+                    qty: qty,
+                    pax: 1,
+                    regime: "-",
+                    price: unitPrice,
+                    iva: iva,
+                    nights: 1,
+                    total: lineTotal.toFixed(2),
+                    isService: true,
+                    isEconomicItem: true,
+                    isEconomicRepresentation: true,
+                    isAccommodation: false
+                  });
+                });
+              } else {
+                const isSpecificDate = /^\d{4}-\d{2}-\d{2}$/.test(sc) ? sc : (/^\d{4}-\d{2}-\d{2}$/.test(ext.date || '') ? ext.date : '');
+                const targetDate = isSpecificDate || firstDate;
+                added.push({
+                  id: baseId,
+                  sourceBudgetItemId: baseId,
+                  hotel: hotelName,
+                  type: typeLabel,
+                  dateIn: targetDate,
+                  dateOut: targetDate,
+                  qty: qty,
+                  pax: 1,
+                  regime: "-",
+                  price: unitPrice,
+                  iva: iva,
+                  nights: 1,
+                  total: lineTotal.toFixed(2),
+                  isService: true,
+                  isEconomicItem: true,
+                  isEconomicRepresentation: true,
+                  isAccommodation: false
+                });
+              }
+            });
+            if (added.length > 0) {
+              reconciledRLJson = JSON.stringify([...currentRL, ...added]);
+            }
+          }
+        } catch (e) {}
+      }
+
       if (pmsReserva && pmsReserva !== budgetId) {
         if (pmsReserva.toUpperCase().startsWith("PRES-") || pmsReserva.toUpperCase().startsWith("COT-")) {
           throw new Error("El número de reserva del PMS debe ser un localizador real (no puede ser un código de presupuesto PRES-).");
@@ -565,6 +657,7 @@
         // 1. Crear documento de la reserva oficial en groups
         const reservationData = {
           ...budget,
+          ...(reconciledRLJson ? { RoomingList_JSON: reconciledRLJson } : {}),
           id: pmsReserva,
           uid: pmsReserva,
           Reserva: pmsReserva,
