@@ -1,0 +1,103 @@
+{
+  "id": "./index.html",
+  "name": "Nexus Groups — Inteligencia Hotelera Estratégica",
+  "short_name": "Nexus Groups",
+  "description": "Plataforma integral de gestión comercial, grupos, presupuestos, depósitos, proformas y calendario operativo para Sercotel Guadiana y Cumbria Spa & Hotel.",
+  "lang": "es-ES",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#2d5a43",
+  "background_color": "#f8fafc",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "Nexus%20Groups/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "Nexus%20Groups/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "Nexus%20Groups/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Panel de Control",
+      "short_name": "Panel",
+      "description": "Abrir el panel estratégico principal de Nexus Groups",
+      "url": "./Admin.html",
+      "icons": [
+        {
+          "src": "Nexus%20Groups/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Directorio de Grupos",
+      "short_name": "Grupos",
+      "description": "Ver y gestionar todos los grupos",
+      "url": "./Gestion-de-Grupos.html",
+      "icons": [
+        {
+          "src": "Nexus%20Groups/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Seguimiento de Presupuestos",
+      "short_name": "Presupuestos",
+      "description": "Gestionar peticiones y presupuestos de grupos",
+      "url": "./Presupuestos.html",
+      "icons": [
+        {
+          "src": "Nexus%20Groups/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Calendario Operativo",
+      "short_name": "Calendario",
+      "description": "Consultar ocupación y tarifas en el calendario operativo",
+      "url": "./Calendario.html",
+      "icons": [
+        {
+          "src": "Nexus%20Groups/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Depósitos y Saldos",
+      "short_name": "Depósitos",
+      "description": "Control de depósitos y pagos de agencias",
+      "url": "./Depositos.html",
+      "icons": [
+        {
+          "src": "Nexus%20Groups/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

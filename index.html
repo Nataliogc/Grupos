@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus Groups - Login</title>
     <link rel="icon" type="image/png" href="Nexus Groups/Nexus_Groups_ICO-removebg-preview.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2d5a43">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Nexus Groups">
+    <link rel="apple-touch-icon" href="Nexus Groups/apple-touch-icon.png">
     <!-- Static Styles (Tailwind Compiled) -->
     <link rel="stylesheet" href="style.css">
 
@@ -274,7 +280,16 @@
                 </div>
             </form>
 
-            <div class="mt-10 pt-8 border-t border-slate-100 flex justify-between items-center opacity-40">
+            <div class="mt-6 text-center">
+                <button type="button" id="nexus-login-install-btn" data-nexus-install-btn
+                    onclick="if(window.nexusTriggerInstall) window.nexusTriggerInstall();"
+                    class="hidden items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-50/90 hover:bg-emerald-100 text-[#2d5a43] border border-emerald-200/80 text-xs font-bold transition-all cursor-pointer shadow-2xs">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    <span>Instalar Nexus Groups como App</span>
+                </button>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center opacity-40">
                 <img src="Logos/Sercotel Guadiana.jpg" class="h-6 grayscale object-contain" alt="Guadiana">
                 <img src="Logos/Cumbria Spa&Hotel.jpg" class="h-6 grayscale object-contain" alt="Cumbria">
             </div>
@@ -297,6 +312,8 @@
     <!-- Configuración Firebase Centralizada -->
     <script src="js/firebase-config.js"></script>
     <script src="js/firebase-init.js?v=2-persistent-cache"></script>
+    <!-- Gestor de Instalación PWA -->
+    <script src="js/pwa.js"></script>
 
     <script>
         // ─── USUARIOS AUTORIZADOS NEXUSGROUPS ─────────────────────────────────
@@ -326,6 +343,9 @@
                 });
                 document.querySelectorAll('[data-lucide="arrow-right"]').forEach(function(el) {
                     el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+                });
+                document.querySelectorAll('[data-lucide="download"]').forEach(function(el) {
+                    el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>';
                 });
             }
         }

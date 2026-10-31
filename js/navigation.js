@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.12";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "30/10/2026 02:43";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.13";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "31/10/2026 15:08";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -364,8 +364,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.12 (30/10/2026 02:43)">
-                                    V2.5.12
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.13 (31/10/2026 15:08)">
+                                    V2.5.13
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -443,6 +443,11 @@
                     <div class="h-4 w-[1px] bg-slate-200 mx-0.5 hidden sm:block"></div>
 
                     <div class="flex gap-0.5 items-center">
+                        <button id="nexus-install-app-btn" type="button" data-nexus-install-btn class="nexus-nav-btn hidden items-center gap-1 px-2 py-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-all rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer shadow-2xs mr-0.5" title="Instalar Nexus Groups como aplicación">
+                            <i data-lucide="download" class="w-3.5 h-3.5 shrink-0"></i>
+                            <span class="hidden xl:inline">Instalar App</span>
+                        </button>
+
                         <label class="nexus-nav-btn p-1.5 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer flex items-center justify-center rounded-lg hover:bg-slate-100" title="Importar">
                             <i data-lucide="upload" class="w-4 h-4"></i>
                             <input type="file" id="nexus-header-upload-input" class="hidden" accept=".csv, .xlsx, .xls" />
@@ -574,6 +579,20 @@
                 e.preventDefault();
                 window.nexusOpenPasswordModal();
             });
+        }
+
+        // Clic en el botón Instalar App (PWA)
+        var installAppBtn = document.getElementById("nexus-install-app-btn");
+        if (installAppBtn) {
+            installAppBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                if (typeof window.nexusTriggerInstall === "function") {
+                    window.nexusTriggerInstall();
+                }
+            });
+        }
+        if (typeof window.updateNexusInstallButtons === "function") {
+            window.updateNexusInstallButtons();
         }
 
         // Suscribirse a Firestore para importación en tiempo real
@@ -900,6 +919,13 @@
 
     // Compatibilidad: la fecha de exportación se omite para evitar duplicidad con las fechas de hoteles
     window.updateNexusHeaderExportDate = function () {};
+
+    // Cargar módulo PWA automáticamente si no está cargado
+    if (!window.__NEXUS_PWA_INITIALIZED__ && typeof document !== "undefined" && document.head) {
+        var pwaScript = document.createElement("script");
+        pwaScript.src = "js/pwa.js";
+        document.head.appendChild(pwaScript);
+    }
 
     // Ejecutar al cargar la página
     if (document.readyState === "loading") {

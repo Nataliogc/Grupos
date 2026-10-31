@@ -6,6 +6,7 @@ const versionJsPath = path.join(rootDir, 'js', 'version.js');
 const navigationJsPath = path.join(rootDir, 'js', 'navigation.js');
 const packageJsonPath = path.join(rootDir, 'package.json');
 const adminJsxPath = path.join(rootDir, 'src', 'Admin.jsx');
+const swJsPath = path.join(rootDir, 'sw.js');
 
 // 1. Obtener versión actual y calcular siguiente parche
 let pkg = {};
@@ -87,6 +88,16 @@ if (fs.existsSync(adminJsxPath)) {
     `Nexus Gold Edition ${newVersionTag}`
   );
   fs.writeFileSync(adminJsxPath, admin, 'utf8');
+}
+
+// 6. Actualizar versión de caché en sw.js
+if (fs.existsSync(swJsPath)) {
+  let sw = fs.readFileSync(swJsPath, 'utf8');
+  sw = sw.replace(
+    /const CACHE_NAME = "nexus-groups-pwa-[^"]+";/,
+    `const CACHE_NAME = "nexus-groups-pwa-v${rawVersion}";`
+  );
+  fs.writeFileSync(swJsPath, sw, 'utf8');
 }
 
 console.log(`[BUMP-VERSION] ¡Versión ${newVersionTag} aplicada correctamente a todo el sistema!`);
