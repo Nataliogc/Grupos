@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.13";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "31/10/2026 15:08";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.14";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "31/10/2026 15:45";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -169,17 +169,19 @@
             }
         } catch(e) {}
 
-        // Si hay usuario recordado previamente, asociarlo
+        // Si hay usuario recordado previamente y no cerró sesión explícitamente, asociarlo
         try {
-            var saved = localStorage.getItem('nexus_saved_username');
-            if (saved) {
-                var sLow = saved.trim().toLowerCase();
-                var found = AUTHORIZED_PROFILES.find(function(p) {
-                    return p.id === sLow || p.name.toLowerCase() === sLow || p.email.toLowerCase() === sLow;
-                });
-                if (found) {
-                    localStorage.setItem('nexus_user', JSON.stringify(found));
-                    return found;
+            if (localStorage.getItem('nexus_explicit_logout') !== 'true') {
+                var saved = localStorage.getItem('nexus_saved_username');
+                if (saved) {
+                    var sLow = saved.trim().toLowerCase();
+                    var found = AUTHORIZED_PROFILES.find(function(p) {
+                        return p.id === sLow || p.name.toLowerCase() === sLow || p.email.toLowerCase() === sLow;
+                    });
+                    if (found) {
+                        localStorage.setItem('nexus_user', JSON.stringify(found));
+                        return found;
+                    }
                 }
             }
         } catch(e) {}
@@ -194,6 +196,7 @@
         var confirmMsg = user && user.name ? "¿Deseas cerrar la sesión de " + user.name + "?" : "¿Deseas cerrar la sesión?";
         if (window.confirm(confirmMsg)) {
             try {
+                localStorage.setItem('nexus_explicit_logout', 'true');
                 localStorage.removeItem('nexus_user');
                 sessionStorage.removeItem('nexus_session');
             } catch(e) {}
@@ -292,6 +295,34 @@
             .nexus-nav-btn:active {
                 transform: scale(0.97);
             }
+            /* Soporte para arrastrar la ventana de la App instalada y evitar que los controles de ventana (⋯ — ❐ ✕) tapen la derecha */
+            @media (display-mode: window-controls-overlay) {
+                #nexus-global-header {
+                    -webkit-app-region: drag;
+                    app-region: drag;
+                    padding-right: calc(100vw - env(titlebar-area-width, calc(100vw - 150px)) + 8px) !important;
+                }
+                #nexus-global-header a,
+                #nexus-global-header button,
+                #nexus-global-header label,
+                #nexus-global-header input,
+                #nexus-global-header #nexus-db-status-badge {
+                    -webkit-app-region: no-drag;
+                    app-region: no-drag;
+                }
+            }
+            #nexus-global-header.nexus-wco-active {
+                -webkit-app-region: drag;
+                app-region: drag;
+            }
+            #nexus-global-header.nexus-wco-active a,
+            #nexus-global-header.nexus-wco-active button,
+            #nexus-global-header.nexus-wco-active label,
+            #nexus-global-header.nexus-wco-active input,
+            #nexus-global-header.nexus-wco-active #nexus-db-status-badge {
+                -webkit-app-region: no-drag;
+                app-region: no-drag;
+            }
         `;
         document.head.appendChild(style);
 
@@ -364,8 +395,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.13 (31/10/2026 15:08)">
-                                    V2.5.13
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.14 (31/10/2026 15:45)">
+                                    V2.5.14
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -443,7 +474,7 @@
                     <div class="h-4 w-[1px] bg-slate-200 mx-0.5 hidden sm:block"></div>
 
                     <div class="flex gap-0.5 items-center">
-                        <button id="nexus-install-app-btn" type="button" data-nexus-install-btn class="nexus-nav-btn hidden items-center gap-1 px-2 py-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-all rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer shadow-2xs mr-0.5" title="Instalar Nexus Groups como aplicación">
+                        <button id="nexus-install-app-btn" type="button" data-nexus-install-btn style="display: none;" class="nexus-nav-btn hidden items-center gap-1 px-2 py-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-all rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer shadow-2xs mr-0.5" title="Instalar Nexus Groups como aplicación">
                             <i data-lucide="download" class="w-3.5 h-3.5 shrink-0"></i>
                             <span class="hidden xl:inline">Instalar App</span>
                         </button>
@@ -465,6 +496,37 @@
 
         // Insertar al inicio de body
         document.body.prepend(header);
+
+        // Ajustar margen derecho y arrastre si Window Controls Overlay está activo (evita que los botones ⋯ — ❐ ✕ tapen el usuario)
+        function syncWindowControlsOverlay() {
+            try {
+                var wco = navigator.windowControlsOverlay;
+                var isWcoMedia = window.matchMedia && window.matchMedia("(display-mode: window-controls-overlay)").matches;
+                if ((wco && wco.visible) || isWcoMedia) {
+                    header.classList.add("nexus-wco-active");
+                    if (wco && typeof wco.getTitlebarAreaRect === "function") {
+                        var rect = wco.getTitlebarAreaRect();
+                        if (rect && rect.width > 0) {
+                            var rightTaken = Math.max(0, window.innerWidth - (rect.x + rect.width));
+                            var leftTaken = Math.max(0, rect.x);
+                            header.style.paddingRight = (rightTaken + 8) + "px";
+                            if (leftTaken > 0) header.style.paddingLeft = (leftTaken + 8) + "px";
+                            return;
+                        }
+                    }
+                    header.style.paddingRight = "150px";
+                } else {
+                    header.classList.remove("nexus-wco-active");
+                    header.style.paddingRight = "";
+                    header.style.paddingLeft = "";
+                }
+            } catch (e) {}
+        }
+        syncWindowControlsOverlay();
+        window.addEventListener("resize", syncWindowControlsOverlay);
+        if (navigator.windowControlsOverlay && navigator.windowControlsOverlay.addEventListener) {
+            navigator.windowControlsOverlay.addEventListener("geometrychange", syncWindowControlsOverlay);
+        }
 
         // MutationObserver para reaccionar a cambios en body.nexus-ficha-open
         if (window.MutationObserver) {

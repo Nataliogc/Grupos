@@ -256,9 +256,9 @@
                 <!-- Recordar credenciales -->
                 <div class="flex items-center justify-between px-1 py-0.5">
                     <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-600 select-none">
-                        <input type="checkbox" id="rememberMe"
+                        <input type="checkbox" id="rememberMe" checked
                             class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 transition-all cursor-pointer">
-                        <span>Recordar usuario</span>
+                        <span>Recordar sesión en este equipo</span>
                     </label>
                     <span class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Nexus Groups</span>
                 </div>
@@ -281,7 +281,7 @@
             </form>
 
             <div class="mt-6 text-center">
-                <button type="button" id="nexus-login-install-btn" data-nexus-install-btn
+                <button type="button" id="nexus-login-install-btn" data-nexus-install-btn style="display: none;"
                     onclick="if(window.nexusTriggerInstall) window.nexusTriggerInstall();"
                     class="hidden items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-50/90 hover:bg-emerald-100 text-[#2d5a43] border border-emerald-200/80 text-xs font-bold transition-all cursor-pointer shadow-2xs">
                     <i data-lucide="download" class="w-3.5 h-3.5"></i>
@@ -370,8 +370,46 @@
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('logout') === 'true') {
             try {
+                localStorage.setItem('nexus_explicit_logout', 'true');
                 localStorage.removeItem('nexus_user');
                 sessionStorage.removeItem('nexus_session');
+            } catch(e) {}
+        } else {
+            // Auto-login: recordar al comercial sin pedir credenciales si ya inició sesión previamente
+            try {
+                let activeSession = null;
+                const rawUser = localStorage.getItem('nexus_user') || sessionStorage.getItem('nexus_session');
+                if (rawUser) {
+                    const parsed = JSON.parse(rawUser);
+                    if (parsed && (parsed.name || parsed.email)) {
+                        activeSession = parsed;
+                    }
+                }
+                if (!activeSession && localStorage.getItem('nexus_explicit_logout') !== 'true') {
+                    const savedUser = localStorage.getItem('nexus_saved_username');
+                    if (savedUser) {
+                        const sLow = savedUser.trim().toLowerCase();
+                        const matched = AUTHORIZED_USERS.find(u =>
+                            u.id === sLow || u.name.toLowerCase() === sLow || u.email.toLowerCase() === sLow
+                        );
+                        if (matched) {
+                            activeSession = {
+                                id: matched.id,
+                                email: matched.email,
+                                name: matched.name,
+                                role: matched.role,
+                                avatar: matched.name.charAt(0).toUpperCase(),
+                                loginTime: Date.now()
+                            };
+                            localStorage.setItem('nexus_user', JSON.stringify(activeSession));
+                        }
+                    }
+                }
+                if (activeSession) {
+                    localStorage.removeItem('nexus_explicit_logout');
+                    sessionStorage.setItem('nexus_session', JSON.stringify(activeSession));
+                    window.location.replace(REDIRECT_URL);
+                }
             } catch(e) {}
         }
 
@@ -607,10 +645,11 @@
                         };
 
                         try {
+                            localStorage.removeItem('nexus_explicit_logout');
                             localStorage.setItem('nexus_user', JSON.stringify(sessionData));
                             sessionStorage.setItem('nexus_session', JSON.stringify(sessionData));
                             if (rememberMeCheckbox.checked) {
-                                localStorage.setItem('nexus_saved_username', usernameInput.value.trim());
+                                localStorage.setItem('nexus_saved_username', matchedUser.name || usernameInput.value.trim());
                             } else {
                                 localStorage.removeItem('nexus_saved_username');
                             }
