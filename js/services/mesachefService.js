@@ -440,6 +440,26 @@
   }
 
   /**
+   * Obtiene la etiqueta amigable para una comida o servicio
+   */
+  function getMealLabel(jornada, customName) {
+    if (customName && String(customName).trim()) {
+      var cStr = String(customName).trim().replace(/\s+Grupo\s*(\(programado\))?$/i, '').trim();
+      if (cStr) return cStr;
+    }
+    switch (String(jornada || '').toLowerCase()) {
+      case 'desayuno': return 'Desayuno';
+      case 'almuerzo': return 'Almuerzo';
+      case 'merienda': return 'Merienda';
+      case 'cena': return 'Cena';
+      case 'coffee_break': return 'Coffee Break';
+      case 'coctel': return 'Cóctel';
+      case 'especial': return 'Servicio Especial';
+      default: return jornada ? (jornada.charAt(0).toUpperCase() + jornada.slice(1)) : 'Servicio';
+    }
+  }
+
+  /**
    * Prepara los documentos diarios para la colección `reservas_salones` de MesaChef Matrix
    * Soporta regímenes y pax distintos para cada día de estancia (extraídos de DailyDistribution_JSON / RoomingList_JSON).
    * La hora del servicio es "---" salvo que esté explícitamente programada/registrada en el grupo.
@@ -451,17 +471,31 @@
     var rows = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!Array.isArray(rows)) throw new Error("La programación de comidas debe ser una lista.");
     var seen = {};
+    var validJornadas = ["desayuno", "almuerzo", "merienda", "cena", "coffee_break", "coctel", "especial"];
     return rows.map(function (row) {
       var date = toIsoDate(row.fecha);
       var pax = Number(row.pax);
-      if (!date || date !== row.fecha || new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date || !["almuerzo", "cena"].includes(row.jornada) || !Number.isInteger(pax) || pax <= 0) {
+      var jNorm = String(row.jornada || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (jNorm === "comida") jNorm = "almuerzo";
+      if (jNorm === "coffee" || jNorm === "coffeebreak" || jNorm === "pausa_cafe") jNorm = "coffee_break";
+      if (jNorm === "cocktail") jNorm = "coctel";
+      if (!date || date !== row.fecha || new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date || !validJornadas.includes(jNorm) || !Number.isInteger(pax) || pax <= 0) {
         throw new Error("Revisa la fecha, el turno y los comensales de cada comida.");
       }
-      var key = date + "_" + row.jornada;
-      if (seen[key]) throw new Error("Solo puede haber una fila por fecha y turno.");
+      var cleanNombre = (row.nombre && String(row.nombre).trim()) || "";
+      var key = date + "_" + jNorm + (cleanNombre ? ("_" + cleanNombre.toLowerCase().replace(/[^a-z0-9]+/g, "_")) : (row.id ? ("_" + row.id) : ""));
+      if (seen[key]) throw new Error("Solo puede haber una fila por fecha y turno (usa un nombre descriptivo si tienes varios servicios especiales el mismo día).");
       seen[key] = true;
       var h = extractRegisteredHour(row.hora || row.hour);
-      return {fecha: date, jornada: row.jornada, pax: pax, hora: h || "---"};
+      var cleanHour = h || (row.hora && row.hora !== "---" ? String(row.hora).trim() : "---");
+      return {
+        fecha: date,
+        jornada: jNorm,
+        pax: pax,
+        hora: cleanHour,
+        nombre: cleanNombre,
+        id: row.id || undefined
+      };
     });
   }
 
@@ -586,7 +620,11 @@
     function clean(value) { return String(value || "").trim(); }
     return docs.map(function (doc) {
       var meal = doc.detalles.jornada;
-      var row = (order.planRows || []).find(function (r) { return rowDate(r) === doc.fecha && clean(r.serv).toLowerCase().includes(meal); });
+      var mealLabel = getMealLabel(meal, doc.servicios && doc.servicios[0] && doc.servicios[0].concepto);
+      var row = (order.planRows || []).find(function (r) {
+        var rServ = clean(r.serv).toLowerCase();
+        return rowDate(r) === doc.fecha && (rServ.includes(meal) || rServ.includes(mealLabel.toLowerCase()) || (meal === 'coffee_break' && rServ.includes('coffee')));
+      });
       var hour = row && clean(row.hora);
       var registeredHour = extractRegisteredHour(hour);
       if (registeredHour) {
@@ -599,13 +637,13 @@
       var incidents = (order.incidenciaRows || []).filter(function (r) {
         if (![r.tipo,r.numPax,r.detalle].some(function (v) { return clean(v) && clean(v) !== "---"; })) return false;
         var affected = clean(r.serv).toLowerCase();
-        return !affected || affected === "---" || /todos|todas|general/.test(affected) || affected.includes(meal);
+        return !affected || affected === "---" || /todos|todas|general/.test(affected) || affected.includes(meal) || affected.includes(mealLabel.toLowerCase()) || (meal === 'coffee_break' && affected.includes('coffee'));
       }).map(function (r) { return {tipo:clean(r.tipo),pax:clean(r.numPax),detalle:clean(r.detalle),servicios:clean(r.serv)}; });
       doc.nexusServiceOrderRevision = order.savedAt || JSON.stringify(order);
       doc.ordenServicio = {
         origen:"Nexus Groups", grupo:order.grupo || doc.cliente, salon:doc.salon,
         pax:String(doc.detalles.pax_adultos), notas:order.notasText || "", guardadoEl:order.savedAt || "",
-        planServicios:[{dia:row ? row.dia : doc.fecha,servicio:meal === "almuerzo" ? "Almuerzo" : "Cena",pax:String(doc.detalles.pax_adultos),menu:row ? clean(row.menu) : "",hora:doc.detalles.hora}],
+        planServicios:[{dia:row ? row.dia : doc.fecha,servicio:mealLabel,pax:String(doc.detalles.pax_adultos),menu:row ? clean(row.menu) : "",hora:doc.detalles.hora}],
         incidencias:incidents
       };
       return doc;
@@ -637,21 +675,34 @@
       }
       if (!template) return [];
       var allowance = automatic.reduce(function (sum, doc) { return sum + doc.detalles.pax_adultos; }, 0);
+      var seenSlugs = {};
       return applyServiceOrderDetails(schedule.filter(function (row) { return isEligibleDate(row.fecha); }).map(function (row) {
         var doc = JSON.parse(JSON.stringify(template));
         var included = Math.min(allowance, row.pax);
         allowance -= included;
         var scheduleHour = (row.hora && row.hora !== "---") ? row.hora : (extractRegisteredHour(row.hora || row.hour) || "---");
-        doc.id = "nexus_" + reservaId + "_" + row.fecha + "_" + row.jornada;
+        
+        var baseSlug = (row.id ? String(row.id) : (row.jornada + (row.nombre ? ("_" + String(row.nombre).toLowerCase().replace(/[^a-z0-9]+/g, "_")) : ""))).toLowerCase().replace(/[^a-z0-9_]+/g, "_");
+        var slug = baseSlug;
+        var slugKey = row.fecha + "_" + slug;
+        if (seenSlugs[slugKey]) {
+          seenSlugs[slugKey]++;
+          slug = baseSlug + "_" + seenSlugs[slugKey];
+        } else {
+          seenSlugs[slugKey] = 1;
+        }
+
+        doc.id = "nexus_" + reservaId + "_" + row.fecha + "_" + slug;
         doc.fecha = row.fecha;
         doc.detalles.jornada = row.jornada;
         doc.detalles.hora = scheduleHour;
         doc.detalles.pax_adultos = row.pax;
         doc.detalles.incluido = included === row.pax;
         doc.detalles.pax_extra = row.pax - included;
-        doc.notas.interna = "[Nexus Groups] Ref: " + reservaId + " | Programación de comidas | Pax: " + row.pax + (row.pax > included ? " | Extras pendientes de valorar: " + (row.pax - included) : "");
+        var label = getMealLabel(row.jornada, row.nombre);
+        doc.notas.interna = "[Nexus Groups] Ref: " + reservaId + " | Programación de " + (row.jornada === "almuerzo" || row.jornada === "cena" ? "comidas" : label) + " | Pax: " + row.pax + (row.pax > included ? " | Extras pendientes de valorar: " + (row.pax - included) : "");
         doc.servicios = [{fecha:row.fecha, hora:scheduleHour,
-          concepto:(row.jornada === "almuerzo" ? "Almuerzo" : "Cena") + " Grupo (programado)", uds:row.pax, precio:0, total:0}];
+          concepto: label + " Grupo (programado)", uds:row.pax, precio:0, total:0}];
         return doc;
       }), groupRecord);
     }
@@ -1126,6 +1177,92 @@
               updated_at: new Date().toISOString()
             });
           }
+
+          if (c.includes("DESAYUNO") && !docs.some(function (d) { return d.fecha === iso && d.detalles.jornada === "desayuno"; })) {
+            var docIdExtraDes = "nexus_" + reservaId + "_" + iso + "_desayuno";
+            var extraDesHour = extractRegisteredHour(rm.hora || rm.hour || rm.time) || "---";
+            docs.push({
+              id: docIdExtraDes,
+              reservaId: reservaId,
+              origen: "Nexus Groups",
+              hotel: hotelInfo.hotelId,
+              salon: hotelInfo.salon,
+              fecha: iso,
+              cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+              contact: {
+                tel: groupRecord.Telefono || groupRecord.telefono || "",
+                email: groupRecord.Email || groupRecord.email || ""
+              },
+              estado: mesachefStatus,
+              revisado: true,
+              detalles: {
+                jornada: "desayuno",
+                montaje: "Grupo",
+                hora: extraDesHour,
+                pax_adultos: svcQty,
+                pax_ninos: 0,
+                incluido: true
+              },
+              notas: {
+                interna: "[Nexus Groups] Ref: " + reservaId + " | Servicio: " + (rm.type || "Desayuno") + " | Pax: " + svcQty + " | Estancia: " + startIso + " al " + endIso,
+                cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+              },
+              servicios: [
+                {
+                  fecha: iso,
+                  hora: extraDesHour,
+                  concepto: "Desayuno Grupo " + (rm.type || "Extra"),
+                  uds: svcQty,
+                  precio: 0,
+                  total: 0
+                }
+              ],
+              updated_at: new Date().toISOString()
+            });
+          }
+
+          if (c.includes("MERIENDA") && !docs.some(function (d) { return d.fecha === iso && d.detalles.jornada === "merienda"; })) {
+            var docIdExtraMer = "nexus_" + reservaId + "_" + iso + "_merienda";
+            var extraMerHour = extractRegisteredHour(rm.hora || rm.hour || rm.time) || "---";
+            docs.push({
+              id: docIdExtraMer,
+              reservaId: reservaId,
+              origen: "Nexus Groups",
+              hotel: hotelInfo.hotelId,
+              salon: hotelInfo.salon,
+              fecha: iso,
+              cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+              contact: {
+                tel: groupRecord.Telefono || groupRecord.telefono || "",
+                email: groupRecord.Email || groupRecord.email || ""
+              },
+              estado: mesachefStatus,
+              revisado: true,
+              detalles: {
+                jornada: "merienda",
+                montaje: "Grupo",
+                hora: extraMerHour,
+                pax_adultos: svcQty,
+                pax_ninos: 0,
+                incluido: true
+              },
+              notas: {
+                interna: "[Nexus Groups] Ref: " + reservaId + " | Servicio: " + (rm.type || "Merienda") + " | Pax: " + svcQty + " | Estancia: " + startIso + " al " + endIso,
+                cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+              },
+              servicios: [
+                {
+                  fecha: iso,
+                  hora: extraMerHour,
+                  concepto: "Merienda Grupo " + (rm.type || "Extra"),
+                  uds: svcQty,
+                  precio: 0,
+                  total: 0
+                }
+              ],
+              updated_at: new Date().toISOString()
+            });
+          }
         });
       }
 
@@ -1134,7 +1271,7 @@
 
     docs.sort(function (a, b) {
       if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
-      var jOrder = { almuerzo: 1, cena: 2 };
+      var jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, merienda: 4, cena: 5, coctel: 6, especial: 7 };
       var jA = jOrder[(a.detalles && a.detalles.jornada)] || 99;
       var jB = jOrder[(b.detalles && b.detalles.jornada)] || 99;
       if (jA !== jB) return jA - jB;

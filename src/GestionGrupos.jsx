@@ -787,7 +787,7 @@
           schedule == null && (counts.meals === 2 || (counts.meals === 1 && room.mpMeal === "almuerzo")),
           schedule == null && !twoLunches && (counts.meals === 2 || (counts.meals === 1 && room.mpMeal !== "almuerzo")));
       });
-      if (schedule != null) schedule.forEach(row => add(defaultHotel, row.fecha, false, row.jornada === "almuerzo", row.jornada === "cena"));
+      if (schedule != null) schedule.forEach(row => add(defaultHotel, row.fecha, row.jornada === "desayuno", row.jornada === "almuerzo", row.jornada === "cena"));
       return [...summaries.values()].filter(s => s.breakfast || s.lunch || s.dinner);
     };
 
@@ -1117,7 +1117,7 @@
         totalPax:group.totalPax,
         RoomingList_JSON:group.RoomingList_JSON || group.records?.[0]?.RoomingList_JSON,
         DailyDistribution_JSON:group.DailyDistribution_JSON || group.records?.[0]?.DailyDistribution_JSON};
-      const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos}));
+      const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos, hora:d.detalles.hora || "---"}));
 
       const getTargetPax = (fecha) => {
         if (service?.getDailyPaxForGroup) return service.getDailyPaxForGroup(record, fecha);
@@ -1178,31 +1178,85 @@
 
       return <div className="bg-white border border-blue-200 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <div><h4 className="font-bold text-slate-800 text-sm">Comidas del grupo</h4>
-            <p className="text-xs text-slate-500">Elige las fechas y los turnos de las comidas incluidas en la pensión.</p></div>
-          {!open && <button type="button" onClick={begin} className="bg-blue-600 text-white rounded-lg px-3 py-2 text-xs font-bold">Programar comidas · día y servicio</button>}
+          <div><h4 className="font-bold text-slate-800 text-sm">Comidas y servicios del grupo</h4>
+            <p className="text-xs text-slate-500">Programa los turnos de comida, desayunos, meriendas o servicios especiales que sincronizan con MesaChef.</p></div>
+          {!open && <button type="button" onClick={begin} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 text-xs font-bold transition shadow-xs cursor-pointer">Programar comidas · día y servicio</button>}
         </div>
-        {!open && record.MealSchedule_JSON && <p className="text-xs text-blue-700">Este grupo tiene una programación personalizada.</p>}
+        {!open && record.MealSchedule_JSON && <p className="text-xs text-blue-700 font-medium">Este grupo tiene una programación personalizada.</p>}
         {open && <>
-          <p className="text-xs font-bold text-slate-700">Incluidas: {included} · Programadas: {planned} · Pendientes: {Math.max(0,included-planned)} · Extras: {Math.max(0,planned-included)}</p>
-          <p className="text-xs text-slate-500">El contador suma comensales de cada comida. Los extras requieren un cargo adicional; aquí se programa el servicio, sin cambiar el precio contratado.</p>
-          <table className="w-full text-xs"><thead><tr className="text-left"><th>Fecha</th><th>Comida</th><th>Personas</th><th></th></tr></thead><tbody>
-            {rows.map((row,index)=><tr key={index}>
-              <td className="py-1"><input aria-label="Fecha de comida" type="date" min={toInputDate(record.Entrada)} max={toInputDate(record.Salida)} value={row.fecha} disabled={saving} onChange={e=>change(index,"fecha",e.target.value)} className="border rounded p-1" /></td>
-              <td><select aria-label="Turno de comida" value={row.jornada} disabled={saving} onChange={e=>change(index,"jornada",e.target.value)} className="border rounded p-1"><option value="almuerzo">Almuerzo</option><option value="cena">Cena</option></select></td>
-              <td><input aria-label="Comensales" type="number" min="1" step="1" value={row.pax} disabled={saving} onChange={e=>change(index,"pax",Number(e.target.value))} className="border rounded p-1 w-20" /></td>
-              <td><button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600">Eliminar</button></td>
-            </tr>)}
-          </tbody></table>
-          <div className="flex flex-wrap gap-3 items-center">
-            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:getTargetPax(record.Entrada)}])} className="text-blue-700 text-xs font-bold">+ Añadir comida</button>
+          <p className="text-xs font-bold text-slate-700">Incluidas en pensión: {included} · Programadas: {planned} · Pendientes: {Math.max(0,included-planned)} · Extras: {Math.max(0,planned-included)}</p>
+          <p className="text-xs text-slate-500">El contador suma comensales de cada servicio. Los extras requieren un cargo adicional; aquí se programa el servicio para MesaChef, sin cambiar el precio contratado.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-slate-600 border-b border-slate-200">
+                  <th className="py-1.5 pr-2">Fecha</th>
+                  <th className="py-1.5 px-2">Servicio / Comida</th>
+                  <th className="py-1.5 px-2">Hora (opc.)</th>
+                  <th className="py-1.5 px-2">Personas</th>
+                  <th className="py-1.5 pl-2 text-right"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((row,index)=>(
+                  <tr key={index} className="hover:bg-slate-50/60">
+                    <td className="py-1.5 pr-2">
+                      <input aria-label="Fecha de comida" type="date" min={toInputDate(record.Entrada)} max={toInputDate(record.Salida)} value={row.fecha} disabled={saving} onChange={e=>change(index,"fecha",e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs" />
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <select aria-label="Turno de comida o servicio" value={row.jornada} disabled={saving} onChange={e=>change(index,"jornada",e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs font-medium bg-white">
+                          <option value="desayuno">☕ Desayuno</option>
+                          <option value="almuerzo">🍽️ Almuerzo</option>
+                          <option value="merienda">🥪 Merienda</option>
+                          <option value="cena">🍷 Cena</option>
+                          <option value="coffee_break">☕ Coffee Break</option>
+                          <option value="coctel">🍸 Cóctel</option>
+                          <option value="especial">⭐ Servicio Especial</option>
+                        </select>
+                        {(row.jornada === "especial" || row.nombre !== undefined) && (
+                          <input
+                            type="text"
+                            placeholder={row.jornada === "especial" ? "Nombre (ej. Recena, Brunch, Pausa café...)" : "Detalle opcional"}
+                            value={row.nombre || ""}
+                            disabled={saving}
+                            onChange={e=>change(index,"nombre",e.target.value)}
+                            className="border border-slate-300 rounded px-2 py-1 text-xs w-48 placeholder:text-slate-400"
+                          />
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <input
+                        aria-label="Hora del servicio"
+                        type="time"
+                        value={row.hora && row.hora !== "---" ? row.hora : ""}
+                        disabled={saving}
+                        onChange={e=>change(index,"hora",e.target.value || "---")}
+                        className="border border-slate-300 rounded px-1.5 py-1 text-xs w-24 text-center"
+                        title="Hora opcional del servicio (ej. 14:00, 17:30)"
+                      />
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <input aria-label="Comensales" type="number" min="1" step="1" value={row.pax} disabled={saving} onChange={e=>change(index,"pax",Number(e.target.value))} className="border border-slate-300 rounded px-2 py-1 text-xs w-20 text-center font-bold" />
+                    </td>
+                    <td className="py-1.5 pl-2 text-right">
+                      <button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer">Eliminar</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap gap-3 items-center pt-1">
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:getTargetPax(record.Entrada),hora:"---"}])} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>syncAllRowsPax(prev))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Sincronizar comensales de todas las comidas con las personas del grupo">🔄 Sincronizar comensales ({getTargetPax(record.Entrada)} pax)</button>
-            <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 text-white rounded px-3 py-2 text-xs font-bold">{saving?"Guardando…":"Guardar programación"}</button>
-            <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600">Usar programación automática</button>
-            <button type="button" disabled={saving} onClick={()=>{setOpen(false);setError("");}} className="text-xs text-slate-600">Cancelar</button>
+            <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 text-xs font-bold transition cursor-pointer">{saving?"Guardando…":"Guardar programación"}</button>
+            <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Usar programación automática</button>
+            <button type="button" disabled={saving} onClick={()=>{setOpen(false);setError("");}} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Cancelar</button>
           </div>
         </>}
-        {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
+        {error && <p role="alert" className="text-xs text-rose-700 font-medium">{error}</p>}
       </div>;
     };
 

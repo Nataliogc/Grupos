@@ -204,10 +204,34 @@ test('programacion personalizada mueve cena a almuerzo de salida sin duplicar co
 });
 test('programacion rechaza filas duplicadas, turnos y comensales invalidos',()=>{
   const row={fecha:'2027-02-02',jornada:'almuerzo',pax:10};
-  for (const rows of [[row,row],[{...row,pax:0}],[{...row,pax:1.5}],[{...row,jornada:'desayuno'}],[{...row,fecha:''}]]) {
+  for (const rows of [[row,row],[{...row,pax:0}],[{...row,pax:1.5}],[{...row,jornada:'turno_invalido'}],[{...row,fecha:''}]]) {
     assert.throws(()=>service.prepareSalonDocuments({...group,MealSchedule_JSON:JSON.stringify(rows)}));
   }
   assert.throws(()=>service.getMealSchedule({...group,MealSchedule_JSON:'malformed'}));
+});
+test('programacion admite servicios adicionales (desayuno, merienda, coffee_break, especial) hacia MesaChef', () => {
+  const sched = [
+    { fecha: '2027-02-02', jornada: 'desayuno', pax: 20, hora: '08:30' },
+    { fecha: '2027-02-02', jornada: 'almuerzo', pax: 20, hora: '14:00' },
+    { fecha: '2027-02-02', jornada: 'merienda', pax: 15, hora: '17:30' },
+    { fecha: '2027-02-02', jornada: 'especial', nombre: 'Cóctel bienvenida', pax: 25, hora: '20:30' }
+  ];
+  const docs = service.prepareSalonDocuments({ ...group, MealSchedule_JSON: JSON.stringify(sched) });
+  assert.equal(docs.length, 4);
+  assert.deepEqual(docs.map(d => [d.detalles.jornada, d.detalles.pax_adultos, d.detalles.hora]), [
+    ['desayuno', 20, '08:30'],
+    ['almuerzo', 20, '14:00'],
+    ['merienda', 15, '17:30'],
+    ['especial', 25, '20:30']
+  ]);
+  assert.equal(docs[0].servicios[0].concepto, 'Desayuno Grupo (programado)');
+  assert.equal(docs[1].servicios[0].concepto, 'Almuerzo Grupo (programado)');
+  assert.equal(docs[2].servicios[0].concepto, 'Merienda Grupo (programado)');
+  assert.equal(docs[3].servicios[0].concepto, 'Cóctel bienvenida Grupo (programado)');
+  assert.ok(docs[0].id.includes('_desayuno'));
+  assert.ok(docs[1].id.includes('_almuerzo'));
+  assert.ok(docs[2].id.includes('_merienda'));
+  assert.ok(docs[3].id.includes('_especial'));
 });
 test('comidas por encima de las incluidas se marcan como extras pendientes de valorar',()=>{
   const docs=service.prepareSalonDocuments({...group,MealSchedule_JSON:JSON.stringify([{fecha:'2027-02-04',jornada:'cena',pax:35}])});
