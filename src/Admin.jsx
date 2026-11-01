@@ -125,83 +125,7 @@
     };
 
 
-    // --- MÓDULO IA (CONEXIÓN SEGURA) ---
-    // --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
-    async function analizarGrupos(datos) {
-      // 1. Obtener parámetros dinámicos de Firestore
-      let apiKey = window.firebaseConfig.apiKey;
-      let model = "gemini-1.5-flash"; // Default Standard Model
 
-      try {
-        const settingsDoc = await db.collection("settings").doc("main").get();
-        if (settingsDoc.exists) {
-          const s = settingsDoc.data().system || {};
-          if (s.geminiApiKey) apiKey = s.geminiApiKey;
-          if (s.geminiModel) model = s.geminiModel;
-        }
-      } catch (e) {
-        console.warn(
-          "No se pudo cargar la API Key de Firestore, usando fallback.",
-        );
-      }
-
-      if (!apiKey || apiKey === "TU_API_KEY_AQUI") {
-        throw new Error(
-          "ERROR: No se ha configurado la API Key de Gemini en el panel de Configuración.",
-        );
-      }
-
-      const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
-
-      const prompt = `
-            Actúa como un experto analista de Revenue Management hotelero de alto nivel.
-            Analiza los siguientes datos de grupos consolidados de los hoteles Sercotel Guadiana y Cumbria Spa & Hotel.
-            Derrame un informe estratégico conciso con:
-            1. Puntos críticos de release (vencimientos próximos).
-            2. Análisis de ocupación y revenue por hotel.
-            3. Recomendaciones de seguimiento comercial (upselling, confirmación de grupos en tentativa).
-            4. Proyección de cierre de mes.
-            Utiliza un tono profesional y directo.
-            
-            DATOS DE GRUPOS:
-            ${JSON.stringify(datos)}
-            `;
-
-      try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          const msg = error.error?.message || "";
-
-          if (msg.includes("blocked") || msg.includes("PERMISSION_DENIED")) {
-            throw new Error(
-              "ðŸš« ACCESO DENEGADO: Tu API Key está bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' esté activa y que no haya restricciones de IP/dominio.",
-            );
-          }
-          if (msg.includes("leaked")) {
-            throw new Error(
-              "⚠️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.",
-            );
-          }
-          throw new Error(
-            `Error en API Gemini: ${msg || JSON.stringify(error)}`,
-          );
-        }
-
-        const data = await response.json();
-        return data.candidates[0].content.parts[0].text;
-      } catch (error) {
-        console.error("Error llamando a Gemini:", error);
-        throw error;
-      }
-    }
 
     const Sidebar = ({ activeTab, setActiveTab }) => {
       const items = [
@@ -219,7 +143,6 @@
           label: "Seguimiento Presupuestos",
         },
         { id: "invoices", icon: "file-text", label: "Facturas Proforma" },
-        { id: "analytics", icon: "bar-chart-3", label: "Análisis IA" },
         { id: "calendario", icon: "calendar", label: "Calendario Operativo" },
         {
           id: "menus",
@@ -335,7 +258,6 @@
       arrivals,
       stats,
       alerts,
-      onRunAnalysis,
       timeRange,
       onRangeChange,
       data,
@@ -3799,7 +3721,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.17 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.22 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -4680,27 +4602,6 @@ ${comercial}`;
         return list.slice(0, 5); // Mostrar top 5 más urgentes
       }, [data]);
 
-      // Estados para IA
-      const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-      const [isAiLoading, setIsAiLoading] = useState(false);
-      const [aiResult, setAiResult] = useState("");
-
-      const runStrategicAnalysis = async () => {
-        setIsAiModalOpen(true);
-        setIsAiLoading(true);
-        try {
-          const analysis = await analizarGrupos(data);
-          setAiResult(analysis);
-        } catch (error) {
-          console.error("Error en análisis IA:", error);
-          setAiResult(
-            `### Error Detectado\n**Detalles técnicos:** ${error.message}\n\n*Posible solución:* Verifica que la API Key tenga activada la "Generative Language API" y que las restricciones de sitio web incluyan tu URL actual.`,
-          );
-        } finally {
-          setIsAiLoading(false);
-        }
-      };
-
       useEffect(() => {
         const unsubscribe = db.collection("groups").onSnapshot((snapshot) => {
           const parsed = [];
@@ -5065,7 +4966,6 @@ ${comercial}`;
                 stats={stats}
                 alerts={alerts}
                 data={data}
-                onRunAnalysis={runStrategicAnalysis}
                 timeRange={timeRange}
                 onRangeChange={setTimeRange}
               />
@@ -5084,31 +4984,6 @@ ${comercial}`;
                 onDeleteGroup={handleDeleteGroup}
               />
             )}
-            {activeTab === "analytics" && (
-              <div className="space-y-8 animate-fade-in">
-                <div className="bg-white p-12 rounded-[2.5rem] shadow-sm border border-slate-100 text-center">
-                  <div className="w-20 h-20 bg-emerald-50 text-[#2d5a43] rounded-full flex items-center justify-center mx-auto mb-6">
-                    <LucideIcon name="sparkles" className="w-10 h-10" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-slate-900 mb-4">
-                    Análisis Estratégico IA
-                  </h2>
-                  <p className="text-slate-500 max-w-lg mx-auto mb-10">
-                    Utiliza la potencia de Gemini 2.5 Flash para obtener una
-                    visión profunda de la rentabilidad, riesgos y
-                    oportunidades de tus grupos actuales.
-                  </p>
-                  <button
-                    onClick={runStrategicAnalysis}
-                    className="bg-[#2d5a43] text-white px-10 py-5 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 hover:scale-[1.02] transition-all flex items-center gap-3 mx-auto"
-                  >
-                    Generar Nuevo Informe IA
-                    <LucideIcon name="zap" className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
             {(activeTab === "invoices" || activeTab === "settings") && (
               <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in text-center">
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100">
@@ -5142,68 +5017,7 @@ ${comercial}`;
             )}
           </main>
 
-          {/* MODAL IA ESTRATÉGICA */}
-          {isAiModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
-              <div className="bg-white w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-white/20">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#2d5a43] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
-                      <LucideIcon name="sparkles" className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-                        Análisis Estratégico IA
-                      </h3>
-                      <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">
-                        Motor: Gemini 2.5 Flash
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setIsAiModalOpen(false)}
-                    className="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-slate-100 text-slate-400 transition-all"
-                  >
-                    <LucideIcon name="x" className="w-6 h-6" />
-                  </button>
-                </div>
 
-                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
-                  {isAiLoading ? (
-                    <div className="h-64 flex flex-col items-center justify-center gap-6">
-                      <div className="spinner"></div>
-                      <p className="text-slate-500 font-semibold animate-pulse tracking-wide text-center">
-                        Analizando todos los grupos en tiempo real...
-                        <br />
-                        <span className="text-[10px] font-normal uppercase mt-2 block">
-                          Consultando Firestore "groups"
-                        </span>
-                      </p>
-                    </div>
-                  ) : (
-                    <div
-                      className="prose max-w-none text-slate-700 leading-relaxed"
-                      dangerouslySetInnerHTML={{
-                        __html: marked.parse(aiResult),
-                      }}
-                    ></div>
-                  )}
-                </div>
-
-                <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                  <p className="text-xs text-slate-400 italic">
-                    Este informe se basa en los grupos activos en Firestore.
-                  </p>
-                  <button
-                    onClick={() => setIsAiModalOpen(false)}
-                    className="px-8 py-3 bg-[#2d5a43] text-white font-bold rounded-2xl hover:bg-[#1e3a2c] transition-all shadow-lg"
-                  >
-                    Cerrar Informe
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       );
     };

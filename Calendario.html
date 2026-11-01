@@ -33,6 +33,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
+    <!-- Conexión anticipada y precarga para CapaSuite y Firebase -->
+    <link rel="preconnect" href="https://capasuite-default-rtdb.europe-west1.firebasedatabase.app" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://capasuite-default-rtdb.europe-west1.firebasedatabase.app">
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js">
+    <link rel="modulepreload" href="js/services/capaSuiteSession.mjs?v=1">
+
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -817,9 +827,22 @@
                 var syncLastTime = document.getElementById("sync-last-time");
                 var sync = window.CapaSuiteCalendarSync;
                 if (syncBadge) syncBadge.textContent = sync ? sync.state.status : 'Conexión de CapaSuite no disponible (copia guardada)';
-                if (syncLastTime) syncLastTime.textContent = sync && sync.state.updatedAt ? 'Datos recibidos: ' + formatTime(sync.state.updatedAt) : 'Sin actualización confirmada';
+                if (syncLastTime) {
+                    if (sync && sync.state.updatedAt) {
+                        syncLastTime.textContent = 'Datos recibidos: ' + formatTime(sync.state.updatedAt);
+                    } else {
+                        var lastCachedSync = null;
+                        try { lastCachedSync = localStorage.getItem('v3_capasuite_last_sync'); } catch (e) {}
+                        if (lastCachedSync) {
+                            var cachedDate = new Date(lastCachedSync);
+                            syncLastTime.textContent = !isNaN(cachedDate.getTime()) ? 'Última sincronización: ' + formatTime(cachedDate) : 'Sin actualización confirmada';
+                        } else {
+                            syncLastTime.textContent = 'Sin actualización confirmada';
+                        }
+                    }
+                }
                 var signIn = document.getElementById('capasuite-sign-in');
-                if (signIn) signIn.hidden = !sync || sync.state.authenticated || sync.state.status !== 'CapaSuite: inicia sesión para sincronizar';
+                if (signIn) signIn.hidden = !sync || sync.state.authenticated || (sync.state.status !== 'CapaSuite: inicia sesión para sincronizar' && sync.state.status !== 'No se pudo conectar con CapaSuite');
             }
 
             function populateYearSelector() {
@@ -1012,10 +1035,10 @@
                     <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between hover:border-indigo-300 transition-all">
                         <div class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">ESTADO DE DATOS (${yearStr})</div>
                         <div class="text-2xl font-black font-outfit text-slate-900 mt-1">
-                            Actualizado
+                            ${(sync && sync.state && sync.state.authenticated && sync.state.data) ? 'Actualizado' : (Object.keys(revenueData).length > 0 ? 'Copia Local' : 'Sin Datos')}
                         </div>
                         <div class="text-[11px] text-slate-500 font-medium mt-1">
-                            Sincronización en tiempo real
+                            ${(sync && sync.state && sync.state.authenticated && sync.state.data) ? 'Sincronización en tiempo real' : (Object.keys(revenueData).length > 0 ? 'Datos guardados en navegador' : 'Pendiente de sincronizar')}
                         </div>
                     </div>
                 `;

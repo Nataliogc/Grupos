@@ -7,6 +7,8 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -19,8 +21,6 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
-function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 var _React = React,
   useState = _React.useState,
   useEffect = _React.useEffect,
@@ -158,103 +158,6 @@ var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
     allMilestonesCobrado: allMilestonesCobrado
   };
 };
-
-// --- MÓDULO IA (CONEXIÓN SEGURA) ---
-// --- MÓDULO IA ESTRATÉGICA (CONEXIÓN POR PARÁMETROS) ---
-function analizarGrupos(_x) {
-  return _analizarGrupos.apply(this, arguments);
-}
-function _analizarGrupos() {
-  _analizarGrupos = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(datos) {
-    var apiKey, model, settingsDoc, s, url, prompt, response, _error$error, error, msg, data, _t8, _t9;
-    return _regenerator().w(function (_context6) {
-      while (1) switch (_context6.p = _context6.n) {
-        case 0:
-          // 1. Obtener parámetros dinámicos de Firestore
-          apiKey = window.firebaseConfig.apiKey;
-          model = "gemini-1.5-flash"; // Default Standard Model
-          _context6.p = 1;
-          _context6.n = 2;
-          return db.collection("settings").doc("main").get();
-        case 2:
-          settingsDoc = _context6.v;
-          if (settingsDoc.exists) {
-            s = settingsDoc.data().system || {};
-            if (s.geminiApiKey) apiKey = s.geminiApiKey;
-            if (s.geminiModel) model = s.geminiModel;
-          }
-          _context6.n = 4;
-          break;
-        case 3:
-          _context6.p = 3;
-          _t8 = _context6.v;
-          console.warn("No se pudo cargar la API Key de Firestore, usando fallback.");
-        case 4:
-          if (!(!apiKey || apiKey === "TU_API_KEY_AQUI")) {
-            _context6.n = 5;
-            break;
-          }
-          throw new Error("ERROR: No se ha configurado la API Key de Gemini en el panel de Configuración.");
-        case 5:
-          url = "https://generativelanguage.googleapis.com/v1/models/".concat(model, ":generateContent?key=").concat(apiKey);
-          prompt = "\n            Act\xFAa como un experto analista de Revenue Management hotelero de alto nivel.\n            Analiza los siguientes datos de grupos consolidados de los hoteles Sercotel Guadiana y Cumbria Spa & Hotel.\n            Derrame un informe estrat\xE9gico conciso con:\n            1. Puntos cr\xEDticos de release (vencimientos pr\xF3ximos).\n            2. An\xE1lisis de ocupaci\xF3n y revenue por hotel.\n            3. Recomendaciones de seguimiento comercial (upselling, confirmaci\xF3n de grupos en tentativa).\n            4. Proyecci\xF3n de cierre de mes.\n            Utiliza un tono profesional y directo.\n            \n            DATOS DE GRUPOS:\n            ".concat(JSON.stringify(datos), "\n            ");
-          _context6.p = 6;
-          _context6.n = 7;
-          return fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: prompt
-                }]
-              }]
-            })
-          });
-        case 7:
-          response = _context6.v;
-          if (response.ok) {
-            _context6.n = 11;
-            break;
-          }
-          _context6.n = 8;
-          return response.json();
-        case 8:
-          error = _context6.v;
-          msg = ((_error$error = error.error) === null || _error$error === void 0 ? void 0 : _error$error.message) || "";
-          if (!(msg.includes("blocked") || msg.includes("PERMISSION_DENIED"))) {
-            _context6.n = 9;
-            break;
-          }
-          throw new Error("ðŸš« ACCESO DENEGADO: Tu API Key está bloqueada o no tiene permisos. Verifica en Google AI Studio que la 'Generative Language API' esté activa y que no haya restricciones de IP/dominio.");
-        case 9:
-          if (!msg.includes("leaked")) {
-            _context6.n = 10;
-            break;
-          }
-          throw new Error("⚠️ SEGURIDAD: Tu API Key ha sido desactivada por filtración pública (leaked). Por favor, genera una nueva clave privada en Google AI Studio.");
-        case 10:
-          throw new Error("Error en API Gemini: ".concat(msg || JSON.stringify(error)));
-        case 11:
-          _context6.n = 12;
-          return response.json();
-        case 12:
-          data = _context6.v;
-          return _context6.a(2, data.candidates[0].content.parts[0].text);
-        case 13:
-          _context6.p = 13;
-          _t9 = _context6.v;
-          console.error("Error llamando a Gemini:", _t9);
-          throw _t9;
-        case 14:
-          return _context6.a(2);
-      }
-    }, _callee6, null, [[6, 13], [1, 3]]);
-  }));
-  return _analizarGrupos.apply(this, arguments);
-}
 var Sidebar = function Sidebar(_ref) {
   var activeTab = _ref.activeTab,
     setActiveTab = _ref.setActiveTab;
@@ -282,10 +185,6 @@ var Sidebar = function Sidebar(_ref) {
     id: "invoices",
     icon: "file-text",
     label: "Facturas Proforma"
-  }, {
-    id: "analytics",
-    icon: "bar-chart-3",
-    label: "Análisis IA"
   }, {
     id: "calendario",
     icon: "calendar",
@@ -369,7 +268,6 @@ var Dashboard = function Dashboard(_ref2) {
   var arrivals = _ref2.arrivals,
     stats = _ref2.stats,
     alerts = _ref2.alerts,
-    onRunAnalysis = _ref2.onRunAnalysis,
     timeRange = _ref2.timeRange,
     onRangeChange = _ref2.onRangeChange,
     data = _ref2.data;
@@ -1744,7 +1642,7 @@ var Dashboard = function Dashboard(_ref2) {
         }
       }, _callee);
     }));
-    return function recordInternalReportInFirestore(_x2) {
+    return function recordInternalReportInFirestore(_x) {
       return _ref3.apply(this, arguments);
     };
   }();
@@ -2084,7 +1982,7 @@ var Dashboard = function Dashboard(_ref2) {
         }
       }, _callee2, null, [[12, 14], [4, 6], [2, 9, 10, 11], [1, 19]]);
     }));
-    return function recordNotificationInFirestore(_x3) {
+    return function recordNotificationInFirestore(_x2) {
       return _ref4.apply(this, arguments);
     };
   }();
@@ -3277,7 +3175,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.17 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.22 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,
@@ -3817,7 +3715,7 @@ var App = function App() {
         }
       }, _callee3, null, [[0, 2]]);
     }));
-    return function handleUpdateStatus(_x4, _x5) {
+    return function handleUpdateStatus(_x3, _x4) {
       return _ref8.apply(this, arguments);
     };
   }();
@@ -3856,7 +3754,7 @@ var App = function App() {
         }
       }, _callee4, null, [[1, 3]]);
     }));
-    return function handleDeleteGroup(_x6) {
+    return function handleDeleteGroup(_x5) {
       return _ref9.apply(this, arguments);
     };
   }();
@@ -4041,54 +3939,6 @@ var App = function App() {
     }
     return list.slice(0, 5); // Mostrar top 5 más urgentes
   }, [data]);
-
-  // Estados para IA
-  var _useState11 = useState(false),
-    _useState12 = _slicedToArray(_useState11, 2),
-    isAiModalOpen = _useState12[0],
-    setIsAiModalOpen = _useState12[1];
-  var _useState13 = useState(false),
-    _useState14 = _slicedToArray(_useState13, 2),
-    isAiLoading = _useState14[0],
-    setIsAiLoading = _useState14[1];
-  var _useState15 = useState(""),
-    _useState16 = _slicedToArray(_useState15, 2),
-    aiResult = _useState16[0],
-    setAiResult = _useState16[1];
-  var runStrategicAnalysis = /*#__PURE__*/function () {
-    var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-      var analysis, _t7;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
-          case 0:
-            setIsAiModalOpen(true);
-            setIsAiLoading(true);
-            _context5.p = 1;
-            _context5.n = 2;
-            return analizarGrupos(data);
-          case 2:
-            analysis = _context5.v;
-            setAiResult(analysis);
-            _context5.n = 4;
-            break;
-          case 3:
-            _context5.p = 3;
-            _t7 = _context5.v;
-            console.error("Error en análisis IA:", _t7);
-            setAiResult("### Error Detectado\n**Detalles t\xE9cnicos:** ".concat(_t7.message, "\n\n*Posible soluci\xF3n:* Verifica que la API Key tenga activada la \"Generative Language API\" y que las restricciones de sitio web incluyan tu URL actual."));
-          case 4:
-            _context5.p = 4;
-            setIsAiLoading(false);
-            return _context5.f(4);
-          case 5:
-            return _context5.a(2);
-        }
-      }, _callee5, null, [[1, 3, 4, 5]]);
-    }));
-    return function runStrategicAnalysis() {
-      return _ref0.apply(this, arguments);
-    };
-  }();
   useEffect(function () {
     var unsubscribe = db.collection("groups").onSnapshot(function (snapshot) {
       var parsed = [];
@@ -4358,7 +4208,6 @@ var App = function App() {
     stats: stats,
     alerts: alerts,
     data: data,
-    onRunAnalysis: runStrategicAnalysis,
     timeRange: timeRange,
     onRangeChange: setTimeRange
   }), activeTab === "groups" && /*#__PURE__*/React.createElement(GroupsManager, {
@@ -4369,26 +4218,7 @@ var App = function App() {
     data: data,
     onUpdateStatus: handleUpdateStatus,
     onDeleteGroup: handleDeleteGroup
-  }), activeTab === "analytics" && /*#__PURE__*/React.createElement("div", {
-    className: "space-y-8 animate-fade-in"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white p-12 rounded-[2.5rem] shadow-sm border border-slate-100 text-center"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-20 h-20 bg-emerald-50 text-[#2d5a43] rounded-full flex items-center justify-center mx-auto mb-6"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "sparkles",
-    className: "w-10 h-10"
-  })), /*#__PURE__*/React.createElement("h2", {
-    className: "text-3xl font-bold text-slate-900 mb-4"
-  }, "An\xE1lisis Estrat\xE9gico IA"), /*#__PURE__*/React.createElement("p", {
-    className: "text-slate-500 max-w-lg mx-auto mb-10"
-  }, "Utiliza la potencia de Gemini 2.5 Flash para obtener una visi\xF3n profunda de la rentabilidad, riesgos y oportunidades de tus grupos actuales."), /*#__PURE__*/React.createElement("button", {
-    onClick: runStrategicAnalysis,
-    className: "bg-[#2d5a43] text-white px-10 py-5 rounded-2xl font-bold shadow-xl shadow-emerald-900/20 hover:scale-[1.02] transition-all flex items-center gap-3 mx-auto"
-  }, "Generar Nuevo Informe IA", /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "zap",
-    className: "w-4 h-4"
-  })))), (activeTab === "invoices" || activeTab === "settings") && /*#__PURE__*/React.createElement("div", {
+  }), (activeTab === "invoices" || activeTab === "settings") && /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col items-center justify-center h-[60vh] animate-fade-in text-center"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 border border-slate-100"
@@ -4404,56 +4234,7 @@ var App = function App() {
       return window.location.href = activeTab === "invoices" ? "Proformas.html" : "Gestion-de-Grupos.html";
     },
     className: "bg-slate-900 px-8 py-4 rounded-2xl text-white font-bold hover:bg-slate-800 transition-all shadow-xl"
-  }, "Abrir", " ", activeTab === "invoices" ? "Módulo de Facturación" : "Gestor de Grupos"))), isAiModalOpen && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-white w-full max-w-4xl max-h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-white/20"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-12 h-12 bg-[#2d5a43] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/20"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "sparkles",
-    className: "w-6 h-6"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
-    className: "text-2xl font-bold text-slate-900 tracking-tight"
-  }, "An\xE1lisis Estrat\xE9gico IA"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-slate-400 font-medium uppercase tracking-widest"
-  }, "Motor: Gemini 2.5 Flash"))), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setIsAiModalOpen(false);
-    },
-    className: "w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-slate-100 text-slate-400 transition-all"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "x",
-    className: "w-6 h-6"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto p-12 custom-scrollbar"
-  }, isAiLoading ? /*#__PURE__*/React.createElement("div", {
-    className: "h-64 flex flex-col items-center justify-center gap-6"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "spinner"
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "text-slate-500 font-semibold animate-pulse tracking-wide text-center"
-  }, "Analizando todos los grupos en tiempo real...", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-    className: "text-[10px] font-normal uppercase mt-2 block"
-  }, "Consultando Firestore \"groups\""))) : /*#__PURE__*/React.createElement("div", {
-    className: "prose max-w-none text-slate-700 leading-relaxed",
-    dangerouslySetInnerHTML: {
-      __html: marked.parse(aiResult)
-    }
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "p-8 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center"
-  }, /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-slate-400 italic"
-  }, "Este informe se basa en los grupos activos en Firestore."), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setIsAiModalOpen(false);
-    },
-    className: "px-8 py-3 bg-[#2d5a43] text-white font-bold rounded-2xl hover:bg-[#1e3a2c] transition-all shadow-lg"
-  }, "Cerrar Informe")))));
+  }, "Abrir", " ", activeTab === "invoices" ? "Módulo de Facturación" : "Gestor de Grupos"))));
 };
 var root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(/*#__PURE__*/React.createElement(App, null));

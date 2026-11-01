@@ -63,6 +63,7 @@
             Object.keys(values).forEach(function (key) {
                 try { localStorage.setItem('v3_' + key, JSON.stringify(values[key])); } catch (error) {}
             });
+            try { localStorage.setItem('v3_capasuite_last_sync', state.updatedAt.toISOString()); } catch (error) {}
             notify();
         } catch (error) {
             sourceError = 'CapaSuite: no se pudo leer el calendario';
@@ -76,7 +77,11 @@
             session = sdk.createSession();
             stopConnection = session.observeConnection(function (connected) {
                 state.connected = connected;
-                if (state.authenticated) state.status = connected ? (sourceError || (state.data ? 'CapaSuite actualizado' : 'Recibiendo calendario de CapaSuite...')) : 'CapaSuite sin conexión';
+                if (state.authenticated) {
+                    state.status = connected ? (sourceError || (state.data ? 'CapaSuite actualizado' : 'Recibiendo calendario de CapaSuite...')) : 'CapaSuite sin conexión';
+                } else if (!connected) {
+                    state.status = 'CapaSuite sin conexión';
+                }
                 notify();
             });
             return new Promise(function (resolve, reject) {
@@ -137,6 +142,9 @@
             return refreshPending;
         }
     };
+    if (typeof document !== 'undefined') {
+        start().catch(function () {});
+    }
     window.addEventListener('load', function () { start().catch(function () {}); });
     window.addEventListener('online', function () {
         window.CapaSuiteCalendarSync.refresh().catch(function () {

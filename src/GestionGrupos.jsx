@@ -1726,13 +1726,14 @@
       const [showCancelledModal, setShowCancelledModal] = useState(false);
       const [toastMsg, setToastMsg] = useState(null);
 
-      // Estados de Seguridad y Edición de Tarifas Oficiales (Clave 1234 y Sugerencias)
+      // Estados de Seguridad y Edición de Tarifas Oficiales (Clave de Autorización y Sugerencias)
       const [isTariffLocked, setIsTariffLocked] = useState(false);
       const [showTariffPinModal, setShowTariffPinModal] = useState(false);
       const [tariffPinInput, setTariffPinInput] = useState("");
       const [tariffPinError, setTariffPinError] = useState(null);
       const [isTariffSuggested, setIsTariffSuggested] = useState(false);
       const [tariffSuggestedGrowth, setTariffSuggestedGrowth] = useState(4.0);
+      const [systemPin, setSystemPin] = useState("1234");
 
       // Renderizador en portal para garantizar que los modales se anclen al viewport real y no se desplacen
       const renderPortal = (node) => {
@@ -1936,6 +1937,16 @@
               }
             })
             .catch(err => console.warn("Error cargando groupTariffs desde Firestore:", err));
+
+          // 1b. PIN del sistema desde settings/main si está configurado
+          window.db.collection("settings").doc("main").get()
+            .then(snap => {
+              if (snap.exists) {
+                const sData = snap.data();
+                if (sData?.system?.pin) setSystemPin(String(sData.system.pin).trim());
+              }
+            })
+            .catch(() => {});
 
           // 2. Objetivos oficiales de CapaSuite en Firestore
           const fsDocId = `groupTargets_${hKey}_${yStr}`;
@@ -2277,7 +2288,7 @@
         if (!gts || typeof gts.suggestTariffsForYear !== "function") return;
         if (isTariffLocked) {
           setShowTariffPinModal(true);
-          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para recalcular.");
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para recalcular.");
           return;
         }
         const growth = typeof customGrowth === "number" ? customGrowth : (tariffSuggestedGrowth || 4.0);
@@ -2294,14 +2305,17 @@
 
       const handleVerifyTariffPin = (e) => {
         if (e) e.preventDefault();
-        if (tariffPinInput.trim() === "1234") {
+        const entered = (tariffPinInput || "").trim();
+        const validPins = ["1234"];
+        if (systemPin) validPins.push(String(systemPin).trim());
+        if (validPins.includes(entered)) {
           setIsTariffLocked(false);
           setShowTariffPinModal(false);
           setTariffPinInput("");
           setTariffPinError(null);
           showToast("🔓 Tarifa Oficial " + tariffModalYear + " desbloqueada para modificación.");
         } else {
-          setTariffPinError("Clave incorrecta. Solo autorizada con clave 1234.");
+          setTariffPinError("Clave incorrecta. Introduce una clave de autorización válida.");
         }
       };
 
@@ -2309,7 +2323,7 @@
         if (!editingTariffs) return;
         if (isTariffLocked) {
           setShowTariffPinModal(true);
-          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para editar.");
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para editar.");
           return;
         }
         const updated = JSON.parse(JSON.stringify(editingTariffs));
@@ -2329,7 +2343,7 @@
         if (!editingTariffs) return;
         if (isTariffLocked) {
           setShowTariffPinModal(true);
-          setTariffPinError("La tarifa oficial está bloqueada. Introduce la clave 1234 para guardar cambios.");
+          setTariffPinError("La tarifa oficial está bloqueada. Introduce la clave de autorización para guardar cambios.");
           return;
         }
         const updatedCatalog = JSON.parse(JSON.stringify(tariffsCatalog));
@@ -2369,7 +2383,7 @@
         if (!gts) return;
         if (isTariffLocked) {
           setShowTariffPinModal(true);
-          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para restablecer.");
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para restablecer.");
           return;
         }
         const def = gts.DEFAULT_GROUP_TARIFFS_2027[tariffModalHotel] || gts.DEFAULT_GROUP_TARIFFS_2027.guadiana;
@@ -2381,7 +2395,7 @@
         if (!gts) return;
         if (isTariffLocked) {
           setShowTariffPinModal(true);
-          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para aplicar copia.");
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para aplicar copia.");
           return;
         }
         const src = gts.getTariffsForHotelAndYear(tariffsCatalog, tariffModalHotel, copySourceYear);
@@ -2399,7 +2413,7 @@
         if (!editingTariffs || !gts) return;
         if (isTariffLocked) {
           setShowTariffPinModal(true);
-          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para redondear.");
+          setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para redondear.");
           return;
         }
         const updated = JSON.parse(JSON.stringify(editingTariffs));
@@ -4108,16 +4122,16 @@
                             Tarifa Oficial {tariffModalYear} Bloqueada
                           </h4>
                           <p className="text-[11px] text-amber-800">
-                            Los precios oficiales de este año están protegidos contra modificaciones accidentales. Solo pueden modificarse con la clave 1234.
+                            Los precios oficiales de este año están protegidos contra modificaciones accidentales. Requiere clave de autorización para modificarse.
                           </p>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => { setShowTariffPinModal(true); setTariffPinError(null); setTariffPinInput(""); }}
-                        className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1.5"
+                        className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1.5 cursor-pointer"
                       >
-                        <span>🔓 Desbloquear Modificación (Clave 1234)</span>
+                        <span>🔓 Desbloquear Modificación</span>
                       </button>
                     </div>
                   ) : isTariffSuggested ? (
@@ -4129,7 +4143,7 @@
                             Precios sugeridos según estadísticas para {tariffModalYear} (+{tariffSuggestedGrowth}%)
                           </h4>
                           <p className="text-[11px] text-indigo-700">
-                            Calculados con tendencia de ADR y redondeo comercial hotelero (.24/.54 &rarr; .50, .89 &rarr; entero). Puedes editar cualquier celda o desglose. Al guardar, quedará fijada como la Tarifa Oficial del año protegida con clave 1234.
+                            Calculados con tendencia de ADR y redondeo comercial hotelero (.24/.54 &rarr; .50, .89 &rarr; entero). Puedes editar cualquier celda o desglose. Al guardar, quedará fijada como la Tarifa Oficial del año protegida contra modificaciones accidentales.
                           </p>
                         </div>
                       </div>
@@ -4146,7 +4160,7 @@
                             Edición Habilitada (Tarifa Oficial {tariffModalYear})
                           </h4>
                           <p className="text-[11px] text-emerald-800">
-                            Clave 1234 autorizada. Puedes modificar libremente los precios y desgloses.
+                            Modificación autorizada. Puedes modificar libremente los precios y desgloses.
                           </p>
                         </div>
                       </div>
@@ -4270,7 +4284,7 @@
                                           onClick={() => {
                                             if (isTariffLocked) {
                                               setShowTariffPinModal(true);
-                                              setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar precios.");
+                                              setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para modificar precios.");
                                             }
                                           }}
                                           className={"w-full border rounded-xl px-3 py-1.5 text-xs font-bold pr-6 transition " + (isTariffLocked ? "bg-slate-100 text-slate-500 cursor-pointer border-slate-200" : "bg-slate-50 focus:bg-white text-slate-900 border-slate-200 focus:border-indigo-500")}
@@ -4329,7 +4343,7 @@
                             onClick={() => {
                               if (isTariffLocked) {
                                 setShowTariffPinModal(true);
-                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar desgloses.");
+                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para modificar desgloses.");
                               }
                             }}
                             onChange={(e) => {
@@ -4363,7 +4377,7 @@
                             onClick={() => {
                               if (isTariffLocked) {
                                 setShowTariffPinModal(true);
-                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar desgloses.");
+                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para modificar desgloses.");
                               }
                             }}
                             onChange={(e) => {
@@ -4397,7 +4411,7 @@
                             onClick={() => {
                               if (isTariffLocked) {
                                 setShowTariffPinModal(true);
-                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave 1234 para modificar desgloses.");
+                                setTariffPinError("Tarifa oficial bloqueada. Introduce la clave de autorización para modificar desgloses.");
                               }
                             }}
                             onChange={(e) => {
@@ -4469,7 +4483,7 @@
             </div>
           )}
 
-          {/* MODAL DE CLAVE PIN 1234 PARA TARIFAS OFICIALES */}
+          {/* MODAL DE CLAVE DE AUTORIZACIÓN PARA TARIFAS OFICIALES */}
           {showTariffPinModal && renderPortal(
             <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center z-[10020] p-4 overflow-y-auto">
               <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 space-y-4 my-auto animate-in fade-in duration-150">
@@ -4478,7 +4492,7 @@
                     <span className="text-2xl">🔒</span>
                     <div>
                       <h3 className="text-base font-black text-slate-900">Autorización Tarifa Oficial</h3>
-                      <p className="text-[11px] text-slate-500">Solo modificable con clave 1234</p>
+                      <p className="text-[11px] text-slate-500">Introduce la clave de autorización para desbloquear</p>
                     </div>
                   </div>
                   <button
@@ -10780,24 +10794,17 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
 
 
-            // IMPORTANTE: mantener 6s de bloqueo para que onSnapshot no restaure datos viejos
+            // Ocultar el spinner inmediatamente tras confirmar el guardado en Firestore
+            setIsSaving(false);
+            showToast(`✅ ${pendingRows.length} cambios aplicados correctamente.`);
 
-            // Firestore puede tardar varios segundos en propagar el cambio al listener
-
+            // Mantener el bloqueo de los IDs en segundo plano para que onSnapshot no restaure datos viejos
             setTimeout(() => {
-
               pendingRows.forEach((r) =>
-
                 authorizingIds.current.delete(normalizeId(r["Reserva"])),
-
               );
-
               console.log("🔓 authorizingIds liberados");
-
-              setIsSaving(false);
-
-            }, 6000);
-
+            }, 2000);
           })
 
           .catch((err) => {
@@ -13360,17 +13367,43 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         // 3. Persist to Firestore (usa currentGroupRows capturados antes del update optimista)
 
         try {
+          // AHORRO DE ESCRITURAS Y LECTURAS:
+          // Verificar si realmente hay algún campo que cambie respecto a currentGroupRows[0]
+          const sampleRow = currentGroupRows[0] || {};
+          let hasRealChanges = false;
+          const meaningfulKeys = Object.keys(updates).filter(k => k !== "updatedAt" && k !== "tracking");
+          if (meaningfulKeys.length === 0) {
+            hasRealChanges = true;
+          } else {
+            for (const key of meaningfulKeys) {
+              const newVal = updates[key];
+              const oldVal = sampleRow[key];
+              if (typeof newVal === "object" || typeof oldVal === "object") {
+                if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+                  hasRealChanges = true;
+                  break;
+                }
+              } else if (String(newVal ?? "") !== String(oldVal ?? "")) {
+                hasRealChanges = true;
+                break;
+              }
+            }
+          }
+
+          if (!hasRealChanges) {
+            return;
+          }
 
           const batch = db.batch();
           const targetNormId = normalizeId(resId);
           const docIdsToUpdate = new Set();
-          if (targetNormId) docIdsToUpdate.add(targetNormId);
 
           currentGroupRows.forEach((row) => {
             if (row._docId) docIdsToUpdate.add(row._docId);
-            const rNorm = normalizeId(row.Reserva);
-            if (rNorm) docIdsToUpdate.add(rNorm);
           });
+          if (docIdsToUpdate.size === 0 && targetNormId) {
+            docIdsToUpdate.add(targetNormId);
+          }
 
           docIdsToUpdate.forEach((docId) => {
             const docRef = db.collection("groups").doc(docId);
@@ -13414,10 +13447,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               id: targetNormId,
               reserva: targetNormId
             };
-            if (Object.prototype.hasOwnProperty.call(updates, "MealSchedule_JSON")) {
-              return await window.MesaChefService.syncGroupToMesachef(mergedForSync);
-            }
-            window.MesaChefService.syncGroupToMesachef(mergedForSync);
+            window.MesaChefService.syncGroupToMesachef(mergedForSync).catch((syncErr) => {
+              console.warn("[MesaChef Background Sync Warning]:", syncErr);
+            });
           }
 
         } catch (err) {
@@ -19101,21 +19133,21 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                               key={group.id || idx}
                               className={`transition-colors cursor-pointer group ${
                                 isBudget
-                                  ? "bg-indigo-50/70 hover:bg-indigo-100/70"
-                                  : "hover:bg-slate-50"
+                                  ? "bg-indigo-100 hover:bg-indigo-200/80 border-y border-indigo-300/80 shadow-2xs"
+                                  : "hover:bg-slate-50 border-y border-transparent"
                               }`}
                               onClick={() => openFicha(group)}
                             >
                               {/* HOTEL */}
-                              <td className={`px-3 py-3 ${isBudget ? "border-l-4 border-indigo-500" : "border-l-4 border-transparent"}`}>
+                              <td className={`px-3 py-3 ${isBudget ? "border-l-4 border-indigo-600" : "border-l-4 border-transparent"}`}>
                                 <div className="flex items-center gap-1.5">
-                                  <div className="p-1.5 bg-white border border-slate-100 rounded-lg shadow-sm shrink-0">
+                                  <div className={`p-1.5 rounded-lg shadow-sm shrink-0 border ${isBudget ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-white border-slate-100"}`}>
                                     <IconBuildingSkyscraper
                                       size={14}
-                                      className="text-slate-400"
+                                      className={isBudget ? "text-indigo-600" : "text-slate-400"}
                                     />
                                   </div>
-                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight leading-tight">
+                                  <span className={`text-[9px] font-black uppercase tracking-tight leading-tight ${isBudget ? "text-indigo-900" : "text-slate-500"}`}>
                                     {displayHotel}
                                   </span>
                                 </div>
@@ -19125,9 +19157,14 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                               <td className="px-3 py-2">
                                 <div className="max-w-[280px]">
                                   <div className="flex flex-wrap items-center gap-1.5">
-                                    <div className={`text-[13px] font-black text-slate-800 ${isBudget ? "group-hover:text-indigo-600" : "group-hover:text-[#2d5a43]"} transition-colors leading-tight`}>
+                                    <div className={`text-[13px] font-black text-slate-800 ${isBudget ? "group-hover:text-indigo-700" : "group-hover:text-[#2d5a43]"} transition-colors leading-tight`}>
                                       {group.name}
                                     </div>
+                                    {isBudget && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-600 text-white text-[8.5px] font-black uppercase tracking-wider shadow-2xs">
+                                        PRESUPUESTO
+                                      </span>
+                                    )}
 
                                     {(() => {
                                       const record = group.records?.[0] || {};
@@ -19244,7 +19281,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                   </div>
 
                                   <div className="text-[9px] font-bold text-slate-400 mt-0.5 flex items-center gap-1.5">
-                                    <span className={`shrink-0 ${isBudget ? "text-indigo-600 font-extrabold" : ""}`}>
+                                    <span className={`shrink-0 ${isBudget ? "text-indigo-800 font-black" : ""}`}>
                                       ID: {group.records?.[0]?.["Reserva"] || group.id || "---"}
                                     </span>
                                     {(() => {
@@ -19546,7 +19583,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                               <td className="px-3 py-2 text-center">
                                 <div className="flex items-center justify-center gap-2 group/status">
                                   <span
-                                    className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${statusColor}`}
+                                    className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                      isBudget
+                                        ? "bg-indigo-600 text-white shadow-xs"
+                                        : statusColor
+                                    }`}
                                   >
                                     {statusText}
                                   </span>
@@ -26976,47 +27017,17 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                         console.error("Error syncing MealSchedule_JSON in Grabar Cambios:", mErr);
                                       }
                                     }
+                                    setIsSaving(true);
                                     await updateGroupMetadata(selectedGroupFicha.id, savePayload);
-
-                                    if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
-                                      const fullSyncObj = {
-                                        ...currentRec,
-                                        ...savePayload,
-                                        id: selectedGroupFicha.id,
-                                        reserva: selectedGroupFicha.id,
-                                        "Nombre del Grupo": selectedGroupFicha.name || currentRec["Nombre del Grupo"],
-                                        Entrada: selectedGroupFicha.arrival || currentRec["Entrada"],
-                                        Salida: selectedGroupFicha.departure || currentRec["Salida"],
-                                        Hotel_Asignado: selectedGroupFicha.hotel || currentRec["Hotel_Asignado"] || hotelTarget,
-                                        "Pax.": selectedGroupFicha.totalPax || currentRec["Pax."],
-                                        "Régimen": savePayload["Régimen"] || currentRec["Régimen"] || "MP",
-                                        RoomingList_JSON: JSON.stringify(currentRL || []),
-                                        DailyDistribution_JSON: JSON.stringify(distMap || {}),
-                                        Com_Estado_Interno: currentRec.Com_Estado_Interno || ""
-                                      };
-                                      const syncRes = await window.MesaChefService.syncGroupToMesachef(fullSyncObj);
-                                      if (!syncRes || syncRes.success === false) {
-                                        alert("Los cambios se han guardado en Grupos, pero no se han podido sincronizar con MesaChef. Vuelve a intentarlo.");
-                                      } else if (syncRes.hasUnlinked) {
-                                        alert(
-                                          `✅ Cambios registrados y sincronizados con éxito.\n\n⚠️ AVISO MESACHEF: Se han detectado ${syncRes.unlinkedDocs.length} servicio(s) desvinculados manualmente en mesa. Sus datos en sala/cocina se han respetado y protegido.`
-                                        );
-                                      } else {
-                                        alert(
-                                          "✅ Cambios registrados y sincronizados con éxito.",
-                                        );
-                                      }
-                                    } else {
-                                      alert(
-                                        "✅ Cambios registrados y sincronizados con éxito.",
-                                      );
-                                    }
+                                    setIsSaving(false);
+                                    closeGroupFicha();
+                                    showToast("✅ Cambios registrados y sincronizados con éxito.");
                                   } catch (err) {
-                                    console.error("Error synchronizing in Grabar Cambios:", err);
-                                    alert("No se ha podido completar el guardado y la sincronización. Revisa los datos y vuelve a intentarlo.");
+                                    setIsSaving(false);
+                                    console.error("Error al guardar en Grabar Cambios:", err);
+                                    alert("No se ha podido completar el guardado: " + (err.message || err));
                                   }
                                 }
-                                closeGroupFicha();
                               }}
 
                               className="px-10 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-200"

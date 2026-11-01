@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.17";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "01/11/2026 03:02";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.22";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "01/11/2026 03:50";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -395,8 +395,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.17 (01/11/2026 03:02)">
-                                    V2.5.17
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.22 (01/11/2026 03:50)">
+                                    V2.5.22
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -447,12 +447,6 @@
                         <i data-lucide="calendar" class="w-3.5 h-3.5 flex-shrink-0"></i>
                         <span class="hidden xl:inline">Calendario</span>
                     </a>
-
-                    <button id="nexus-header-brain-btn" 
-                            class="nexus-nav-btn p-1 text-slate-400 hover:text-[#2d5a43] hover:bg-emerald-50 rounded-full transition-all group relative" title="Nexus AI Hub - Análisis de Estrategia">
-                        <i data-lucide="brain" class="w-4 h-4 transition-transform group-hover:scale-110"></i>
-                        <span class="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
-                    </button>
 
                     <a href="Configuracion.html"
                        class="nexus-nav-btn p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all" title="Configuración">
@@ -568,22 +562,6 @@
 
         // 4. Registrar Event Listeners
         
-        // Clic en el botón Cerebro (AI Hub)
-        var brainBtn = document.getElementById("nexus-header-brain-btn");
-        if (brainBtn) {
-            brainBtn.addEventListener("click", function () {
-                if (typeof window.handleNexusConsultantClick === "function") {
-                    window.handleNexusConsultantClick();
-                } else if (typeof window.handleConsultantClick === "function") {
-                    window.handleConsultantClick();
-                } else {
-                    // Acción por defecto: Redirigir a Admin.html activando pestaña IA
-                    localStorage.setItem("nexus_active_tab", "analytics");
-                    window.location.href = "Admin.html";
-                }
-            });
-        }
-
         // Clic/Cambio en el botón de Importar
         var uploadInput = document.getElementById("nexus-header-upload-input");
         if (uploadInput) {

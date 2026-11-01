@@ -50,6 +50,7 @@
   var mesachefAppInstance = null;
   var mesachefDbInstance = null;
   var mesachefAuthPromise = null;
+  var cleanedBudgetCodes = new Set();
 
   /**
    * Obtiene o inicializa la app de Firebase y Firestore para MesaChef (mesa-chef-prod)
@@ -1403,25 +1404,28 @@
       var origBudget = groupRecord.Presupuesto_Origen || groupRecord.sourceQuoteId || groupRecord.Com_Num_Presupuesto;
       if (origBudget && String(origBudget).trim() !== String(reservaId).trim()) {
         var cleanPto = normalizeReservaId(origBudget);
-        targetDb.collection(COLLECTION_SALONES)
-          .where("reservaId", "==", cleanPto)
-          .get()
-          .then(function (ptoSnap) {
-            if (!ptoSnap.empty) {
-              var pBatch = targetDb.batch();
-              ptoSnap.forEach(function (docSnap) {
-                var d = docSnap.data() || {};
-                if (d.desvinculado === true || d.vinculoRoto === true) return;
-                pBatch.delete(docSnap.ref);
-              });
-              pBatch.commit().then(function () {
-                console.log("🧹 [MesaChef Clean] Eliminados " + ptoSnap.size + " eventos duplicados del presupuesto " + cleanPto + " en favor de la reserva " + reservaId);
-              }).catch(function (e) {
-                console.warn("[MesaChef Clean Error]:", e);
-              });
-            }
-          }).catch(function () {});
-        targetDb.collection(COLLECTION_GRUPOS).doc(cleanPto).delete().catch(function () {});
+        if (!cleanedBudgetCodes.has(cleanPto)) {
+          cleanedBudgetCodes.add(cleanPto);
+          targetDb.collection(COLLECTION_SALONES)
+            .where("reservaId", "==", cleanPto)
+            .get()
+            .then(function (ptoSnap) {
+              if (!ptoSnap.empty) {
+                var pBatch = targetDb.batch();
+                ptoSnap.forEach(function (docSnap) {
+                  var d = docSnap.data() || {};
+                  if (d.desvinculado === true || d.vinculoRoto === true) return;
+                  pBatch.delete(docSnap.ref);
+                });
+                pBatch.commit().then(function () {
+                  console.log("🧹 [MesaChef Clean] Eliminados " + ptoSnap.size + " eventos duplicados del presupuesto " + cleanPto + " en favor de la reserva " + reservaId);
+                }).catch(function (e) {
+                  console.warn("[MesaChef Clean Error]:", e);
+                });
+              }
+            }).catch(function () {});
+          targetDb.collection(COLLECTION_GRUPOS).doc(cleanPto).delete().catch(function () {});
+        }
       }
 
       var salonDocs = prepareSalonDocuments(groupRecord);
