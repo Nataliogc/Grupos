@@ -1734,6 +1734,15 @@
       const [isTariffSuggested, setIsTariffSuggested] = useState(false);
       const [tariffSuggestedGrowth, setTariffSuggestedGrowth] = useState(4.0);
 
+      // Renderizador en portal para garantizar que los modales se anclen al viewport real y no se desplacen
+      const renderPortal = (node) => {
+        const rd = typeof ReactDOM !== "undefined" ? ReactDOM : (typeof window !== "undefined" ? window.ReactDOM : null);
+        if (typeof document !== "undefined" && rd && typeof rd.createPortal === "function" && document.body) {
+          return rd.createPortal(node, document.body);
+        }
+        return node;
+      };
+
       // Formateador de fecha en español dd/mm/aaaa
       const formatDateEs = (d, includeTime = false) => {
         if (!d) return "";
@@ -4009,15 +4018,15 @@
           )}
 
           {/* MODAL DE EDICIÓN Y CONSULTA DE TARIFAS (Req 26, 28, 29, 33) */}
-          {showTariffModal && editingTariffs && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto border border-slate-200">
+          {showTariffModal && editingTariffs && renderPortal(
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[10000] p-2 sm:p-4 md:p-6 overflow-y-auto">
+              <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden my-auto animate-in fade-in duration-150">
                 {/* Modal Header */}
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+                <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white z-10">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🏷️</span>
-                      <h3 className="text-lg font-black text-slate-900 font-outfit">
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 font-outfit">
                         Catálogo de Tarifas de Grupos por Habitación y Persona
                       </h3>
                     </div>
@@ -4027,14 +4036,14 @@
                   </div>
                   <button
                     onClick={() => setShowTariffModal(false)}
-                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold"
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition cursor-pointer"
                   >
                     ✕
                   </button>
                 </div>
 
                 {/* Modal Body */}
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                   {/* Selectores de Hotel y Año dentro del Modal */}
                   <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
                     <div className="flex items-center gap-4">
@@ -4217,8 +4226,8 @@
                   </div>
 
                   {/* TABLA MATRIZ DE TARIFAS CON AUTO-CÁLCULO POR PERSONA (Req 26 y 29) */}
-                  <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                    <table className="w-full text-left text-xs border-collapse">
+                  <div className="border border-slate-200 rounded-2xl overflow-x-auto">
+                    <table className="w-full min-w-[620px] text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                           <th className="p-3">Régimen</th>
@@ -4412,13 +4421,13 @@
                 </div>
 
                 {/* Modal Footer */}
-                <div className="p-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 sticky bottom-0 bg-white">
-                  <div className="flex items-center gap-1.5">
+                <div className="p-4 sm:p-5 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0 bg-slate-50/95 backdrop-blur-xs">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Redondeo rápido:</span>
                     <button
                       type="button"
                       onClick={() => handleRoundCurrentTariffs("0.50")}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition shadow-2xs cursor-pointer"
                       title="Redondear todas las tarifas activas a 0,50 €"
                     >
                       a 0,50 €
@@ -4426,7 +4435,7 @@
                     <button
                       type="button"
                       onClick={() => handleRoundCurrentTariffs("1.00")}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition shadow-2xs cursor-pointer"
                       title="Redondear todas las tarifas activas a 1 € entero"
                     >
                       a 1 €
@@ -4434,7 +4443,7 @@
                     <button
                       type="button"
                       onClick={() => handleRoundCurrentTariffs("5.00")}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition"
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition shadow-2xs cursor-pointer"
                       title="Redondear todas las tarifas activas a múltiplos de 5 €"
                     >
                       a 5 €
@@ -4443,13 +4452,13 @@
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setShowTariffModal(false)}
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition"
+                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
                     >
                       Cancelar
                     </button>
                     <button
                       onClick={handleSaveTariffs}
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100 flex items-center gap-1.5"
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-100 flex items-center gap-1.5 cursor-pointer"
                     >
                       <span>🔒</span>
                       <span>{isTariffLocked ? "Guardar Cambios Oficiales" : `Guardar como Tarifa Oficial ${tariffModalYear}`}</span>
@@ -4461,9 +4470,9 @@
           )}
 
           {/* MODAL DE CLAVE PIN 1234 PARA TARIFAS OFICIALES */}
-          {showTariffPinModal && (
-            <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fade-in">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 space-y-4">
+          {showTariffPinModal && renderPortal(
+            <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center z-[10020] p-4 overflow-y-auto">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 space-y-4 my-auto animate-in fade-in duration-150">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl">🔒</span>
@@ -4519,9 +4528,9 @@
           )}
 
           {/* MODAL DE RESERVAS ANULADAS (Req 23) */}
-          {showCancelledModal && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+          {showCancelledModal && renderPortal(
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[10000] p-4 overflow-y-auto">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4 my-auto animate-in fade-in duration-150">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">🚫</span>
@@ -4570,9 +4579,9 @@
           )}
 
           {/* MODAL DE IMPORTACIÓN DIRECTA DE JSON DESDE CAPASUITE */}
-          {showJsonImportModal && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+          {showJsonImportModal && renderPortal(
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[10000] p-4 overflow-y-auto">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4 my-auto animate-in fade-in duration-150">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">📋</span>
