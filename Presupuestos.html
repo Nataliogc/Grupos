@@ -360,7 +360,26 @@
   <div id="root"></div>
 
 <script>
-            document.getElementById('capasuite-login-form').addEventListener('submit', async function (event) {
+            window.openCapaSuiteLogin = function () {
+        var modal = document.getElementById("capasuite-login");
+        var form = document.getElementById("capasuite-login-form");
+        if (form && form.elements && form.elements.email) {
+            var defaultEmail = "";
+            try {
+                var savedAuth = localStorage.getItem("nexus_capasuite_auth");
+                if (savedAuth) defaultEmail = JSON.parse(savedAuth).email || "";
+            } catch (e) {}
+            if (!defaultEmail && window.getNexusCurrentUser) {
+                var u = window.getNexusCurrentUser();
+                if (u && u.email) defaultEmail = u.email;
+            }
+            if (!defaultEmail) defaultEmail = "comunicaciones@hotelguadiana.es";
+            form.elements.email.value = defaultEmail;
+        }
+        if (modal && typeof modal.showModal === "function") modal.showModal();
+    };
+
+    document.getElementById('capasuite-login-form').addEventListener('submit', async function (event) {
                 event.preventDefault();
                 var form = event.currentTarget;
                 var button = form.querySelector('button[type="submit"]');

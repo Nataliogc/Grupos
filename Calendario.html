@@ -481,7 +481,7 @@
                     </span>
                 </div>
 
-                <button id="capasuite-sign-in" type="button" hidden onclick="document.getElementById('capasuite-login').showModal()"
+                <button id="capasuite-sign-in" type="button" hidden onclick="window.openCapaSuiteLogin()"
                     class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold">Iniciar sesión en CapaSuite</button>
 
                 <!-- Botón Pantalla Completa -->
@@ -689,8 +689,10 @@
             function getStorageItem(key) {
                 var sync = window.CapaSuiteCalendarSync;
                 if (sync && sync.state.authenticated) {
-                    var value = (sync.state.data || {})[key];
-                    return value === undefined ? null : JSON.stringify(value);
+                    if (sync.state.data) {
+                        var value = sync.state.data[key];
+                        return value === undefined ? null : JSON.stringify(value);
+                    }
                 }
                 try {
                     return localStorage.getItem("v3_" + key) || localStorage.getItem(key) || null;

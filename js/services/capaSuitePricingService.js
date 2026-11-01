@@ -162,7 +162,7 @@
     // 1. Intentar leer de revenue_data_v2
     try {
       var liveSync = typeof window !== 'undefined' && window.CapaSuiteCalendarSync;
-      var rawRev = liveSync && liveSync.state.authenticated ? (liveSync.state.data || {}).revenue_data_v2 : safeGetStorage('revenue_data_v2');
+      var rawRev = (liveSync && liveSync.state.authenticated && liveSync.state.data && liveSync.state.data.revenue_data_v2) || safeGetStorage('revenue_data_v2');
       if (!rawRev && typeof window !== 'undefined' && !window.CapaSuiteCalendarSync && window._capasuiteRevenueCache) {
         rawRev = window._capasuiteRevenueCache;
       }
@@ -201,7 +201,7 @@
     // 2. Intentar leer precio de venta explícito desde hotel_manager_db_v2 (daily_otb.price)
     try {
       var liveSyncDb = typeof window !== 'undefined' && window.CapaSuiteCalendarSync;
-      var rawDb = liveSyncDb && liveSyncDb.state.authenticated ? (liveSyncDb.state.data || {}).hotel_manager_db_v2 : safeGetStorage('hotel_manager_db_v2');
+      var rawDb = (liveSyncDb && liveSyncDb.state.authenticated && liveSyncDb.state.data && liveSyncDb.state.data.hotel_manager_db_v2) || safeGetStorage('hotel_manager_db_v2');
       if (rawDb) {
         var parsedDb = typeof rawDb === 'string' ? JSON.parse(rawDb) : rawDb;
         if (parsedDb && typeof parsedDb === 'object') {

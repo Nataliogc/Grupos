@@ -99,6 +99,21 @@
                     notify();
                     if (user) {
                         listen(generation);
+                    } else if (typeof localStorage !== 'undefined') {
+                        try {
+                            var savedAuth = localStorage.getItem('nexus_capasuite_auth');
+                            if (savedAuth) {
+                                var creds = JSON.parse(savedAuth);
+                                if (creds && creds.email && creds.pass) {
+                                    state.status = 'Restaurando sesión de CapaSuite...';
+                                    notify();
+                                    session.signIn(creds.email, atob(creds.pass)).catch(function () {
+                                        state.status = 'CapaSuite: inicia sesión para sincronizar';
+                                        notify();
+                                    });
+                                }
+                            }
+                        } catch (e) {}
                     }
                     resolve();
                 }, reject);
@@ -117,7 +132,23 @@
     window.CapaSuiteCalendarSync = {
         state: state,
         start: start,
-        signIn: async function (email, password) { await start(); return session.signIn(email, password); },
+        signIn: async function (email, password) {
+            await start();
+            var res = await session.signIn(email, password);
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('nexus_capasuite_auth', JSON.stringify({ email: email, pass: btoa(password) }));
+                }
+            } catch (e) {}
+            return res;
+        },
+        signOut: function () {
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.removeItem('nexus_capasuite_auth');
+                }
+            } catch (e) {}
+        },
         refresh: function () {
             if (refreshPending) return refreshPending;
             refreshPending = (async function () {
