@@ -3721,7 +3721,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.22 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.24 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -4323,13 +4323,24 @@ ${comercial}`;
     };
 
     const App = () => {
+      const VALID_TABS = ["dashboard", "groups", "budgets", "invoices", "settings"];
       const [activeTab, setActiveTab] = useState(() => {
-        try { return sessionStorage.getItem("nexus_admin_active_tab") || "dashboard"; }
-        catch (_) { return "dashboard"; }
+        try {
+          const stored = sessionStorage.getItem("nexus_admin_active_tab");
+          if (stored && VALID_TABS.includes(stored)) return stored;
+          return "dashboard";
+        } catch (_) {
+          return "dashboard";
+        }
       });
       useEffect(() => {
-        try { sessionStorage.setItem("nexus_admin_active_tab", activeTab); }
-        catch (_) {}
+        if (!VALID_TABS.includes(activeTab)) {
+          setActiveTab("dashboard");
+          return;
+        }
+        try {
+          sessionStorage.setItem("nexus_admin_active_tab", activeTab);
+        } catch (_) {}
       }, [activeTab]);
       const [data, setData] = useState([]);
       const [arrivals, setArrivals] = useState([]);
@@ -4960,7 +4971,7 @@ ${comercial}`;
           >
             {/* Header Superior */}
 
-            {activeTab === "dashboard" && (
+            {(activeTab === "dashboard" || !VALID_TABS.includes(activeTab)) && (
               <Dashboard
                 arrivals={arrivals}
                 stats={stats}

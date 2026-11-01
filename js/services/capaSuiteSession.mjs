@@ -1,17 +1,30 @@
-// Isolated modular SDK: preserve Groups' compat app while reusing the DEFAULT
-// CapaSuite auth persistence key on this origin.
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
+// Isolated modular SDK: isolated app instance for CapaSuite to avoid collision with Groups compat app
+import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js';
 import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js';
 
 export function createSession() {
-    const app = initializeApp({
+    const config = {
         apiKey: 'AIzaSyCBa1EEt-9wK7zHoz6c_ZSrB9ZsbX0qCtM',
         authDomain: 'capasuite.firebaseapp.com',
         databaseURL: 'https://capasuite-default-rtdb.europe-west1.firebasedatabase.app/',
         projectId: 'capasuite',
         appId: '1:1066499289752:web:3b2edef8bdec54c52c56ed'
-    });
+    };
+    let app;
+    try {
+        const apps = typeof getApps === 'function' ? getApps() : [];
+        app = apps.find(a => a && (a.name === 'capasuite' || (a.options && a.options.projectId === 'capasuite')));
+        if (!app) {
+            app = initializeApp(config, 'capasuite');
+        }
+    } catch (e) {
+        try {
+            app = initializeApp(config);
+        } catch (err) {
+            app = typeof getApp === 'function' ? getApp() : null;
+        }
+    }
     const auth = getAuth(app);
     const db = getDatabase(app);
     return {

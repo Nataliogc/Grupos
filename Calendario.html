@@ -1584,6 +1584,8 @@
             window.addEventListener('storage', function (event) {
                 if (!event.key || /^(v3_)?(revenue_data_v2|hotel_manager_db_v2|manual_cupos_v1|custom_events)$/.test(event.key)) loadAllData();
             });
+            // Renderizar inmediatamente sin esperar a window.load
+            loadAllData();
             window.addEventListener('load', function () {
                 loadAllData();
             });

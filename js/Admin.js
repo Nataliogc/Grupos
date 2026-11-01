@@ -3175,7 +3175,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.22 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.24 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,
@@ -3644,9 +3644,12 @@ var BudgetManager = function BudgetManager(_ref7) {
   }, "No hay presupuestos en esta secci\xF3n")))));
 };
 var App = function App() {
+  var VALID_TABS = ["dashboard", "groups", "budgets", "invoices", "settings"];
   var _useState = useState(function () {
       try {
-        return sessionStorage.getItem("nexus_admin_active_tab") || "dashboard";
+        var stored = sessionStorage.getItem("nexus_admin_active_tab");
+        if (stored && VALID_TABS.includes(stored)) return stored;
+        return "dashboard";
       } catch (_) {
         return "dashboard";
       }
@@ -3655,6 +3658,10 @@ var App = function App() {
     activeTab = _useState2[0],
     setActiveTab = _useState2[1];
   useEffect(function () {
+    if (!VALID_TABS.includes(activeTab)) {
+      setActiveTab("dashboard");
+      return;
+    }
     try {
       sessionStorage.setItem("nexus_admin_active_tab", activeTab);
     } catch (_) {}
@@ -4203,7 +4210,7 @@ var App = function App() {
     setActiveTab: setActiveTab
   }), /*#__PURE__*/React.createElement("main", {
     className: "ml-64 p-8 md:p-12 ".concat(activeTab === "dashboard" ? "bg-gradient-to-b from-slate-50/50 to-transparent" : "")
-  }, activeTab === "dashboard" && /*#__PURE__*/React.createElement(Dashboard, {
+  }, (activeTab === "dashboard" || !VALID_TABS.includes(activeTab)) && /*#__PURE__*/React.createElement(Dashboard, {
     arrivals: arrivals,
     stats: stats,
     alerts: alerts,
