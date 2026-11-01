@@ -1437,80 +1437,22 @@
             let pensionsHtml = "";
             if (pensions.hasMeals && pensions.days.length > 0) {
               const activeDays = pensions.days.filter(d => d.meals.length > 0);
-              
-              let dayRows = "";
-              if (activeDays.length <= 6) {
-                dayRows = activeDays.map(d => {
-                  const mealBadges = d.meals.map(m => 
-                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-weight: 700; color: #0f172a; margin-right: 5px; font-size: 10.5px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
-                  ).join("");
-                  return `
-                    <tr>
-                      <td width="96" valign="middle" style="padding: 2.5px 0; vertical-align: middle; white-space: nowrap; width: 96px; font-weight: 700; color: #475569; font-size: 10.5px;">
-                        📅 ${d.dayLabel}:
-                      </td>
-                      <td valign="middle" style="padding: 2.5px 0; vertical-align: middle; font-size: 10.5px;">
-                        ${mealBadges}
-                      </td>
-                    </tr>
-                  `;
-                }).join("");
-              } else {
-                const firstDays = activeDays.slice(0, 2);
-                const lastDay = activeDays[activeDays.length - 1];
-                const interDays = activeDays.slice(2, activeDays.length - 1);
-                
-                const renderRow = (d) => {
-                  const mealBadges = d.meals.map(m => 
-                    `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-weight: 700; color: #0f172a; margin-right: 5px; font-size: 10.5px; line-height: 1.3;">${m.name} <span style="color: #64748b; font-weight: 600;">(${m.pax} pax)</span></span>`
-                  ).join("");
-                  return `
-                    <tr>
-                      <td width="96" valign="middle" style="padding: 2.5px 0; vertical-align: middle; white-space: nowrap; width: 96px; font-weight: 700; color: #475569; font-size: 10.5px;">
-                        📅 ${d.dayLabel}:
-                      </td>
-                      <td valign="middle" style="padding: 2.5px 0; vertical-align: middle; font-size: 10.5px;">
-                        ${mealBadges}
-                      </td>
-                    </tr>
-                  `;
-                };
-
-                const firstHtml = firstDays.map(renderRow).join("");
-                const interHtml = `
-                  <tr>
-                    <td colspan="2" style="padding: 3px 0; color: #64748b; font-size: 10px; font-style: italic;">
-                      ... ${interDays.length} días intermedios (${interDays[0].dayLabel} al ${interDays[interDays.length - 1].dayLabel}) con pensión habitual ...
-                    </td>
-                  </tr>
-                `;
-                const lastHtml = renderRow(lastDay);
-                dayRows = firstHtml + interHtml + lastHtml;
-              }
+              const mealChips = activeDays.map(d => {
+                const mealNames = d.meals.map(m => `${m.name} (${m.pax}p)`).join(", ");
+                return `<span style="display: inline-block; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 1.5px 6px; margin: 1px 3px 1px 0; font-size: 10px; font-weight: 700; color: #1e293b; white-space: nowrap;">📅 ${d.dayLabel}: <span style="color: #475569; font-weight: 600;">${mealNames}</span></span>`;
+              }).join(" ");
 
               pensionsHtml = `
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 7px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-                  <tr>
-                    <td style="padding: 6px 10px;">
-                      <div style="font-size: 10px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px;">
-                        🍽️ Previsión de Pensiones <span style="font-weight: 600; color: #64748b; text-transform: none;">(${pensions.regimeLabel})</span>:
-                      </div>
-                      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                        ${dayRows}
-                      </table>
-                    </td>
-                  </tr>
-                </table>
+                <div style="margin-top: 4px; padding: 3px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 10px; line-height: 1.4;">
+                  <strong style="color: #0f172a; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.3px; margin-right: 5px;">🍽️ ${pensions.regimeLabel}:</strong>
+                  ${mealChips}
+                </div>
               `;
             } else if (pensions.isRoomOnly) {
               pensionsHtml = `
-                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 7px; width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-                  <tr>
-                    <td style="padding: 5px 10px; font-size: 10.5px; color: #64748b; font-style: italic;">
-                      🍽️ <strong>Régimen:</strong> Solo Alojamiento (sin servicios de pensión contratados)
-                    </td>
-                  </tr>
-                </table>
+                <div style="margin-top: 4px; padding: 2.5px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 10px; color: #64748b; font-style: italic;">
+                  🍽️ <strong>Régimen:</strong> Solo Alojamiento (sin servicios de pensión contratados)
+                </div>
               `;
             }
 
@@ -1520,51 +1462,46 @@
 
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td width="105" valign="top" style="padding: 12px 10px; vertical-align: top; width: 105px;">
+                <td width="95" valign="top" style="padding: 10px 8px; vertical-align: top; width: 95px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
-                      <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;">
+                      <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 2.5px 6px; border-radius: 4px; text-align: center; white-space: nowrap;">
                         #${resId}
                       </td>
                     </tr>
                   </table>
-                  <div style="font-size: 10px; color: #64748b; font-weight: 700; margin-top: 5px; white-space: nowrap;">
+                  <div style="font-size: 9.5px; color: #64748b; font-weight: 700; margin-top: 4px; white-space: nowrap;">
                     🏨 ${hotelName}
                   </div>
                 </td>
-                <td width="665" valign="top" style="padding: 12px 14px; vertical-align: top; width: 665px;">
-                  <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; line-height: 1.3;">
-                    ${name}
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; margin-top: 3px; line-height: 1.35;">
-                    <strong style="color: #475569;">Estancia:</strong> ${entrada} ➔ ${salida} &nbsp;|&nbsp; <strong style="color: #475569;">Pax:</strong> ${pax}
+                <td valign="top" style="padding: 10px 14px; vertical-align: top;">
+                  <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px;">
+                    <span style="font-size: 13.5px; font-weight: 800; color: #0f172a; line-height: 1.25;">
+                      ${name}
+                    </span>
+                    <span style="font-size: 11px; color: #64748b; font-weight: 600; white-space: nowrap;">
+                      📅 ${entrada} ➔ ${salida} &nbsp;|&nbsp; 👥 ${pax} pax
+                    </span>
                   </div>
                   ${pensionsHtml}
-                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 7px; width: 100%;">
-                    <tr>
-                      <td bgcolor="#f8fafc" style="background-color: #f8fafc; border-left: 3px solid ${sec.headerColor}; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #1e293b; line-height: 1.4;">
-                        ⚠️ ${alertDetailText}
-                      </td>
-                    </tr>
-                  </table>
+                  <div style="margin-top: 4px; background-color: #fff1f2; border-left: 3px solid ${sec.headerColor}; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #9f1239; border-radius: 0 4px 4px 0; line-height: 1.35;">
+                    ⚠️ ${alertDetailText}
+                  </div>
                 </td>
-                <td width="155" valign="top" align="right" style="padding: 12px 12px; vertical-align: top; text-align: right; width: 155px;">
+                <td width="170" valign="top" align="right" style="padding: 10px 12px; vertical-align: top; text-align: right; width: 170px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
                     <tr>
-                      <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; padding: 2.5px 7px; border-radius: 4px; white-space: nowrap;">
+                      <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap;">
                         👤 ${com}
                       </td>
                     </tr>
                   </table>
                   ${(sec.id === "financial" || sec.id === "release") ? `
-                  <div style="font-size: 12.5px; font-weight: 900; color: #be123c; margin-top: 6px; white-space: nowrap;">
+                  <div style="font-size: 13px; font-weight: 900; color: #be123c; margin-top: 4px; white-space: nowrap;">
                     Pend: ${fmt(fin.pending)}
                   </div>
                   <div style="font-size: 9.5px; color: #64748b; margin-top: 1px; white-space: nowrap;">
-                    Total: <strong>${fmt(fin.total)}</strong>
-                  </div>
-                  <div style="font-size: 9.5px; color: #059669; font-weight: 700; margin-top: 1px; white-space: nowrap;">
-                    Abonado: ${fmt(fin.paid)}
+                    Total: ${fmt(fin.total)} | <span style="color: #059669; font-weight: 700;">Cob: ${fmt(fin.paid)}</span>
                   </div>
                   ` : ''}
                 </td>
@@ -1591,9 +1528,9 @@
                 </td>
               </tr>
               <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
-                <td width="105" style="padding: 8px 10px; width: 105px;">Localizador</td>
+                <td width="95" style="padding: 8px 8px; width: 95px;">Localizador</td>
                 <td style="padding: 8px 14px;">Grupo &amp; Requerimiento</td>
-                <td width="155" align="right" style="padding: 8px 12px; text-align: right; width: 155px;">${sec.id === "financial" || sec.id === "release" ? "Comercial / Saldo" : "Comercial"}</td>
+                <td width="170" align="right" style="padding: 8px 12px; text-align: right; width: 170px;">${sec.id === "financial" || sec.id === "release" ? "Comercial / Saldo" : "Comercial"}</td>
               </tr>
               ${rowsHtml}
             </table>
@@ -3009,11 +2946,11 @@ ${comercial}`;
           {/* Modal de Notificación de Alerta por Email */}
           {selectedEmailAlert && ReactDOM.createPortal(
             <div
-              className="fixed inset-0 z-[100] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in"
+              className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-2 sm:p-4 pt-2 sm:pt-3 overflow-hidden animate-fade-in"
               onClick={() => setSelectedEmailAlert(null)}
             >
               <div
-                className="bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-3xl w-full overflow-hidden flex flex-col my-auto max-h-[94vh] animate-slide-up"
+                className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl w-[96vw] max-w-5xl h-[92vh] max-h-[92vh] flex flex-col overflow-hidden animate-slide-up"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Cabecera del Modal con Selector de Pestañas */}
@@ -3231,7 +3168,7 @@ ${comercial}`;
                 {emailModalTab === "preview" ? (
                   <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 custom-scrollbar bg-slate-100/70">
                     {/* Contenedor tipo Carta Ejecutiva */}
-                    <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200/90 overflow-hidden">
+                    <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200/90 overflow-hidden">
                       
                       {/* Cabecera Oficial del Documento */}
                       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-5 sm:p-6 text-white relative">
@@ -3458,13 +3395,13 @@ ${comercial}`;
           , document.body)}
 
           {/* Modal de Informe Interno de Control de Operaciones por Secciones */}
-          {internalReportModal && (
+          {internalReportModal && ReactDOM.createPortal(
             <div
-              className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto animate-fade-in"
+              className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-start justify-center p-2 sm:p-4 pt-2 sm:pt-3 overflow-hidden animate-fade-in"
               onClick={() => setInternalReportModal(null)}
             >
               <div
-                className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl w-[98vw] max-w-[1550px] overflow-hidden flex flex-col my-auto h-[93vh] max-h-[93vh] animate-slide-up"
+                className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl w-[98vw] max-w-[1550px] h-[94vh] max-h-[94vh] flex flex-col overflow-hidden animate-slide-up"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Cabecera del Modal */}
@@ -3764,11 +3701,11 @@ ${comercial}`;
                 </div>
               </div>
             </div>
-          )}
+          , document.body)}
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.29 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.30 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
