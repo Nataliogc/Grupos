@@ -7,7 +7,7 @@
  * disponible cuando hay conexión y habilita la instalación PWA).
  */
 
-const CACHE_NAME = "nexus-groups-pwa-v2.5.24";
+const CACHE_NAME = "nexus-groups-pwa-v2.5.25";
 
 const PRECACHE_ASSETS = [
   "./",
@@ -15,6 +15,7 @@ const PRECACHE_ASSETS = [
   "./Admin.html",
   "./style.css",
   "./manifest.json",
+  "./favicon.ico",
   "./js/version.js",
   "./js/navigation.js",
   "./Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png",
@@ -69,6 +70,17 @@ self.addEventListener("fetch", (event) => {
 
   // Ignorar esquemas no HTTP/HTTPS (ej. chrome-extension://)
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
+
+  // Interceptar /favicon.ico si el navegador lo pide en la raíz del host
+  if (url.pathname === "/favicon.ico" || url.pathname.endsWith("/favicon.ico")) {
+    event.respondWith(
+      caches.match("./favicon.ico").then((cached) => {
+        if (cached) return cached;
+        return fetch("./favicon.ico").catch(() => fetch(req));
+      })
+    );
+    return;
+  }
 
   // No interceptar tráfico en tiempo real de Firebase / Firestore / APIs externas
   if (
