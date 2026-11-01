@@ -127,7 +127,7 @@
 
 
 
-    const Sidebar = ({ activeTab, setActiveTab }) => {
+    const Sidebar = ({ activeTab, setActiveTab, isHidden, onToggle }) => {
       const items = [
         {
           id: "dashboard",
@@ -163,8 +163,17 @@
       ];
 
       return (
-        <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar">
-          <div className="flex flex-col items-center mb-8 px-2 space-y-6">
+        <div className={`w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar transition-transform duration-300 ease-in-out ${isHidden ? "-translate-x-full" : "translate-x-0"}`}>
+          <div className="flex flex-col items-center mb-8 px-2 space-y-6 relative">
+            <button
+              type="button"
+              onClick={onToggle}
+              title="Ocultar menú lateral"
+              aria-label="Ocultar menú lateral"
+              className="absolute -top-3 -right-2 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/60 hover:border-slate-300 cursor-pointer flex items-center justify-center z-20 group shadow-2xs"
+            >
+              <LucideIcon name="chevron-left" className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+            </button>
             <div className="w-full flex justify-center p-4">
               <img
                 src="Nexus%20Groups/Nexus_Groups-removebg-preview.png"
@@ -227,7 +236,12 @@
                     );
                   else if (item.id === "settings")
                     window.location.href = "Configuracion.html";
-                  else setActiveTab(item.id);
+                  else {
+                    setActiveTab(item.id);
+                    if (typeof window !== "undefined" && window.innerWidth < 768 && typeof onToggle === "function") {
+                      onToggle();
+                    }
+                  }
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === item.id ? "sidebar-item-active" : "text-slate-500 hover:bg-slate-50 hover:translate-x-1"}`}
               >
@@ -3721,7 +3735,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.27 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.28 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -4352,6 +4366,23 @@ ${comercial}`;
         pax: 0,
       });
       const [successToast, setSuccessToast] = useState(null);
+      const [sidebarHidden, setSidebarHidden] = useState(() => {
+        try {
+          return localStorage.getItem("nexus_admin_sidebar_hidden") === "true";
+        } catch (_) {
+          return false;
+        }
+      });
+
+      const toggleSidebar = () => {
+        setSidebarHidden((prev) => {
+          const next = !prev;
+          try {
+            localStorage.setItem("nexus_admin_sidebar_hidden", String(next));
+          } catch (_) {}
+          return next;
+        });
+      };
 
       const handleUpdateStatus = async (groupId, newStatus) => {
         try {
@@ -4964,11 +4995,54 @@ ${comercial}`;
             </div>
           )}
 
-          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+          {/* Botón flotante para mostrar menú cuando está oculto */}
+          {sidebarHidden && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Mostrar menú lateral"
+              aria-label="Mostrar menú lateral"
+              className="fixed left-4 top-20 z-30 flex items-center gap-2 px-3.5 py-2 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md hover:shadow-lg hover:border-emerald-500/50 rounded-2xl text-slate-700 hover:text-emerald-700 text-xs font-bold transition-all cursor-pointer group hover:-translate-y-0.5 active:scale-95 animate-fade-in"
+            >
+              <LucideIcon name="menu" className="w-4 h-4 text-emerald-600 transition-transform group-hover:scale-110" />
+              <span className="font-outfit font-extrabold tracking-wide">Menú</span>
+            </button>
+          )}
+
+          {/* Backdrop para móviles */}
+          {!sidebarHidden && (
+            <div
+              className="fixed inset-0 bg-slate-900/20 backdrop-blur-2xs z-20 md:hidden transition-opacity"
+              onClick={toggleSidebar}
+            />
+          )}
+
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            isHidden={sidebarHidden}
+            onToggle={toggleSidebar}
+          />
 
           <main
-            className={`ml-64 p-8 md:p-12 ${activeTab === "dashboard" ? "bg-gradient-to-b from-slate-50/50 to-transparent" : ""}`}
+            className={`transition-all duration-300 ease-in-out p-8 md:p-12 ${sidebarHidden ? "ml-0" : "ml-64"} ${activeTab === "dashboard" ? "bg-gradient-to-b from-slate-50/50 to-transparent" : ""}`}
           >
+            {/* Botón de alternar menú lateral en cabecera de contenido */}
+            <div className="mb-4 flex items-center">
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                title={sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral"}
+                aria-label={sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral"}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 shadow-2xs transition-all cursor-pointer group active:scale-95"
+              >
+                <LucideIcon
+                  name={sidebarHidden ? "menu" : "chevron-left"}
+                  className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-600 transition-transform"
+                />
+                <span>{sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral"}</span>
+              </button>
+            </div>
             {/* Header Superior */}
 
             {(activeTab === "dashboard" || !VALID_TABS.includes(activeTab)) && (

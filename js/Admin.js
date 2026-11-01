@@ -160,7 +160,9 @@ var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
 };
 var Sidebar = function Sidebar(_ref) {
   var activeTab = _ref.activeTab,
-    setActiveTab = _ref.setActiveTab;
+    setActiveTab = _ref.setActiveTab,
+    isHidden = _ref.isHidden,
+    onToggle = _ref.onToggle;
   var items = [{
     id: "dashboard",
     icon: "layout-dashboard",
@@ -207,10 +209,19 @@ var Sidebar = function Sidebar(_ref) {
     label: "Configuración"
   }];
   return /*#__PURE__*/React.createElement("div", {
-    className: "w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar"
+    className: "w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar transition-transform duration-300 ease-in-out ".concat(isHidden ? "-translate-x-full" : "translate-x-0")
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col items-center mb-8 px-2 space-y-6"
-  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col items-center mb-8 px-2 space-y-6 relative"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: onToggle,
+    title: "Ocultar men\xFA lateral",
+    "aria-label": "Ocultar men\xFA lateral",
+    className: "absolute -top-3 -right-2 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/60 hover:border-slate-300 cursor-pointer flex items-center justify-center z-20 group shadow-2xs"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "chevron-left",
+    className: "w-4 h-4 transition-transform group-hover:-translate-x-0.5"
+  })), /*#__PURE__*/React.createElement("div", {
     className: "w-full flex justify-center p-4"
   }, /*#__PURE__*/React.createElement("img", {
     src: "Nexus%20Groups/Nexus_Groups-removebg-preview.png",
@@ -242,7 +253,12 @@ var Sidebar = function Sidebar(_ref) {
           window.location.href = "Proformas.html";
         } else if (item.id === "calendario") {
           window.location.href = "Calendario.html";
-        } else if (item.id === "menus") window.open("https://nataliogc.github.io/menus-eventos/admin.html", "_blank");else if (item.id === "turisticos") window.open("https://nataliogc.github.io/Menus-Turisticos/", "_blank");else if (item.id === "cocteles") window.open("https://nataliogc.github.io/menus-cocteles/", "_blank");else if (item.id === "settings") window.location.href = "Configuracion.html";else setActiveTab(item.id);
+        } else if (item.id === "menus") window.open("https://nataliogc.github.io/menus-eventos/admin.html", "_blank");else if (item.id === "turisticos") window.open("https://nataliogc.github.io/Menus-Turisticos/", "_blank");else if (item.id === "cocteles") window.open("https://nataliogc.github.io/menus-cocteles/", "_blank");else if (item.id === "settings") window.location.href = "Configuracion.html";else {
+          setActiveTab(item.id);
+          if (typeof window !== "undefined" && window.innerWidth < 768 && typeof onToggle === "function") {
+            onToggle();
+          }
+        }
       },
       className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeTab === item.id ? "sidebar-item-active" : "text-slate-500 hover:bg-slate-50 hover:translate-x-1")
     }, /*#__PURE__*/React.createElement(LucideIcon, {
@@ -3175,7 +3191,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.27 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.28 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,
@@ -3691,6 +3707,25 @@ var App = function App() {
     _useState10 = _slicedToArray(_useState1, 2),
     successToast = _useState10[0],
     setSuccessToast = _useState10[1];
+  var _useState11 = useState(function () {
+      try {
+        return localStorage.getItem("nexus_admin_sidebar_hidden") === "true";
+      } catch (_) {
+        return false;
+      }
+    }),
+    _useState12 = _slicedToArray(_useState11, 2),
+    sidebarHidden = _useState12[0],
+    setSidebarHidden = _useState12[1];
+  var toggleSidebar = function toggleSidebar() {
+    setSidebarHidden(function (prev) {
+      var next = !prev;
+      try {
+        localStorage.setItem("nexus_admin_sidebar_hidden", String(next));
+      } catch (_) {}
+      return next;
+    });
+  };
   var handleUpdateStatus = /*#__PURE__*/function () {
     var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(groupId, newStatus) {
       var docId, _t5;
@@ -4205,12 +4240,39 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "x",
     size: 16
-  }))), /*#__PURE__*/React.createElement(Sidebar, {
+  }))), sidebarHidden && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: toggleSidebar,
+    title: "Mostrar men\xFA lateral",
+    "aria-label": "Mostrar men\xFA lateral",
+    className: "fixed left-4 top-20 z-30 flex items-center gap-2 px-3.5 py-2 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md hover:shadow-lg hover:border-emerald-500/50 rounded-2xl text-slate-700 hover:text-emerald-700 text-xs font-bold transition-all cursor-pointer group hover:-translate-y-0.5 active:scale-95 animate-fade-in"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "menu",
+    className: "w-4 h-4 text-emerald-600 transition-transform group-hover:scale-110"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "font-outfit font-extrabold tracking-wide"
+  }, "Men\xFA")), !sidebarHidden && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-slate-900/20 backdrop-blur-2xs z-20 md:hidden transition-opacity",
+    onClick: toggleSidebar
+  }), /*#__PURE__*/React.createElement(Sidebar, {
     activeTab: activeTab,
-    setActiveTab: setActiveTab
+    setActiveTab: setActiveTab,
+    isHidden: sidebarHidden,
+    onToggle: toggleSidebar
   }), /*#__PURE__*/React.createElement("main", {
-    className: "ml-64 p-8 md:p-12 ".concat(activeTab === "dashboard" ? "bg-gradient-to-b from-slate-50/50 to-transparent" : "")
-  }, (activeTab === "dashboard" || !VALID_TABS.includes(activeTab)) && /*#__PURE__*/React.createElement(Dashboard, {
+    className: "transition-all duration-300 ease-in-out p-8 md:p-12 ".concat(sidebarHidden ? "ml-0" : "ml-64", " ").concat(activeTab === "dashboard" ? "bg-gradient-to-b from-slate-50/50 to-transparent" : "")
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mb-4 flex items-center"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: toggleSidebar,
+    title: sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral",
+    "aria-label": sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral",
+    className: "inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 shadow-2xs transition-all cursor-pointer group active:scale-95"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: sidebarHidden ? "menu" : "chevron-left",
+    className: "w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-600 transition-transform"
+  }), /*#__PURE__*/React.createElement("span", null, sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral"))), (activeTab === "dashboard" || !VALID_TABS.includes(activeTab)) && /*#__PURE__*/React.createElement(Dashboard, {
     arrivals: arrivals,
     stats: stats,
     alerts: alerts,
