@@ -1510,7 +1510,7 @@
           }).join("");
 
           return `
-            <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse;">
+            <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="left" style="width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse; text-align: left;">
               <colgroup>
                 <col style="width: 1%; white-space: nowrap;" />
                 <col style="width: auto;" />
@@ -1543,11 +1543,11 @@
         }).join("");
 
         return `
-<center style="width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;">
+<div style="text-align: left; margin: 0; padding: 10px 0;">
   <!--[if mso]>
-  <table role="presentation" width="880" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
+  <table role="presentation" width="100%" align="left" border="0" cellpadding="0" cellspacing="0"><tr><td align="left">
   <![endif]-->
-  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 100%; max-width: 100%; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
+  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="left" style="width: 100%; max-width: 100%; margin: 0; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse; text-align: left;">
     <!-- Header Banner: Fondo solido azul oscuro para compatibilidad total con Outlook -->
     <tr>
       <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 20px 24px;">
@@ -1624,7 +1624,7 @@
   <!--[if mso]>
   </td></tr></table>
   <![endif]-->
-</center>
+</div>
         `;
       };
 
@@ -1777,11 +1777,11 @@
         const isInternal = data.mode === "internal";
         
         return `
-<center style="width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 15px 0;">
+<div style="text-align: left; margin: 0; padding: 10px 0;">
   <!--[if mso]>
-  <table role="presentation" width="620" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
+  <table role="presentation" width="640" align="left" border="0" cellpadding="0" cellspacing="0"><tr><td align="left">
   <![endif]-->
-  <table role="presentation" width="620" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 620px; max-width: 620px; margin: 0 auto; color: #1e293b; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
+  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="left" style="width: 100%; max-width: 640px; margin: 0; color: #1e293b; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse; text-align: left;">
     <!-- Header Banner: Fondo solido azul oscuro para compatibilidad con Outlook -->
     <tr>
       <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 20px 24px;">
@@ -1921,7 +1921,7 @@
   <!--[if mso]>
   </td></tr></table>
   <![endif]-->
-</center>`;
+</div>`;
       };
 
       const handleOpenEmailModal = (alert, columnTitle, mode = "client") => {
@@ -3733,7 +3733,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.31 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.32 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
