@@ -1443,14 +1443,14 @@
               }).join(" ");
 
               pensionsHtml = `
-                <div style="margin-top: 4px; padding: 3px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 10px; line-height: 1.4;">
+                <div style="margin-top: 4px; display: inline-block; max-width: 100%; padding: 2.5px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 10px; line-height: 1.4;">
                   <strong style="color: #0f172a; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.3px; margin-right: 5px;">🍽️ ${pensions.regimeLabel}:</strong>
                   ${mealChips}
                 </div>
               `;
             } else if (pensions.isRoomOnly) {
               pensionsHtml = `
-                <div style="margin-top: 4px; padding: 2.5px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 10px; color: #64748b; font-style: italic;">
+                <div style="margin-top: 4px; display: inline-block; max-width: 100%; padding: 2px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 10px; color: #64748b; font-style: italic;">
                   🍽️ <strong>Régimen:</strong> Solo Alojamiento (sin servicios de pensión contratados)
                 </div>
               `;
@@ -1462,19 +1462,19 @@
 
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td width="95" valign="top" style="padding: 10px 8px; vertical-align: top; width: 95px;">
+                <td valign="top" style="padding: 8px 10px; vertical-align: top; width: 1%; white-space: nowrap;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
-                      <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 2.5px 6px; border-radius: 4px; text-align: center; white-space: nowrap;">
+                      <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 2px 6px; border-radius: 4px; text-align: center; white-space: nowrap;">
                         #${resId}
                       </td>
                     </tr>
                   </table>
-                  <div style="font-size: 9.5px; color: #64748b; font-weight: 700; margin-top: 4px; white-space: nowrap;">
+                  <div style="font-size: 9.5px; color: #64748b; font-weight: 700; margin-top: 3px; white-space: nowrap;">
                     🏨 ${hotelName}
                   </div>
                 </td>
-                <td valign="top" style="padding: 10px 14px; vertical-align: top;">
+                <td valign="top" style="padding: 8px 12px; vertical-align: top; width: auto;">
                   <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px;">
                     <span style="font-size: 13.5px; font-weight: 800; color: #0f172a; line-height: 1.25;">
                       ${name}
@@ -1484,11 +1484,11 @@
                     </span>
                   </div>
                   ${pensionsHtml}
-                  <div style="margin-top: 4px; background-color: #fff1f2; border-left: 3px solid ${sec.headerColor}; padding: 4px 8px; font-size: 11px; font-weight: 700; color: #9f1239; border-radius: 0 4px 4px 0; line-height: 1.35;">
+                  <div style="margin-top: 4px; display: inline-block; max-width: 100%; background-color: #fff1f2; border-left: 3px solid ${sec.headerColor}; padding: 3px 8px; font-size: 11px; font-weight: 700; color: #9f1239; border-radius: 0 4px 4px 0; line-height: 1.35;">
                     ⚠️ ${alertDetailText}
                   </div>
                 </td>
-                <td width="170" valign="top" align="right" style="padding: 10px 12px; vertical-align: top; text-align: right; width: 170px;">
+                <td valign="top" align="right" style="padding: 8px 12px; vertical-align: top; text-align: right; width: 1%; white-space: nowrap;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
                     <tr>
                       <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap;">
@@ -1510,16 +1510,21 @@
           }).join("");
 
           return `
-            <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse; table-layout: fixed;">
+            <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 100%; margin-bottom: 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: collapse;">
+              <colgroup>
+                <col style="width: 1%; white-space: nowrap;" />
+                <col style="width: auto;" />
+                <col style="width: 1%; white-space: nowrap;" />
+              </colgroup>
               <tr>
-                <td colspan="3" bgcolor="${sec.headerBg}" style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 11px 16px;">
+                <td colspan="3" bgcolor="${sec.headerBg}" style="background-color: ${sec.headerBg}; border-bottom: 2px solid ${sec.headerColor}; padding: 10px 14px;">
                   <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
                     <tr>
                       <td valign="middle" style="font-size: 13px; font-weight: 800; color: ${sec.headerColor}; text-transform: uppercase; letter-spacing: 0.5px;">
                         ${sec.title}
                       </td>
                       <td valign="middle" align="right" style="text-align: right; font-size: 11.5px; font-weight: 800; color: ${sec.headerColor}; white-space: nowrap; padding-left: 12px;">
-                        <span style="background-color: #ffffff; border: 1px solid ${sec.headerColor}; padding: 3px 10px; border-radius: 12px; display: inline-block;">
+                        <span style="background-color: #ffffff; border: 1px solid ${sec.headerColor}; padding: 2px 9px; border-radius: 12px; display: inline-block;">
                           ${sec.alerts.length} caso(s)
                         </span>
                       </td>
@@ -1528,9 +1533,9 @@
                 </td>
               </tr>
               <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
-                <td width="95" style="padding: 8px 8px; width: 95px;">Localizador</td>
-                <td style="padding: 8px 14px;">Grupo &amp; Requerimiento</td>
-                <td width="170" align="right" style="padding: 8px 12px; text-align: right; width: 170px;">${sec.id === "financial" || sec.id === "release" ? "Comercial / Saldo" : "Comercial"}</td>
+                <td style="padding: 7px 10px; width: 1%; white-space: nowrap;">Localizador</td>
+                <td style="padding: 7px 12px; width: auto;">Grupo &amp; Requerimiento</td>
+                <td align="right" style="padding: 7px 12px; text-align: right; width: 1%; white-space: nowrap;">${sec.id === "financial" || sec.id === "release" ? "Comercial / Saldo" : "Comercial"}</td>
               </tr>
               ${rowsHtml}
             </table>
@@ -1740,6 +1745,31 @@
         }
       };
 
+            const formatBodyToOutlookHtml = (bodyText) => {
+        if (!bodyText) return "";
+        const blocks = String(bodyText).trim().split(/\n\s*\n/);
+        return blocks.map(block => {
+          const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+          if (!lines.length) return "";
+          
+          const isBulletList = lines.every(l => l.startsWith('•') || l.startsWith('-') || l.startsWith('*'));
+          if (isBulletList) {
+            const itemsHtml = lines.map(line => {
+              const text = line.replace(/^[•\-\*]\s*/, "");
+              return `<tr><td valign="top" style="vertical-align: top; width: 14px; font-size: 13px; line-height: 1.6; color: #64748b; padding: 2px 0;">•</td><td valign="top" style="vertical-align: top; font-size: 12.5px; line-height: 1.6; color: #334155; padding: 2px 0;">${text}</td></tr>`;
+            }).join("");
+            return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 6px 0 14px 0; border-collapse: collapse;">${itemsHtml}</table>`;
+          }
+
+          if (lines.length === 1 && lines[0] === lines[0].toUpperCase() && lines[0].length > 4 && !lines[0].includes(':')) {
+            return `<div style="font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 6px 0;">${lines[0]}</div>`;
+          }
+
+          const innerHtml = lines.join('<br style="mso-data-placement:same-cell;"/>');
+          return `<p style="margin: 0 0 14px 0; font-size: 12.5px; line-height: 1.65; color: #334155;">${innerHtml}</p>`;
+        }).join("");
+      };
+
       const generateRichHtmlEmail = (data) => {
         if (!data) return "";
         const fin = data.fin || { total: 0, paid: 0, pending: 0 };
@@ -1811,30 +1841,28 @@
       <td bgcolor="#ffffff" style="background-color: #ffffff; padding: 22px 24px; font-size: 13px; line-height: 1.65; color: #334155;">
         
         ${hasFin ? `
-        <!-- Financial Metrics Grid -->
-        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+        <!-- Financial Metrics Grid: clean separate borders without empty spacer cells -->
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 18px; border-collapse: separate; border-spacing: 8px 0;">
           <tr>
-            <td bgcolor="#f8fafc" width="31%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 6px; text-align: center;">
-              <div style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Contratado</div>
+            <td bgcolor="#f8fafc" width="33%" style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 8px; text-align: center;">
+              <div style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Contratado</div>
               <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">${fmt(fin.total)}</div>
             </td>
-            <td width="3%">&nbsp;</td>
-            <td bgcolor="#ecfdf5" width="32%" style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 6px; text-align: center;">
-              <div style="font-size: 9px; font-weight: 800; color: #059669; text-transform: uppercase;">Abonado / Confirmado</div>
+            <td bgcolor="#ecfdf5" width="33%" style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 8px; text-align: center;">
+              <div style="font-size: 9px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">Abonado / Confirmado</div>
               <div style="font-size: 14px; font-weight: 800; color: #047857; margin-top: 3px;">${fmt(fin.paid)}</div>
             </td>
-            <td width="3%">&nbsp;</td>
-            <td bgcolor="#fff1f2" width="31%" style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 6px; text-align: center;">
-              <div style="font-size: 9px; font-weight: 800; color: #e11d48; text-transform: uppercase;">Pendiente de Cobro</div>
+            <td bgcolor="#fff1f2" width="33%" style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 8px; text-align: center;">
+              <div style="font-size: 9px; font-weight: 800; color: #e11d48; text-transform: uppercase; letter-spacing: 0.5px;">Pendiente de Cobro</div>
               <div style="font-size: 14px; font-weight: 800; color: #be123c; margin-top: 3px;">${fmt(fin.pending)}</div>
             </td>
           </tr>
         </table>` : ''}
 
-        <!-- Callout Box -->
-        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+        <!-- Callout Box: border-collapse: collapse with explicit zero-borders on top, right, bottom to eliminate ghost outlines in Outlook -->
+        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 18px; border-collapse: collapse; border: none;">
           <tr>
-            <td bgcolor="#fef2f2" style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 10px 14px;">
+            <td bgcolor="#fef2f2" style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-top: none; border-right: none; border-bottom: none; padding: 10px 14px;">
               <div style="font-size: 10px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
                 ${isInternal ? "Actuación Crítica Detectada" : "Situación / Requerimiento"}
               </div>
@@ -1845,9 +1873,9 @@
           </tr>
         </table>
 
-        <!-- Body text -->
-        <div style="white-space: pre-line; margin-bottom: 20px; color: #334155; font-size: 12.5px; line-height: 1.65;">
-          ${data.body}
+        <!-- Body text: semantic paragraphs & bullet tables for 100% Outlook & Word email compatibility -->
+        <div style="margin-bottom: 20px; color: #334155; font-size: 12.5px; line-height: 1.65;">
+          ${formatBodyToOutlookHtml(data.body)}
         </div>
 
         <!-- Bank Details Card si no es interno -->
@@ -3705,7 +3733,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.30 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.31 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
