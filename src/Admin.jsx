@@ -1520,7 +1520,7 @@
 
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td width="95" valign="top" style="padding: 12px 10px; vertical-align: top; width: 95px;">
+                <td width="105" valign="top" style="padding: 12px 10px; vertical-align: top; width: 105px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                     <tr>
                       <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; font-size: 11px; font-weight: 800; font-family: monospace; padding: 3px 7px; border-radius: 4px; text-align: center; white-space: nowrap;">
@@ -1548,7 +1548,7 @@
                     </tr>
                   </table>
                 </td>
-                <td width="120" valign="top" align="right" style="padding: 12px 10px; vertical-align: top; text-align: right; width: 120px;">
+                <td width="155" valign="top" align="right" style="padding: 12px 12px; vertical-align: top; text-align: right; width: 155px;">
                   <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="right">
                     <tr>
                       <td bgcolor="#e2e8f0" style="background-color: #e2e8f0; color: #334155; font-size: 10px; font-weight: 700; padding: 2.5px 7px; border-radius: 4px; white-space: nowrap;">
@@ -1591,9 +1591,9 @@
                 </td>
               </tr>
               <tr bgcolor="#f1f5f9" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
-                <td width="95" style="padding: 8px 10px; width: 95px;">Localizador</td>
-                <td width="665" style="padding: 8px 12px; width: 665px;">Grupo &amp; Requerimiento</td>
-                <td width="120" align="right" style="padding: 8px 10px; text-align: right; width: 120px;">${sec.id === "financial" || sec.id === "release" ? "Comercial / Saldo" : "Comercial"}</td>
+                <td width="105" style="padding: 8px 10px; width: 105px;">Localizador</td>
+                <td style="padding: 8px 14px;">Grupo &amp; Requerimiento</td>
+                <td width="155" align="right" style="padding: 8px 12px; text-align: right; width: 155px;">${sec.id === "financial" || sec.id === "release" ? "Comercial / Saldo" : "Comercial"}</td>
               </tr>
               ${rowsHtml}
             </table>
@@ -1605,7 +1605,7 @@
   <!--[if mso]>
   <table role="presentation" width="880" align="center" border="0" cellpadding="0" cellspacing="0"><tr><td>
   <![endif]-->
-  <table role="presentation" width="880" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 880px; max-width: 880px; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
+  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" align="center" style="width: 100%; max-width: 100%; margin: 0 auto; background-color: #ffffff; border: 1px solid #cbd5e1; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; border-collapse: collapse;">
     <!-- Header Banner: Fondo solido azul oscuro para compatibilidad total con Outlook -->
     <tr>
       <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 20px 24px;">
@@ -3037,7 +3037,18 @@ ${comercial}`;
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Botón Acción Principal: Abrir Correo */}
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteOpenEmail(selectedEmailAlert)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs shadow-md shadow-emerald-500/30 hover:scale-102 active:scale-98 transition-all cursor-pointer group"
+                      title="Abre tu gestor de correo nativo (Outlook, etc.)"
+                    >
+                      <LucideIcon name="send" size={14} className="transition-transform group-hover:translate-x-0.5" />
+                      <span>Enviar Notificación</span>
+                    </button>
+
                     {/* Tab Switcher */}
                     <div className="bg-black/40 p-1 rounded-xl border border-white/10 flex items-center gap-1 text-xs">
                       <button
@@ -3069,7 +3080,7 @@ ${comercial}`;
                     <button
                       type="button"
                       onClick={() => setSelectedEmailAlert(null)}
-                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer ml-1"
                       title="Cerrar modal"
                     >
                       ✕
@@ -3402,7 +3413,7 @@ ${comercial}`;
                 )}
 
                 {/* Acciones del Footer */}
-                <div className="p-4 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="p-3.5 bg-slate-50 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
                   <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                     <button
                       type="button"
@@ -3453,7 +3464,7 @@ ${comercial}`;
               onClick={() => setInternalReportModal(null)}
             >
               <div
-                className="bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl max-w-6xl w-full overflow-hidden flex flex-col my-auto max-h-[95vh] animate-slide-up"
+                className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl w-[98vw] max-w-[1550px] overflow-hidden flex flex-col my-auto h-[93vh] max-h-[93vh] animate-slide-up"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Cabecera del Modal */}
@@ -3477,7 +3488,29 @@ ${comercial}`;
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Botón Acción Principal: Enviar Alertas (Visible inmediatamente arriba) */}
+                    <button
+                      type="button"
+                      onClick={handleExecuteSendReport}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs shadow-md shadow-emerald-500/30 hover:scale-102 active:scale-98 transition-all cursor-pointer group"
+                      title="Abre tu gestor de correo nativo (Outlook, etc.) con el informe"
+                    >
+                      <LucideIcon name="send" size={14} className="transition-transform group-hover:translate-x-0.5" />
+                      <span>Enviar Alertas</span>
+                    </button>
+
+                    {/* Botón rápido Copiar Formato Visual */}
+                    <button
+                      type="button"
+                      onClick={handleCopyReportRichEmail}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-indigo-400/40 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 hover:text-white font-bold text-xs transition-all cursor-pointer"
+                      title="Copia el informe con diseño y tablas de colores para pegar directamente en Outlook o Gmail"
+                    >
+                      <LucideIcon name="sparkles" size={13} className="text-amber-300" />
+                      <span className="hidden sm:inline">Copiar Formato</span>
+                    </button>
+
                     {/* Tab Switcher */}
                     <div className="bg-black/40 p-1 rounded-xl border border-white/10 flex items-center gap-1 text-xs">
                       <button
@@ -3517,7 +3550,7 @@ ${comercial}`;
                     <button
                       type="button"
                       onClick={() => setInternalReportModal(null)}
-                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold cursor-pointer ml-1"
                       title="Cerrar modal"
                     >
                       ✕
@@ -3650,7 +3683,7 @@ ${comercial}`;
                   <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar bg-slate-100/70">
                     {/* Render visual del HTML del informe */}
                     <div
-                      className="w-full max-w-[940px] mx-auto shadow-md rounded-2xl overflow-hidden bg-white"
+                      className="w-full max-w-full mx-auto shadow-md rounded-2xl overflow-hidden bg-white"
                       dangerouslySetInnerHTML={{ __html: internalReportHtml }}
                     />
                   </div>
@@ -3735,7 +3768,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.28 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.29 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
