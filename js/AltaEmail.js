@@ -810,32 +810,50 @@ var App = function App() {
   }, "Esc\xE1ner IA 2.0"))))), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 p-4 md:p-6 lg:p-8"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "container mx-auto min-h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-6 items-stretch"
+    className: "container mx-auto flex flex-col lg:flex-row gap-6 items-stretch"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "w-full lg:w-[350px] xl:w-[400px] flex flex-col shrink-0"
+    className: "w-full lg:w-[380px] xl:w-[440px] flex flex-col shrink-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "glass p-5 rounded-3xl shadow-sm space-y-4 flex flex-col lg:h-full min-h-[350px] border-slate-200"
+    className: "glass p-5 rounded-3xl shadow-sm space-y-4 flex flex-col lg:sticky lg:top-6 border-slate-200"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "text-sm font-black text-slate-700 uppercase tracking-wider"
-  }, "Texto del Correo"), /*#__PURE__*/React.createElement(LucideIcon, {
+  }, /*#__PURE__*/React.createElement("label", {
+    htmlFor: "source-email",
+    className: "text-sm font-black text-slate-700"
+  }, "1. Pega el correo del cliente"), /*#__PURE__*/React.createElement(LucideIcon, {
     name: "brain",
     className: "text-indigo-500",
     size: 18
-  })), /*#__PURE__*/React.createElement("textarea", {
-    className: "flex-1 w-full p-4 bg-slate-50/50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm leading-relaxed resize-none font-medium text-slate-800",
+  })), /*#__PURE__*/React.createElement("p", {
+    id: "email-help",
+    className: "text-sm text-slate-500 leading-relaxed"
+  }, "Incluye el remitente, las fechas y la solicitud completa. Revisa los datos antes de guardar."), /*#__PURE__*/React.createElement("textarea", {
+    id: "source-email",
+    "aria-describedby": "email-help",
+    disabled: isAnalyzing,
+    className: "w-full h-64 lg:h-80 p-4 bg-slate-50/50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm leading-relaxed resize-y font-medium text-slate-800",
     placeholder: "Pega aqu\xED el contenido del correo...",
     value: emailText,
     onChange: function onChange(e) {
       return setEmailText(e.target.value);
     }
   }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between text-xs text-slate-500"
+  }, /*#__PURE__*/React.createElement("span", {
+    "aria-live": "polite"
+  }, emailText.length.toLocaleString("es-ES"), " caracteres"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setEmailText("");
+    },
+    disabled: isAnalyzing || !emailText,
+    className: "font-bold text-indigo-600 hover:underline disabled:opacity-40"
+  }, "Limpiar texto")), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleAnalyze,
     disabled: isAnalyzing || !emailText.trim(),
-    className: "w-full py-3.5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 ".concat(isAnalyzing ? 'bg-slate-400' : 'btn-ia')
+    className: "w-full py-3.5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ".concat(isAnalyzing ? 'bg-slate-400' : 'btn-ia')
   }, isAnalyzing ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"
   }), /*#__PURE__*/React.createElement("span", {
@@ -845,7 +863,7 @@ var App = function App() {
     className: "w-5 h-5"
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-sm uppercase tracking-widest"
-  }, "Extraer con IA"))), /*#__PURE__*/React.createElement("button", {
+  }, "Analizar correo"))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: handleLocalExtract,
     disabled: isAnalyzing || !emailText.trim(),
@@ -855,23 +873,39 @@ var App = function App() {
     name: "cpu",
     size: 15,
     className: "text-emerald-600"
-  }), /*#__PURE__*/React.createElement("span", null, "Extracci\xF3n Local (Sin IA / Offline)"))))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "Extraer sin IA"))))), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "glass rounded-3xl flex flex-col h-full shadow-2xl border-slate-200 bg-white/50 backdrop-blur-xl"
+    className: "glass rounded-3xl flex flex-col min-h-[520px] h-full shadow-sm border-slate-200 bg-white/50 backdrop-blur-xl"
   }, !extractedData && !isAnalyzing ? /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 flex flex-col items-center justify-center text-center p-12"
+    className: "flex-1 flex flex-col items-center justify-center text-center p-6 md:p-10"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 animate-pulse"
+    className: "w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "clipboard-list",
-    className: "w-10 h-10 text-slate-300"
+    className: "w-10 h-10 text-indigo-500"
   })), /*#__PURE__*/React.createElement("h3", {
-    className: "text-sm font-black text-slate-400 uppercase tracking-widest"
-  }, "Esperando Extracci\xF3n"), /*#__PURE__*/React.createElement("p", {
-    className: "max-w-xs text-xs font-bold text-slate-400/60 mt-3 leading-relaxed"
-  }, "Pega el texto del correo a la izquierda para que nuestra IA genere la ficha autom\xE1ticamente."), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-4 mt-8"
+    className: "text-xl font-bold text-slate-800"
+  }, "2. Revisa la ficha del grupo"), /*#__PURE__*/React.createElement("p", {
+    className: "max-w-md text-sm text-slate-500 mt-3 leading-relaxed"
+  }, "Pega el correo y pulsa \xABAnalizar correo\xBB. Aqu\xED aparecer\xE1n los datos para corregirlos y completar lo que falte."), /*#__PURE__*/React.createElement("div", {
+    className: "grid sm:grid-cols-3 gap-3 w-full max-w-xl mt-6 text-left"
+  }, [["Contacto", "Cliente, agencia y email"], ["Estancia", "Hotel, entrada y salida"], ["Solicitud", "Personas, habitaciones y régimen"]].map(function (_ref11) {
+    var _ref12 = _slicedToArray(_ref11, 2),
+      title = _ref12[0],
+      description = _ref12[1];
+    return /*#__PURE__*/React.createElement("div", {
+      key: title,
+      className: "rounded-xl border border-slate-200 bg-white p-4"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-sm font-bold text-slate-700"
+    }, title), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-slate-500 mt-1"
+    }, description));
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-500 mt-5"
+  }, "La extracci\xF3n no guarda el presupuesto. Revisa y confirma la ficha al terminar."), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap justify-center gap-4 mt-8"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       var dummy = {

@@ -764,26 +764,34 @@
                     </header>
 
                     <div className="flex-1 p-4 md:p-6 lg:p-8">
-                        <div className="container mx-auto min-h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-6 items-stretch">
+                        <div className="container mx-auto flex flex-col lg:flex-row gap-6 items-stretch">
 
                             {/* Panel Izquierdo: Email Input */}
-                            <div className="w-full lg:w-[350px] xl:w-[400px] flex flex-col shrink-0">
-                                <div className="glass p-5 rounded-3xl shadow-sm space-y-4 flex flex-col lg:h-full min-h-[350px] border-slate-200">
+                            <div className="w-full lg:w-[380px] xl:w-[440px] flex flex-col shrink-0">
+                                <div className="glass p-5 rounded-3xl shadow-sm space-y-4 flex flex-col lg:sticky lg:top-6 border-slate-200">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Texto del Correo</h3>
+                                        <label htmlFor="source-email" className="text-sm font-black text-slate-700">1. Pega el correo del cliente</label>
                                         <LucideIcon name="brain" className="text-indigo-500" size={18} />
                                     </div>
+                                    <p id="email-help" className="text-sm text-slate-500 leading-relaxed">Incluye el remitente, las fechas y la solicitud completa. Revisa los datos antes de guardar.</p>
                                     <textarea
-                                        className="flex-1 w-full p-4 bg-slate-50/50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm leading-relaxed resize-none font-medium text-slate-800"
+                                        id="source-email"
+                                        aria-describedby="email-help"
+                                        disabled={isAnalyzing}
+                                        className="w-full h-64 lg:h-80 p-4 bg-slate-50/50 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm leading-relaxed resize-y font-medium text-slate-800"
                                         placeholder="Pega aquí el contenido del correo..."
                                         value={emailText}
                                         onChange={(e) => setEmailText(e.target.value)}
                                     ></textarea>
+                                    <div className="flex items-center justify-between text-xs text-slate-500">
+                                        <span aria-live="polite">{emailText.length.toLocaleString("es-ES")} caracteres</span>
+                                        <button type="button" onClick={() => setEmailText("")} disabled={isAnalyzing || !emailText} className="font-bold text-indigo-600 hover:underline disabled:opacity-40">Limpiar texto</button>
+                                    </div>
                                     <div className="flex flex-col gap-2">
                                         <button
                                             onClick={handleAnalyze}
                                             disabled={isAnalyzing || !emailText.trim()}
-                                            className={`w-full py-3.5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 ${isAnalyzing ? 'bg-slate-400' : 'btn-ia'}`}
+                                            className={`w-full py-3.5 rounded-2xl font-black text-white flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isAnalyzing ? 'bg-slate-400' : 'btn-ia'}`}
                                         >
                                             {isAnalyzing ? (
                                                 <>
@@ -793,7 +801,7 @@
                                             ) : (
                                                 <>
                                                     <LucideIcon name="sparkles" className="w-5 h-5" />
-                                                    <span className="text-sm uppercase tracking-widest">Extraer con IA</span>
+                                                    <span className="text-sm uppercase tracking-widest">Analizar correo</span>
                                                 </>
                                             )}
                                         </button>
@@ -805,7 +813,7 @@
                                             title="Extrae los datos inmediatamente usando el analizador local de tu navegador, sin usar API Key"
                                         >
                                             <LucideIcon name="cpu" size={15} className="text-emerald-600" />
-                                            <span>Extracción Local (Sin IA / Offline)</span>
+                                            <span>Extraer sin IA</span>
                                         </button>
                                     </div>
                                 </div>
@@ -813,16 +821,29 @@
 
                             {/* Panel Derecho: Formulario Estilo Ficha */}
                             <div className="flex-1 min-w-0">
-                                <div className="glass rounded-3xl flex flex-col h-full shadow-2xl border-slate-200 bg-white/50 backdrop-blur-xl">
+                                <div className="glass rounded-3xl flex flex-col min-h-[520px] h-full shadow-sm border-slate-200 bg-white/50 backdrop-blur-xl">
                                     {!extractedData && !isAnalyzing ? (
-                                        <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
-                                            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                                                <LucideIcon name="clipboard-list" className="w-10 h-10 text-slate-300" />
+                                        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 md:p-10">
+                                            <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
+                                                <LucideIcon name="clipboard-list" className="w-10 h-10 text-indigo-500" />
                                             </div>
-                                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Esperando Extracción</h3>
-                                            <p className="max-w-xs text-xs font-bold text-slate-400/60 mt-3 leading-relaxed">Pega el texto del correo a la izquierda para que nuestra IA genere la ficha automáticamente.</p>
+                                            <h3 className="text-xl font-bold text-slate-800">2. Revisa la ficha del grupo</h3>
+                                            <p className="max-w-md text-sm text-slate-500 mt-3 leading-relaxed">Pega el correo y pulsa «Analizar correo». Aquí aparecerán los datos para corregirlos y completar lo que falte.</p>
+                                            <div className="grid sm:grid-cols-3 gap-3 w-full max-w-xl mt-6 text-left">
+                                                {[
+                                                    ["Contacto", "Cliente, agencia y email"],
+                                                    ["Estancia", "Hotel, entrada y salida"],
+                                                    ["Solicitud", "Personas, habitaciones y régimen"]
+                                                ].map(([title, description]) => (
+                                                    <div key={title} className="rounded-xl border border-slate-200 bg-white p-4">
+                                                        <p className="text-sm font-bold text-slate-700">{title}</p>
+                                                        <p className="text-xs text-slate-500 mt-1">{description}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-5">La extracción no guarda el presupuesto. Revisa y confirma la ficha al terminar.</p>
 
-                                            <div className="flex gap-4 mt-8">
+                                            <div className="flex flex-wrap justify-center gap-4 mt-8">
                                                 <button
                                                     onClick={() => {
                                                         const dummy = { "Nombre del Grupo": "", "Entrada": "", "Salida": "", "Pax.": "", "Habitaciones": "", "Régimen": "HD", "Hotel": "Sercotel Guadiana", "Empresa/Agencia": "", "Observaciones": "" };

@@ -3931,14 +3931,6 @@ function App() {
       className: "fas fa-pencil-alt"
     }), " Crear Manual"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        setEmailContent('');
-        setShowEmailParseModal(true);
-      },
-      className: "flex-1 sm:flex-none bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-5 py-2.5 rounded-xl transition-all text-sm font-bold flex items-center justify-center gap-2"
-    }, /*#__PURE__*/React.createElement("i", {
-      className: "fas fa-envelope-open-text"
-    }), " Parsear Email IA"), /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
         return window.location.href = 'AltaEmail.html';
       },
       className: "flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-all text-sm font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"

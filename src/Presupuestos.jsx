@@ -3229,10 +3229,7 @@ ${emailContent}`;
                   className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
                   <i className="fas fa-pencil-alt"></i> Crear Manual
                 </button>
-                <button onClick={() => { setEmailContent(''); setShowEmailParseModal(true); }}
-                  className="flex-1 sm:flex-none bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-5 py-2.5 rounded-xl transition-all text-sm font-bold flex items-center justify-center gap-2">
-                  <i className="fas fa-envelope-open-text"></i> Parsear Email IA
-                </button>
+
                 <button onClick={() => window.location.href = 'AltaEmail.html'}
                   className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-all text-sm font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">
                   <i className="fas fa-sparkles"></i> Alta con IA
