@@ -405,14 +405,14 @@
             document.title = `${currentReservaId} - Ord Servicio - ${saveData.grupo}`;
             localStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
             // Force Rooming & Servicios to reload from this updated Orden de Servicio next time, but preserve the rooming list
-            const cachedRoomingStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+            const cachedRoomingStr = window.NexusDraftStorage.getItem('roomingServicios_' + currentReservaId);
             if (cachedRoomingStr) {
                 try {
                     const s = JSON.parse(cachedRoomingStr);
                     s.restoreServices = true;
-                    localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
+                    window.NexusDraftStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
                 } catch (e) {
-                    localStorage.removeItem('roomingServicios_' + currentReservaId);
+                    window.NexusDraftStorage.removeItem('roomingServicios_' + currentReservaId);
                 }
             }
             return saveData;

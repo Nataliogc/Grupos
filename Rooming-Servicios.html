@@ -13,7 +13,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Rooming List Core functions -->
     <script src="js/rooming-core.js?v=assignments-v1"></script>
-    <script src="js/services/roomingOperationalService.js?v=1"></script>
+    <script src="js/services/roomingOperationalService.js?v=2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
         body {
@@ -1185,8 +1185,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
 
         function goBackToReserva() {
-            localStorage.setItem('nexus_return_reserva', currentReservaId);
-            localStorage.setItem('nexus_open_ficha', currentReservaId);
+            window.NexusUtils.safeStorage.setItem('nexus_return_reserva', currentReservaId);
+            window.NexusUtils.safeStorage.setItem('nexus_open_ficha', currentReservaId);
             window.location.href = 'Gestion-de-Grupos.html?reserva=' + encodeURIComponent(currentReservaId);
         }
 
@@ -1209,8 +1209,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             }
             if (saveTimeout) clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
-                saveStateToCache();
-                if (status) {
+                const cached = saveStateToCache();
+                if (status && cached) {
                     status.innerText = 'Autoguardado local ✓';
                     setTimeout(() => status.classList.add('opacity-0'), 2000);
                 }
@@ -1610,7 +1610,14 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 rooming
             };
 
-            localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
+            const cached = window.NexusDraftStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
+            if (!cached) {
+                const status = document.getElementById('save-status');
+                if (status) {
+                    status.innerText = 'Sin espacio para la copia local. Guarda los cambios antes de cerrar.';
+                    status.classList.remove('opacity-0');
+                }
+            }
             if (!options.skipDepartmentSummarySync && Object.values(departmentSummaryState || {}).some(entry => entry && entry.manualOverride)) {
                 syncDepartmentSummaryToFirestore();
             }
@@ -1619,6 +1626,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             if (typeof syncRoomingToFirestore === 'function') {
                 syncRoomingToFirestore(rooming, options.explicitSave === true);
             }
+            return cached;
         }
 
         let isSyncing = false;
@@ -2264,7 +2272,7 @@ ${inputVal}`;
                     } catch (e) {}
                 }
 
-                localStorage.removeItem('roomingServicios_' + currentReservaId);
+                window.NexusDraftStorage.removeItem('roomingServicios_' + currentReservaId);
 
                 const errorElement = document.getElementById("ia-error-alert");
                 if (errorElement) {
@@ -2485,7 +2493,7 @@ ${inputVal}`;
                 console.log("[DESCARTAR CAMBIOS] Vista restaurada desde datos persistidos");
                 // Ignorar exclusivamente cualquier borrador de esta vista
             } else {
-                savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+                savedStateStr = window.NexusDraftStorage.getItem('roomingServicios_' + currentReservaId);
             }
 
             let loadRoomingFromCache = false;
@@ -2533,7 +2541,7 @@ ${inputVal}`;
                         s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
                     }
                     if (s.servicios && s.servicios.length > 0) {
-                        s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notes || sv.notas, sv));
+                        window.RoomingOperationalService.sortServices(s.servicios).forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notes || sv.notas, sv));
                     }
                     if (s.rooming && s.rooming.length > 0) {
                         s.rooming.forEach(r => addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ, r.checkIn || r.dateIn, r.checkOut || r.dateOut));
@@ -3059,7 +3067,7 @@ ${inputVal}`;
                     servicesToRender = autoServices;
                 }
 
-                servicesToRender.forEach(sv => {
+                window.RoomingOperationalService.sortServices(servicesToRender).forEach(sv => {
                     addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas || sv.notes, sv);
                 });
             } else {

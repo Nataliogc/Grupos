@@ -1,6 +1,30 @@
 // Group handoff: session storage has a separate quota from persistent caches.
 (function () {
   if (typeof window === "undefined") return;
+  window.NexusDraftStorage = {
+    getItem: function (key) {
+      try { var value = sessionStorage.getItem(key); if (value !== null) return value; } catch (_) {}
+      try { return localStorage.getItem(key); } catch (_) { return null; }
+    },
+    setItem: function (key, value) {
+      // Keep the old draft until the new copy has been stored successfully.
+      try {
+        localStorage.setItem(key, value);
+        try { sessionStorage.removeItem(key); } catch (_) {}
+        return true;
+      } catch (_) {}
+      try { sessionStorage.setItem(key, value); return true; } catch (_) {}
+      return false;
+    },
+    removeItem: function (key) {
+      try { localStorage.removeItem(key); } catch (_) {}
+      try { sessionStorage.removeItem(key); } catch (_) {}
+    }
+  };
+})();
+
+(function () {
+  if (typeof window === "undefined") return;
   var key = "selectedGroup";
   window.NexusSelectedGroupStorage = {
     getItem: function () {

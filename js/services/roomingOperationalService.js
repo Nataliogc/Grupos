@@ -24,7 +24,28 @@
         notas: item.observ || item.notes || 'Servicio contratado. Confirmar horario con el grupo.' };
     });
   }
-  var api = { paidAmount: paidAmount, contractedServices: contractedServices };
+  function sortServices(rows) {
+    function dateKey(row) {
+      var value = String(row.serviceDate || row.fecha || '');
+      var iso = value.match(/\d{4}-\d{2}-\d{2}/);
+      if (iso) return iso[0];
+      var local = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      return local ? local[3] + '-' + local[2].padStart(2, '0') + '-' + local[1].padStart(2, '0') : '9999-99-99';
+    }
+    function timeKey(row) {
+      var match = String(row.hora || '').match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+      if (match) return Number(match[1]) * 60 + Number(match[2]);
+      var name = String(row.serviceType || row.servicio || '').toLowerCase();
+      if (name.includes('llegada')) return 0;
+      if (name.includes('desayuno')) return 480;
+      if (name.includes('salida')) return 720;
+      if (name.includes('almuerzo') || name.includes('comida')) return 840;
+      if (name.includes('cena')) return 1260;
+      return 1080;
+    }
+    return rows.slice().sort(function (a, b) { return dateKey(a).localeCompare(dateKey(b)) || timeKey(a) - timeKey(b); });
+  }
+  var api = { paidAmount: paidAmount, contractedServices: contractedServices, sortServices: sortServices };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RoomingOperationalService = api;
 })(typeof window !== 'undefined' ? window : globalThis);

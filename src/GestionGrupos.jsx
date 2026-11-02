@@ -11076,7 +11076,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           const current = new URL(window.location.href);
           // Closing a document returns to this ficha, not back into the document.
           const targetFile = decodeURIComponent(target.pathname.split('/').pop() || '').toLowerCase();
-          if (['fac prof.html', 'orden servicio.html'].includes(targetFile)) return null;
+          if (['fac prof.html', 'orden servicio.html', 'rooming-servicios.html'].includes(targetFile)) return null;
           return target.origin === current.origin && target.pathname !== current.pathname
             ? target.href : null;
         } catch (_) { return null; }
