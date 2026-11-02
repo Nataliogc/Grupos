@@ -14,6 +14,11 @@ function close(search, referrer = '') {
   vm.runInNewContext(source.slice(start, end) + '\ncloseGroupFicha();', context);
   return actions;
 }
+
+test('returning from rooming then closing or saving stays in Groups', () => {
+  assert.deepEqual(close('?reserva=80152', 'https://example.com/Rooming-Servicios.html?reserva=80152'), [false]);
+  assert.deepEqual(close('?reserva=80152&returnTo=Rooming-Servicios.html'), [false]);
+});
 test('cerrar una consulta del Panel vuelve al Panel', () => {
   assert.deepEqual(close('?reserva=123&returnTo=Admin.html'), [false, 'https://example.com/Admin.html']);
 });
