@@ -13,6 +13,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Rooming List Core functions -->
     <script src="js/rooming-core.js?v=assignments-v1"></script>
+    <script src="js/services/roomingOperationalService.js?v=1"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
         body {
@@ -362,7 +363,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let hasUserEditedView = false;
         let isExplicitSaveInProgress = false;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 10;
+        const SERVICES_GENERATION_VERSION = 11;
 
         function mergeServices(existing, auto) {
             const merged = [];
@@ -1603,6 +1604,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 departmentSummary: departmentSummaryState,
                 departmentSummaryLayout: departmentSummaryLayout,
                 servicesGenerationVersion: SERVICES_GENERATION_VERSION,
+                sourceSignature: window.roomingSourceSignature,
                 pendientes,
                 servicios,
                 rooming
@@ -2487,6 +2489,7 @@ ${inputVal}`;
             }
 
             let loadRoomingFromCache = false;
+            window.roomingSourceSignature = JSON.stringify([rec, group.totalRevenue]);
             let cachedRooming = [];
             let cachedServicios = [];
             let cachedPendientes = [];
@@ -2511,7 +2514,7 @@ ${inputVal}`;
                 cachedServicios = s.servicios || [];
                 cachedPendientes = s.pendientes || [];
 
-                if (!s.restoreServices && s.servicesGenerationVersion === SERVICES_GENERATION_VERSION) {
+                if (!s.restoreServices && s.servicesGenerationVersion === SERVICES_GENERATION_VERSION && s.sourceSignature === window.roomingSourceSignature) {
                     // LOAD FROM LOCAL STORAGE CACHE
                     document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
                     document.getElementById('gen-contacto').innerText = s.genContacto || '---';
@@ -2537,7 +2540,7 @@ ${inputVal}`;
                     }
                     return;
                 } else {
-                    if (s.servicesGenerationVersion !== SERVICES_GENERATION_VERSION) {
+                    if (s.servicesGenerationVersion !== SERVICES_GENERATION_VERSION || s.sourceSignature !== window.roomingSourceSignature) {
                         forceRegenerateServices = true;
                         loadRoomingFromCache = true;
                         console.log(`[ROOMING] Cache version mismatch (${s.servicesGenerationVersion} vs ${SERVICES_GENERATION_VERSION}). Will regenerate services while preserving manual edits.`);
@@ -2745,13 +2748,7 @@ ${inputVal}`;
             
             const netTotal = Math.max(0, totalRevenue - totalCommission);
             
-            let paidAmount = 0;
-            try {
-                const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
-                paidAmount = plan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + parseMoney(p.amount), 0);
-            } catch(e) {
-                paidAmount = parseMoney(rec['Com_Pagado'] || 0);
-            }
+            const paidAmount = window.RoomingOperationalService.paidAmount(rec);
             const pendingAmount = Math.max(0, netTotal - paidAmount);
             const isOverpaid = paidAmount > netTotal + 0.01;
             const refundAmount = isOverpaid ? paidAmount - netTotal : 0;
@@ -3050,6 +3047,9 @@ ${inputVal}`;
                 });
 
                 let servicesToRender = [];
+                window.RoomingOperationalService.contractedServices(rec.RoomingList_JSON, RoomingCore.isAccommodationItem).forEach(service => {
+                    autoServices.push({ ...service, fecha: formatD(service.serviceDate || checkInDate) });
+                });
                 if (loadRoomingFromCache && !forceRegenerateServices && cachedServicios.length > 0) {
                     servicesToRender = cachedServicios;
                 } else if (forceRegenerateServices && cachedServicios.length > 0) {

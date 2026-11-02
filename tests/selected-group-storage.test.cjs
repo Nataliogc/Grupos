@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const code = fs.readFileSync('js/utils.js', 'utf8').split('/**')[0];
+test('handoff initialization is safe outside the browser', () => {
+  assert.doesNotThrow(() => vm.runInNewContext(code, {}));
+});
 function storage(fail = false) {
   const data = new Map();
   return { data, getItem: k => data.get(k) ?? null,

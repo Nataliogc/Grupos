@@ -1,5 +1,6 @@
 // Group handoff: session storage has a separate quota from persistent caches.
 (function () {
+  if (typeof window === "undefined") return;
   var key = "selectedGroup";
   window.NexusSelectedGroupStorage = {
     getItem: function () {
