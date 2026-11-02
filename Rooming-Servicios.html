@@ -2869,7 +2869,8 @@ ${inputVal}`;
                 } else {
                     const uniqueTasks = Array.from(new Set(pendingTasks));
                     const prettyTasks = uniqueTasks.map(t => {
-                        if (t.includes('pago') || t.includes('devolución')) return 'pago';
+                        if (t.includes('devolución')) return 'revisar sobrante';
+                        if (t.includes('pago')) return 'pago';
                         if (t.includes('hora')) return 'horarios';
                         if (t.includes('dieta')) return 'dietas';
                         if (t.includes('chofer') || t.includes('guía')) return 'chofer/guía';
