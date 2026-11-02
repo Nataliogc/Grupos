@@ -607,7 +607,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 }
                 await window.db.collection("groups").doc(String(currentReservaId)).set(payload, { merge: true });
 
-                const rawGroupData = localStorage.getItem('selectedGroup');
+                const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     const group = JSON.parse(rawGroupData);
                     const applyTo = (obj) => {
@@ -624,7 +624,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                             applyTo(group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId) || group.records[0]);
                         }
                     }
-                    localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                 }
             } catch (e) {
                 console.error("Error saving department summary:", e);
@@ -720,7 +720,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 console.log(`Pax correction: Reserva=${currentReservaId}, OldPax=${storedPax}, NewPax=${maxOccupancy}, Date=${new Date().toISOString()}, Source=Corregir Pax Controlado`);
                 await docRef.set({ "Pax.": maxOccupancy.toString() }, { merge: true });
 
-                const rawGroupData = localStorage.getItem('selectedGroup');
+                const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     try {
                         let group = JSON.parse(rawGroupData);
@@ -736,7 +736,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                                 group["Pax."] = maxOccupancy.toString();
                             }
                         }
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     } catch (e) {}
                 }
 
@@ -1806,7 +1806,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 lastRoomingSyncErrorMessage = '';
 
                 // Synchronize localStorage.selectedGroup
-                const rawGroupData = localStorage.getItem('selectedGroup');
+                const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     try {
                         let group = JSON.parse(rawGroupData);
@@ -1841,7 +1841,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                             }
                         }
                         
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     } catch (e) {
                         console.error("Error updating selectedGroup in localStorage:", e);
                     }
@@ -1877,7 +1877,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const originalTitle = document.title;
             const ref = currentReservaId || '';
             const grupo = document.getElementById('header-grupo').innerText || '';
-            const groupRaw = localStorage.getItem('selectedGroup');
+            const groupRaw = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             const groupData = groupRaw ? JSON.parse(groupRaw) : {};
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
             const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "";
@@ -2223,7 +2223,7 @@ ${inputVal}`;
                     "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
-                const rawGroupData = localStorage.getItem('selectedGroup');
+                const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     try {
                         let group = JSON.parse(rawGroupData);
@@ -2258,7 +2258,7 @@ ${inputVal}`;
                             }
                         }
                         
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     } catch (e) {}
                 }
 
@@ -2350,7 +2350,7 @@ ${inputVal}`;
             const params = new URLSearchParams(window.location.search || '');
             const reservaFromUrl = String(params.get('reserva') || params.get('id') || '').trim();
             const reservaFromStorage = String(localStorage.getItem('nexus_open_ficha') || localStorage.getItem('nexus_return_reserva') || '').trim();
-            let rawGroupData = localStorage.getItem('selectedGroup');
+            let rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             let group = null;
 
             if (rawGroupData) {
@@ -2372,7 +2372,7 @@ ${inputVal}`;
                             id: fallbackReserva,
                             records: [{ ...data, Reserva: data.Reserva || fallbackReserva }]
                         };
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     }
                 } catch (e) {
                     console.error("Error recovering selected group for Rooming y Servicios:", e);
@@ -2450,7 +2450,7 @@ ${inputVal}`;
                         });
                         
                         rec = group.records ? (group.records[0] || {}) : group;
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     }
                 } catch (e) {
                     console.error("Error fetching updated group from Firestore:", e);

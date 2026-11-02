@@ -1154,7 +1154,7 @@
         }
 
         function validateProformaAgainstSource({ block = false } = {}) {
-            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
             const sourceTotal = toNum(groupData.ProformaSourceTotal || groupData["Importe(*)"] || 0);
             const sourceRoomNights = toNum(groupData.ProformaSourceRoomNights || 0);
             if (!sourceTotal) return true;
@@ -1276,38 +1276,38 @@
                 const p2Concept = document.getElementById('p2-proforma-concept-val');
                 if (p2Concept) p2Concept.innerText = val;
                 try {
-                    const grp = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                    const grp = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
                     grp.Numero_Factura = val;
                     if (!grp.ProformaCustomFields) grp.ProformaCustomFields = {};
                     grp.ProformaCustomFields.numero_factura = val;
-                    localStorage.setItem('selectedGroup', JSON.stringify(grp));
+                    window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(grp));
                 } catch(e) {}
             }
             if (!event.target.closest('#tpl-policies .editable-clause')) return;
-            const saved = localStorage.getItem('selectedGroup');
+            const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             if (!saved) return;
             const clauses = readGroupClauses();
             if (!clauses) return;
             const group = JSON.parse(saved);
             group.ProformaCustomFields = group.ProformaCustomFields || {};
             group.ProformaCustomFields.confirmationClauses = clauses;
-            localStorage.setItem('selectedGroup', JSON.stringify(group));
+            window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
         });
         async function resetClauses() {
             if (!confirm('¿Estás seguro de que quieres borrar las cláusulas personalizadas de este grupo y volver a cargar las cláusulas estándar globales?')) return;
-            const saved = localStorage.getItem('selectedGroup');
+            const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             if (!saved) return;
             const group = JSON.parse(saved);
             group.ProformaCustomFields = group.ProformaCustomFields || {};
             // An empty array also replaces the previous clauses in Firestore's merged map.
             group.ProformaCustomFields.confirmationClauses = [];
-            localStorage.setItem('selectedGroup', JSON.stringify(group));
+            window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
             renderItems();
             const persisted = await saveProforma(true, { resetClauses: true });
             if (!persisted) alert('Las cláusulas se han restaurado en pantalla, pero no se ha podido guardar el cambio. Vuelve a intentarlo.');
         }
         async function saveProforma(silent = false, { resetClauses = false } = {}) {
-            const saved = localStorage.getItem('selectedGroup');
+            const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             if (!saved) return;
             const group = JSON.parse(saved);
             const id = group.Reserva || group.id;
@@ -1426,7 +1426,7 @@
                 group.Reserva = editedReserva;
                 group.id = targetDocId;
                 group.isIndependentProforma = isIndep;
-                localStorage.setItem('selectedGroup', JSON.stringify(group));
+                window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                 
                 if (!silent) {
                     const btn = document.querySelector('button[onclick="saveProforma()"]');
@@ -1450,7 +1450,7 @@
 
         async function saveAndExit() {
             await saveProforma(true);
-            const saved = localStorage.getItem('selectedGroup');
+            const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             let reservaId = "";
             let targetFile = "Gestion-de-Grupos.html";
 
@@ -1539,7 +1539,7 @@
         }
 
         async function desestimarGrupo() {
-            const saved = localStorage.getItem('selectedGroup');
+            const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             if (!saved) return;
             const group = JSON.parse(saved);
             const reservaId = group.Reserva || group.id;
@@ -1554,7 +1554,7 @@
 
                     // Actualizar local y salir
                     group["Com_Estado_Interno"] = "DESESTIMADO";
-                    localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     saveAndExit();
                 } catch (e) {
                     alert("Error al desestimar el grupo: " + e.message);
@@ -1693,7 +1693,7 @@
         }
 
         function loadSelectedGroup() {
-            const saved = localStorage.getItem('selectedGroup');
+            const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             const today = new Date().toLocaleDateString('es-ES');
 
             // Reset inicial de placeholders
@@ -2122,7 +2122,7 @@
         }
 
         function isIndependentProforma() {
-            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
             const rawRef = String(groupData.Reserva || groupData.id || "").toLowerCase();
             return !!groupData.isIndependentProforma || rawRef.includes('prof-');
         }
@@ -2309,7 +2309,7 @@
         }
 
         function getCurrentNetTotal() {
-            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
             const gross = items.reduce((acc, item) => {
                 const p = parseFloat(item.precio) || 0;
                 const hab = parseFloat(item.hab) || 1;
@@ -2426,7 +2426,7 @@
 
         function renderItems() {
             const h = HOTELS[currentHotel];
-            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
             const containers = document.querySelectorAll('.invoice-items');
             const footer = document.getElementById('footer-totals');
             
@@ -2682,7 +2682,7 @@
         }
 
         function updatePaymentLink() {
-            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
             const h = HOTELS[currentHotel] || HOTELS['guadiana'];
             const payUrl = (()=>{ const l = groupData['Enlace_TPV'] || h.paymentGateway || ''; return (l && !l.startsWith('http')) ? 'https://'+l : l; })();
             const qrBlock = document.getElementById('payment-qr-block');
@@ -2701,14 +2701,14 @@
             const polDiv = document.getElementById('tpl-policies');
             if (!polDiv) return;
             const h = HOTELS[currentHotel] || HOTELS['guadiana'];
-            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
             const showBank = sessionStorage.getItem('proforma_bank_hidden') !== '1';
 
             if (currentTemplate === 'confirmacion') {
                 const hotelClauses = window.globalConfig?.[currentHotel]?.confirmationClauses || [];
                 const commonClauses = window.globalConfig?.common?.confirmationClauses || [];
                 
-                const groupObjTemp = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                const groupObjTemp = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
                 const customC = groupObjTemp.ProformaCustomFields?.confirmationClauses;
                 let allC = customC && customC.length > 0 ? customC : (hotelClauses.length > 0 ? hotelClauses : commonClauses);
 
@@ -2719,7 +2719,7 @@
                         if (!text) return "";
                         let parsed = text;
                         
-                        const groupObj = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                        const groupObj = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
                         const plan = paymentPlan || [];
 
                         const t = title.toLowerCase();
@@ -3091,7 +3091,7 @@
             if (isProforma) document.body.classList.add('print-proforma');
             
             const oldTitle = document.title;
-            const groupData = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+            const groupData = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
             const hotelObj = HOTELS[currentHotel] || {};
             const hotelName = hotelObj.name ? (hotelObj.name + " " + (hotelObj.subname || "")).trim() : (recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "");
@@ -3114,12 +3114,12 @@
         }
 
         function toggleIndependentMode() {
-            const saved = localStorage.getItem('selectedGroup');
+            const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             if (!saved) return;
             try {
                 const group = JSON.parse(saved);
                 group.isIndependentProforma = !group.isIndependentProforma;
-                localStorage.setItem('selectedGroup', JSON.stringify(group));
+                window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                 updateIndependentToggleUI();
             } catch (e) {
                 console.error("Error toggling independent mode:", e);

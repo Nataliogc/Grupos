@@ -1654,7 +1654,7 @@
                               ) : (
                                 <button
                                   onClick={() => {
-                                    localStorage.setItem("selectedGroup", JSON.stringify(budget));
+                                    window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(budget));
                                     window.location.href = "AltaEmail.html?edit=" + encodeURIComponent(budget.Reserva);
                                   }}
                                   className="w-8 h-8 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
@@ -1665,7 +1665,7 @@
                               )}
                               <button
                                 onClick={() => {
-                                  localStorage.setItem('selectedGroup', JSON.stringify(budget));
+                                  window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(budget));
                                   window.location.href = "Presupuestos.html?id=" + encodeURIComponent(budget.Reserva);
                                 }}
                                 className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all"
@@ -4669,6 +4669,14 @@
 
 
     const App = () => {
+      const showToast = (message) => {
+        const notice = document.createElement("div");
+        notice.setAttribute("role", "status");
+        notice.className = "fixed bottom-6 right-6 z-[9999] bg-emerald-700 text-white px-6 py-4 rounded-xl shadow-lg";
+        notice.textContent = message;
+        document.body.appendChild(notice);
+        setTimeout(() => notice.remove(), 4000);
+      };
         console.log("[GESTION GRUPOS BUILD] v1.0.8-extra-charges");
 
       const [data, setData] = useState([]);
@@ -5443,7 +5451,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
         // Limpieza de datos temporales obsoletos (opcional)
 
-        // localStorage.removeItem('selectedGroup');
+        // window.NexusSelectedGroupStorage.removeItem('selectedGroup');
 
       }, []);
 
@@ -9604,7 +9612,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
 
 
-        safeStorage.setItem("selectedGroup", JSON.stringify(proformaData));
+        window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(proformaData));
 
         const itemsToPass = proformaData["ProformaItems"] || [];
 
@@ -12562,7 +12570,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           setSelectedGroupFicha(updatedGroup);
           setData(prev => [...prev.filter(row => normalizeId(row.Reserva) !== normalizeId(oldId) && normalizeId(row.Reserva) !== moved.id), ...moved.records]);
           try {
-            localStorage.setItem("selectedGroup", JSON.stringify(updatedGroup));
+            window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(updatedGroup));
             localStorage.setItem("nexus_open_ficha", moved.id);
           } catch (error) { console.warn("No se pudo actualizar la copia local", error); }
           alert(`Localizador actualizado: ${oldId} → ${moved.id}`);
@@ -26841,7 +26849,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                               onClick={() => {
 
-                                localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
+                                window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
 
                                 window.location.href = "Orden Servicio.html?v=1.1-meal-schedule";
 
@@ -26865,9 +26873,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                               onClick={() => {
 
-                                localStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
+                                window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
                                 const roomingReserva = String(selectedGroupFicha.records?.[0]?.Reserva || selectedGroupFicha.id || "").trim();
-                                localStorage.setItem("nexus_open_ficha", roomingReserva);
+                                safeStorage.setItem("nexus_open_ficha", roomingReserva);
 
                                 window.location.href = `Rooming-Servicios.html?reserva=${encodeURIComponent(roomingReserva)}`;
 

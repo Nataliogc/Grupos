@@ -220,7 +220,7 @@
                         } else {
                             console.warn("No se encontró el documento en Firestore con ID:", normId);
                             // Si no existe el doc, pero tenemos datos en localStorage, usarlos como base
-                            const storedRaw = safeStorage.getItem('selectedGroup');
+                            const storedRaw = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                             if (storedRaw) {
                                 try {
                                     const storedData = JSON.parse(storedRaw);

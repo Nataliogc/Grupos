@@ -1,3 +1,26 @@
+// Group handoff: session storage has a separate quota from persistent caches.
+(function () {
+  var key = "selectedGroup";
+  window.NexusSelectedGroupStorage = {
+    getItem: function () {
+      try { var value = sessionStorage.getItem(key); if (value !== null) return value; } catch (_) {}
+      try { return localStorage.getItem(key); } catch (_) { return null; }
+    },
+    setItem: function (_, value) {
+      // Remove the previous handoff only; never evict reservation caches or drafts.
+      try { sessionStorage.removeItem(key); } catch (_) {}
+      try { localStorage.removeItem(key); } catch (_) {}
+      try { sessionStorage.setItem(key, value); return; } catch (_) {}
+      try { localStorage.setItem(key, value); return; } catch (_) {}
+      throw new Error("No hay espacio para abrir la ficha completa. Cierra otras pestañas de Nexus Groups y vuelve a intentarlo.");
+    },
+    removeItem: function () {
+      try { sessionStorage.removeItem(key); } catch (_) {}
+      try { localStorage.removeItem(key); } catch (_) {}
+    }
+  };
+})();
+
 /**
  * ═══════════════════════════════════════════════════════════
  * NEXUS GROUPS — Utilidades Compartidas

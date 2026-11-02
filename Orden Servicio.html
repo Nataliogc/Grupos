@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <script src="js/utils.js?v=selected-group-handoff-1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orden de Servicio - INFORME OPERATIVO</title>
     <!-- Tailwind CSS (CDN genérico) -->
@@ -217,7 +218,7 @@
             const grupoEl = document.getElementById('grupo-val');
             const ref = refEl ? refEl.innerText.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() : currentReservaId;
             const grupo = grupoEl ? grupoEl.innerText.replace(/[\/\\:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() : '';
-            const groupRaw = localStorage.getItem('selectedGroup');
+            const groupRaw = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             const groupData = groupRaw ? JSON.parse(groupRaw) : {};
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
             const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "";
@@ -261,7 +262,7 @@
             try {
                 const savedOrder = saveStateToCache();
                 if (!savedOrder) throw new Error("No hay una orden para guardar.");
-                const group = JSON.parse(localStorage.getItem('selectedGroup') || '{}');
+                const group = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
                 const record = group.records?.[0] || group;
                 const payload = JSON.stringify(savedOrder);
                 if (!window.db || typeof firebase === 'undefined') throw new Error("La orden está guardada localmente. No hay conexión para compartirla con MesaChef.");
@@ -273,7 +274,7 @@
                 const updated = {...record, ServiceOrder_JSON:payload};
                 if (group.records) group.records = group.records.map(r=>({...r,ServiceOrder_JSON:payload}));
                 else Object.assign(group, updated);
-                localStorage.setItem('selectedGroup',JSON.stringify(group));
+                window.NexusSelectedGroupStorage.setItem('selectedGroup',JSON.stringify(group));
                 const result = await window.MesaChefService.syncGroupToMesachef({...updated,Reserva:currentReservaId});
                 if (!result?.success) throw new Error("La orden se ha guardado, pero MesaChef no pudo sincronizarla. Vuelve a guardar para reintentarlo.");
                 hasUserEditedView = false;
@@ -435,7 +436,7 @@
             const originalTitle = document.title;
             const ref = document.getElementById('ref-val').innerText || currentReservaId || '';
             const grupo = document.getElementById('grupo-val').innerText || '';
-            const groupRaw = localStorage.getItem('selectedGroup');
+            const groupRaw = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             const groupData = groupRaw ? JSON.parse(groupRaw) : {};
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
             const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "";
@@ -454,7 +455,7 @@
         }
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            const rawGroupData = localStorage.getItem('selectedGroup');
+            const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             if (!rawGroupData) {
                 addRowPlan('', 'Cena', '', '', '');
                 return;

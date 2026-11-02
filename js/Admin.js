@@ -3435,7 +3435,7 @@ var GroupsManager = function GroupsManager(_ref6) {
       className: "flex gap-2 pt-2 border-t border-slate-50 mt-auto"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        localStorage.setItem("selectedGroup", JSON.stringify(group));
+        window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(group));
         window.location.href = "Fac Prof.html";
       },
       className: "flex-1 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg font-bold text-[9px] hover:bg-slate-50 transition-all flex items-center justify-center gap-1"
@@ -3665,7 +3665,7 @@ var BudgetManager = function BudgetManager(_ref7) {
     })), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         try {
-          localStorage.setItem("selectedGroup", JSON.stringify(budget));
+          window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(budget));
           console.log("Guardado en localStorage p/ edición:", budget.Reserva);
         } catch (e) {
           console.warn("LocalStorage bloqueado:", e);
@@ -3678,7 +3678,7 @@ var BudgetManager = function BudgetManager(_ref7) {
       size: 14
     }), "Editar"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
-        localStorage.setItem("selectedGroup", JSON.stringify(budget));
+        window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(budget));
         window.location.href = "Fac Prof.html";
       },
       className: "px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center shadow-lg shadow-indigo-100",

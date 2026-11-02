@@ -4009,7 +4009,7 @@ ${comercial}`;
                 <div className="flex gap-2 pt-2 border-t border-slate-50 mt-auto">
                   <button
                     onClick={() => {
-                      localStorage.setItem(
+                      window.NexusSelectedGroupStorage.setItem(
                         "selectedGroup",
                         JSON.stringify(group),
                       );
@@ -4282,7 +4282,7 @@ ${comercial}`;
                     <button
                       onClick={() => {
                         try {
-                          localStorage.setItem(
+                          window.NexusSelectedGroupStorage.setItem(
                             "selectedGroup",
                             JSON.stringify(budget),
                           );
@@ -4304,7 +4304,7 @@ ${comercial}`;
                     </button>
                     <button
                       onClick={() => {
-                        localStorage.setItem(
+                        window.NexusSelectedGroupStorage.setItem(
                           "selectedGroup",
                           JSON.stringify(budget),
                         );

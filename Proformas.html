@@ -400,7 +400,7 @@
         }
 
         function newProforma() {
-            localStorage.removeItem('selectedGroup');
+            window.NexusSelectedGroupStorage.removeItem('selectedGroup');
             // Creamos un objeto "mock" para que Fac Prof sepa que es una nueva proforma independiente
             const newId = 'prof-' + Date.now();
             const mockGroup = {
@@ -409,13 +409,13 @@
                 isIndependentProforma: true,
                 "Nombre del Grupo": "Nueva Proforma"
             };
-            localStorage.setItem('selectedGroup', JSON.stringify(mockGroup));
+            window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(mockGroup));
             window.location.href = 'Fac Prof.html';
         }
 
         function editProforma(id) {
             const p = allProformas.find(x => x.id === id);
-            localStorage.setItem('selectedGroup', JSON.stringify({
+            window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify({
                 ...p,
                 Reserva: p.Reserva || p.id 
             }));
