@@ -27,14 +27,23 @@ const rawVersion = parts.join('.');
 const newVersionTag = `V${rawVersion}`;
 
 const now = new Date();
-const pad = n => String(n).padStart(2, '0');
-const dateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+const dateStr = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+}).format(now).replace(',', '');
 
 console.log(`[BUMP-VERSION] Autoincrementando versión: ${pkg.version} -> ${newVersionTag} (${dateStr})`);
 
 // 2. Actualizar package.json
 pkg.version = rawVersion;
 fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+const lockPath = path.join(rootDir, 'package-lock.json');
+if (fs.existsSync(lockPath)) {
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  lock.version = rawVersion;
+  if (lock.packages && lock.packages['']) lock.packages[''].version = rawVersion;
+  fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n', 'utf8');
+}
 
 // 3. Actualizar js/version.js
 const versionJsContent = `/**
