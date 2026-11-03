@@ -1449,7 +1449,11 @@
         }
 
         async function saveAndExit() {
-            await saveProforma(true);
+            const success = await saveProforma(true);
+            if (!success) {
+                alert('No se ha podido guardar la proforma. Revisa los datos y vuelve a intentarlo antes de salir.');
+                return;
+            }
             const saved = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             let reservaId = "";
             let targetFile = "Gestion-de-Grupos.html";
@@ -1457,7 +1461,7 @@
             if (saved) {
                 try {
                     const group = JSON.parse(saved);
-                    reservaId = group.Reserva || group["Reserva"] || group.id || "";
+                    reservaId = String(group.Reserva || group.id || "").trim();
                 } catch (e) { }
             }
 
@@ -1468,10 +1472,7 @@
                 return;
             }
 
-            // Guardar en localStorage para que GestionGrupos lo detecte y abra la ficha
-            localStorage.setItem('nexus_return_reserva', reservaId);
-            localStorage.setItem('nexus_open_ficha', reservaId);
-
+            // La ficha recibe la reserva por URL, incluso con el almacenamiento lleno.
             const url = targetFile + '?reserva=' + encodeURIComponent(reservaId);
             window.location.href = url;
         }
@@ -1732,7 +1733,7 @@
                     if (group.ProformaCustomFields['f-pax-count']) group.ProformaCustomFields['f-pax-count'] = sanitize240(group.ProformaCustomFields['f-pax-count']);
                 }
 
-                const hotelRaw = (group["Hotel_Asignado"] || group["Hotel"] || rec["Hotel_Asignado"] || rec["Hotel"] || "").toLowerCase();
+                const hotelRaw = (group["Hotel_Asignado"] || group["Hotel"] || group.hotel || rec["Hotel_Asignado"] || rec["Hotel"] || rec.hotel || "").toLowerCase();
                 let detectedHotel = hotelRaw.includes('cumb') ? 'cumbria' : 'guadiana';
                 updateHotel(detectedHotel);
 
@@ -2393,10 +2394,11 @@
         const formatNum = NexusUtils.formatNum;
 
         function updateHotel(hotelKey) {
-            if (!hotelKey) return;
-            currentHotel = hotelKey;
             const h = HOTELS[hotelKey];
             if (!h) return;
+            currentHotel = hotelKey;
+            const selector = document.getElementById('hotel-selector');
+            if (selector) selector.value = hotelKey;
             const pageTitle = document.getElementById('page-title');
             if (pageTitle) pageTitle.innerText = `Generador de Facturas - ${h.name} ${h.subname}`;
             const imgUniversal = document.getElementById('logo-img-universal');
