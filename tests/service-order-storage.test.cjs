@@ -19,3 +19,12 @@ test('sin espacio local la orden sigue disponible para guardar en la base de dat
  vm.runInContext(source,context);const order=context.saveStateToCache();
  assert.equal(order.grupo,'texto');assert.equal(context.lastLocalCacheSaved,false);
 });
+test('sin NexusDraftStorage y con localStorage lleno no lanza excepcion y permite guardar',()=>{
+ const source=html.slice(html.indexOf('        function saveStateToCache()'),html.indexOf('        function discardUnsavedViewChanges()'));
+ const context=vm.createContext({currentReservaId:'81271',isDiscardingChanges:false,lastLocalCacheSaved:true,sanitizeText:v=>v,
+ document:{getElementById:()=>({innerText:'texto',innerHTML:'texto'}),querySelectorAll:()=>[]},
+ localStorage:{setItem(){throw Error('QuotaExceededError');},getItem:()=>null},
+ window:{}});
+ vm.runInContext(source,context);const order=context.saveStateToCache();
+ assert.equal(order.grupo,'texto');assert.equal(context.lastLocalCacheSaved,false);
+});

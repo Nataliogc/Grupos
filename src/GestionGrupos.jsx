@@ -26919,9 +26919,14 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                               onClick={() => {
 
-                                window.NexusSelectedGroupStorage.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
-
-                                window.location.href = "Orden Servicio.html?v=1.1-meal-schedule";
+                                try {
+                                  window.NexusSelectedGroupStorage?.setItem("selectedGroup", JSON.stringify(selectedGroupFicha));
+                                } catch (e) {
+                                  console.warn("No se pudo guardar selectedGroup en storage:", e);
+                                }
+                                const v = window.NexusVersion?.version || Date.now();
+                                const resId = selectedGroupFicha?.id || selectedGroupFicha?.records?.[0]?.Reserva || "";
+                                window.location.href = `Orden Servicio.html?reserva=${encodeURIComponent(resId)}&v=${encodeURIComponent(v)}`;
 
                               }}
 

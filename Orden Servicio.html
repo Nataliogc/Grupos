@@ -245,7 +245,7 @@
             saveTimeout = setTimeout(() => {
                 saveStateToCache();
                 if (status) {
-                    status.innerText = 'Autoguardado local ✓';
+                    status.innerText = lastLocalCacheSaved ? 'Autoguardado local ✓' : 'Sin espacio local. Guarda con el botón superior.';
                     if (lastLocalCacheSaved) setTimeout(() => status.style.opacity = '0', 2000);
                 }
             }, 1000);
@@ -273,7 +273,7 @@
                 const updated = {...record, ServiceOrder_JSON:payload};
                 if (group.records) group.records = group.records.map(r=>({...r,ServiceOrder_JSON:payload}));
                 else Object.assign(group, updated);
-                window.NexusSelectedGroupStorage.setItem('selectedGroup',JSON.stringify(group));
+                try { window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group)); } catch (storageErr) { console.warn('No se pudo actualizar selectedGroup en almacenamiento:', storageErr); }
                 const result = await window.MesaChefService.syncGroupToMesachef({...updated,Reserva:currentReservaId});
                 if (!result?.success) throw new Error("La orden se ha guardado, pero MesaChef no pudo sincronizarla. Vuelve a guardar para reintentarlo.");
                 hasUserEditedView = false;
@@ -402,18 +402,38 @@
                 incidenciaRows
             };
             document.title = `${currentReservaId} - Ord Servicio - ${saveData.grupo}`;
-            lastLocalCacheSaved = window.NexusDraftStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
-            // Force Rooming & Servicios to reload from this updated Orden de Servicio next time, but preserve the rooming list
-            const cachedRoomingStr = window.NexusDraftStorage.getItem('roomingServicios_' + currentReservaId);
-            if (cachedRoomingStr) {
-                try {
-                    const s = JSON.parse(cachedRoomingStr);
-                    s.restoreServices = true;
-                    window.NexusDraftStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
-                } catch (e) {
-                    window.NexusDraftStorage.removeItem('roomingServicios_' + currentReservaId);
+            try {
+                if (window.NexusDraftStorage && typeof window.NexusDraftStorage.setItem === 'function') {
+                    lastLocalCacheSaved = Boolean(window.NexusDraftStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData)));
+                } else {
+                    localStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
+                    lastLocalCacheSaved = true;
                 }
+            } catch (_) {
+                lastLocalCacheSaved = false;
             }
+            // Force Rooming & Servicios to reload from this updated Orden de Servicio next time, but preserve the rooming list
+            try {
+                const storage = window.NexusDraftStorage;
+                const cachedRoomingStr = storage ? storage.getItem('roomingServicios_' + currentReservaId) : localStorage.getItem('roomingServicios_' + currentReservaId);
+                if (cachedRoomingStr) {
+                    try {
+                        const s = JSON.parse(cachedRoomingStr);
+                        s.restoreServices = true;
+                        if (storage) {
+                            storage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
+                        } else {
+                            localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(s));
+                        }
+                    } catch (e) {
+                        if (storage) {
+                            storage.removeItem('roomingServicios_' + currentReservaId);
+                        } else {
+                            localStorage.removeItem('roomingServicios_' + currentReservaId);
+                        }
+                    }
+                }
+            } catch (_) {}
             return saveData;
         }
         function discardUnsavedViewChanges() {
@@ -428,7 +448,7 @@
                 saveTimeout = null;
             }
 
-            sessionStorage.setItem("discardUnsavedChanges", String(currentReservaId));
+            try { sessionStorage.setItem("discardUnsavedChanges", String(currentReservaId)); } catch (_) {}
             window.location.reload();
         }
         function printOrdenServicio() {
@@ -467,10 +487,10 @@
             // Extract core logic
             currentReservaId = rec['Reserva'] || group.id || group.reserva || 'unknown';
             document.getElementById('title-reserva').innerText = currentReservaId;
-            const discardReservationId = sessionStorage.getItem("discardUnsavedChanges");
+            let discardReservationId = null; try { discardReservationId = sessionStorage.getItem("discardUnsavedChanges"); } catch (_) {}
             let savedStateStr = null;
             if (discardReservationId === String(currentReservaId)) {
-                sessionStorage.removeItem("discardUnsavedChanges");
+                try { sessionStorage.removeItem("discardUnsavedChanges"); } catch (_) {}
                 console.log("[DESCARTAR CAMBIOS] Vista restaurada desde datos persistidos");
             } else {
                 savedStateStr = rec.ServiceOrder_JSON || window.NexusDraftStorage.getItem('ordenServicio_' + currentReservaId);
