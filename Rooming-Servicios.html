@@ -386,7 +386,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                         finalPaxHab = match.paxHab;
                     }
 
-                    const finalHora = match.hora !== 'PENDIENTE' && match.hora !== '___:___ h' ? match.hora : a.hora;
+                    const finalHora = (a.hora && a.hora !== 'PENDIENTE' && a.hora !== '___:___ h') ? a.hora : (match.hora !== 'PENDIENTE' && match.hora !== '___:___ h' ? match.hora : a.hora);
                     const finalNotas = match.notas && match.notas !== '' ? match.notas : a.notas;
 
                     merged.push({
@@ -1437,7 +1437,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
             // Load Special Menus and Operational Notes from Service Order cache if available
             const osKey = 'ordenServicio_' + currentReservaId;
-            const osDataStr = localStorage.getItem(osKey);
+            const osDataStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem(osKey) : null) || localStorage.getItem(osKey) || rec.ServiceOrder_JSON;
             let specialMenus = [];
             let operationalNotes = '';
             if (osDataStr) {
@@ -2548,10 +2548,10 @@ ${inputVal}`;
                     }
                     return;
                 } else {
-                    if (s.servicesGenerationVersion !== SERVICES_GENERATION_VERSION || s.sourceSignature !== window.roomingSourceSignature) {
+                    if (s.restoreServices || s.servicesGenerationVersion !== SERVICES_GENERATION_VERSION || s.sourceSignature !== window.roomingSourceSignature) {
                         forceRegenerateServices = true;
                         loadRoomingFromCache = true;
-                        console.log(`[ROOMING] Cache version mismatch (${s.servicesGenerationVersion} vs ${SERVICES_GENERATION_VERSION}). Will regenerate services while preserving manual edits.`);
+                        console.log(`[ROOMING] Regenerando servicios desde Orden de Servicio / ficha (restoreServices=${Boolean(s.restoreServices)})...`);
                     } else {
                         loadRoomingFromCache = true;
                     }
@@ -2798,9 +2798,9 @@ ${inputVal}`;
             const dOut = parseDate(checkOutDate);
             let osPlanRows = [];
             try {
-                const osDataStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+                const osDataStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem('ordenServicio_' + currentReservaId) : null) || localStorage.getItem('ordenServicio_' + currentReservaId) || rec.ServiceOrder_JSON;
                 if (osDataStr) {
-                    const osData = JSON.parse(osDataStr);
+                    const osData = typeof osDataStr === 'string' ? JSON.parse(osDataStr) : osDataStr;
                     osPlanRows = osData.planRows || [];
                 }
             } catch(e) {
@@ -3056,8 +3056,45 @@ ${inputVal}`;
                 });
 
                 let servicesToRender = [];
+                const normalizeServiceName = text => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+                const matchOsRow = (serviceName, serviceDate) => {
+                    const normS = normalizeServiceName(serviceName);
+                    const targetDM = extractDayMonth(formatD(serviceDate || checkInDate));
+                    return osPlanRows.find(row => {
+                        const rowDM = extractDayMonth(row.dia);
+                        const sameDay = !targetDM || !rowDM || (rowDM.day === targetDM.day && rowDM.month === targetDM.month);
+                        if (!sameDay) return false;
+                        const normR = normalizeServiceName(row.serv);
+                        if (normS === normR) return true;
+                        if ((normS.includes('comida') || normS.includes('almuerzo')) && (normR.includes('comida') || normR.includes('almuerzo'))) return true;
+                        if (normS.includes('merienda') && normR.includes('merienda')) return true;
+                        if ((normS.includes('charla') || normS.includes('sala') || normS.includes('salon')) && (normR.includes('charla') || normR.includes('sala') || normR.includes('salon'))) return true;
+                        if (normS.includes('cena') && normR.includes('cena')) return true;
+                        if (normS.includes('desayuno') && normR.includes('desayuno')) return true;
+                        if (normS.includes('coctel') && normR.includes('coctel')) return true;
+                        if (normS.includes('coffee') && normR.includes('coffee')) return true;
+                        return normS.includes(normR) || normR.includes(normS);
+                    });
+                };
+
                 window.RoomingOperationalService.contractedServices(rec.RoomingList_JSON, RoomingCore.isAccommodationItem).forEach(service => {
-                    autoServices.push({ ...service, fecha: formatD(service.serviceDate || checkInDate) });
+                    const matchedRow = matchOsRow(service.servicio, service.serviceDate);
+                    let hora = service.hora;
+                    let notas = service.notas;
+                    if (matchedRow) {
+                        if (matchedRow.hora && matchedRow.hora !== '___:___ h' && matchedRow.hora !== '---') {
+                            hora = matchedRow.hora;
+                        }
+                        if (matchedRow.menu && matchedRow.menu.trim() && matchedRow.menu !== '---') {
+                            notas = matchedRow.menu.trim();
+                        }
+                    }
+                    autoServices.push({ 
+                        ...service, 
+                        fecha: formatD(service.serviceDate || checkInDate),
+                        hora: hora,
+                        notas: notas
+                    });
                 });
                 if (loadRoomingFromCache && !forceRegenerateServices && cachedServicios.length > 0) {
                     servicesToRender = cachedServicios;

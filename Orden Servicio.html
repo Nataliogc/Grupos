@@ -523,55 +523,73 @@
                 footerSub.innerHTML = "Departamento de Operaciones | Gestión Centralizada de Grupos";
                 textBanner.style.backgroundColor = '#0f172a';
             }
+            // Calculate base group fields for display & fallback
+            const gName = rec['Nombre del Grupo'] || group.name || '---';
+            const gAgency = rec['Empresa/Agencia'] || group.agency || 'Directo';
+            const gPax = String(window.ServiceOrderPlanService?.getHeaderPax(group, window.NexusUtils?.toInputDate) ?? (rec['Pax.'] || rec.Pax || group.totalPax || '---'));
+            const gCom = rec['Com_Comercial'] || group.commercial || 'S/A';
+            const gReg = rec['Régimen'] || group.regimen || '';
+
             // Populate fields
             if (savedStateStr) {
                 // LOAD FROM CACHE
-                const s = JSON.parse(savedStateStr);
-                document.getElementById('informe-title').innerText = sanitizeText(s.title || `ORDEN DE SERVICIO Nº ${currentReservaId}`);
-                document.getElementById('ref-val').innerText = sanitizeText(s.ref || '');
-                document.getElementById('grupo-val').innerText = sanitizeText(s.grupo || '');
-                document.title = `${currentReservaId} - Ord Servicio - ${s.grupo || eventName}`;
-                document.getElementById('agencia-val').innerText = sanitizeText(s.agencia || '');
-                document.getElementById('pax-val').innerText = String(window.ServiceOrderPlanService.getHeaderPax(group, window.NexusUtils.toInputDate) ?? s.pax ?? '---');
-                document.getElementById('regimen-val').innerText = sanitizeText(s.regimen || '');
-                document.getElementById('comercial-val').innerText = sanitizeText(s.comercial || '---');
-                if (typeof s.notasText === 'string') {
-                    const notesList = document.getElementById('notas-ul');
-                    notesList.replaceChildren();
-                    s.notasText.split(/\n/).filter(line=>line.trim()).forEach(line=>{
-                        const li = document.createElement('li');
-                        li.textContent = line.trim();
-                        notesList.appendChild(li);
-                    });
-                } else document.getElementById('notas-val').innerHTML = s.notasHTML || '';
-                
-                // Only use cache if it actually contains plan rows. 
-                if (s.planRows && s.planRows.length > 0) {
-                    reconcilePlan(s.planRows).forEach(r => addRowPlan(
-                        sanitizeText(r.dia), 
-                        sanitizeText(r.serv), 
-                        sanitizeText(r.pax), 
-                        sanitizeText(r.menu), 
-                        sanitizeText(r.hora), r.fecha || ""
-                    ));
-                    (s.incidenciaRows || []).forEach(r => addRowIncidencia(
-                        sanitizeText(r.tipo), 
-                        sanitizeText(r.numPax), 
-                        sanitizeText(r.detalle), 
-                        sanitizeText(r.serv)
-                    ));
-                    isInitializingView = false;
-                    return; 
+                let s = null;
+                try {
+                    s = typeof savedStateStr === 'string' ? JSON.parse(savedStateStr) : savedStateStr;
+                } catch (e) {
+                    console.warn("Error parsing savedStateStr:", e);
+                }
+                if (s) {
+                    const finalRef = (s.ref && s.ref !== '...' && s.ref.trim()) ? s.ref : currentReservaId;
+                    const finalGrupo = (s.grupo && s.grupo !== '...' && s.grupo.trim()) ? s.grupo : gName;
+                    const finalAgencia = (s.agencia && s.agencia !== '...' && s.agencia.trim()) ? s.agencia : gAgency;
+                    const finalPax = String(window.ServiceOrderPlanService?.getHeaderPax(group, window.NexusUtils?.toInputDate) ?? ((s.pax && s.pax !== '...' && s.pax.trim()) ? s.pax : gPax));
+                    const finalRegimen = (s.regimen && s.regimen !== '...' && s.regimen.trim()) ? s.regimen : gReg;
+                    const finalComercial = (s.comercial && s.comercial !== '...' && s.comercial.trim()) ? s.comercial : gCom;
+
+                    document.getElementById('informe-title').innerText = sanitizeText(s.title || `ORDEN DE SERVICIO Nº ${currentReservaId}`);
+                    document.getElementById('ref-val').innerText = sanitizeText(finalRef);
+                    document.getElementById('grupo-val').innerText = sanitizeText(finalGrupo);
+                    document.title = `${currentReservaId} - Ord Servicio - ${finalGrupo || eventName}`;
+                    document.getElementById('agencia-val').innerText = sanitizeText(finalAgencia);
+                    document.getElementById('pax-val').innerText = sanitizeText(finalPax);
+                    document.getElementById('regimen-val').innerText = sanitizeText(finalRegimen);
+                    document.getElementById('comercial-val').innerText = sanitizeText(finalComercial);
+                    if (typeof s.notasText === 'string') {
+                        const notesList = document.getElementById('notas-ul');
+                        notesList.replaceChildren();
+                        s.notasText.split(/\n/).filter(line=>line.trim()).forEach(line=>{
+                            const li = document.createElement('li');
+                            li.textContent = line.trim();
+                            notesList.appendChild(li);
+                        });
+                    } else if (s.notasHTML && s.notasHTML.trim() && !s.notasHTML.includes('Detalles operativos aquí...')) {
+                        document.getElementById('notas-val').innerHTML = s.notasHTML;
+                    }
+                    
+                    // Only use cache if it actually contains plan rows. 
+                    if (Array.isArray(s.planRows) && s.planRows.length > 0) {
+                        reconcilePlan(s.planRows).forEach(r => addRowPlan(
+                            sanitizeText(r.dia), 
+                            sanitizeText(r.serv), 
+                            sanitizeText(r.pax), 
+                            sanitizeText(r.menu), 
+                            sanitizeText(r.hora), r.fecha || ""
+                        ));
+                        (s.incidenciaRows || []).forEach(r => addRowIncidencia(
+                            sanitizeText(r.tipo), 
+                            sanitizeText(r.numPax), 
+                            sanitizeText(r.detalle), 
+                            sanitizeText(r.serv)
+                        ));
+                        isInitializingView = false;
+                        return; 
+                    }
                 }
             }
 
             // CREATE NEW FROM GROUP DATA + RoomingList_JSON
             // (Used if no cache found OR if cache was empty)
-            const gName = rec['Nombre del Grupo'] || group.name || '---';
-            const gAgency = rec['Empresa/Agencia'] || group.agency || 'Directo';
-            const gPax = window.ServiceOrderPlanService.getHeaderPax(group, window.NexusUtils.toInputDate) ?? '---';
-            const gCom = rec['Com_Comercial'] || group.commercial || 'S/A';
-
             document.getElementById('ref-val').innerText = currentReservaId;
             document.getElementById('grupo-val').innerText = gName;
             document.getElementById('agencia-val').innerText = gAgency;
@@ -670,25 +688,25 @@
                 const dayMap = new Map(); // key = ISO date string, value = { regimePax: Map<regime, persons>, explicitServices: Map<serviceName, persons> }
                 if (roomingList.length > 0) {
                     roomingList.forEach(item => {
-                        const dIn = parseDate(item.dateIn);
+                        const dIn = parseDate(item.dateIn || item.date || item.fecha || item.checkIn || rec.Entrada || group.arrival);
                         let nights = parseInt(item.nights);
                         if (isNaN(nights) || nights <= 0) nights = 1;
-                        let dOut = parseDate(item.dateOut);
+                        let dOut = parseDate(item.dateOut || item.date || item.fecha || item.checkOut || rec.Salida || group.departure);
                         if (!dOut || isNaN(dOut) || dOut <= dIn) {
                             dOut = new Date(dIn);
                             dOut.setDate(dOut.getDate() + nights);
                         }
-                        const typeUpper = (item.type || '').toUpperCase();
+                        const typeUpper = (item.type || item.roomType || item.concept || '').toUpperCase();
                         const regime = (item.regime || '').toUpperCase();
                         let qty = 0;
-                        const qtyCandidates = [item.qty, item.quantity, item.cantidad, item.cant, item.Cant, item.CANT, item["Cant."], item["CANT."], item["Cantidad"], item.rooms, item.units];
+                        const qtyCandidates = [item.qty, item.quantity, item.cantidad, item.cant, item.Cant, item.CANT, item["Cant."], item["CANT."], item["Cantidad"], item.rooms, item.units, item.pax];
                         for (const val of qtyCandidates) {
                             const parsed = parseInt(String(val ?? '').replace(',', '.'), 10);
                             if (Number.isFinite(parsed) && parsed > 0) { qty = parsed; break; }
                         }
                         const paxPerRoom = parseInt(item.pax) || (typeUpper.includes('IND') ? 1 : 2);
-                        const realPersons = qty * paxPerRoom;
-                        const isMealsOrService = window.ServiceOrderPlanService.isServiceItem(item);
+                        const isMealsOrService = window.ServiceOrderPlanService ? window.ServiceOrderPlanService.isServiceItem(item) : true;
+                        const realPersons = qty > 0 ? (isMealsOrService ? qty : qty * paxPerRoom) : paxPerRoom;
                         if (dIn && !isNaN(dIn)) {
                             for (let i = 0; i < nights; i++) {
                                 const d = new Date(dIn);
@@ -699,12 +717,8 @@
                                 }
                                 const entry = dayMap.get(key);
                                 if (isMealsOrService) {
-                                    // Para servicios adicionales, mapamos con el nombre real de item.type
-                                    // Y no procesamos régimen, asumen que lo que ingresan es lo que se cobra/sirve en esa "Fecha Cargo"
-                                    const explicitName = (item.type || 'SERVICIO EXTRA').toUpperCase();
+                                    const explicitName = (item.type || item.roomType || item.concept || 'SERVICIO EXTRA').toUpperCase();
                                     const prev = entry.explicitServices.get(explicitName) || 0;
-                                    // Los servicios en presupuestos establecen su número total en CANT. (qty). 
-                                    // No multiplicamos por PAX. en un servicio a veces no aplica o multiplica artificialmente la cantidad.
                                     const serviceUnits = qty > 0 ? qty : paxPerRoom;
                                     entry.explicitServices.set(explicitName, prev + serviceUnits);
                                 } else {
@@ -873,7 +887,7 @@
                      notesList.innerHTML = '<li>Sin notas operativas registradas en la reserva.</li>';
                 }
                 // La programación guardada manda sobre las comidas generadas por PC y cargos extra.
-                if (mealSchedule !== null) {
+                if (Array.isArray(mealSchedule) && mealSchedule.length > 0) {
                     const body = document.querySelector('#table-plan tbody');
                     const rows = [...body.querySelectorAll('tr')].map(tr => {
                         const cells = tr.querySelectorAll('td');
