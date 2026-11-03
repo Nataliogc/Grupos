@@ -593,11 +593,32 @@
     return 1;
   }
 
+  // Match an explicit service charge on its own date, never room occupancy.
+  function getServicePaxForSchedule(record, row) {
+    var raw = record.RoomingList_JSON || (record.records && record.records[0] && record.records[0].RoomingList_JSON);
+    var items;
+    try { items = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (e) { return null; }
+    if (!Array.isArray(items)) return null;
+    function clean(v) { return String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
+    var candidates = items.filter(function (item) {
+      if (!item || !item.isService || toIsoDate(item.dateIn || item.date || item.fecha) !== row.fecha) return false;
+      var name = clean(item.type || item.roomType);
+      if (row.nombre && name === clean(row.nombre)) return true;
+      var patterns = { almuerzo: /almuerzo|comida/, merienda: /merienda/, cena: /cena/, desayuno: /desayuno/, coffee_break: /coffee|cafe/, coctel: /coctel|cocktail/ };
+      return patterns[row.jornada] ? patterns[row.jornada].test(name) : false;
+    });
+    if (candidates.length !== 1) return null;
+    // A room rental is a unit, not a number of attendees.
+    if (/sala|salon|charla|reunion/.test(clean(candidates[0].type || candidates[0].roomType))) return null;
+    var quantity = Number(candidates[0].qty);
+    return Number.isInteger(quantity) && quantity > 0 ? quantity : null;
+  }
+
   function syncMealSchedulePax(scheduleRows, groupRecord) {
     if (!Array.isArray(scheduleRows) || !scheduleRows.length || !groupRecord) return scheduleRows;
     return scheduleRows.map(function (row) {
-      var targetPax = getDailyPaxForGroup(groupRecord, row.fecha);
-      return Object.assign({}, row, { pax: targetPax });
+      var targetPax = getServicePaxForSchedule(groupRecord, row);
+      return targetPax === null ? Object.assign({}, row) : Object.assign({}, row, { pax: targetPax });
     });
   }
 
@@ -1832,6 +1853,19 @@
   }
 
   // ── Exportación Global ──
+  function getAvailableSalons(hotel) {
+    var key = String(hotel || "").toLowerCase().includes("cumbria") ? "Cumbria" : "Guadiana";
+    var db = getMesachefDb();
+    if (!db) return Promise.reject(new Error("MesaChef no disponible"));
+    return ensureMesachefAuth().then(function () {
+      return db.collection("master_data").doc("CONFIG_SALONES").get();
+    }).then(function (doc) {
+      if (!doc.exists) throw new Error("No hay catálogo de salones");
+      return (doc.data()[key] || []).filter(function (s) { return s && s.active !== false; })
+        .map(function (s) { return s.name; }).filter(Boolean);
+    });
+  }
+
   function getServiceLocations(reservaId) {
     return ensureMesachefAuth().then(function () {
       var db = getMesachefDb();
@@ -1854,6 +1888,8 @@
   }
 
   var MesaChefService = {
+    getAvailableSalons: getAvailableSalons,
+    getServicePaxForSchedule: getServicePaxForSchedule,
     getServiceLocations: getServiceLocations,
     MESACHEF_FIREBASE_CONFIG: MESACHEF_FIREBASE_CONFIG,
     SALON_GUADIANA: SALON_GUADIANA,

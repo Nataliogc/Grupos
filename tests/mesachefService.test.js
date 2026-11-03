@@ -257,7 +257,7 @@ test('comidas por encima de las incluidas se marcan como extras pendientes de va
   assert.equal(docs[0].servicios[0].total,0);
 });
 
-test('sincroniza los comensales de la programacion cuando el grupo cambia de pax (ej. 62 a 66)', () => {
+test('conserva los comensales personalizados aunque cambie la ocupación del grupo', () => {
   const customSched = [
     { fecha: '2026-11-20', jornada: 'cena', pax: 62 },
     { fecha: '2026-11-22', jornada: 'almuerzo', pax: 62 }
@@ -274,7 +274,7 @@ test('sincroniza los comensales de la programacion cuando el grupo cambia de pax
     ])
   };
   const synced = service.syncMealSchedulePax(customSched, group66);
-  assert.deepEqual(synced.map(r => r.pax), [66, 66]);
+  assert.deepEqual(synced.map(r => r.pax), [62, 62]);
 });
 
 
@@ -361,3 +361,21 @@ test('si el grupo no tiene hora programada no pasa hora y pone ---, solo pasa ho
   assert.equal(service.extractRegisteredHour('PENDIENTE'), null);
 });
 
+
+ test('comida y merienda mantienen cantidades independientes; sala y fecha desconocida no se inventan', () => {
+  const record = { totalPax:10, RoomingList_JSON:JSON.stringify([
+    {isService:true,type:'COMIDA PREPARTIDO',qty:34,dateIn:'2027-11-05'},
+    {isService:true,type:'MERIENDA DE PARTIDO',qty:25,dateIn:'2027-11-05'},
+    {isService:true,type:'SALA CHARLA (GRATUIDAD)',qty:1,dateIn:'2027-11-05'}
+  ])};
+  const rows = [
+    {fecha:'2027-11-05',jornada:'almuerzo',pax:10},
+    {fecha:'2027-11-05',jornada:'merienda',pax:10},
+    {fecha:'2027-11-05',jornada:'sala',pax:34},
+    {fecha:'2027-11-04',jornada:'merienda',pax:25}
+  ];
+  assert.deepEqual(service.syncMealSchedulePax(rows,record).map(r=>r.pax),[34,25,34,25]);
+  assert.equal(service.getServicePaxForSchedule(record,rows[2]),null);
+  assert.equal(service.getServicePaxForSchedule(record,rows[3]),null);
+  assert.equal(rows[0].pax,10);
+ });

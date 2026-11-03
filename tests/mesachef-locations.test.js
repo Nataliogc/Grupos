@@ -21,3 +21,18 @@ test('consulta el salón de cada servicio sin modificar MesaChef', async () => {
     });
   } finally {delete global.window;}
 });
+
+test('carga todos los salones activos solo del hotel elegido desde el catálogo real', async () => {
+ global.window={db:{collection:name=>{
+  assert.equal(name,'master_data');return {doc:id=>{
+   assert.equal(id,'CONFIG_SALONES');return {get:async()=>({exists:true,data:()=>({
+    Cumbria:[{name:'Eventos Restaurante'},{name:'Mercurio'},{name:'Inactivo',active:false}],
+    Guadiana:[{name:'Alarcos'}]
+   })})};
+  }};
+ }}};
+ try {
+  assert.deepEqual(await service.getAvailableSalons('Cumbria Spa&Hotel'),['Eventos Restaurante','Mercurio']);
+  assert.deepEqual(await service.getAvailableSalons('Sercotel Guadiana'),['Alarcos']);
+ }finally{delete global.window;}
+});

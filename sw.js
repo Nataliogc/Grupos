@@ -7,7 +7,7 @@
  * disponible cuando hay conexión y habilita la instalación PWA).
  */
 
-const CACHE_NAME = "nexus-groups-pwa-v2.5.44";
+const CACHE_NAME = "nexus-groups-pwa-v2.5.45";
 
 const PRECACHE_ASSETS = [
   "./",

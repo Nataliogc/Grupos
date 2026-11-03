@@ -1166,17 +1166,24 @@
         DailyDistribution_JSON:group.DailyDistribution_JSON || group.records?.[0]?.DailyDistribution_JSON};
       const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos, hora:d.detalles.hora || "---"}));
 
-      const getTargetPax = (fecha) => {
-        if (service?.getDailyPaxForGroup) return service.getDailyPaxForGroup(record, fecha);
-        return group.totalPax || parseInt(record["Pax."] || 0, 10) || 1;
-      };
-
       const syncAllRowsPax = (sourceRows) => {
         const list = sourceRows || rows;
-        return list.map(r => ({ ...r, pax: getTargetPax(r.fecha) }));
+        const updated = service.syncMealSchedulePax(list, record);
+        const missing = list.filter(r => service.getServicePaxForSchedule(record, r) === null);
+        setError(missing.length ? "Hay servicios sin una cantidad inequívoca en el desglose para su fecha. Se mantienen sus personas: revisa fecha, concepto y comensales manualmente." : "");
+        return updated;
       };
 
       const [availableSalons, setAvailableSalons] = React.useState([]);
+      React.useEffect(() => {
+        if (!open || !service?.getAvailableSalons) return;
+        let active = true;
+        setAvailableSalons([]);
+        service.getAvailableSalons(record.Hotel_Asignado).then(list => {
+          if (active) setAvailableSalons(list);
+        }).catch(() => { if (active) setLocationError("No se pudo cargar el catálogo de salones del hotel."); });
+        return () => { active = false; };
+      }, [open, record.Hotel_Asignado]);
       const begin = () => {
         try {
           if (!service?.getMealSchedule || !service?.getAutomaticMealDocuments) throw new Error("Recarga la página para cargar la programación de comidas actualizada.");
@@ -1191,9 +1198,7 @@
           }
           setError(""); setOpen(true);
           refreshLocations();
-          if (typeof service?.getAvailableSalons === "function") {
-            service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => {});
-          }
+
         } catch (e) { setError(e.message); }
       };
 
@@ -1230,6 +1235,7 @@
             <p className="text-xs text-slate-500">Programa los turnos de comida, desayunos, meriendas o servicios especiales que sincronizan con MesaChef.</p></div>
           {!open && <button type="button" onClick={begin} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 text-xs font-bold transition shadow-xs cursor-pointer">Programar comidas · día y servicio</button>}
         </div>
+        {record.MealScheduleNeedsReview && <p role="alert" className="text-sm font-bold text-amber-700">Fechas modificadas: revisa y guarda la programación de MesaChef. Los servicios conservan sus fechas y personas hasta que los corrijas.</p>}
         {!open && record.MealSchedule_JSON && <p className="text-xs text-blue-700 font-medium">Este grupo tiene una programación personalizada.</p>}
         {open && <>
           <p className="text-xs font-bold text-slate-700">Incluidas en pensión: {included} · Programadas: {planned} · Pendientes: {Math.max(0,included-planned)} · Extras: {Math.max(0,planned-included)}</p>
@@ -1289,13 +1295,21 @@
                     </td>
                     <td className="py-1.5 px-2">
                       <input aria-label="Comensales" type="number" min="1" step="1" value={row.pax} disabled={saving} onChange={e=>change(index,"pax",Number(e.target.value))} className="border border-slate-300 rounded px-2 py-1 text-xs w-20 text-center font-bold" />
+                      {(() => {
+                        const expected = service.getServicePaxForSchedule(record, row);
+                        return expected !== null && Number(row.pax) !== expected
+                          ? <p className="text-amber-700 mt-1">Desglose: {expected} personas. Revisa esta cantidad.</p>
+                          : null;
+                      })()}
                     </td>
                     <td className="py-1.5 px-2 text-slate-600">
-                      <input aria-label="Salón del servicio" list="meal-salon-options" disabled={saving}
-                        value={(row.salon !== undefined && row.salon !== "") ? row.salon : (locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || "")}
-                        placeholder={locationError ? "Sin verificar" : (String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}
+                      <select aria-label="Salón del servicio" disabled={saving}
+                        value={row.salon || locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || ""}
                         onChange={e=>change(index,"salon",e.target.value)}
-                        className="border border-slate-300 rounded px-2 py-1 text-xs w-44" />
+                        className="border border-slate-300 rounded px-2 py-1 text-xs w-44">
+                        <option value="">Selecciona salón</option>
+                        {[...availableSalons, row.salon, locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`]].filter((v,i,a)=>v && a.indexOf(v)===i).map(v=><option key={v} value={v}>{v}</option>)}
+                      </select>
                     </td>
                     <td className="py-1.5 pl-2 text-right">
                       <button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer">Eliminar</button>
@@ -1306,18 +1320,12 @@
             </table>
           </div>
           <p className="text-xs text-slate-500">El salón inicial se asigna según el hotel. Los cambios de salón realizados en MesaChef se conservan al sincronizar.</p>
-          <datalist id="meal-salon-options">
-            {[
-              (String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA),
-              ...(availableSalons.length ? availableSalons : (String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? [service.SALON_CUMBRIA, "Salón Mercurio", "Salón Venus", "Salón La Tierra", "Salón Marte", "Salón Júpiter", "Salón Saturno"] : [service.SALON_GUADIANA, "Salón Guadiana", "Salón Puerta de Alarcos", "Salón Puerta del Carmen", "Salón Alarcos"])),
-              ...Object.values(locations)
-            ].filter((v,i,a)=>v && a.indexOf(v)===i).map(v=><option key={v} value={v} />)}
-          </datalist>
+
           {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
-          <button type="button" disabled={saving} onClick={refreshLocations} className="text-xs text-blue-700 font-bold">Consultar salones de MesaChef</button>
+          <button type="button" disabled={saving} onClick={() => { refreshLocations(); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones de MesaChef</button>
           <div className="flex flex-wrap gap-3 items-center pt-1">
-            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:getTargetPax(record.Entrada),hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}])} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
-            <button type="button" disabled={saving} onClick={()=>setRows(prev=>syncAllRowsPax(prev))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Sincronizar comensales de todas las comidas con las personas del grupo">🔄 Sincronizar comensales ({getTargetPax(record.Entrada)} pax)</button>
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}])} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
+            <button type="button" disabled={saving} onClick={()=>setRows(syncAllRowsPax(rows))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>
             <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 text-xs font-bold transition cursor-pointer">{saving?"Guardando…":"Guardar programación"}</button>
             <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Usar programación automática</button>
             <button type="button" disabled={saving} onClick={()=>{setOpen(false);setError("");}} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Cancelar</button>
@@ -13272,28 +13280,19 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
         }
 
-        // Sincronizar automáticamente MealSchedule_JSON cuando cambian las habitaciones o el pax del grupo
-        const rawMealSched = updates.MealSchedule_JSON !== undefined ? updates.MealSchedule_JSON : currentGroupRows[0]?.MealSchedule_JSON;
-        if (rawMealSched && updates.RoomingList_JSON && !Object.prototype.hasOwnProperty.call(fieldOrUpdates, "MealSchedule_JSON")) {
-          try {
-            const parsedSched = typeof rawMealSched === "string" ? JSON.parse(rawMealSched) : rawMealSched;
-            if (Array.isArray(parsedSched) && parsedSched.length > 0) {
-              const firstRow = currentGroupRows[0] || {};
-              const tempRecord = { ...firstRow, ...updates };
-              const service = window.MesaChefService;
-              if (service && typeof service.syncMealSchedulePax === "function") {
-                updates.MealSchedule_JSON = JSON.stringify(service.syncMealSchedulePax(parsedSched, tempRecord));
-              } else if (service && typeof service.getDailyPaxForGroup === "function") {
-                updates.MealSchedule_JSON = JSON.stringify(parsedSched.map(r => ({
-                  ...r,
-                  pax: service.getDailyPaxForGroup(tempRecord, r.fecha)
-                })));
-              }
-            }
-          } catch (mealErr) {
-            console.error("Error auto-syncing MealSchedule_JSON in updateGroupMetadata:", mealErr);
-          }
+        // Custom service counts must never be overwritten by room occupancy.
+        const previousRecord = currentGroupRows[0] || {};
+        const dateSignature = raw => {
+          try { return JSON.stringify((typeof raw === "string" ? JSON.parse(raw) : raw || []).map(r => [r.dateIn || r.date || r.fecha || "", r.dateOut || "", r.nights || 1]).sort()); }
+          catch { return String(raw || ""); }
+        };
+        const datesChanged = ["Entrada", "Salida"].some(key => updates[key] !== undefined && updates[key] !== previousRecord[key]) ||
+          (updates.RoomingList_JSON !== undefined && dateSignature(updates.RoomingList_JSON) !== dateSignature(previousRecord.RoomingList_JSON));
+        if (datesChanged && previousRecord.MealSchedule_JSON && updates.MealSchedule_JSON === undefined) {
+          updates.MealScheduleNeedsReview = true;
+          alert("Has cambiado las fechas del grupo o del desglose. Revisa las fechas, personas y salones en Comidas y servicios del grupo y guarda la programación para actualizar MesaChef.");
         }
+        if (updates.MealSchedule_JSON !== undefined) updates.MealScheduleNeedsReview = false;
 
         // 1. Optimistic UI Update
         setData((prevData) => {
@@ -27079,22 +27078,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     };
                                     if (firstValidRegime) {
                                       savePayload["Régimen"] = firstValidRegime;
-                                    }
-                                    if (currentRec.MealSchedule_JSON) {
-                                      try {
-                                        const parsedSched = typeof currentRec.MealSchedule_JSON === "string" ? JSON.parse(currentRec.MealSchedule_JSON) : currentRec.MealSchedule_JSON;
-                                        if (Array.isArray(parsedSched) && parsedSched.length > 0) {
-                                          const tempRec = { ...currentRec, ...savePayload };
-                                          const service = window.MesaChefService;
-                                          if (service && typeof service.syncMealSchedulePax === "function") {
-                                            savePayload.MealSchedule_JSON = JSON.stringify(service.syncMealSchedulePax(parsedSched, tempRec));
-                                          } else if (service && typeof service.getDailyPaxForGroup === "function") {
-                                            savePayload.MealSchedule_JSON = JSON.stringify(parsedSched.map(r => ({ ...r, pax: service.getDailyPaxForGroup(tempRec, r.fecha) })));
-                                          }
-                                        }
-                                      } catch (mErr) {
-                                        console.error("Error syncing MealSchedule_JSON in Grabar Cambios:", mErr);
-                                      }
                                     }
                                     setIsSaving(true);
                                     await updateGroupMetadata(selectedGroupFicha.id, savePayload);
