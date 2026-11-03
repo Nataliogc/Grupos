@@ -46,8 +46,24 @@
     if (j === 'merienda') return 'Merienda';
     if (j === 'coffee_break') return 'Coffee Break';
     if (j === 'coctel') return 'Cóctel';
+    if (j === 'sala' || j === 'salon') return 'Alquiler de Sala / Salón';
     if (j === 'especial') return 'Especial';
     return j.charAt(0).toUpperCase() + j.slice(1);
+  }
+  function serviceMatchesMeal(servName, meal, normalize) {
+    const s = normalize(servName);
+    const mLabel = normalize(getScheduleLabel(meal));
+    if (s === mLabel) return true;
+    const j = String(meal.jornada || '').toLowerCase();
+    const isMeetingRoom = text => /sala|sal[oó]n|charla|reuni[oó]n|montaje/.test(text);
+    if ((j === 'sala' || j === 'salon' || isMeetingRoom(mLabel)) && isMeetingRoom(s)) return true;
+    if ((j === 'merienda' || mLabel.includes('merienda')) && s.includes('merienda')) return true;
+    if ((j === 'coffee_break' || j === 'coffee' || /coffee|break/.test(mLabel)) && /coffee|break/.test(s)) return true;
+    if ((j === 'coctel' || /coctel|cocktail/.test(mLabel)) && /coctel|cocktail/.test(s)) return true;
+    if ((j === 'desayuno' || mLabel.includes('desayuno')) && s.includes('desayuno')) return true;
+    if ((j === 'almuerzo' || j === 'comida' || /almuerzo|comida/.test(mLabel)) && /almuerzo|comida/.test(s)) return true;
+    if ((j === 'cena' || mLabel.includes('cena')) && s.includes('cena')) return true;
+    return false;
   }
   function reconcileMealPlan(rows, schedule, formatDay, entryDate) {
     if (schedule === null) return rows;
@@ -67,24 +83,37 @@
     };
     const result = rows.filter(row => {
       if (isMeal(row)) return false;
-      const normServ = normalize(row.serv);
       const rowD = dateOf(row);
       const isReplacedBySchedule = schedule.some(m => {
-        const mLabel = normalize(getScheduleLabel(m));
-        return (m.fecha === rowD || !rowD) && (mLabel === normServ || (m.jornada === 'desayuno' && normServ === 'desayuno') || (m.jornada === 'merienda' && normServ === 'merienda'));
+        const sameDay = !rowD || !m.fecha || rowD === m.fecha;
+        return sameDay && serviceMatchesMeal(row.serv, m, normalize);
       });
       return !isReplacedBySchedule;
-    }).map(row=>({...row,fecha:dateOf(row)}));
+    }).map(row => ({ ...row, fecha: dateOf(row) }));
     schedule.forEach(meal => {
       const label = getScheduleLabel(meal);
-      const previous = rows.find(row => dateOf(row) === meal.fecha && normalize(row.serv) === normalize(label));
-      const rowHour = previous?.hora || (meal.hora && meal.hora !== '---' ? meal.hora : "___:___ h");
-      result.push({fecha:meal.fecha, dia:formatDay(meal.fecha), serv:label, pax:String(meal.pax), menu:previous?.menu || "", hora:rowHour});
+      const previous = rows.find(row => {
+        const sameDay = !row.fecha || !meal.fecha || dateOf(row) === meal.fecha;
+        return sameDay && serviceMatchesMeal(row.serv, meal, normalize);
+      });
+      const rowHour = (meal.hora && meal.hora !== '---' && meal.hora !== '___:___ h')
+        ? meal.hora
+        : (previous?.hora || "___:___ h");
+      const salonName = meal.salon || meal.salonNombre || meal.salon_nombre || '';
+      const rowMenu = salonName || previous?.menu || "";
+      result.push({
+        fecha: meal.fecha,
+        dia: formatDay(meal.fecha),
+        serv: label,
+        pax: String(meal.pax),
+        menu: rowMenu,
+        hora: rowHour
+      });
     });
-    const order = {desayuno:0,coffee_break:1,'coffee break':1,almuerzo:2,merienda:3,cena:4,coctel:5,especial:6};
-    return result.sort((a,b)=>(a.fecha || "9999").localeCompare(b.fecha || "9999") || (order[normalize(a.serv)] ?? 7)-(order[normalize(b.serv)] ?? 7));
+    const order = { desayuno: 0, coffee_break: 1, 'coffee break': 1, almuerzo: 2, comida: 2, sala: 3, salon: 3, merienda: 4, cena: 5, coctel: 6, especial: 7 };
+    return result.sort((a,b) => (a.fecha || "9999").localeCompare(b.fecha || "9999") || (order[normalize(a.serv)] ?? 7) - (order[normalize(b.serv)] ?? 7));
   }
-  const api = {readSchedule,reconcileMealPlan,getScheduleLabel,isServiceItem,getHeaderPax};
+  const api = {readSchedule,reconcileMealPlan,getScheduleLabel,isServiceItem,getHeaderPax,serviceMatchesMeal};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ServiceOrderPlanService = api;
 })(typeof window !== "undefined" ? window : globalThis);

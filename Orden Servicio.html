@@ -467,7 +467,14 @@
         }
         function formatD(dtStr) {
             if (!dtStr) return '---';
-            const f = new Date(dtStr);
+            const s = String(dtStr).trim();
+            const parts = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            let f;
+            if (parts) {
+                f = new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), 12, 0, 0);
+            } else {
+                f = new Date(s);
+            }
             if(isNaN(f)) return dtStr;
             const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
             return days[f.getDay()] + ' ' + f.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'});

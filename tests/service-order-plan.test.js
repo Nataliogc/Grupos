@@ -1,7 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {readSchedule,reconcileMealPlan}=require('../js/services/serviceOrderPlanService');
-const format=date=>({'2026-10-10':'Sáb 10/10','2026-10-11':'Dom 11/10','2027-01-01':'Vie 01/01','2026-12-31':'Jue 31/12'}[date] || date);
+const format=date=>({'2026-10-10':'Sáb 10/10','2026-10-11':'Dom 11/10','2027-01-01':'Vie 01/01','2026-12-31':'Jue 31/12','2027-11-05':'Vie 05/11'}[date] || date);
 const rows=[{dia:'Sáb 10/10',serv:'Almuerzo',pax:'34',menu:'Menú grupo',hora:'14:00'},
   {dia:'Sáb 10/10',serv:'Cena',pax:'17',menu:'Cena',hora:'21:00'},
   {dia:'Dom 11/10',serv:'Desayuno',pax:'17',hora:'08:00'}];
@@ -46,4 +46,27 @@ test('cabecera cuenta 34 alojados y excluye comida, merienda y sala incluso con 
 test('merienda sin fecha anterior no se duplica con la programada',()=>{
  const plan=reconcileMealPlan([{dia:'---',serv:'Merienda',pax:'34'}],[{fecha:'2026-11-04',jornada:'merienda',nombre:'Merienda Buffett',pax:25}],format,'2026-11-04');
  assert.equal(plan.length,1);assert.equal(plan[0].pax,'25');
+});
+test('la sala y la merienda no se duplican cuando estan en servicios y programadas en mesachef',()=>{
+ const existingRows=[
+  {dia:'Vie 05/11',serv:'Comida prepartido',pax:'34',menu:'',hora:'___:___ h',fecha:'2027-11-05'},
+  {dia:'Vie 05/11',serv:'Merienda de partido',pax:'25',menu:'',hora:'___:___ h',fecha:'2027-11-05'},
+  {dia:'Vie 05/11',serv:'Sala charla (gratuidad)',pax:'1',menu:'Mercurio',hora:'16:00h',fecha:'2027-11-05'}
+ ];
+ const mesachefSchedule=[
+  {fecha:'2027-11-05',jornada:'almuerzo',nombre:'Almuerzo Bufett',pax:34,hora:'14:00',salon:'Salón Mercurio'},
+  {fecha:'2027-11-05',jornada:'merienda',nombre:'Merienda Bufett',pax:25,hora:'17:30',salon:'Salón Mercurio'},
+  {fecha:'2027-11-05',jornada:'sala',nombre:'Charla montaje escuela',pax:25,hora:'16:00',salon:'Salón Marte'}
+ ];
+ const plan=reconcileMealPlan(existingRows,mesachefSchedule,format,'2027-11-05');
+ assert.equal(plan.length,3);
+ const salaRow=plan.find(r=>r.serv==='Charla montaje escuela');
+ assert.ok(salaRow,'Debe existir la fila de la charla');
+ assert.equal(salaRow.pax,'25');
+ assert.equal(salaRow.hora,'16:00');
+ assert.equal(salaRow.menu,'Salón Marte');
+ const oldSala=plan.find(r=>r.serv==='Sala charla (gratuidad)');
+ assert.equal(oldSala,undefined,'No debe duplicarse la sala');
+ const oldMerienda=plan.find(r=>r.serv==='Merienda de partido');
+ assert.equal(oldMerienda,undefined,'No debe duplicarse la merienda');
 });
