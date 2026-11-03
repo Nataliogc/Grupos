@@ -99,8 +99,11 @@
       const rowHour = (meal.hora && meal.hora !== '---' && meal.hora !== '___:___ h')
         ? meal.hora
         : (previous?.hora || "___:___ h");
-      const salonName = meal.salon || meal.salonNombre || meal.salon_nombre || '';
-      const rowMenu = salonName || previous?.menu || "";
+      const j = String(meal.jornada || '').toLowerCase();
+      const isMeetingRoom = j === 'sala' || j === 'salon' || /sala|sal[oó]n/.test(label.toLowerCase());
+      const isSalonText = text => /^(sal[oó]n|mercurio|marte|jupiter|venus|saturno|neptuno|urano|pluton)\b/i.test(String(text || '').trim()) || (meal.salon && String(text || '').trim().toLowerCase() === String(meal.salon).trim().toLowerCase());
+      const previousMenu = (!isMeetingRoom && previous?.menu && !isSalonText(previous.menu)) ? previous.menu : "";
+      const rowMenu = meal.menu || previousMenu || "";
       result.push({
         fecha: meal.fecha,
         dia: formatDay(meal.fecha),

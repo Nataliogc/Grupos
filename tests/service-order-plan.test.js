@@ -64,7 +64,7 @@ test('la sala y la merienda no se duplican cuando estan en servicios y programad
  assert.ok(salaRow,'Debe existir la fila de la charla');
  assert.equal(salaRow.pax,'25');
  assert.equal(salaRow.hora,'16:00');
- assert.equal(salaRow.menu,'Salón Marte');
+ assert.equal(salaRow.menu,''); // El nombre del salón NO debe ir en la columna MENÚ
  const oldSala=plan.find(r=>r.serv==='Sala charla (gratuidad)');
  assert.equal(oldSala,undefined,'No debe duplicarse la sala');
  const oldMerienda=plan.find(r=>r.serv==='Merienda de partido');
