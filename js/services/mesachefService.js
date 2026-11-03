@@ -1766,7 +1766,23 @@
   }
 
   // ── Exportación Global ──
+  function getServiceLocations(reservaId) {
+    return ensureMesachefAuth().then(function () {
+      var db = getMesachefDb();
+      if (!db) throw new Error("MesaChef no disponible");
+      return db.collection(COLLECTION_SALONES).where("reservaId", "==", normalizeReservaId(reservaId)).get();
+    }).then(function (snapshot) {
+      var locations = {};
+      snapshot.forEach(function (doc) {
+        var data = doc.data();
+        if (data.estado !== "cancelada") locations[doc.id] = data.salonOverride || data.salon || "";
+      });
+      return locations;
+    });
+  }
+
   var MesaChefService = {
+    getServiceLocations: getServiceLocations,
     MESACHEF_FIREBASE_CONFIG: MESACHEF_FIREBASE_CONFIG,
     SALON_GUADIANA: SALON_GUADIANA,
     SALON_CUMBRIA: SALON_CUMBRIA,

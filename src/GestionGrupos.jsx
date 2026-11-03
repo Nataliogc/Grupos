@@ -1110,6 +1110,14 @@
       const [saving, setSaving] = React.useState(false);
       const [error, setError] = React.useState("");
       const service = window.MesaChefService;
+      const [locations, setLocations] = React.useState({});
+      const [locationError, setLocationError] = React.useState("");
+      const refreshLocations = async () => {
+        try {
+          setLocationError("");
+          setLocations(await service.getServiceLocations(group.id));
+        } catch (e) { setLocationError("No se pudo consultar el salón actual en MesaChef."); }
+      };
       const record = {...(group.records?.[0] || {}), Reserva:group.id,
         Entrada:group.arrival || group.records?.[0]?.Entrada,
         Salida:group.departure || group.records?.[0]?.Salida,
@@ -1142,6 +1150,7 @@
             setRows(defaults);
           }
           setError(""); setOpen(true);
+          refreshLocations();
         } catch (e) { setError(e.message); }
       };
 
@@ -1194,6 +1203,7 @@
                   <th className="py-1.5 px-2">Servicio / Comida</th>
                   <th className="py-1.5 px-2">Hora (opc.)</th>
                   <th className="py-1.5 px-2">Personas</th>
+                  <th className="py-1.5 px-2">Salón en MesaChef</th>
                   <th className="py-1.5 pl-2 text-right"></th>
                 </tr>
               </thead>
@@ -1240,6 +1250,9 @@
                     <td className="py-1.5 px-2">
                       <input aria-label="Comensales" type="number" min="1" step="1" value={row.pax} disabled={saving} onChange={e=>change(index,"pax",Number(e.target.value))} className="border border-slate-300 rounded px-2 py-1 text-xs w-20 text-center font-bold" />
                     </td>
+                    <td className="py-1.5 px-2 text-slate-600">
+                      {locationError ? "Sin verificar" : locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || "Pendiente de sincronizar"}
+                    </td>
                     <td className="py-1.5 pl-2 text-right">
                       <button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer">Eliminar</button>
                     </td>
@@ -1248,6 +1261,9 @@
               </tbody>
             </table>
           </div>
+          <p className="text-xs text-slate-500">El salón inicial se asigna según el hotel. Los cambios de salón realizados en MesaChef se conservan al sincronizar.</p>
+          {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
+          <button type="button" disabled={saving} onClick={refreshLocations} className="text-xs text-blue-700 font-bold">Consultar salones de MesaChef</button>
           <div className="flex flex-wrap gap-3 items-center pt-1">
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:getTargetPax(record.Entrada),hora:"---"}])} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>syncAllRowsPax(prev))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Sincronizar comensales de todas las comidas con las personas del grupo">🔄 Sincronizar comensales ({getTargetPax(record.Entrada)} pax)</button>
@@ -13398,8 +13414,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             }
           }
 
-          if (!hasRealChanges) {
-            return;
+          if (!hasRealChanges && updates.MealSchedule_JSON === undefined) {
+            return { success: true, skipped: true };
           }
 
           const batch = db.batch();
@@ -13445,7 +13461,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             batch.set(docRef, payload, { merge: true });
           });
 
-          await batch.commit();
+          if (hasRealChanges) await batch.commit();
 
           if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
             const sampleRow = currentGroupRows[0] || {};
@@ -13455,11 +13471,20 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               id: targetNormId,
               reserva: targetNormId
             };
+            if (updates.MealSchedule_JSON !== undefined) {
+              try {
+                const result = await window.MesaChefService.syncGroupToMesachef(mergedForSync);
+                return { success: result?.success === true, saved: true };
+              } catch (syncErr) {
+                return { success: false, saved: true };
+              }
+            }
             window.MesaChefService.syncGroupToMesachef(mergedForSync).catch((syncErr) => {
               console.warn("[MesaChef Background Sync Warning]:", syncErr);
             });
           }
 
+          return { success: updates.MealSchedule_JSON === undefined, saved: true };
         } catch (err) {
           console.error("❌ Error updating metadata:", err);
           if (window.Swal) {
