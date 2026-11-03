@@ -1251,7 +1251,11 @@
                       <input aria-label="Comensales" type="number" min="1" step="1" value={row.pax} disabled={saving} onChange={e=>change(index,"pax",Number(e.target.value))} className="border border-slate-300 rounded px-2 py-1 text-xs w-20 text-center font-bold" />
                     </td>
                     <td className="py-1.5 px-2 text-slate-600">
-                      {locationError ? "Sin verificar" : locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || "Pendiente de sincronizar"}
+                      <input aria-label="Salón del servicio" list="meal-salon-options" disabled={saving}
+                        value={row.salon !== undefined ? row.salon : locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || ""}
+                        placeholder={locationError ? "Sin verificar" : (String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}
+                        onChange={e=>change(index,"salon",e.target.value)}
+                        className="border border-slate-300 rounded px-2 py-1 text-xs w-44" />
                     </td>
                     <td className="py-1.5 pl-2 text-right">
                       <button type="button" disabled={saving} onClick={()=>setRows(prev=>prev.filter((_,i)=>i!==index))} className="text-rose-600 hover:text-rose-800 font-semibold cursor-pointer">Eliminar</button>
@@ -1262,6 +1266,9 @@
             </table>
           </div>
           <p className="text-xs text-slate-500">El salón inicial se asigna según el hotel. Los cambios de salón realizados en MesaChef se conservan al sincronizar.</p>
+          <datalist id="meal-salon-options">
+            {[service.SALON_CUMBRIA, service.SALON_GUADIANA, "Mercurio", ...Object.values(locations)].filter((v,i,a)=>v && a.indexOf(v)===i).map(v=><option key={v} value={v} />)}
+          </datalist>
           {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
           <button type="button" disabled={saving} onClick={refreshLocations} className="text-xs text-blue-700 font-bold">Consultar salones de MesaChef</button>
           <div className="flex flex-wrap gap-3 items-center pt-1">

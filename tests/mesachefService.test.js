@@ -108,6 +108,14 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     assert.equal(data.get(dinnerKey).servicios[0].hora, '17:30');
     assert.equal(data.has('reservas_salones/nexus_213521_2027-02-03_cena_buffet'), false);
     await service.syncGroupToMesachef(group);
+    const moved = {...group, MealSchedule_JSON:JSON.stringify([{fecha:'2027-02-03',jornada:'cena',pax:12,salon:'Mercurio'}])};
+    await service.syncGroupToMesachef(moved);
+    assert.equal(data.get(dinnerKey).salon,'Mercurio');
+    assert.equal(data.get(dinnerKey).salonOverride,'Mercurio');
+    data.set(dinnerKey,{...data.get(dinnerKey),salon:'Otro',salonOverride:'Otro'});
+    await service.syncGroupToMesachef(moved);
+    assert.equal(data.get(dinnerKey).salonOverride,'Otro');
+    await service.syncGroupToMesachef(group);
     // A legacy room move without metadata is respected too.
     const legacyKey = 'reservas_salones/nexus_213521_2027-02-02_cena';
     data.set(legacyKey, {...data.get(legacyKey), salon:'Puerta del Carmen'});

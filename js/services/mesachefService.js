@@ -495,7 +495,8 @@
         pax: pax,
         hora: cleanHour,
         nombre: cleanNombre,
-        id: row.id || undefined
+        id: row.id || undefined,
+        salon: String(row.salon || "").trim()
       };
     });
   }
@@ -695,6 +696,7 @@
 
         doc.id = "nexus_" + reservaId + "_" + row.fecha + "_" + slug;
         doc.fecha = row.fecha;
+        if (row.salon) { doc.salon = row.salon; doc.nexusSalonRequest = row.salon; }
         doc.detalles.jornada = row.jornada;
         doc.detalles.hora = scheduleHour;
         doc.detalles.pax_adultos = row.pax;
@@ -1480,7 +1482,9 @@
             var hotelChanged = existing && existing.hotel !== docData.hotel;
             // MesaChef owns only the location override of this dated meal service.
             if (existing && !hotelChanged) {
-              docData.salon = existing.salonOverride || existing.salon || docData.salon;
+              if (docData.nexusSalonRequest && docData.nexusSalonRequest !== existing.nexusSalonRequest) {
+                docData.salonOverride = docData.nexusSalonRequest;
+              } else { docData.salon = existing.salonOverride || existing.salon || docData.salon; }
             }
             if (docData.ordenServicio) {
               docData.ordenServicio.salon = docData.salon;
@@ -1501,6 +1505,8 @@
               var newNotas = docData.notas || {};
 
               if (
+                existing.salon !== docData.salon ||
+                (docData.nexusSalonRequest && existing.nexusSalonRequest !== docData.nexusSalonRequest) ||
                 existing.estado !== docData.estado ||
                 existing.cliente !== docData.cliente ||
                 existing.hotel !== docData.hotel ||
@@ -1523,7 +1529,7 @@
               var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
               var serviceUpdate = Object.assign({}, docData);
               // Omit the field entirely: a room change can occur after this snapshot.
-              if (existing && !hotelChanged) delete serviceUpdate.salon;
+              if (existing && !hotelChanged && !(docData.nexusSalonRequest && docData.nexusSalonRequest !== existing.nexusSalonRequest)) delete serviceUpdate.salon;
               if (hotelChanged) { serviceUpdate.salonOverride = null; serviceUpdate.salonOverrideHotel = null; }
               batch.set(ref, serviceUpdate, { merge: true });
               if (hotelChanged && String(existing.salonOverride || existing.salon || '').trim().toLowerCase() === 'restaurante') {
@@ -1789,7 +1795,13 @@
       var locations = {};
       snapshot.forEach(function (doc) {
         var data = doc.data();
-        if (data.estado !== "cancelada") locations[doc.id] = data.salonOverride || data.salon || "";
+        if (data.estado !== "cancelada") {
+          locations[doc.id] = data.salonOverride || data.salon || "";
+          if (!data.fecha || !(data.detalles || {}).jornada) return;
+          var key = "nexus_" + normalizeReservaId(reservaId) + "_" + data.fecha + "_" + ((data.detalles || {}).jornada || "");
+          if (!Object.prototype.hasOwnProperty.call(locations, key)) locations[key] = locations[doc.id];
+          else if (locations[key] !== locations[doc.id]) locations[key] = "Varios salones";
+        }
       });
       return locations;
     });
