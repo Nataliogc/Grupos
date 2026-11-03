@@ -455,6 +455,7 @@
       case 'cena': return 'Cena';
       case 'coffee_break': return 'Coffee Break';
       case 'coctel': return 'Cóctel';
+      case 'sala': return customName || 'Alquiler de Sala';
       case 'especial': return 'Servicio Especial';
       default: return jornada ? (jornada.charAt(0).toUpperCase() + jornada.slice(1)) : 'Servicio';
     }
@@ -472,7 +473,7 @@
     var rows = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!Array.isArray(rows)) throw new Error("La programación de comidas debe ser una lista.");
     var seen = {};
-    var validJornadas = ["desayuno", "almuerzo", "merienda", "cena", "coffee_break", "coctel", "especial"];
+    var validJornadas = ["desayuno", "almuerzo", "merienda", "cena", "coffee_break", "coctel", "sala", "especial"];
     return rows.map(function (row) {
       var date = toIsoDate(row.fecha);
       var pax = Number(row.pax);
@@ -1216,6 +1217,51 @@
                   hora: extraDesHour,
                   concepto: "Desayuno Grupo " + (rm.type || "Extra"),
                   uds: svcQty,
+                  precio: 0,
+                  total: 0
+                }
+              ],
+              updated_at: new Date().toISOString()
+            });
+          }
+
+          if ((c.includes("SALA") || c.includes("SALON")) && !docs.some(function (d) { return d.fecha === iso && (d.detalles.jornada === "sala" || (d.notas && d.notas.interna && d.notas.interna.includes(rm.type || "Sala"))); })) {
+            var salaSlug = "sala" + (rm.type ? ("_" + String(rm.type).toLowerCase().replace(/[^a-z0-9]+/g, "_")) : "");
+            var docIdSala = "nexus_" + reservaId + "_" + iso + "_" + salaSlug;
+            var salaHour = extractRegisteredHour(rm.hora || rm.hour || rm.time) || "---";
+            var salaPax = parseInt(rm.numPax || rm.pax || rm.qty, 10) || globalPax || 1;
+            docs.push({
+              id: docIdSala,
+              reservaId: reservaId,
+              origen: "Nexus Groups",
+              hotel: hotelInfo.hotelId,
+              salon: rm.salon || hotelInfo.salon,
+              fecha: iso,
+              cliente: nombreGrupo + " (Ref: " + reservaId + ")",
+              contact: {
+                tel: groupRecord.Telefono || groupRecord.telefono || "",
+                email: groupRecord.Email || groupRecord.email || ""
+              },
+              estado: mesachefStatus,
+              revisado: true,
+              detalles: {
+                jornada: "sala",
+                montaje: "Reunión",
+                hora: salaHour,
+                pax_adultos: salaPax,
+                pax_ninos: 0,
+                incluido: true
+              },
+              notas: {
+                interna: "[Nexus Groups] Ref: " + reservaId + " | Servicio: " + (rm.type || "Alquiler Sala") + " | Pax: " + salaPax + " | Estancia: " + startIso + " al " + endIso,
+                cliente: groupRecord.Observaciones || groupRecord.observaciones || groupRecord.Notas || ""
+              },
+              servicios: [
+                {
+                  fecha: iso,
+                  hora: salaHour,
+                  concepto: (rm.type || "Alquiler Sala") + " (programado)",
+                  uds: salaPax,
                   precio: 0,
                   total: 0
                 }
