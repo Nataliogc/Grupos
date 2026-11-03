@@ -1,5 +1,35 @@
 (function (root) {
   "use strict";
+  function isServiceItem(item) {
+    const name = String(item.type || item.roomType || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+    return item.isService === true || item.isService === 'true' || /DESAYUNO|ALMUERZO|COMIDA|MERIENDA|CENA|COCTEL|COFFEE|BUFFET|MENU|BREAK|SALA|SALON|SPA|PARKING|TRASLADO/.test(name);
+  }
+  function getHeaderPax(group, toDate = value => String(value || '').split('T')[0]) {
+    const record = group.records?.[0] || group;
+    let items = group.RoomingList_JSON || record.RoomingList_JSON;
+    try { items = typeof items === 'string' ? JSON.parse(items) : items; } catch { items = null; }
+    const daily = {};
+    if (Array.isArray(items)) items.forEach(item => {
+      if (!item || isServiceItem(item)) return;
+      const name = String(item.type || item.roomType || '').toUpperCase();
+      const qty = Number(item.qty ?? item.quantity ?? item.cantidad ?? 1);
+      const perRoom = Number(item.pax) || (/IND|DUI|SGL|SINGLE/.test(name) ? 1 : /TRI|TPL/.test(name) ? 3 : /CUA|QUAD/.test(name) ? 4 : /DOB|DBL|TWIN|MATRI/.test(name) ? 2 : 0);
+      const date = toDate(item.dateIn || item.date || item.fecha);
+      if (!date || !Number.isFinite(qty) || qty <= 0 || perRoom <= 0) return;
+      const nights = Math.min(366, Math.max(1, parseInt(item.nights,10) || 1));
+      for (let i=0;i<nights;i++) {
+        const day = new Date(date + 'T12:00:00Z');
+        if (isNaN(day.getTime())) break;
+        day.setUTCDate(day.getUTCDate()+i);
+        const key=day.toISOString().slice(0,10);
+        daily[key]=(daily[key] || 0)+qty*perRoom;
+      }
+    });
+    const peak = Math.max(0,...Object.values(daily));
+    if (peak > 0) return peak;
+    const declared = Number(group.totalPax || record['Pax.'] || record.Pax);
+    return declared > 0 ? declared : null;
+  }
   function readSchedule(record) {
     const raw = record.MealSchedule_JSON;
     if (raw == null || raw === "") return null;
@@ -41,7 +71,7 @@
       const rowD = dateOf(row);
       const isReplacedBySchedule = schedule.some(m => {
         const mLabel = normalize(getScheduleLabel(m));
-        return m.fecha === rowD && (mLabel === normServ || (m.jornada === 'desayuno' && normServ === 'desayuno') || (m.jornada === 'merienda' && normServ === 'merienda'));
+        return (m.fecha === rowD || !rowD) && (mLabel === normServ || (m.jornada === 'desayuno' && normServ === 'desayuno') || (m.jornada === 'merienda' && normServ === 'merienda'));
       });
       return !isReplacedBySchedule;
     }).map(row=>({...row,fecha:dateOf(row)}));
@@ -54,7 +84,7 @@
     const order = {desayuno:0,coffee_break:1,'coffee break':1,almuerzo:2,merienda:3,cena:4,coctel:5,especial:6};
     return result.sort((a,b)=>(a.fecha || "9999").localeCompare(b.fecha || "9999") || (order[normalize(a.serv)] ?? 7)-(order[normalize(b.serv)] ?? 7));
   }
-  const api = {readSchedule,reconcileMealPlan,getScheduleLabel};
+  const api = {readSchedule,reconcileMealPlan,getScheduleLabel,isServiceItem,getHeaderPax};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ServiceOrderPlanService = api;
 })(typeof window !== "undefined" ? window : globalThis);

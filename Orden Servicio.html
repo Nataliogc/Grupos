@@ -206,9 +206,7 @@
         let isExplicitSaveInProgress = false;
         let currentGroupName = "";
         function goBackToReserva() {
-            // Guardamos la referencia para que Gestion de Grupos sepa qué ficha abrir
-            localStorage.setItem('nexus_return_reserva', currentReservaId);
-            localStorage.setItem('nexus_open_ficha', currentReservaId);
+            // La URL permite regresar aunque el almacenamiento esté lleno.
             window.location.href = 'Gestion-de-Grupos.html?reserva=' + encodeURIComponent(currentReservaId);
         }
         let originalTitleBeforePrint = "";
@@ -232,6 +230,7 @@
             }
         };
         let saveTimeout = null;
+        let lastLocalCacheSaved = false;
         // Auto Save Trigger
         function triggerSave() {
             hasUserEditedView = true;
@@ -247,7 +246,7 @@
                 saveStateToCache();
                 if (status) {
                     status.innerText = 'Autoguardado local ✓';
-                    setTimeout(() => status.style.opacity = '0', 2000);
+                    if (lastLocalCacheSaved) setTimeout(() => status.style.opacity = '0', 2000);
                 }
             }, 1000);
         }
@@ -265,7 +264,7 @@
                 const group = JSON.parse(window.NexusSelectedGroupStorage.getItem('selectedGroup') || '{}');
                 const record = group.records?.[0] || group;
                 const payload = JSON.stringify(savedOrder);
-                if (!window.db || typeof firebase === 'undefined') throw new Error("La orden está guardada localmente. No hay conexión para compartirla con MesaChef.");
+                if (!window.db || typeof firebase === 'undefined') throw new Error(lastLocalCacheSaved ? "La orden está guardada localmente. No hay conexión para compartirla con MesaChef." : "No se ha podido guardar ni localmente ni en la base de datos. Mantén esta pantalla abierta y vuelve a intentarlo.");
                 const sourceBatch = window.db.batch();
                 const docIds = new Set([window.MesaChefService.normalizeReservaId(currentReservaId)]);
                 (group.records || []).forEach(r=>{ if (r._docId) docIds.add(r._docId); });
@@ -403,7 +402,7 @@
                 incidenciaRows
             };
             document.title = `${currentReservaId} - Ord Servicio - ${saveData.grupo}`;
-            localStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
+            lastLocalCacheSaved = window.NexusDraftStorage.setItem('ordenServicio_' + currentReservaId, JSON.stringify(saveData));
             // Force Rooming & Servicios to reload from this updated Orden de Servicio next time, but preserve the rooming list
             const cachedRoomingStr = window.NexusDraftStorage.getItem('roomingServicios_' + currentReservaId);
             if (cachedRoomingStr) {
@@ -474,7 +473,7 @@
                 sessionStorage.removeItem("discardUnsavedChanges");
                 console.log("[DESCARTAR CAMBIOS] Vista restaurada desde datos persistidos");
             } else {
-                savedStateStr = rec.ServiceOrder_JSON || localStorage.getItem('ordenServicio_' + currentReservaId);
+                savedStateStr = rec.ServiceOrder_JSON || window.NexusDraftStorage.getItem('ordenServicio_' + currentReservaId);
             }
             const eventName = rec['Nombre del Grupo'] || group.name || '---';
             document.title = `${currentReservaId} - Ord Servicio - ${eventName}`;
@@ -513,7 +512,7 @@
                 document.getElementById('grupo-val').innerText = sanitizeText(s.grupo || '');
                 document.title = `${currentReservaId} - Ord Servicio - ${s.grupo || eventName}`;
                 document.getElementById('agencia-val').innerText = sanitizeText(s.agencia || '');
-                document.getElementById('pax-val').innerText = sanitizeText(s.pax || '');
+                document.getElementById('pax-val').innerText = String(window.ServiceOrderPlanService.getHeaderPax(group, window.NexusUtils.toInputDate) ?? s.pax ?? '---');
                 document.getElementById('regimen-val').innerText = sanitizeText(s.regimen || '');
                 document.getElementById('comercial-val').innerText = sanitizeText(s.comercial || '---');
                 if (typeof s.notasText === 'string') {
@@ -550,7 +549,7 @@
             // (Used if no cache found OR if cache was empty)
             const gName = rec['Nombre del Grupo'] || group.name || '---';
             const gAgency = rec['Empresa/Agencia'] || group.agency || 'Directo';
-            const gPax = rec['Pax.'] || rec['Pax'] || group.totalPax || '---';
+            const gPax = window.ServiceOrderPlanService.getHeaderPax(group, window.NexusUtils.toInputDate) ?? '---';
             const gCom = rec['Com_Comercial'] || group.commercial || 'S/A';
 
             document.getElementById('ref-val').innerText = currentReservaId;
@@ -669,7 +668,7 @@
                         }
                         const paxPerRoom = parseInt(item.pax) || (typeUpper.includes('IND') ? 1 : 2);
                         const realPersons = qty * paxPerRoom;
-                        const isMealsOrService = ['DESAYUNO', 'ALMUERZO', 'CENA', 'COCTEL', 'COFFEE', 'BUFFET', 'MENÚ', 'MENU', 'BREAK'].some(w => typeUpper.includes(w));
+                        const isMealsOrService = window.ServiceOrderPlanService.isServiceItem(item);
                         if (dIn && !isNaN(dIn)) {
                             for (let i = 0; i < nights; i++) {
                                 const d = new Date(dIn);

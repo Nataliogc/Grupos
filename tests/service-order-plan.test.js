@@ -32,3 +32,18 @@ test('ordena fechas al cambiar de año con una orden antigua sin fecha ISO',()=>
  const plan=reconcileMealPlan([{dia:'Vie 01/01',serv:'Desayuno',pax:'17'}],[{fecha:'2026-12-31',jornada:'cena',pax:17}],format,'2026-12-31');
  assert.deepEqual(plan.map(r=>r.fecha),['2026-12-31','2027-01-01']);
 });
+
+test('cabecera cuenta 34 alojados y excluye comida, merienda y sala incluso con caché de 102',()=>{
+ const {getHeaderPax}=require('../js/services/serviceOrderPlanService');
+ const items=[{type:'DOBLE DE USO INDIVIDUAL',qty:10,pax:1,dateIn:'2026-11-04'},
+ {type:'DOBLE',qty:12,pax:2,dateIn:'2026-11-04'},
+ {type:'COMIDA PREPARTIDO',qty:34,pax:1,dateIn:'2026-11-04'},
+ {type:'MERIENDA DE PARTIDO',qty:25,pax:1,dateIn:'2026-11-04'},
+ {type:'SALA CHARLA',qty:1,pax:1,dateIn:'2026-11-04'}];
+ assert.equal(getHeaderPax({totalPax:102,RoomingList_JSON:JSON.stringify(items)}),34);
+ assert.equal(getHeaderPax({RoomingList_JSON:JSON.stringify([...items,...items.map(i=>({...i,dateIn:'2026-11-05'}))])}),34);
+});
+test('merienda sin fecha anterior no se duplica con la programada',()=>{
+ const plan=reconcileMealPlan([{dia:'---',serv:'Merienda',pax:'34'}],[{fecha:'2026-11-04',jornada:'merienda',nombre:'Merienda Buffett',pax:25}],format,'2026-11-04');
+ assert.equal(plan.length,1);assert.equal(plan[0].pax,'25');
+});
