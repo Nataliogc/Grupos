@@ -45,6 +45,36 @@
 
     const { useState, useEffect, useMemo, useRef } = React;
 
+    // Preserve partial date edits until blur; do not regroup rows while typing.
+    const InlineDateInput = ({ value, onCommit, className, title }) => {
+      const inputRef = useRef(null);
+      useEffect(() => {
+        if (inputRef.current) inputRef.current.value = value || "";
+      }, [value]);
+      return (
+        <input ref={inputRef} type="date" defaultValue={value || ""}
+          min="1000-01-01" max="9999-12-31"
+          className={className} title={title} aria-label={title}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              e.currentTarget.value = value || "";
+              e.currentTarget.blur();
+            }
+          }}
+          onBlur={(e) => {
+            const input = e.currentTarget;
+            const next = input.value;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || !input.validity.valid) {
+              input.value = value || "";
+              return;
+            }
+            if (next !== value) onCommit(next);
+          }}
+        />
+      );
+    };
+
     const InlineNumberInput = ({ value, min = 1, onCommit, className, title }) => {
       const [localVal, setLocalVal] = useState(String(value ?? ""));
 
@@ -25276,15 +25306,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                         {/* FECHA CARGO */}
                                         <td className="py-1.5 px-2">
-                                          <input
-                                            type="date"
+                                          <InlineDateInput
                                             className="bg-white/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-blue-400 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-700 outline-none transition cursor-pointer shadow-2xs"
                                             value={toInputDate(item.dateIn)}
-                                            onChange={(e) => {
-                                              if (e.target.value) {
-                                                handleInlineRoomItemUpdate(item, "dateIn", e.target.value);
-                                              }
-                                            }}
+                                            onCommit={(date) => handleInlineRoomItemUpdate(item, "dateIn", date)}
                                             title="Editar fecha de cargo"
                                           />
                                         </td>
