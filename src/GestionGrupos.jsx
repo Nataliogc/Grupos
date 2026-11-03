@@ -1115,7 +1115,16 @@
       const refreshLocations = async () => {
         try {
           setLocationError("");
-          setLocations(await service.getServiceLocations(group.id));
+          const locs = await service.getServiceLocations(group.id);
+          setLocations(locs);
+          setRows(prev => prev.map(r => {
+            const docKey = "nexus_" + service.normalizeReservaId(group.id) + "_" + r.fecha + "_" + r.jornada;
+            const mesaSalon = locs[r.id] || locs[docKey];
+            if (mesaSalon && mesaSalon !== "Varios salones" && r.salon !== mesaSalon) {
+              return { ...r, salon: mesaSalon };
+            }
+            return r;
+          }));
         } catch (e) { setLocationError("No se pudo consultar el salón actual en MesaChef."); }
       };
       const record = {...(group.records?.[0] || {}), Reserva:group.id,
@@ -1252,7 +1261,7 @@
                     </td>
                     <td className="py-1.5 px-2 text-slate-600">
                       <input aria-label="Salón del servicio" list="meal-salon-options" disabled={saving}
-                        value={row.salon !== undefined ? row.salon : locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || ""}
+                        value={(row.salon !== undefined && row.salon !== "") ? row.salon : (locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || "")}
                         placeholder={locationError ? "Sin verificar" : (String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}
                         onChange={e=>change(index,"salon",e.target.value)}
                         className="border border-slate-300 rounded px-2 py-1 text-xs w-44" />
