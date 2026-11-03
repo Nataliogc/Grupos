@@ -1455,6 +1455,20 @@
             existingMap.set(docSnap.id, docSnap.data());
           });
 
+          // Editing a meal description must preserve its identity and room.
+          var serviceKey = function (d) { return d.fecha + "_" + ((d.detalles || {}).jornada || ""); };
+          salonDocs.forEach(function (docData) {
+            if (existingMap.has(docData.id)) return;
+            var key = serviceKey(docData);
+            if (salonDocs.filter(function (d) { return serviceKey(d) === key; }).length !== 1) return;
+            var matches = [];
+            existingMap.forEach(function (d, id) {
+              if (d.estado !== "cancelada" && d.hotel === docData.hotel && serviceKey(d) === key && !activeDocIds.has(id)) matches.push(id);
+            });
+            if (matches.length === 1) docData.id = matches[0];
+          });
+          activeDocIds = new Set(salonDocs.map(function (d) { return d.id; }));
+
           // A. Guardar o actualizar los servicios actuales ÚNICAMENTE si han cambiado o no existen
           salonDocs.forEach(function (docData) {
             var existing = existingMap.get(docData.id);

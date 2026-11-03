@@ -1,0 +1,141 @@
+✔ consulta el salón de cada servicio sin modificar MesaChef (1.0356ms)
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=MP (isDayPc=false, isDayMp=true), Pax=2
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen= (isDayPc=false, isDayMp=false), Pax=2
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=PC (isDayPc=true, isDayMp=false), Pax=17
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+✔ reproduce la ficha: HA no genera comidas, MP 5 pax, PC 12 pax (11.5744ms)
+✔ el desglose de tres días prevalece sobre la salida antigua de cabecera (0.3706ms)
+✔ las líneas determinan las comidas aunque la cabecera tenga otras fechas, pax y régimen (0.3026ms)
+✔ no inventa comidas de cabecera en huecos o líneas sin régimen (0.2903ms)
+✔ regímenes mixtos cuentan solo los comensales de cada comida (0.2389ms)
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (4 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (5 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (2 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🚫 [MesaChef Sync] Reserva 213521 marcada como CANCELADA en MesaChef (9 servicios actualizados).
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🚫 [MesaChef Sync] Reserva 213521 marcada como CANCELADA en MesaChef (9 servicios actualizados).
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=2
+🍽️ [MesaChef Sync] Reserva 213521 actualizada (3 operaciones escritas en Firestore por cambios reales). ⚠️ [1 servicios desvinculados en mesa protegidos]
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=MP (isDayPc=false, isDayMp=true), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=PC (isDayPc=true, isDayMp=false), Pax=17
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=MP (isDayPc=false, isDayMp=true), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=MP (isDayPc=false, isDayMp=true), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2026-10-10: Regimen=PC (isDayPc=true, isDayMp=false), Pax=17
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2026-10-11: Regimen= (isDayPc=false, isDayMp=false), Pax=1
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=PC (isDayPc=true, isDayMp=false), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=HA (isDayPc=false, isDayMp=false), Pax=2
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2026-10-10: Regimen=PC (isDayPc=true, isDayMp=false), Pax=16
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2026-10-10: Regimen=PC (isDayPc=true, isDayMp=false), Pax=16
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2026-10-10: Regimen=PC (isDayPc=true, isDayMp=false), Pax=16
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2026-10-10: Regimen=PC (isDayPc=true, isDayMp=false), Pax=17
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-01: Regimen=HA (isDayPc=false, isDayMp=false), Pax=15
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=5
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=12
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-02: Regimen=MP (isDayPc=false, isDayMp=true), Pax=2
+🍽️ [MesaChef Debug] Ref: 213521 | Day 2027-02-03: Regimen=PC (isDayPc=true, isDayMp=false), Pax=2
+✔ guarda cambios, cancela servicios obsoletos y protege desvinculados (287.839ms)
+✔ MP con almuerzo genera solo almuerzo con etiqueta MP (0.3955ms)
+✔ MP permite distintos turnos el mismo día y PC conserva ambas comidas (0.2164ms)
+✔ MP de cabecera o distribución admite almuerzo sin desglose de habitaciones (0.2984ms)
+✔ PC de una noche permite almuerzos de entrada y salida sin cena (0.4107ms)
+✔ PC con dos almuerzos respeta las otras habitaciones y no añade cena en salida (0.2176ms)
+✔ programacion personalizada mueve cena a almuerzo de salida sin duplicar comidas (0.4638ms)
+✔ programacion rechaza filas duplicadas, turnos y comensales invalidos (0.362ms)
+✔ programacion admite servicios adicionales (desayuno, merienda, coffee_break, especial) hacia MesaChef (0.3546ms)
+✔ comidas por encima de las incluidas se marcan como extras pendientes de valorar (0.2108ms)
+✔ sincroniza los comensales de la programacion cuando el grupo cambia de pax (ej. 62 a 66) (0.26ms)
+✔ cada orden de MesaChef importa solo menu, hora e incidencias de su fecha y comida (0.4753ms)
+✔ si el grupo no tiene hora programada no pasa hora y pone ---, solo pasa hora si esta registrada en grupos (0.5304ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 451.4717
