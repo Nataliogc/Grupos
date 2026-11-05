@@ -90,7 +90,7 @@
                 planTotal += amt;
                 if (p.status === "Cobrado" || p.status === "Pagado") {
                   planPaid += amt;
-                } else {
+                } else if (amt > 0.05) {
                   allMilestonesCobrado = false;
                 }
               });
@@ -100,7 +100,7 @@
       });
 
       const manualPaid = records.reduce((max, r) => Math.max(max, safeParseAmount(r.Com_Pagado || 0)), 0);
-      const paid = hasMilestones ? planPaid : manualPaid;
+      const paid = Math.max(hasMilestones ? planPaid : 0, manualPaid);
 
       let total = 0;
       if (roomingTotal > 0) {
@@ -117,7 +117,12 @@
       }
 
       let pending = Math.max(0, total - paid);
-      if ((hasMilestones && allMilestonesCobrado && planPaid > 0) || (planTotal > 0 && paid >= planTotal - 0.05) || (total > 0 && paid >= total - 0.05)) {
+      if (
+        (hasMilestones && allMilestonesCobrado && planPaid > 0) ||
+        (planTotal > 0 && paid >= planTotal - 0.05) ||
+        (total > 0 && paid >= total - 0.05) ||
+        (manualPaid > 0 && total > 0 && manualPaid >= total - 0.05)
+      ) {
         pending = 0;
       }
 
@@ -491,11 +496,15 @@
       };
 
       const getPaymentNotice = (g, today = new Date()) => {
+        const fin = getGroupFinancialInfo(g);
+        if (fin.pending <= 0.05 || (fin.total > 0 && fin.paid >= fin.total - 0.05)) {
+          return null;
+        }
         const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         let plan = [];
         try { plan = JSON.parse(g.PaymentPlan_JSON || "[]"); } catch (_) {}
         const milestones = (Array.isArray(plan) ? plan : []).filter(p =>
-          p.status !== 'Cobrado' && p.status !== 'Pagado' && parseDate(p.date)
+          p.status !== 'Cobrado' && p.status !== 'Pagado' && (parseFloat(p.amount) || 0) > 0.05 && parseDate(p.date)
         ).sort((a, b) => parseDate(a.date) - parseDate(b.date));
         const milestone = milestones[0];
         if (!milestone) return null;
@@ -528,6 +537,8 @@
           } else {
             const existing = groupMap.get(resId);
             existing.records.push(row);
+            if (row.Hotel_Asignado) existing.Hotel_Asignado = row.Hotel_Asignado;
+            if (row.Hotel) existing.Hotel = row.Hotel;
             if (row.Logistica_Rooming) existing.Logistica_Rooming = true;
             if (row.Logistica_MenuMP) existing.Logistica_MenuMP = true;
             if (row.Logistica_MenuPC) existing.Logistica_MenuPC = true;
@@ -536,6 +547,19 @@
             }
             if (row.RoomingList_JSON && (!existing.RoomingList_JSON || existing.RoomingList_JSON === "[]")) {
               existing.RoomingList_JSON = row.RoomingList_JSON;
+            }
+            if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]") {
+              try {
+                const rl = typeof row.RoomingList_JSON === "string" ? JSON.parse(row.RoomingList_JSON) : row.RoomingList_JSON;
+                if (Array.isArray(rl) && rl.length > 0) {
+                  const rlHotel = rl.find(it => it.hotel)?.hotel;
+                  if (rlHotel) existing.Hotel_Asignado = rlHotel;
+                  const inDates = rl.map(it => it.dateIn || it.date).filter(Boolean).sort();
+                  if (inDates.length > 0 && inDates[0]) {
+                    existing.activeInDate = inDates[0];
+                  }
+                }
+              } catch (e) {}
             }
             if (!existing.Com_Comercial && row.Com_Comercial) existing.Com_Comercial = row.Com_Comercial;
             if (!existing.Comercial && row.Comercial) existing.Comercial = row.Comercial;
@@ -2500,10 +2524,21 @@ ${comercial}`;
             <div className="flex flex-col gap-4">
               {alerts.map((alert, idx) => {
                 const g = alert.group;
-                const isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
+                const rawHotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+                const isCumbria = rawHotel.includes("cumb") && !rawHotel.includes("guad");
                 const notifStatus = getGroupNotificationStatus(g, notifiedAlerts, notifiedInternalAlerts);
                 
-                const entryDate = parseDate(g.Entrada);
+                let effectiveIn = g.activeInDate || g.Entrada;
+                if (!g.activeInDate && g.RoomingList_JSON && g.RoomingList_JSON !== "[]") {
+                  try {
+                    const rl = typeof g.RoomingList_JSON === "string" ? JSON.parse(g.RoomingList_JSON) : g.RoomingList_JSON;
+                    if (Array.isArray(rl) && rl.length > 0) {
+                      const dIn = rl.map(it => it.dateIn || it.date).filter(Boolean).sort()[0];
+                      if (dIn) effectiveIn = dIn;
+                    }
+                  } catch (e) {}
+                }
+                const entryDate = parseDate(effectiveIn);
                 let daysToArrival = null;
                 if (entryDate && !isNaN(entryDate.getTime())) {
                   const today = new Date();
@@ -3733,7 +3768,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.52 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.53 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>

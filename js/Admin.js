@@ -116,7 +116,7 @@ var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
             planTotal += amt;
             if (p.status === "Cobrado" || p.status === "Pagado") {
               planPaid += amt;
-            } else {
+            } else if (amt > 0.05) {
               allMilestonesCobrado = false;
             }
           });
@@ -127,7 +127,7 @@ var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
   var manualPaid = records.reduce(function (max, r) {
     return Math.max(max, safeParseAmount(r.Com_Pagado || 0));
   }, 0);
-  var paid = hasMilestones ? planPaid : manualPaid;
+  var paid = Math.max(hasMilestones ? planPaid : 0, manualPaid);
   var total = 0;
   if (roomingTotal > 0) {
     total = roomingTotal;
@@ -146,7 +146,7 @@ var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
     }
   }
   var pending = Math.max(0, total - paid);
-  if (hasMilestones && allMilestonesCobrado && planPaid > 0 || planTotal > 0 && paid >= planTotal - 0.05 || total > 0 && paid >= total - 0.05) {
+  if (hasMilestones && allMilestonesCobrado && planPaid > 0 || planTotal > 0 && paid >= planTotal - 0.05 || total > 0 && paid >= total - 0.05 || manualPaid > 0 && total > 0 && manualPaid >= total - 0.05) {
     pending = 0;
   }
   return {
@@ -518,13 +518,17 @@ var Dashboard = function Dashboard(_ref2) {
   };
   var getPaymentNotice = function getPaymentNotice(g) {
     var today = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : new Date();
+    var fin = getGroupFinancialInfo(g);
+    if (fin.pending <= 0.05 || fin.total > 0 && fin.paid >= fin.total - 0.05) {
+      return null;
+    }
     var day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     var plan = [];
     try {
       plan = JSON.parse(g.PaymentPlan_JSON || "[]");
     } catch (_) {}
     var milestones = (Array.isArray(plan) ? plan : []).filter(function (p) {
-      return p.status !== 'Cobrado' && p.status !== 'Pagado' && parseDate(p.date);
+      return p.status !== 'Cobrado' && p.status !== 'Pagado' && (parseFloat(p.amount) || 0) > 0.05 && parseDate(p.date);
     }).sort(function (a, b) {
       return parseDate(a.date) - parseDate(b.date);
     });
@@ -560,6 +564,8 @@ var Dashboard = function Dashboard(_ref2) {
       } else {
         var existing = groupMap.get(resId);
         existing.records.push(row);
+        if (row.Hotel_Asignado) existing.Hotel_Asignado = row.Hotel_Asignado;
+        if (row.Hotel) existing.Hotel = row.Hotel;
         if (row.Logistica_Rooming) existing.Logistica_Rooming = true;
         if (row.Logistica_MenuMP) existing.Logistica_MenuMP = true;
         if (row.Logistica_MenuPC) existing.Logistica_MenuPC = true;
@@ -568,6 +574,24 @@ var Dashboard = function Dashboard(_ref2) {
         }
         if (row.RoomingList_JSON && (!existing.RoomingList_JSON || existing.RoomingList_JSON === "[]")) {
           existing.RoomingList_JSON = row.RoomingList_JSON;
+        }
+        if (row.RoomingList_JSON && row.RoomingList_JSON !== "[]") {
+          try {
+            var rl = typeof row.RoomingList_JSON === "string" ? JSON.parse(row.RoomingList_JSON) : row.RoomingList_JSON;
+            if (Array.isArray(rl) && rl.length > 0) {
+              var _rl$find;
+              var rlHotel = (_rl$find = rl.find(function (it) {
+                return it.hotel;
+              })) === null || _rl$find === void 0 ? void 0 : _rl$find.hotel;
+              if (rlHotel) existing.Hotel_Asignado = rlHotel;
+              var inDates = rl.map(function (it) {
+                return it.dateIn || it.date;
+              }).filter(Boolean).sort();
+              if (inDates.length > 0 && inDates[0]) {
+                existing.activeInDate = inDates[0];
+              }
+            }
+          } catch (e) {}
         }
         if (!existing.Com_Comercial && row.Com_Comercial) existing.Com_Comercial = row.Com_Comercial;
         if (!existing.Comercial && row.Comercial) existing.Comercial = row.Comercial;
@@ -2212,9 +2236,22 @@ var Dashboard = function Dashboard(_ref2) {
     }, alerts.map(function (alert, idx) {
       var _notifStatus$client$d, _notifStatus$internal;
       var g = alert.group;
-      var isCumbria = (g.Hotel_Asignado || g.Hotel || "").toLowerCase().includes("cumb");
+      var rawHotel = (g.Hotel_Asignado || g.Hotel || "").toLowerCase();
+      var isCumbria = rawHotel.includes("cumb") && !rawHotel.includes("guad");
       var notifStatus = getGroupNotificationStatus(g, notifiedAlerts, notifiedInternalAlerts);
-      var entryDate = parseDate(g.Entrada);
+      var effectiveIn = g.activeInDate || g.Entrada;
+      if (!g.activeInDate && g.RoomingList_JSON && g.RoomingList_JSON !== "[]") {
+        try {
+          var rl = typeof g.RoomingList_JSON === "string" ? JSON.parse(g.RoomingList_JSON) : g.RoomingList_JSON;
+          if (Array.isArray(rl) && rl.length > 0) {
+            var dIn = rl.map(function (it) {
+              return it.dateIn || it.date;
+            }).filter(Boolean).sort()[0];
+            if (dIn) effectiveIn = dIn;
+          }
+        } catch (e) {}
+      }
+      var entryDate = parseDate(effectiveIn);
       var daysToArrival = null;
       if (entryDate && !isNaN(entryDate.getTime())) {
         var today = new Date();
@@ -3230,7 +3267,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.52 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.53 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,

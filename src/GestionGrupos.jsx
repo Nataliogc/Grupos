@@ -1147,11 +1147,21 @@
           setLocationError("");
           const locs = await service.getServiceLocations(group.id);
           setLocations(locs);
+          const targetHotel = record.Hotel_Asignado || group.hotel || "";
+          const catSalons = await service.getAvailableSalons(targetHotel).catch(() => []);
+          const defSalon = String(targetHotel).toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA;
           setRows(prev => prev.map(r => {
             const docKey = "nexus_" + service.normalizeReservaId(group.id) + "_" + r.fecha + "_" + r.jornada;
             const mesaSalon = locs[r.id] || locs[docKey];
-            if (mesaSalon && mesaSalon !== "Varios salones" && r.salon !== mesaSalon) {
-              return { ...r, salon: mesaSalon };
+            if (mesaSalon && mesaSalon !== "Varios salones") {
+              if (catSalons.length === 0 || catSalons.includes(mesaSalon)) {
+                return { ...r, salon: mesaSalon };
+              } else {
+                return { ...r, salon: defSalon };
+              }
+            }
+            if (r.salon && catSalons.length > 0 && !catSalons.includes(r.salon)) {
+              return { ...r, salon: defSalon };
             }
             return r;
           }));
@@ -1164,6 +1174,22 @@
         totalPax:group.totalPax,
         RoomingList_JSON:group.RoomingList_JSON || group.records?.[0]?.RoomingList_JSON,
         DailyDistribution_JSON:group.DailyDistribution_JSON || group.records?.[0]?.DailyDistribution_JSON};
+
+      // Cálculo de fechas efectivas de estancia considerando desglose de habitaciones y filas
+      const rlStayDates = [];
+      try {
+        const rl = parseRoomingListSafe(record.RoomingList_JSON, "meal-dates") || [];
+        rl.forEach(it => {
+          const d1 = toInputDate(it.dateIn || it.date || it.fecha);
+          const d2 = toInputDate(it.dateOut || it.date || it.fecha);
+          if (d1) rlStayDates.push(d1);
+          if (d2) rlStayDates.push(d2);
+        });
+      } catch (e) {}
+      const rowDatesList = rows.map(r => r.fecha).filter(Boolean);
+      const allPossibleStayDates = [toInputDate(record.Entrada), toInputDate(record.Salida), ...rlStayDates, ...rowDatesList].filter(Boolean).sort();
+      const effectiveMinDate = allPossibleStayDates[0] || toInputDate(record.Entrada);
+      const effectiveMaxDate = allPossibleStayDates[allPossibleStayDates.length - 1] || toInputDate(record.Salida);
       const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos, hora:d.detalles.hora || "---"}));
 
       const syncAllRowsPax = (sourceRows) => {
@@ -1219,8 +1245,8 @@
           const value = automaticMode ? null : JSON.stringify(rows);
           if (!automaticMode) {
             const checked = service.getMealSchedule({...record, MealSchedule_JSON:value});
-            if (checked.some(r => (record.Entrada && r.fecha < toInputDate(record.Entrada)) || (record.Salida && r.fecha > toInputDate(record.Salida)))) {
-              throw new Error("Elige fechas dentro de la estancia, incluido el día de salida.");
+            if (checked.some(r => (effectiveMinDate && r.fecha < effectiveMinDate) || (effectiveMaxDate && r.fecha > effectiveMaxDate))) {
+              throw new Error("Elige fechas dentro de la estancia del grupo (" + (effectiveMinDate || "") + " a " + (effectiveMaxDate || "") + ").");
             }
           }
           await onSave(value);
@@ -1256,7 +1282,7 @@
                 {rows.map((row,index)=>(
                   <tr key={index} className="hover:bg-slate-50/60">
                     <td className="py-1.5 pr-2">
-                      <input aria-label="Fecha de comida" type="date" min={toInputDate(record.Entrada)} max={toInputDate(record.Salida)} value={row.fecha} disabled={saving} onChange={e=>change(index,"fecha",e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs" />
+                      <input aria-label="Fecha de comida" type="date" min={effectiveMinDate} max={effectiveMaxDate} value={row.fecha} disabled={saving} onChange={e=>change(index,"fecha",e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs" />
                     </td>
                     <td className="py-1.5 px-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1308,7 +1334,7 @@
                         onChange={e=>change(index,"salon",e.target.value)}
                         className="border border-slate-300 rounded px-2 py-1 text-xs w-44">
                         <option value="">Selecciona salón</option>
-                        {[...availableSalons, row.salon, locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`]].filter((v,i,a)=>v && a.indexOf(v)===i).map(v=><option key={v} value={v}>{v}</option>)}
+                        {((availableSalons && availableSalons.length > 0) ? availableSalons : [String(record.Hotel_Asignado || "").toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA]).filter((v,i,a)=>v && a.indexOf(v)===i).map(v=><option key={v} value={v}>{v}</option>)}
                       </select>
                     </td>
                     <td className="py-1.5 pl-2 text-right">
@@ -13126,8 +13152,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
           // Centralized Normalization
           const normNewHotel = normalizeHotelNameLocal(hVal, "Sercotel Guadiana");
-          if (updates["Hotel_Asignado"] !== undefined) updates["Hotel_Asignado"] = normNewHotel;
-          if (updates["Hotel"] !== undefined) updates["Hotel"] = normNewHotel;
+          updates["Hotel_Asignado"] = normNewHotel;
+          updates["Hotel"] = normNewHotel;
 
           // Detect change & Sync RoomingList_JSON
           const firstRow = currentGroupRows[0];
@@ -13409,6 +13435,14 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             hotel:
 
               updates["Hotel_Asignado"] || updates["Hotel"] || prev.hotel,
+
+            arrival:
+
+              updates["Entrada"] || prev.arrival,
+
+            departure:
+
+              updates["Salida"] || prev.departure,
 
             // Sincronizar nombre del grupo si se cambió
 
@@ -22134,7 +22168,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                     const urgentPayments = [];
 
-                    if (!isGroupCredito) {
+                    // Solo alertar de cobro pendiente si el grupo NO es crédito y tiene saldo pendiente real (> 0.05 €)
+                    if (!isGroupCredito && pendingAmount > 0.05 && totalPaid < netTotal - 0.05) {
                       const todayForAlert = new Date();
                       todayForAlert.setHours(0, 0, 0, 0);
                       const processedUrgentPlans = new Set();
@@ -22150,7 +22185,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                             const plan = JSON.parse(hRec.PaymentPlan_JSON);
                             if (Array.isArray(plan)) {
                               plan.forEach((p) => {
-                                if (p.status !== "Cobrado") {
+                                const rowAmt = parseFloat(p.amount) || 0;
+                                if (p.status !== "Cobrado" && p.status !== "Pagado" && rowAmt > 0.05) {
                                   const d = new Date(toInputDate(p.date));
                                   d.setHours(0, 0, 0, 0);
                                   const diff = Math.ceil(
@@ -23897,6 +23933,39 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                         </div>
                                         {(issue.type.includes('mismatch') || issue.type === 'excel_diff_reason' || issue.type === 'zero_price' || issue.type === 'missing_day' || issue.type === 'extra_day_outside_stay') && (
                                           <button type="button" onClick={() => setDifferenceAccepted(issue, true)} className="shrink-0 text-[10px] font-bold px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">Estoy de acuerdo con la diferencia</button>
+                                        )}
+                                        {issue.type === "excel_dates_mismatch" && (
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              try {
+                                                const rlItems = parseRoomingListSafe(selectedGroupFicha.records[0]?.["RoomingList_JSON"], "sync-dates-click");
+                                                const inDates = (rlItems || []).filter(it => !it.isService && (it.dateIn || it.date)).map(it => toInputDate(it.dateIn || it.date)).filter(Boolean).sort();
+                                                const outDates = (rlItems || []).filter(it => !it.isService && (it.dateOut || it.dateIn || it.date)).map(it => toInputDate(it.dateOut || it.dateIn || it.date)).filter(Boolean).sort();
+                                                if (inDates.length > 0) {
+                                                  const cIn = inDates[0];
+                                                  let cOut = outDates[outDates.length - 1];
+                                                  if (cOut <= cIn) {
+                                                    const [y, m, d] = cIn.split("-").map(Number);
+                                                    cOut = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().split("T")[0];
+                                                  }
+                                                  const dIn = new Date(cIn + "T00:00:00Z");
+                                                  const dOut = new Date(cOut + "T00:00:00Z");
+                                                  const numNights = Math.max(1, Math.round((dOut - dIn) / (1000 * 60 * 60 * 24)));
+                                                  await updateGroupMetadata(selectedGroupFicha.id, {
+                                                    Entrada: cIn, "Check-In": cIn, Salida: cOut, "Check-Out": cOut, Noches: numNights, noches: numNights
+                                                  });
+                                                  alert(`✅ Fechas de la reserva sincronizadas con éxito:\nEntrada: ${cIn}\nSalida: ${cOut}\nNoches: ${numNights}`);
+                                                }
+                                              } catch (err) {
+                                                alert("Error al sincronizar fechas: " + err.message);
+                                              }
+                                            }}
+                                            className="shrink-0 text-[10px] font-bold px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition shadow-xs flex items-center gap-1 cursor-pointer"
+                                            title="Actualizar las fechas de la estancia del grupo para que coincidan exactamente con la Ficha económica"
+                                          >
+                                            📅 Sincronizar fechas con la Ficha
+                                          </button>
                                         )}
                                         {issue.type === "excel_amount_mismatch" && (
                                           <span className="flex-shrink-0 ml-auto text-[9px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded border border-red-200">
@@ -27072,6 +27141,32 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                       }
                                     } catch(e) {}
 
+                                    // Sincronizar fechas del grupo si el desglose de habitaciones define estancia
+                                    const rlInDates = (currentRL || [])
+                                      .filter(it => !it.isService && (it.dateIn || it.date))
+                                      .map(it => toInputDate(it.dateIn || it.date))
+                                      .filter(Boolean)
+                                      .sort();
+                                    const rlOutDates = (currentRL || [])
+                                      .filter(it => !it.isService && (it.dateOut || it.dateIn || it.date))
+                                      .map(it => toInputDate(it.dateOut || it.dateIn || it.date))
+                                      .filter(Boolean)
+                                      .sort();
+                                    let autoIn = null;
+                                    let autoOut = null;
+                                    let autoNights = null;
+                                    if (rlInDates.length > 0) {
+                                      autoIn = rlInDates[0];
+                                      autoOut = rlOutDates[rlOutDates.length - 1];
+                                      if (autoOut <= autoIn) {
+                                        const [y, m, d] = autoIn.split("-").map(Number);
+                                        autoOut = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().split("T")[0];
+                                      }
+                                      const dIn = new Date(autoIn + "T00:00:00Z");
+                                      const dOut = new Date(autoOut + "T00:00:00Z");
+                                      autoNights = Math.max(1, Math.round((dOut - dIn) / (1000 * 60 * 60 * 24)));
+                                    }
+
                                     const savePayload = {
                                       RoomingList_JSON: JSON.stringify(currentRL || []),
                                       DailyDistribution_JSON: JSON.stringify(distMap || {}),
@@ -27079,7 +27174,15 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                       "Cant.": String(selectedGroupFicha.totalRooms || 0),
                                       "Importe(*)": String(finalRevenue.toFixed(2)),
                                       PaymentPlan_JSON: reconciledPlanForSave,
-                                      Com_Pagado: planPaidForSave.toFixed(2)
+                                      Com_Pagado: planPaidForSave.toFixed(2),
+                                      ...(autoIn && autoOut ? {
+                                        Entrada: autoIn,
+                                        "Check-In": autoIn,
+                                        Salida: autoOut,
+                                        "Check-Out": autoOut,
+                                        Noches: autoNights,
+                                        noches: autoNights
+                                      } : {})
                                     };
                                     if (firstValidRegime) {
                                       savePayload["Régimen"] = firstValidRegime;
