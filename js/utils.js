@@ -1,3 +1,42 @@
+// Auto-recuperación proactiva si la cuota de localStorage está agotada al arrancar
+(function () {
+  var storage = null;
+  try {
+    if (typeof window !== "undefined" && window.localStorage) storage = window.localStorage;
+    else if (typeof localStorage !== "undefined") storage = localStorage;
+  } catch (_) {}
+  if (!storage) return;
+
+  try {
+    var probeKey = "__nexus_quota_probe__";
+    storage.setItem(probeKey, "1");
+    storage.removeItem(probeKey);
+  } catch (e) {
+    var isQuota = Boolean(
+      e && (
+        e.name === "QuotaExceededError" ||
+        e.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+        e.code === 22 ||
+        e.code === 1014 ||
+        (e.message && (e.message.indexOf("quota") !== -1 || e.message.indexOf("Quota") !== -1 || e.message.indexOf("exceeded") !== -1))
+      )
+    );
+    if (isQuota) {
+      console.warn("[Nexus Storage] Cuota de almacenamiento agotada detectada al inicio. Purgando cachés temporales pesadas...");
+      var expendable = [
+        "v3_hotel_manager_db_v2", "hotel_manager_db_v2",
+        "v3_revenue_data_v2", "revenue_data_v2",
+        "v3_upload_segment_db_v2", "upload_segment_db_v2",
+        "v3_custom_events", "custom_events",
+        "v3_manual_cupos_v1", "manual_cupos_v1"
+      ];
+      for (var i = 0; i < expendable.length; i++) {
+        try { storage.removeItem(expendable[i]); } catch (_) {}
+      }
+    }
+  }
+})();
+
 // Group handoff: session storage has a separate quota from persistent caches.
 (function () {
   if (typeof window === "undefined") return;
@@ -242,20 +281,84 @@
     return sign + parts.join(",") + " €";
   }
 
-  // ── Acceso seguro a localStorage ───────────────────────
+  // ── Liberación de cachés secundarias / prescindibles cuando se agota la cuota ──
+  var EXPENDABLE_STORAGE_KEYS = [
+    "v3_hotel_manager_db_v2", "hotel_manager_db_v2",
+    "v3_revenue_data_v2", "revenue_data_v2",
+    "v3_upload_segment_db_v2", "upload_segment_db_v2",
+    "v3_custom_events", "custom_events",
+    "v3_manual_cupos_v1", "manual_cupos_v1"
+  ];
+
+  function isQuotaExceededError(err) {
+    return Boolean(
+      err && (
+        err.name === "QuotaExceededError" ||
+        err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+        err.code === 22 ||
+        err.code === 1014 ||
+        (err.message && (
+          err.message.indexOf("quota") !== -1 ||
+          err.message.indexOf("Quota") !== -1 ||
+          err.message.indexOf("exceeded") !== -1
+        ))
+      )
+    );
+  }
+
+  function clearExpendableStorage() {
+    try {
+      if (typeof localStorage === "undefined") return false;
+      var freed = 0;
+      for (var i = 0; i < EXPENDABLE_STORAGE_KEYS.length; i++) {
+        var k = EXPENDABLE_STORAGE_KEYS[i];
+        if (localStorage.getItem(k) !== null) {
+          localStorage.removeItem(k);
+          freed++;
+        }
+      }
+      if (freed > 0) {
+        console.warn("[Nexus Storage] Se han liberado " + freed + " entradas de caché pesadas para restaurar cuota.");
+      }
+      return true;
+    } catch (e) {
+      console.warn("[Nexus Storage] Error liberando almacenamiento prescindible:", e);
+      return false;
+    }
+  }
+
+  // ── Acceso seguro a localStorage con auto-recuperación ante QuotaExceededError ─
   var safeStorage = {
     getItem: function (key) {
       try { return localStorage.getItem(key); }
       catch (e) { console.warn("Storage access blocked for key: " + key, e); return null; }
     },
     setItem: function (key, value) {
-      try { localStorage.setItem(key, value); }
-      catch (e) { console.warn("Storage set failed for key: " + key, e); }
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (e) {
+        if (isQuotaExceededError(e)) {
+          console.warn("[Nexus Storage] Cuota excedida al guardar '" + key + "'. Liberando cachés y reintentando...");
+          clearExpendableStorage();
+          try {
+            localStorage.setItem(key, value);
+            return true;
+          } catch (retryErr) {
+            console.warn("[Nexus Storage] No se pudo guardar '" + key + "' tras liberar espacio:", retryErr);
+            return false;
+          }
+        }
+        console.warn("Storage set failed for key: " + key, e);
+        return false;
+      }
     },
     removeItem: function (key) {
       try { localStorage.removeItem(key); }
       catch (e) { console.warn("Storage remove failed for key: " + key, e); }
     },
+    clearExpendable: clearExpendableStorage,
+    isQuotaError: isQuotaExceededError
   };
 
   // ── Validación de fecha completa (evita valores incompletos al teclear) ──
@@ -354,6 +457,8 @@
     formatNum: formatNum,
     formatCurrency: formatCurrency,
     safeStorage: safeStorage,
+    clearExpendableStorage: clearExpendableStorage,
+    isQuotaExceededError: isQuotaExceededError,
     getStayDates: getStayDates,
     generateDates: generateDates,
     generateSeriesDates: generateSeriesDates,

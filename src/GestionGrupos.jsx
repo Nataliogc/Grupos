@@ -5376,7 +5376,15 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         if (window.db) window.db.collection("settings").doc("groupTariffs").get().then(snap => {
           if (!active || !snap.exists) return;
           const merged = {...JSON.parse(localStorage.getItem("nexus_group_tariffs") || "{}"), ...snap.data()};
-          localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged));
+          try {
+            if (window.NexusUtils && window.NexusUtils.safeStorage) {
+              window.NexusUtils.safeStorage.setItem("nexus_group_tariffs", JSON.stringify(merged));
+            } else {
+              localStorage.setItem("nexus_group_tariffs", JSON.stringify(merged));
+            }
+          } catch (e) {
+            console.warn("No se pudo guardar nexus_group_tariffs en localStorage:", e);
+          }
           setOfficialTariffsCatalog(merged);
         }).catch(err => console.warn("No se pudo cargar el catálogo oficial", err));
         return () => { active = false; window.removeEventListener("official-tariffs-updated", reload); window.removeEventListener("storage", reload); };
@@ -10550,7 +10558,15 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         
         // Save to localStorage for cross-page sync
         if (dateStr) {
-          localStorage.setItem("nexus_last_import_str", dateStr);
+          try {
+            if (window.NexusUtils && window.NexusUtils.safeStorage) {
+              window.NexusUtils.safeStorage.setItem("nexus_last_import_str", dateStr);
+            } else {
+              localStorage.setItem("nexus_last_import_str", dateStr);
+            }
+          } catch (e) {
+            console.warn("No se pudo guardar nexus_last_import_str en localStorage:", e);
+          }
         } else {
           localStorage.removeItem("nexus_last_import_str");
         }
@@ -30513,12 +30529,16 @@ const base =
       render() {
 
         if (this.state.hasError) {
+          const errStr = this.state.error?.toString() || "";
+          const isQuota = (this.state.error && (this.state.error.name === "QuotaExceededError" || this.state.error.code === 22 || this.state.error.code === 1014)) ||
+            errStr.toLowerCase().includes("quota") ||
+            errStr.toLowerCase().includes("exceeded");
 
           return (
 
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center font-sans space-y-4">
 
-              <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 shadow-sm">
+              <div className={`w-16 h-16 ${isQuota ? "bg-amber-100 text-amber-500" : "bg-red-100 text-red-500"} rounded-full flex items-center justify-center mb-4 shadow-sm`}>
 
                 <svg
 
@@ -30554,31 +30574,48 @@ const base =
 
               <h1 className="text-2xl font-black text-slate-800 tracking-tight">
 
-                ¡Oops! Algo salió mal.
+                {isQuota ? "Almacenamiento Local Lleno" : "¡Oops! Algo salió mal."}
 
               </h1>
 
               <p className="text-slate-500 max-w-md text-sm leading-relaxed">
-
-                Ha ocurrido un error inesperado en la interfaz. Hemos
-
-                registrado el problema. Por favor, recarga la página para
-
-                continuar.
-
+                {isQuota
+                  ? "El almacenamiento local de tu navegador ha alcanzado su límite de cuota debido a datos temporales acumulados. Pulsa el botón para liberar espacio y restaurar el funcionamiento inmediatamente."
+                  : "Ha ocurrido un error inesperado en la interfaz. Hemos registrado el problema. Por favor, recarga la página para continuar."}
               </p>
 
-              <button
-
-                onClick={() => window.location.reload()}
-
-                className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800 transition-colors shadow-md"
-
-              >
-
-                Recargar Aplicación
-
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+                {isQuota && (
+                  <button
+                    onClick={() => {
+                      if (window.NexusUtils && typeof window.NexusUtils.clearExpendableStorage === "function") {
+                        window.NexusUtils.clearExpendableStorage();
+                      } else {
+                        try {
+                          [
+                            "v3_hotel_manager_db_v2", "hotel_manager_db_v2",
+                            "v3_revenue_data_v2", "revenue_data_v2",
+                            "v3_upload_segment_db_v2", "upload_segment_db_v2",
+                            "v3_custom_events", "custom_events",
+                            "v3_manual_cupos_v1", "manual_cupos_v1"
+                          ].forEach(k => localStorage.removeItem(k));
+                        } catch (_) {}
+                      }
+                      window.location.reload();
+                    }}
+                    className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-colors shadow-md cursor-pointer flex items-center gap-2"
+                  >
+                    <span>🧹</span>
+                    <span>Liberar Almacenamiento y Recargar</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-2.5 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800 transition-colors shadow-md cursor-pointer"
+                >
+                  Recargar Aplicación
+                </button>
+              </div>
 
               <div className="mt-8 p-4 bg-white/50 border border-slate-200 rounded-lg text-left overflow-auto max-w-2xl w-full">
 

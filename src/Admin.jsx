@@ -2551,7 +2551,7 @@ ${comercial}`;
                   <div
                     key={idx}
                     onClick={() => {
-                      localStorage.setItem("nexus_return_reserva", g.Reserva);
+                      try { localStorage.setItem("nexus_return_reserva", g.Reserva); } catch (_) {}
                       window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(g.Reserva)}&returnTo=${encodeURIComponent(window.location.href)}`;
                     }}
                     className={`bg-white p-4 rounded-[1.5rem] border border-slate-100/80 cursor-pointer shadow-sm hover:-translate-y-1 hover:scale-[1.01] transition-all duration-300 ${theme.cardHover} flex flex-col gap-2 relative group`}
@@ -3768,7 +3768,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.53 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.54 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -3950,7 +3950,7 @@ ${comercial}`;
                       className="font-bold text-slate-800 mb-1 cursor-pointer hover:text-[#2d5a43] transition-colors text-xs leading-tight line-clamp-2"
                       onClick={() => {
                         const resId = group["Reserva"];
-                        localStorage.setItem("nexus_return_reserva", resId);
+                        try { localStorage.setItem("nexus_return_reserva", resId); } catch (_) {}
                         window.location.href = `Gestion-de-Grupos.html?reserva=${encodeURIComponent(resId)}&returnTo=${encodeURIComponent(window.location.href)}`;
                       }}
                       title={group["Nombre del Grupo"]}

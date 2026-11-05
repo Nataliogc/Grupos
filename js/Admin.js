@@ -2262,7 +2262,9 @@ var Dashboard = function Dashboard(_ref2) {
       return /*#__PURE__*/React.createElement("div", {
         key: idx,
         onClick: function onClick() {
-          localStorage.setItem("nexus_return_reserva", g.Reserva);
+          try {
+            localStorage.setItem("nexus_return_reserva", g.Reserva);
+          } catch (_) {}
           window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(g.Reserva), "&returnTo=").concat(encodeURIComponent(window.location.href));
         },
         className: "bg-white p-4 rounded-[1.5rem] border border-slate-100/80 cursor-pointer shadow-sm hover:-translate-y-1 hover:scale-[1.01] transition-all duration-300 ".concat(theme.cardHover, " flex flex-col gap-2 relative group")
@@ -3267,7 +3269,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.53 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.54 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,
@@ -3418,7 +3420,9 @@ var GroupsManager = function GroupsManager(_ref6) {
       className: "font-bold text-slate-800 mb-1 cursor-pointer hover:text-[#2d5a43] transition-colors text-xs leading-tight line-clamp-2",
       onClick: function onClick() {
         var resId = group["Reserva"];
-        localStorage.setItem("nexus_return_reserva", resId);
+        try {
+          localStorage.setItem("nexus_return_reserva", resId);
+        } catch (_) {}
         window.location.href = "Gestion-de-Grupos.html?reserva=".concat(encodeURIComponent(resId), "&returnTo=").concat(encodeURIComponent(window.location.href));
       },
       title: group["Nombre del Grupo"]
