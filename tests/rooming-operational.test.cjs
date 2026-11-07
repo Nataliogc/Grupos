@@ -30,3 +30,25 @@ test('includes the November 14 spa for 16 people and excludes room blocks', () =
   assert.equal(rows[0].paxHab, '16 pax');
   assert.equal(rows[0].hora, 'PENDIENTE');
 });
+test('obtiene ocupacion para almuerzo en dia de salida usando pax de salidas', () => {
+  const movements = {
+    '2026-11-12': {
+      arrivals: { pax: 0, rooms: 0 },
+      departures: { pax: 37, rooms: 19 },
+      overnight: { pax: 0, rooms: 0 },
+      breakfast: { pax: 37, rooms: 19 }
+    }
+  };
+  const occ = service.getServiceOccupancy('Almuerzo', '2026-11-12', movements);
+  assert.equal(occ.pax, 37);
+  assert.equal(occ.rooms, 19);
+});
+test('ordena en dia de salida desayuno, almuerzo y salida cronologicamente', () => {
+  const rows = [
+    { servicio: 'Salida / check-out', serviceType: 'Salida', serviceDate: '2026-11-12', hora: '___:___ h' },
+    { servicio: 'Almuerzo', serviceType: 'Almuerzo', serviceDate: '2026-11-12', hora: '___:___ h' },
+    { servicio: 'Desayuno', serviceType: 'Desayuno', serviceDate: '2026-11-12', hora: '___:___ h' }
+  ];
+  const sorted = service.sortServices(rows);
+  assert.deepEqual(sorted.map(r => r.servicio), ['Desayuno', 'Almuerzo', 'Salida / check-out']);
+});

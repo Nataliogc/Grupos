@@ -14,6 +14,7 @@
     <!-- Rooming List Core functions -->
     <script src="js/rooming-core.js?v=assignments-v1"></script>
     <script src="js/services/roomingOperationalService.js?v=2"></script>
+    <script src="js/services/serviceOrderPlanService.js?v=1.0-meal-schedule"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
         body {
@@ -202,10 +203,13 @@
             <button onclick="addRowServicio('', '', '', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Servicio</button>
         </div>
 
-        <!-- ROOMING LIST / HABITACIONES -->
-        <div class="section-title">ROOMING LIST / HABITACIONES</div>
-        <div class="p-3 bg-slate-50 border border-slate-300 rounded text-xs mb-3">
-            <strong>Rooming List:</strong> <span id="rooming-nota-adjunta" class="editable font-semibold text-slate-800" contenteditable="true" oninput="triggerSave()">Según hoja adjunta</span>
+        <!-- OBSERVACIONES -->
+        <div class="section-title">OBSERVACIONES</div>
+        <div class="border border-slate-300 p-3 mb-4 rounded bg-white text-xs">
+            <div id="rooming-nota-adjunta"
+                 class="editable min-h-[90px] leading-relaxed outline-none"
+                 contenteditable="true"
+                 oninput="triggerSave()">Rooming List: Según hoja adjunta.</div>
         </div>
         <!-- Rooming List Incidences Area -->
         <div id="rooming-incidences-area" class="mb-3"></div>
@@ -344,7 +348,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         let hasUserEditedView = false;
         let isExplicitSaveInProgress = false;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 11;
+        const SERVICES_GENERATION_VERSION = 12;
 
         function mergeServices(existing, auto) {
             const merged = [];
@@ -1598,7 +1602,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 genHabitaciones: document.getElementById('gen-habitaciones').innerText,
                 genPax: document.getElementById('gen-pax').innerText,
                 genRoomingRef: document.getElementById('gen-rooming-ref')?.innerText || 'Según hoja adjunta',
-                roomingNotaAdjunta: document.getElementById('rooming-nota-adjunta')?.innerText || 'Según hoja adjunta',
+                roomingNotaAdjunta: document.getElementById('rooming-nota-adjunta')?.innerHTML || document.getElementById('rooming-nota-adjunta')?.innerText || 'Rooming List: Según hoja adjunta.',
                 genRegimen: document.getElementById('gen-regimen').innerText,
                 genEstadoCritico: document.getElementById('gen-estado-critico').innerText,
                 deptRecepcion: document.getElementById('dept-recepcion').innerHTML,
@@ -2436,7 +2440,7 @@ ${inputVal}`;
 
                         // Merge logic favoring Firestore for specific updated fields, but not overriding with empty values if local is valid
                         const fieldsToUpdate = [
-                            'RoomingList_JSON', 'Servicios_JSON', 'Pax.', 'Cant.', 'Habitaciones',
+                            'RoomingList_JSON', 'Servicios_JSON', 'MealSchedule_JSON', 'Pax.', 'Cant.', 'Habitaciones',
                             'Importe(*)', 'Com_Notas', 'Observaciones', 'Entrada', 'Salida',
                             'Régimen', 'Hotel_Asignado', 'Hotel'
                         ];
@@ -2538,7 +2542,7 @@ ${inputVal}`;
                         document.getElementById('gen-rooming-ref').innerText = s.genRoomingRef;
                     }
                     if (document.getElementById('rooming-nota-adjunta') && s.roomingNotaAdjunta) {
-                        document.getElementById('rooming-nota-adjunta').innerText = s.roomingNotaAdjunta;
+                        document.getElementById('rooming-nota-adjunta').innerHTML = s.roomingNotaAdjunta;
                     }
                     document.getElementById('gen-regimen').innerText = s.genRegimen || '---';
                     document.getElementById('gen-estado-critico').innerText = s.genEstadoCritico || '---';
@@ -2579,6 +2583,15 @@ ${inputVal}`;
             document.getElementById('gen-contacto').innerText = gContacto;
             document.getElementById('gen-entrada').innerText = checkInLabel;
             document.getElementById('gen-salida').innerText = checkOutLabel;
+
+            if (document.getElementById('rooming-nota-adjunta')) {
+                const obsGrupo = (rec['Observaciones'] || rec['Com_Notas'] || '').trim();
+                if (obsGrupo) {
+                    document.getElementById('rooming-nota-adjunta').innerHTML = `Rooming List: Según hoja adjunta.<br><br>${obsGrupo.replace(/\n/g, '<br>')}`;
+                } else {
+                    document.getElementById('rooming-nota-adjunta').innerHTML = 'Rooming List: Según hoja adjunta.';
+                }
+            }
 
             const gRegimen = rec['Régimen'] || group.regimen || 'AD';
             document.getElementById('gen-regimen').innerText = gRegimen;
@@ -2647,6 +2660,9 @@ ${inputVal}`;
             document.getElementById('gen-pax').innerText = totalPax;
 
             const getServiceOccupancy = (serviceName, serviceDate) => {
+                if (window.RoomingOperationalService && window.RoomingOperationalService.getServiceOccupancy) {
+                    return window.RoomingOperationalService.getServiceOccupancy(serviceName, serviceDate, dailyMovements, normalizeRoomingDate);
+                }
                 const key = normalizeRoomingDate(serviceDate);
                 const movement = dailyMovements[key];
                 if (!movement) return { pax: 0, rooms: 0 };
@@ -2654,6 +2670,11 @@ ${inputVal}`;
                 if (normalizedName.includes('desayuno')) return { ...movement.breakfast };
                 if (normalizedName.includes('llegada')) return { ...movement.arrivals };
                 if (normalizedName.includes('salida')) return { ...movement.departures };
+                if (normalizedName.includes('almuerzo') || normalizedName.includes('comida')) {
+                    if (movement.overnight && movement.overnight.pax > 0) return { ...movement.overnight };
+                    if (movement.departures && movement.departures.pax > 0) return { ...movement.departures };
+                    if (movement.arrivals && movement.arrivals.pax > 0) return { ...movement.arrivals };
+                }
                 return { ...movement.overnight };
             };
 
@@ -2817,6 +2838,56 @@ ${inputVal}`;
                 console.error('Error loading Service Order planRows:', e);
             }
 
+            const mealSchedule = window.ServiceOrderPlanService ? window.ServiceOrderPlanService.readSchedule(rec) : null;
+            if (osPlanRows.length === 0 && dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime())) {
+                const regime = gRegimen.toUpperCase();
+                const needsBreakfast = regime.includes('AD') || regime.includes('HD') || regime.includes('MP') || regime.includes('PC');
+                const needsLunch = regime.includes('PC');
+                const needsDinner = regime.includes('MP') || regime.includes('PC');
+                const nightsCount = Math.ceil((dOut - dIn) / 86400000);
+
+                for (let i = 0; i <= nightsCount; i++) {
+                    const cur = new Date(dIn);
+                    cur.setDate(cur.getDate() + i);
+                    const dayLabel = formatD(cur);
+                    const dayIso = getLocalDateString(cur);
+
+                    if (i > 0 && needsBreakfast) {
+                        osPlanRows.push({
+                            fecha: dayIso,
+                            dia: dayLabel,
+                            serv: 'Desayuno',
+                            pax: String(getServiceOccupancy('Desayuno', dayIso).pax || maxDailyPax || 0),
+                            menu: '',
+                            hora: 'PENDIENTE'
+                        });
+                    }
+                    if (i < nightsCount && needsLunch) {
+                        osPlanRows.push({
+                            fecha: dayIso,
+                            dia: dayLabel,
+                            serv: 'Almuerzo',
+                            pax: String(getServiceOccupancy('Almuerzo', dayIso).pax || maxDailyPax || 0),
+                            menu: '',
+                            hora: '___:___ h'
+                        });
+                    }
+                    if (i < nightsCount && needsDinner) {
+                        osPlanRows.push({
+                            fecha: dayIso,
+                            dia: dayLabel,
+                            serv: 'Cena',
+                            pax: String(getServiceOccupancy('Cena', dayIso).pax || maxDailyPax || 0),
+                            menu: '',
+                            hora: '___:___ h'
+                        });
+                    }
+                }
+            }
+            if (mealSchedule && window.ServiceOrderPlanService) {
+                osPlanRows = window.ServiceOrderPlanService.reconcileMealPlan(osPlanRows, mealSchedule, formatD, rec.Entrada || group.arrival);
+            }
+
             let missingBreakfastHours = false;
             if (needsBreakfast && dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime())) {
                 const nights = Math.ceil((dOut - dIn) / (86400000));
@@ -2937,6 +3008,7 @@ ${inputVal}`;
 
                     // Find services in Service Order for this day
                     const osServicesForDay = osPlanRows.filter(row => {
+                        if (row.fecha && row.fecha === targetIso) return true;
                         const rowDM = extractDayMonth(row.dia);
                         return rowDM && targetDM && rowDM.day === targetDM.day && rowDM.month === targetDM.month;
                     });
@@ -3025,24 +3097,26 @@ ${inputVal}`;
                             : sNameUpper.includes('ALMUERZO') ? 'lunch'
                             : sNameUpper.includes('CENA') ? 'dinner'
                             : normalizeRoomType(s.name).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                        const serviceOccupancy = isExtraService && s.pax > 0
-                            ? { pax: s.pax, rooms: 0 }
-                            : getServiceOccupancy(s.name, targetIso);
-                        if (!isExtraService && serviceOccupancy.pax <= 0) return;
+                        const explicitPax = Number(String(s.pax || '').replace(/[^0-9]/g, ''));
+                        const occupancyFromMovement = getServiceOccupancy(s.name, targetIso);
+                        const finalPax = (Number.isFinite(explicitPax) && explicitPax > 0)
+                            ? explicitPax
+                            : occupancyFromMovement.pax;
+                        if (finalPax <= 0 && !isExtraService) return;
                         
                         autoServices.push({
                             fecha: targetLabel,
                             servicio: s.name,
                             regimen: serviceReg,
-                            paxHab: `${serviceOccupancy.pax} pax`,
+                            paxHab: `${finalPax} pax`,
                             hora: serviceHour,
                             notas: serviceNote,
                             origin: isExtraService ? 'economic' : 'auto',
                             serviceType: s.name,
                             serviceDate: targetIso,
                             serviceId: isExtraService ? '' : `${targetIso}|${automaticServiceType}|automatic`,
-                            originalPax: serviceOccupancy.pax,
-                            originalRooms: serviceOccupancy.rooms
+                            originalPax: finalPax,
+                            originalRooms: occupancyFromMovement.rooms || 0
                         });
                     });
                 }

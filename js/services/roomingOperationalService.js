@@ -24,6 +24,22 @@
         notas: item.observ || item.notes || 'Servicio contratado. Confirmar horario con el grupo.' };
     });
   }
+  function getServiceOccupancy(serviceName, serviceDate, dailyMovements, normalizeDateFn) {
+    if (!dailyMovements) return { pax: 0, rooms: 0 };
+    var key = typeof normalizeDateFn === 'function' ? normalizeDateFn(serviceDate) : String(serviceDate || '').split('T')[0];
+    var movement = dailyMovements[key];
+    if (!movement) return { pax: 0, rooms: 0 };
+    var normalizedName = String(serviceName || '').toLowerCase();
+    if (normalizedName.includes('desayuno')) return Object.assign({}, movement.breakfast);
+    if (normalizedName.includes('llegada')) return Object.assign({}, movement.arrivals);
+    if (normalizedName.includes('salida')) return Object.assign({}, movement.departures);
+    if (normalizedName.includes('almuerzo') || normalizedName.includes('comida')) {
+      if (movement.overnight && movement.overnight.pax > 0) return Object.assign({}, movement.overnight);
+      if (movement.departures && movement.departures.pax > 0) return Object.assign({}, movement.departures);
+      if (movement.arrivals && movement.arrivals.pax > 0) return Object.assign({}, movement.arrivals);
+    }
+    return Object.assign({}, movement.overnight);
+  }
   function sortServices(rows) {
     function dateKey(row) {
       var value = String(row.serviceDate || row.fecha || '');
@@ -38,14 +54,14 @@
       var name = String(row.serviceType || row.servicio || '').toLowerCase();
       if (name.includes('llegada')) return 0;
       if (name.includes('desayuno')) return 480;
-      if (name.includes('salida')) return 720;
       if (name.includes('almuerzo') || name.includes('comida')) return 840;
       if (name.includes('cena')) return 1260;
+      if (name.includes('salida')) return 1320;
       return 1080;
     }
     return rows.slice().sort(function (a, b) { return dateKey(a).localeCompare(dateKey(b)) || timeKey(a) - timeKey(b); });
   }
-  var api = { paidAmount: paidAmount, contractedServices: contractedServices, sortServices: sortServices };
+  var api = { paidAmount: paidAmount, contractedServices: contractedServices, getServiceOccupancy: getServiceOccupancy, sortServices: sortServices };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RoomingOperationalService = api;
 })(typeof window !== 'undefined' ? window : globalThis);
