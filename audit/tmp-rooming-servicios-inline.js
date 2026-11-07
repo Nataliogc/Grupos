@@ -2456,59 +2456,11 @@ ${inputVal}`;
             // Render alert banner and incidences
             renderRoomingIncidences(roomingList);
 
-            // Set up Pending List
-            // 1. Payment Pending (subtracting agency commission if applicable)
-            const totalRevenue = parseMoney(rec['Importe(*)'] || group.totalRevenue || 0);
-            let totalCommission = 0;
-            try {
-                totalCommission = roomingList.reduce((acc, i) => acc + (parseFloat(i.comision && i.comision.total_comision) || 0), 0);
-            } catch(e) {}
-            
-            const netTotal = Math.max(0, totalRevenue - totalCommission);
-            
-            const paidAmount = window.RoomingOperationalService.paidAmount(rec);
-            const pendingAmount = Math.max(0, netTotal - paidAmount);
-            const isOverpaid = paidAmount > netTotal + 0.01;
-            const refundAmount = isOverpaid ? paidAmount - netTotal : 0;
-            
-            if (s && Array.isArray(s.pendientes)) {
-                s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
-            } else {
-                if (isOverpaid) {
-                addRowPendiente(
-                    'Devolución pendiente',
-                    `Cobro de más detectado: ${refundAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}. Aceptada devolución del sobrante.`,
-                    'Inmediato',
-                    'Administración'
-                );
-            }
-            
-            if (pendingAmount > 0.05) {
-                let deadline = '---';
-                try {
-                    const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
-                    const pendingRow = plan.find(p => p.status !== "Cobrado");
-                    if (pendingRow && pendingRow.date) deadline = formatD(pendingRow.date);
-                } catch(e) {}
-                if (deadline === '---' && rec['Com_Vencimiento_Rel']) {
-                    deadline = formatD(rec['Com_Vencimiento_Rel']);
-                }
-                const detailsText = totalCommission > 0 
-                    ? `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total neto: ${netTotal.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € (bruto: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} €)`
-                    : `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total reserva: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} €`;
-                addRowPendiente(
-                    'Último pago',
-                    detailsText,
-                    deadline,
-                    'Administración / Comercial'
-                );
-            }
-
-            // 2. Breakfast hours
-            const needsBreakfast = gRegimen.toUpperCase().includes('AD') || gRegimen.toUpperCase().includes('HD') || gRegimen.toUpperCase().includes('MP') || gRegimen.toUpperCase().includes('PC');
-            
+            // Dates and meal plan setup
             const dIn = parseDate(checkInDate);
             const dOut = parseDate(checkOutDate);
+            const needsBreakfast = gRegimen.toUpperCase().includes('AD') || gRegimen.toUpperCase().includes('HD') || gRegimen.toUpperCase().includes('MP') || gRegimen.toUpperCase().includes('PC');
+            
             let osPlanRows = [];
             try {
                 const osDataStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem('ordenServicio_' + currentReservaId) : null) || localStorage.getItem('ordenServicio_' + currentReservaId) || rec.ServiceOrder_JSON;
@@ -2523,7 +2475,7 @@ ${inputVal}`;
             const mealSchedule = window.ServiceOrderPlanService ? window.ServiceOrderPlanService.readSchedule(rec) : null;
             if (osPlanRows.length === 0 && dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime())) {
                 const regime = gRegimen.toUpperCase();
-                const needsBreakfast = regime.includes('AD') || regime.includes('HD') || regime.includes('MP') || regime.includes('PC');
+                const needsBreakfastReg = regime.includes('AD') || regime.includes('HD') || regime.includes('MP') || regime.includes('PC');
                 const needsLunch = regime.includes('PC');
                 const needsDinner = regime.includes('MP') || regime.includes('PC');
                 const nightsCount = Math.ceil((dOut - dIn) / 86400000);
@@ -2534,7 +2486,7 @@ ${inputVal}`;
                     const dayLabel = formatD(cur);
                     const dayIso = getLocalDateString(cur);
 
-                    if (i > 0 && needsBreakfast) {
+                    if (i > 0 && needsBreakfastReg) {
                         osPlanRows.push({
                             fecha: dayIso,
                             dia: dayLabel,
@@ -2570,58 +2522,106 @@ ${inputVal}`;
                 osPlanRows = window.ServiceOrderPlanService.reconcileMealPlan(osPlanRows, mealSchedule, formatD, rec.Entrada || group.arrival);
             }
 
-            let missingBreakfastHours = false;
-            if (needsBreakfast && dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime())) {
-                const nights = Math.ceil((dOut - dIn) / (86400000));
-                for (let i = 1; i <= nights; i++) {
-                    const breakfastDate = new Date(dIn);
-                    breakfastDate.setDate(breakfastDate.getDate() + i);
-                    const label = formatD(breakfastDate);
-                    const targetDM = extractDayMonth(label);
+            // Set up Pending List
+            // 1. Payment Pending (subtracting agency commission if applicable)
+            const totalRevenue = parseMoney(rec['Importe(*)'] || group.totalRevenue || 0);
+            let totalCommission = 0;
+            try {
+                totalCommission = roomingList.reduce((acc, i) => acc + (parseFloat(i.comision && i.comision.total_comision) || 0), 0);
+            } catch(e) {}
+            
+            const netTotal = Math.max(0, totalRevenue - totalCommission);
+            
+            const paidAmount = window.RoomingOperationalService.paidAmount(rec);
+            const pendingAmount = Math.max(0, netTotal - paidAmount);
+            const isOverpaid = paidAmount > netTotal + 0.01;
+            const refundAmount = isOverpaid ? paidAmount - netTotal : 0;
+            
+            if (s && Array.isArray(s.pendientes)) {
+                s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
+            } else {
+                if (isOverpaid) {
+                    addRowPendiente(
+                        'Devolución pendiente',
+                        `Cobro de más detectado: ${refundAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}. Aceptada devolución del sobrante.`,
+                        'Inmediato',
+                        'Administración'
+                    );
+                }
+                
+                if (pendingAmount > 0.05) {
+                    let deadline = '---';
+                    try {
+                        const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
+                        const pendingRow = plan.find(p => p.status !== "Cobrado");
+                        if (pendingRow && pendingRow.date) deadline = formatD(pendingRow.date);
+                    } catch(e) {}
+                    if (deadline === '---' && rec['Com_Vencimiento_Rel']) {
+                        deadline = formatD(rec['Com_Vencimiento_Rel']);
+                    }
+                    const detailsText = totalCommission > 0 
+                        ? `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total neto: ${netTotal.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € (bruto: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} €)`
+                        : `Importe pendiente: ${pendingAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; total reserva: ${totalRevenue.toLocaleString('es-ES', {minimumFractionDigits:2})} € &bull; anticipo cobrado: ${paidAmount.toLocaleString('es-ES', {minimumFractionDigits:2})} €`;
+                    addRowPendiente(
+                        'Último pago',
+                        detailsText,
+                        deadline,
+                        'Administración / Comercial'
+                    );
+                }
 
-                    const match = osPlanRows.find(row => {
-                        const rowDM = extractDayMonth(row.dia);
-                        return rowDM && targetDM && rowDM.day === targetDM.day && rowDM.month === targetDM.month && (row.serv || '').trim().toLowerCase() === 'desayuno';
-                    });
+                // 2. Breakfast hours
+                let missingBreakfastHours = false;
+                if (needsBreakfast && dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime())) {
+                    const nights = Math.ceil((dOut - dIn) / (86400000));
+                    for (let i = 1; i <= nights; i++) {
+                        const breakfastDate = new Date(dIn);
+                        breakfastDate.setDate(breakfastDate.getDate() + i);
+                        const label = formatD(breakfastDate);
+                        const targetDM = extractDayMonth(label);
 
-                    if (!match || !match.hora || match.hora.trim() === '___:___ h' || match.hora.trim().toUpperCase() === 'PENDIENTE') {
-                        missingBreakfastHours = true;
-                        break;
+                        const match = osPlanRows.find(row => {
+                            const rowDM = extractDayMonth(row.dia);
+                            return rowDM && targetDM && rowDM.day === targetDM.day && rowDM.month === targetDM.month && (row.serv || '').trim().toLowerCase() === 'desayuno';
+                        });
+
+                        if (!match || !match.hora || match.hora.trim() === '___:___ h' || match.hora.trim().toUpperCase() === 'PENDIENTE') {
+                            missingBreakfastHours = true;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (needsBreakfast && missingBreakfastHours) {
-                addRowPendiente(
-                    'Horas de desayuno',
-                    'Faltan horarios previstos para coordinar restaurante sala de desayunos.',
-                    'Antes de la llegada',
-                    'Cliente / Restaurante'
-                );
-            }
+                if (needsBreakfast && missingBreakfastHours) {
+                    addRowPendiente(
+                        'Horas de desayuno',
+                        'Faltan horarios previstos para coordinar restaurante sala de desayunos.',
+                        'Antes de la llegada',
+                        'Cliente / Restaurante'
+                    );
+                }
 
-            // 3. Diet alternatives
-            let dietNotes = [];
-            const rawNotas = rec['Com_Notas'] || group.notes || '';
-            const allNotesText = (rawNotas + ' ' + roomingList.map(r => r.observ || '').join(' ')).toLowerCase();
-            
-            if (allNotesText.includes('pescado') || allNotesText.includes('bonito') || allNotesText.includes('alerg') || allNotesText.includes('vege') || allNotesText.includes('sin ')) {
-                addRowPendiente(
-                    'Dietas especiales',
-                    'Se detectan observaciones de dietas o alergias. Identificar ocupante y habitación.',
-                    'Antes del primer servicio',
-                    'Cliente / Cocina'
-                );
-            }
+                // 3. Diet alternatives
+                const rawNotas = rec['Com_Notas'] || group.notes || '';
+                const allNotesText = (rawNotas + ' ' + roomingList.map(r => r.observ || '').join(' ')).toLowerCase();
+                
+                if (allNotesText.includes('pescado') || allNotesText.includes('bonito') || allNotesText.includes('alerg') || allNotesText.includes('vege') || allNotesText.includes('sin ')) {
+                    addRowPendiente(
+                        'Dietas especiales',
+                        'Se detectan observaciones de dietas o alergias. Identificar ocupante y habitación.',
+                        'Antes del primer servicio',
+                        'Cliente / Cocina'
+                    );
+                }
 
-            if (chefMissingName) {
-                addRowPendiente(
-                    'Nombre de chofer/guía',
-                    'Falta confirmar nombre del chofer del grupo.',
-                    'Check-in',
-                    'Recepción / Comercial'
-                );
-            }
+                if (chefMissingName) {
+                    addRowPendiente(
+                        'Nombre de chofer/guía',
+                        'Falta confirmar nombre del chofer del grupo.',
+                        'Check-in',
+                        'Recepción / Comercial'
+                    );
+                }
             }
 
             // Calculate critical status dynamically based on pending tasks
