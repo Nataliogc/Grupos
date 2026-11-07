@@ -5091,7 +5091,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             try {
               const plan = JSON.parse(r.PaymentPlan_JSON || "[]");
               plan.forEach((p) => {
-                if (p.status !== "Cobrado" && p.date) {
+                if (p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && p.date) {
                   const dStr = toInputDate(p.date);
                   if (dStr) {
                     if (!deadlineDateStr || dStr < deadlineDateStr) {
@@ -5314,6 +5314,15 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               p.amount = adjusted.toFixed(2);
               p.percent = parseFloat(((adjusted / total) * 100).toFixed(2));
             }
+          }
+        }
+
+                // 4. Limpieza automática: si el total de la reserva ya está completamente cobrado,
+        // eliminar cualquier fila pendiente residual con importe <= 0.05 € para no dejar pagos pendientes ficticios.
+        if (total > 0 && totalCobrado >= total - 0.05 && planCopy.some(isCobradoRow)) {
+          const cleaned = planCopy.filter(p => isCobradoRow(p) || (parseFloat(p.amount) || 0) > 0.05);
+          if (cleaned.length > 0) {
+            return cleaned;
           }
         }
 
@@ -6220,7 +6229,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                   const plan = JSON.parse(row.PaymentPlan_JSON);
                   if (Array.isArray(plan)) {
                     plan.forEach((p) => {
-                      if (p.status !== "Cobrado" && p.date) {
+                      if (p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && p.date) {
                         const pDate = new Date(toInputDate(p.date));
                         if (!isNaN(pDate.getTime()) && pDate <= sevenDaysFromNow) {
                           isReleaseUrgent = true;
@@ -10371,7 +10380,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                       const plan = JSON.parse(row.PaymentPlan_JSON);
                       if (Array.isArray(plan)) {
                         plan.forEach((p) => {
-                          if (p.status !== "Cobrado" && p.date) {
+                          if (p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && p.date) {
                             const pDate = new Date(toInputDate(p.date));
                             if (!isNaN(pDate.getTime()) && pDate <= sevenDaysFromNow) {
                               isReleaseUrgent = true;
@@ -26267,7 +26276,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                 i--
                                               ) {
                                                 if (
-                                                  plan[i].status !== "Cobrado"
+                                                  plan[i].status !== "Cobrado" && plan[i].status !== "Pagado" && (parseFloat(plan[i].amount) || 0) > 0.05
                                                 ) {
                                                   lastUnpaidIdx = i;
                                                   break;
@@ -26285,6 +26294,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                 depDate.setHours(0, 0, 0, 0);
                                                 const isWarning =
                                                   !isPaid &&
+                                                  (parseFloat(dep.amount) || 0) > 0.05 &&
                                                   Math.ceil(
                                                     (depDate - today) /
                                                     (1000 * 60 * 60 * 24),

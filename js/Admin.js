@@ -4,11 +4,11 @@ function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArra
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
-function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -519,14 +519,37 @@ var Dashboard = function Dashboard(_ref2) {
   var getPaymentNotice = function getPaymentNotice(g) {
     var today = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : new Date();
     var fin = getGroupFinancialInfo(g);
-    if (fin.pending <= 0.05 || fin.total > 0 && fin.paid >= fin.total - 0.05) {
+    if (fin.pending <= 0.05 || fin.total > 0 && fin.paid >= fin.total - 0.05 || fin.allMilestonesCobrado) {
       return null;
     }
     var day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     var plan = [];
+    var records = Array.isArray(g.records) && g.records.length > 0 ? g.records : [g];
+    var _iterator = _createForOfIteratorHelper(records),
+      _step;
     try {
-      plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-    } catch (_) {}
+      for (_iterator.s(); !(_step = _iterator.n()).done;) {
+        var rec = _step.value;
+        if (rec.PaymentPlan_JSON && rec.PaymentPlan_JSON !== "[]") {
+          try {
+            var parsed = JSON.parse(rec.PaymentPlan_JSON);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              plan = parsed;
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (err) {
+      _iterator.e(err);
+    } finally {
+      _iterator.f();
+    }
+    if (plan.length === 0) {
+      try {
+        plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+      } catch (_) {}
+    }
     var milestones = (Array.isArray(plan) ? plan : []).filter(function (p) {
       return p.status !== 'Cobrado' && p.status !== 'Pagado' && (parseFloat(p.amount) || 0) > 0.05 && parseDate(p.date);
     }).sort(function (a, b) {
@@ -569,8 +592,28 @@ var Dashboard = function Dashboard(_ref2) {
         if (row.Logistica_Rooming) existing.Logistica_Rooming = true;
         if (row.Logistica_MenuMP) existing.Logistica_MenuMP = true;
         if (row.Logistica_MenuPC) existing.Logistica_MenuPC = true;
-        if (row.PaymentPlan_JSON && (!existing.PaymentPlan_JSON || existing.PaymentPlan_JSON === "[]")) {
-          existing.PaymentPlan_JSON = row.PaymentPlan_JSON;
+        if (row.PaymentPlan_JSON && row.PaymentPlan_JSON !== "[]") {
+          if (!existing.PaymentPlan_JSON || existing.PaymentPlan_JSON === "[]") {
+            existing.PaymentPlan_JSON = row.PaymentPlan_JSON;
+          } else {
+            try {
+              var currPlan = JSON.parse(row.PaymentPlan_JSON);
+              var currPaid = (Array.isArray(currPlan) ? currPlan : []).filter(function (p) {
+                return p.status === "Cobrado" || p.status === "Pagado";
+              }).reduce(function (sum, p) {
+                return sum + (parseFloat(p.amount) || 0);
+              }, 0);
+              var existPlan = JSON.parse(existing.PaymentPlan_JSON);
+              var existPaid = (Array.isArray(existPlan) ? existPlan : []).filter(function (p) {
+                return p.status === "Cobrado" || p.status === "Pagado";
+              }).reduce(function (sum, p) {
+                return sum + (parseFloat(p.amount) || 0);
+              }, 0);
+              if (currPaid > existPaid) {
+                existing.PaymentPlan_JSON = row.PaymentPlan_JSON;
+              }
+            } catch (e) {}
+          }
         }
         if (row.RoomingList_JSON && (!existing.RoomingList_JSON || existing.RoomingList_JSON === "[]")) {
           existing.RoomingList_JSON = row.RoomingList_JSON;
@@ -664,7 +707,7 @@ var Dashboard = function Dashboard(_ref2) {
           var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
           var pastDueMilestones = plan.filter(function (p) {
             var pDate = parseDate(p.date);
-            return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
+            return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05;
           });
           if (pastDueMilestones.length > 0) hasAlert = true;
         } catch (e) {}
@@ -1820,8 +1863,8 @@ var Dashboard = function Dashboard(_ref2) {
         targetDocIds,
         g,
         matchedDocs,
-        _iterator,
-        _step,
+        _iterator2,
+        _step2,
         docId,
         snap,
         qSnap,
@@ -1887,15 +1930,15 @@ var Dashboard = function Dashboard(_ref2) {
               targetDocIds.add(String(g.Com_Id).trim().replace(/^#/, ''));
             }
             matchedDocs = [];
-            _iterator = _createForOfIteratorHelper(targetDocIds);
+            _iterator2 = _createForOfIteratorHelper(targetDocIds);
             _context2.p = 2;
-            _iterator.s();
+            _iterator2.s();
           case 3:
-            if ((_step = _iterator.n()).done) {
+            if ((_step2 = _iterator2.n()).done) {
               _context2.n = 8;
               break;
             }
-            docId = _step.value;
+            docId = _step2.value;
             _context2.p = 4;
             _context2.n = 5;
             return db.collection("groups").doc(docId).get();
@@ -1916,10 +1959,10 @@ var Dashboard = function Dashboard(_ref2) {
           case 9:
             _context2.p = 9;
             _t2 = _context2.v;
-            _iterator.e(_t2);
+            _iterator2.e(_t2);
           case 10:
             _context2.p = 10;
-            _iterator.f();
+            _iterator2.f();
             return _context2.f(10);
           case 11:
             if (!(matchedDocs.length === 0 && data.resId)) {
@@ -3269,7 +3312,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.62 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.63 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,
@@ -4006,7 +4049,7 @@ var App = function App() {
           var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
           var hasPending = plan.some(function (p) {
             var pDate = p.date ? new Date(p.date) : null;
-            return p.status !== "Cobrado" && pDate && pDate <= now;
+            return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate && pDate <= now;
           });
           if (hasPending) {
             list.push({
@@ -4158,7 +4201,7 @@ var App = function App() {
               var plan = JSON.parse(g.PaymentPlan_JSON || "[]");
               var hasPending = plan.some(function (p) {
                 var pDate = parseDate(p.date);
-                return p.status !== "Cobrado" && pDate <= now;
+                return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate <= now;
               });
               if (hasPending) {
                 realAlerts.push({

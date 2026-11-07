@@ -497,12 +497,26 @@
 
       const getPaymentNotice = (g, today = new Date()) => {
         const fin = getGroupFinancialInfo(g);
-        if (fin.pending <= 0.05 || (fin.total > 0 && fin.paid >= fin.total - 0.05)) {
+        if (fin.pending <= 0.05 || (fin.total > 0 && fin.paid >= fin.total - 0.05) || fin.allMilestonesCobrado) {
           return null;
         }
         const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         let plan = [];
-        try { plan = JSON.parse(g.PaymentPlan_JSON || "[]"); } catch (_) {}
+        const records = Array.isArray(g.records) && g.records.length > 0 ? g.records : [g];
+        for (const rec of records) {
+          if (rec.PaymentPlan_JSON && rec.PaymentPlan_JSON !== "[]") {
+            try {
+              const parsed = JSON.parse(rec.PaymentPlan_JSON);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                plan = parsed;
+                break;
+              }
+            } catch (_) {}
+          }
+        }
+        if (plan.length === 0) {
+          try { plan = JSON.parse(g.PaymentPlan_JSON || "[]"); } catch (_) {}
+        }
         const milestones = (Array.isArray(plan) ? plan : []).filter(p =>
           p.status !== 'Cobrado' && p.status !== 'Pagado' && (parseFloat(p.amount) || 0) > 0.05 && parseDate(p.date)
         ).sort((a, b) => parseDate(a.date) - parseDate(b.date));
@@ -542,8 +556,20 @@
             if (row.Logistica_Rooming) existing.Logistica_Rooming = true;
             if (row.Logistica_MenuMP) existing.Logistica_MenuMP = true;
             if (row.Logistica_MenuPC) existing.Logistica_MenuPC = true;
-            if (row.PaymentPlan_JSON && (!existing.PaymentPlan_JSON || existing.PaymentPlan_JSON === "[]")) {
-              existing.PaymentPlan_JSON = row.PaymentPlan_JSON;
+            if (row.PaymentPlan_JSON && row.PaymentPlan_JSON !== "[]") {
+              if (!existing.PaymentPlan_JSON || existing.PaymentPlan_JSON === "[]") {
+                existing.PaymentPlan_JSON = row.PaymentPlan_JSON;
+              } else {
+                try {
+                  const currPlan = JSON.parse(row.PaymentPlan_JSON);
+                  const currPaid = (Array.isArray(currPlan) ? currPlan : []).filter(p => p.status === "Cobrado" || p.status === "Pagado").reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                  const existPlan = JSON.parse(existing.PaymentPlan_JSON);
+                  const existPaid = (Array.isArray(existPlan) ? existPlan : []).filter(p => p.status === "Cobrado" || p.status === "Pagado").reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                  if (currPaid > existPaid) {
+                    existing.PaymentPlan_JSON = row.PaymentPlan_JSON;
+                  }
+                } catch(e) {}
+              }
             }
             if (row.RoomingList_JSON && (!existing.RoomingList_JSON || existing.RoomingList_JSON === "[]")) {
               existing.RoomingList_JSON = row.RoomingList_JSON;
@@ -638,7 +664,7 @@
               const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
               const pastDueMilestones = plan.filter(p => {
                 const pDate = parseDate(p.date);
-                return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado";
+                return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05;
               });
               if (pastDueMilestones.length > 0) hasAlert = true;
             } catch (e) {}
@@ -3768,7 +3794,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.62 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.63 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -4606,7 +4632,7 @@ ${comercial}`;
               const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
               const hasPending = plan.some((p) => {
                 let pDate = p.date ? new Date(p.date) : null;
-                return p.status !== "Cobrado" && pDate && pDate <= now;
+                return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate && pDate <= now;
               });
               if (hasPending) {
                 list.push({
@@ -4797,7 +4823,7 @@ ${comercial}`;
                   const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
                   const hasPending = plan.some((p) => {
                     const pDate = parseDate(p.date);
-                    return p.status !== "Cobrado" && pDate <= now;
+                    return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate <= now;
                   });
                   if (hasPending) {
                     realAlerts.push({
