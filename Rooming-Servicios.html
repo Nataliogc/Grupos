@@ -133,7 +133,7 @@
         <!-- HEADER TITLE -->
         <div class="border-b-2 border-slate-900 pb-2 mb-4">
             <h1 class="text-center font-bold tracking-wider leading-snug">
-                ROOMING LIST Y RESUMEN DE SERVICIOS
+                DETALLES OPERATIVOS
             </h1>
             <div class="text-center text-sm font-bold mt-1">
                 Reserva n.º <span id="header-reserva">---</span> &bull; 
@@ -153,7 +153,8 @@
             </div>
             <div class="border-t border-slate-300 mt-2 pt-2 grid grid-cols-1 gap-y-1 text-xs">
                 <div><strong>HABITACIONES:</strong> <span id="gen-habitaciones" class="editable" contenteditable="true" oninput="triggerSave()">---</span></div>
-                <div><strong>PAX ROOMING:</strong> <span id="gen-pax" class="editable" contenteditable="true" oninput="triggerSave()">---</span> personas</div>
+                <div><strong>PAX:</strong> <span id="gen-pax" class="editable" contenteditable="true" oninput="triggerSave()">---</span> personas</div>
+                <div><strong>ROOMING LIST:</strong> <span id="gen-rooming-ref" class="editable" contenteditable="true" oninput="triggerSave()">Según hoja adjunta</span></div>
                 <div><strong>RÉGIMEN:</strong> <span id="gen-regimen" class="editable" contenteditable="true" oninput="triggerSave()">---</span></div>
                 <div><strong>ESTADO CRÍTICO:</strong> <span id="gen-estado-critico" class="editable text-rose-700 font-bold" contenteditable="true" oninput="triggerSave()">---</span></div>
             </div>
@@ -201,36 +202,16 @@
             <button onclick="addRowServicio('', '', '', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Servicio</button>
         </div>
 
-        <!-- ROOMING LIST POR HABITACION -->
-        <div class="section-title flex justify-between items-end">
-            <span>ROOMING LIST POR HABITACIÓN</span>
-            <button onclick="openIaModal()" class="no-print text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3.5 rounded shadow flex items-center gap-1.5 transition-all">
-                <span>✦ Importar Rooming con IA</span>
-            </button>
+        <!-- ROOMING LIST / HABITACIONES -->
+        <div class="section-title">ROOMING LIST / HABITACIONES</div>
+        <div class="p-3 bg-slate-50 border border-slate-300 rounded text-xs mb-3">
+            <strong>Rooming List:</strong> <span id="rooming-nota-adjunta" class="editable font-semibold text-slate-800" contenteditable="true" oninput="triggerSave()">Según hoja adjunta</span>
         </div>
-        <div class="text-[10px] italic text-slate-500 mb-2">Listado preparado para recepción.</div>
         <!-- Rooming List Incidences Area -->
-        <div id="rooming-incidences-area" class="mb-4"></div>
-        <table id="table-rooming">
-            <thead>
-                <tr>
-                    <th style="width: 8%">Hab.</th>
-                    <th style="width: 13%">Tipo</th>
-                    <th style="width: 7%">Pax</th>
-                    <th style="width: 12%">Entrada</th>
-                    <th style="width: 12%">Salida</th>
-                    <th style="width: 31%">Ocupantes</th>
-                    <th style="width: 13%">Observaciones</th>
-                    <th class="no-print" style="width: 4%"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Dynamic Content -->
-            </tbody>
+        <div id="rooming-incidences-area" class="mb-3"></div>
+        <table id="table-rooming" style="display: none;">
+            <tbody></tbody>
         </table>
-        <div class="no-print mt-2 text-right">
-            <button onclick="addRowRooming('', '', '', '', '', '', '')" class="text-[10px] uppercase font-bold text-indigo-600 hover:text-indigo-800 tracking-wider bg-indigo-50 px-2 py-1 rounded border border-indigo-200 shadow-sm">+ Añadir Habitación</button>
-        </div>
 
         <!-- RESUMEN RAPIDO POR DEPARTAMENTO -->
         <div id="section-title-departments" class="section-title flex justify-between items-end">
@@ -463,7 +444,10 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 admin: 'dept-administracion'
             };
             const el = document.getElementById(ids[key]);
-            if (el) el.innerHTML = html || '';
+            if (el) {
+                if (document.activeElement === el || el.contains(document.activeElement)) return;
+                el.innerHTML = html || '';
+            }
         }
 
         function applyDepartmentSummaryState() {
@@ -1380,17 +1364,26 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             Object.entries(roomTypes).forEach(([type, count]) => {
                 roomSummaryParts.push(`${count} ${type.toLowerCase()}s`);
             });
-            const roomsText = roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : '---';
+            const genHabText = (document.getElementById('gen-habitaciones')?.innerText || '').trim();
+            const roomsText = roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : (genHabText && genHabText !== '---' ? genHabText : 'Según hoja adjunta');
+            if (!currentTotalPax) {
+                currentTotalPax = parseInt(document.getElementById('gen-pax')?.innerText) || 0;
+            }
 
             const recSummary = `
-                &bull; Entrada del grupo: ${currentTotalPax} personas / ${currentTotalRooms} habitaciones.<br>
-                &bull; Distribución: ${currentTotalRooms} total: ${roomsText}.<br>
-                &bull; Chofer / Guía: ${staffMembers.length > 0 ? staffMembers.map(m => `${m.role}: ${m.name} (Hab ${m.room})`).join(', ') : 'Ninguno especificado en la rooming list'}.
+                &bull; Entrada del grupo: ${currentTotalPax} personas / ${currentTotalRooms ? currentTotalRooms + ' habitaciones' : (roomsText || 'según hoja adjunta')}.<br>
+                &bull; Distribución: ${roomsText}.<br>
+                &bull; Rooming List: Según hoja adjunta.<br>
+                &bull; Chofer / Guía: ${staffMembers.length > 0 ? staffMembers.map(m => `${m.role}: ${m.name} (Hab ${m.room})`).join(', ') : 'Según hoja adjunta / no especificado'}.
             `;
             const receptionEl = document.getElementById('dept-recepcion');
             if (receptionEl) {
+                const isFocused = document.activeElement === receptionEl || receptionEl.contains(document.activeElement);
                 const saved = departmentSummaryState.reception;
-                receptionEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : recSummary.trim();
+                const isManual = !forceAuto && saved && saved.manualOverride;
+                if (!isFocused && !isManual) {
+                    receptionEl.innerHTML = recSummary.trim();
+                }
             }
 
             // RESTAURANTE / COCINA
@@ -1481,8 +1474,12 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             `;
             const restauranteEl = document.getElementById('dept-restaurante');
             if (restauranteEl) {
+                const isFocused = document.activeElement === restauranteEl || restauranteEl.contains(document.activeElement);
                 const saved = departmentSummaryState.kitchen;
-                restauranteEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : restSummary.trim();
+                const isManual = !forceAuto && saved && saved.manualOverride;
+                if (!isFocused && !isManual) {
+                    restauranteEl.innerHTML = restSummary.trim();
+                }
             }
 
             // ADMINISTRACIÓN
@@ -1521,8 +1518,12 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             }
             const adminEl = document.getElementById('dept-administracion');
             if (adminEl) {
+                const isFocused = document.activeElement === adminEl || adminEl.contains(document.activeElement);
                 const saved = departmentSummaryState.admin;
-                adminEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : admSummaryText.trim();
+                const isManual = !forceAuto && saved && saved.manualOverride;
+                if (!isFocused && !isManual) {
+                    adminEl.innerHTML = admSummaryText.trim();
+                }
             }
         }
 
@@ -1596,6 +1597,8 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
                 genSalida: document.getElementById('gen-salida').innerText,
                 genHabitaciones: document.getElementById('gen-habitaciones').innerText,
                 genPax: document.getElementById('gen-pax').innerText,
+                genRoomingRef: document.getElementById('gen-rooming-ref')?.innerText || 'Según hoja adjunta',
+                roomingNotaAdjunta: document.getElementById('rooming-nota-adjunta')?.innerText || 'Según hoja adjunta',
                 genRegimen: document.getElementById('gen-regimen').innerText,
                 genEstadoCritico: document.getElementById('gen-estado-critico').innerText,
                 deptRecepcion: document.getElementById('dept-recepcion').innerHTML,
@@ -1634,6 +1637,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             if (isInitializingView || !hasUserEditedView || isDiscardingChanges) return;
             // Only allow Firestore write if it's explicitly triggered
             if (!isExplicitSaveInProgress && !isExplicit) return;
+            if (!rooming || rooming.length === 0) return;
 
             if (!window.db || !currentReservaId) return;
             if (isSyncing) return;
@@ -1891,7 +1895,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
             const groupData = groupRaw ? JSON.parse(groupRaw) : {};
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
             const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "";
-            let newTitle = `${ref} - Rooming y Servicios - ${grupo}`;
+            let newTitle = `${ref} - Detalles Operativos - ${grupo}`;
             if (hotelName) newTitle += ` - ${hotelName}`;
             document.title = newTitle;
             window.print();
@@ -2530,6 +2534,12 @@ ${inputVal}`;
                     document.getElementById('gen-salida').innerText = s.genSalida || '---';
                     document.getElementById('gen-habitaciones').innerText = s.genHabitaciones || '---';
                     document.getElementById('gen-pax').innerText = s.genPax || '0';
+                    if (document.getElementById('gen-rooming-ref') && s.genRoomingRef) {
+                        document.getElementById('gen-rooming-ref').innerText = s.genRoomingRef;
+                    }
+                    if (document.getElementById('rooming-nota-adjunta') && s.roomingNotaAdjunta) {
+                        document.getElementById('rooming-nota-adjunta').innerText = s.roomingNotaAdjunta;
+                    }
                     document.getElementById('gen-regimen').innerText = s.genRegimen || '---';
                     document.getElementById('gen-estado-critico').innerText = s.genEstadoCritico || '---';
                     document.getElementById('dept-recepcion').innerHTML = s.deptRecepcion || '';

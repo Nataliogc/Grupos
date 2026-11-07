@@ -466,6 +466,25 @@
    * Soporta regímenes y pax distintos para cada día de estancia (extraídos de DailyDistribution_JSON / RoomingList_JSON).
    * La hora del servicio es "---" salvo que esté explícitamente programada/registrada en el grupo.
    */
+  function sortMealRows(rows) {
+    if (!Array.isArray(rows)) return [];
+    var jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, merienda: 4, cena: 5, coctel: 6, sala: 7, especial: 8 };
+    return rows.slice().sort(function (a, b) {
+      var fA = String(a.fecha || "");
+      var fB = String(b.fecha || "");
+      if (fA !== fB) return fA.localeCompare(fB);
+      var ordA = jOrder[String(a.jornada || "").toLowerCase()] || 99;
+      var ordB = jOrder[String(b.jornada || "").toLowerCase()] || 99;
+      if (ordA !== ordB) return ordA - ordB;
+      var hA = (a.hora && a.hora !== "---") ? String(a.hora) : "";
+      var hB = (b.hora && b.hora !== "---") ? String(b.hora) : "";
+      if (hA && hB) return hA.localeCompare(hB);
+      if (hA && !hB) return -1;
+      if (!hA && hB) return 1;
+      return 0;
+    });
+  }
+
   function getMealSchedule(groupRecord) {
     var raw = groupRecord && groupRecord.MealSchedule_JSON;
     if (raw == null && groupRecord && groupRecord.records && groupRecord.records[0]) raw = groupRecord.records[0].MealSchedule_JSON;
@@ -474,7 +493,7 @@
     if (!Array.isArray(rows)) throw new Error("La programación de comidas debe ser una lista.");
     var seen = {};
     var validJornadas = ["desayuno", "almuerzo", "merienda", "cena", "coffee_break", "coctel", "sala", "especial"];
-    return rows.map(function (row) {
+    var mapped = rows.map(function (row) {
       var date = toIsoDate(row.fecha);
       var pax = Number(row.pax);
       var jNorm = String(row.jornada || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -500,6 +519,7 @@
         salon: String(row.salon || "").trim()
       };
     });
+    return sortMealRows(mapped);
   }
 
   function getDailyPaxForGroup(groupRecord, isoDate) {
@@ -1909,6 +1929,7 @@
     resolveHotelAndSalon: resolveHotelAndSalon,
     extractRegisteredHour: extractRegisteredHour,
     applyServiceOrderDetails: applyServiceOrderDetails,
+    sortMealRows: sortMealRows,
     getMealSchedule: getMealSchedule,
     getDailyPaxForGroup: getDailyPaxForGroup,
     syncMealSchedulePax: syncMealSchedulePax,

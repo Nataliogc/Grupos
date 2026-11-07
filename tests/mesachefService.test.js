@@ -226,6 +226,21 @@ test('programacion rechaza filas duplicadas, turnos y comensales invalidos',()=>
   }
   assert.throws(()=>service.getMealSchedule({...group,MealSchedule_JSON:'malformed'}));
 });
+test('programacion ordena automaticamente las comidas por fecha y turno',()=>{
+  const unordered = [
+    { fecha: '2026-11-12', jornada: 'almuerzo', pax: 37 },
+    { fecha: '2026-11-10', jornada: 'cena', pax: 37 },
+    { fecha: '2026-11-11', jornada: 'cena', pax: 37 },
+    { fecha: '2026-11-11', jornada: 'almuerzo', pax: 37 }
+  ];
+  const sorted = service.getMealSchedule({ ...group, MealSchedule_JSON: JSON.stringify(unordered) });
+  assert.deepEqual(sorted.map(r => [r.fecha, r.jornada]), [
+    ['2026-11-10', 'cena'],
+    ['2026-11-11', 'almuerzo'],
+    ['2026-11-11', 'cena'],
+    ['2026-11-12', 'almuerzo']
+  ]);
+});
 test('programacion admite servicios adicionales (desayuno, merienda, coffee_break, especial) hacia MesaChef', () => {
   const sched = [
     { fecha: '2027-02-02', jornada: 'desayuno', pax: 20, hora: '08:30' },

@@ -1192,9 +1192,28 @@
       const effectiveMaxDate = allPossibleStayDates[allPossibleStayDates.length - 1] || toInputDate(record.Salida);
       const automatic = () => service.getAutomaticMealDocuments(record).map(d => ({fecha:d.fecha, jornada:d.detalles.jornada, pax:d.detalles.pax_adultos, hora:d.detalles.hora || "---"}));
 
+      const sortMealRows = (list) => {
+        if (!Array.isArray(list)) return [];
+        const jOrder = { desayuno: 1, coffee_break: 2, almuerzo: 3, merienda: 4, cena: 5, coctel: 6, sala: 7, especial: 8 };
+        return [...list].sort((a, b) => {
+          const fA = String(a?.fecha || "");
+          const fB = String(b?.fecha || "");
+          if (fA !== fB) return fA.localeCompare(fB);
+          const ordA = jOrder[String(a?.jornada || "").toLowerCase()] || 99;
+          const ordB = jOrder[String(b?.jornada || "").toLowerCase()] || 99;
+          if (ordA !== ordB) return ordA - ordB;
+          const hA = (a?.hora && a.hora !== "---") ? String(a.hora) : "";
+          const hB = (b?.hora && b.hora !== "---") ? String(b.hora) : "";
+          if (hA && hB) return hA.localeCompare(hB);
+          if (hA && !hB) return -1;
+          if (!hA && hB) return 1;
+          return 0;
+        });
+      };
+
       const syncAllRowsPax = (sourceRows) => {
         const list = sourceRows || rows;
-        const updated = service.syncMealSchedulePax(list, record);
+        const updated = sortMealRows(service.syncMealSchedulePax(list, record));
         const missing = list.filter(r => service.getServicePaxForSchedule(record, r) === null);
         setError(missing.length ? "Hay servicios sin una cantidad inequívoca en el desglose para su fecha. Se mantienen sus personas: revisa fecha, concepto y comensales manualmente." : "");
         return updated;
@@ -1218,9 +1237,9 @@
           setIncluded(totalInc);
           const savedSchedule = service.getMealSchedule(record);
           if (savedSchedule && savedSchedule.length > 0) {
-            setRows(savedSchedule);
+            setRows(sortMealRows(savedSchedule));
           } else {
-            setRows(defaults);
+            setRows(sortMealRows(defaults));
           }
           setError(""); setOpen(true);
           refreshLocations();
@@ -1242,7 +1261,9 @@
       const save = async (automaticMode = false) => {
         setError(""); setSaving(true);
         try {
-          const value = automaticMode ? null : JSON.stringify(rows);
+          const sortedRows = sortMealRows(rows);
+          setRows(sortedRows);
+          const value = automaticMode ? null : JSON.stringify(sortedRows);
           if (!automaticMode) {
             const checked = service.getMealSchedule({...record, MealSchedule_JSON:value});
             if (checked.some(r => (effectiveMinDate && r.fecha < effectiveMinDate) || (effectiveMaxDate && r.fecha > effectiveMaxDate))) {
@@ -1282,7 +1303,7 @@
                 {rows.map((row,index)=>(
                   <tr key={index} className="hover:bg-slate-50/60">
                     <td className="py-1.5 pr-2">
-                      <input aria-label="Fecha de comida" type="date" min={effectiveMinDate} max={effectiveMaxDate} value={row.fecha} disabled={saving} onChange={e=>change(index,"fecha",e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs" />
+                      <input aria-label="Fecha de comida" type="date" min={effectiveMinDate} max={effectiveMaxDate} value={row.fecha} disabled={saving} onChange={e=>change(index,"fecha",e.target.value)} onBlur={()=>setRows(prev=>sortMealRows(prev))} className="border border-slate-300 rounded px-2 py-1 text-xs" />
                     </td>
                     <td className="py-1.5 px-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1350,8 +1371,9 @@
           {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
           <button type="button" disabled={saving} onClick={() => { refreshLocations(); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones de MesaChef</button>
           <div className="flex flex-wrap gap-3 items-center pt-1">
-            <button type="button" disabled={saving} onClick={()=>setRows(prev=>[...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}])} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
-            <button type="button" disabled={saving} onClick={()=>setRows(syncAllRowsPax(rows))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows([...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}]))} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(syncAllRowsPax(prev)))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>
+            <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(prev))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Ordenar cronológicamente por fecha y turno">📅 Ordenar por fecha</button>
             <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 text-xs font-bold transition cursor-pointer">{saving?"Guardando…":"Guardar programación"}</button>
             <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Usar programación automática</button>
             <button type="button" disabled={saving} onClick={()=>{setOpen(false);setError("");}} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Cancelar</button>
@@ -27049,7 +27071,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                               <span className="text-[11px] font-black uppercase tracking-widest">
 
-                                Rooming y Servicios
+                                Detalles Operativos
 
                               </span>
 
