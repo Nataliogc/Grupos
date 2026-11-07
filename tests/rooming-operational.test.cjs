@@ -52,3 +52,23 @@ test('ordena en dia de salida desayuno, almuerzo y salida cronologicamente', () 
   const sorted = service.sortServices(rows);
   assert.deepEqual(sorted.map(r => r.servicio), ['Desayuno', 'Almuerzo', 'Salida / check-out']);
 });
+test('resolveSavedState prioritizes local draft and falls back to firestore RoomingServicios_JSON', () => {
+  const localDraft = JSON.stringify({ pendientes: [{ pendiente: 'Local task' }] });
+  const firestoreRecord = { RoomingServicios_JSON: JSON.stringify({ pendientes: [{ pendiente: 'Remote task' }] }) };
+  assert.deepEqual(service.resolveSavedState(localDraft, firestoreRecord).pendientes[0].pendiente, 'Local task');
+  assert.deepEqual(service.resolveSavedState(null, firestoreRecord).pendientes[0].pendiente, 'Remote task');
+  assert.equal(service.resolveSavedState(null, {}), null);
+});
+test('preserves user saved pendientes even if record timestamp changed', () => {
+  const savedState = { pendientes: [{ pendiente: 'Coordinar bus', detalle: 'A las 10:00' }] };
+  assert.equal(service.shouldPreserveSavedPendientes(savedState), true);
+  assert.equal(service.shouldPreserveSavedPendientes({ pendientes: [] }), true);
+  assert.equal(service.shouldPreserveSavedPendientes({}), false);
+  assert.equal(service.shouldPreserveSavedPendientes(null), false);
+});
+test('preserves user saved services unless restoreServices is explicitly flagged', () => {
+  const savedServices = { servicios: [{ servicio: 'Cena', hora: '21:30' }] };
+  assert.equal(service.shouldPreserveSavedServices(savedServices), true);
+  assert.equal(service.shouldPreserveSavedServices({ ...savedServices, restoreServices: true }), false);
+  assert.equal(service.shouldPreserveSavedServices({ servicios: [] }), false);
+});

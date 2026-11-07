@@ -13,13 +13,14 @@
         }
 
         let currentReservaId = "unknown";
+        let currentRecord = null;
         let saveTimeout = null;
         let isDiscardingChanges = false;
         let isInitializingView = true;
         let hasUserEditedView = false;
         let isExplicitSaveInProgress = false;
         const MAX_ALLOWED_ROOMING_NIGHTS = 90;
-        const SERVICES_GENERATION_VERSION = 10;
+        const SERVICES_GENERATION_VERSION = 12;
 
         function mergeServices(existing, auto) {
             const merged = [];
@@ -42,7 +43,7 @@
                         finalPaxHab = match.paxHab;
                     }
 
-                    const finalHora = match.hora !== 'PENDIENTE' && match.hora !== '___:___ h' ? match.hora : a.hora;
+                    const finalHora = (a.hora && a.hora !== 'PENDIENTE' && a.hora !== '___:___ h') ? a.hora : (match.hora !== 'PENDIENTE' && match.hora !== '___:___ h' ? match.hora : a.hora);
                     const finalNotas = match.notas && match.notas !== '' ? match.notas : a.notas;
 
                     merged.push({
@@ -119,7 +120,10 @@
                 admin: 'dept-administracion'
             };
             const el = document.getElementById(ids[key]);
-            if (el) el.innerHTML = html || '';
+            if (el) {
+                if (document.activeElement === el || el.contains(document.activeElement)) return;
+                el.innerHTML = html || '';
+            }
         }
 
         function applyDepartmentSummaryState() {
@@ -133,14 +137,25 @@
         }
 
         function applyDepartmentSummaryLayout() {
+            let visibleCount = 0;
             ['reception', 'kitchen', 'admin'].forEach(key => {
                 const box = document.querySelector(`[data-dept-box="${key}"]`);
                 if (!box) return;
                 const layout = departmentSummaryLayout[key] || {};
-                box.classList.toggle('hidden', !!layout.hidden);
-                box.classList.toggle('md:col-span-2', !!layout.wide && !layout.hidden);
-                box.classList.toggle('md:col-span-3', !!layout.full && !layout.hidden);
+                const isHidden = !!layout.hidden;
+                box.classList.toggle('hidden', isHidden);
+                box.classList.toggle('md:col-span-2', !!layout.wide && !isHidden);
+                box.classList.toggle('md:col-span-3', !!layout.full && !isHidden);
+                if (!isHidden) visibleCount++;
             });
+            const titleEl = document.getElementById('section-title-departments');
+            const gridEl = document.querySelector('.dept-grid');
+            if (titleEl) {
+                titleEl.classList.toggle('all-depts-hidden', visibleCount === 0);
+            }
+            if (gridEl) {
+                gridEl.classList.toggle('all-depts-hidden', visibleCount === 0);
+            }
         }
 
         function updateDepartmentSummaryLayout(key, patch) {
@@ -173,6 +188,19 @@
                 departmentSummaryLayout[key] = {
                     ...(departmentSummaryLayout[key] || {}),
                     hidden: false
+                };
+            });
+            applyDepartmentSummaryLayout();
+            captureDepartmentSummary(true);
+            saveStateToCache({ skipDepartmentSummarySync: true });
+            syncDepartmentSummaryToFirestore();
+        }
+
+        function hideAllDepartmentBoxes() {
+            ['reception', 'kitchen', 'admin'].forEach(key => {
+                departmentSummaryLayout[key] = {
+                    ...(departmentSummaryLayout[key] || {}),
+                    hidden: true
                 };
             });
             applyDepartmentSummaryLayout();
@@ -240,7 +268,7 @@
                 }
                 await window.db.collection("groups").doc(String(currentReservaId)).set(payload, { merge: true });
 
-                const rawGroupData = localStorage.getItem('selectedGroup');
+                const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     const group = JSON.parse(rawGroupData);
                     const applyTo = (obj) => {
@@ -257,7 +285,7 @@
                             applyTo(group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId) || group.records[0]);
                         }
                     }
-                    localStorage.setItem('selectedGroup', JSON.stringify(group));
+                    window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                 }
             } catch (e) {
                 console.error("Error saving department summary:", e);
@@ -353,7 +381,7 @@
                 console.log(`Pax correction: Reserva=${currentReservaId}, OldPax=${storedPax}, NewPax=${maxOccupancy}, Date=${new Date().toISOString()}, Source=Corregir Pax Controlado`);
                 await docRef.set({ "Pax.": maxOccupancy.toString() }, { merge: true });
 
-                const rawGroupData = localStorage.getItem('selectedGroup');
+                const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     try {
                         let group = JSON.parse(rawGroupData);
@@ -369,7 +397,7 @@
                                 group["Pax."] = maxOccupancy.toString();
                             }
                         }
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     } catch (e) {}
                 }
 
@@ -817,8 +845,8 @@
 
 
         function goBackToReserva() {
-            localStorage.setItem('nexus_return_reserva', currentReservaId);
-            localStorage.setItem('nexus_open_ficha', currentReservaId);
+            window.NexusUtils.safeStorage.setItem('nexus_return_reserva', currentReservaId);
+            window.NexusUtils.safeStorage.setItem('nexus_open_ficha', currentReservaId);
             window.location.href = 'Gestion-de-Grupos.html?reserva=' + encodeURIComponent(currentReservaId);
         }
 
@@ -841,8 +869,8 @@
             }
             if (saveTimeout) clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
-                saveStateToCache();
-                if (status) {
+                const cached = saveStateToCache();
+                if (status && cached) {
                     status.innerText = 'Autoguardado local ✓';
                     setTimeout(() => status.classList.add('opacity-0'), 2000);
                 }
@@ -850,23 +878,32 @@
         }
 
         async function handleExplicitRoomingSave() {
-            const btn = event.currentTarget || document.querySelector('button[onclick="handleExplicitRoomingSave()"]');
-            const originalText = btn.innerText;
-            btn.innerText = "GUARDANDO...";
-            btn.disabled = true;
+            const btn = (typeof event !== 'undefined' && event && (event.currentTarget || event.target)) || document.querySelector('button[onclick="handleExplicitRoomingSave()"]');
+            const originalText = btn ? btn.innerText : "GUARDAR CAMBIOS";
+            if (btn) {
+                btn.innerText = "GUARDANDO...";
+                btn.disabled = true;
+            }
 
             isExplicitSaveInProgress = true;
             try {
-                // saveStateToCache triggers the process that eventually calls syncRoomingToFirestore
-                saveStateToCache({ explicitSave: true });
+                const saveData = saveStateToCache({ explicitSave: true });
+                if (!saveData) throw new Error("No hay datos para guardar.");
+
+                if (window.db && currentReservaId && currentReservaId !== "unknown") {
+                    await syncRoomingToFirestore(saveData.rooming, true, saveData);
+                }
                 hasUserEditedView = false;
                 alert("Cambios guardados correctamente en la base de datos.");
             } catch(e) {
+                console.error("Error al guardar:", e);
                 alert("Error al guardar: " + e.message);
             } finally {
                 isExplicitSaveInProgress = false;
-                btn.innerText = originalText;
-                btn.disabled = false;
+                if (btn) {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
             }
         }
 
@@ -1012,17 +1049,26 @@
             Object.entries(roomTypes).forEach(([type, count]) => {
                 roomSummaryParts.push(`${count} ${type.toLowerCase()}s`);
             });
-            const roomsText = roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : '---';
+            const genHabText = (document.getElementById('gen-habitaciones')?.innerText || '').trim();
+            const roomsText = roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : (genHabText && genHabText !== '---' ? genHabText : 'Según hoja adjunta');
+            if (!currentTotalPax) {
+                currentTotalPax = parseInt(document.getElementById('gen-pax')?.innerText) || 0;
+            }
 
             const recSummary = `
-                &bull; Entrada del grupo: ${currentTotalPax} personas / ${currentTotalRooms} habitaciones.<br>
-                &bull; Distribución: ${currentTotalRooms} total: ${roomsText}.<br>
-                &bull; Chofer / Guía: ${staffMembers.length > 0 ? staffMembers.map(m => `${m.role}: ${m.name} (Hab ${m.room})`).join(', ') : 'Ninguno especificado en la rooming list'}.
+                &bull; Entrada del grupo: ${currentTotalPax} personas / ${currentTotalRooms ? currentTotalRooms + ' habitaciones' : (roomsText || 'según hoja adjunta')}.<br>
+                &bull; Distribución: ${roomsText}.<br>
+                &bull; Rooming List: Según hoja adjunta.<br>
+                &bull; Chofer / Guía: ${staffMembers.length > 0 ? staffMembers.map(m => `${m.role}: ${m.name} (Hab ${m.room})`).join(', ') : 'Según hoja adjunta / no especificado'}.
             `;
             const receptionEl = document.getElementById('dept-recepcion');
             if (receptionEl) {
+                const isFocused = document.activeElement === receptionEl || receptionEl.contains(document.activeElement);
                 const saved = departmentSummaryState.reception;
-                receptionEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : recSummary.trim();
+                const isManual = !forceAuto && saved && saved.manualOverride;
+                if (!isFocused && !isManual) {
+                    receptionEl.innerHTML = recSummary.trim();
+                }
             }
 
             // RESTAURANTE / COCINA
@@ -1069,7 +1115,7 @@
 
             // Load Special Menus and Operational Notes from Service Order cache if available
             const osKey = 'ordenServicio_' + currentReservaId;
-            const osDataStr = localStorage.getItem(osKey);
+            const osDataStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem(osKey) : null) || localStorage.getItem(osKey) || (currentRecord ? currentRecord.ServiceOrder_JSON : null);
             let specialMenus = [];
             let operationalNotes = '';
             if (osDataStr) {
@@ -1113,8 +1159,12 @@
             `;
             const restauranteEl = document.getElementById('dept-restaurante');
             if (restauranteEl) {
+                const isFocused = document.activeElement === restauranteEl || restauranteEl.contains(document.activeElement);
                 const saved = departmentSummaryState.kitchen;
-                restauranteEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : restSummary.trim();
+                const isManual = !forceAuto && saved && saved.manualOverride;
+                if (!isFocused && !isManual) {
+                    restauranteEl.innerHTML = restSummary.trim();
+                }
             }
 
             // ADMINISTRACIÓN
@@ -1153,8 +1203,12 @@
             }
             const adminEl = document.getElementById('dept-administracion');
             if (adminEl) {
+                const isFocused = document.activeElement === adminEl || adminEl.contains(document.activeElement);
                 const saved = departmentSummaryState.admin;
-                adminEl.innerHTML = (!forceAuto && saved && saved.manualOverride) ? saved.content : admSummaryText.trim();
+                const isManual = !forceAuto && saved && saved.manualOverride;
+                if (!isFocused && !isManual) {
+                    adminEl.innerHTML = admSummaryText.trim();
+                }
             }
         }
 
@@ -1222,39 +1276,46 @@
             });
 
             const saveData = {
-                headerGrupo: document.getElementById('header-grupo').innerText,
-                genContacto: document.getElementById('gen-contacto').innerText,
-                genEntrada: document.getElementById('gen-entrada').innerText,
-                genSalida: document.getElementById('gen-salida').innerText,
-                genHabitaciones: document.getElementById('gen-habitaciones').innerText,
-                genPax: document.getElementById('gen-pax').innerText,
-                genRegimen: document.getElementById('gen-regimen').innerText,
-                genEstadoCritico: document.getElementById('gen-estado-critico').innerText,
-                deptRecepcion: document.getElementById('dept-recepcion').innerHTML,
-                deptRestaurante: document.getElementById('dept-restaurante').innerHTML,
-                deptAdministracion: document.getElementById('dept-administracion').innerHTML,
+                headerGrupo: document.getElementById('header-grupo')?.innerText || '',
+                genContacto: document.getElementById('gen-contacto')?.innerText || '',
+                genEntrada: document.getElementById('gen-entrada')?.innerText || '',
+                genSalida: document.getElementById('gen-salida')?.innerText || '',
+                genHabitaciones: document.getElementById('gen-habitaciones')?.innerText || '',
+                genPax: document.getElementById('gen-pax')?.innerText || '',
+                genRoomingRef: document.getElementById('gen-rooming-ref')?.innerText || 'Según hoja adjunta',
+                roomingNotaAdjunta: document.getElementById('rooming-nota-adjunta')?.innerHTML || document.getElementById('rooming-nota-adjunta')?.innerText || 'Rooming List: Según hoja adjunta.',
+                genRegimen: document.getElementById('gen-regimen')?.innerText || '',
+                genEstadoCritico: document.getElementById('gen-estado-critico')?.innerText || '',
+                deptRecepcion: document.getElementById('dept-recepcion')?.innerHTML || '',
+                deptRestaurante: document.getElementById('dept-restaurante')?.innerHTML || '',
+                deptAdministracion: document.getElementById('dept-administracion')?.innerHTML || '',
                 departmentSummary: departmentSummaryState,
                 departmentSummaryLayout: departmentSummaryLayout,
                 servicesGenerationVersion: SERVICES_GENERATION_VERSION,
+                savedAt: new Date().toISOString(),
                 pendientes,
                 servicios,
                 rooming
             };
 
-            localStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
+            const cached = window.NexusDraftStorage.setItem('roomingServicios_' + currentReservaId, JSON.stringify(saveData));
+            if (!cached) {
+                const status = document.getElementById('save-status');
+                if (status) {
+                    status.innerText = 'Sin espacio para la copia local. Guarda los cambios antes de cerrar.';
+                    status.classList.remove('opacity-0');
+                }
+            }
             if (!options.skipDepartmentSummarySync && Object.values(departmentSummaryState || {}).some(entry => entry && entry.manualOverride)) {
                 syncDepartmentSummaryToFirestore();
             }
             
-            // Asynchronously sync manual room edits to Firestore
-            if (typeof syncRoomingToFirestore === 'function') {
-                syncRoomingToFirestore(rooming, options.explicitSave === true);
-            }
+            return saveData;
         }
 
         let isSyncing = false;
-        async function syncRoomingToFirestore(rooming, isExplicit = false) {
-            if (isInitializingView || !hasUserEditedView || isDiscardingChanges) return;
+        async function syncRoomingToFirestore(rooming, isExplicit = false, explicitSaveData = null) {
+            if (isInitializingView || isDiscardingChanges) return;
             // Only allow Firestore write if it's explicitly triggered
             if (!isExplicitSaveInProgress && !isExplicit) return;
 
@@ -1272,53 +1333,80 @@
                     originalList = JSON.parse(recData['RoomingList_JSON'] || '[]');
                 } catch(e) {}
 
-                // Make a deep copy of originalList
-                let finalRoomingList = JSON.parse(JSON.stringify(originalList));
+                let finalRoomingList = null;
+                const hasRooming = Array.isArray(rooming) && rooming.length > 0;
+                let paxTotal = recData['Pax.'] || '';
+                let cantTotal = recData['Cant.'] || '';
+                let habitacionesTotal = recData['Habitaciones'] || '';
+                let importeTotal = recData['Importe(*)'] || '0.00';
 
-                // Keep only economic blocks and existing manual items that are still in rooming
-                const activeManualIds = new Set(
-                    rooming
-                        .filter(r => !r.originalIds || r.originalIds.length === 0 || (r.id && String(r.id).startsWith('manual_')) || r.isManualRoomingItem)
-                        .map(r => r.id)
-                );
+                if (hasRooming) {
+                    // Make a deep copy of originalList
+                    finalRoomingList = JSON.parse(JSON.stringify(originalList));
 
-                // Clean up assignments or initialize them on all economic blocks
-                finalRoomingList.forEach(block => {
-                    if (!block.isService && !block.isManualRoomingItem && !block.pendienteValoracion) {
-                        block.assignments = block.assignments || {};
+                    // Keep only economic blocks and existing manual items that are still in rooming
+                    const activeManualIds = new Set(
+                        rooming
+                            .filter(r => !r.originalIds || r.originalIds.length === 0 || (r.id && String(r.id).startsWith('manual_')) || r.isManualRoomingItem)
+                            .map(r => r.id)
+                    );
+
+                    // Clean up assignments or initialize them on all economic blocks
+                    finalRoomingList.forEach(block => {
+                        if (!block.isService && !block.isManualRoomingItem && !block.pendienteValoracion) {
+                            block.assignments = block.assignments || {};
+                        }
+                    });
+
+                    // Helper function for legacy compatibility
+                    function syncLegacyRootAssignment(block) {
+                        if (parseInt(block.qty) === 1 && parseInt(block.nights) === 1) {
+                            const assign = block.assignments?.['q0_n0'] || block.assignments?.['0_0'] || {};
+                            block.roomNo = assign.roomNo || '';
+                            block.ocupantes = Array.isArray(assign.occupants) ? assign.occupants.join('\n') : (assign.occupants || '');
+                            block.dni = Array.isArray(assign.dni) ? assign.dni.join(';') : (assign.dni || '');
+                            block.observ = assign.observations || '';
+                        }
                     }
-                });
 
-                // Helper function for legacy compatibility
-                function syncLegacyRootAssignment(block) {
-                    if (parseInt(block.qty) === 1 && parseInt(block.nights) === 1) {
-                        const assign = block.assignments?.['q0_n0'] || block.assignments?.['0_0'] || {};
-                        block.roomNo = assign.roomNo || '';
-                        block.ocupantes = Array.isArray(assign.occupants) ? assign.occupants.join('\n') : (assign.occupants || '');
-                        block.dni = Array.isArray(assign.dni) ? assign.dni.join(';') : (assign.dni || '');
-                        block.observ = assign.observations || '';
-                    }
-                }
+                    // Traverse the consolidated rooming list
+                    rooming.forEach(stay => {
+                        if (stay.isService) return;
 
-                // Traverse the consolidated rooming list
-                rooming.forEach(stay => {
-                    if (stay.isService) return;
+                        // Parse originalIds of the stay
+                        const rowIds = Array.isArray(stay.originalIds) && stay.originalIds.length > 0
+                            ? stay.originalIds
+                            : (stay.id || '').split(',').map(s => s.trim()).filter(s => s.length > 0);
 
-                    // Parse originalIds of the stay
-                    const rowIds = Array.isArray(stay.originalIds) && stay.originalIds.length > 0
-                        ? stay.originalIds
-                        : (stay.id || '').split(',').map(s => s.trim()).filter(s => s.length > 0);
-
-                    // Check if it has assignmentRefs from the core layout.
-                    // Stays loaded from groupAndMergeRoomingList have assignmentRefs!
-                    const hasRefs = Array.isArray(stay.assignmentRefs) && stay.assignmentRefs.length > 0;
-                    
-                    if (hasRefs) {
-                        stay.assignmentRefs.forEach(ref => {
-                            const block = finalRoomingList.find(b => b.id === ref.blockId);
-                            if (block) {
-                                block.assignments = block.assignments || {};
-                                block.assignments[ref.assignmentKey] = {
+                        // Check if it has assignmentRefs from the core layout.
+                        // Stays loaded from groupAndMergeRoomingList have assignmentRefs!
+                        const hasRefs = Array.isArray(stay.assignmentRefs) && stay.assignmentRefs.length > 0;
+                        
+                        if (hasRefs) {
+                            stay.assignmentRefs.forEach(ref => {
+                                const block = finalRoomingList.find(b => b.id === ref.blockId);
+                                if (block) {
+                                    block.assignments = block.assignments || {};
+                                    block.assignments[ref.assignmentKey] = {
+                                        assignmentId: stay.assignmentId || `assign_${Math.random().toString(36).substring(2, 9)}`,
+                                        stayId: stay.stayId || '',
+                                        slotId: stay.slotId || '',
+                                        tempRoomId: stay.tempRoomId || '',
+                                        roomNo: stay.hab || stay.roomNo || '',
+                                        occupants: (stay.ocupantes || '').split('\n').map(x => x.trim()).filter(Boolean),
+                                        dni: (stay.dni || '').split(';').map(x => x.trim()).filter(Boolean),
+                                        observations: stay.observ || stay.observations || ''
+                                    };
+                                    syncLegacyRootAssignment(block);
+                                }
+                            });
+                        } else {
+                            // This might be a manual room or legacy stay. We find matching block by ID
+                            const matchBlock = finalRoomingList.find(b => b.id === stay.id);
+                            if (matchBlock && !matchBlock.isManualRoomingItem && !matchBlock.pendienteValoracion) {
+                                // If it matches an economic block, write to its q0_n0 assignment
+                                matchBlock.assignments = matchBlock.assignments || {};
+                                matchBlock.assignments['q0_n0'] = {
                                     assignmentId: stay.assignmentId || `assign_${Math.random().toString(36).substring(2, 9)}`,
                                     stayId: stay.stayId || '',
                                     slotId: stay.slotId || '',
@@ -1328,163 +1416,150 @@
                                     dni: (stay.dni || '').split(';').map(x => x.trim()).filter(Boolean),
                                     observations: stay.observ || stay.observations || ''
                                 };
-                                syncLegacyRootAssignment(block);
-                            }
-                        });
-                    } else {
-                        // This might be a manual room or legacy stay. We find matching block by ID
-                        const matchBlock = finalRoomingList.find(b => b.id === stay.id);
-                        if (matchBlock && !matchBlock.isManualRoomingItem && !matchBlock.pendienteValoracion) {
-                            // If it matches an economic block, write to its q0_n0 assignment
-                            matchBlock.assignments = matchBlock.assignments || {};
-                            matchBlock.assignments['q0_n0'] = {
-                                assignmentId: stay.assignmentId || `assign_${Math.random().toString(36).substring(2, 9)}`,
-                                stayId: stay.stayId || '',
-                                slotId: stay.slotId || '',
-                                tempRoomId: stay.tempRoomId || '',
-                                roomNo: stay.hab || stay.roomNo || '',
-                                occupants: (stay.ocupantes || '').split('\n').map(x => x.trim()).filter(Boolean),
-                                dni: (stay.dni || '').split(';').map(x => x.trim()).filter(Boolean),
-                                observations: stay.observ || stay.observations || ''
-                            };
-                            syncLegacyRootAssignment(matchBlock);
-                        } else {
-                            // This is a manual room
-                            const manualId = stay.id || `manual_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-                            let existingManual = finalRoomingList.find(b => b.id === manualId);
-                            
-                            const manualItem = {
-                                id: manualId,
-                                isManualRoomingItem: true,
-                                pendienteValoracion: true,
-                                excludeFromEconomicTotals: true,
-                                type: stay.tipo || stay.type || 'tipo-desconocido',
-                                pax: parseInt(stay.pax) || 1,
-                                dateIn: normalizeRoomingDate(stay.checkIn || stay.dateIn),
-                                dateOut: normalizeRoomingDate(stay.checkOut || stay.dateOut),
-                                qty: 1,
-                                price: 0,
-                                total: 0,
-                                nights: calculateRoomingNights(stay.checkIn || stay.dateIn, stay.checkOut || stay.dateOut),
-                                roomNo: stay.hab || stay.roomNo || '',
-                                ocupantes: stay.ocupantes || '',
-                                dni: stay.dni || '',
-                                observ: stay.observ || stay.observations || '',
-                                hotel: stay.hotel || recData['Hotel_Asignado'] || recData['Hotel'] || 'tipo-desconocido',
-                                isService: false
-                            };
-
-                            if (existingManual) {
-                                Object.assign(existingManual, manualItem);
+                                syncLegacyRootAssignment(matchBlock);
                             } else {
-                                finalRoomingList.push(manualItem);
+                                // This is a manual room
+                                const manualId = stay.id || `manual_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                                let existingManual = finalRoomingList.find(b => b.id === manualId);
+                                
+                                const manualItem = {
+                                    id: manualId,
+                                    isManualRoomingItem: true,
+                                    pendienteValoracion: true,
+                                    excludeFromEconomicTotals: true,
+                                    type: stay.tipo || stay.type || 'tipo-desconocido',
+                                    pax: parseInt(stay.pax) || 1,
+                                    dateIn: normalizeRoomingDate(stay.checkIn || stay.dateIn),
+                                    dateOut: normalizeRoomingDate(stay.checkOut || stay.dateOut),
+                                    qty: 1,
+                                    price: 0,
+                                    total: 0,
+                                    nights: calculateRoomingNights(stay.checkIn || stay.dateIn, stay.checkOut || stay.dateOut),
+                                    roomNo: stay.hab || stay.roomNo || '',
+                                    ocupantes: stay.ocupantes || '',
+                                    dni: stay.dni || '',
+                                    observ: stay.observ || stay.observations || '',
+                                    hotel: stay.hotel || recData['Hotel_Asignado'] || recData['Hotel'] || 'tipo-desconocido',
+                                    isService: false
+                                };
+
+                                if (existingManual) {
+                                    Object.assign(existingManual, manualItem);
+                                } else {
+                                    finalRoomingList.push(manualItem);
+                                }
                             }
-                        }
-                    }
-                });
-
-                // Filter out manual rooms that are no longer in rooming
-                finalRoomingList = finalRoomingList.filter(item => {
-                    if (item.isService) return true;
-                    if (item.isManualRoomingItem || item.pendienteValoracion) {
-                        return activeManualIds.has(item.id);
-                    }
-                    return true;
-                });
-
-                // Validation of integrity before saving
-                for (let i = 0; i < originalList.length; i++) {
-                    const orig = originalList[i];
-                    if (orig.isService || orig.isManualRoomingItem || orig.pendienteValoracion) continue;
-                    const res = finalRoomingList.find(b => b.id === orig.id);
-                    if (!res) {
-                        throw new Error(`Integridad rota: El bloque económico original con ID ${orig.id} ha desaparecido.`);
-                    }
-                    
-                    const economicKeys = ['qty', 'pax', 'dateIn', 'dateOut', 'nights', 'price', 'total', 'iva', 'regime', 'regimen', 'hotel', 'producto', 'type', 'tipo'];
-                    const diffs = [];
-                    economicKeys.forEach(k => {
-                        const valOrig = orig[k] !== undefined ? String(orig[k]) : '';
-                        const valRes = res[k] !== undefined ? String(res[k]) : '';
-                        if (valOrig !== valRes) {
-                            diffs.push(`${k}: original="${valOrig}", resultado="${valRes}"`);
                         }
                     });
-                    if (diffs.length > 0) {
-                        console.error("Diferencias económicas detectadas al guardar:", diffs);
-                        throw new Error("Se ha bloqueado el guardado porque se detectaron cambios no autorizados en los campos económicos del bloque.");
+
+                    // Filter out manual rooms that are no longer in rooming
+                    finalRoomingList = finalRoomingList.filter(item => {
+                        if (item.isService) return true;
+                        if (item.isManualRoomingItem || item.pendienteValoracion) {
+                            return activeManualIds.has(item.id);
+                        }
+                        return true;
+                    });
+
+                    // Validation of integrity before saving
+                    for (let i = 0; i < originalList.length; i++) {
+                        const orig = originalList[i];
+                        if (orig.isService || orig.isManualRoomingItem || orig.pendienteValoracion) continue;
+                        const res = finalRoomingList.find(b => b.id === orig.id);
+                        if (!res) {
+                            throw new Error(`Integridad rota: El bloque económico original con ID ${orig.id} ha desaparecido.`);
+                        }
+                        
+                        const economicKeys = ['qty', 'pax', 'dateIn', 'dateOut', 'nights', 'price', 'total', 'iva', 'regime', 'regimen', 'hotel', 'producto', 'type', 'tipo'];
+                        const diffs = [];
+                        economicKeys.forEach(k => {
+                            const valOrig = orig[k] !== undefined ? String(orig[k]) : '';
+                            const valRes = res[k] !== undefined ? String(res[k]) : '';
+                            if (valOrig !== valRes) {
+                                diffs.push(`${k}: original="${valOrig}", resultado="${valRes}"`);
+                            }
+                        });
+                        if (diffs.length > 0) {
+                            console.error("Diferencias económicas detectadas al guardar:", diffs);
+                            throw new Error("Se ha bloqueado el guardado porque se detectaron cambios no autorizados en los campos económicos del bloque.");
+                        }
                     }
                 }
 
                 // Preserve original economic totals and metadata
-                const paxTotal = recData['Pax.'] || '';
-                const cantTotal = recData['Cant.'] || '';
-                const habitacionesTotal = recData['Habitaciones'] || '';
-                const importeTotal = recData['Importe(*)'] || '0.00';
+                paxTotal = recData['Pax.'] || '';
+                cantTotal = recData['Cant.'] || '';
+                habitacionesTotal = recData['Habitaciones'] || '';
+                importeTotal = recData['Importe(*)'] || '0.00';
 
                 // Save back to Firestore
-                const updatedObj = {
-                    RoomingList_JSON: JSON.stringify(finalRoomingList),
-                    "Pax.": paxTotal,
-                    "Cant.": cantTotal,
-                    "Habitaciones": habitacionesTotal,
-                    "Importe(*)": importeTotal
-                };
+                const updatedObj = {};
+                if (explicitSaveData) {
+                    updatedObj.RoomingServicios_JSON = JSON.stringify(explicitSaveData);
+                    updatedObj.departmentSummary = departmentSummaryState;
+                    updatedObj.departmentSummaryLayout = departmentSummaryLayout;
+                }
+                if (hasRooming && finalRoomingList) {
+                    updatedObj.RoomingList_JSON = JSON.stringify(finalRoomingList);
+                    updatedObj["Pax."] = paxTotal;
+                    updatedObj["Cant."] = cantTotal;
+                    updatedObj["Habitaciones"] = habitacionesTotal;
+                    updatedObj["Importe(*)"] = importeTotal;
+                }
                 if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
                     updatedObj.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
                 } else {
                     updatedObj.updatedAt = new Date();
                 }
-                await docRef.set(updatedObj, { merge: true });
+
+                const rawGroupData = window.NexusSelectedGroupStorage ? window.NexusSelectedGroupStorage.getItem('selectedGroup') : localStorage.getItem('selectedGroup');
+                let group = rawGroupData ? JSON.parse(rawGroupData) : null;
+                const docIds = new Set([String(currentReservaId)]);
+                if (group && group.records && Array.isArray(group.records)) {
+                    group.records.forEach(r => {
+                        if (r._docId) docIds.add(String(r._docId));
+                        if (r.Reserva) docIds.add(String(r.Reserva));
+                    });
+                }
+                const batch = window.db.batch();
+                docIds.forEach(id => {
+                    batch.set(window.db.collection("groups").doc(id), updatedObj, { merge: true });
+                });
+                await batch.commit();
                 lastRoomingSyncErrorMessage = '';
 
                 // Synchronize localStorage.selectedGroup
-                const rawGroupData = localStorage.getItem('selectedGroup');
-                if (rawGroupData) {
+                if (group) {
                     try {
-                        let group = JSON.parse(rawGroupData);
-                        const updatePayload = {
-                            RoomingList_JSON: JSON.stringify(finalRoomingList),
-                            "Pax.": paxTotal,
-                            "Cant.": cantTotal,
-                            "Habitaciones": habitacionesTotal,
-                            "Importe(*)": importeTotal
+                        const applyPayload = (obj) => {
+                            if (obj) Object.assign(obj, updatedObj);
                         };
-                        
-                        let updated = false;
                         if (Array.isArray(group)) {
                             const m = group.find(g => String(g.Reserva || g.id || g.reserva || '').trim() === currentReservaId);
-                            if (m) {
-                                Object.assign(m, updatePayload);
-                                updated = true;
-                            }
+                            if (m) applyPayload(m);
                         } else {
+                            applyPayload(group);
                             if (group.records && Array.isArray(group.records)) {
-                                const m = group.records.find(r => String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId);
-                                if (m) {
-                                    Object.assign(m, updatePayload);
-                                    updated = true;
-                                } else if (group.records.length > 0) {
-                                    Object.assign(group.records[0], updatePayload);
-                                    updated = true;
-                                }
-                            }
-                            if (!updated || String(group.Reserva || group.id || group.reserva || '').trim() === currentReservaId) {
-                                Object.assign(group, updatePayload);
+                                group.records.forEach(r => {
+                                    if (String(r.Reserva || r.id || r.reserva || '').trim() === currentReservaId) {
+                                        applyPayload(r);
+                                    }
+                                });
                             }
                         }
-                        
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        if (window.NexusSelectedGroupStorage) {
+                            window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
+                        } else {
+                            localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        }
                     } catch (e) {
                         console.error("Error updating selectedGroup in localStorage:", e);
                     }
                 }
             } catch (err) {
                 console.error("Error syncing rooming list to Firestore:", err);
-                if (err.message !== lastRoomingSyncErrorMessage) {
-                    lastRoomingSyncErrorMessage = err.message;
-                    alert('No se pudo actualizar la ficha económica desde el rooming: ' + err.message);
-                }
+                lastRoomingSyncErrorMessage = err.message;
+                throw err;
             } finally {
                 isSyncing = false;
             }
@@ -1510,11 +1585,11 @@
             const originalTitle = document.title;
             const ref = currentReservaId || '';
             const grupo = document.getElementById('header-grupo').innerText || '';
-            const groupRaw = localStorage.getItem('selectedGroup');
+            const groupRaw = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             const groupData = groupRaw ? JSON.parse(groupRaw) : {};
             const recData = groupData.records ? (groupData.records[0] || {}) : groupData;
             const hotelName = recData["Hotel_Asignado"] || recData["Hotel"] || groupData["Hotel_Asignado"] || groupData["Hotel"] || "";
-            let newTitle = `${ref} - Rooming y Servicios - ${grupo}`;
+            let newTitle = `${ref} - Detalles Operativos - ${grupo}`;
             if (hotelName) newTitle += ` - ${hotelName}`;
             document.title = newTitle;
             window.print();
@@ -1720,17 +1795,112 @@ ${inputVal}`;
                   return room && typeof room === "object";
                 });
 
-                // Convertir la salida de Gemini a registros de rooming canónicos (1 fila = 1 hab, qty 1)
-                const newList = validRooms.map(item => {
-                    const rowDateIn = window.RoomingCore.normalizeRoomingDate(item.dateIn || finalInDate);
-                    const rowDateOut = window.RoomingCore.normalizeRoomingDate(item.dateOut || finalOutDate);
-                    return {
+                // Clonar la lista original preservando todos los bloques económicos y servicios intactos
+                let finalRoomingList = JSON.parse(JSON.stringify(originalList));
+
+                // Identificar los bloques de alojamiento económicos originales
+                const economicAccommodationBlocks = finalRoomingList.filter(item => 
+                    window.RoomingCore.isAccommodationItem(item) && !item.isManualRoomingItem && !item.pendienteValoracion
+                );
+
+                if (economicAccommodationBlocks.length > 0) {
+                    // Inicializar assignments en cada bloque económico
+                    economicAccommodationBlocks.forEach(block => {
+                        block.assignments = block.assignments || {};
+                    });
+
+                    // Construir los slots físicos disponibles de las habitaciones contratadas
+                    const availableSlots = [];
+                    economicAccommodationBlocks.forEach(block => {
+                        const qty = parseInt(block.qty) || 1;
+                        const nights = parseInt(block.nights) || 1;
+                        const canonicalType = window.RoomingCore.getCanonicalRoomType(block);
+                        for (let q = 0; q < qty; q++) {
+                            availableSlots.push({
+                                block,
+                                qIndex: q,
+                                nights,
+                                canonicalType,
+                                assigned: false
+                            });
+                        }
+                    });
+
+                    // Asignar los datos de cada habitación extraída por IA en los slots contratados
+                    validRooms.forEach(room => {
+                        const roomType = window.RoomingCore.normalizeRoomType(room.type || 'Habitación Doble');
+                        const canonicalRoomType = window.RoomingCore.getCanonicalRoomType({ type: roomType });
+                        const occupantsList = (room.ocupantes || '').split('\n').map(x => x.trim()).filter(Boolean);
+                        const dniList = (room.dni || '').split(';').map(x => x.trim()).filter(Boolean);
+                        const roomNo = window.RoomingCore.normalizeRoomNumber(room.roomNo || '');
+                        const observ = room.observ || '';
+
+                        // 1. Coincidencia exacta de tipo
+                        let targetSlot = availableSlots.find(s => !s.assigned && s.canonicalType === canonicalRoomType);
+                        // 2. Coincidencia parcial de tipo
+                        if (!targetSlot) {
+                            targetSlot = availableSlots.find(s => !s.assigned && (s.canonicalType.includes(canonicalRoomType) || canonicalRoomType.includes(s.canonicalType)));
+                        }
+                        // 3. Cualquier slot libre de alojamiento
+                        if (!targetSlot) {
+                            targetSlot = availableSlots.find(s => !s.assigned);
+                        }
+
+                        if (targetSlot) {
+                            targetSlot.assigned = true;
+                            const block = targetSlot.block;
+                            const q = targetSlot.qIndex;
+                            const assignData = {
+                                assignmentId: `assign_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                                roomNo: roomNo,
+                                occupants: occupantsList,
+                                dni: dniList,
+                                observations: observ
+                            };
+                            for (let n = 0; n < targetSlot.nights; n++) {
+                                block.assignments[`q${q}_n${n}`] = { ...assignData };
+                            }
+                            if (parseInt(block.qty) === 1 && parseInt(block.nights) === 1) {
+                                block.roomNo = roomNo;
+                                block.ocupantes = occupantsList.join('\n');
+                                block.dni = dniList.join(';');
+                                block.observ = observ;
+                            }
+                        } else {
+                            // Habitación extra que sobrepasa lo contratado: se agrega como habitación manual
+                            // con excludeFromEconomicTotals: true, price: 0 para NO tocar distribución ni precios
+                            const manualId = `manual_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                            finalRoomingList.push({
+                                id: manualId,
+                                isManualRoomingItem: true,
+                                pendienteValoracion: true,
+                                excludeFromEconomicTotals: true,
+                                type: roomType,
+                                pax: parseInt(room.pax) || 1,
+                                dateIn: window.RoomingCore.normalizeRoomingDate(room.dateIn || finalInDate),
+                                dateOut: window.RoomingCore.normalizeRoomingDate(room.dateOut || finalOutDate),
+                                qty: 1,
+                                price: 0,
+                                total: 0,
+                                nights: window.RoomingCore.calculateRoomingNights(room.dateIn || finalInDate, room.dateOut || finalOutDate) || 1,
+                                roomNo: roomNo,
+                                ocupantes: occupantsList.join('\n'),
+                                dni: dniList.join(';'),
+                                observ: observ,
+                                hotel: room.hotel || hHotel,
+                                isService: false
+                            });
+                        }
+                    });
+                } else {
+                    // Si no había bloques económicos previos, construir lista
+                    const newRooms = validRooms.map(item => ({
                         id: item.id || Date.now() + Math.random(),
                         hotel: item.hotel || hHotel,
                         type: window.RoomingCore.normalizeRoomType(item.type || 'Habitación Doble'),
-                        dateIn: rowDateIn,
-                        dateOut: rowDateOut,
-                        qty: 1, // REGLA: qty = 1 para cada habitación física
+                        dateIn: window.RoomingCore.normalizeRoomingDate(item.dateIn || finalInDate),
+                        dateOut: window.RoomingCore.normalizeRoomingDate(item.dateOut || finalOutDate),
+                        qty: 1,
                         pax: parseInt(item.pax) || 2,
                         regime: item.regime || gRegimen,
                         isService: false,
@@ -1741,82 +1911,36 @@ ${inputVal}`;
                         source: 'auto_rooming',
                         generatedFrom: 'rooming_ai',
                         generatedAt: new Date().toISOString()
-                    };
-                });
+                    }));
+                    finalRoomingList = [...newRooms, ...servicesList];
+                }
 
-                // Separar ítems económicos (los que tienen precio, isEconomicRepresentation:true)
-                // de los ítems de tracking de habitaciones (room assignments individuales)
-                const economicRepresentationItems = originalList.filter(item =>
-                    item && item.isEconomicRepresentation === true
-                );
-                const nonEconomicAccommodationItems = originalList.filter(item =>
-                    item && item.isEconomicRepresentation !== true && !window.RoomingCore.isAccommodationItem(item)
-                );
-
-                // combinedList = nuevas habitaciones (IA) + ítems económicos originales (precios) + servicios
-                // IMPORTANTE: Los ítems económicos se conservan intactos para no borrar los precios
-                const combinedList = [...newList, ...economicRepresentationItems, ...servicesList];
-
-                // Preservar la estructura económica asignando el precio previo por categoría.
-                // Usamos los economicItems para extraer el precio canónico.
-                const blockDetails = {};
-                economicItems.forEach(item => {
-                    const key = window.RoomingCore.getCanonicalRoomType(item);
-                    if (!key) return;
-                    blockDetails[key] = {
-                        price: window.RoomingCore.parsePositiveNumber(item.price),
-                        iva: window.RoomingCore.parsePositiveNumber(item.iva)
-                    };
-                });
-
-                combinedList.forEach(item => {
-                    // Solo intentar asignar precio a las habitaciones generadas por IA (tracking items)
-                    // Los ítems económicos originales (isEconomicRepresentation:true) ya tienen su precio
-                    if (item.isEconomicRepresentation === true) return;
-
-                    if (window.RoomingCore.isAccommodationItem(item)) {
-                        const typeKey = window.RoomingCore.getCanonicalRoomType(item);
-                        let match = blockDetails[typeKey];
-                        if (!match) {
-                            const matchingKey = Object.keys(blockDetails).find(k => k.includes(typeKey) || typeKey.includes(k));
-                            if (matchingKey) match = blockDetails[matchingKey];
-                        }
-                        
-                        if (match && Number.isFinite(match.price) && match.price > 0) {
-                            item.price = match.price;
-                            item.iva = match.iva;
-                            const itemNights = window.RoomingCore.calculateRoomingNights(item.dateIn, item.dateOut);
-                            item.nights = itemNights;
-                            item.total = (1 * match.price * itemNights).toFixed(2);
-                        }
-                        // Si no hay match, el ítem de tracking no tiene precio propio (el precio está en los ítems económicos)
-                    }
-                });
-
-                // Recalculate totals
-                const newTotalRooms = window.RoomingCore.calculateMaxDailyRooms(newList);
-                const newTotalPax = window.RoomingCore.calculateMaxDailyOccupancy(newList);
-                const newTotalSum = combinedList.reduce((acc, r) => acc + (parseFloat(r.total) || 0), 0);
+                // REGLA FUNDAMENTAL: Preservar estrictamente la distribución y precios originales de la reserva.
+                // "No me debe cambiar la distribución ni precios al meter la rooming"
+                const paxTotal = recData['Pax.'] || '';
+                const cantTotal = recData['Cant.'] || '';
+                const habitacionesTotal = recData['Habitaciones'] || '';
+                const importeTotal = recData['Importe(*)'] || '0.00';
 
                 await docRef.set({
-                    RoomingList_JSON: JSON.stringify(combinedList),
-                    "Pax.": newTotalPax.toString(),
-                    "Cant.": newTotalRooms.toString(),
-                    "Habitaciones": `${newTotalRooms} habitaciones`,
-                    "Importe(*)": newTotalSum.toFixed(2),
+                    RoomingList_JSON: JSON.stringify(finalRoomingList),
+                    "Pax.": paxTotal,
+                    "Cant.": cantTotal,
+                    "Habitaciones": habitacionesTotal,
+                    "Importe(*)": importeTotal,
                     "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
-                const rawGroupData = localStorage.getItem('selectedGroup');
+                const rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
                 if (rawGroupData) {
                     try {
                         let group = JSON.parse(rawGroupData);
                         const updatePayload = {
-                            RoomingList_JSON: JSON.stringify(combinedList),
-                            "Pax.": newTotalPax.toString(),
-                            "Cant.": newTotalRooms.toString(),
-                            "Habitaciones": `${newTotalRooms} habitaciones`,
-                            "Importe(*)": newTotalSum.toFixed(2)
+                            RoomingList_JSON: JSON.stringify(finalRoomingList),
+                            "Pax.": paxTotal,
+                            "Cant.": cantTotal,
+                            "Habitaciones": habitacionesTotal,
+                            "Importe(*)": importeTotal
                         };
                         
                         let updated = false;
@@ -1842,11 +1966,11 @@ ${inputVal}`;
                             }
                         }
                         
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     } catch (e) {}
                 }
 
-                localStorage.removeItem('roomingServicios_' + currentReservaId);
+                window.NexusDraftStorage.removeItem('roomingServicios_' + currentReservaId);
 
                 const errorElement = document.getElementById("ia-error-alert");
                 if (errorElement) {
@@ -1934,7 +2058,7 @@ ${inputVal}`;
             const params = new URLSearchParams(window.location.search || '');
             const reservaFromUrl = String(params.get('reserva') || params.get('id') || '').trim();
             const reservaFromStorage = String(localStorage.getItem('nexus_open_ficha') || localStorage.getItem('nexus_return_reserva') || '').trim();
-            let rawGroupData = localStorage.getItem('selectedGroup');
+            let rawGroupData = window.NexusSelectedGroupStorage.getItem('selectedGroup');
             let group = null;
 
             if (rawGroupData) {
@@ -1956,7 +2080,7 @@ ${inputVal}`;
                             id: fallbackReserva,
                             records: [{ ...data, Reserva: data.Reserva || fallbackReserva }]
                         };
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     }
                 } catch (e) {
                     console.error("Error recovering selected group for Rooming y Servicios:", e);
@@ -1974,6 +2098,7 @@ ${inputVal}`;
             }
 
             let rec = group.records ? (group.records[0] || {}) : group;
+            currentRecord = rec;
             currentReservaId = String(rec['Reserva'] || group.id || group.reserva || 'unknown').trim();
 
             // Try to load the most up-to-date data from Firestore to prioritize its fields
@@ -2006,9 +2131,9 @@ ${inputVal}`;
 
                         // Merge logic favoring Firestore for specific updated fields, but not overriding with empty values if local is valid
                         const fieldsToUpdate = [
-                            'RoomingList_JSON', 'Servicios_JSON', 'Pax.', 'Cant.', 'Habitaciones',
+                            'RoomingList_JSON', 'Servicios_JSON', 'MealSchedule_JSON', 'Pax.', 'Cant.', 'Habitaciones',
                             'Importe(*)', 'Com_Notas', 'Observaciones', 'Entrada', 'Salida',
-                            'Régimen', 'Hotel_Asignado', 'Hotel'
+                            'Régimen', 'Hotel_Asignado', 'Hotel', 'RoomingServicios_JSON', 'departmentSummary', 'departmentSummaryLayout'
                         ];
                         fieldsToUpdate.forEach(key => {
                             const remoteValue = firestoreData[key];
@@ -2034,7 +2159,8 @@ ${inputVal}`;
                         });
                         
                         rec = group.records ? (group.records[0] || {}) : group;
-                        localStorage.setItem('selectedGroup', JSON.stringify(group));
+                        currentRecord = rec;
+                        window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     }
                 } catch (e) {
                     console.error("Error fetching updated group from Firestore:", e);
@@ -2064,10 +2190,11 @@ ${inputVal}`;
             
             if (discardReservationId === String(currentReservaId)) {
                 sessionStorage.removeItem("discardUnsavedChanges");
+                if (window.NexusDraftStorage) window.NexusDraftStorage.removeItem('roomingServicios_' + currentReservaId);
                 console.log("[DESCARTAR CAMBIOS] Vista restaurada desde datos persistidos");
-                // Ignorar exclusivamente cualquier borrador de esta vista
+                savedStateStr = rec.RoomingServicios_JSON || null;
             } else {
-                savedStateStr = localStorage.getItem('roomingServicios_' + currentReservaId);
+                savedStateStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem('roomingServicios_' + currentReservaId) : null) || rec.RoomingServicios_JSON || null;
             }
 
             let loadRoomingFromCache = false;
@@ -2076,8 +2203,16 @@ ${inputVal}`;
             let cachedPendientes = [];
             let forceRegenerateServices = false;
             
+            let s = null;
             if (savedStateStr) {
-                const s = JSON.parse(savedStateStr);
+                try {
+                    s = typeof savedStateStr === 'string' ? JSON.parse(savedStateStr) : savedStateStr;
+                } catch(e) {
+                    console.warn("Error parsing savedStateStr:", e);
+                }
+            }
+
+            if (s) {
                 if (s.departmentSummary) {
                     departmentSummaryState = normalizeDepartmentSummary(s.departmentSummary);
                 } else if (s.deptRecepcion || s.deptRestaurante || s.deptAdministracion) {
@@ -2095,39 +2230,13 @@ ${inputVal}`;
                 cachedServicios = s.servicios || [];
                 cachedPendientes = s.pendientes || [];
 
-                if (!s.restoreServices && s.servicesGenerationVersion === SERVICES_GENERATION_VERSION) {
-                    // LOAD FROM LOCAL STORAGE CACHE
-                    document.getElementById('header-grupo').innerText = s.headerGrupo || '---';
-                    document.getElementById('gen-contacto').innerText = s.genContacto || '---';
-                    document.getElementById('gen-entrada').innerText = s.genEntrada || '---';
-                    document.getElementById('gen-salida').innerText = s.genSalida || '---';
-                    document.getElementById('gen-habitaciones').innerText = s.genHabitaciones || '---';
-                    document.getElementById('gen-pax').innerText = s.genPax || '0';
-                    document.getElementById('gen-regimen').innerText = s.genRegimen || '---';
-                    document.getElementById('gen-estado-critico').innerText = s.genEstadoCritico || '---';
-                    document.getElementById('dept-recepcion').innerHTML = s.deptRecepcion || '';
-                    document.getElementById('dept-restaurante').innerHTML = s.deptRestaurante || '';
-                    document.getElementById('dept-administracion').innerHTML = s.deptAdministracion || '';
-                    applyDepartmentSummaryState();
+                if (Array.isArray(s.rooming) && s.rooming.length > 0) {
+                    loadRoomingFromCache = true;
+                }
 
-                    if (s.pendientes && s.pendientes.length > 0) {
-                        s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
-                    }
-                    if (s.servicios && s.servicios.length > 0) {
-                        s.servicios.forEach(sv => addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notes || sv.notas, sv));
-                    }
-                    if (s.rooming && s.rooming.length > 0) {
-                        s.rooming.forEach(r => addRowRooming(r.id || '', r.hab, r.tipo, r.pax, r.ocupantes, r.dni, r.observ, r.checkIn || r.dateIn, r.checkOut || r.dateOut));
-                    }
-                    return;
-                } else {
-                    if (s.servicesGenerationVersion !== SERVICES_GENERATION_VERSION) {
-                        forceRegenerateServices = true;
-                        loadRoomingFromCache = true;
-                        console.log(`[ROOMING] Cache version mismatch (${s.servicesGenerationVersion} vs ${SERVICES_GENERATION_VERSION}). Will regenerate services while preserving manual edits.`);
-                    } else {
-                        loadRoomingFromCache = true;
-                    }
+                if (s.restoreServices) {
+                    forceRegenerateServices = true;
+                    console.log(`[ROOMING] Regenerando servicios desde Orden de Servicio / ficha (restoreServices=true)...`);
                 }
             }
 
@@ -2138,13 +2247,33 @@ ${inputVal}`;
             const checkInLabel = checkInDate ? `${getDayOfWeek(checkInDate)} ${formatD(checkInDate)}` : '---';
             const checkOutLabel = checkOutDate ? `${getDayOfWeek(checkOutDate)} ${formatD(checkOutDate)}` : '---';
 
-            document.getElementById('header-grupo').innerText = gName;
-            document.getElementById('gen-contacto').innerText = gContacto;
-            document.getElementById('gen-entrada').innerText = checkInLabel;
-            document.getElementById('gen-salida').innerText = checkOutLabel;
+            document.getElementById('header-grupo').innerText = (s && s.headerGrupo && s.headerGrupo !== '---') ? s.headerGrupo : gName;
+            document.getElementById('gen-contacto').innerText = (s && s.genContacto && s.genContacto !== '---') ? s.genContacto : gContacto;
+            document.getElementById('gen-entrada').innerText = (s && s.genEntrada && s.genEntrada !== '---') ? s.genEntrada : checkInLabel;
+            document.getElementById('gen-salida').innerText = (s && s.genSalida && s.genSalida !== '---') ? s.genSalida : checkOutLabel;
+
+            if (document.getElementById('rooming-nota-adjunta')) {
+                if (s && s.roomingNotaAdjunta) {
+                    document.getElementById('rooming-nota-adjunta').innerHTML = s.roomingNotaAdjunta;
+                } else {
+                    const obsGrupo = (rec['Observaciones'] || rec['Com_Notas'] || '').trim();
+                    if (obsGrupo) {
+                        document.getElementById('rooming-nota-adjunta').innerHTML = `Rooming List: Según hoja adjunta.<br><br>${obsGrupo.replace(/\n/g, '<br>')}`;
+                    } else {
+                        document.getElementById('rooming-nota-adjunta').innerHTML = 'Rooming List: Según hoja adjunta.';
+                    }
+                }
+            }
 
             const gRegimen = rec['Régimen'] || group.regimen || 'AD';
-            document.getElementById('gen-regimen').innerText = gRegimen;
+            document.getElementById('gen-regimen').innerText = (s && s.genRegimen && s.genRegimen !== '---') ? s.genRegimen : gRegimen;
+            if (s && s.genRoomingRef && document.getElementById('gen-rooming-ref')) {
+                document.getElementById('gen-rooming-ref').innerText = s.genRoomingRef;
+            }
+            if (s && s.deptRecepcion) document.getElementById('dept-recepcion').innerHTML = s.deptRecepcion;
+            if (s && s.deptRestaurante) document.getElementById('dept-restaurante').innerHTML = s.deptRestaurante;
+            if (s && s.deptAdministracion) document.getElementById('dept-administracion').innerHTML = s.deptAdministracion;
+            applyDepartmentSummaryState();
 
             // Parse rooming list first
             let roomingList = [];
@@ -2207,9 +2336,12 @@ ${inputVal}`;
 
             // Set final totalPax using daily peak
             const totalPax = maxDailyPax || parseInt(rec['Pax.'] || group.totalPax || 0);
-            document.getElementById('gen-pax').innerText = totalPax;
+            document.getElementById('gen-pax').innerText = (s && s.genPax && s.genPax !== '0') ? s.genPax : totalPax;
 
             const getServiceOccupancy = (serviceName, serviceDate) => {
+                if (window.RoomingOperationalService && window.RoomingOperationalService.getServiceOccupancy) {
+                    return window.RoomingOperationalService.getServiceOccupancy(serviceName, serviceDate, dailyMovements, normalizeRoomingDate);
+                }
                 const key = normalizeRoomingDate(serviceDate);
                 const movement = dailyMovements[key];
                 if (!movement) return { pax: 0, rooms: 0 };
@@ -2217,6 +2349,11 @@ ${inputVal}`;
                 if (normalizedName.includes('desayuno')) return { ...movement.breakfast };
                 if (normalizedName.includes('llegada')) return { ...movement.arrivals };
                 if (normalizedName.includes('salida')) return { ...movement.departures };
+                if (normalizedName.includes('almuerzo') || normalizedName.includes('comida')) {
+                    if (movement.overnight && movement.overnight.pax > 0) return { ...movement.overnight };
+                    if (movement.departures && movement.departures.pax > 0) return { ...movement.departures };
+                    if (movement.arrivals && movement.arrivals.pax > 0) return { ...movement.arrivals };
+                }
                 return { ...movement.overnight };
             };
 
@@ -2284,7 +2421,7 @@ ${inputVal}`;
                 roomSummaryParts.push(`${count} ${type.toLowerCase()}s`);
             });
             const roomsText = `${totalRooms} total: ` + (roomSummaryParts.length > 0 ? roomSummaryParts.join(' + ') : '---');
-            document.getElementById('gen-habitaciones').innerText = roomsText;
+            document.getElementById('gen-habitaciones').innerText = (s && s.genHabitaciones && s.genHabitaciones !== '---') ? s.genHabitaciones : roomsText;
 
             // Output Rooming Table Rows
             if (loadRoomingFromCache) {
@@ -2329,18 +2466,15 @@ ${inputVal}`;
             
             const netTotal = Math.max(0, totalRevenue - totalCommission);
             
-            let paidAmount = 0;
-            try {
-                const plan = JSON.parse(rec['PaymentPlan_JSON'] || '[]');
-                paidAmount = plan.filter(p => p.status === "Cobrado").reduce((acc, p) => acc + parseMoney(p.amount), 0);
-            } catch(e) {
-                paidAmount = parseMoney(rec['Com_Pagado'] || 0);
-            }
+            const paidAmount = window.RoomingOperationalService.paidAmount(rec);
             const pendingAmount = Math.max(0, netTotal - paidAmount);
             const isOverpaid = paidAmount > netTotal + 0.01;
             const refundAmount = isOverpaid ? paidAmount - netTotal : 0;
             
-            if (isOverpaid) {
+            if (s && Array.isArray(s.pendientes)) {
+                s.pendientes.forEach(p => addRowPendiente(p.pendiente, p.detalle, p.limite, p.responsable));
+            } else {
+                if (isOverpaid) {
                 addRowPendiente(
                     'Devolución pendiente',
                     `Cobro de más detectado: ${refundAmount.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}. Aceptada devolución del sobrante.`,
@@ -2377,13 +2511,63 @@ ${inputVal}`;
             const dOut = parseDate(checkOutDate);
             let osPlanRows = [];
             try {
-                const osDataStr = localStorage.getItem('ordenServicio_' + currentReservaId);
+                const osDataStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem('ordenServicio_' + currentReservaId) : null) || localStorage.getItem('ordenServicio_' + currentReservaId) || rec.ServiceOrder_JSON;
                 if (osDataStr) {
-                    const osData = JSON.parse(osDataStr);
+                    const osData = typeof osDataStr === 'string' ? JSON.parse(osDataStr) : osDataStr;
                     osPlanRows = osData.planRows || [];
                 }
             } catch(e) {
                 console.error('Error loading Service Order planRows:', e);
+            }
+
+            const mealSchedule = window.ServiceOrderPlanService ? window.ServiceOrderPlanService.readSchedule(rec) : null;
+            if (osPlanRows.length === 0 && dIn && !isNaN(dIn.getTime()) && dOut && !isNaN(dOut.getTime())) {
+                const regime = gRegimen.toUpperCase();
+                const needsBreakfast = regime.includes('AD') || regime.includes('HD') || regime.includes('MP') || regime.includes('PC');
+                const needsLunch = regime.includes('PC');
+                const needsDinner = regime.includes('MP') || regime.includes('PC');
+                const nightsCount = Math.ceil((dOut - dIn) / 86400000);
+
+                for (let i = 0; i <= nightsCount; i++) {
+                    const cur = new Date(dIn);
+                    cur.setDate(cur.getDate() + i);
+                    const dayLabel = formatD(cur);
+                    const dayIso = getLocalDateString(cur);
+
+                    if (i > 0 && needsBreakfast) {
+                        osPlanRows.push({
+                            fecha: dayIso,
+                            dia: dayLabel,
+                            serv: 'Desayuno',
+                            pax: String(getServiceOccupancy('Desayuno', dayIso).pax || maxDailyPax || 0),
+                            menu: '',
+                            hora: 'PENDIENTE'
+                        });
+                    }
+                    if (i < nightsCount && needsLunch) {
+                        osPlanRows.push({
+                            fecha: dayIso,
+                            dia: dayLabel,
+                            serv: 'Almuerzo',
+                            pax: String(getServiceOccupancy('Almuerzo', dayIso).pax || maxDailyPax || 0),
+                            menu: '',
+                            hora: '___:___ h'
+                        });
+                    }
+                    if (i < nightsCount && needsDinner) {
+                        osPlanRows.push({
+                            fecha: dayIso,
+                            dia: dayLabel,
+                            serv: 'Cena',
+                            pax: String(getServiceOccupancy('Cena', dayIso).pax || maxDailyPax || 0),
+                            menu: '',
+                            hora: '___:___ h'
+                        });
+                    }
+                }
+            }
+            if (mealSchedule && window.ServiceOrderPlanService) {
+                osPlanRows = window.ServiceOrderPlanService.reconcileMealPlan(osPlanRows, mealSchedule, formatD, rec.Entrada || group.arrival);
             }
 
             let missingBreakfastHours = false;
@@ -2438,6 +2622,7 @@ ${inputVal}`;
                     'Recepción / Comercial'
                 );
             }
+            }
 
             // Calculate critical status dynamically based on pending tasks
             const pendingTasks = [];
@@ -2450,13 +2635,17 @@ ${inputVal}`;
 
             const statusEl = document.getElementById('gen-estado-critico');
             if (statusEl) {
-                if (pendingTasks.length === 0) {
+                if (s && s.genEstadoCritico && s.genEstadoCritico !== '---') {
+                    statusEl.innerText = s.genEstadoCritico;
+                    statusEl.className = 'editable ' + (s.genEstadoCritico.toLowerCase().includes('confirmad') ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold');
+                } else if (pendingTasks.length === 0) {
                     statusEl.innerText = 'Operativa confirmada y todo pagado';
                     statusEl.className = 'editable text-emerald-700 font-bold';
                 } else {
                     const uniqueTasks = Array.from(new Set(pendingTasks));
                     const prettyTasks = uniqueTasks.map(t => {
-                        if (t.includes('pago') || t.includes('devolución')) return 'pago';
+                        if (t.includes('devolución')) return 'revisar sobrante';
+                        if (t.includes('pago')) return 'pago';
                         if (t.includes('hora')) return 'horarios';
                         if (t.includes('dieta')) return 'dietas';
                         if (t.includes('chofer') || t.includes('guía')) return 'chofer/guía';
@@ -2505,6 +2694,7 @@ ${inputVal}`;
 
                     // Find services in Service Order for this day
                     const osServicesForDay = osPlanRows.filter(row => {
+                        if (row.fecha && row.fecha === targetIso) return true;
                         const rowDM = extractDayMonth(row.dia);
                         return rowDM && targetDM && rowDM.day === targetDM.day && rowDM.month === targetDM.month;
                     });
@@ -2593,24 +2783,26 @@ ${inputVal}`;
                             : sNameUpper.includes('ALMUERZO') ? 'lunch'
                             : sNameUpper.includes('CENA') ? 'dinner'
                             : normalizeRoomType(s.name).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                        const serviceOccupancy = isExtraService && s.pax > 0
-                            ? { pax: s.pax, rooms: 0 }
-                            : getServiceOccupancy(s.name, targetIso);
-                        if (!isExtraService && serviceOccupancy.pax <= 0) return;
+                        const explicitPax = Number(String(s.pax || '').replace(/[^0-9]/g, ''));
+                        const occupancyFromMovement = getServiceOccupancy(s.name, targetIso);
+                        const finalPax = (Number.isFinite(explicitPax) && explicitPax > 0)
+                            ? explicitPax
+                            : occupancyFromMovement.pax;
+                        if (finalPax <= 0 && !isExtraService) return;
                         
                         autoServices.push({
                             fecha: targetLabel,
                             servicio: s.name,
                             regimen: serviceReg,
-                            paxHab: `${serviceOccupancy.pax} pax`,
+                            paxHab: `${finalPax} pax`,
                             hora: serviceHour,
                             notas: serviceNote,
                             origin: isExtraService ? 'economic' : 'auto',
                             serviceType: s.name,
                             serviceDate: targetIso,
                             serviceId: isExtraService ? '' : `${targetIso}|${automaticServiceType}|automatic`,
-                            originalPax: serviceOccupancy.pax,
-                            originalRooms: serviceOccupancy.rooms
+                            originalPax: finalPax,
+                            originalRooms: occupancyFromMovement.rooms || 0
                         });
                     });
                 }
@@ -2634,15 +2826,55 @@ ${inputVal}`;
                 });
 
                 let servicesToRender = [];
-                if (loadRoomingFromCache && !forceRegenerateServices && cachedServicios.length > 0) {
-                    servicesToRender = cachedServicios;
-                } else if (forceRegenerateServices && cachedServicios.length > 0) {
-                    servicesToRender = mergeServices(cachedServicios, autoServices);
+                const normalizeServiceName = text => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+                const matchOsRow = (serviceName, serviceDate) => {
+                    const normS = normalizeServiceName(serviceName);
+                    const targetDM = extractDayMonth(formatD(serviceDate || checkInDate));
+                    return osPlanRows.find(row => {
+                        const rowDM = extractDayMonth(row.dia);
+                        const sameDay = !targetDM || !rowDM || (rowDM.day === targetDM.day && rowDM.month === targetDM.month);
+                        if (!sameDay) return false;
+                        const normR = normalizeServiceName(row.serv);
+                        if (normS === normR) return true;
+                        if ((normS.includes('comida') || normS.includes('almuerzo')) && (normR.includes('comida') || normR.includes('almuerzo'))) return true;
+                        if (normS.includes('merienda') && normR.includes('merienda')) return true;
+                        if ((normS.includes('charla') || normS.includes('sala') || normS.includes('salon')) && (normR.includes('charla') || normR.includes('sala') || normR.includes('salon'))) return true;
+                        if (normS.includes('cena') && normR.includes('cena')) return true;
+                        if (normS.includes('desayuno') && normR.includes('desayuno')) return true;
+                        if (normS.includes('coctel') && normR.includes('coctel')) return true;
+                        if (normS.includes('coffee') && normR.includes('coffee')) return true;
+                        return normS.includes(normR) || normR.includes(normS);
+                    });
+                };
+
+                window.RoomingOperationalService.contractedServices(rec.RoomingList_JSON, RoomingCore.isAccommodationItem).forEach(service => {
+                    const matchedRow = matchOsRow(service.servicio, service.serviceDate);
+                    let hora = service.hora;
+                    let notas = service.notas;
+                    if (matchedRow) {
+                        if (matchedRow.hora && matchedRow.hora !== '___:___ h' && matchedRow.hora !== '---') {
+                            hora = matchedRow.hora;
+                        }
+                        if (matchedRow.menu && matchedRow.menu.trim() && matchedRow.menu !== '---') {
+                            notas = matchedRow.menu.trim();
+                        }
+                    }
+                    autoServices.push({ 
+                        ...service, 
+                        fecha: formatD(service.serviceDate || checkInDate),
+                        hora: hora,
+                        notas: notas
+                    });
+                });
+                if (!forceRegenerateServices && s && Array.isArray(s.servicios) && s.servicios.length > 0) {
+                    servicesToRender = s.servicios;
+                } else if (forceRegenerateServices && s && Array.isArray(s.servicios) && s.servicios.length > 0) {
+                    servicesToRender = mergeServices(s.servicios, autoServices);
                 } else {
                     servicesToRender = autoServices;
                 }
 
-                servicesToRender.forEach(sv => {
+                window.RoomingOperationalService.sortServices(servicesToRender).forEach(sv => {
                     addRowServicio(sv.fecha, sv.servicio, sv.regimen, sv.paxHab, sv.hora, sv.notas || sv.notes, sv);
                 });
             } else {

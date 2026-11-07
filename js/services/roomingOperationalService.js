@@ -61,7 +61,31 @@
     }
     return rows.slice().sort(function (a, b) { return dateKey(a).localeCompare(dateKey(b)) || timeKey(a) - timeKey(b); });
   }
-  var api = { paidAmount: paidAmount, contractedServices: contractedServices, getServiceOccupancy: getServiceOccupancy, sortServices: sortServices };
+  function resolveSavedState(draftStr, recordPayload) {
+    var raw = draftStr || (recordPayload && (recordPayload.RoomingServicios_JSON || recordPayload.detallesOperativos_JSON));
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+  function shouldPreserveSavedPendientes(savedState) {
+    return Boolean(savedState && Array.isArray(savedState.pendientes));
+  }
+  function shouldPreserveSavedServices(savedState) {
+    return Boolean(savedState && !savedState.restoreServices && Array.isArray(savedState.servicios) && savedState.servicios.length > 0);
+  }
+  var api = {
+    paidAmount: paidAmount,
+    contractedServices: contractedServices,
+    getServiceOccupancy: getServiceOccupancy,
+    sortServices: sortServices,
+    resolveSavedState: resolveSavedState,
+    shouldPreserveSavedPendientes: shouldPreserveSavedPendientes,
+    shouldPreserveSavedServices: shouldPreserveSavedServices
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RoomingOperationalService = api;
 })(typeof window !== 'undefined' ? window : globalThis);
