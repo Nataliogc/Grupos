@@ -342,6 +342,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
         }
 
         let currentReservaId = "unknown";
+        let currentRecord = null;
         let saveTimeout = null;
         let isDiscardingChanges = false;
         let isInitializingView = true;
@@ -1434,7 +1435,7 @@ Hab. 3 - Doble - Morales García, Francisca y Ferrer Ferrer, Pepi. Obs: Francisc
 
             // Load Special Menus and Operational Notes from Service Order cache if available
             const osKey = 'ordenServicio_' + currentReservaId;
-            const osDataStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem(osKey) : null) || localStorage.getItem(osKey) || rec.ServiceOrder_JSON;
+            const osDataStr = (window.NexusDraftStorage ? window.NexusDraftStorage.getItem(osKey) : null) || localStorage.getItem(osKey) || (currentRecord ? currentRecord.ServiceOrder_JSON : null);
             let specialMenus = [];
             let operationalNotes = '';
             if (osDataStr) {
@@ -2408,6 +2409,7 @@ ${inputVal}`;
             }
 
             let rec = group.records ? (group.records[0] || {}) : group;
+            currentRecord = rec;
             currentReservaId = String(rec['Reserva'] || group.id || group.reserva || 'unknown').trim();
 
             // Try to load the most up-to-date data from Firestore to prioritize its fields
@@ -2468,6 +2470,7 @@ ${inputVal}`;
                         });
                         
                         rec = group.records ? (group.records[0] || {}) : group;
+                        currentRecord = rec;
                         window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group));
                     }
                 } catch (e) {
