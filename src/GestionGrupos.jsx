@@ -5494,47 +5494,27 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
 
       const getCommColor = (name) => {
-
         if (!name) return "bg-slate-300";
-
+        const cleanName = name.toString().trim().toUpperCase();
         const predefinedColors = [
-
           "bg-emerald-500",
-
           "bg-blue-500",
-
           "bg-amber-500",
-
           "bg-purple-500",
-
           "bg-rose-500",
-
           "bg-cyan-500",
-
           "bg-indigo-500",
-
           "bg-fuchsia-500",
-
         ];
-
-        let idx = commercials.findIndex((c) => c.name === name);
-
+        let idx = commercials.findIndex((c) => (c.name || "").toString().trim().toUpperCase() === cleanName);
         if (idx === -1) {
-
           let hash = 0;
-
-          for (let i = 0; i < name.length; i++) {
-
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
-
+          for (let i = 0; i < cleanName.length; i++) {
+            hash = cleanName.charCodeAt(i) + ((hash << 5) - hash);
           }
-
           idx = Math.abs(hash);
-
         }
-
         return predefinedColors[idx % predefinedColors.length];
-
       };
 
 
@@ -5556,11 +5536,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 // Normalize: Ensure all are objects with name and active status
 
                 const normalized = system.commercials.map((comm) => {
-
-                  if (typeof comm === "object" && comm !== null) return comm;
-
-                  return { name: comm, active: true };
-
+                  if (typeof comm === "object" && comm !== null) {
+                    return { ...comm, name: (comm.name || "").toString().trim().toUpperCase() };
+                  }
+                  return { name: (comm || "").toString().trim().toUpperCase(), active: true };
                 });
 
                 setCommercials(normalized);
@@ -5801,10 +5780,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
 
           if (filterDirCommercial) {
-            const com = (row["Com_Comercial"] || "").trim();
-            if (filterDirCommercial === "SIN_ASIGNAR") {
+            const com = (row["Com_Comercial"] || "").toString().trim().toUpperCase();
+            const filterUpper = filterDirCommercial.toString().trim().toUpperCase();
+            if (filterUpper === "SIN_ASIGNAR") {
               if (com !== "") return false;
-            } else if (com !== filterDirCommercial) {
+            } else if (com !== filterUpper) {
               return false;
             }
           }
@@ -6478,7 +6458,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
               status: row["Estado"] || "",
 
-              comercial: row["Com_Comercial"] || row["Comercial"] || "",
+              comercial: (row["Com_Comercial"] || row["Comercial"] || "").toString().trim().toUpperCase(),
 
               totalPax: 0,
 
@@ -6551,7 +6531,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
 
           if (row["Com_Comercial"] || row["Comercial"]) {
-            groups[key].comercial = row["Com_Comercial"] || row["Comercial"];
+            groups[key].comercial = (row["Com_Comercial"] || row["Comercial"]).toString().trim().toUpperCase();
           }
 
           if (
@@ -8436,10 +8416,11 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           }
 
           if (filterDirCommercial) {
-            const com = (row["Com_Comercial"] || "").trim();
-            if (filterDirCommercial === "SIN_ASIGNAR") {
+            const com = (row["Com_Comercial"] || "").toString().trim().toUpperCase();
+            const filterUpper = filterDirCommercial.toString().trim().toUpperCase();
+            if (filterUpper === "SIN_ASIGNAR") {
               if (com !== "") return;
-            } else if (com !== filterDirCommercial) {
+            } else if (com !== filterUpper) {
               return;
             }
           }
@@ -10147,16 +10128,12 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
 
 
-            const comercial = row["Com_Comercial"];
-
+            const rawCom = (row["Com_Comercial"] || row["Comercial"] || "").toString().trim();
+            const comercial = rawCom.toUpperCase();
             if (comercial && !isCancelled) {
-
               if (!commercialsCount[comercial])
-
                 commercialsCount[comercial] = 0;
-
               commercialsCount[comercial]++;
-
             }
 
 
@@ -16097,58 +16074,47 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               )}
 
               {/* RECUENTO POR COMERCIAL */}
-
               <div className="w-[1px] bg-slate-200 mx-2 flex-shrink-0 self-stretch my-2"></div>
-
               {Object.entries(stats.commercialsCount || {})
-
                 .sort((a, b) => b[1] - a[1])
-
-                .map(([name, count]) => (
-
-                  <div
-
-                    key={name}
-
-                    className="min-w-[140px] flex-1 bg-slate-50/50 p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center hover:bg-white transition-colors"
-
-                  >
-
-                    <div className="flex items-center gap-2 mb-1">
-
-                      <div
-
-                        className={`w-1 h-3 rounded-full ${getCommColor(name)}`}
-
-                      ></div>
-
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider truncate">
-
-                        {name}
-
-                      </span>
-
+                .map(([name, count]) => {
+                  const isSelected =
+                    filterDirCommercial &&
+                    filterDirCommercial.toString().trim().toUpperCase() === name.toUpperCase();
+                  return (
+                    <div
+                      key={name}
+                      onClick={() => {
+                        setFilterDirCommercial((prev) =>
+                          (prev || "").toString().trim().toUpperCase() === name.toUpperCase() ? "" : name
+                        );
+                      }}
+                      className={`min-w-[140px] flex-1 p-3 rounded-2xl shadow-sm border flex flex-col justify-center cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-white border-slate-400 ring-2 ring-slate-200 shadow-md"
+                          : "bg-slate-50/50 border-slate-100 hover:bg-white"
+                      }`}
+                      title={`Filtrar por ${name}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <div
+                          className={`w-1 h-3 rounded-full ${getCommColor(name)}`}
+                        ></div>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider truncate">
+                          {name}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-slate-700 tabular-nums leading-none">
+                          {count}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          Grupos
+                        </span>
+                      </div>
                     </div>
-
-                    <div className="flex items-baseline gap-2">
-
-                      <span className="text-2xl font-black text-slate-700 tabular-nums leading-none">
-
-                        {count}
-
-                      </span>
-
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">
-
-                        Grupos
-
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                ))}
+                  );
+                })}
 
             </div>
 
@@ -23406,13 +23372,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     className={`w-full h-9 pl-3 pr-8 text-[10px] font-black uppercase rounded-xl bg-slate-50 border text-slate-700 appearance-none outline-none transition-all cursor-pointer ${selectedGroupFicha.records[0]?.["Com_Comercial"] && commercials.some((c) => c.name === selectedGroupFicha.records[0]?.["Com_Comercial"] && !c.active) ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 hover:border-blue-400"}`}
 
                                     value={
-
-                                      selectedGroupFicha.records[0]?.[
-
-                                      "Com_Comercial"
-
-                                      ] || ""
-
+                                      (selectedGroupFicha.records[0]?.[
+                                        "Com_Comercial"
+                                      ] || "").toString().trim().toUpperCase()
                                     }
 
                                     onChange={(e) =>
@@ -23436,19 +23398,12 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     {commercials
 
                                       .filter(
-
                                         (c) =>
-
                                           c.active ||
-
                                           c.name ===
-
-                                          selectedGroupFicha.records[0]?.[
-
-                                          "Com_Comercial"
-
-                                          ],
-
+                                            (selectedGroupFicha.records[0]?.[
+                                              "Com_Comercial"
+                                            ] || "").toString().trim().toUpperCase()
                                       )
 
                                       .map((c) => (
