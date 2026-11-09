@@ -190,6 +190,20 @@ function decodeAndVerifyResponse(responseBody, secretKeyBase64) {
 }
 
 /**
+ * Sanitiza textos destinados a Redsys (DS_MERCHANT_MERCHANTDATA y conceptos):
+ * Redsys falla con SIS0431 si encuentra el símbolo '%' sin codificar o caracteres de control.
+ */
+function sanitizeRedsysText(text) {
+    if (!text) return "";
+    return String(text)
+        .replace(/%/g, ' pct') // Reemplaza % para evitar error SIS0431 en el parser de Redsys
+        .replace(/[\r\n\t]/g, ' ')
+        .replace(/[<>"'\\]/g, '') // Elimina caracteres conflictivos de JSON
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
  * Tabla de descripción de errores frecuentes de Redsys / PayGold
  */
 function getErrorMessage(code) {
@@ -271,12 +285,13 @@ async function createPayGoldRequest(options) {
     }
 
     // Metadatos para correlación multi-aplicación (Nexus Groups, MesaChef, Spa)
+    const sanitizedConcept = sanitizeRedsysText(options.concept || "");
     const metaDataObj = {
         app: options.app || "grupos",
         referenceId: options.referenceId || options.groupId || options.reservaId || "",
         groupId: options.groupId || options.referenceId || "",
         hotel: hotelKey,
-        concept: options.concept || "",
+        concept: sanitizedConcept,
         createdAt: new Date().toISOString()
     };
     merchantParams.DS_MERCHANT_MERCHANTDATA = JSON.stringify(metaDataObj).substring(0, 1024);
@@ -299,6 +314,9 @@ async function createPayGoldRequest(options) {
         if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
             const parts = str.split('-');
             expiryDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 23, 59, 59, 999);
+        } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+            const parts = str.split('/');
+            expiryDate = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10), 23, 59, 59, 999);
         } else {
             expiryDate = new Date(str);
         }
@@ -344,7 +362,7 @@ async function createPayGoldRequest(options) {
     if (!verified.ok) {
         // Si el pedido ya existe en Redsys (ej. reintento o prueba previa), reintentar automáticamente con sufijo
         if ((verified.errorCode === "SIS0051" || verified.errorCode === "SIS0020") && !options._retried) {
-            const retryLetters = ['B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const retryLetters = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '02', '03', '04', '05', '06', '07', '08', '09'];
             for (const nextSuffix of retryLetters) {
                 const retryRes = await createPayGoldRequest({
                     ...options,

@@ -155,6 +155,15 @@
 
             const refId = String(params.referenceId || params.groupId || params.reservaId || "").trim();
 
+            const cleanConcept = String(params.concept || `Reserva ${refId} - ${params.groupName || ''}`)
+                .replace(/%/g, ' pct')
+                .replace(/[<>"'\\]/g, '')
+                .trim();
+            const cleanDepositLabel = String(params.depositLabel || "")
+                .replace(/%/g, ' pct')
+                .replace(/[<>"'\\]/g, '')
+                .trim();
+
             const bodyPayload = {
                 app: params.app || "grupos", // 'grupos', 'mesachef', 'spa'
                 hotel: hotelKey,
@@ -162,12 +171,12 @@
                 groupId: refId,
                 referenceId: refId,
                 orderSuffix: params.orderSuffix || "",
-                concept: params.concept || `Reserva ${refId} - ${params.groupName || ''}`.trim(),
+                concept: cleanConcept,
                 customerEmail: params.customerEmail || "",
                 customerMobile: params.customerMobile || "",
                 customerName: params.customerName || "",
                 expiryDate: params.expiryDate || "",
-                depositLabel: params.depositLabel || ""
+                depositLabel: cleanDepositLabel
             };
 
             const response = await fetch(CLOUD_FUNCTION_URL, {

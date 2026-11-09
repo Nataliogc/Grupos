@@ -140,7 +140,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
      */
     generateLink: function () {
       var _generateLink = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(params) {
-        var hotelKey, amount, refId, bodyPayload, response, data;
+        var hotelKey, amount, refId, cleanConcept, cleanDepositLabel, bodyPayload, response, data;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.n) {
             case 0:
@@ -159,6 +159,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               throw new Error("Sercotel Guadiana está pendiente de activación de PayGold por parte de Eurocaja Rural. Hotel Cumbria sí está 100% operativo.");
             case 2:
               refId = String(params.referenceId || params.groupId || params.reservaId || "").trim();
+              cleanConcept = String(params.concept || "Reserva ".concat(refId, " - ").concat(params.groupName || '')).replace(/%/g, ' pct').replace(/[<>"'\\]/g, '').trim();
+              cleanDepositLabel = String(params.depositLabel || "").replace(/%/g, ' pct').replace(/[<>"'\\]/g, '').trim();
               bodyPayload = {
                 app: params.app || "grupos",
                 // 'grupos', 'mesachef', 'spa'
@@ -167,12 +169,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 groupId: refId,
                 referenceId: refId,
                 orderSuffix: params.orderSuffix || "",
-                concept: params.concept || "Reserva ".concat(refId, " - ").concat(params.groupName || '').trim(),
+                concept: cleanConcept,
                 customerEmail: params.customerEmail || "",
                 customerMobile: params.customerMobile || "",
                 customerName: params.customerName || "",
                 expiryDate: params.expiryDate || "",
-                depositLabel: params.depositLabel || ""
+                depositLabel: cleanDepositLabel
               };
               _context.n = 3;
               return fetch(CLOUD_FUNCTION_URL, {
