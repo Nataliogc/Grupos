@@ -329,6 +329,19 @@ const redsysWebhook = onRequest(
                         paidAt: admin.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                     logger.info(`[Redsys Webhook] Evento MesaChef ${refId} registrado como COBRADO.`);
+
+                    // Reenviar notificación a MesaChef Prod para auto-confirmar reserva y fianza en Firestore
+                    try {
+                        const mcfUrl = "https://europe-west1-mesa-chef-prod.cloudfunctions.net/redsysWebhook";
+                        await fetch(mcfUrl, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(body)
+                        });
+                        logger.info(`[Redsys Webhook] Notificación reenviada a MesaChef Prod con éxito.`);
+                    } catch (eFwd) {
+                        logger.warn(`[Redsys Webhook] Reenvío a MesaChef Prod fallido:`, eFwd);
+                    }
                 } else if (app === "spa" && refId) {
                     // 3. SPA: Registrar cobro de cita/tratamiento
                     await db.collection("spa_payments").doc(orderId).set({
