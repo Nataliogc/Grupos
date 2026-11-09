@@ -3,7 +3,7 @@
  * NEXUS GROUPS — MÓDULO OFICIAL REDSYS PAYGOLD REST
  * ═════════════════════════════════════════════════════════════════════════════
  * Manejo de cifrado, firma HMAC_SHA256_V1, generación de enlaces PayGold
- * y verificación de notificaciones asíncronas de cobro (webhooks).
+ * y verificación de notificaciones asíncronas de cobro (webhooks) multi-aplicación.
  */
 
 const crypto = require('crypto');
@@ -34,13 +34,34 @@ const REDSYS_ENDPOINTS = {
 };
 
 /**
- * Genera un número de pedido único válido para Redsys:
- * 12 caracteres: primeros 4 numéricos estrictos, resto alfanumérico.
+ * Genera el número de pedido basado estrictamente en el localizador/identificador:
+ * Redsys exige entre 4 y 12 caracteres, donde los 4 primeros deben ser dígitos numéricos.
+ * Ej: reserva "77593" -> "77593"
+ * Si hay sufijo de tramo/reintento: "77593A", "77593B", etc.
+ */
+function formatOrderNumberFromReservation(reservaId, suffix = '') {
+    if (!reservaId) return generateOrderNumber();
+    const clean = String(reservaId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+    // Extraer dígitos iniciales
+    const matchDigits = clean.match(/^\d+/);
+    let digits = matchDigits ? matchDigits[0] : "";
+    let rest = clean.substring(digits.length);
+
+    // Si tiene menos de 4 dígitos iniciales, rellenar con ceros para cumplir norma Redsys
+    if (digits.length < 4) {
+        digits = digits.padStart(4, '0');
+    }
+
+    const combined = (digits + rest + String(suffix).toUpperCase()).slice(0, 12);
+    return combined;
+}
+
+/**
+ * Genera un número de pedido aleatorio único de reserva en caso de no disponer de ID
  */
 function generateOrderNumber() {
-    // 4 dígitos numéricos obligatorios iniciales (ej. basados en milisegundos)
     const numPrefix = String(Math.floor(1000 + Math.random() * 9000));
-    // 8 caracteres alfanuméricos únicos
     const alphaSuffix = Date.now().toString(36).slice(-4).toUpperCase() +
         Math.random().toString(36).substring(2, 6).toUpperCase();
     return (numPrefix + alphaSuffix).slice(0, 12);
@@ -146,14 +167,14 @@ function getErrorMessage(code) {
     const map = {
         "SIS0042": "La firma enviada no es correcta (verificar clave SHA-256).",
         "SIS0019": "El importe de la transacción es inválido.",
-        "SIS0020": "Número de pedido repetido o formato erróneo.",
+        "SIS0020": "Número de pedido repetido en Redsys. Para volver a cobrar esta reserva genera con un sufijo nuevo.",
         "SIS0054": "No existe la operación a la que se hace referencia.",
         "SIS0324": "Imposible enviar el SMS/email al titular.",
         "SIS0325": "El PayGold ya ha finalizado o no existe fase inicial.",
         "SIS0487": "El comercio-terminal no tiene habilitado el método de pago PayGold vía REST.",
         "SIS0430": "Error al decodificar Ds_MerchantParameters.",
         "SIS0431": "Error de sintaxis en el JSON de Ds_MerchantParameters.",
-        "SIS0434": "Número de pedido inválido (DS_MERCHANT_ORDER).",
+        "SIS0434": "Número de pedido inválido (DS_MERCHANT_ORDER). Debe empezar por 4 números.",
         "SIS0435": "Error en el cálculo de la firma (Ds_Signature)."
     };
     return map[code] || `Error Redsys ${code}`;
@@ -163,16 +184,20 @@ function getErrorMessage(code) {
  * Llama a la API REST de Redsys para crear una solicitud de PayGold
  * 
  * @param {Object} options
+ * @param {string} [options.app] - 'grupos', 'mesachef', 'spa'
  * @param {string} options.hotel - 'cumbria' o 'guadiana'
  * @param {number|string} options.amountEuros - Importe en euros (ej. 150.50)
- * @param {string} [options.orderId] - Opcional. Si no se pasa, se genera automáticamente.
- * @param {string} [options.groupId] - ID de la reserva en Nexus Groups
+ * @param {string} [options.orderId] - Código de pedido explícito (o localizador de reserva)
+ * @param {string} [options.groupId] - Localizador de la reserva o servicio
+ * @param {string} [options.referenceId] - Identificador único de la reserva/evento/cita
+ * @param {string} [options.orderSuffix] - Sufijo opcional si ya se generó antes (ej. A, B)
  * @param {string} [options.concept] - Descripción / Asunto del cobro
  * @param {string} [options.customerEmail] - Opcional: para que Redsys mande email
  * @param {string} [options.customerMobile] - Opcional: para que Redsys mande SMS
  * @param {string} [options.customerName] - Nombre del cliente/agencia
  * @param {string} [options.notificationUrl] - Webhook de notificación online
- * @param {number} [options.expiryHours] - Horas de caducidad (por defecto 72h)
+ * @param {string|Date} [options.expiryDate] - Fecha límite de caducidad del enlace (YYYY-MM-DD o timestamp)
+ * @param {number} [options.expiryHours] - Horas de caducidad si no se pasa expiryDate (por defecto 72h)
  */
 async function createPayGoldRequest(options) {
     const hotelKey = (options.hotel || 'cumbria').toLowerCase().includes('guad') ? 'guadiana' : 'cumbria';
@@ -189,7 +214,13 @@ async function createPayGoldRequest(options) {
     }
     const amountCents = Math.round(amountNum * 100).toString();
 
-    const orderId = options.orderId || generateOrderNumber();
+    // El código de pedido es el LOCALIZADOR o IDENTIFICADOR
+    let orderId = options.orderId;
+    if (!orderId) {
+        const baseRef = options.referenceId || options.groupId || options.reservaId;
+        orderId = formatOrderNumberFromReservation(baseRef, options.orderSuffix || "");
+    }
+
     const endpoint = REDSYS_ENDPOINTS[config.env] || REDSYS_ENDPOINTS.production;
 
     // Parámetros obligatorios de Redsys PayGold REST
@@ -207,9 +238,11 @@ async function createPayGoldRequest(options) {
         merchantParams.DS_MERCHANT_MERCHANTURL = options.notificationUrl;
     }
 
-    // Metadatos para correlación cuando el cliente pague
+    // Metadatos para correlación multi-aplicación (Nexus Groups, MesaChef, Spa)
     const metaDataObj = {
-        groupId: options.groupId || "",
+        app: options.app || "grupos",
+        referenceId: options.referenceId || options.groupId || options.reservaId || "",
+        groupId: options.groupId || options.referenceId || "",
         hotel: hotelKey,
         concept: options.concept || "",
         createdAt: new Date().toISOString()
@@ -219,17 +252,34 @@ async function createPayGoldRequest(options) {
     // Canales opcionales de envío directo por Redsys
     if (options.customerMobile) {
         merchantParams.DS_MERCHANT_CUSTOMER_MOBILE = String(options.customerMobile).replace(/\D/g, '').slice(-9);
-        merchantParams.DS_MERCHANT_CUSTOMER_SMS_TEXT = `Nexus Groups: Pago seguro de su reserva. Acceda al enlace para abonar: @URL@`;
+        const appPrefix = options.app === "spa" ? "Spa Cumbria" : (options.app === "mesachef" ? "MesaChef Cumbria" : "Nexus Groups");
+        merchantParams.DS_MERCHANT_CUSTOMER_SMS_TEXT = `${appPrefix}: Pago seguro. Acceda al enlace para abonar: @URL@`;
     }
 
     if (options.customerEmail) {
         merchantParams.DS_MERCHANT_CUSTOMER_MAIL = String(options.customerEmail).trim();
     }
 
-    // Fecha de caducidad si se especifica (por defecto 72 horas para grupos)
-    const hours = options.expiryHours || 72;
-    const expiryDate = new Date(Date.now() + hours * 3600 * 1000);
-    // Formato requerido: aaaa-mm-dd-HH.MM.ss.sss (ej: 2026-11-12-16.30.00.000)
+    // Fecha de caducidad del enlace: parsear fecha límite especificada por el usuario
+    let expiryDate;
+    if (options.expiryDate) {
+        const str = String(options.expiryDate).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+            const parts = str.split('-');
+            expiryDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 23, 59, 59, 999);
+        } else {
+            expiryDate = new Date(str);
+        }
+    } else {
+        const hours = options.expiryHours || 72;
+        expiryDate = new Date(Date.now() + hours * 3600 * 1000);
+    }
+
+    if (isNaN(expiryDate.getTime())) {
+        expiryDate = new Date(Date.now() + 72 * 3600 * 1000);
+    }
+
+    // Formato requerido por Redsys: aaaa-mm-dd-HH.MM.ss.sss (ej: 2026-11-20-23.59.59.000)
     const yyyy = expiryDate.getFullYear();
     const mm = String(expiryDate.getMonth() + 1).padStart(2, '0');
     const dd = String(expiryDate.getDate()).padStart(2, '0');
@@ -269,7 +319,6 @@ async function createPayGoldRequest(options) {
     }
 
     const data = verified.data;
-    // En PayGold inicial la respuesta típica es "9998" (operación creada con éxito)
     const isSuccess = data.Ds_Response === "9998" || data.Ds_Response === "0000";
     const paymentUrl = data.Ds_UrlPago2Fases || "";
 
@@ -289,6 +338,7 @@ async function createPayGoldRequest(options) {
         orderId,
         amountEuros: amountNum,
         hotel: hotelKey,
+        app: options.app || "grupos",
         expiresAt: expiryDate.toISOString(),
         raw: data
     };
@@ -297,6 +347,7 @@ async function createPayGoldRequest(options) {
 module.exports = {
     REDSYS_CONFIG,
     REDSYS_ENDPOINTS,
+    formatOrderNumberFromReservation,
     generateOrderNumber,
     encryptOrder3DES,
     signPayload,

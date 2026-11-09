@@ -12,7 +12,10 @@ const redsysFunctions = require('./redsys-functions');
 exports.mailInbox = mail.mailInbox;
 exports.mailDetail = mail.mailDetail;
 exports.mailUpdate = mail.mailUpdate;
-exports.syncGroupMail = require('./mail-imap').syncGroupMail;
+// exports.syncGroupMail requiere el secret MAIL_IMAP_CONFIG en GCP.
+if (process.env.MAIL_IMAP_CONFIG) {
+  exports.syncGroupMail = require('./mail-imap').syncGroupMail;
+}
 
 // Pasarela de Pagos Redsys PayGold
 exports.createPayGold = redsysFunctions.createPayGold;

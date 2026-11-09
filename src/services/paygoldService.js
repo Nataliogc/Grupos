@@ -1,15 +1,17 @@
 /**
  * ═════════════════════════════════════════════════════════════════════════════
- * NEXUS GROUPS — SERVICIO CLIENTE DE PAYGOLD REDSYS
+ * NEXUS GROUPS — SERVICIO CLIENTE DE PAYGOLD REDSYS (MULTI-APP)
  * ═════════════════════════════════════════════════════════════════════════════
- * Gestiona la solicitud de enlaces PayGold desde la interfaz de usuario,
- * cálculo de tramos de depósito sugeridos y enlace con la Proforma / QR.
+ * Compatible con:
+ * - Nexus Groups
+ * - MesaChef
+ * - Spa
  */
 
 (function (root) {
     "use strict";
 
-    const CLOUD_FUNCTION_URL = "https://us-central1-gest-grupos-hotel.cloudfunctions.net/createPayGold";
+    const CLOUD_FUNCTION_URL = "https://createpaygold-nls6pa6unq-uc.a.run.app";
 
     const PayGoldService = {
         /**
@@ -64,7 +66,8 @@
                         id: "tramo",
                         label: `${nextPendingTramo.label || 'Depósito'} (${nextPendingTramo.percent || ''}%)`,
                         amount: tramoAmt,
-                        description: `Tramo del Plan de Pagos: ${tramoAmt.toFixed(2)} €`
+                        description: `Tramo del Plan de Pagos: ${tramoAmt.toFixed(2)} €`,
+                        defaultDate: nextPendingTramo.date || ""
                     });
                 }
             } else if (total > 0 && paid === 0) {
@@ -101,6 +104,7 @@
 
         /**
          * Solicita a la Cloud Function la generación del enlace PayGold
+         * Válido para Nexus Groups, MesaChef o Spa
          */
         generateLink: async function (params) {
             const hotelKey = this.getHotelKey(params.hotel || params.Hotel_Asignado);
@@ -114,14 +118,20 @@
                 throw new Error("Sercotel Guadiana está pendiente de activación de PayGold por parte de Eurocaja Rural. Hotel Cumbria sí está 100% operativo.");
             }
 
+            const refId = String(params.referenceId || params.groupId || params.reservaId || "").trim();
+
             const bodyPayload = {
+                app: params.app || "grupos", // 'grupos', 'mesachef', 'spa'
                 hotel: hotelKey,
                 amountEuros: amount,
-                groupId: params.groupId || params.reservaId || "",
-                concept: params.concept || `Reserva ${params.groupId || ''} - ${params.groupName || ''}`.trim(),
+                groupId: refId,
+                referenceId: refId,
+                orderSuffix: params.orderSuffix || "",
+                concept: params.concept || `Reserva ${refId} - ${params.groupName || ''}`.trim(),
                 customerEmail: params.customerEmail || "",
                 customerMobile: params.customerMobile || "",
                 customerName: params.customerName || "",
+                expiryDate: params.expiryDate || "",
                 depositLabel: params.depositLabel || ""
             };
 
@@ -143,7 +153,8 @@
                 paymentUrl: data.paymentUrl,
                 orderId: data.orderId,
                 amountEuros: data.amountEuros,
-                expiresAt: data.expiresAt
+                expiresAt: data.expiresAt,
+                app: data.app || bodyPayload.app
             };
         }
     };

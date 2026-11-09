@@ -11252,6 +11252,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [payGoldSuccess, setPayGoldSuccess] = useState("");
       const [payGoldSelectedOption, setPayGoldSelectedOption] = useState("tramo");
       const [payGoldCustomAmount, setPayGoldCustomAmount] = useState("");
+      const [payGoldExpiryDate, setPayGoldExpiryDate] = useState(() => {
+        const d = new Date(Date.now() + 3 * 86400000);
+        return d.toISOString().split('T')[0];
+      });
       const [payGoldSendSms, setPayGoldSendSms] = useState(false);
       const [payGoldSendEmail, setPayGoldSendEmail] = useState(false);
       const [payGoldMobile, setPayGoldMobile] = useState("");
@@ -11301,6 +11305,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             concept: `Reserva ${selectedGroupFicha.id} - ${depositLabel}`,
             customerEmail: payGoldSendEmail ? payGoldEmail : "",
             customerMobile: payGoldSendSms ? payGoldMobile : "",
+            expiryDate: payGoldExpiryDate,
             depositLabel
           });
 
@@ -30328,7 +30333,10 @@ const base =
                         <div>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Grupo</span>
                           <span className="font-black text-slate-800 truncate block">{selectedGroupFicha.name || 'Sin nombre'}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">Reserva: {selectedGroupFicha.id}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">Nº Pedido (Localizador):</span>
+                            <span className="text-[10px] text-amber-700 font-mono font-black bg-amber-100/70 px-1.5 py-0.5 rounded">{selectedGroupFicha.id}</span>
+                          </div>
                         </div>
                         <div className="text-right">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total / Pendiente</span>
@@ -30392,6 +30400,63 @@ const base =
                             />
                           </div>
                         )}
+                      </div>
+
+                      {/* Fecha Límite de Caducidad del Enlace */}
+                      <div className="border-t border-slate-200 pt-4 space-y-2">
+                        <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
+                          <span>Fecha Límite del Enlace (Caducidad)</span>
+                          <span className="text-[9px] text-slate-400 font-normal">Hasta las 23:59h de esa fecha</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={payGoldExpiryDate}
+                          min={new Date().toISOString().split('T')[0]}
+                          onChange={(e) => setPayGoldExpiryDate(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                        />
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-1 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const d = new Date(Date.now() + 24 * 3600 * 1000);
+                              setPayGoldExpiryDate(d.toISOString().split('T')[0]);
+                            }}
+                            className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded font-semibold text-slate-600 cursor-pointer"
+                          >
+                            +24 horas
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const d = new Date(Date.now() + 48 * 3600 * 1000);
+                              setPayGoldExpiryDate(d.toISOString().split('T')[0]);
+                            }}
+                            className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded font-semibold text-slate-600 cursor-pointer"
+                          >
+                            +48 horas
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+                              setPayGoldExpiryDate(d.toISOString().split('T')[0]);
+                            }}
+                            className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded font-semibold text-slate-600 cursor-pointer"
+                          >
+                            +7 días
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const d = new Date(Date.now() + 15 * 24 * 3600 * 1000);
+                              setPayGoldExpiryDate(d.toISOString().split('T')[0]);
+                            }}
+                            className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded font-semibold text-slate-600 cursor-pointer"
+                          >
+                            +15 días
+                          </button>
+                        </div>
                       </div>
 
                       <div className="border-t border-slate-200 pt-4 space-y-3">
