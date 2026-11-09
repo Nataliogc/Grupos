@@ -33,6 +33,41 @@
         },
 
         /**
+         * Formatea el código de pedido Redsys (DS_MERCHANT_ORDER):
+         * Los 4 primeros caracteres deben ser dígitos numéricos.
+         * Para Grupos añade "GRUPO" (ej. "77593GRUPO").
+         */
+        formatOrderNumber: function (reservaId, app) {
+            if (!reservaId) return "";
+            const clean = String(reservaId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            const matchDigits = clean.match(/^\d+/);
+            let digits = matchDigits ? matchDigits[0] : "";
+            let rest = clean.substring(digits.length);
+            if (digits.length < 4) {
+                digits = digits.padStart(4, '0');
+            }
+            const appTag = String(app || 'grupos').toLowerCase();
+            let tag = '';
+            if (appTag.includes('grupo')) {
+                if (!rest.includes('GRUPO') && !digits.includes('GRUPO')) tag = 'GRUPO';
+            } else if (appTag.includes('mesa') || appTag.includes('evento')) {
+                if (!rest.includes('EVENTO') && !rest.includes('MESA')) tag = 'EVENTO';
+            } else if (appTag.includes('spa') || appTag.includes('circuito')) {
+                if (!rest.includes('CIRCUITO') && !rest.includes('SPA')) tag = 'CIRCUITO';
+            }
+            let combined = digits + rest + tag;
+            if (combined.length > 12) {
+                const maxTail = 12 - digits.length;
+                if (maxTail > 0) {
+                    combined = digits + (rest + tag).slice(0, maxTail);
+                } else {
+                    combined = digits.slice(0, 12);
+                }
+            }
+            return combined;
+        },
+
+        /**
          * Calcula las opciones sugeridas de pago para un grupo:
          * - Próximo tramo del plan de pagos (si existe y no está pagado)
          * - Saldo total pendiente

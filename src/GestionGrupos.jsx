@@ -30335,7 +30335,7 @@ const base =
                           <span className="font-black text-slate-800 truncate block">{selectedGroupFicha.name || 'Sin nombre'}</span>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px] text-slate-500 font-bold uppercase">Nº Pedido (Localizador):</span>
-                            <span className="text-[10px] text-amber-700 font-mono font-black bg-amber-100/70 px-1.5 py-0.5 rounded">{selectedGroupFicha.id}</span>
+                            <span className="text-[10px] text-amber-700 font-mono font-black bg-amber-100/70 px-1.5 py-0.5 rounded">{window.PayGoldService ? window.PayGoldService.formatOrderNumber(selectedGroupFicha.id, "grupos") : (selectedGroupFicha.id + "GRUPO")}</span>
                           </div>
                         </div>
                         <div className="text-right">

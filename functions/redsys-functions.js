@@ -231,7 +231,11 @@ const redsysWebhook = onRequest(
             const existingTx = txDoc.exists ? txDoc.data() : {};
 
             const app = metadata.app || existingTx.app || "grupos";
-            const refId = metadata.referenceId || metadata.groupId || existingTx.referenceId || existingTx.groupId || "";
+            let refId = metadata.referenceId || metadata.groupId || existingTx.referenceId || existingTx.groupId || "";
+            if (!refId && orderId) {
+                // Extraer el identificador limpio eliminando palabras clave de app y ceros de relleno
+                refId = String(orderId).replace(/GRUPO.*/i, '').replace(/EVENTO.*/i, '').replace(/CIRCUITO.*/i, '').replace(/^0+/, '');
+            }
 
             // Actualizar registro central en paygold_transactions
             await txRef.set({

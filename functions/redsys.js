@@ -34,12 +34,13 @@ const REDSYS_ENDPOINTS = {
 };
 
 /**
- * Genera el número de pedido basado estrictamente en el localizador/identificador:
+ * Genera el número de pedido basado en el localizador/identificador:
  * Redsys exige entre 4 y 12 caracteres, donde los 4 primeros deben ser dígitos numéricos.
- * Ej: reserva "77593" -> "77593"
- * Si hay sufijo de tramo/reintento: "77593A", "77593B", etc.
+ * - Para Grupos: añade "GRUPO" (ej. "77593" -> "77593GRUPO" o "123" -> "0123GRUPO")
+ * - Para MesaChef: añade "EVENTO" si no está presente (ej. "0000EVENTO20")
+ * - Para Spa: añade "CIRCUITO" si no está presente (ej. "0000CIRCUITO")
  */
-function formatOrderNumberFromReservation(reservaId, suffix = '') {
+function formatOrderNumberFromReservation(reservaId, suffix = '', app = 'grupos') {
     if (!reservaId) return generateOrderNumber();
     const clean = String(reservaId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
@@ -53,7 +54,35 @@ function formatOrderNumberFromReservation(reservaId, suffix = '') {
         digits = digits.padStart(4, '0');
     }
 
-    const combined = (digits + rest + String(suffix).toUpperCase()).slice(0, 12);
+    const appTag = String(app || 'grupos').toLowerCase();
+    let tag = '';
+    if (appTag.includes('grupo')) {
+        if (!rest.includes('GRUPO') && !digits.includes('GRUPO')) {
+            tag = 'GRUPO';
+        }
+    } else if (appTag.includes('mesa') || appTag.includes('evento')) {
+        if (!rest.includes('EVENTO') && !rest.includes('MESA')) {
+            tag = 'EVENTO';
+        }
+    } else if (appTag.includes('spa') || appTag.includes('circuito')) {
+        if (!rest.includes('CIRCUITO') && !rest.includes('SPA')) {
+            tag = 'CIRCUITO';
+        }
+    }
+
+    const suf = String(suffix || '').toUpperCase();
+
+    // Redsys permite máx 12 caracteres:
+    // Los primeros 4 caracteres DEBEN ser dígitos estrictamente numéricos.
+    let combined = digits + rest + tag + suf;
+    if (combined.length > 12) {
+        const maxTail = 12 - digits.length;
+        if (maxTail > 0) {
+            combined = digits + (rest + tag + suf).slice(0, maxTail);
+        } else {
+            combined = digits.slice(0, 12);
+        }
+    }
     return combined;
 }
 
@@ -167,7 +196,8 @@ function getErrorMessage(code) {
     const map = {
         "SIS0042": "La firma enviada no es correcta (verificar clave SHA-256).",
         "SIS0019": "El importe de la transacción es inválido.",
-        "SIS0020": "Número de pedido repetido en Redsys. Para volver a cobrar esta reserva genera con un sufijo nuevo.",
+        "SIS0020": "Número de pedido repetido en Redsys.",
+        "SIS0051": "Número de pedido repetido en Redsys.",
         "SIS0054": "No existe la operación a la que se hace referencia.",
         "SIS0324": "Imposible enviar el SMS/email al titular.",
         "SIS0325": "El PayGold ya ha finalizado o no existe fase inicial.",
@@ -214,11 +244,13 @@ async function createPayGoldRequest(options) {
     }
     const amountCents = Math.round(amountNum * 100).toString();
 
-    // El código de pedido es el LOCALIZADOR o IDENTIFICADOR
+    // El código de pedido es el LOCALIZADOR o IDENTIFICADOR formateado según la aplicación
     let orderId = options.orderId;
     if (!orderId) {
         const baseRef = options.referenceId || options.groupId || options.reservaId;
-        orderId = formatOrderNumberFromReservation(baseRef, options.orderSuffix || "");
+        orderId = formatOrderNumberFromReservation(baseRef, options.orderSuffix || "", options.app || "grupos");
+    } else {
+        orderId = formatOrderNumberFromReservation(orderId, options.orderSuffix || "", options.app || "grupos");
     }
 
     const endpoint = REDSYS_ENDPOINTS[config.env] || REDSYS_ENDPOINTS.production;
@@ -310,6 +342,25 @@ async function createPayGoldRequest(options) {
     const verified = decodeAndVerifyResponse(responseJson, config.secretKey);
 
     if (!verified.ok) {
+        // Si el pedido ya existe en Redsys (ej. reintento o prueba previa), reintentar automáticamente con sufijo
+        if ((verified.errorCode === "SIS0051" || verified.errorCode === "SIS0020") && !options._retried) {
+            const retryLetters = ['B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            for (const nextSuffix of retryLetters) {
+                const retryRes = await createPayGoldRequest({
+                    ...options,
+                    orderSuffix: nextSuffix,
+                    orderId: undefined,
+                    _retried: true
+                });
+                if (retryRes.success) {
+                    return retryRes;
+                }
+                if (retryRes.errorCode !== "SIS0051" && retryRes.errorCode !== "SIS0020") {
+                    return retryRes;
+                }
+            }
+        }
+
         return {
             success: false,
             errorCode: verified.errorCode,
