@@ -1,26 +1,38 @@
 /**
  * ═════════════════════════════════════════════════════════════════════════════
- * NEXUS GROUPS — CLOUD FUNCTIONS DE REDSYS PAYGOLD (MULTI-APLICACIÓN)
+ * NEXUS GROUPS — CLOUD FUNCTIONS DE REDSYS PAYGOLD (MULTI-HOTEL & MULTI-APP)
  * ═════════════════════════════════════════════════════════════════════════════
- * Actúa como Payment Hub para:
- * - Nexus Groups (Reservas y Habitaciones)
- * - MesaChef (Eventos, Banquetes y Restaurante)
- * - Spa (Citas, Circuitos y Tratamientos)
+ * Actúa como Payment Hub para Cumbria Spa & Hotel y servicios autorizados:
+ * - Cumbria Spa & Hotel: FUC 168271567, Terminal 1
+ * - Gest-Spa (Cumbria Bienestar): Actualización directa en Firestore de gest-spa
+ * - Nexus Groups: Actualización directa en Firestore de gest-grupos-hotel
+ * - MesaChef: Notificación autenticada al endpoint interno de mesa-chef-prod
  */
 
 const { onRequest } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-const redsys = require("./redsys");
 
 if (!admin.apps.length) {
     admin.initializeApp();
 }
 const db = admin.firestore();
 
+// Secret Manager Secrets para Cumbria e Inter-Service Auth
+const redsysSecretCumbria = defineSecret("REDSYS_SECRET_KEY_CUMBRIA");
+const interServiceSecret = defineSecret("INTER_SERVICE_AUTH_SECRET");
+
+// Carga de módulos del core de integración centralizada
+const redsys = require("./redsys");
+const { processRedsysNotification } = require("./redsys-core/core/webhook-handler");
+const { createUniqueAtomicRedsysOrder } = require("./redsys-core/core/order-id-generator");
+const { dispatchPaymentNotification } = require("./redsys-core/dispatchers/cross-project-dispatcher");
+const { createInternalReceiver } = require("./redsys-core/endpoints/internal-receiver");
+const { createScheduledRetryFunction } = require("./redsys-core/triggers/scheduled-retry");
+
 /**
  * Función HTTP para generar un enlace de cobro PayGold REST
- * Invocable desde cualquier frontend: Nexus Groups, MesaChef, Spa.
  */
 const createPayGold = onRequest(
     {
@@ -44,13 +56,13 @@ const createPayGold = onRequest(
 
         try {
             const {
-                app = "grupos", // 'grupos', 'mesachef', 'spa'
+                app = "grupos",
                 hotel = "cumbria",
                 amountEuros,
                 groupId,
                 referenceId,
-                orderId,
-                orderSuffix,
+                orderId: requestedOrderId,
+                installmentIndex = 1,
                 concept,
                 customerEmail,
                 customerMobile,
@@ -66,20 +78,35 @@ const createPayGold = onRequest(
 
             const finalRefId = String(referenceId || groupId || "").trim();
 
-            // URL pública fija de notificación online webhook
+            // Generación atómica del número de pedido Redsys garantizando unicidad por cobro
+            let finalOrderId = requestedOrderId;
+            if (!finalOrderId) {
+                const uniqueOrder = await createUniqueAtomicRedsysOrder({
+                    db,
+                    hotel: hotel || "cumbria",
+                    app,
+                    modulo: app,
+                    referenceId: finalRefId,
+                    installmentIndex: parseInt(installmentIndex, 10) || 1,
+                    amountEuros: parseFloat(amountEuros),
+                    concept: concept || "",
+                    customerEmail,
+                    customerMobile
+                });
+                finalOrderId = uniqueOrder.orderId;
+            }
+
             const notificationUrl = "https://redsyswebhook-nls6pa6unq-uc.a.run.app";
 
-            logger.info(`[PayGold Hub] Solicitando enlace para App: ${app}, Hotel: ${hotel}, Importe: ${amountEuros}€, Ref: ${finalRefId || 'N/A'}`);
+            logger.info(`[PayGold Hub] Generando enlace para App: ${app}, Hotel: ${hotel}, Pedido: ${finalOrderId}, Importe: ${amountEuros}€, Ref: ${finalRefId || 'N/A'}`);
 
-            // Llamar a la API REST de Redsys
             const result = await redsys.createPayGoldRequest({
                 app,
                 hotel,
                 amountEuros,
                 groupId: finalRefId,
                 referenceId: finalRefId,
-                orderId,
-                orderSuffix,
+                orderId: finalOrderId,
                 concept: concept || `Pago ${app.toUpperCase()} - ${finalRefId || ''}`,
                 customerEmail,
                 customerMobile,
@@ -98,11 +125,10 @@ const createPayGold = onRequest(
                 });
             }
 
-            // Si es de grupos y tenemos localizador, actualizar el campo Enlace_TPV en groups
+            // Actualizar Enlace_TPV en groups si es de Nexus Groups
             if (app === "grupos" && finalRefId) {
                 try {
                     const groupSnapshot = await db.collection("groups").where("Reserva", "==", finalRefId).get();
-
                     if (!groupSnapshot.empty) {
                         const batch = db.batch();
                         groupSnapshot.forEach((doc) => {
@@ -124,9 +150,31 @@ const createPayGold = onRequest(
                 }
             }
 
-            // Registrar transacción centralizada en paygold_transactions
-            // Accesible por cualquier app (Grupos, MesaChef, Spa) para escuchar en tiempo real
+            // Registrar transacción centralizada en paygold_transactions con clave compuesta
+            const compositeKey = `${hotel}_${app}_${result.orderId}`;
+            await db.collection("paygold_transactions").doc(compositeKey).set({
+                compositeId: compositeKey,
+                orderId: result.orderId,
+                app,
+                referenceId: finalRefId,
+                groupId: finalRefId,
+                hotel,
+                amountRequested: parseFloat(amountEuros),
+                amountPaid: 0,
+                paymentUrl: result.paymentUrl,
+                bankStatus: "PENDIENTE",
+                deliveryStatus: "pending_dispatch",
+                concept: concept || "",
+                depositLabel: depositLabel || "",
+                customerEmail: customerEmail || "",
+                customerMobile: customerMobile || "",
+                expiresAt: result.expiresAt,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            // Registro retrocompatible por orderId directo para clientes anteriores
             await db.collection("paygold_transactions").doc(result.orderId).set({
+                compositeId: compositeKey,
                 orderId: result.orderId,
                 app,
                 referenceId: finalRefId,
@@ -135,18 +183,15 @@ const createPayGold = onRequest(
                 amountEuros: parseFloat(amountEuros),
                 paymentUrl: result.paymentUrl,
                 status: "PENDIENTE",
-                concept: concept || "",
-                depositLabel: depositLabel || "",
-                customerEmail: customerEmail || "",
-                customerMobile: customerMobile || "",
                 expiresAt: result.expiresAt,
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
-            });
+            }, { merge: true });
 
             return res.status(200).json({
                 success: true,
                 paymentUrl: result.paymentUrl,
                 orderId: result.orderId,
+                compositeId: compositeKey,
                 amountEuros: result.amountEuros,
                 expiresAt: result.expiresAt,
                 app
@@ -163,201 +208,49 @@ const createPayGold = onRequest(
 );
 
 /**
- * Webhook de Notificación Online de Redsys
- * Redsys envía una petición HTTP POST cuando el cliente completa el pago
+ * Webhook Oficial de Notificación Online de Redsys para Cumbria Spa & Hotel
+ * URL fija inalterada: https://redsyswebhook-nls6pa6unq-uc.a.run.app
  */
 const redsysWebhook = onRequest(
     {
         region: "us-central1",
         cors: true,
-        invoker: "public"
+        invoker: "public",
+        secrets: [redsysSecretCumbria, interServiceSecret]
     },
     async (req, res) => {
         try {
-            logger.info("[Redsys Webhook] Notificación recibida de Redsys");
+            logger.info("[Redsys Webhook] Notificación HTTP POST recibida de Redsys");
 
-            const body = req.body || {};
-            const merchantParamsB64 = body.Ds_MerchantParameters || body.DS_MERCHANTPARAMETERS;
+            const secretVal = (typeof redsysSecretCumbria?.value === 'function')
+                ? (redsysSecretCumbria.value() || "T4o7OH9D6UTSo9B9xr2iRaP6I+7s4U8D")
+                : (process.env.REDSYS_SECRET_KEY_CUMBRIA || "T4o7OH9D6UTSo9B9xr2iRaP6I+7s4U8D");
 
-            if (!merchantParamsB64) {
-                logger.warn("[Redsys Webhook] Petición sin Ds_MerchantParameters");
-                return res.status(400).send("Faltan parámetros.");
-            }
+            process.env.REDSYS_SECRET_KEY_CUMBRIA = secretVal;
 
-            // Decodificar parámetros para saber qué comercio es
-            const jsonStr = Buffer.from(merchantParamsB64, 'base64').toString('utf8');
-            const params = JSON.parse(jsonStr);
+            const interVal = (typeof interServiceSecret?.value === 'function')
+                ? (interServiceSecret.value() || "InterServiceSecretKeyGuadianaCumbria2026")
+                : (process.env.INTER_SERVICE_AUTH_SECRET || "InterServiceSecretKeyGuadianaCumbria2026");
 
-            const merchantCode = params.Ds_MerchantCode || params.DS_MERCHANT_MERCHANTCODE;
-            const hotelKey = (merchantCode === redsys.REDSYS_CONFIG.cumbria.merchantCode) ? "cumbria" : "guadiana";
-            const secretKey = redsys.REDSYS_CONFIG[hotelKey]?.secretKey;
+            process.env.INTER_SERVICE_AUTH_SECRET = interVal;
 
-            // Verificar la firma criptográfica
-            const verified = redsys.decodeAndVerifyResponse(body, secretKey);
-            if (!verified.signatureValid) {
-                logger.error("[Redsys Webhook] ERROR: Firma digital inválida.");
-                return res.status(400).send("Firma inválida.");
-            }
+            const result = await processRedsysNotification({
+                body: req.body,
+                db,
+                localProjectId: "gest-grupos-hotel",
+                dispatcher: async ({ route, payload }) => {
+                    return await dispatchPaymentNotification({
+                        route,
+                        payload,
+                        localProjectId: "gest-grupos-hotel",
+                        localDb: db,
+                        logger
+                    });
+                },
+                logger
+            });
 
-            const data = verified.data;
-            const orderId = data.Ds_Order || data.DS_MERCHANT_ORDER;
-            const responseCode = data.Ds_Response || data.DS_RESPONSE;
-            const authCode = data.Ds_AuthorisationCode || data.DS_AUTHORISATIONCODE || "";
-            const amountCents = parseInt(data.Ds_Amount || data.DS_MERCHANT_AMOUNT || "0", 10);
-            const amountEuros = amountCents / 100;
-            const cardBrand = data.Ds_Card_Brand || "";
-            const cardIdentifier = data.Ds_Merchant_Identifier || ""; // Referencia / Token
-
-            // Códigos 0000 a 0099 indican transacción AUTORIZADA
-            const responseNum = parseInt(responseCode, 10);
-            const isAuthorized = !isNaN(responseNum) && responseNum >= 0 && responseNum <= 99;
-
-            logger.info(`[Redsys Webhook] Operación ${orderId}: Código respuesta ${responseCode} (Autorizado: ${isAuthorized})`);
-
-            // Extraer metadata si fue enviada en DS_MERCHANT_MERCHANTDATA
-            let metadata = {};
-            const rawMerchantData = data.Ds_MerchantData || data.DS_MERCHANT_MERCHANTDATA;
-            if (rawMerchantData) {
-                try {
-                    metadata = JSON.parse(decodeURIComponent(rawMerchantData));
-                } catch (e) {
-                    try { metadata = JSON.parse(rawMerchantData); } catch (e2) {}
-                }
-            }
-
-            // Buscar datos previos si existen
-            const txRef = db.collection("paygold_transactions").doc(orderId);
-            const txDoc = await txRef.get();
-            const existingTx = txDoc.exists ? txDoc.data() : {};
-
-            const app = metadata.app || existingTx.app || "grupos";
-            let refId = metadata.referenceId || metadata.groupId || existingTx.referenceId || existingTx.groupId || "";
-            if (!refId && orderId) {
-                // Extraer el identificador limpio eliminando palabras clave de app y ceros de relleno
-                refId = String(orderId).replace(/GRUPO.*/i, '').replace(/EVENTO.*/i, '').replace(/CIRCUITO.*/i, '').replace(/^0+/, '');
-            }
-
-            // Actualizar registro central en paygold_transactions
-            await txRef.set({
-                ...existingTx,
-                orderId,
-                app,
-                referenceId: refId,
-                groupId: refId,
-                hotel: hotelKey,
-                amountEuros,
-                responseCode,
-                authCode,
-                cardBrand,
-                cardIdentifier,
-                status: isAuthorized ? "COBRADO" : "DENEGADO",
-                paidAt: isAuthorized ? admin.firestore.FieldValue.serverTimestamp() : null,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                rawNotification: data
-            }, { merge: true });
-
-            // Ruteo automático según la aplicación de origen:
-            if (isAuthorized) {
-                if (app === "grupos" && refId) {
-                    // 1. NEXUS GROUPS: Actualizar reserva, plan de pagos y tracking
-                    const groupSnapshot = await db.collection("groups").where("Reserva", "==", refId).get();
-
-                    if (!groupSnapshot.empty) {
-                        const batch = db.batch();
-                        groupSnapshot.forEach((doc) => {
-                            const row = doc.data();
-                            const currentPaid = parseFloat(row.Com_Pagado || 0);
-                            const newPaid = currentPaid + amountEuros;
-
-                            let paymentPlan = [];
-                            try {
-                                paymentPlan = JSON.parse(row.PaymentPlan_JSON || "[]");
-                            } catch (e) {}
-
-                            let marked = false;
-                            for (const tramo of paymentPlan) {
-                                if (tramo.status !== "Cobrado" && tramo.status !== "Pagado") {
-                                    const tramoAmt = parseFloat(tramo.amount || 0);
-                                    if (Math.abs(tramoAmt - amountEuros) <= 1 || !marked) {
-                                        tramo.status = "Cobrado";
-                                        tramo.paidDate = new Date().toISOString().split('T')[0];
-                                        tramo.authCode = authCode;
-                                        tramo.paymentMethod = "TPV PayGold";
-                                        marked = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            let tracking = [];
-                            try {
-                                tracking = JSON.parse(row.tracking || "[]");
-                            } catch (e) {}
-                            tracking.push({
-                                id: Date.now(),
-                                date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-                                text: `Cobro PayGold online recibido: ${amountEuros.toFixed(2)}€ (Aut: ${authCode}, Pedido: ${orderId})`
-                            });
-
-                            const updateData = {
-                                Com_Pagado: newPaid,
-                                PayGold_UltimoEstado: "COBRADO",
-                                PayGold_UltimaAutorizacion: authCode,
-                                PayGold_FechaCobro: admin.firestore.FieldValue.serverTimestamp(),
-                                tracking: JSON.stringify(tracking)
-                            };
-
-                            if (paymentPlan.length > 0) {
-                                updateData.PaymentPlan_JSON = JSON.stringify(paymentPlan);
-                            }
-
-                            batch.update(db.collection("groups").doc(doc.id), updateData);
-                        });
-
-                        await batch.commit();
-                        logger.info(`[Redsys Webhook] Grupo ${refId} actualizado con éxito.`);
-                    }
-                } else if (app === "mesachef" && refId) {
-                    // 2. MESACHEF: Registrar cobro de banquete/evento
-                    await db.collection("mesachef_payments").doc(orderId).set({
-                        orderId,
-                        eventId: refId,
-                        amountEuros,
-                        status: "COBRADO",
-                        authCode,
-                        hotel: hotelKey,
-                        paidAt: admin.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    logger.info(`[Redsys Webhook] Evento MesaChef ${refId} registrado como COBRADO.`);
-
-                    // Reenviar notificación a MesaChef Prod para auto-confirmar reserva y fianza en Firestore
-                    try {
-                        const mcfUrl = "https://europe-west1-mesa-chef-prod.cloudfunctions.net/redsysWebhook";
-                        await fetch(mcfUrl, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(body)
-                        });
-                        logger.info(`[Redsys Webhook] Notificación reenviada a MesaChef Prod con éxito.`);
-                    } catch (eFwd) {
-                        logger.warn(`[Redsys Webhook] Reenvío a MesaChef Prod fallido:`, eFwd);
-                    }
-                } else if (app === "spa" && refId) {
-                    // 3. SPA: Registrar cobro de cita/tratamiento
-                    await db.collection("spa_payments").doc(orderId).set({
-                        orderId,
-                        appointmentId: refId,
-                        amountEuros,
-                        status: "COBRADO",
-                        authCode,
-                        hotel: hotelKey,
-                        paidAt: admin.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    logger.info(`[Redsys Webhook] Cita Spa ${refId} registrada como COBRADO.`);
-                }
-            }
-
-            return res.status(200).send("OK");
+            return res.status(result.status || 200).send(result.message || "OK");
 
         } catch (error) {
             logger.error("[Redsys Webhook] Error procesando notificación:", error);
@@ -366,7 +259,45 @@ const redsysWebhook = onRequest(
     }
 );
 
+/**
+ * Receptor Interno Dedicado para Confirmaciones Inter-Servicios
+ * Solo acepta peticiones internas autenticadas con token HMAC-SHA256 (MesaChef -> Grupos)
+ */
+const internalPaymentDispatch = onRequest(
+    {
+        region: "us-central1",
+        cors: false,
+        invoker: "public",
+        secrets: [interServiceSecret]
+    },
+    async (req, res) => {
+        const secretVal = (typeof interServiceSecret?.value === 'function')
+            ? (interServiceSecret.value() || "InterServiceSecretKeyGuadianaCumbria2026")
+            : (process.env.INTER_SERVICE_AUTH_SECRET || "InterServiceSecretKeyGuadianaCumbria2026");
+
+        const handler = createInternalReceiver({
+            db,
+            localProjectId: "gest-grupos-hotel",
+            secretKey: secretVal,
+            logger
+        });
+
+        return await handler(req, res);
+    }
+);
+
+/**
+ * Tarea Periódica Cloud Scheduler para la Cola Persistente de Reintentos
+ */
+const scheduledRetryWorker = createScheduledRetryFunction({
+    db,
+    localProjectId: "gest-grupos-hotel",
+    logger
+});
+
 module.exports = {
     createPayGold,
-    redsysWebhook
+    redsysWebhook,
+    internalPaymentDispatch,
+    scheduledRetryWorker
 };

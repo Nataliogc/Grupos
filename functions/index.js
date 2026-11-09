@@ -17,9 +17,11 @@ if (process.env.MAIL_IMAP_CONFIG) {
   exports.syncGroupMail = require('./mail-imap').syncGroupMail;
 }
 
-// Pasarela de Pagos Redsys PayGold
+// Pasarela de Pagos Redsys PayGold (Cumbria Spa & Hotel y servicios autorizados)
 exports.createPayGold = redsysFunctions.createPayGold;
 exports.redsysWebhook = redsysFunctions.redsysWebhook;
+exports.internalPaymentDispatch = redsysFunctions.internalPaymentDispatch;
+exports.scheduledRetryWorker = redsysFunctions.scheduledRetryWorker;
 
 exports.analizarGruposIA = onRequest(
   {
