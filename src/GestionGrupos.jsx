@@ -11245,6 +11245,84 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [applyDepositNotes, setApplyDepositNotes] = useState("");
       const [isApplyingDeposit, setIsApplyingDeposit] = useState(false);
 
+      // --- ESTADOS Y FUNCIONES PARA PAYGOLD REDSYS ---
+      const [showPayGoldModal, setShowPayGoldModal] = useState(false);
+      const [payGoldLoading, setPayGoldLoading] = useState(false);
+      const [payGoldError, setPayGoldError] = useState("");
+      const [payGoldSuccess, setPayGoldSuccess] = useState("");
+      const [payGoldSelectedOption, setPayGoldSelectedOption] = useState("tramo");
+      const [payGoldCustomAmount, setPayGoldCustomAmount] = useState("");
+      const [payGoldSendSms, setPayGoldSendSms] = useState(false);
+      const [payGoldSendEmail, setPayGoldSendEmail] = useState(false);
+      const [payGoldMobile, setPayGoldMobile] = useState("");
+      const [payGoldEmail, setPayGoldEmail] = useState("");
+
+      const handleGeneratePayGold = async () => {
+        if (!selectedGroupFicha) return;
+        const record = selectedGroupFicha.records[0] || {};
+        const hotelRaw = record["Hotel_Asignado"] || record["Hotel"] || "cumbria";
+        const hotelKey = hotelRaw.toLowerCase().includes("guad") ? "guadiana" : "cumbria";
+
+        // Determinar importe
+        let finalAmount = 0;
+        let depositLabel = "";
+        const suggested = window.PayGoldService ? window.PayGoldService.getSuggestedAmounts(record) : [];
+
+        if (payGoldSelectedOption === "custom") {
+          finalAmount = parseFloat(payGoldCustomAmount);
+          depositLabel = "Importe personalizado";
+        } else {
+          const opt = suggested.find(s => s.id === payGoldSelectedOption) || suggested[0];
+          if (opt) {
+            finalAmount = opt.amount;
+            depositLabel = opt.label;
+          }
+        }
+
+        if (isNaN(finalAmount) || finalAmount <= 0) {
+          setPayGoldError("Por favor, introduce un importe superior a 0,00 €.");
+          return;
+        }
+
+        setPayGoldLoading(true);
+        setPayGoldError("");
+        setPayGoldSuccess("");
+
+        try {
+          if (!window.PayGoldService) {
+            throw new Error("El servicio de PayGold no se ha cargado.");
+          }
+
+          const res = await window.PayGoldService.generateLink({
+            hotel: hotelKey,
+            amount: finalAmount,
+            groupId: selectedGroupFicha.id,
+            groupName: selectedGroupFicha.name,
+            concept: `Reserva ${selectedGroupFicha.id} - ${depositLabel}`,
+            customerEmail: payGoldSendEmail ? payGoldEmail : "",
+            customerMobile: payGoldSendSms ? payGoldMobile : "",
+            depositLabel
+          });
+
+          // Actualizar metadata del grupo
+          await updateGroupMetadata(selectedGroupFicha.id, {
+            Enlace_TPV: res.paymentUrl,
+            PayGold_UltimoPedido: res.orderId,
+            PayGold_UltimoImporte: finalAmount,
+            PayGold_UltimoEstado: "PENDIENTE"
+          });
+
+          setPayGoldSuccess(`¡Enlace PayGold generado con éxito por ${finalAmount.toFixed(2)} €! Guardado en la reserva.`);
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(res.paymentUrl).catch(() => {});
+          }
+        } catch (err) {
+          setPayGoldError(err.message || "Error generando enlace PayGold con Redsys.");
+        } finally {
+          setPayGoldLoading(false);
+        }
+      };
+
       const loadAgencyDeposits = async () => {
         if (!window.AgencyDepositService || !window.db) return;
         setIsLoadingDeposits(true);
@@ -26495,10 +26573,20 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                     return (
 
                                       <div className="ml-auto flex items-center gap-2">
-
-
-
-                                      <input
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setShowPayGoldModal(true);
+                                            setPayGoldError("");
+                                            setPayGoldSuccess("");
+                                          }}
+                                          className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-full text-[9px] font-black uppercase tracking-wider transition-all shadow-sm shadow-amber-200 cursor-pointer"
+                                          title="Generar enlace de cobro PayGold automático con Redsys"
+                                        >
+                                          <IconCreditCard size={12} stroke={3} />
+                                          ⚡ PayGold
+                                        </button>
+                                        <input
 
                                         type="text"
 
@@ -30184,6 +30272,252 @@ const base =
             )}
 
             
+
+            {/* --- MODAL GENERADOR PAYGOLD (REDSYS) --- */}
+            {showPayGoldModal && selectedGroupFicha && (() => {
+              const record = selectedGroupFicha.records[0] || {};
+              const hotelRaw = record["Hotel_Asignado"] || record["Hotel"] || "cumbria";
+              const hotelKey = hotelRaw.toLowerCase().includes("guad") ? "guadiana" : "cumbria";
+              const isCumbria = hotelKey === "cumbria";
+              const hotelLabel = isCumbria ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
+              const suggested = window.PayGoldService ? window.PayGoldService.getSuggestedAmounts(record) : [];
+              const currentLink = record["Enlace_TPV"] || "";
+
+              return (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[160] p-4 animate-fade-in">
+                  <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden border border-slate-200">
+                    {/* Header */}
+                    <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl">
+                          ⚡
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black font-outfit tracking-wide flex items-center gap-2">
+                            Generar Pasarela PayGold (Redsys)
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isCumbria ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'} uppercase tracking-widest`}>
+                              {hotelLabel}
+                            </span>
+                          </h3>
+                          <p className="text-xs text-slate-400">
+                            Crea un enlace de pago bancario seguro y actualiza la proforma y QR al instante.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPayGoldModal(false)}
+                        className="text-slate-400 hover:text-white transition-colors text-xl font-bold p-1 cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+                      {!isCumbria && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-amber-800 text-xs">
+                          <span className="text-base">⏳</span>
+                          <div>
+                            <strong className="font-bold">Sercotel Guadiana:</strong> Pendiente de activación en Eurocaja Rural. (Hotel Cumbria ya está 100% operativo).
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Grupo</span>
+                          <span className="font-black text-slate-800 truncate block">{selectedGroupFicha.name || 'Sin nombre'}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">Reserva: {selectedGroupFicha.id}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total / Pendiente</span>
+                          <span className="font-black text-emerald-700 block text-sm">
+                            {parseFloat(record["Importe(*)"] || 0).toFixed(2)} €
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Ya pagado: {parseFloat(record.Com_Pagado || 0).toFixed(2)} €
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 block mb-2">
+                          Importe a Cobrar
+                        </label>
+                        <div className="space-y-2">
+                          {suggested.map((opt) => (
+                            <label
+                              key={opt.id}
+                              className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                                payGoldSelectedOption === opt.id
+                                  ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
+                                  : 'border-slate-200 hover:bg-slate-50'
+                              }`}
+                              onClick={() => setPayGoldSelectedOption(opt.id)}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="radio"
+                                  name="paygold_amount_opt"
+                                  checked={payGoldSelectedOption === opt.id}
+                                  onChange={() => setPayGoldSelectedOption(opt.id)}
+                                  className="text-amber-500 focus:ring-amber-500"
+                                />
+                                <div>
+                                  <span className="text-xs font-bold text-slate-800 block">{opt.label}</span>
+                                  <span className="text-[10px] text-slate-500">{opt.description}</span>
+                                </div>
+                              </div>
+                              {opt.amount > 0 && (
+                                <span className="text-sm font-black text-slate-900 font-mono">
+                                  {opt.amount.toFixed(2)} €
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+
+                        {payGoldSelectedOption === "custom" && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-500">€</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="1"
+                              placeholder="Ej. 250.00"
+                              value={payGoldCustomAmount}
+                              onChange={(e) => setPayGoldCustomAmount(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-4 space-y-3">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
+                          Envío Automático (Opcional)
+                        </span>
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={payGoldSendSms}
+                              onChange={(e) => setPayGoldSendSms(e.target.checked)}
+                              className="rounded text-amber-500 focus:ring-amber-500"
+                            />
+                            <span>Enviar enlace por SMS mediante Redsys al móvil del cliente</span>
+                          </label>
+                          {payGoldSendSms && (
+                            <input
+                              type="tel"
+                              placeholder="Teléfono móvil (ej. 600000000)"
+                              value={payGoldMobile}
+                              onChange={(e) => setPayGoldMobile(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                            />
+                          )}
+
+                          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={payGoldSendEmail}
+                              onChange={(e) => setPayGoldSendEmail(e.target.checked)}
+                              className="rounded text-amber-500 focus:ring-amber-500"
+                            />
+                            <span>Enviar enlace por Email mediante Redsys al correo del cliente</span>
+                          </label>
+                          {payGoldSendEmail && (
+                            <input
+                              type="email"
+                              placeholder="Email del cliente (ej. reservas@agencia.com)"
+                              value={payGoldEmail}
+                              onChange={(e) => setPayGoldEmail(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                            />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 italic">
+                          💡 Si no marcas ninguna opción, Redsys generará el enlace que quedará registrado en la reserva, habilitará el código QR en la Proforma y podrás copiarlo para enviarlo por WhatsApp o tu gestor habitual.
+                        </p>
+                      </div>
+
+                      {payGoldError && (
+                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold">
+                          ❌ {payGoldError}
+                        </div>
+                      )}
+
+                      {payGoldSuccess && (
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs space-y-2">
+                          <div className="font-bold flex items-center gap-1.5">
+                            <span>✅</span> {payGoldSuccess}
+                          </div>
+                          {currentLink && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (navigator.clipboard) {
+                                    navigator.clipboard.writeText(currentLink);
+                                    alert("Enlace copiado al portapapeles.");
+                                  }
+                                }}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                              >
+                                Copiar Enlace
+                              </button>
+                              <a
+                                href={currentLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg text-[10px] font-bold"
+                              >
+                                Abrir Pasarela
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowPayGoldModal(false)}
+                        className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 uppercase tracking-wider cursor-pointer"
+                      >
+                        Cerrar
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={payGoldLoading}
+                        onClick={handleGeneratePayGold}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white shadow-md transition-all ${
+                          payGoldLoading
+                            ? 'bg-slate-400 cursor-not-allowed'
+                            : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200 hover:scale-[1.02] cursor-pointer'
+                        }`}
+                      >
+                        {payGoldLoading ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            Contactando con Redsys...
+                          </>
+                        ) : (
+                          <>
+                            <IconCreditCard size={14} stroke={3} />
+                            Generar Enlace Redsys
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* PRINT ONLY LAYOUT CONTAINER */}
             <div className="print-only-container font-sans p-6 text-slate-800 bg-white">

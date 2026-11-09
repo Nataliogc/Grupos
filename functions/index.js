@@ -7,10 +7,16 @@ const cors = require("cors")({ origin: true });
 // Definimos la API Key como SECRET (forma moderna)
 const geminiKey = defineSecret("GEMINI_KEY");
 const mail = require('./mail');
+const redsysFunctions = require('./redsys-functions');
+
 exports.mailInbox = mail.mailInbox;
 exports.mailDetail = mail.mailDetail;
 exports.mailUpdate = mail.mailUpdate;
 exports.syncGroupMail = require('./mail-imap').syncGroupMail;
+
+// Pasarela de Pagos Redsys PayGold
+exports.createPayGold = redsysFunctions.createPayGold;
+exports.redsysWebhook = redsysFunctions.redsysWebhook;
 
 exports.analizarGruposIA = onRequest(
   {
