@@ -14634,6 +14634,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           let excelIn = "";
           let excelOut = "";
           let excelRegimen = "";
+          let hasTotalMatch = false;
+          let hasLodgingMatch = false;
+          let normExcelReg = "";
+          let normFichaReg = "";
 
           // 1. De los registros del grupo
           if (ficha?.records?.length > 0) {
@@ -14712,8 +14716,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           // Si el grupo NO proviene de Excel, no fabricar discrepancias con un "Excel" inexistente
           if (hasExcelSource) {
             // Incidencia A: Descuadre de importe total vs Excel original
-            const hasTotalMatch = excelAmount > 0 && Math.abs(roomingTotal - excelAmount) <= 0.50;
-            const hasLodgingMatch = excelAmount > 0 && Math.abs(lodgingTotal - excelAmount) <= 0.50;
+            hasTotalMatch = excelAmount > 0 && Math.abs(roomingTotal - excelAmount) <= 0.50;
+            hasLodgingMatch = excelAmount > 0 && Math.abs(lodgingTotal - excelAmount) <= 0.50;
 
             if (excelAmount > 0 && !hasTotalMatch && !hasLodgingMatch) {
               const diff = lodgingTotal > 0 ? (lodgingTotal - excelAmount) : (roomingTotal - excelAmount);
@@ -14764,8 +14768,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             }
 
             // Incidencia D: Descuadre de Régimen con Excel original
-            let normExcelReg = "";
-            let normFichaReg = "";
             if (excelRegimen) {
               normExcelReg = (excelRegimen === "AD" ? "HD" : excelRegimen === "SA" ? "HA" : excelRegimen).trim().toUpperCase();
               const foundRoomingReg = (expanded.find(it => !it.isService && it.regime && it.regime !== "-" && it.regime !== "---")?.regime || record["Régimen"] || "").trim().toUpperCase();
