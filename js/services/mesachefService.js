@@ -1572,6 +1572,21 @@
               if (docData.nexusSalonRequest && docData.nexusSalonRequest !== existing.nexusSalonRequest) {
                 docData.salonOverride = docData.nexusSalonRequest;
               } else { docData.salon = existing.salonOverride || existing.salon || docData.salon; }
+              // Respetar cambios de salón, fecha, jornada y hora interactivos desde MesaChef
+              if (existing.fechaOverride) {
+                docData.fecha = existing.fechaOverride;
+                docData.fechaOverride = existing.fechaOverride;
+                if (docData.servicios && docData.servicios[0]) docData.servicios[0].fecha = existing.fechaOverride;
+              }
+              if (existing.horaOverride) {
+                docData.detalles.hora = existing.horaOverride;
+                docData.horaOverride = existing.horaOverride;
+                if (docData.servicios && docData.servicios[0]) docData.servicios[0].hora = existing.horaOverride;
+              }
+              if (existing.jornadaOverride) {
+                docData.detalles.jornada = existing.jornadaOverride;
+                docData.jornadaOverride = existing.jornadaOverride;
+              }
             }
             if (docData.ordenServicio) {
               docData.ordenServicio.salon = docData.salon;

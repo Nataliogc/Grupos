@@ -275,7 +275,7 @@
       if (item.itemCategory === "service" || item.category === "service") return true;
       const t = String(item.type || item.roomType || item.product || item.concept || "").trim().toLowerCase();
       if (/^(servicio|extra|suplemento):/i.test(t)) return true;
-      if (/almuerzo|cena|desayuno|buffet|coffee|sal[oó]n|coctel|men[uú]|traslado|transfer|gu[ií]a|audiovisual|parking|garaje|spa|masaje|tasa/i.test(t)) {
+      if (/almuerzo|cena|desayuno|buffet|coffee|sal[oó]n|coctel|men[uú]|traslado|transfer|gu[ií]a|audiovisual|parking|garaje|spa|masaje|tasa|late(\s+|-)?check-?out|early(\s+|-)?check-?in|salida(\s+tard[ií]a|\s+tarde)|check-?out/i.test(t)) {
         const isExplicitRoom = /^(hab\.?|habitaci[oó]n|doble|dbl|dui|twin|individual|single|triple|tpl|cu[aá]druple|cuad|suite|junior|apartamento|familiar)\b/i.test(t);
         if (!isExplicitRoom) return true;
       }
@@ -9231,9 +9231,18 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           if (String(proformaData.ProformaCustomFields["f-pax-count"] || "").trim() === "240") {
             proformaData.ProformaCustomFields["f-pax-count"] = "80";
           }
+          if (String(proformaData.ProformaCustomFields["reserva-personas"] || "").trim() === "42") {
+            delete proformaData.ProformaCustomFields["reserva-personas"];
+          }
+          if (String(proformaData.ProformaCustomFields["f-pax-count"] || "").trim() === "42") {
+            delete proformaData.ProformaCustomFields["f-pax-count"];
+          }
         }
         if (String(proformaData["Pax."] || "").trim() === "240") {
           proformaData["Pax."] = "80";
+        }
+        if (String(proformaData["Pax."] || "").trim() === "42" && group.totalPax) {
+          proformaData["Pax."] = String(group.totalPax);
         }
 
         // Evitar reutilizar una proforma antigua si el mapeo actual falla o descuadra.
@@ -9589,6 +9598,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                   regimen: r.regime || "",
                   dias: "1",
                   comision: r.comision,
+                  isService: Boolean(r.isService || isPureServiceItem(r)),
                 };
 
                 if (isGroupable) {
@@ -12731,6 +12741,24 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               };
               updateGroupMetadata(group.id, metaUpdates).catch(console.error);
             }
+
+            // Saneamiento automático de Pax. para grupos no importados de Excel si difiere de la ocupación real
+            const peakPax = calculateMaxDailyOccupancy(parsedRL);
+            if (peakPax > 0) group.totalPax = peakPax;
+            const currentPax = parseNum(rec0["Pax."] || rec0["Pax"] || 0);
+            const isFromExcel = Boolean(
+              group.records?.some(r => r.Excel_Importe || r.Excel_Pax || r.Excel_Entrada || r.Excel_Salida) ||
+              rec0?._changes?.["Pax."] || rec0?._changes?.["Importe(*)"]
+            );
+            if (!isFromExcel && peakPax > 0 && (currentPax === 42 || currentPax === 240 || (currentPax > 0 && currentPax !== peakPax && (group.ProformaCustomFields || group.isIndependentProforma)))) {
+              rec0["Pax."] = peakPax.toString();
+              rec0["Pax"] = peakPax.toString();
+              group.records.forEach(r => {
+                r["Pax."] = peakPax.toString();
+                r["Pax"] = peakPax.toString();
+              });
+              updateGroupMetadata(group.id, { "Pax.": peakPax.toString(), "Pax": peakPax.toString() }).catch(console.error);
+            }
           }
         } catch (autoLinkErr) {
           console.error("Error en detección automática de presupuesto / extras en openFicha:", autoLinkErr);
@@ -14519,7 +14547,15 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
         // 3. Descuadre de Pax por día (si tenemos pax contratados)
         let paxMismatchDays = [];
-        if (contractedPax > 0) {
+        const isFromExcelGroup = Boolean(
+          ficha?.records?.some(r => r.Excel_Importe || r.Excel_Pax || r.Excel_Entrada || r.Excel_Salida) ||
+          record?._changes?.["Pax."] || record?._changes?.["Importe(*)"]
+        );
+        let effectiveContractedPax = contractedPax;
+        if (!isFromExcelGroup && ficha?.totalPax > 0 && (contractedPax === 42 || contractedPax === 240 || (record.ProformaCustomFields && contractedPax !== ficha.totalPax))) {
+          effectiveContractedPax = ficha.totalPax;
+        }
+        if (effectiveContractedPax > 0) {
           Object.entries(dayMap).forEach(([d, items]) => {
             let dayPax = 0;
             items.forEach((item) => {
@@ -14552,9 +14588,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               }
             });
             const payingPax = Math.max(0, dayPax - dayFreePax);
-            const matchesPax = (dayPax === contractedPax) || (dayFreePax > 0 && payingPax === contractedPax) || (dayFreePax > 0 && dayPax === (contractedPax + dayFreePax));
+            const matchesPax = (dayPax === effectiveContractedPax) || (dayFreePax > 0 && payingPax === effectiveContractedPax) || (dayFreePax > 0 && dayPax === (effectiveContractedPax + dayFreePax));
             if (dayPax > 0 && !matchesPax) {
-              paxMismatchDays.push({ day: d, found: dayPax, expected: contractedPax });
+              paxMismatchDays.push({ day: d, found: dayPax, expected: effectiveContractedPax });
             }
           });
           if (paxMismatchDays.length > 0) {
@@ -14580,6 +14616,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         // ─── COMPROBACIONES ESPECÍFICAS SEGÚN ORIGEN: EXCEL vs PRESUPUESTO ───
         let excelAmount = 0;
         let excelPax = 0;
+        let hasExcelSource = false;
 
         if (isBudget) {
           // Para presupuestos internos de la aplicación: solo comparar si se ha desglosado rooming y no cuadra ni con total ni con alojamiento
@@ -14593,8 +14630,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             });
           }
         } else {
-          // Para grupos importados de Excel / PMS:
-          // Localizar valores originales del Excel
+          // Localizar valores originales del Excel (solo si el grupo proviene de Excel / PMS)
           let excelIn = "";
           let excelOut = "";
           let excelRegimen = "";
@@ -14603,12 +14639,12 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           if (ficha?.records?.length > 0) {
             ficha.records.forEach(r => {
               const imp = parseNum(r.Excel_Importe || 0);
-              if (imp > 0) excelAmount += imp;
+              if (imp > 0) { excelAmount += imp; hasExcelSource = true; }
               const p = parseNum(r.Excel_Pax || 0);
-              if (p > excelPax) excelPax = p;
-              if (!excelIn && r.Excel_Entrada) excelIn = toInputDate(r.Excel_Entrada);
-              if (!excelOut && r.Excel_Salida) excelOut = toInputDate(r.Excel_Salida);
-              if (!excelRegimen && r.Excel_Regimen) excelRegimen = r.Excel_Regimen;
+              if (p > excelPax) { excelPax = p; hasExcelSource = true; }
+              if (!excelIn && r.Excel_Entrada) { excelIn = toInputDate(r.Excel_Entrada); hasExcelSource = true; }
+              if (!excelOut && r.Excel_Salida) { excelOut = toInputDate(r.Excel_Salida); hasExcelSource = true; }
+              if (!excelRegimen && r.Excel_Regimen) { excelRegimen = r.Excel_Regimen; hasExcelSource = true; }
             });
           }
 
@@ -14649,97 +14685,109 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 if (!excelRegimen && cl.regimen) excelRegimen = cl.regimen;
               }
             });
-            if (excelAmount <= 0 && lineSum > 0) excelAmount = lineSum;
-            if (excelPax <= 0 && maxLinePax > 0) excelPax = maxLinePax;
+            if (lineSum > 0) {
+              if (excelAmount <= 0) excelAmount = lineSum;
+              hasExcelSource = true;
+            }
+            if (maxLinePax > 0) {
+              if (excelPax <= 0) excelPax = maxLinePax;
+              hasExcelSource = true;
+            }
           }
 
           // 3. De _changes si existe registro de cambios del importador
           if (excelAmount <= 0 && record?._changes?.["Importe(*)"]) {
             const chNew = parseNum(record._changes["Importe(*)"].new);
             const chOld = parseNum(record._changes["Importe(*)"].old);
-            if (chNew > 0) excelAmount = chNew;
-            else if (chOld > 0) excelAmount = chOld;
+            if (chNew > 0) { excelAmount = chNew; hasExcelSource = true; }
+            else if (chOld > 0) { excelAmount = chOld; hasExcelSource = true; }
           }
           if (excelPax <= 0 && record?._changes?.["Pax."]) {
             const pNew = parseNum(record._changes["Pax."].new);
             const pOld = parseNum(record._changes["Pax."].old);
-            if (pNew > 0) excelPax = pNew;
-            else if (pOld > 0) excelPax = pOld;
+            if (pNew > 0) { excelPax = pNew; hasExcelSource = true; }
+            else if (pOld > 0) { excelPax = pOld; hasExcelSource = true; }
           }
 
-          // 4. Fallback a contractedImporte / contractedPax
-          if (excelAmount <= 0 && contractedImporte > 0) {
-            excelAmount = contractedImporte;
-          }
-          if (excelPax <= 0 && contractedPax > 0) {
-            excelPax = contractedPax;
-          }
+          // Si el grupo NO proviene de Excel, no fabricar discrepancias con un "Excel" inexistente
+          if (hasExcelSource) {
+            // Incidencia A: Descuadre de importe total vs Excel original
+            const hasTotalMatch = excelAmount > 0 && Math.abs(roomingTotal - excelAmount) <= 0.50;
+            const hasLodgingMatch = excelAmount > 0 && Math.abs(lodgingTotal - excelAmount) <= 0.50;
 
-          // Incidencia A: Descuadre de importe total vs Excel original
-          const hasTotalMatch = excelAmount > 0 && Math.abs(roomingTotal - excelAmount) <= 0.50;
-          const hasLodgingMatch = excelAmount > 0 && Math.abs(lodgingTotal - excelAmount) <= 0.50;
-
-          if (excelAmount > 0 && !hasTotalMatch && !hasLodgingMatch) {
-            const diff = lodgingTotal > 0 ? (lodgingTotal - excelAmount) : (roomingTotal - excelAmount);
-            issues.push({
-              type: "excel_amount_mismatch",
-              excelAmount,
-              roomingTotal,
-              lodgingTotal,
-              servicesTotal,
-              diff,
-              message: `Descuadre con Excel: Alojamiento (${(lodgingTotal > 0 ? lodgingTotal : roomingTotal).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) vs Excel (${excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) [Dif: ${diff > 0 ? "+" : ""}${diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €]`
-            });
-          }
-
-          // Incidencia B: Descuadre de Pax con Excel original
-          if (excelPax > 0) {
-            let maxDayPax = 0;
-            Object.values(dayMap).forEach(items => {
-              let dp = 0;
-              items.forEach(it => {
-                const t = String(it.type || "").toUpperCase();
-                const qty = parseInt(it.qty, 10) || 1;
-                if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) dp += qty * 1;
-                else if (t.includes("DBL") || t.includes("DOBLE") || t.includes("TWIN")) dp += qty * 2;
-                else if (t.includes("TPL") || t.includes("TRIPLE")) dp += qty * 3;
-                else if (t.includes("CUA") || t.includes("CUAD")) dp += qty * 4;
-                else dp += qty * 2;
-              });
-              if (dp > maxDayPax) maxDayPax = dp;
-            });
-            if (maxDayPax > 0 && maxDayPax !== excelPax) {
-              warnings.push({
-                type: "excel_pax_mismatch",
-                excelPax,
-                maxDayPax,
-                diff: maxDayPax - excelPax,
-                message: `Descuadre de Pax con Excel: Ficha (${maxDayPax} pax) vs Excel (${excelPax} pax)`
+            if (excelAmount > 0 && !hasTotalMatch && !hasLodgingMatch) {
+              const diff = lodgingTotal > 0 ? (lodgingTotal - excelAmount) : (roomingTotal - excelAmount);
+              issues.push({
+                type: "excel_amount_mismatch",
+                excelAmount,
+                roomingTotal,
+                lodgingTotal,
+                servicesTotal,
+                diff,
+                message: `Descuadre con Excel: Alojamiento (${(lodgingTotal > 0 ? lodgingTotal : roomingTotal).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) vs Excel (${excelAmount.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €) [Dif: ${diff > 0 ? "+" : ""}${diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €]`
               });
             }
-          }
 
-          // Incidencia C: Descuadre de fechas con Excel original
-          if (excelIn && excelOut && inD && outD && (excelIn !== inD || excelOut !== outD)) {
-            issues.push({
-              type: "excel_dates_mismatch",
-              message: `Fechas difieren del Excel: Ficha (${inD} → ${outD}) vs Excel (${excelIn} → ${excelOut})`
-            });
-          }
+            // Incidencia B: Descuadre de Pax con Excel original
+            if (excelPax > 0) {
+              let maxDayPax = 0;
+              Object.values(dayMap).forEach(items => {
+                let dp = 0;
+                items.forEach(it => {
+                  const t = String(it.type || "").toUpperCase();
+                  const qty = parseInt(it.qty, 10) || 1;
+                  if (t.includes("INDIV") || t.includes("SINGLE") || t.includes("DUI")) dp += qty * 1;
+                  else if (t.includes("DBL") || t.includes("DOBLE") || t.includes("TWIN")) dp += qty * 2;
+                  else if (t.includes("TPL") || t.includes("TRIPLE")) dp += qty * 3;
+                  else if (t.includes("CUA") || t.includes("CUAD")) dp += qty * 4;
+                  else dp += qty * 2;
+                });
+                if (dp > maxDayPax) maxDayPax = dp;
+              });
+              if (maxDayPax > 0 && maxDayPax !== excelPax) {
+                warnings.push({
+                  type: "excel_pax_mismatch",
+                  excelPax,
+                  maxDayPax,
+                  diff: maxDayPax - excelPax,
+                  message: `Descuadre de Pax con Excel: Ficha (${maxDayPax} pax) vs Excel (${excelPax} pax)`
+                });
+              }
+            }
 
-          // Incidencia D: Descuadre de Régimen con Excel original
-          let normExcelReg = "";
-          let normFichaReg = "";
-          if (excelRegimen) {
-            normExcelReg = (excelRegimen === "AD" ? "HD" : excelRegimen === "SA" ? "HA" : excelRegimen).trim().toUpperCase();
-            const foundRoomingReg = (expanded.find(it => !it.isService && it.regime && it.regime !== "-" && it.regime !== "---")?.regime || record["Régimen"] || "").trim().toUpperCase();
-            normFichaReg = foundRoomingReg === "AD" ? "HD" : foundRoomingReg === "SA" ? "HA" : foundRoomingReg;
-            if (normFichaReg && normExcelReg && normFichaReg !== "-" && normExcelReg !== "-" && normFichaReg !== normExcelReg) {
+            // Incidencia C: Descuadre de fechas con Excel original
+            if (excelIn && excelOut && inD && outD && (excelIn !== inD || excelOut !== outD)) {
+              issues.push({
+                type: "excel_dates_mismatch",
+                message: `Fechas difieren del Excel: Ficha (${inD} → ${outD}) vs Excel (${excelIn} → ${excelOut})`
+              });
+            }
+
+            // Incidencia D: Descuadre de Régimen con Excel original
+            let normExcelReg = "";
+            let normFichaReg = "";
+            if (excelRegimen) {
+              normExcelReg = (excelRegimen === "AD" ? "HD" : excelRegimen === "SA" ? "HA" : excelRegimen).trim().toUpperCase();
+              const foundRoomingReg = (expanded.find(it => !it.isService && it.regime && it.regime !== "-" && it.regime !== "---")?.regime || record["Régimen"] || "").trim().toUpperCase();
+              normFichaReg = foundRoomingReg === "AD" ? "HD" : foundRoomingReg === "SA" ? "HA" : foundRoomingReg;
+              if (normFichaReg && normExcelReg && normFichaReg !== "-" && normExcelReg !== "-" && normFichaReg !== normExcelReg) {
+                warnings.push({
+                  type: "excel_regimen_mismatch",
+                  excelRegimen: normExcelReg,
+                  fichaRegimen: normFichaReg,
+                  message: `Régimen difiere del Excel: Ficha (${normFichaReg}) vs Excel (${normExcelReg})`
+                });
+              }
+            }
+          } else {
+            // Grupo NO proveniente de Excel: comprobar únicamente si el importe global contratado difiere del desglose
+            if (roomingTotal > 0 && contractedImporte > 0 && Math.abs(roomingTotal - contractedImporte) > 0.50 && Math.abs(lodgingTotal - contractedImporte) > 0.50) {
               warnings.push({
-                type: "excel_regimen_mismatch",
-                excelRegimen: normExcelReg,
-                fichaRegimen: normFichaReg,
-                message: `Régimen difiere del Excel: Ficha (${normFichaReg}) vs Excel (${normExcelReg})`
+                type: "amount_mismatch",
+                roomingTotal,
+                contractedImporte,
+                diff: roomingTotal - contractedImporte,
+                message: `Importe contratado (${contractedImporte.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €) difiere del desglose de habitaciones (${roomingTotal.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €)`
               });
             }
           }
