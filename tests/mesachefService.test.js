@@ -159,6 +159,21 @@ test('guarda cambios, cancela servicios obsoletos y protege desvinculados', asyn
     assert.equal(data.get('mesachef_grupos/213521').totalServicios,0);
     assert.ok([...data].filter(([k])=>k.startsWith('reservas_salones/nexus_')).every(([,v])=>v.estado==='cancelada'));
     assert.equal(data.get('reservas_salones/manual').estado,'confirmada');
+
+    // Prueba de getActualMesaChefServices y respeto a cambios de fecha desde MesaChef
+    data.set('reservas_salones/nexus_213521_2027-02-05_almuerzo', {
+      reservaId: '213521',
+      fecha: '2027-02-05',
+      estado: 'confirmada',
+      detalles: { jornada: 'almuerzo', pax_adultos: 15, hora: '14:00' },
+      salon: 'Eventos Restaurante'
+    });
+    const actualServices = await service.getActualMesaChefServices('213521');
+    assert.equal(actualServices.length, 1); // el del 2027-02-05 (manual no tiene fecha/jornada)
+    const feb5 = actualServices.find(s => s.fecha === '2027-02-05');
+    assert.ok(feb5);
+    assert.equal(feb5.jornada, 'almuerzo');
+    assert.equal(feb5.pax, 15);
   } finally { delete global.window; }
 });
 

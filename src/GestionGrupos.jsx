@@ -1150,6 +1150,29 @@
           const targetHotel = record.Hotel_Asignado || group.hotel || "";
           const catSalons = await service.getAvailableSalons(targetHotel).catch(() => []);
           const defSalon = String(targetHotel).toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA;
+
+          // Sincronizar servicios reales desde MesaChef si existen (incluyendo cambios de fecha como el día 15)
+          if (service?.getActualMesaChefServices) {
+            const mesaServices = await service.getActualMesaChefServices(group.id).catch(() => []);
+            if (Array.isArray(mesaServices) && mesaServices.length > 0) {
+              setRows(sortMealRows(mesaServices.map(r => {
+                const mesaSalon = locs[r.id] || r.salon;
+                const salonFinal = (mesaSalon && (catSalons.length === 0 || catSalons.includes(mesaSalon)))
+                  ? mesaSalon
+                  : (r.salon || defSalon);
+                return {
+                  id: r.id,
+                  fecha: r.fecha,
+                  jornada: r.jornada,
+                  hora: r.hora || "---",
+                  pax: r.pax || 0,
+                  salon: salonFinal
+                };
+              })));
+              return;
+            }
+          }
+
           setRows(prev => prev.map(r => {
             const docKey = "nexus_" + service.normalizeReservaId(group.id) + "_" + r.fecha + "_" + r.jornada;
             const mesaSalon = locs[r.id] || locs[docKey];
@@ -1369,7 +1392,7 @@
           <p className="text-xs text-slate-500">El salón inicial se asigna según el hotel. Los cambios de salón realizados en MesaChef se conservan al sincronizar.</p>
 
           {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
-          <button type="button" disabled={saving} onClick={() => { refreshLocations(); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones de MesaChef</button>
+          <button type="button" disabled={saving} onClick={() => { refreshLocations(); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones y servicios de MesaChef</button>
           <div className="flex flex-wrap gap-3 items-center pt-1">
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows([...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}]))} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(syncAllRowsPax(prev)))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>
@@ -11505,9 +11528,29 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       // Detección de servicios desvinculados manualmente en MesaChef y alineación de estado
       useEffect(() => {
         if (showFichaModal && selectedGroupFicha && selectedGroupFicha.id && window.MesaChefService) {
-          if (typeof window.MesaChefService.syncGroupToMesachef === "function" && selectedGroupFicha.records?.[0]) {
+          const service = window.MesaChefService;
+
+          // Si MesaChef tiene servicios activos con fechas modificadas (ej. servicio del día 15), reflejarlos en Grupos
+          if (typeof service.getActualMesaChefServices === "function") {
+            service.getActualMesaChefServices(selectedGroupFicha.id).then((mesaServices) => {
+              if (Array.isArray(mesaServices) && mesaServices.length > 0) {
+                const rec0 = selectedGroupFicha.records?.[0];
+                const currentSchedule = service.getMealSchedule(rec0 || selectedGroupFicha);
+                const currentDates = (currentSchedule || []).map(r => `${r.fecha}_${r.jornada}_${r.pax}`).sort().join("|");
+                const mesaDates = mesaServices.map(r => `${r.fecha}_${r.jornada}_${r.pax}`).sort().join("|");
+                if (currentDates !== mesaDates) {
+                  const newScheduleStr = JSON.stringify(mesaServices);
+                  if (rec0) rec0.MealSchedule_JSON = newScheduleStr;
+                  if (selectedGroupFicha) selectedGroupFicha.MealSchedule_JSON = newScheduleStr;
+                  updateGroupMetadata(selectedGroupFicha.id, { MealSchedule_JSON: newScheduleStr }).catch(() => {});
+                }
+              }
+            }).catch(() => {});
+          }
+
+          if (typeof service.syncGroupToMesachef === "function" && selectedGroupFicha.records?.[0]) {
             const rec0 = selectedGroupFicha.records[0];
-            window.MesaChefService.syncGroupToMesachef({
+            service.syncGroupToMesachef({
               ...rec0,
               id: selectedGroupFicha.id,
               reserva: selectedGroupFicha.id

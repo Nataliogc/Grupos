@@ -1546,15 +1546,36 @@
 
           // Editing a meal description must preserve its identity and room.
           var serviceKey = function (d) { return d.fecha + "_" + ((d.detalles || {}).jornada || ""); };
+          var isCustomSchedule = getMealSchedule(groupRecord) !== null;
           salonDocs.forEach(function (docData) {
             if (existingMap.has(docData.id)) return;
             var key = serviceKey(docData);
-            if (salonDocs.filter(function (d) { return serviceKey(d) === key; }).length !== 1) return;
             var matches = [];
             existingMap.forEach(function (d, id) {
               if (d.estado !== "cancelada" && d.hotel === docData.hotel && serviceKey(d) === key && !activeDocIds.has(id)) matches.push(id);
             });
-            if (matches.length === 1) docData.id = matches[0];
+            if (matches.length === 1) {
+              docData.id = matches[0];
+            } else if (!isCustomSchedule && matches.length === 0) {
+              // Solo en modo automático: si fue movido de fecha en MesaChef, emparejar por jornada con servicio activo no asignado
+              var dj = String((docData.detalles || {}).jornada || "").toLowerCase().trim();
+              var jornadaMatches = [];
+              existingMap.forEach(function (d, id) {
+                if (d.estado !== "cancelada" && d.hotel === docData.hotel && !activeDocIds.has(id)) {
+                  var ej = String((d.detalles && d.detalles.jornada) || (d.servicios && d.servicios[0] && d.servicios[0].jornada) || "").toLowerCase().trim();
+                  if (ej === dj) jornadaMatches.push(id);
+                }
+              });
+              if (jornadaMatches.length === 1) {
+                docData.id = jornadaMatches[0];
+                var existingMoved = existingMap.get(jornadaMatches[0]);
+                if (existingMoved && (existingMoved.fecha || existingMoved.fechaOverride)) {
+                  docData.fecha = existingMoved.fechaOverride || existingMoved.fecha;
+                  docData.fechaOverride = docData.fecha;
+                  if (docData.servicios && docData.servicios[0]) docData.servicios[0].fecha = docData.fecha;
+                }
+              }
+            }
           });
           activeDocIds = new Set(salonDocs.map(function (d) { return d.id; }));
 
@@ -1573,10 +1594,11 @@
                 docData.salonOverride = docData.nexusSalonRequest;
               } else { docData.salon = existing.salonOverride || existing.salon || docData.salon; }
               // Respetar cambios de salón, fecha, jornada y hora interactivos desde MesaChef
-              if (existing.fechaOverride) {
-                docData.fecha = existing.fechaOverride;
-                docData.fechaOverride = existing.fechaOverride;
-                if (docData.servicios && docData.servicios[0]) docData.servicios[0].fecha = existing.fechaOverride;
+              var effectiveFecha = existing.fechaOverride || (!isCustomSchedule && existing.fecha && existing.fecha !== docData.fecha ? existing.fecha : null);
+              if (effectiveFecha) {
+                docData.fecha = effectiveFecha;
+                docData.fechaOverride = effectiveFecha;
+                if (docData.servicios && docData.servicios[0]) docData.servicios[0].fecha = effectiveFecha;
               }
               if (existing.horaOverride) {
                 docData.detalles.hora = existing.horaOverride;
@@ -1922,10 +1944,45 @@
     });
   }
 
+  function getActualMesaChefServices(reservaId) {
+    var cleanId = normalizeReservaId(reservaId);
+    if (!cleanId) return Promise.resolve([]);
+    return ensureMesachefAuth().then(function () {
+      var db = getMesachefDb();
+      if (!db) throw new Error("MesaChef no disponible");
+      return db.collection(COLLECTION_SALONES).where("reservaId", "==", cleanId).get();
+    }).then(function (snapshot) {
+      var services = [];
+      snapshot.forEach(function (docSnap) {
+        var d = docSnap.data() || {};
+        if (d.estado === "cancelada") return;
+        var effectiveFecha = toIsoDate(d.fechaOverride || d.fecha);
+        var effectiveJornada = String(d.jornadaOverride || (d.detalles && d.detalles.jornada) || (d.servicios && d.servicios[0] && d.servicios[0].jornada) || "").toLowerCase().trim();
+        var effectiveHora = d.horaOverride || (d.detalles && d.detalles.hora) || (d.servicios && d.servicios[0] && d.servicios[0].hora) || "---";
+        var effectivePax = Number((d.detalles && d.detalles.pax_adultos) || (d.servicios && d.servicios[0] && d.servicios[0].uds) || 0);
+        var effectiveSalon = d.salonOverride || d.salon || "";
+        var label = (d.servicios && d.servicios[0] && d.servicios[0].concepto) || "";
+        if (effectiveFecha && effectiveJornada) {
+          services.push({
+            id: docSnap.id,
+            fecha: effectiveFecha,
+            jornada: effectiveJornada,
+            hora: effectiveHora,
+            pax: effectivePax,
+            salon: effectiveSalon,
+            nombre: label
+          });
+        }
+      });
+      return sortMealRows(services);
+    });
+  }
+
   var MesaChefService = {
     getAvailableSalons: getAvailableSalons,
     getServicePaxForSchedule: getServicePaxForSchedule,
     getServiceLocations: getServiceLocations,
+    getActualMesaChefServices: getActualMesaChefServices,
     MESACHEF_FIREBASE_CONFIG: MESACHEF_FIREBASE_CONFIG,
     SALON_GUADIANA: SALON_GUADIANA,
     SALON_CUMBRIA: SALON_CUMBRIA,
