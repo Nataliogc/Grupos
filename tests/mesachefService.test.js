@@ -409,3 +409,36 @@ test('si el grupo no tiene hora programada no pasa hora y pone ---, solo pasa ho
   assert.equal(service.getServicePaxForSchedule(record,rows[3]),null);
   assert.equal(rows[0].pax,10);
  });
+
+test('adaptMealScheduleToRecord adapta la programación existente al cambiar el régimen a PC', () => {
+  const existingSchedule = [
+    { fecha: '2026-11-20', jornada: 'cena', pax: 62, salon: 'Eventos Restaurante' },
+    { fecha: '2026-11-22', jornada: 'almuerzo', pax: 62, salon: 'Eventos Restaurante' }
+  ];
+  const groupPc = {
+    ...group,
+    Entrada: '2026-11-20',
+    Salida: '2026-11-22',
+    Hotel_Asignado: 'CUMBRIA SPA&HOTEL',
+    totalPax: 66,
+    'Pax.': '66',
+    'Régimen': 'PC',
+    RoomingList_JSON: JSON.stringify([
+      { dateIn: '2026-11-20', qty: 6, pax: 1, type: 'INDIVIDUAL', regime: 'PC' },
+      { dateIn: '2026-11-20', qty: 30, pax: 2, type: 'DOBLE', regime: 'PC' },
+      { dateIn: '2026-11-21', qty: 6, pax: 1, type: 'INDIVIDUAL', regime: 'PC' },
+      { dateIn: '2026-11-21', qty: 30, pax: 2, type: 'DOBLE', regime: 'PC' }
+    ])
+  };
+
+  const adapted = service.adaptMealScheduleToRecord(existingSchedule, groupPc);
+  assert.equal(adapted.length, 4);
+  assert.deepEqual(adapted.map(r => [r.fecha, r.jornada, r.pax]), [
+    ['2026-11-20', 'cena', 66],
+    ['2026-11-21', 'almuerzo', 66],
+    ['2026-11-21', 'cena', 66],
+    ['2026-11-22', 'almuerzo', 66]
+  ]);
+  assert.ok(adapted.every(r => r.salon === 'Eventos Restaurante'));
+  assert.equal(adapted.reduce((sum, r) => sum + r.pax, 0), 264);
+});

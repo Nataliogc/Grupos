@@ -1236,8 +1236,14 @@
 
       const syncAllRowsPax = (sourceRows) => {
         const list = sourceRows || rows;
-        const updated = sortMealRows(service.syncMealSchedulePax(list, record));
-        const missing = list.filter(r => service.getServicePaxForSchedule(record, r) === null);
+        let updated = list;
+        if (service?.adaptMealScheduleToRecord) {
+          updated = service.adaptMealScheduleToRecord(list, record);
+        } else {
+          updated = service.syncMealSchedulePax(list, record);
+        }
+        updated = sortMealRows(updated);
+        const missing = updated.filter(r => service.getServicePaxForSchedule(record, r) === null);
         setError(missing.length ? "Hay servicios sin una cantidad inequívoca en el desglose para su fecha. Se mantienen sus personas: revisa fecha, concepto y comensales manualmente." : "");
         return updated;
       };
@@ -1260,7 +1266,13 @@
           setIncluded(totalInc);
           const savedSchedule = service.getMealSchedule(record);
           if (savedSchedule && savedSchedule.length > 0) {
-            setRows(sortMealRows(savedSchedule));
+            const savedPax = savedSchedule.reduce((sum, r) => sum + (Number(r.pax) || 0), 0);
+            if (totalInc > 0 && savedPax < totalInc && service.adaptMealScheduleToRecord) {
+              const adapted = service.adaptMealScheduleToRecord(savedSchedule, record);
+              setRows(sortMealRows(adapted));
+            } else {
+              setRows(sortMealRows(savedSchedule));
+            }
           } else {
             setRows(sortMealRows(defaults));
           }
@@ -1310,6 +1322,23 @@
         {open && <>
           <p className="text-xs font-bold text-slate-700">Incluidas en pensión: {included} · Programadas: {planned} · Pendientes: {Math.max(0,included-planned)} · Extras: {Math.max(0,planned-included)}</p>
           <p className="text-xs text-slate-500">El contador suma comensales de cada servicio. Los extras requieren un cargo adicional; aquí se programa el servicio para MesaChef, sin cambiar el precio contratado.</p>
+          {included > 0 && planned < included && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-800 flex items-center justify-between gap-2">
+              <span>⚠️ El régimen <strong>{record["Régimen"] || "PC"}</strong> incluye <strong>{included}</strong> servicios, pero hay <strong>{planned}</strong> programados ({included - planned} pendientes).</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (service?.adaptMealScheduleToRecord) {
+                    const adapted = service.adaptMealScheduleToRecord(rows, record);
+                    setRows(sortMealRows(adapted));
+                  }
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-2.5 py-1 rounded text-xs shrink-0 cursor-pointer shadow-xs"
+              >
+                🔄 Adaptar a {record["Régimen"] || "PC"}
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -1396,6 +1425,20 @@
           <div className="flex flex-wrap gap-3 items-center pt-1">
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows([...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}]))} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(syncAllRowsPax(prev)))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                if (service?.adaptMealScheduleToRecord) {
+                  const adapted = service.adaptMealScheduleToRecord(rows, record);
+                  setRows(sortMealRows(adapted));
+                }
+              }}
+              className="text-xs text-indigo-700 hover:text-indigo-900 font-bold hover:underline cursor-pointer"
+              title="Adaptar comidas y comensales al régimen y ocupación actual de la reserva"
+            >
+              🔄 Adaptar al régimen ({record["Régimen"] || "PC"})
+            </button>
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(prev))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Ordenar cronológicamente por fecha y turno">📅 Ordenar por fecha</button>
             <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 text-xs font-bold transition cursor-pointer">{saving?"Guardando…":"Guardar programación"}</button>
             <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Usar programación automática</button>
@@ -13490,11 +13533,28 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
           try { return JSON.stringify((typeof raw === "string" ? JSON.parse(raw) : raw || []).map(r => [r.dateIn || r.date || r.fecha || "", r.dateOut || "", r.nights || 1]).sort()); }
           catch { return String(raw || ""); }
         };
+        const regimeSignature = raw => {
+          try { return JSON.stringify((typeof raw === "string" ? JSON.parse(raw) : raw || []).map(r => [r.dateIn || r.date || r.fecha || "", (r.regime || r.regimen || "").toUpperCase(), r.mpMeal || "", r.pcMeal || ""]).sort()); }
+          catch { return String(raw || ""); }
+        };
         const datesChanged = ["Entrada", "Salida"].some(key => updates[key] !== undefined && updates[key] !== previousRecord[key]) ||
           (updates.RoomingList_JSON !== undefined && dateSignature(updates.RoomingList_JSON) !== dateSignature(previousRecord.RoomingList_JSON));
-        if (datesChanged && previousRecord.MealSchedule_JSON && updates.MealSchedule_JSON === undefined) {
+        const regimeChanged = (updates["Régimen"] !== undefined && updates["Régimen"] !== previousRecord["Régimen"]) ||
+          (updates.RoomingList_JSON !== undefined && regimeSignature(updates.RoomingList_JSON) !== regimeSignature(previousRecord.RoomingList_JSON));
+        if ((datesChanged || regimeChanged) && previousRecord.MealSchedule_JSON && updates.MealSchedule_JSON === undefined) {
+          if (window.MesaChefService?.adaptMealScheduleToRecord) {
+            try {
+              const tempUpdatedRecord = { ...previousRecord, ...updates };
+              const adapted = window.MesaChefService.adaptMealScheduleToRecord(previousRecord.MealSchedule_JSON, tempUpdatedRecord);
+              if (adapted && Array.isArray(adapted) && adapted.length > 0) {
+                updates.MealSchedule_JSON = JSON.stringify(adapted);
+              }
+            } catch (e) {}
+          }
           updates.MealScheduleNeedsReview = true;
-          alert("Has cambiado las fechas del grupo o del desglose. Revisa las fechas, personas y salones en Comidas y servicios del grupo y guarda la programación para actualizar MesaChef.");
+          if (datesChanged) {
+            alert("Has cambiado las fechas del grupo o del desglose. Revisa las fechas, personas y salones en Comidas y servicios del grupo y guarda la programación para actualizar MesaChef.");
+          }
         }
         if (updates.MealSchedule_JSON !== undefined) updates.MealScheduleNeedsReview = false;
 

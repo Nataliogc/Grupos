@@ -634,6 +634,145 @@
     return Number.isInteger(quantity) && quantity > 0 ? quantity : null;
   }
 
+  function adaptMealScheduleToRecord(scheduleRows, groupRecord) {
+    if (!groupRecord) return [];
+    var existing = [];
+    if (typeof scheduleRows === "string") {
+      try { existing = JSON.parse(scheduleRows) || []; } catch (e) { existing = []; }
+    } else if (Array.isArray(scheduleRows)) {
+      existing = scheduleRows.slice();
+    }
+
+    var automaticDocs = getAutomaticMealDocuments(groupRecord);
+    var defaultRows = automaticDocs.map(function (d) {
+      return {
+        fecha: d.fecha,
+        jornada: d.detalles.jornada,
+        pax: d.detalles.pax_adultos,
+        hora: d.detalles.hora || "---",
+        salon: d.salon
+      };
+    });
+
+    if (!existing || existing.length === 0) {
+      return sortMealRows(defaultRows);
+    }
+
+    var primarySalon = "";
+    for (var i = 0; i < existing.length; i++) {
+      if (existing[i].salon) {
+        primarySalon = existing[i].salon;
+        break;
+      }
+    }
+    if (!primarySalon) {
+      var hotelInfo = resolveHotelAndSalon(groupRecord.Hotel_Asignado || groupRecord.Hotel || groupRecord.hotel);
+      primarySalon = hotelInfo.salon;
+    }
+
+    var updatedRows = existing.map(function (row) {
+      var targetPax = getServicePaxForSchedule(groupRecord, row);
+      if (targetPax !== null && targetPax > 0) {
+        return Object.assign({}, row, { pax: targetPax, salon: row.salon || primarySalon });
+      }
+      if (row.jornada === "almuerzo" || row.jornada === "cena" || row.jornada === "desayuno") {
+        var dayPax = getDailyPaxForGroup(groupRecord, row.fecha);
+        if (dayPax > 0) {
+          return Object.assign({}, row, { pax: dayPax, salon: row.salon || primarySalon });
+        }
+      }
+      return Object.assign({}, row, { salon: row.salon || primarySalon });
+    });
+
+    var startIso = toIsoDate(groupRecord.Entrada || groupRecord.entrada);
+    var endIso = toIsoDate(groupRecord.Salida || groupRecord.salida) || startIso;
+    var globalRegimen = String(groupRecord["Régimen"] || groupRecord.regimen || groupRecord.Regimen || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+    var isPc = globalRegimen === "PC" || globalRegimen.includes("PENSION COMPLETA") || /\bPC\b/.test(globalRegimen);
+    var isMp = !isPc && (globalRegimen === "MP" || globalRegimen.includes("MEDIA PENSION") || /\bMP\b/.test(globalRegimen));
+
+    var rawRL = groupRecord.RoomingList_JSON || (groupRecord.records && groupRecord.records[0] && groupRecord.records[0].RoomingList_JSON);
+    var roomItems = [];
+    if (rawRL) {
+      try { roomItems = typeof rawRL === "string" ? JSON.parse(rawRL) : rawRL; } catch (e) {}
+    }
+    if (Array.isArray(roomItems) && roomItems.length > 0) {
+      var hasPcRooms = roomItems.some(function (r) {
+        return !r.isService && /\bPC\b|PENSION COMPLETA/.test(String(r.regime || r.regimen || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+      });
+      var hasMpRooms = roomItems.some(function (r) {
+        return !r.isService && /\bMP\b|MEDIA PENSION/.test(String(r.regime || r.regimen || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+      });
+      if (hasPcRooms) { isPc = true; isMp = false; }
+      else if (hasMpRooms && !isPc) { isMp = true; }
+    }
+
+    if (isPc) {
+      var hasCheckoutLunch = updatedRows.some(function (r) {
+        return r.fecha === endIso && r.jornada === "almuerzo";
+      });
+
+      var cur = new Date(startIso + "T12:00:00");
+      var end = new Date(endIso + "T12:00:00");
+      while (cur < end) {
+        var iso = cur.toISOString().split("T")[0];
+        var isArrivalDay = (iso === startIso);
+        var expectedPax = getDailyPaxForGroup(groupRecord, iso);
+
+        var hasDinner = updatedRows.some(function (r) { return r.fecha === iso && r.jornada === "cena"; });
+        if (!hasDinner) {
+          updatedRows.push({
+            fecha: iso,
+            jornada: "cena",
+            pax: expectedPax,
+            hora: "---",
+            salon: primarySalon
+          });
+        }
+
+        var hasLunch = updatedRows.some(function (r) { return r.fecha === iso && r.jornada === "almuerzo"; });
+        if (!hasLunch) {
+          if (!isArrivalDay || !hasCheckoutLunch) {
+            updatedRows.push({
+              fecha: iso,
+              jornada: "almuerzo",
+              pax: expectedPax,
+              hora: "---",
+              salon: primarySalon
+            });
+          }
+        }
+
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else if (isMp) {
+      var cur2 = new Date(startIso + "T12:00:00");
+      var end2 = new Date(endIso + "T12:00:00");
+      var totalNights = Math.max(1, Math.round((end2 - cur2) / (1000 * 60 * 60 * 24)));
+      var pensionMeals = updatedRows.filter(function (r) { return r.jornada === "almuerzo" || r.jornada === "cena"; });
+      if (pensionMeals.length < totalNights) {
+        while (cur2 < end2) {
+          var iso2 = cur2.toISOString().split("T")[0];
+          var hasAnyMeal = updatedRows.some(function (r) {
+            return (r.fecha === iso2 && (r.jornada === "cena" || r.jornada === "almuerzo"));
+          });
+          if (!hasAnyMeal) {
+            updatedRows.push({
+              fecha: iso2,
+              jornada: "cena",
+              pax: getDailyPaxForGroup(groupRecord, iso2),
+              hora: "---",
+              salon: primarySalon
+            });
+          }
+          cur2.setDate(cur2.getDate() + 1);
+        }
+      }
+    }
+
+    return sortMealRows(updatedRows);
+  }
+
   function syncMealSchedulePax(scheduleRows, groupRecord) {
     if (!Array.isArray(scheduleRows) || !scheduleRows.length || !groupRecord) return scheduleRows;
     return scheduleRows.map(function (row) {
@@ -2005,6 +2144,7 @@
     getMealSchedule: getMealSchedule,
     getDailyPaxForGroup: getDailyPaxForGroup,
     syncMealSchedulePax: syncMealSchedulePax,
+    adaptMealScheduleToRecord: adaptMealScheduleToRecord,
     getAutomaticMealDocuments: getAutomaticMealDocuments,
     prepareSalonDocuments: prepareSalonDocuments,
     syncGroupToMesachef: syncGroupToMesachef,
