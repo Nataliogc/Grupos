@@ -127,6 +127,14 @@
                 </button>
 
                 <button
+                    onclick="openRefundModal()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md shadow-blue-600/20 active:scale-95 flex items-center gap-2"
+                >
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span>Devolución / Reintegro</span>
+                </button>
+
+                <button
                     onclick="window.print()"
                     class="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-black text-xs transition shadow-2xs flex items-center gap-1.5"
                     title="Imprimir extracto para la agencia"
@@ -251,16 +259,25 @@
                                 <span>➖</span>
                                 <span>Descontar</span>
                             </button>
+                            <button
+                                onclick="openRefundModal()"
+                                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-xs flex items-center gap-1.5"
+                                title="Reintegrar cargo al depósito de la agencia"
+                            >
+                                <span>↩️</span>
+                                <span>Devolución</span>
+                            </button>
                         </div>
                     </div>
 
                     <!-- Filtros rápidos de movimientos -->
                     <div id="movements-toolbar" class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shrink-0 hidden">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-[11px] font-bold text-slate-400 uppercase">Filtrar:</span>
                             <button onclick="setMovementsFilter('all')" id="filter-all" class="px-2.5 py-1 rounded-lg font-bold bg-slate-900 text-white transition text-xs">Todos</button>
                             <button onclick="setMovementsFilter('charges')" id="filter-charges" class="px-2.5 py-1 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition text-xs">Cargos / Estancias</button>
                             <button onclick="setMovementsFilter('deposits')" id="filter-deposits" class="px-2.5 py-1 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition text-xs">Depósitos Recibidos</button>
+                            <button onclick="setMovementsFilter('refunds')" id="filter-refunds" class="px-2.5 py-1 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition text-xs">Devoluciones</button>
                         </div>
                         <div class="text-slate-400 text-[11px]" id="movements-count-label">0 movimientos</div>
                     </div>
@@ -623,6 +640,95 @@
         </div>
     </div>
 
+    <!-- ==================== MODAL 3: DEVOLUCIÓN / REINTEGRO AL DEPÓSITO ==================== -->
+    <div id="modal-refund" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">↩️</span>
+                    <h3 class="text-base font-black text-slate-900 font-outfit">Devolución al Depósito de Agencia</h3>
+                </div>
+                <button onclick="closeRefundModal()" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs">✕</button>
+            </div>
+
+            <div class="bg-blue-50/70 border border-blue-200 rounded-2xl p-3 flex items-center justify-between text-xs">
+                <div>
+                    <span class="text-[10px] font-bold text-blue-700 uppercase">Agencia Seleccionada</span>
+                    <div id="refund-agency-display" class="font-black text-slate-900 text-sm">—</div>
+                </div>
+                <div class="text-right">
+                    <span class="text-[10px] font-bold text-blue-700 uppercase">Saldo Actual</span>
+                    <div id="refund-agency-balance-display" class="font-black text-blue-700 text-base font-outfit">0,00 €</div>
+                </div>
+            </div>
+
+            <form onsubmit="handleSaveRefund(event)" class="space-y-3 text-xs">
+                <div id="refund-source-wrapper">
+                    <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                        Cargo / Reserva a Devolver (Selección Rápida)
+                    </label>
+                    <select
+                        id="refund-source-movement"
+                        onchange="onRefundSourceChange()"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">-- Introducir datos manualmente --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                        Localizador / ID Reserva (Opcional)
+                    </label>
+                    <input
+                        type="text"
+                        id="refund-resid"
+                        placeholder="Ej. 214660 (si es un grupo, actualiza su cobro)"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-blue-700 uppercase tracking-wider mb-1">
+                        Importe a Reintegrar al Depósito (€) *
+                    </label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        id="refund-amount"
+                        required
+                        placeholder="0.00"
+                        class="w-full px-3 py-2.5 bg-blue-50/40 border border-blue-300 rounded-xl font-black text-base text-blue-700 font-outfit focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p class="text-[10px] text-slate-400 mt-1">Este importe volverá a sumarse al saldo disponible de la agencia.</p>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                        Motivo de la Devolución *
+                    </label>
+                    <input
+                        type="text"
+                        id="refund-reason"
+                        required
+                        placeholder="Ej. Cancelación de reserva o ajuste de habitaciones"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeRefundModal()" class="px-4 py-2 text-slate-500 font-bold hover:text-slate-700 text-xs">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btn-save-refund" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black uppercase tracking-wider text-xs shadow-md shadow-blue-600/20 transition">
+                        Confirmar Devolución
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Script de Control del Módulo -->
     <script>
         let allAgencies = [];
@@ -762,8 +868,9 @@
 
         function setMovementsFilter(type) {
             activeFilter = type;
-            ['all', 'charges', 'deposits'].forEach(t => {
+            ['all', 'charges', 'deposits', 'refunds'].forEach(t => {
                 const btn = document.getElementById(`filter-${t}`);
+                if (!btn) return;
                 if (t === type) {
                     btn.className = "px-2.5 py-1 rounded-lg font-bold bg-slate-900 text-white transition text-xs";
                 } else {
@@ -780,7 +887,9 @@
             if (activeFilter === 'charges') {
                 list = list.filter(m => (m.amount || 0) < 0);
             } else if (activeFilter === 'deposits') {
-                list = list.filter(m => (m.amount || 0) > 0);
+                list = list.filter(m => m.type === 'DEPOSIT_IN' || (m.type !== 'RESERVATION_REFUND' && (m.amount || 0) > 0));
+            } else if (activeFilter === 'refunds') {
+                list = list.filter(m => m.type === 'RESERVATION_REFUND');
             }
 
             document.getElementById('movements-count-label').textContent = `${list.length} movimientos`;
@@ -791,17 +900,18 @@
             }
 
             tbody.innerHTML = list.map(m => {
-                const isIncome = m.type === 'DEPOSIT_IN' || (m.amount || 0) > 0;
-                const isIndividual = m.isIndividual || m.type === 'INDIVIDUAL_RESERVATION';
                 const isRefund = m.type === 'RESERVATION_REFUND';
+                const isIncome = m.type === 'DEPOSIT_IN' || (!isRefund && (m.amount || 0) > 0);
+                const isIndividual = m.isIndividual || m.type === 'INDIVIDUAL_RESERVATION';
+                const isCharge = (m.amount || 0) < 0;
 
                 let typeBadge = '';
-                if (isIncome) {
+                if (isRefund) {
+                    typeBadge = '<span class="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-black uppercase">Devolución</span>';
+                } else if (isIncome) {
                     typeBadge = '<span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">Ingreso</span>';
                 } else if (isIndividual) {
                     typeBadge = '<span class="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 text-[10px] font-black uppercase">Hab. Individual</span>';
-                } else if (isRefund) {
-                    typeBadge = '<span class="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-black uppercase">Reintegro</span>';
                 } else {
                     typeBadge = '<span class="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-black uppercase">Grupo</span>';
                 }
@@ -819,18 +929,23 @@
                     detailHtml = m.concept || 'Movimiento de saldo';
                 }
 
+                const noteText = m.notes || m.reason || '';
                 const ref = m.reservationId ? `#${m.reservationId}` : (m.reference || '—');
                 const amtFormatted = (m.amount || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
                 const balFormatted = m.balanceAfter !== undefined ? Number(m.balanceAfter).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) : '—';
+                const amountClass = isRefund ? 'text-blue-600' : (isIncome ? 'text-emerald-600' : 'text-rose-600');
+                const refundBtn = isCharge && m.id
+                    ? `<button type="button" onclick="openRefundModal('${String(m.id).replace(/'/g, "\\'")}')" class="ml-2 px-2 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black uppercase transition print:hidden" title="Devolver este cargo al depósito">↩ Devolver</button>`
+                    : '';
 
                 return `
                     <tr class="hover:bg-slate-50/80 transition">
                         <td class="py-3 px-3 text-slate-500 whitespace-nowrap">${m.date || m.timestamp?.split('T')[0] || '—'}</td>
                         <td class="py-3 px-3 whitespace-nowrap">${typeBadge}</td>
-                        <td class="py-3 px-3">${detailHtml}${m.notes ? `<div class="text-[10px] text-slate-400 italic">"${m.notes}"</div>` : ''}</td>
-                        <td class="py-3 px-3 text-slate-700 font-mono text-[11px] whitespace-nowrap">${ref}</td>
-                        <td class="py-3 px-3 text-right font-black font-outfit text-sm whitespace-nowrap ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
-                            ${isIncome ? '+' : ''}${amtFormatted}
+                        <td class="py-3 px-3">${detailHtml}${noteText ? `<div class="text-[10px] text-slate-400 italic">"${noteText}"</div>` : ''}</td>
+                        <td class="py-3 px-3 text-slate-700 font-mono text-[11px] whitespace-nowrap">${ref}${refundBtn}</td>
+                        <td class="py-3 px-3 text-right font-black font-outfit text-sm whitespace-nowrap ${amountClass}">
+                            ${(isIncome || isRefund) ? '+' : ''}${amtFormatted}
                         </td>
                         <td class="py-3 px-3 text-right font-black font-outfit text-slate-700 whitespace-nowrap">${balFormatted}</td>
                     </tr>`;
@@ -1029,6 +1144,107 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = "Confirmar Descuento";
+            }
+        }
+
+        function openRefundModal(movementId = '') {
+            if (!selectedAgency) {
+                alert("Por favor selecciona primero una agencia de la lista izquierda.");
+                return;
+            }
+            document.getElementById('refund-agency-display').textContent = selectedAgency.agencyName;
+            document.getElementById('refund-agency-balance-display').textContent = selectedAgency.currentBalance.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+
+            const selectEl = document.getElementById('refund-source-movement');
+            const charges = (currentMovements || []).filter(m => (m.amount || 0) < 0);
+            selectEl.innerHTML = '<option value="">-- Introducir datos manualmente --</option>';
+            charges.forEach(m => {
+                const absAmt = Math.abs(m.amount || 0).toFixed(2);
+                const labelName = m.groupName || m.guestName || m.concept || 'Cargo';
+                const resTag = m.reservationId ? ` (#${m.reservationId})` : '';
+                const dateTag = m.date || (m.timestamp ? m.timestamp.split('T')[0] : '');
+                const opt = document.createElement('option');
+                opt.value = m.id || '';
+                opt.textContent = `${dateTag ? dateTag + ' · ' : ''}${labelName}${resTag} — ${absAmt} €`;
+                selectEl.appendChild(opt);
+            });
+
+            document.getElementById('refund-resid').value = '';
+            document.getElementById('refund-amount').value = '';
+            document.getElementById('refund-reason').value = '';
+
+            if (movementId) {
+                selectEl.value = movementId;
+                onRefundSourceChange();
+            }
+
+            document.getElementById('modal-refund').classList.remove('hidden');
+        }
+
+        function closeRefundModal() {
+            document.getElementById('modal-refund').classList.add('hidden');
+        }
+
+        function onRefundSourceChange() {
+            const movId = document.getElementById('refund-source-movement').value;
+            if (!movId) return;
+            const mov = (currentMovements || []).find(m => m.id === movId);
+            if (!mov) return;
+
+            document.getElementById('refund-resid').value = mov.reservationId || '';
+            document.getElementById('refund-amount').value = Math.abs(mov.amount || 0).toFixed(2);
+            const targetLabel = mov.groupName || mov.guestName || mov.concept || '';
+            if (!document.getElementById('refund-reason').value.trim()) {
+                document.getElementById('refund-reason').value = targetLabel
+                    ? `Devolución / cancelación (${targetLabel})`
+                    : 'Cancelación o ajuste de reserva';
+            }
+        }
+
+        async function handleSaveRefund(e) {
+            e.preventDefault();
+            if (!selectedAgency) return;
+
+            const btn = document.getElementById('btn-save-refund');
+            const reservationId = document.getElementById('refund-resid').value.trim();
+            const amount = parseFloat(document.getElementById('refund-amount').value);
+            const reason = document.getElementById('refund-reason').value.trim();
+
+            if (!amount || amount <= 0) {
+                alert("Introduce un importe válido a devolver.");
+                return;
+            }
+            if (!reason) {
+                alert("Indica el motivo de la devolución.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Procesando...";
+
+            try {
+                const res = await window.AgencyDepositService.refundDepositToAgency({
+                    db: window.db,
+                    agencyName: selectedAgency.agencyName,
+                    reservationId,
+                    amount,
+                    reason
+                });
+
+                alert(`¡Devolución de ${amount.toFixed(2)} € registrada con éxito en el depósito de ${selectedAgency.agencyName}!\nNuevo saldo disponible: ${res.newAgencyBalance.toFixed(2)} €`);
+                closeRefundModal();
+                document.getElementById('refund-resid').value = '';
+                document.getElementById('refund-amount').value = '';
+                document.getElementById('refund-reason').value = '';
+
+                await loadAllAgencies();
+                const updated = allAgencies.find(a => a.agencyKey === selectedAgency.agencyKey);
+                if (updated) selectAgency(updated);
+            } catch (err) {
+                alert("Error al registrar devolución: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Confirmar Devolución";
             }
         }
 
