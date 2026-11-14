@@ -59,16 +59,45 @@ test('a tentative group segment is not mistaken for confirmed', () => {
   assert.equal(ctx.tentative, true);
 });
 
+function createFinancialContext() {
+  const finStart = source.indexOf('    const getGroupPaymentPlans =');
+  const finEnd = source.indexOf('    const Sidebar =', finStart);
+  const noticeStart = source.indexOf('      const getPaymentNotice =');
+  const noticeEnd = source.indexOf('      // Consolidación de grupos', noticeStart);
+  const ctx = {
+    safeParseAmount: v => {
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      const n = parseFloat(String(v || '0').replace(',', '.'));
+      return Number.isFinite(n) ? n : 0;
+    },
+    parseDate: value => {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+      const str = String(value).trim();
+      const parts = str.split(/[\/-]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      }
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? null : d;
+    }
+  };
+  vm.runInNewContext(
+    source.slice(finStart, finEnd) + '\n' + source.slice(noticeStart, noticeEnd) +
+    '\nthis.getGroupFinancialInfo = getGroupFinancialInfo; this.getGroupPaymentPlans = getGroupPaymentPlans; this.notice = getPaymentNotice;',
+    ctx
+  );
+  return ctx;
+}
+
 test('payment wording follows calendar dates and selects the earliest unpaid milestone', () => {
-  const start = source.indexOf('      const getPaymentNotice =');
-  const end = source.indexOf('      // Consolidación de grupos', start);
-  const ctx = { parseDate: value => (value ? new Date(value + 'T00:00:00') : null) };
-  vm.runInNewContext(source.slice(start, end) + '\nthis.notice = getPaymentNotice;', ctx);
+  const ctx = createFinancialContext();
   const group = {
     PaymentPlan_JSON: JSON.stringify([
-      { date: '2026-10-09', status: 'Pendiente' },
-      { date: '2026-10-06', status: 'Pendiente' },
-      { date: '2026-10-01', status: 'Cobrado' }
+      { date: '2026-10-09', status: 'Pendiente', amount: 100 },
+      { date: '2026-10-06', status: 'Pendiente', amount: 100 },
+      { date: '2026-10-01', status: 'Cobrado', amount: 100 }
     ])
   };
   assert.equal(ctx.notice(group, new Date(2026, 9, 1, 12)).label, 'Próximo vencimiento de pago');
@@ -76,6 +105,46 @@ test('payment wording follows calendar dates and selects the earliest unpaid mil
   assert.equal(ctx.notice(group, new Date(2026, 9, 6, 23)).label, 'Pago con vencimiento hoy');
   assert.equal(ctx.notice(group, new Date(2026, 9, 7)).label, 'Pago pendiente vencido');
   assert.equal(ctx.notice({}), null);
+});
+
+test('no genera alerta de pago vencido si el grupo ya esta pagado aunque tenga multiples registros o planes antiguos', () => {
+  const ctx = createFinancialContext();
+  const rooming = JSON.stringify([
+    { total: 421, hotel: 'SERCOTEL GUADIANA' },
+    { total: 488, hotel: 'SERCOTEL GUADIANA' }
+  ]);
+  const oldPlan = JSON.stringify([{ date: '29/10/2026', status: 'Pendiente', amount: 909 }]);
+  const paidPlan = JSON.stringify([{ date: '04/11/2026', status: 'Cobrado', amount: 909 }]);
+
+  const group = {
+    Hotel_Asignado: 'SERCOTEL GUADIANA',
+    PaymentPlan_JSON: paidPlan,
+    RoomingList_JSON: rooming,
+    records: [
+      { Hotel_Asignado: 'SERCOTEL GUADIANA', PaymentPlan_JSON: oldPlan, RoomingList_JSON: rooming },
+      { Hotel_Asignado: 'SERCOTEL GUADIANA', PaymentPlan_JSON: paidPlan, RoomingList_JSON: rooming }
+    ]
+  };
+
+  const fin = ctx.getGroupFinancialInfo(group);
+  assert.equal(fin.total, 909);
+  assert.equal(fin.paid, 909);
+  assert.equal(fin.pending, 0);
+  assert.equal(fin.allMilestonesCobrado, true);
+  assert.equal(ctx.notice(group, new Date(2026, 10, 14)), null);
+});
+
+test('no genera alerta si el pago se registro manualmente con Com_Pagado', () => {
+  const ctx = createFinancialContext();
+  const group = {
+    Hotel_Asignado: 'SERCOTEL GUADIANA',
+    Com_Pagado: 909,
+    PaymentPlan_JSON: JSON.stringify([{ date: '29/10/2026', status: 'Pendiente', amount: 909 }]),
+    RoomingList_JSON: JSON.stringify([{ total: 909 }])
+  };
+  const fin = ctx.getGroupFinancialInfo(group);
+  assert.equal(fin.pending, 0);
+  assert.equal(ctx.notice(group, new Date(2026, 10, 14)), null);
 });
 
 test('filtra grupos con 20 dias o mas de aviso (antelacion a llegada)', () => {

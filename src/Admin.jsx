@@ -53,20 +53,82 @@
 
     const pensionsCache = new WeakMap();
 
+    const getGroupPaymentPlans = (g) => {
+      if (!g) return [];
+      const records = Array.isArray(g.records) && g.records.length > 0 ? g.records : [g];
+      const normalizeHotelKey = (rec) => {
+        const h = String(rec?.Hotel_Asignado || rec?.Hotel || "General").trim().toUpperCase();
+        if (h.includes("CUMB")) return "CUMBRIA";
+        if (h.includes("GUAD")) return "GUADIANA";
+        return h || "GENERAL";
+      };
+
+      const bestByHotel = new Map();
+      const considerPlan = (hotelKey, rawPlan) => {
+        if (!rawPlan || rawPlan === "[]") return;
+        try {
+          const plan = typeof rawPlan === "string" ? JSON.parse(rawPlan) : rawPlan;
+          if (!Array.isArray(plan) || plan.length === 0) return;
+          let paidAmt = 0;
+          let totalAmt = 0;
+          let allCobrado = true;
+          plan.forEach(p => {
+            const amt = parseFloat(p.amount) || 0;
+            totalAmt += amt;
+            if (p.status === "Cobrado" || p.status === "Pagado") {
+              paidAmt += amt;
+            } else if (amt > 0.05) {
+              allCobrado = false;
+            }
+          });
+          const prev = bestByHotel.get(hotelKey);
+          if (
+            !prev ||
+            paidAmt > prev.paidAmt + 0.01 ||
+            (Math.abs(paidAmt - prev.paidAmt) <= 0.01 && allCobrado && !prev.allCobrado) ||
+            (Math.abs(paidAmt - prev.paidAmt) <= 0.01 && allCobrado === prev.allCobrado && totalAmt > prev.totalAmt)
+          ) {
+            bestByHotel.set(hotelKey, { plan, paidAmt, totalAmt, allCobrado });
+          }
+        } catch (e) {}
+      };
+
+      records.forEach(rec => {
+        if (rec) considerPlan(normalizeHotelKey(rec), rec.PaymentPlan_JSON);
+      });
+      if (g.PaymentPlan_JSON && g.PaymentPlan_JSON !== "[]") {
+        considerPlan(normalizeHotelKey(g), g.PaymentPlan_JSON);
+      }
+
+      const merged = [];
+      bestByHotel.forEach(entry => {
+        merged.push(...entry.plan);
+      });
+      return merged;
+    };
+
     const getGroupFinancialInfo = (g) => {
       if (!g) return { total: 0, paid: 0, pending: 0, planPaid: 0, planTotal: 0, allMilestonesCobrado: false };
 
       const records = Array.isArray(g.records) && g.records.length > 0 ? g.records : [g];
 
       let roomingTotal = 0;
-      records.forEach(rec => {
-        if (rec.RoomingList_JSON) {
+      let bestRoomingCount = 0;
+      const roomingCandidates = [...records];
+      if (g.RoomingList_JSON && !records.includes(g)) roomingCandidates.push(g);
+      roomingCandidates.forEach(rec => {
+        if (rec && rec.RoomingList_JSON && rec.RoomingList_JSON !== "[]") {
           try {
             const rList = typeof rec.RoomingList_JSON === "string" ? JSON.parse(rec.RoomingList_JSON) : rec.RoomingList_JSON;
-            if (Array.isArray(rList)) {
+            if (Array.isArray(rList) && rList.length > 0) {
+              let candidateTotal = 0;
               rList.forEach(item => {
-                roomingTotal += parseFloat(item.total) || 0;
+                candidateTotal += parseFloat(item.total) || 0;
               });
+              if (rList.length > bestRoomingCount || (rList.length === bestRoomingCount && candidateTotal > roomingTotal)) {
+                bestRoomingCount = rList.length;
+                roomingTotal = candidateTotal;
+              }
             }
           } catch (e) {}
         }
@@ -77,27 +139,19 @@
       let hasMilestones = false;
       let allMilestonesCobrado = true;
 
-      const processedPlans = new Set();
-      records.forEach(rec => {
-        if (rec.PaymentPlan_JSON && rec.PaymentPlan_JSON !== "[]" && !processedPlans.has(rec.PaymentPlan_JSON)) {
-          processedPlans.add(rec.PaymentPlan_JSON);
-          try {
-            const plan = JSON.parse(rec.PaymentPlan_JSON);
-            if (Array.isArray(plan) && plan.length > 0) {
-              hasMilestones = true;
-              plan.forEach(p => {
-                const amt = parseFloat(p.amount) || 0;
-                planTotal += amt;
-                if (p.status === "Cobrado" || p.status === "Pagado") {
-                  planPaid += amt;
-                } else if (amt > 0.05) {
-                  allMilestonesCobrado = false;
-                }
-              });
-            }
-          } catch (e) {}
-        }
-      });
+      const mergedPlan = getGroupPaymentPlans(g);
+      if (mergedPlan.length > 0) {
+        hasMilestones = true;
+        mergedPlan.forEach(p => {
+          const amt = parseFloat(p.amount) || 0;
+          planTotal += amt;
+          if (p.status === "Cobrado" || p.status === "Pagado") {
+            planPaid += amt;
+          } else if (amt > 0.05) {
+            allMilestonesCobrado = false;
+          }
+        });
+      }
 
       const manualPaid = records.reduce((max, r) => Math.max(max, safeParseAmount(r.Com_Pagado || 0)), 0);
       const paid = Math.max(hasMilestones ? planPaid : 0, manualPaid);
@@ -501,22 +555,7 @@
           return null;
         }
         const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        let plan = [];
-        const records = Array.isArray(g.records) && g.records.length > 0 ? g.records : [g];
-        for (const rec of records) {
-          if (rec.PaymentPlan_JSON && rec.PaymentPlan_JSON !== "[]") {
-            try {
-              const parsed = JSON.parse(rec.PaymentPlan_JSON);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                plan = parsed;
-                break;
-              }
-            } catch (_) {}
-          }
-        }
-        if (plan.length === 0) {
-          try { plan = JSON.parse(g.PaymentPlan_JSON || "[]"); } catch (_) {}
-        }
+        const plan = getGroupPaymentPlans(g);
         const milestones = (Array.isArray(plan) ? plan : []).filter(p =>
           p.status !== 'Cobrado' && p.status !== 'Pagado' && (parseFloat(p.amount) || 0) > 0.05 && parseDate(p.date)
         ).sort((a, b) => parseDate(a.date) - parseDate(b.date));
@@ -661,12 +700,8 @@
           // 1. Financial (ignorar si es crédito)
           if (!isCredito && (isConfirmed || isTentative) && pending > 0.1) {
             try {
-              const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
-              const pastDueMilestones = plan.filter(p => {
-                const pDate = parseDate(p.date);
-                return pDate && pDate < now && p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05;
-              });
-              if (pastDueMilestones.length > 0) hasAlert = true;
+              const notice = getPaymentNotice(g, startOfToday);
+              if (notice && notice.days <= 5) hasAlert = true;
             } catch (e) {}
           }
 
@@ -3794,7 +3829,7 @@ ${comercial}`;
 
           <footer className="text-center py-12">
             <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">
-              Nexus Gold Edition V2.5.74 • System Normal • Refreshed at{" "}
+              Nexus Gold Edition V2.5.75 • System Normal • Refreshed at{" "}
               {new Date().toLocaleTimeString()}
             </p>
           </footer>
@@ -4626,13 +4661,13 @@ ${comercial}`;
             });
           }
 
-          // Alert 3: Pagos Pendientes (ignorar si es crédito)
-          if (!isCredito) {
+          // Alert 3: Pagos Pendientes (ignorar si es crédito o ya pagado)
+          if (!isCredito && pendingAmt > 0.1 && !fin.allMilestonesCobrado) {
             try {
-              const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+              const plan = getGroupPaymentPlans(g);
               const hasPending = plan.some((p) => {
-                let pDate = p.date ? new Date(p.date) : null;
-                return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate && pDate <= now;
+                const pDate = p.date ? parseDate(p.date) : null;
+                return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate && !isNaN(pDate.getTime()) && pDate <= now;
               });
               if (hasPending) {
                 list.push({
@@ -4817,13 +4852,13 @@ ${comercial}`;
                 });
               }
 
-              // Alert 3: Pagos Pendientes (ignorar si es crédito)
-              if (!isCredito) {
+              // Alert 3: Pagos Pendientes (ignorar si es crédito o ya pagado)
+              if (!isCredito && pendingAmt > 0.1 && !fin.allMilestonesCobrado) {
                 try {
-                  const plan = JSON.parse(g.PaymentPlan_JSON || "[]");
+                  const plan = getGroupPaymentPlans(g);
                   const hasPending = plan.some((p) => {
                     const pDate = parseDate(p.date);
-                    return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate <= now;
+                    return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0.05 && pDate && !isNaN(pDate.getTime()) && pDate <= now;
                   });
                   if (hasPending) {
                     realAlerts.push({
