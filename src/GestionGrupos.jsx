@@ -11337,6 +11337,51 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
       const [payGoldMobile, setPayGoldMobile] = useState("");
       const [payGoldEmail, setPayGoldEmail] = useState("");
 
+      const getPayGoldGroupOverrides = (ficha) => {
+        if (!ficha || !Array.isArray(ficha.records) || ficha.records.length === 0) return undefined;
+        let planTotal = 0;
+        let planPaid = 0;
+        const processedPlans = new Set();
+        const uniqueHotels = Array.from(
+          new Set(
+            ficha.records.map((r) => r["Hotel_Asignado"] || r["Hotel"] || "General")
+          )
+        );
+        uniqueHotels.forEach((hotelName) => {
+          const hRec =
+            ficha.records.find(
+              (r) => (r["Hotel_Asignado"] || r["Hotel"] || "General") === hotelName
+            ) || ficha.records[0];
+          if (
+            hRec &&
+            hRec.PaymentPlan_JSON &&
+            hRec.PaymentPlan_JSON !== "[]" &&
+            !processedPlans.has(hRec.PaymentPlan_JSON)
+          ) {
+            processedPlans.add(hRec.PaymentPlan_JSON);
+            try {
+              const plan = JSON.parse(hRec.PaymentPlan_JSON);
+              if (Array.isArray(plan)) {
+                plan.forEach((p) => {
+                  const amt = parseFloat(p.amount) || 0;
+                  planTotal += amt;
+                  if (p.status === "Cobrado" || p.status === "Pagado") {
+                    planPaid += amt;
+                  }
+                });
+              }
+            } catch (e) {}
+          }
+        });
+        if (processedPlans.size > 0 && planTotal > 0) {
+          return {
+            total: Math.round(planTotal * 100) / 100,
+            paid: Math.round(planPaid * 100) / 100,
+          };
+        }
+        return undefined;
+      };
+
       const handleGeneratePayGold = async () => {
         if (!selectedGroupFicha) return;
         const record = selectedGroupFicha.records[0] || {};
@@ -11346,7 +11391,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         // Determinar importe
         let finalAmount = 0;
         let depositLabel = "";
-        const suggested = window.PayGoldService ? window.PayGoldService.getSuggestedAmounts(record) : [];
+        const payGoldOverrides = getPayGoldGroupOverrides(selectedGroupFicha);
+        const suggested = window.PayGoldService ? window.PayGoldService.getSuggestedAmounts(record, payGoldOverrides) : [];
 
         if (payGoldSelectedOption === "custom") {
           finalAmount = parseFloat(payGoldCustomAmount);
@@ -11390,7 +11436,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             Enlace_TPV: res.paymentUrl,
             PayGold_UltimoPedido: res.orderId,
             PayGold_UltimoImporte: finalAmount,
-            PayGold_UltimoEstado: "PENDIENTE"
+            PayGold_UltimoEstado: "PENDIENTE",
+            PayGold_UltimoFechaEnvio: new Date().toISOString()
           });
 
           setPayGoldSuccess(`¡Enlace PayGold generado con éxito por ${finalAmount.toFixed(2)} €! Guardado en la reserva.`);
@@ -26373,6 +26420,33 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                   },
                                                 )}
                                               </span>
+                                              {(() => {
+                                                const pgEstado = (hotelRecord?.["PayGold_UltimoEstado"] || selectedGroupFicha.records[0]?.["PayGold_UltimoEstado"] || "").toUpperCase();
+                                                const pgImporte = parseFloat(hotelRecord?.["PayGold_UltimoImporte"] || selectedGroupFicha.records[0]?.["PayGold_UltimoImporte"] || 0);
+                                                const hasLink = !!(hotelRecord?.["Enlace_TPV"] || selectedGroupFicha.records[0]?.["Enlace_TPV"]);
+                                                if (pgEstado === "PAGADO" || pgEstado === "COBRADO") {
+                                                  return (
+                                                    <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                      ✓ Pagado PayGold
+                                                    </span>
+                                                  );
+                                                }
+                                                if (pgEstado === "DENEGADO") {
+                                                  return (
+                                                    <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+                                                      ✕ PayGold Denegado
+                                                    </span>
+                                                  );
+                                                }
+                                                if (pgEstado === "PENDIENTE" || hasLink) {
+                                                  return (
+                                                    <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                                      📤 PayGold Enviado{pgImporte > 0 ? ` (${pgImporte.toFixed(2)} €)` : ""}
+                                                    </span>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
                                             </div>
                                           
                                               {currentGroupAgencyDeposit && currentGroupAgencyDeposit.currentBalance > 0 && (
@@ -26476,7 +26550,9 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                               return plan.map((dep, idx) => {
                                                 const isPaid =
-                                                  dep.status === "Cobrado";
+                                                  dep.status === "Cobrado" || dep.status === "Pagado";
+                                                const isPaidPayGold =
+                                                  isPaid && (dep.paymentMethod || "").toLowerCase().includes("paygold");
                                                 const today = new Date();
                                                 today.setHours(0, 0, 0, 0);
                                                 const depDate = new Date(
@@ -26624,10 +26700,16 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                       }
 
                                                       className={`h-5 w-full rounded text-[9px] font-black transition-all ${isPaid ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200" : "bg-slate-100 text-slate-400"}`}
+                                                      title={isPaidPayGold ? `Pagado vía PayGold${dep.paidDate ? ` el ${dep.paidDate}` : ""}${dep.authCode ? ` (Aut: ${dep.authCode})` : ""}` : isPaid ? "Cobrado" : "Pendiente de cobro"}
 
                                                     >
 
-                                                      {isPaid ? (
+                                                      {isPaidPayGold ? (
+                                                        <span className="flex items-center justify-center gap-0.5 text-[8px] font-black tracking-tight">
+                                                          <IconCheck size={9} stroke={4} />
+                                                          PayGold
+                                                        </span>
+                                                      ) : isPaid ? (
 
                                                         <IconCheck
 
@@ -26726,11 +26808,41 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                   {(() => {
 
-                                    const specificLink = selectedGroupFicha.records[0]?.["Enlace_TPV"];
+                                    const rec0 = selectedGroupFicha.records[0] || {};
+                                    const specificLink = rec0["Enlace_TPV"];
+                                    const pgEstado = (rec0["PayGold_UltimoEstado"] || "").toUpperCase();
+                                    const pgImporte = parseFloat(rec0["PayGold_UltimoImporte"] || 0);
+                                    const pgPedido = rec0["PayGold_UltimoPedido"] || "";
+                                    const pgAuth = rec0["PayGold_UltimaAutorizacion"] || "";
+                                    const pgError = rec0["PayGold_UltimoError"] || "";
 
                                     return (
 
-                                      <div className="ml-auto flex items-center gap-2">
+                                      <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
+                                        {(pgEstado === "PAGADO" || pgEstado === "COBRADO") && (
+                                          <span
+                                            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[9px] font-black uppercase tracking-wider"
+                                            title={`Pagado vía PayGold${pgPedido ? ` · Pedido: ${pgPedido}` : ""}${pgAuth ? ` · Aut: ${pgAuth}` : ""}`}
+                                          >
+                                            ✓ Pagado PayGold{pgImporte > 0 ? ` (${pgImporte.toFixed(2)} €)` : ""}
+                                          </span>
+                                        )}
+                                        {pgEstado === "DENEGADO" && (
+                                          <span
+                                            className="flex items-center gap-1 px-2.5 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-full text-[9px] font-black uppercase tracking-wider"
+                                            title={pgError || "Pago denegado por el banco"}
+                                          >
+                                            ✕ PayGold Denegado
+                                          </span>
+                                        )}
+                                        {(pgEstado === "PENDIENTE" || (!pgEstado && specificLink)) && (
+                                          <span
+                                            className="flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[9px] font-black uppercase tracking-wider"
+                                            title={`Enlace PayGold generado y pendiente de cobro${pgPedido ? ` · Pedido: ${pgPedido}` : ""}`}
+                                          >
+                                            📤 PayGold Enviado{pgImporte > 0 ? ` (${pgImporte.toFixed(2)} €)` : ""}
+                                          </span>
+                                        )}
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -30438,8 +30550,19 @@ const base =
               const hotelKey = hotelRaw.toLowerCase().includes("guad") ? "guadiana" : "cumbria";
               const isCumbria = hotelKey === "cumbria";
               const hotelLabel = isCumbria ? "Cumbria Spa & Hotel" : "Sercotel Guadiana";
-              const suggested = window.PayGoldService ? window.PayGoldService.getSuggestedAmounts(record) : [];
+              const payGoldOverrides = getPayGoldGroupOverrides(selectedGroupFicha);
+              const paySummary = window.PayGoldService
+                ? window.PayGoldService.getPaymentSummary(record, payGoldOverrides)
+                : { total: 0, paid: 0, pendingTotal: 0 };
+              const suggested = window.PayGoldService
+                ? window.PayGoldService.getSuggestedAmounts(record, payGoldOverrides)
+                : [];
               const currentLink = record["Enlace_TPV"] || "";
+              const pgEstado = (record["PayGold_UltimoEstado"] || "").toUpperCase();
+              const pgImporte = parseFloat(record["PayGold_UltimoImporte"] || 0);
+              const pgPedido = record["PayGold_UltimoPedido"] || "";
+              const pgAuth = record["PayGold_UltimaAutorizacion"] || "";
+              const pgError = record["PayGold_UltimoError"] || "";
 
               return (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[160] p-4 animate-fade-in">
@@ -30492,15 +30615,41 @@ const base =
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total / Pendiente</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Pendiente (según Plan de Pagos)</span>
                           <span className="font-black text-emerald-700 block text-sm">
-                            {parseFloat(record["Importe(*)"] || 0).toFixed(2)} €
+                            {paySummary.pendingTotal.toFixed(2)} €
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            Ya pagado: {parseFloat(record.Com_Pagado || 0).toFixed(2)} €
+                            Total: {paySummary.total.toFixed(2)} € · Ya pagado: {paySummary.paid.toFixed(2)} €
                           </span>
                         </div>
                       </div>
+
+                      {(pgEstado === "PENDIENTE" || pgEstado === "PAGADO" || pgEstado === "COBRADO" || pgEstado === "DENEGADO") && (
+                        <div className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-2 ${
+                          pgEstado === "PAGADO" || pgEstado === "COBRADO"
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                            : pgEstado === "DENEGADO"
+                              ? "bg-rose-50 border-rose-200 text-rose-800"
+                              : "bg-amber-50 border-amber-200 text-amber-800"
+                        }`}>
+                          <div>
+                            <span className="font-black uppercase tracking-wider text-[10px] block">
+                              {pgEstado === "PAGADO" || pgEstado === "COBRADO"
+                                ? "✓ Último PayGold: Pagado"
+                                : pgEstado === "DENEGADO"
+                                  ? "✕ Último PayGold: Denegado"
+                                  : "📤 Último PayGold: Enviado (Pendiente de cobro)"}
+                            </span>
+                            <span className="text-[11px]">
+                              {pgImporte > 0 ? `Importe: ${pgImporte.toFixed(2)} €` : ""}
+                              {pgPedido ? ` · Pedido: ${pgPedido}` : ""}
+                              {pgAuth ? ` · Aut: ${pgAuth}` : ""}
+                              {pgEstado === "DENEGADO" && pgError ? ` · ${pgError}` : ""}
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 block mb-2">

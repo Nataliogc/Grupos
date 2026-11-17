@@ -70,29 +70,66 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       return combined;
     },
     /**
-     * Calcula las opciones sugeridas de pago para un grupo:
-     * - Próximo tramo del plan de pagos (si existe y no está pagado)
-     * - Saldo total pendiente
+     * Calcula el resumen de importes (total, pagado, pendiente) dando prioridad
+     * al Plan de Pagos previsto cuando existe, o a los overrides proporcionados.
      */
-    getSuggestedAmounts: function getSuggestedAmounts(groupRecord) {
-      if (!groupRecord) return [];
-      var total = parseFloat(groupRecord["Importe(*)"] || 0);
-      var paid = parseFloat(groupRecord.Com_Pagado || 0);
-      var pendingTotal = Math.max(0, total - paid);
-      var options = [];
-
-      // Analizar Plan de Pagos
+    getPaymentSummary: function getPaymentSummary(groupRecord, overrides) {
+      if (!groupRecord) {
+        return {
+          total: 0,
+          paid: 0,
+          pendingTotal: 0,
+          plan: [],
+          nextPendingTramo: null
+        };
+      }
       var plan = [];
       try {
         plan = JSON.parse(groupRecord.PaymentPlan_JSON || "[]");
+        if (!Array.isArray(plan)) plan = [];
       } catch (e) {
         plan = [];
       }
-
-      // Buscar primer tramo pendiente
+      var planTotal = plan.reduce(function (sum, p) {
+        return sum + (parseFloat(p.amount) || 0);
+      }, 0);
+      var planPaid = plan.reduce(function (sum, p) {
+        if (p.status === "Cobrado" || p.status === "Pagado") {
+          return sum + (parseFloat(p.amount) || 0);
+        }
+        return sum;
+      }, 0);
+      var hasOverrideTotal = overrides && typeof overrides.total === "number" && !isNaN(overrides.total);
+      var hasOverridePaid = overrides && typeof overrides.paid === "number" && !isNaN(overrides.paid);
+      var fallbackTotal = parseFloat(groupRecord.Com_Total || groupRecord.total || groupRecord["Importe(*)"] || 0);
+      var total = hasOverrideTotal ? overrides.total : plan.length > 0 && planTotal > 0 ? planTotal : fallbackTotal;
+      var fallbackPaid = parseFloat(groupRecord.Com_Pagado || 0);
+      var paid = hasOverridePaid ? overrides.paid : plan.length > 0 ? planPaid : fallbackPaid;
+      var pendingTotal = Math.max(0, Math.round((total - paid) * 100) / 100);
       var nextPendingTramo = plan.find(function (p) {
-        return p.status !== "Cobrado" && p.status !== "Pagado";
-      });
+        return p.status !== "Cobrado" && p.status !== "Pagado" && (parseFloat(p.amount) || 0) > 0;
+      }) || null;
+      return {
+        total: total,
+        paid: paid,
+        pendingTotal: pendingTotal,
+        plan: plan,
+        nextPendingTramo: nextPendingTramo
+      };
+    },
+    /**
+     * Calcula las opciones sugeridas de pago para un grupo:
+     * - Próximo tramo del plan de pagos (si existe y no está pagado)
+     * - Saldo total pendiente (según pagos previstos)
+     */
+    getSuggestedAmounts: function getSuggestedAmounts(groupRecord, overrides) {
+      if (!groupRecord) return [];
+      var summary = this.getPaymentSummary(groupRecord, overrides);
+      var total = summary.total;
+      var paid = summary.paid;
+      var pendingTotal = summary.pendingTotal;
+      var nextPendingTramo = summary.nextPendingTramo;
+      var options = [];
       if (nextPendingTramo) {
         var tramoAmt = parseFloat(nextPendingTramo.amount || 0);
         if (tramoAmt > 0) {
