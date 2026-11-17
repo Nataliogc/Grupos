@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.75";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "14/11/2026 01:38";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.76";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "17/11/2026 17:43";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -154,7 +154,7 @@
 
     // ─── Perfiles autorizados y Helpers de sesión ───────────────────────────
     var AUTHORIZED_PROFILES = [
-        { id: "diana", name: "Diana", role: "Comercial", email: "dianahotelguadiana@gmail.com" },
+        { id: "diana", name: "Diana", role: "Comercial", email: "jrecepcion@hotelguadiana.es" },
         { id: "sergio", name: "Sergio", role: "Dirección", email: "ssanchez@hotelguadiana.es" },
         { id: "oscar", name: "Oscar", role: "Dirección", email: "osanchez@hotelguadiana.es" },
         { id: "natalio", name: "Natalio", role: "Administrador", email: "comunicaciones@hotelguadiana.es" }
@@ -396,8 +396,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.75 (14/11/2026 01:38)">
-                                    V2.5.75
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.76 (17/11/2026 17:43)">
+                                    V2.5.76
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -856,7 +856,7 @@
                 // Si no hay usuarios en Firestore, inicializar con los perfiles predeterminados
                 if (users.length === 0) {
                     users = [
-                        { email: "dianahotelguadiana@gmail.com", pass: "1234", name: "Diana", role: "Comercial" },
+                        { email: "jrecepcion@hotelguadiana.es", pass: "1234", name: "Diana", role: "Comercial" },
                         { email: "ssanchez@hotelguadiana.es", pass: "1234", name: "Sergio", role: "Dirección" },
                         { email: "osanchez@hotelguadiana.es", pass: "1234", name: "Oscar", role: "Dirección" },
                         { email: "comunicaciones@hotelguadiana.es", pass: "1234", name: "Natalio", role: "Administrador" }

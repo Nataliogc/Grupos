@@ -22,6 +22,7 @@
             const [showAddUserModal, setShowAddUserModal] = useState(false);
             const [newUserData, setNewUserData] = useState({ name: '', email: '', role: 'Comercial', pass: '1234' });
             const [resetPassUser, setResetPassUser] = useState(null);
+            const [editUser, setEditUser] = useState(null);
             const [config, setConfig] = useState({
                 guadiana: {
                     name: "Hotel",
@@ -135,7 +136,7 @@
                     iaStatus: "Online",
                     commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"],
                     users: [
-                        { email: "dianahotelguadiana@gmail.com", pass: "1234", name: "Diana", role: "Comercial" },
+                        { email: "jrecepcion@hotelguadiana.es", pass: "1234", name: "Diana", role: "Comercial" },
                         { email: "ssanchez@hotelguadiana.es", pass: "1234", name: "Sergio", role: "Dirección" },
                         { email: "osanchez@hotelguadiana.es", pass: "1234", name: "Oscar", role: "Dirección" },
                         { email: "comunicaciones@hotelguadiana.es", pass: "1234", name: "Natalio", role: "Administrador" }
@@ -185,10 +186,18 @@
                 db.collection("settings").doc("main").get().then(doc => {
                     if (doc.exists) {
                         const data = doc.data();
+                        const rawCloudUsers = (data.system && Array.isArray(data.system.users) && data.system.users.length > 0)
+                            ? data.system.users
+                            : null;
+                        const hasLegacyDianaEmail = rawCloudUsers && rawCloudUsers.some(u => (u.email || '').toLowerCase() === 'dianahotelguadiana@gmail.com');
+                        const migratedCloudUsers = hasLegacyDianaEmail
+                            ? rawCloudUsers.map(u => (u.email || '').toLowerCase() === 'dianahotelguadiana@gmail.com' ? { ...u, email: 'jrecepcion@hotelguadiana.es' } : u)
+                            : rawCloudUsers;
+                        if (hasLegacyDianaEmail) {
+                            db.collection("settings").doc("main").update({ "system.users": migratedCloudUsers }).catch(() => {});
+                        }
                         setConfig(prev => {
-                            const cloudUsers = (data.system && Array.isArray(data.system.users) && data.system.users.length > 0)
-                                ? data.system.users
-                                : prev.system.users;
+                            const cloudUsers = migratedCloudUsers || prev.system.users;
                             // MIGRATION: Migrate clauses from guadiana to common if missing
                             const migratedCommon = { ...prev.common, ...(data.common || {}) };
                             if (!migratedCommon.clauses || migratedCommon.clauses.length === 0) {
@@ -431,6 +440,55 @@
                 setTimeout(() => setMessage(null), 3500);
             };
 
+            const handleEditUser = async () => {
+                if (!editUser) return;
+                const name = (editUser.name || '').trim();
+                const email = (editUser.email || '').trim().toLowerCase();
+                const role = editUser.role || 'Comercial';
+
+                if (!name || !email) {
+                    alert("El nombre y el correo electrónico son obligatorios.");
+                    return;
+                }
+
+                const users = [...(config.system?.users || [])];
+                const target = users[editUser.idx];
+                if (!target) return;
+
+                const duplicate = users.some((u, idx) => idx !== editUser.idx && (u.email || '').toLowerCase() === email);
+                if (duplicate) {
+                    alert("Ya existe otro usuario registrado con ese correo electrónico.");
+                    return;
+                }
+
+                users[editUser.idx] = {
+                    ...target,
+                    name,
+                    email,
+                    role
+                };
+
+                const updatedConfig = {
+                    ...config,
+                    system: {
+                        ...(config.system || {}),
+                        users: users
+                    }
+                };
+
+                setConfig(updatedConfig);
+                setLoading(true);
+                try {
+                    await db.collection("settings").doc("main").set(updatedConfig);
+                    setMessage({ type: 'success', text: `Usuario "${name}" actualizado correctamente.` });
+                    setEditUser(null);
+                } catch(e) {
+                    setMessage({ type: 'error', text: 'Error al actualizar los datos del usuario en Firestore.' });
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(null), 3500);
+            };
+
             const handleDeleteUser = async (idx) => {
                 const users = [...(config.system?.users || [])];
                 const target = users[idx];
@@ -600,6 +658,10 @@
                                                         <span className="w-2 h-2 rounded-full bg-rose-400"></span>
                                                         <span className="font-bold">{(config.system?.users || []).filter(u => u.revoked === true || u.active === false).length} Revocados</span>
                                                     </div>
+                                                    <div className="flex items-center gap-1.5 bg-amber-400/15 text-amber-200 border border-amber-400/30 px-3 py-1 rounded-xl">
+                                                        <LucideIcon name="key" className="w-3.5 h-3.5 text-amber-300" />
+                                                        <span className="font-bold">Clave por defecto: <span className="font-mono text-white">1234</span></span>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="relative z-10 flex items-center gap-3">
@@ -704,14 +766,31 @@
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                                                                    <div className="flex items-center gap-2 flex-wrap text-xs text-slate-400">
                                                                         <span className="truncate">{u.email}</span>
+                                                                        {(u.pass || '1234') === '1234' && (
+                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                                                                <LucideIcon name="key" className="w-3 h-3 text-amber-500" />
+                                                                                Clave por defecto: <span className="font-mono">1234</span>
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>
 
                                                             {/* Botones de acción */}
                                                             <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                                                                {/* Editar Usuario */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setEditUser({ idx: originalIdx, name: u.name || '', email: u.email || '', role: u.role || 'Comercial' })}
+                                                                    className="px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-emerald-50 hover:text-[#2d5a43] border border-slate-200 hover:border-emerald-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                                                                    title={`Editar datos de ${u.name}`}
+                                                                >
+                                                                    <LucideIcon name="edit-3" className="w-3.5 h-3.5 text-[#2d5a43]" />
+                                                                    <span>Editar</span>
+                                                                </button>
+
                                                                 {/* Resetear Clave */}
                                                                 <button
                                                                     type="button"
@@ -1546,6 +1625,94 @@
                                         >
                                             <LucideIcon name="check" className="w-3.5 h-3.5" />
                                             Guardar Nueva Clave
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal Editar Usuario */}
+                    {editUser && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+                            <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden">
+                                <div className="bg-gradient-to-r from-[#2d5a43] to-[#1e3a2c] p-6 text-white flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center">
+                                            <LucideIcon name="edit-3" className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-base text-white tracking-tight">Editar Usuario</h3>
+                                            <p className="text-[11px] text-emerald-100">Modifica el nombre, correo o rol de acceso</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditUser(null)}
+                                        className="text-white/80 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                        <LucideIcon name="x" className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-4">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                            Nombre Completo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editUser.name}
+                                            onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+                                            placeholder="Ej. Diana"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                            Correo Electrónico (Usuario)
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={editUser.email}
+                                            onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                                            placeholder="usuario@hotelguadiana.es"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                            Rol de Acceso
+                                        </label>
+                                        <select
+                                            value={editUser.role}
+                                            onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+                                        >
+                                            <option value="Comercial">Comercial</option>
+                                            <option value="Dirección">Dirección</option>
+                                            <option value="Administrador">Administrador</option>
+                                            <option value="Recepción">Recepción</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="pt-2 flex items-center justify-end gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditUser(null)}
+                                            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleEditUser}
+                                            className="bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                                        >
+                                            <LucideIcon name="check" className="w-3.5 h-3.5" />
+                                            Guardar Cambios
                                         </button>
                                     </div>
                                 </div>

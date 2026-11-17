@@ -68,7 +68,7 @@ var _React = React,
 // --- FIREBASE ---
 var db = window.db;
 var App = function App() {
-  var _config$system5, _config$system6, _config$system7, _config$common2, _config$common3, _resetPassUser$user, _resetPassUser$user2, _resetPassUser$user3;
+  var _config$system6, _config$system7, _config$system8, _config$common2, _config$common3, _resetPassUser$user, _resetPassUser$user2, _resetPassUser$user3;
   var urlParams = new URLSearchParams(window.location.search);
   var initialTab = urlParams.get('tab') || 'guadiana';
   var _useState = useState(initialTab),
@@ -113,7 +113,11 @@ var App = function App() {
     _useState16 = _slicedToArray(_useState15, 2),
     resetPassUser = _useState16[0],
     setResetPassUser = _useState16[1];
-  var _useState17 = useState({
+  var _useState17 = useState(null),
+    _useState18 = _slicedToArray(_useState17, 2),
+    editUser = _useState18[0],
+    setEditUser = _useState18[1];
+  var _useState19 = useState({
       guadiana: {
         name: "Hotel",
         subname: "Guadiana",
@@ -206,7 +210,7 @@ var App = function App() {
         iaStatus: "Online",
         commercials: ["NATALIO", "EMILIA", "CANDELARIA", "MARTA"],
         users: [{
-          email: "dianahotelguadiana@gmail.com",
+          email: "jrecepcion@hotelguadiana.es",
           pass: "1234",
           name: "Diana",
           role: "Comercial"
@@ -297,16 +301,30 @@ var App = function App() {
         }]
       }
     }),
-    _useState18 = _slicedToArray(_useState17, 2),
-    config = _useState18[0],
-    setConfig = _useState18[1];
+    _useState20 = _slicedToArray(_useState19, 2),
+    config = _useState20[0],
+    setConfig = _useState20[1];
   useEffect(function () {
     // Cargar config desde Firestore si existe
     db.collection("settings").doc("main").get().then(function (doc) {
       if (doc.exists) {
         var data = doc.data();
+        var rawCloudUsers = data.system && Array.isArray(data.system.users) && data.system.users.length > 0 ? data.system.users : null;
+        var hasLegacyDianaEmail = rawCloudUsers && rawCloudUsers.some(function (u) {
+          return (u.email || '').toLowerCase() === 'dianahotelguadiana@gmail.com';
+        });
+        var migratedCloudUsers = hasLegacyDianaEmail ? rawCloudUsers.map(function (u) {
+          return (u.email || '').toLowerCase() === 'dianahotelguadiana@gmail.com' ? _objectSpread(_objectSpread({}, u), {}, {
+            email: 'jrecepcion@hotelguadiana.es'
+          }) : u;
+        }) : rawCloudUsers;
+        if (hasLegacyDianaEmail) {
+          db.collection("settings").doc("main").update({
+            "system.users": migratedCloudUsers
+          }).catch(function () {});
+        }
         setConfig(function (prev) {
-          var cloudUsers = data.system && Array.isArray(data.system.users) && data.system.users.length > 0 ? data.system.users : prev.system.users;
+          var cloudUsers = migratedCloudUsers || prev.system.users;
           // MIGRATION: Migrate clauses from guadiana to common if missing
           var migratedCommon = _objectSpread(_objectSpread({}, prev.common), data.common || {});
           if (!migratedCommon.clauses || migratedCommon.clauses.length === 0) {
@@ -729,35 +747,120 @@ var App = function App() {
       return _ref6.apply(this, arguments);
     };
   }();
-  var handleDeleteUser = /*#__PURE__*/function () {
-    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(idx) {
+  var handleEditUser = /*#__PURE__*/function () {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
       var _config$system4;
-      var users, target, isNatalio, ok, updatedConfig, _t7;
+      var name, email, role, users, target, duplicate, updatedConfig, _t7;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
-            users = _toConsumableArray(((_config$system4 = config.system) === null || _config$system4 === void 0 ? void 0 : _config$system4.users) || []);
-            target = users[idx];
-            if (target) {
+            if (editUser) {
               _context7.n = 1;
               break;
             }
             return _context7.a(2);
           case 1:
-            isNatalio = target.name && target.name.toLowerCase() === 'natalio' || target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es');
-            if (!isNatalio) {
+            name = (editUser.name || '').trim();
+            email = (editUser.email || '').trim().toLowerCase();
+            role = editUser.role || 'Comercial';
+            if (!(!name || !email)) {
               _context7.n = 2;
               break;
             }
-            alert("No es posible eliminar la cuenta principal del Administrador (Natalio).");
+            alert("El nombre y el correo electrónico son obligatorios.");
             return _context7.a(2);
           case 2:
-            ok = window.confirm("\xBFEst\xE1s seguro de que deseas ELIMINAR permanentemente a \"".concat(target.name, "\" (").concat(target.email, ")? Esta acci\xF3n no se puede deshacer."));
-            if (ok) {
+            users = _toConsumableArray(((_config$system4 = config.system) === null || _config$system4 === void 0 ? void 0 : _config$system4.users) || []);
+            target = users[editUser.idx];
+            if (target) {
               _context7.n = 3;
               break;
             }
             return _context7.a(2);
+          case 3:
+            duplicate = users.some(function (u, idx) {
+              return idx !== editUser.idx && (u.email || '').toLowerCase() === email;
+            });
+            if (!duplicate) {
+              _context7.n = 4;
+              break;
+            }
+            alert("Ya existe otro usuario registrado con ese correo electrónico.");
+            return _context7.a(2);
+          case 4:
+            users[editUser.idx] = _objectSpread(_objectSpread({}, target), {}, {
+              name: name,
+              email: email,
+              role: role
+            });
+            updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
+              system: _objectSpread(_objectSpread({}, config.system || {}), {}, {
+                users: users
+              })
+            });
+            setConfig(updatedConfig);
+            setLoading(true);
+            _context7.p = 5;
+            _context7.n = 6;
+            return db.collection("settings").doc("main").set(updatedConfig);
+          case 6:
+            setMessage({
+              type: 'success',
+              text: "Usuario \"".concat(name, "\" actualizado correctamente.")
+            });
+            setEditUser(null);
+            _context7.n = 8;
+            break;
+          case 7:
+            _context7.p = 7;
+            _t7 = _context7.v;
+            setMessage({
+              type: 'error',
+              text: 'Error al actualizar los datos del usuario en Firestore.'
+            });
+          case 8:
+            setLoading(false);
+            setTimeout(function () {
+              return setMessage(null);
+            }, 3500);
+          case 9:
+            return _context7.a(2);
+        }
+      }, _callee7, null, [[5, 7]]);
+    }));
+    return function handleEditUser() {
+      return _ref7.apply(this, arguments);
+    };
+  }();
+  var handleDeleteUser = /*#__PURE__*/function () {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(idx) {
+      var _config$system5;
+      var users, target, isNatalio, ok, updatedConfig, _t8;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
+          case 0:
+            users = _toConsumableArray(((_config$system5 = config.system) === null || _config$system5 === void 0 ? void 0 : _config$system5.users) || []);
+            target = users[idx];
+            if (target) {
+              _context8.n = 1;
+              break;
+            }
+            return _context8.a(2);
+          case 1:
+            isNatalio = target.name && target.name.toLowerCase() === 'natalio' || target.email && target.email.toLowerCase().includes('comunicaciones@hotelguadiana.es');
+            if (!isNatalio) {
+              _context8.n = 2;
+              break;
+            }
+            alert("No es posible eliminar la cuenta principal del Administrador (Natalio).");
+            return _context8.a(2);
+          case 2:
+            ok = window.confirm("\xBFEst\xE1s seguro de que deseas ELIMINAR permanentemente a \"".concat(target.name, "\" (").concat(target.email, ")? Esta acci\xF3n no se puede deshacer."));
+            if (ok) {
+              _context8.n = 3;
+              break;
+            }
+            return _context8.a(2);
           case 3:
             users.splice(idx, 1);
             updatedConfig = _objectSpread(_objectSpread({}, config), {}, {
@@ -767,19 +870,19 @@ var App = function App() {
             });
             setConfig(updatedConfig);
             setLoading(true);
-            _context7.p = 4;
-            _context7.n = 5;
+            _context8.p = 4;
+            _context8.n = 5;
             return db.collection("settings").doc("main").set(updatedConfig);
           case 5:
             setMessage({
               type: 'success',
               text: "Usuario \"".concat(target.name, "\" eliminado de la plataforma.")
             });
-            _context7.n = 7;
+            _context8.n = 7;
             break;
           case 6:
-            _context7.p = 6;
-            _t7 = _context7.v;
+            _context8.p = 6;
+            _t8 = _context8.v;
             setMessage({
               type: 'error',
               text: 'Error al eliminar el usuario en Firestore.'
@@ -790,12 +893,12 @@ var App = function App() {
               return setMessage(null);
             }, 3500);
           case 8:
-            return _context7.a(2);
+            return _context8.a(2);
         }
-      }, _callee7, null, [[4, 6]]);
+      }, _callee8, null, [[4, 6]]);
     }));
     return function handleDeleteUser(_x7) {
-      return _ref7.apply(this, arguments);
+      return _ref8.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -970,7 +1073,7 @@ var App = function App() {
     className: "w-2 h-2 rounded-full bg-emerald-400"
   }), /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, (((_config$system5 = config.system) === null || _config$system5 === void 0 ? void 0 : _config$system5.users) || []).filter(function (u) {
+  }, (((_config$system6 = config.system) === null || _config$system6 === void 0 ? void 0 : _config$system6.users) || []).filter(function (u) {
     return u.active !== false && !u.revoked;
   }).length, " Activos")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-xl"
@@ -978,9 +1081,18 @@ var App = function App() {
     className: "w-2 h-2 rounded-full bg-rose-400"
   }), /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, (((_config$system6 = config.system) === null || _config$system6 === void 0 ? void 0 : _config$system6.users) || []).filter(function (u) {
+  }, (((_config$system7 = config.system) === null || _config$system7 === void 0 ? void 0 : _config$system7.users) || []).filter(function (u) {
     return u.revoked === true || u.active === false;
-  }).length, " Revocados")))), /*#__PURE__*/React.createElement("div", {
+  }).length, " Revocados")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1.5 bg-amber-400/15 text-amber-200 border border-amber-400/30 px-3 py-1 rounded-xl"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "key",
+    className: "w-3.5 h-3.5 text-amber-300"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "font-bold"
+  }, "Clave por defecto: ", /*#__PURE__*/React.createElement("span", {
+    className: "font-mono text-white"
+  }, "1234"))))), /*#__PURE__*/React.createElement("div", {
     className: "relative z-10 flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -1019,10 +1131,10 @@ var App = function App() {
     className: "w-3.5 h-3.5"
   }))), /*#__PURE__*/React.createElement("div", {
     className: "text-[11px] font-bold text-slate-400 text-right"
-  }, (((_config$system7 = config.system) === null || _config$system7 === void 0 ? void 0 : _config$system7.users) || []).length, " usuarios configurados en el sistema")), /*#__PURE__*/React.createElement("div", {
+  }, (((_config$system8 = config.system) === null || _config$system8 === void 0 ? void 0 : _config$system8.users) || []).length, " usuarios configurados en el sistema")), /*#__PURE__*/React.createElement("div", {
     className: "bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs divide-y divide-slate-100"
-  }, function (_config$system8) {
-    var rawUsers = ((_config$system8 = config.system) === null || _config$system8 === void 0 ? void 0 : _config$system8.users) || [];
+  }, function (_config$system9) {
+    var rawUsers = ((_config$system9 = config.system) === null || _config$system9 === void 0 ? void 0 : _config$system9.users) || [];
     var searchLow = (userSearch || '').toLowerCase().trim();
     var filtered = searchLow ? rawUsers.filter(function (u) {
       return u.name && u.name.toLowerCase().includes(searchLow) || u.email && u.email.toLowerCase().includes(searchLow) || u.role && u.role.toLowerCase().includes(searchLow);
@@ -1067,12 +1179,34 @@ var App = function App() {
       }, /*#__PURE__*/React.createElement("span", {
         className: "w-1.5 h-1.5 rounded-full bg-emerald-500"
       }), "Activo")), /*#__PURE__*/React.createElement("div", {
-        className: "flex items-center gap-3 text-xs text-slate-400"
+        className: "flex items-center gap-2 flex-wrap text-xs text-slate-400"
       }, /*#__PURE__*/React.createElement("span", {
         className: "truncate"
-      }, u.email)))), /*#__PURE__*/React.createElement("div", {
+      }, u.email), (u.pass || '1234') === '1234' && /*#__PURE__*/React.createElement("span", {
+        className: "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1"
+      }, /*#__PURE__*/React.createElement(LucideIcon, {
+        name: "key",
+        className: "w-3 h-3 text-amber-500"
+      }), "Clave por defecto: ", /*#__PURE__*/React.createElement("span", {
+        className: "font-mono"
+      }, "1234"))))), /*#__PURE__*/React.createElement("div", {
         className: "flex items-center gap-2 shrink-0 self-end md:self-center"
       }, /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          return setEditUser({
+            idx: originalIdx,
+            name: u.name || '',
+            email: u.email || '',
+            role: u.role || 'Comercial'
+          });
+        },
+        className: "px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-emerald-50 hover:text-[#2d5a43] border border-slate-200 hover:border-emerald-200 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer",
+        title: "Editar datos de ".concat(u.name)
+      }, /*#__PURE__*/React.createElement(LucideIcon, {
+        name: "edit-3",
+        className: "w-3.5 h-3.5 text-[#2d5a43]"
+      }), /*#__PURE__*/React.createElement("span", null, "Editar")), /*#__PURE__*/React.createElement("button", {
         type: "button",
         onClick: function onClick() {
           return setResetPassUser({
@@ -1178,12 +1312,12 @@ var App = function App() {
     var inactiveCommercials = allCommercials.filter(function (c) {
       return !c.isActive;
     });
-    var renderComm = function renderComm(_ref8) {
-      var comm = _ref8.comm,
-        idx = _ref8.originalIdx,
-        name = _ref8.name,
-        isActive = _ref8.isActive,
-        isObject = _ref8.isObject;
+    var renderComm = function renderComm(_ref9) {
+      var comm = _ref9.comm,
+        idx = _ref9.originalIdx,
+        name = _ref9.name,
+        isActive = _ref9.isActive,
+        isObject = _ref9.isObject;
       return /*#__PURE__*/React.createElement("div", {
         key: idx,
         className: "border p-3 rounded-xl flex items-center justify-between gap-4 transition-all group ".concat(isActive ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-50 border-slate-200 opacity-75')
@@ -2054,7 +2188,92 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "check",
     className: "w-3.5 h-3.5"
-  }), "Guardar Nueva Clave"))))));
+  }), "Guardar Nueva Clave"))))), editUser && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-gradient-to-r from-[#2d5a43] to-[#1e3a2c] p-6 text-white flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-10 h-10 rounded-2xl bg-white/20 text-white flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "edit-3",
+    className: "w-5 h-5"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "font-bold text-base text-white tracking-tight"
+  }, "Editar Usuario"), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-emerald-100"
+  }, "Modifica el nombre, correo o rol de acceso"))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setEditUser(null);
+    },
+    className: "text-white/80 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "x",
+    className: "w-5 h-5"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-6 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
+  }, "Nombre Completo"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: editUser.name,
+    onChange: function onChange(e) {
+      return setEditUser(_objectSpread(_objectSpread({}, editUser), {}, {
+        name: e.target.value
+      }));
+    },
+    placeholder: "Ej. Diana",
+    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
+  }, "Correo Electr\xF3nico (Usuario)"), /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    value: editUser.email,
+    onChange: function onChange(e) {
+      return setEditUser(_objectSpread(_objectSpread({}, editUser), {}, {
+        email: e.target.value
+      }));
+    },
+    placeholder: "usuario@hotelguadiana.es",
+    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1"
+  }, "Rol de Acceso"), /*#__PURE__*/React.createElement("select", {
+    value: editUser.role,
+    onChange: function onChange(e) {
+      return setEditUser(_objectSpread(_objectSpread({}, editUser), {}, {
+        role: e.target.value
+      }));
+    },
+    className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-[#2d5a43] focus:bg-white transition-all"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "Comercial"
+  }, "Comercial"), /*#__PURE__*/React.createElement("option", {
+    value: "Direcci\xF3n"
+  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("option", {
+    value: "Administrador"
+  }, "Administrador"), /*#__PURE__*/React.createElement("option", {
+    value: "Recepci\xF3n"
+  }, "Recepci\xF3n"))), /*#__PURE__*/React.createElement("div", {
+    className: "pt-2 flex items-center justify-end gap-2.5"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setEditUser(null);
+    },
+    className: "px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleEditUser,
+    className: "bg-[#2d5a43] hover:bg-[#1e3a2c] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "check",
+    className: "w-3.5 h-3.5"
+  }), "Guardar Cambios"))))));
 };
 var root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(/*#__PURE__*/React.createElement(App, null));

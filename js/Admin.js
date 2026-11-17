@@ -1078,11 +1078,11 @@ var Dashboard = function Dashboard(_ref2) {
     desc: "Administración"
   }, {
     label: "👤 Diana",
-    email: "dianahotelguadiana@gmail.com",
+    email: "jrecepcion@hotelguadiana.es",
     desc: "Comercial"
   }, {
     label: "👥 Todo el Equipo",
-    email: "comunicaciones@hotelguadiana.es, ssanchez@hotelguadiana.es, dianahotelguadiana@gmail.com",
+    email: "comunicaciones@hotelguadiana.es, ssanchez@hotelguadiana.es, jrecepcion@hotelguadiana.es",
     desc: "Equipo Completo"
   }];
   var getStaffEmail = function getStaffEmail(name) {
@@ -1090,7 +1090,7 @@ var Dashboard = function Dashboard(_ref2) {
     if (n.includes("sergio")) return "ssanchez@hotelguadiana.es";
     if (n.includes("natalio")) return "comunicaciones@hotelguadiana.es";
     if (n.includes("oscar")) return "osanchez@hotelguadiana.es";
-    if (n.includes("diana")) return "dianahotelguadiana@gmail.com";
+    if (n.includes("diana")) return "jrecepcion@hotelguadiana.es";
     return "";
   };
   var availableCommercials = commercialList;
@@ -3332,7 +3332,7 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.75 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.76 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref6) {
   var data = _ref6.data,
