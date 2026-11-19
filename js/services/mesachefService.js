@@ -808,9 +808,13 @@
         var rServ = clean(r.serv).toLowerCase();
         return rowDate(r) === doc.fecha && (rServ.includes(meal) || rServ.includes(mealLabel.toLowerCase()) || (meal === 'coffee_break' && rServ.includes('coffee')));
       });
+      var currentDocHour = extractRegisteredHour(doc.detalles && doc.detalles.hora);
       var hour = row && clean(row.hora);
       var registeredHour = extractRegisteredHour(hour);
-      if (registeredHour) {
+      if (currentDocHour) {
+        doc.detalles.hora = currentDocHour;
+        doc.servicios.forEach(function (svc) { svc.hora = currentDocHour; });
+      } else if (registeredHour) {
         doc.detalles.hora = registeredHour;
         doc.servicios.forEach(function (svc) { svc.hora = registeredHour; });
       } else if (row) {
@@ -859,23 +863,31 @@
       if (!template) return [];
       var allowance = automatic.reduce(function (sum, doc) { return sum + doc.detalles.pax_adultos; }, 0);
       var seenSlugs = {};
+      var seenDocIds = {};
       return applyServiceOrderDetails(schedule.filter(function (row) { return isEligibleDate(row.fecha); }).map(function (row) {
         var doc = JSON.parse(JSON.stringify(template));
         var included = Math.min(allowance, row.pax);
         allowance -= included;
         var scheduleHour = (row.hora && row.hora !== "---") ? row.hora : (extractRegisteredHour(row.hora || row.hour) || "---");
         
-        var baseSlug = (row.id ? String(row.id) : (row.jornada + (row.nombre ? ("_" + String(row.nombre).toLowerCase().replace(/[^a-z0-9]+/g, "_")) : ""))).toLowerCase().replace(/[^a-z0-9_]+/g, "_");
-        var slug = baseSlug;
-        var slugKey = row.fecha + "_" + slug;
-        if (seenSlugs[slugKey]) {
-          seenSlugs[slugKey]++;
-          slug = baseSlug + "_" + seenSlugs[slugKey];
+        var rawRowId = row.id ? String(row.id).trim() : "";
+        if (rawRowId && !seenDocIds[rawRowId]) {
+          doc.id = rawRowId;
+          seenDocIds[rawRowId] = true;
         } else {
-          seenSlugs[slugKey] = 1;
-        }
+          var baseSlug = (rawRowId ? rawRowId : (row.jornada + (row.nombre ? ("_" + String(row.nombre).toLowerCase().replace(/[^a-z0-9]+/g, "_")) : ""))).toLowerCase().replace(/[^a-z0-9_]+/g, "_");
+          var slug = baseSlug;
+          var slugKey = row.fecha + "_" + slug;
+          if (seenSlugs[slugKey]) {
+            seenSlugs[slugKey]++;
+            slug = baseSlug + "_" + seenSlugs[slugKey];
+          } else {
+            seenSlugs[slugKey] = 1;
+          }
 
-        doc.id = "nexus_" + reservaId + "_" + row.fecha + "_" + slug;
+          doc.id = "nexus_" + reservaId + "_" + row.fecha + "_" + slug;
+          seenDocIds[doc.id] = true;
+        }
         doc.fecha = row.fecha;
         if (row.salon) { doc.salon = row.salon; doc.nexusSalonRequest = row.salon; }
         doc.detalles.jornada = row.jornada;
@@ -2262,8 +2274,10 @@
         if (rawJornada === "coffee" || rawJornada === "coffeebreak" || rawJornada === "pausa_cafe") rawJornada = "coffee_break";
         if (rawJornada === "cocktail") rawJornada = "coctel";
         var effectiveJornada = rawJornada;
-        var rawHora = d.horaOverride || (d.detalles && d.detalles.hora) || (d.servicios && d.servicios[0] && d.servicios[0].hora) || "---";
-        var effectiveHora = extractRegisteredHour(rawHora) || "---";
+        var effectiveHora = extractRegisteredHour(d.horaOverride)
+          || extractRegisteredHour(d.detalles && d.detalles.hora)
+          || extractRegisteredHour(d.servicios && d.servicios[0] && d.servicios[0].hora)
+          || "---";
         var rawPax = (d.paxOverride != null && d.paxOverride !== "")
           ? d.paxOverride
           : ((d.detalles && d.detalles.pax_adultos != null && d.detalles.pax_adultos !== "")

@@ -1142,11 +1142,13 @@
       const service = window.MesaChefService;
       const [locations, setLocations] = React.useState({});
       const [locationError, setLocationError] = React.useState("");
-      const refreshLocations = async () => {
+      const dirtyRef = React.useRef(false);
+      const refreshLocations = async (forceReplace = false) => {
         try {
           setLocationError("");
           const locs = await service.getServiceLocations(group.id);
           setLocations(locs);
+          if (!forceReplace && dirtyRef.current) return;
           const targetHotel = record.Hotel_Asignado || group.hotel || "";
           const catSalons = await service.getAvailableSalons(targetHotel).catch(() => []);
           const defSalon = String(targetHotel).toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA;
@@ -1154,6 +1156,7 @@
           // Recoger servicios reales desde MesaChef si existen (fecha, turno, horario, salón y personas)
           if (service?.getActualMesaChefServices) {
             const mesaServices = await service.getActualMesaChefServices(group.id).catch(() => []);
+            if (!forceReplace && dirtyRef.current) return;
             if (Array.isArray(mesaServices) && mesaServices.length > 0) {
               setRows(sortMealRows(mesaServices.map(r => {
                 const mesaSalon = (locs[r.id] && locs[r.id] !== "Varios salones") ? locs[r.id] : r.salon;
@@ -1169,6 +1172,7 @@
                 if (r.nombre) rowOut.nombre = r.nombre;
                 return rowOut;
               })));
+              if (forceReplace) dirtyRef.current = false;
               return;
             }
           }
@@ -1261,8 +1265,9 @@
           } else {
             setRows(sortMealRows(defaults));
           }
+          dirtyRef.current = false;
           setError(""); setOpen(true);
-          refreshLocations();
+          refreshLocations(false);
 
         } catch (e) { setError(e.message); }
       };
@@ -1276,7 +1281,10 @@
         } catch (e) {}
       }, [group.totalPax, record.RoomingList_JSON, record.DailyDistribution_JSON]);
 
-      const change = (index, field, value) => setRows(prev=>prev.map((r,i)=>i===index?{...r,[field]:value}:r));
+      const change = (index, field, value) => {
+        dirtyRef.current = true;
+        setRows(prev=>prev.map((r,i)=>i===index?{...r,[field]:value}:r));
+      };
       const planned = rows.reduce((sum,r)=>sum+(Number(r.pax)||0),0);
       const save = async (automaticMode = false) => {
         setError(""); setSaving(true);
@@ -1411,7 +1419,7 @@
           <p className="text-xs text-slate-500">Los cambios realizados en MesaChef (fecha, horario, salón y personas) se recogen aquí; los cambios guardados aquí se pasan a MesaChef. El programa nunca recalcula servicios de forma automática.</p>
 
           {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
-          <button type="button" disabled={saving} onClick={() => { refreshLocations(); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones y servicios de MesaChef</button>
+          <button type="button" disabled={saving} onClick={() => { refreshLocations(true); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones y servicios de MesaChef</button>
           <div className="flex flex-wrap gap-3 items-center pt-1">
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows([...prev,{fecha:toInputDate(record.Entrada),jornada:"almuerzo",pax:"",hora:"---",salon:(String(record.Hotel_Asignado || "").toLowerCase().includes("cumbria") ? service.SALON_CUMBRIA : service.SALON_GUADIANA)}]))} className="text-blue-700 hover:text-blue-900 text-xs font-bold cursor-pointer">+ Añadir comida / servicio</button>
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(syncAllRowsPax(prev)))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Usar la cantidad del servicio del desglose en su fecha, sin sustituirla por la ocupación del grupo">🔄 Tomar personas de cada servicio</button>

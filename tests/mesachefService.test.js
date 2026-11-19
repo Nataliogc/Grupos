@@ -561,3 +561,95 @@ test('preserveExistingSchedule nunca recalcula servicios, fechas, salas, horas n
     delete global.window;
   }
 });
+
+test('guardar horas en programacion conserva las horas aunque exista ServiceOrder_JSON sin hora o con hora antigua', async () => {
+  const data = new Map();
+  const ref = (collection, id) => ({ key: collection + '/' + id });
+  global.window = {
+    db: {
+      collection: collection => ({
+        doc: id => ref(collection, id),
+        where: (field, op, value) => ({
+          get: async () => {
+            const docs = [...data]
+              .filter(([k, v]) => k.startsWith(collection + '/') && v[field] === value)
+              .map(([k, v]) => ({ id: k.split('/')[1], ref: { key: k }, data: () => v }));
+            return { forEach: fn => docs.forEach(fn) };
+          }
+        })
+      }),
+      batch: () => {
+        const writes = [];
+        return {
+          set: (r, v) => writes.push([r, v]),
+          update: (r, v) => writes.push([r, v]),
+          commit: async () => {
+            writes.forEach(([r, v]) => data.set(r.key, { ...data.get(r.key), ...v }));
+          }
+        };
+      }
+    }
+  };
+  try {
+    const baseGroup = {
+      ...group,
+      Reserva: '887766',
+      Entrada: '2026-11-27',
+      Salida: '2026-11-28',
+      'Régimen': 'MP',
+      RoomingList_JSON: JSON.stringify([room('2026-11-27', 35, 2, 'MP')]),
+      ServiceOrder_JSON: JSON.stringify({
+        savedAt: 'rev-sin-horas',
+        grupo: 'Grupo Horas',
+        notasText: 'Notas',
+        planRows: [
+          { fecha: '2026-11-27', dia: 'Vie 27/11', serv: 'Cena', pax: '67', menu: 'Menú Cena', hora: '___:___ h' },
+          { fecha: '2026-11-28', dia: 'Sáb 28/11', serv: 'Desayuno', pax: '70', menu: 'Buffet', hora: '07:30' }
+        ],
+        incidenciaRows: []
+      })
+    };
+
+    // 1. Guardado inicial sin horas
+    await service.syncGroupToMesachef({
+      ...baseGroup,
+      MealSchedule_JSON: JSON.stringify([
+        { fecha: '2026-11-27', jornada: 'cena', pax: 67, hora: '---', salon: 'Eventos Restaurante' },
+        { fecha: '2026-11-28', jornada: 'desayuno', pax: 70, hora: '---', salon: 'Eventos Restaurante' }
+      ])
+    }, { explicitScheduleSave: true });
+
+    // 2. El usuario recoge los servicios actuales (incluyendo sus doc IDs reales) y pone las horas
+    const pulledBefore = await service.getActualMesaChefServices('887766');
+    assert.equal(pulledBefore.length, 2);
+
+    const editedSchedule = pulledBefore.map(r => ({
+      ...r,
+      hora: r.jornada === 'cena' ? '21:00' : '08:30'
+    }));
+
+    const saveRes = await service.syncGroupToMesachef({
+      ...baseGroup,
+      MealSchedule_JSON: JSON.stringify(editedSchedule)
+    }, { explicitScheduleSave: true });
+    assert.equal(saveRes.success, true);
+
+    // 3. Al volver a entrar y consultar MesaChef, las horas guardadas permanecen intactas y los IDs no se duplican
+    const pulledAfter = await service.getActualMesaChefServices('887766');
+    assert.equal(pulledAfter.length, 2);
+    const cena = pulledAfter.find(s => s.jornada === 'cena');
+    const desayuno = pulledAfter.find(s => s.jornada === 'desayuno');
+    assert.equal(cena.hora, '21:00');
+    assert.equal(desayuno.hora, '08:30');
+    assert.equal(cena.id, 'nexus_887766_2026-11-27_cena');
+    assert.equal(desayuno.id, 'nexus_887766_2026-11-28_desayuno');
+
+    // 4. Si en MesaChef quedara horaOverride: '---', getActualMesaChefServices sigue leyendo detalles.hora
+    const cenaKey = 'reservas_salones/' + cena.id;
+    data.set(cenaKey, { ...data.get(cenaKey), horaOverride: '---' });
+    const pulledWithPlaceholderOverride = await service.getActualMesaChefServices('887766');
+    assert.equal(pulledWithPlaceholderOverride.find(s => s.jornada === 'cena').hora, '21:00');
+  } finally {
+    delete global.window;
+  }
+});
