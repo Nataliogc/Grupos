@@ -442,3 +442,122 @@ test('adaptMealScheduleToRecord adapta la programación existente al cambiar el 
   assert.ok(adapted.every(r => r.salon === 'Eventos Restaurante'));
   assert.equal(adapted.reduce((sum, r) => sum + r.pax, 0), 264);
 });
+
+test('preserveExistingSchedule nunca recalcula servicios, fechas, salas, horas ni pax existentes en MesaChef', async () => {
+  const data = new Map();
+  const ref = (collection, id) => ({ key: collection + '/' + id });
+  global.window = {
+    db: {
+      collection: collection => ({
+        doc: id => ref(collection, id),
+        where: (field, op, value) => ({
+          get: async () => {
+            const docs = [...data]
+              .filter(([k, v]) => k.startsWith(collection + '/') && v[field] === value)
+              .map(([k, v]) => ({ id: k.split('/')[1], ref: { key: k }, data: () => v }));
+            return { forEach: fn => docs.forEach(fn) };
+          }
+        })
+      }),
+      batch: () => {
+        const writes = [];
+        return {
+          set: (r, v) => writes.push([r, v]),
+          update: (r, v) => writes.push([r, v]),
+          commit: async () => {
+            writes.forEach(([r, v]) => data.set(r.key, { ...data.get(r.key), ...v }));
+          }
+        };
+      }
+    }
+  };
+  try {
+    // Escenario real del usuario: estancia 20-22/11 PC, pero el almuerzo del 21 se movió al 22
+    const pcGroup = {
+      Reserva: '998877',
+      Entrada: '2026-11-20',
+      Salida: '2026-11-22',
+      Hotel_Asignado: 'CUMBRIA SPA&HOTEL',
+      'Nombre del Grupo': 'Grupo Congreso',
+      'Régimen': 'PC',
+      Com_Estado_Interno: 'TENTATIVA',
+      RoomingList_JSON: JSON.stringify([
+        room('2026-11-20', 32, 2, 'PC'),
+        room('2026-11-21', 32, 2, 'PC')
+      ]),
+      MealSchedule_JSON: JSON.stringify([
+        { fecha: '2026-11-20', jornada: 'almuerzo', pax: 60, hora: '14:00', salon: 'Eventos Restaurante' },
+        { fecha: '2026-11-20', jornada: 'cena', pax: 64, hora: '21:00', salon: 'Eventos Restaurante' },
+        { fecha: '2026-11-21', jornada: 'cena', pax: 64, hora: '21:00', salon: 'Eventos Restaurante' },
+        { fecha: '2026-11-22', jornada: 'almuerzo', pax: 60, hora: '14:30', salon: 'Salón Especial' }
+      ])
+    };
+
+    // 1. Primera sincronización (sin documentos previos en MesaChef): crea los 4 servicios
+    const initRes = await service.syncGroupToMesachef(pcGroup, { preserveExistingSchedule: true });
+    assert.equal(initRes.success, true);
+    assert.equal(data.has('reservas_salones/nexus_998877_2026-11-21_almuerzo'), false);
+    assert.equal(data.has('reservas_salones/nexus_998877_2026-11-22_almuerzo'), true);
+
+    // 2. Usuario de MesaChef modifica hora, salón y pax del almuerzo del 22
+    const lunch22Key = 'reservas_salones/nexus_998877_2026-11-22_almuerzo';
+    data.set(lunch22Key, {
+      ...data.get(lunch22Key),
+      horaOverride: '15:15',
+      salonOverride: 'Restaurante',
+      salon: 'Restaurante',
+      detalles: { ...data.get(lunch22Key).detalles, pax_adultos: 58, hora: '15:15' }
+    });
+
+    // 3. En Grupos cambia el estado a CONFIRMADO y cambian ocupación/pax sin guardar programación explícita (incluso con MealSchedule_JSON null)
+    const bgRes = await service.syncGroupToMesachef({
+      ...pcGroup,
+      MealSchedule_JSON: null,
+      Com_Estado_Interno: 'CONFIRMADO',
+      RoomingList_JSON: JSON.stringify([
+        room('2026-11-20', 35, 2, 'PC'),
+        room('2026-11-21', 35, 2, 'PC')
+      ])
+    }, { preserveExistingSchedule: true });
+    assert.equal(bgRes.success, true);
+    assert.equal(bgRes.preservedSchedule, true);
+
+    // El almuerzo del 21 NO se ha regenerado, el del 22 conserva fecha, hora, salón y pax de MesaChef, y el estado sí pasó a confirmada
+    assert.equal(data.has('reservas_salones/nexus_998877_2026-11-21_almuerzo'), false);
+    assert.equal(data.get(lunch22Key).estado, 'confirmada');
+    assert.equal(data.get(lunch22Key).fecha, '2026-11-22');
+    assert.equal(data.get(lunch22Key).detalles.pax_adultos, 58);
+    assert.equal(data.get(lunch22Key).horaOverride, '15:15');
+    assert.equal(data.get(lunch22Key).salonOverride, 'Restaurante');
+
+    // 4. getActualMesaChefServices recoge todos los cambios de MesaChef (horario, salón, personas) sin ensuciar nombre
+    const pulled = await service.getActualMesaChefServices('998877');
+    assert.equal(pulled.length, 4);
+    const pulled22 = pulled.find(s => s.fecha === '2026-11-22' && s.jornada === 'almuerzo');
+    assert.ok(pulled22);
+    assert.equal(pulled22.pax, 58);
+    assert.equal(pulled22.hora, '15:15');
+    assert.equal(pulled22.salon, 'Restaurante');
+    assert.equal(pulled22.nombre, undefined);
+
+    // 5. Guardado explícito desde Grupos (explicitScheduleSave: true) sí pasa los cambios del usuario a MesaChef
+    const explicitSchedule = pulled.map(r =>
+      (r.fecha === '2026-11-22' && r.jornada === 'almuerzo')
+        ? { ...r, pax: 62, hora: '13:45', salon: 'Eventos Restaurante' }
+        : r
+    );
+    const explicitRes = await service.syncGroupToMesachef({
+      ...pcGroup,
+      Com_Estado_Interno: 'CONFIRMADO',
+      MealSchedule_JSON: JSON.stringify(explicitSchedule)
+    }, { explicitScheduleSave: true });
+    assert.equal(explicitRes.success, true);
+    assert.equal(data.get(lunch22Key).detalles.pax_adultos, 62);
+    assert.equal(data.get(lunch22Key).detalles.hora, '13:45');
+    assert.equal(data.get(lunch22Key).horaOverride, null);
+    assert.equal(data.get(lunch22Key).salon, 'Eventos Restaurante');
+    assert.equal(data.get(lunch22Key).salonOverride, 'Eventos Restaurante');
+  } finally {
+    delete global.window;
+  }
+});

@@ -274,7 +274,7 @@
                 if (group.records) group.records = group.records.map(r=>({...r,ServiceOrder_JSON:payload}));
                 else Object.assign(group, updated);
                 try { window.NexusSelectedGroupStorage.setItem('selectedGroup', JSON.stringify(group)); } catch (storageErr) { console.warn('No se pudo actualizar selectedGroup en almacenamiento:', storageErr); }
-                const result = await window.MesaChefService.syncGroupToMesachef({...updated,Reserva:currentReservaId});
+                const result = await window.MesaChefService.syncGroupToMesachef({...updated,Reserva:currentReservaId}, { preserveExistingSchedule: true });
                 if (!result?.success) throw new Error("La orden se ha guardado, pero MesaChef no pudo sincronizarla. Vuelve a guardar para reintentarlo.");
                 hasUserEditedView = false;
                 alert(result.hasUnlinked ? "Orden guardada y sincronizada. Los servicios desvinculados en MesaChef se han respetado." : "Orden guardada y enviada a MesaChef con menús, horas, incidencias y notas.");

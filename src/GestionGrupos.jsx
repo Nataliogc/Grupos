@@ -1151,16 +1151,14 @@
           const catSalons = await service.getAvailableSalons(targetHotel).catch(() => []);
           const defSalon = String(targetHotel).toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA;
 
-          // Sincronizar servicios reales desde MesaChef si existen (incluyendo cambios de fecha como el día 15)
+          // Recoger servicios reales desde MesaChef si existen (fecha, turno, horario, salón y personas)
           if (service?.getActualMesaChefServices) {
             const mesaServices = await service.getActualMesaChefServices(group.id).catch(() => []);
             if (Array.isArray(mesaServices) && mesaServices.length > 0) {
               setRows(sortMealRows(mesaServices.map(r => {
-                const mesaSalon = locs[r.id] || r.salon;
-                const salonFinal = (mesaSalon && (catSalons.length === 0 || catSalons.includes(mesaSalon)))
-                  ? mesaSalon
-                  : (r.salon || defSalon);
-                return {
+                const mesaSalon = (locs[r.id] && locs[r.id] !== "Varios salones") ? locs[r.id] : r.salon;
+                const salonFinal = String(mesaSalon || defSalon || "").trim();
+                const rowOut = {
                   id: r.id,
                   fecha: r.fecha,
                   jornada: r.jornada,
@@ -1168,6 +1166,8 @@
                   pax: r.pax || 0,
                   salon: salonFinal
                 };
+                if (r.nombre) rowOut.nombre = r.nombre;
+                return rowOut;
               })));
               return;
             }
@@ -1177,13 +1177,9 @@
             const docKey = "nexus_" + service.normalizeReservaId(group.id) + "_" + r.fecha + "_" + r.jornada;
             const mesaSalon = locs[r.id] || locs[docKey];
             if (mesaSalon && mesaSalon !== "Varios salones") {
-              if (catSalons.length === 0 || catSalons.includes(mesaSalon)) {
-                return { ...r, salon: mesaSalon };
-              } else {
-                return { ...r, salon: defSalon };
-              }
+              return { ...r, salon: mesaSalon };
             }
-            if (r.salon && catSalons.length > 0 && !catSalons.includes(r.salon)) {
+            if (!r.salon && defSalon) {
               return { ...r, salon: defSalon };
             }
             return r;
@@ -1236,12 +1232,7 @@
 
       const syncAllRowsPax = (sourceRows) => {
         const list = sourceRows || rows;
-        let updated = list;
-        if (service?.adaptMealScheduleToRecord) {
-          updated = service.adaptMealScheduleToRecord(list, record);
-        } else {
-          updated = service.syncMealSchedulePax(list, record);
-        }
+        let updated = service.syncMealSchedulePax ? service.syncMealSchedulePax(list, record) : list;
         updated = sortMealRows(updated);
         const missing = updated.filter(r => service.getServicePaxForSchedule(record, r) === null);
         setError(missing.length ? "Hay servicios sin una cantidad inequívoca en el desglose para su fecha. Se mantienen sus personas: revisa fecha, concepto y comensales manualmente." : "");
@@ -1265,14 +1256,8 @@
           const totalInc = defaults.reduce((sum,r)=>sum+r.pax,0);
           setIncluded(totalInc);
           const savedSchedule = service.getMealSchedule(record);
-          if (savedSchedule && savedSchedule.length > 0) {
-            const savedPax = savedSchedule.reduce((sum, r) => sum + (Number(r.pax) || 0), 0);
-            if (totalInc > 0 && savedPax < totalInc && service.adaptMealScheduleToRecord) {
-              const adapted = service.adaptMealScheduleToRecord(savedSchedule, record);
-              setRows(sortMealRows(adapted));
-            } else {
-              setRows(sortMealRows(savedSchedule));
-            }
+          if (savedSchedule !== null) {
+            setRows(sortMealRows(savedSchedule));
           } else {
             setRows(sortMealRows(defaults));
           }
@@ -1403,11 +1388,16 @@
                     </td>
                     <td className="py-1.5 px-2 text-slate-600">
                       <select aria-label="Salón del servicio" disabled={saving}
-                        value={row.salon || locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || ""}
+                        value={row.salon || locations[row.id] || locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`] || ""}
                         onChange={e=>change(index,"salon",e.target.value)}
                         className="border border-slate-300 rounded px-2 py-1 text-xs w-44">
                         <option value="">Selecciona salón</option>
-                        {((availableSalons && availableSalons.length > 0) ? availableSalons : [String(record.Hotel_Asignado || "").toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA]).filter((v,i,a)=>v && a.indexOf(v)===i).map(v=><option key={v} value={v}>{v}</option>)}
+                        {[
+                          ...((availableSalons && availableSalons.length > 0) ? availableSalons : [String(record.Hotel_Asignado || "").toLowerCase().includes("cumb") ? service.SALON_CUMBRIA : service.SALON_GUADIANA]),
+                          row.salon,
+                          locations[row.id],
+                          locations[`nexus_${service.normalizeReservaId(group.id)}_${row.fecha}_${row.jornada}`]
+                        ].filter((v,i,a)=>v && v !== "Varios salones" && a.indexOf(v)===i).map(v=><option key={v} value={v}>{v}</option>)}
                       </select>
                     </td>
                     <td className="py-1.5 pl-2 text-right">
@@ -1418,7 +1408,7 @@
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-slate-500">El salón inicial se asigna según el hotel. Los cambios de salón realizados en MesaChef se conservan al sincronizar.</p>
+          <p className="text-xs text-slate-500">Los cambios realizados en MesaChef (fecha, horario, salón y personas) se recogen aquí; los cambios guardados aquí se pasan a MesaChef. El programa nunca recalcula servicios de forma automática.</p>
 
           {locationError && <p role="alert" className="text-xs text-rose-700">{locationError}</p>}
           <button type="button" disabled={saving} onClick={() => { refreshLocations(); service.getAvailableSalons(record.Hotel_Asignado || group.hotel).then(setAvailableSalons).catch(() => setLocationError("No se pudo cargar el catálogo de salones del hotel.")); }} className="text-xs text-blue-700 font-bold">Consultar salones y servicios de MesaChef</button>
@@ -1441,7 +1431,6 @@
             </button>
             <button type="button" disabled={saving} onClick={()=>setRows(prev=>sortMealRows(prev))} className="text-xs text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer" title="Ordenar cronológicamente por fecha y turno">📅 Ordenar por fecha</button>
             <button type="button" disabled={saving} onClick={()=>save()} className="bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2 text-xs font-bold transition cursor-pointer">{saving?"Guardando…":"Guardar programación"}</button>
-            <button type="button" disabled={saving} onClick={()=>save(true)} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Usar programación automática</button>
             <button type="button" disabled={saving} onClick={()=>{setOpen(false);setError("");}} className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">Cancelar</button>
           </div>
         </>}
@@ -11230,7 +11219,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 [column]: value,
                 reserva: normResID,
                 id: normResID
-              });
+              }, { preserveExistingSchedule: true });
             }
           })
           .catch((err) => {
@@ -11620,32 +11609,27 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         if (showFichaModal && selectedGroupFicha && selectedGroupFicha.id && window.MesaChefService) {
           const service = window.MesaChefService;
 
-          // Si MesaChef tiene servicios activos con fechas modificadas (ej. servicio del día 15), reflejarlos en Grupos
+          // Recoger cambios reales desde MesaChef (fecha, turno, horario, salón y personas) sin empujar cambios automáticos de vuelta
           if (typeof service.getActualMesaChefServices === "function") {
             service.getActualMesaChefServices(selectedGroupFicha.id).then((mesaServices) => {
               if (Array.isArray(mesaServices) && mesaServices.length > 0) {
                 const rec0 = selectedGroupFicha.records?.[0];
-                const currentSchedule = service.getMealSchedule(rec0 || selectedGroupFicha);
-                const currentDates = (currentSchedule || []).map(r => `${r.fecha}_${r.jornada}_${r.pax}`).sort().join("|");
-                const mesaDates = mesaServices.map(r => `${r.fecha}_${r.jornada}_${r.pax}`).sort().join("|");
-                if (currentDates !== mesaDates) {
+                let currentSchedule = null;
+                try { currentSchedule = service.getMealSchedule(rec0 || selectedGroupFicha); } catch (e) {}
+                const scheduleSignature = (list) => (list || [])
+                  .map(r => `${r.fecha || ""}_${r.jornada || ""}_${(r.hora && r.hora !== "---") ? r.hora : "---"}_${Number(r.pax) || 0}_${String(r.salon || "").trim()}_${String(r.nombre || "").trim()}`)
+                  .sort()
+                  .join("|");
+                if (scheduleSignature(currentSchedule) !== scheduleSignature(mesaServices)) {
                   const newScheduleStr = JSON.stringify(mesaServices);
                   if (rec0) rec0.MealSchedule_JSON = newScheduleStr;
                   if (selectedGroupFicha) selectedGroupFicha.MealSchedule_JSON = newScheduleStr;
-                  updateGroupMetadata(selectedGroupFicha.id, { MealSchedule_JSON: newScheduleStr }).catch(() => {});
+                  updateGroupMetadata(selectedGroupFicha.id, { MealSchedule_JSON: newScheduleStr }, null, null, { skipMesaChefSync: true }).catch(() => {});
                 }
               }
             }).catch(() => {});
           }
 
-          if (typeof service.syncGroupToMesachef === "function" && selectedGroupFicha.records?.[0]) {
-            const rec0 = selectedGroupFicha.records[0];
-            service.syncGroupToMesachef({
-              ...rec0,
-              id: selectedGroupFicha.id,
-              reserva: selectedGroupFicha.id
-            }).catch(() => {});
-          }
           if (typeof window.MesaChefService.checkUnlinkedServices === "function") {
             window.MesaChefService.checkUnlinkedServices(selectedGroupFicha.id).then((res) => {
               if (res && res.hasUnlinked) {
@@ -13075,7 +13059,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                 "Nombre del Grupo": targetName,
                 Com_Estado_Interno: "CONFIRMADO",
                 Estado: "Confirmado"
-              });
+              }, { preserveExistingSchedule: true });
             } catch (syncErr) {
               console.warn("MesaChef sync after merge warning:", syncErr);
             }
@@ -13332,6 +13316,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         fieldOrUpdates,
         valueIfSingle = null,
         hotelFilterArg = null,
+        options = {},
       ) => {
         let updates =
           typeof fieldOrUpdates === "object"
@@ -13390,7 +13375,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                     id: normTargetId,
                     reserva: normTargetId
                   };
-                  const syncResult = await window.MesaChefService.syncGroupToMesachef(mergedForSync);
+                  const syncResult = await window.MesaChefService.syncGroupToMesachef(mergedForSync, { preserveExistingSchedule: true });
                   if (syncResult && syncResult.success === false) {
                     alert("Estado actualizado en Grupos, pero no se ha podido sincronizar con Mesa. Pulsa Grabar cambios para reintentarlo.");
                     return;
@@ -13589,15 +13574,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
         const regimeChanged = (updates["Régimen"] !== undefined && updates["Régimen"] !== previousRecord["Régimen"]) ||
           (updates.RoomingList_JSON !== undefined && regimeSignature(updates.RoomingList_JSON) !== regimeSignature(previousRecord.RoomingList_JSON));
         if ((datesChanged || regimeChanged) && previousRecord.MealSchedule_JSON && updates.MealSchedule_JSON === undefined) {
-          if (window.MesaChefService?.adaptMealScheduleToRecord) {
-            try {
-              const tempUpdatedRecord = { ...previousRecord, ...updates };
-              const adapted = window.MesaChefService.adaptMealScheduleToRecord(previousRecord.MealSchedule_JSON, tempUpdatedRecord);
-              if (adapted && Array.isArray(adapted) && adapted.length > 0) {
-                updates.MealSchedule_JSON = JSON.stringify(adapted);
-              }
-            } catch (e) {}
-          }
           updates.MealScheduleNeedsReview = true;
           if (datesChanged) {
             alert("Has cambiado las fechas del grupo o del desglose. Revisa las fechas, personas y salones en Comidas y servicios del grupo y guarda la programación para actualizar MesaChef.");
@@ -13832,6 +13808,10 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
           if (hasRealChanges) await batch.commit();
 
+          if (options && options.skipMesaChefSync) {
+            return { success: true, saved: true };
+          }
+
           if (window.MesaChefService && typeof window.MesaChefService.syncGroupToMesachef === "function") {
             const sampleRow = currentGroupRows[0] || {};
             const mergedForSync = {
@@ -13840,20 +13820,20 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
               id: targetNormId,
               reserva: targetNormId
             };
-            if (updates.MealSchedule_JSON !== undefined) {
+            if (options && options.explicitMealScheduleSave) {
               try {
-                const result = await window.MesaChefService.syncGroupToMesachef(mergedForSync);
+                const result = await window.MesaChefService.syncGroupToMesachef(mergedForSync, { explicitScheduleSave: true });
                 return { success: result?.success === true, saved: true };
               } catch (syncErr) {
                 return { success: false, saved: true };
               }
             }
-            window.MesaChefService.syncGroupToMesachef(mergedForSync).catch((syncErr) => {
+            window.MesaChefService.syncGroupToMesachef(mergedForSync, { preserveExistingSchedule: true }).catch((syncErr) => {
               console.warn("[MesaChef Background Sync Warning]:", syncErr);
             });
           }
 
-          return { success: updates.MealSchedule_JSON === undefined, saved: true };
+          return { success: !(options && options.explicitMealScheduleSave), saved: true };
         } catch (err) {
           console.error("❌ Error updating metadata:", err);
           if (window.Swal) {
@@ -21423,7 +21403,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                                                   ...cleanedRow,
                                                   reserva: reservaID,
                                                   id: reservaID
-                                                });
+                                                }, { preserveExistingSchedule: true });
                                               }
 
                                               // Mantener el bloqueo 6s para que onSnapshot no restaure datos viejos
@@ -24202,8 +24182,8 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                                 {/* Lista de incidencias */}
                                 <div className="px-4 pb-3 bg-white">
-                            <GroupMealPlanner key={`${selectedGroupFicha.id}_${selectedGroupFicha.totalPax || ''}`} group={selectedGroupFicha} onSave={async (value) => {
-                              const result = await updateGroupMetadata(selectedGroupFicha.id, {MealSchedule_JSON:value});
+                            <GroupMealPlanner key={selectedGroupFicha.id} group={selectedGroupFicha} onSave={async (value) => {
+                              const result = await updateGroupMetadata(selectedGroupFicha.id, {MealSchedule_JSON:value}, null, null, { explicitMealScheduleSave: true });
                               if (!result?.success) throw new Error("La programación se ha guardado, pero MesaChef no ha podido sincronizarla. Vuelve a guardar para reintentarlo.");
                             }} />
                                 </div>

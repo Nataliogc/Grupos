@@ -1519,12 +1519,13 @@
    * Si el grupo se confirma o modifica fechas, actualiza los servicios activos correspondientes.
    */
   var pendingGroupSyncs = new Map();
-  function syncGroupToMesachef(groupRecord) {
+  function syncGroupToMesachef(groupRecord, options) {
     if (!groupRecord) return Promise.resolve({ skipped: true, reason: "Registro vacío" });
     var key = normalizeReservaId(groupRecord.reserva || groupRecord.Reserva || groupRecord.id || groupRecord.numReserva || groupRecord.uid);
     var previous = pendingGroupSyncs.get(key) || Promise.resolve();
     var snapshot = JSON.parse(JSON.stringify(groupRecord));
-    var next = previous.catch(function () {}).then(function () { return performGroupSync(snapshot); });
+    var opts = options ? Object.assign({}, options) : {};
+    var next = previous.catch(function () {}).then(function () { return performGroupSync(snapshot, opts); });
     pendingGroupSyncs.set(key, next);
     function clearPending() {
       if (pendingGroupSyncs.get(key) === next) pendingGroupSyncs.delete(key);
@@ -1533,7 +1534,10 @@
     return next;
   }
 
-  function performGroupSync(groupRecord) {
+  function performGroupSync(groupRecord, options) {
+    var opts = options || {};
+    var preserveExistingSchedule = opts.preserveExistingSchedule === true;
+    var explicitScheduleSave = opts.explicitScheduleSave === true;
     if (!groupRecord) {
       return Promise.resolve({ skipped: true, reason: "Registro vacío" });
     }
@@ -1679,9 +1683,132 @@
           var batch = targetDb.batch();
           var writesCount = 0;
           var existingMap = new Map();
+          var existingActiveDocs = [];
           snapshot.forEach(function (docSnap) {
-            existingMap.set(docSnap.id, docSnap.data());
+            var d = docSnap.data() || {};
+            existingMap.set(docSnap.id, d);
+            if (d.estado !== "cancelada") {
+              existingActiveDocs.push({ id: docSnap.id, ref: docSnap.ref, data: d });
+            }
           });
+
+          // Modo preservación: nunca recalcular, añadir, cancelar ni modificar servicios, fechas, salas, horas o pax existentes en MesaChef.
+          // Solo sincroniza metadatos (estado, cliente, cambio de hotel u orden de servicio).
+          if (preserveExistingSchedule && existingActiveDocs.length > 0) {
+            var targetEstado = resolveMesachefStatus(groupRecord);
+            var targetCliente = firstDoc.cliente;
+            var targetHotel = fallbackHotel.hotelId;
+            var targetDefaultSalon = fallbackHotel.salon;
+
+            existingActiveDocs.forEach(function (entry) {
+              var existing = entry.data;
+              if (existing.desvinculado === true || existing.vinculoRoto === true) {
+                return;
+              }
+              var hotelChanged = existing.hotel !== targetHotel;
+              var metaUpdate = {};
+              if (existing.estado !== targetEstado) metaUpdate.estado = targetEstado;
+              if (targetCliente && existing.cliente !== targetCliente) metaUpdate.cliente = targetCliente;
+              if (hotelChanged) {
+                metaUpdate.hotel = targetHotel;
+                metaUpdate.salon = targetDefaultSalon;
+                metaUpdate.salonOverride = null;
+                metaUpdate.salonOverrideHotel = null;
+              }
+
+              // Actualizar solo la orden de servicio (menús, notas, incidencias) si hay una nueva revisión de ServiceOrder_JSON
+              var rawOrder = groupRecord.ServiceOrder_JSON || (groupRecord.records && groupRecord.records[0] && groupRecord.records[0].ServiceOrder_JSON);
+              if (rawOrder) {
+                try {
+                  var existingClone = JSON.parse(JSON.stringify(existing));
+                  existingClone.fecha = existing.fechaOverride || existing.fecha;
+                  existingClone.salon = hotelChanged ? targetDefaultSalon : (existing.salonOverride || existing.salon || targetDefaultSalon);
+                  existingClone.detalles = Object.assign({}, existing.detalles || {}, {
+                    jornada: existing.jornadaOverride || (existing.detalles && existing.detalles.jornada) || "",
+                    hora: existing.horaOverride || (existing.detalles && existing.detalles.hora) || "---",
+                    pax_adultos: (existing.paxOverride != null && existing.paxOverride !== "") ? Number(existing.paxOverride) : Number((existing.detalles && existing.detalles.pax_adultos) || 0)
+                  });
+                  existingClone.servicios = Array.isArray(existing.servicios) && existing.servicios.length
+                    ? existing.servicios.map(function (s) { return Object.assign({}, s); })
+                    : [{ fecha: existingClone.fecha, hora: existingClone.detalles.hora, concepto: "", uds: existingClone.detalles.pax_adultos, precio: 0, total: 0 }];
+                  var withOrderDoc = applyServiceOrderDetails([existingClone], groupRecord)[0];
+                  if (withOrderDoc && withOrderDoc.ordenServicio && (hotelChanged || existing.nexusServiceOrderRevision !== withOrderDoc.nexusServiceOrderRevision)) {
+                    metaUpdate.ordenServicio = withOrderDoc.ordenServicio;
+                    metaUpdate.nexusServiceOrderRevision = withOrderDoc.nexusServiceOrderRevision;
+                  }
+                } catch (e) {}
+              }
+
+              if (Object.keys(metaUpdate).length > 0) {
+                metaUpdate.updated_at = new Date().toISOString();
+                batch.set(entry.ref, metaUpdate, { merge: true });
+                if (hotelChanged && String(existing.salonOverride || existing.salon || '').trim().toLowerCase() === 'restaurante') {
+                  batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + entry.id), { estado: 'cancelada' }, { merge: true });
+                } else if (String(existing.salonOverride || '').trim().toLowerCase() === 'restaurante') {
+                  batch.set(targetDb.collection('reservas_restaurante').doc('salon_' + entry.id), {
+                    hotel: targetHotel,
+                    referencia: reservaId,
+                    nombre: targetCliente || existing.cliente,
+                    estado: targetEstado,
+                    updatedAt: new Date().toISOString()
+                  }, { merge: true });
+                }
+                writesCount++;
+              }
+            });
+
+            var unlinkedPreserved = [];
+            snapshot.forEach(function (docSnap) {
+              var d = docSnap.data() || {};
+              if (d.desvinculado === true || d.vinculoRoto === true || d.unlinked === true || d.esDesvinculado === true) {
+                unlinkedPreserved.push({
+                  id: docSnap.id,
+                  fecha: d.fecha || "",
+                  jornada: (d.detalles && d.detalles.jornada) || "",
+                  hora: (d.detalles && d.detalles.hora) || "",
+                  pax: (d.detalles && d.detalles.pax_adultos) || 0,
+                  concepto: (d.servicios && d.servicios[0] && d.servicios[0].concepto) || d.cliente || "",
+                  estado: d.estado || "",
+                  motivoDesvinculacion: d.motivoDesvinculacion || d.motivo || ""
+                });
+              }
+            });
+
+            if (writesCount === 0) {
+              return {
+                success: true,
+                count: 0,
+                skipped: true,
+                preservedSchedule: true,
+                reason: "Programación preservada sin cambios de metadatos",
+                hasUnlinked: unlinkedPreserved.length > 0,
+                unlinkedDocs: unlinkedPreserved
+              };
+            }
+
+            var preservedMasterRef = targetDb.collection(COLLECTION_GRUPOS).doc(reservaId);
+            batch.set(preservedMasterRef, {
+              id: reservaId,
+              referencia: reservaId,
+              cliente: targetCliente,
+              hotel: targetHotel,
+              estado: targetEstado,
+              totalServicios: existingActiveDocs.length,
+              origen: "Nexus Groups",
+              updated_at: new Date().toISOString()
+            }, { merge: true });
+
+            return batch.commit().then(function () {
+              return {
+                success: true,
+                count: writesCount,
+                preservedSchedule: true,
+                hotel: targetHotel,
+                hasUnlinked: unlinkedPreserved.length > 0,
+                unlinkedDocs: unlinkedPreserved
+              };
+            });
+          }
 
           // Editing a meal description must preserve its identity and room.
           var serviceKey = function (d) { return d.fecha + "_" + ((d.detalles || {}).jornada || ""); };
@@ -1727,26 +1854,42 @@
             }
             var isDifferent = false;
             var hotelChanged = existing && existing.hotel !== docData.hotel;
-            // MesaChef owns only the location override of this dated meal service.
+            var explicitSalonChanged = false;
+            // MesaChef owns only the location override of this dated meal service, salvo guardado explícito del usuario en Grupos.
             if (existing && !hotelChanged) {
-              if (docData.nexusSalonRequest && docData.nexusSalonRequest !== existing.nexusSalonRequest) {
-                docData.salonOverride = docData.nexusSalonRequest;
-              } else { docData.salon = existing.salonOverride || existing.salon || docData.salon; }
-              // Respetar cambios de salón, fecha, jornada y hora interactivos desde MesaChef
-              var effectiveFecha = existing.fechaOverride || (!isCustomSchedule && existing.fecha && existing.fecha !== docData.fecha ? existing.fecha : null);
-              if (effectiveFecha) {
-                docData.fecha = effectiveFecha;
-                docData.fechaOverride = effectiveFecha;
-                if (docData.servicios && docData.servicios[0]) docData.servicios[0].fecha = effectiveFecha;
-              }
-              if (existing.horaOverride) {
-                docData.detalles.hora = existing.horaOverride;
-                docData.horaOverride = existing.horaOverride;
-                if (docData.servicios && docData.servicios[0]) docData.servicios[0].hora = existing.horaOverride;
-              }
-              if (existing.jornadaOverride) {
-                docData.detalles.jornada = existing.jornadaOverride;
-                docData.jornadaOverride = existing.jornadaOverride;
+              var currentExistingSalon = String(existing.salonOverride || existing.salon || "").trim();
+              if (explicitScheduleSave) {
+                if (docData.nexusSalonRequest && docData.nexusSalonRequest !== currentExistingSalon) {
+                  docData.salon = docData.nexusSalonRequest;
+                  docData.salonOverride = docData.nexusSalonRequest;
+                  explicitSalonChanged = true;
+                } else {
+                  docData.salon = currentExistingSalon || docData.salon;
+                }
+                if (existing.fechaOverride) docData.fechaOverride = null;
+                if (existing.horaOverride) docData.horaOverride = null;
+                if (existing.jornadaOverride) docData.jornadaOverride = null;
+                if (existing.paxOverride != null) docData.paxOverride = null;
+              } else {
+                if (docData.nexusSalonRequest && docData.nexusSalonRequest !== existing.nexusSalonRequest) {
+                  docData.salonOverride = docData.nexusSalonRequest;
+                } else { docData.salon = currentExistingSalon || docData.salon; }
+                // Respetar cambios de salón, fecha, jornada y hora interactivos desde MesaChef
+                var effectiveFecha = existing.fechaOverride || (!isCustomSchedule && existing.fecha && existing.fecha !== docData.fecha ? existing.fecha : null);
+                if (effectiveFecha) {
+                  docData.fecha = effectiveFecha;
+                  docData.fechaOverride = effectiveFecha;
+                  if (docData.servicios && docData.servicios[0]) docData.servicios[0].fecha = effectiveFecha;
+                }
+                if (existing.horaOverride) {
+                  docData.detalles.hora = existing.horaOverride;
+                  docData.horaOverride = existing.horaOverride;
+                  if (docData.servicios && docData.servicios[0]) docData.servicios[0].hora = existing.horaOverride;
+                }
+                if (existing.jornadaOverride) {
+                  docData.detalles.jornada = existing.jornadaOverride;
+                  docData.jornadaOverride = existing.jornadaOverride;
+                }
               }
             }
             if (docData.ordenServicio) {
@@ -1769,6 +1912,8 @@
 
               if (
                 existing.salon !== docData.salon ||
+                explicitSalonChanged ||
+                (explicitScheduleSave && (existing.fechaOverride || existing.horaOverride || existing.jornadaOverride || existing.paxOverride != null)) ||
                 (docData.nexusSalonRequest && existing.nexusSalonRequest !== docData.nexusSalonRequest) ||
                 existing.estado !== docData.estado ||
                 existing.cliente !== docData.cliente ||
@@ -1792,7 +1937,8 @@
               var ref = targetDb.collection(COLLECTION_SALONES).doc(docData.id);
               var serviceUpdate = Object.assign({}, docData);
               // Omit the field entirely: a room change can occur after this snapshot.
-              if (existing && !hotelChanged && !(docData.nexusSalonRequest && docData.nexusSalonRequest !== existing.nexusSalonRequest)) delete serviceUpdate.salon;
+              var shouldWriteSalon = !existing || hotelChanged || explicitSalonChanged || (!explicitScheduleSave && docData.nexusSalonRequest && docData.nexusSalonRequest !== existing.nexusSalonRequest);
+              if (!shouldWriteSalon) delete serviceUpdate.salon;
               if (hotelChanged) { serviceUpdate.salonOverride = null; serviceUpdate.salonOverrideHotel = null; }
               batch.set(ref, serviceUpdate, { merge: true });
               if (hotelChanged && String(existing.salonOverride || existing.salon || '').trim().toLowerCase() === 'restaurante') {
@@ -2037,7 +2183,7 @@
 
     return ensureMesachefAuth().then(function () {
       var promises = eligibleGroups.map(function (g) {
-        return syncGroupToMesachef(g);
+        return syncGroupToMesachef(g, { preserveExistingSchedule: true });
       });
 
       return Promise.all(promises).then(function (results) {
@@ -2083,6 +2229,20 @@
     });
   }
 
+  function extractCustomServiceName(jornada, concepto) {
+    if (!concepto) return "";
+    var cleaned = String(concepto).trim()
+      .replace(/\s+Grupo\s*(\(programado\)|PC|MP)?$/i, "")
+      .trim();
+    if (!cleaned) return "";
+    var norm = function (s) {
+      return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+    };
+    var defaultLabel = getMealLabel(jornada, "");
+    if (norm(cleaned) === norm(defaultLabel)) return "";
+    return cleaned;
+  }
+
   function getActualMesaChefServices(reservaId) {
     var cleanId = normalizeReservaId(reservaId);
     if (!cleanId) return Promise.resolve([]);
@@ -2096,21 +2256,36 @@
         var d = docSnap.data() || {};
         if (d.estado === "cancelada") return;
         var effectiveFecha = toIsoDate(d.fechaOverride || d.fecha);
-        var effectiveJornada = String(d.jornadaOverride || (d.detalles && d.detalles.jornada) || (d.servicios && d.servicios[0] && d.servicios[0].jornada) || "").toLowerCase().trim();
-        var effectiveHora = d.horaOverride || (d.detalles && d.detalles.hora) || (d.servicios && d.servicios[0] && d.servicios[0].hora) || "---";
-        var effectivePax = Number((d.detalles && d.detalles.pax_adultos) || (d.servicios && d.servicios[0] && d.servicios[0].uds) || 0);
-        var effectiveSalon = d.salonOverride || d.salon || "";
-        var label = (d.servicios && d.servicios[0] && d.servicios[0].concepto) || "";
+        var rawJornada = String(d.jornadaOverride || (d.detalles && d.detalles.jornada) || (d.servicios && d.servicios[0] && d.servicios[0].jornada) || "")
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+        if (rawJornada === "comida") rawJornada = "almuerzo";
+        if (rawJornada === "coffee" || rawJornada === "coffeebreak" || rawJornada === "pausa_cafe") rawJornada = "coffee_break";
+        if (rawJornada === "cocktail") rawJornada = "coctel";
+        var effectiveJornada = rawJornada;
+        var rawHora = d.horaOverride || (d.detalles && d.detalles.hora) || (d.servicios && d.servicios[0] && d.servicios[0].hora) || "---";
+        var effectiveHora = extractRegisteredHour(rawHora) || "---";
+        var rawPax = (d.paxOverride != null && d.paxOverride !== "")
+          ? d.paxOverride
+          : ((d.detalles && d.detalles.pax_adultos != null && d.detalles.pax_adultos !== "")
+            ? d.detalles.pax_adultos
+            : (d.pax != null && d.pax !== ""
+              ? d.pax
+              : (d.servicios && d.servicios[0] && d.servicios[0].uds)));
+        var effectivePax = Number(rawPax || 0);
+        var effectiveSalon = String(d.salonOverride || d.salon || "").trim();
+        var rawConcepto = (d.servicios && d.servicios[0] && d.servicios[0].concepto) || "";
+        var customNombre = extractCustomServiceName(effectiveJornada, rawConcepto);
         if (effectiveFecha && effectiveJornada) {
-          services.push({
+          var row = {
             id: docSnap.id,
             fecha: effectiveFecha,
             jornada: effectiveJornada,
             hora: effectiveHora,
             pax: effectivePax,
-            salon: effectiveSalon,
-            nombre: label
-          });
+            salon: effectiveSalon
+          };
+          if (customNombre) row.nombre = customNombre;
+          services.push(row);
         }
       });
       return sortMealRows(services);
