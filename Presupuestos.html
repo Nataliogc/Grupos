@@ -50,6 +50,7 @@
   <script src="js/utils.js?v=3-shared-stay"></script>
   <script src="js/gemini.js"></script>
   <script src="js/icons.js"></script>
+  <script src="js/services/budgetStatus.js"></script>
   <script src="js/navigation.js?v=2-shared-listener"></script>
   <script src="js/firebase-init.js?v=2-persistent-cache"></script>
   <script src="js/services/splitSeriesReservation.js?v=1.3-commercial-status"></script>
@@ -342,6 +343,23 @@
       width: 100% !important;
       max-width: 100% !important;
     }
+    .quote-tracker > div:first-child {background:white;padding:18px 22px;border-top:3px solid #365f52}
+    .quote-tracker h2 {font-size:clamp(20px,2vw,26px);line-height:1.2;letter-spacing:-.025em}
+    .quote-tabs {gap:2px;padding:3px;width:fit-content;border-radius:9px;background:#edf1f4}
+    .quote-tabs button {padding:6px 10px;border:0;border-radius:6px;font-size:12px;letter-spacing:normal;text-transform:none;color:#516275}
+    .quote-tabs button[aria-pressed=true] {background:white;color:#23543f;box-shadow:0 1px 4px #233b4b26}
+    .quote-tracker > div:first-child p,.quote-tracker td:first-child p {font-size:11px;color:#52647a;opacity:1;letter-spacing:normal;text-transform:none}
+    .quote-tracker table {min-width:1200px}
+    .quote-tracker th {background:#eef3f5;color:#4b6071;font-size:11px;letter-spacing:.03em;padding:10px}
+    .quote-tracker td {padding:11px 10px}
+    .quote-tracker tbody tr:nth-child(even) {background:#fafcfd}
+    .quote-tracker tbody tr:hover {background:#f1f6f4}
+    .quote-tracker td h4 {white-space:normal;overflow-wrap:anywhere;text-transform:none;font-weight:700}
+    .quote-tracker td:nth-child(6) span {font-size:11px;color:#4d6076;text-transform:none}
+    .quote-tracker td select {font-size:10px;max-width:100%}
+    .quote-tracker td:last-child .opacity-0 {opacity:1}
+    .quote-tracker td:nth-child(4) {font-variant-numeric:tabular-nums}
+    @media(max-width:600px){.quote-tracker > div:nth-child(2) > div {max-width:100%;flex-wrap:wrap}}
   </style>
 </head>
 

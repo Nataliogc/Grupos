@@ -370,7 +370,15 @@
 
         // Parámetros de URL (logout o acceso directo)
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('logout') === 'true') {
+        const isLocalHost = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+        if (isLocalHost) {
+            const { id, email, name, role } = AUTHORIZED_USERS.find(user => user.id === 'natalio');
+            const session = JSON.stringify({ id, email, name, role, avatar: name.charAt(0), loginTime: Date.now() });
+            localStorage.setItem('nexus_user', session);
+            sessionStorage.setItem('nexus_session', session);
+            localStorage.removeItem('nexus_explicit_logout');
+            window.location.replace(REDIRECT_URL);
+        } else if (urlParams.get('logout') === 'true') {
             try {
                 localStorage.setItem('nexus_explicit_logout', 'true');
                 localStorage.removeItem('nexus_user');

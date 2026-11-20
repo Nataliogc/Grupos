@@ -75,6 +75,7 @@ var App = function App() {
     _useState2 = _slicedToArray(_useState, 2),
     activeHotel = _useState2[0],
     setActiveHotel = _useState2[1];
+  var hotelName = activeHotel === 'guadiana' ? 'Sercotel Guadiana' : activeHotel === 'cumbria' ? 'Cumbria Spa&Hotel' : '';
   var _useState3 = useState(false),
     _useState4 = _slicedToArray(_useState3, 2),
     loading = _useState4[0],
@@ -902,133 +903,29 @@ var App = function App() {
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
-    className: "flex min-h-screen"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-xl overflow-y-auto custom-scrollbar"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col items-center mb-10 px-2 space-y-6"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: "Nexus Groups/Nexus_Groups-removebg-preview.png",
-    className: "h-16 w-auto object-contain",
-    alt: "Logo"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "h-[1px] w-full bg-slate-100"
-  })), /*#__PURE__*/React.createElement("nav", {
-    className: "flex-1 space-y-2"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return window.location.href = 'Admin.html';
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "layout-dashboard",
-    className: "w-5 h-5"
-  }), "Volver al Panel"), /*#__PURE__*/React.createElement("div", {
-    className: "pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4"
-  }, "Entidades"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('guadiana');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'guadiana' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "hotel",
-    className: "w-5 h-5"
-  }), "Sercotel Guadiana"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('cumbria');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'cumbria' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "palmtree",
-    className: "w-5 h-5"
-  }), "Cumbria Spa&Hotel"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('system');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'system' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "cpu",
-    className: "w-5 h-5"
-  }), "Sistema e IA"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('users');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'users' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "shield-check",
-    className: "w-5 h-5"
-  }), "Usuarios y Accesos"), /*#__PURE__*/React.createElement("div", {
-    className: "pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4"
-  }, "Global"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('services');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'services' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "box",
-    className: "w-5 h-5"
-  }), "Cat\xE1logo de Servicios"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('clauses');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeHotel === 'clauses' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50')
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "file-text",
-    className: "w-5 h-5"
-  }), "Textos Legales"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return window.open('https://nataliogc.github.io/menus-eventos/admin.html', '_blank');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "utensils",
-    className: "w-5 h-5"
-  }), "Men\xFAs Eventos"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return window.open('https://nataliogc.github.io/Menus-Turisticos/', '_blank');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "map",
-    className: "w-5 h-5"
-  }), "Men\xFAs Tur\xEDsticos"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return window.open('https://nataliogc.github.io/menus-cocteles/', '_blank');
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "martini",
-    className: "w-5 h-5"
-  }), "Men\xFAs C\xF3cteles"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return window.location.href = 'Peticiones.html';
-    },
-    className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "inbox",
-    className: "w-5 h-5"
-  }), "Peticiones")), /*#__PURE__*/React.createElement("button", {
-    onClick: saveConfig,
-    disabled: loading,
-    className: "mt-auto w-full bg-[#2d5a43] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3a2c] transition-all flex items-center justify-center gap-2 "
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "save",
-    className: "w-4 h-4"
-  }), loading ? 'Guardando...' : 'Guardar Todo')), /*#__PURE__*/React.createElement("main", {
-    className: "ml-64 p-6 lg:p-10 w-full max-w-full"
+    className: "min-h-screen"
+  }, /*#__PURE__*/React.createElement("main", {
+    className: hotelName ? "hotel-profile" : "p-6 lg:p-10 w-full max-w-full"
   }, /*#__PURE__*/React.createElement("header", {
     className: "mb-12 flex justify-between items-end"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
     className: "text-4xl font-bold text-slate-900 tracking-tight"
-  }, "Centro de ", /*#__PURE__*/React.createElement("span", {
+  }, "Configuraci\xF3n ", /*#__PURE__*/React.createElement("span", {
     className: "text-[#2d5a43]"
-  }, "Configuraci\xF3n")), /*#__PURE__*/React.createElement("p", {
+  }, hotelName || 'general')), /*#__PURE__*/React.createElement("p", {
     className: "text-slate-500 mt-2"
-  }, "Mantenimiento de bases de datos maestras y par\xE1metros globales.")), message && /*#__PURE__*/React.createElement("div", {
+  }, hotelName ? 'Datos del establecimiento para facturas y documentos oficiales.' : 'Mantenimiento de bases de datos maestras y parámetros globales.')), /*#__PURE__*/React.createElement("button", {
+    onClick: saveConfig,
+    disabled: loading,
+    className: "mt-2 px-4 bg-[#2d5a43] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3a2c] transition-all flex items-center justify-center gap-2 "
+  }, /*#__PURE__*/React.createElement(LucideIcon, {
+    name: "save",
+    className: "w-4 h-4"
+  }), loading ? 'Guardando...' : 'Guardar Todo'), message && /*#__PURE__*/React.createElement("div", {
     className: "px-6 py-3 rounded-2xl border text-xs font-bold animate-fade-in ".concat(message.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600')
   }, message.text)), /*#__PURE__*/React.createElement("div", {
     className: "bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, !hotelName && /*#__PURE__*/React.createElement("div", {
     className: "bg-slate-50 p-8 border-b border-slate-100 flex items-center gap-4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "p-4 bg-white rounded-2xl shadow-sm"
@@ -1857,7 +1754,7 @@ var App = function App() {
     className: "grid grid-cols-2 gap-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "space-y-6"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, /*#__PURE__*/React.createElement("h2", null, "Datos fiscales"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
   }, "Raz\xF3n Social"), /*#__PURE__*/React.createElement("input", {
     type: "text",
@@ -1884,7 +1781,7 @@ var App = function App() {
       return handleChange(activeHotel, 'legal', e.target.value);
     },
     className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all resize-none"
-  })), /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("h2", null, "Datos bancarios"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-1 gap-4"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
@@ -1896,21 +1793,7 @@ var App = function App() {
     },
     className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all",
     placeholder: "Nombre del Banco"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "mt-8 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-3"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "info",
-    className: "w-5 h-5 text-indigo-500 mt-0.5 shrink-0"
-  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h5", {
-    className: "text-sm font-bold text-indigo-900"
-  }, "\xBFBuscas las Cl\xE1usulas?"), /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-indigo-700 mt-1"
-  }, "Los textos legales y condiciones de presupuestos/confirmaciones ahora son compartidos por todos los hoteles. Puedes encontrarlos y editarlos en la nueva pesta\xF1a ", /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setActiveHotel('clauses');
-    },
-    className: "font-bold underline cursor-pointer"
-  }, "Textos Legales"), " del men\xFA principal."))), /*#__PURE__*/React.createElement("label", {
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
   }, "IBAN de Cobro"), /*#__PURE__*/React.createElement("input", {
     type: "text",
@@ -1920,7 +1803,7 @@ var App = function App() {
     },
     className: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-emerald-700 font-bold focus:border-[#2d5a43] outline-none transition-all tracking-tighter text-sm"
   })), /*#__PURE__*/React.createElement("div", {
-    className: "col-span-2"
+    className: "min-w-0"
   }, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
   }, "Enlace Pasarela TPV (Banco)"), /*#__PURE__*/React.createElement("input", {
@@ -1933,7 +1816,7 @@ var App = function App() {
     placeholder: "https://..."
   })))), /*#__PURE__*/React.createElement("div", {
     className: "space-y-6"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, /*#__PURE__*/React.createElement("h2", null, "Direcci\xF3n y contacto"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"
   }, "Direcci\xF3n F\xEDsica"), /*#__PURE__*/React.createElement("input", {
     type: "text",

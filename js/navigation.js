@@ -12,8 +12,8 @@
 
     
     // ─── Versión Única Global de Nexus Groups ───────────────────────────────
-    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.79";
-    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "19/11/2026 19:51";
+    var NEXUS_GLOBAL_VERSION = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.version) || window.NEXUS_VERSION || "V2.5.99";
+    var NEXUS_GLOBAL_DATE = (window.NEXUS_SYSTEM_INFO && window.NEXUS_SYSTEM_INFO.buildDate) || "20/11/2026 09:15";
     window.NEXUS_VERSION = NEXUS_GLOBAL_VERSION;
 
 
@@ -242,17 +242,7 @@
             }
         }
 
-        // No inyectar la cabecera global en plantillas de impresión/generación
-        if (currentPage === "Fac Prof.html" || currentPage === "Orden Servicio.html") {
-            return;
-        }
-
-        var backUrl = "Admin.html";
-        var showBackBtn = true;
-        if (currentPage === "Admin.html" || currentPage === "index.html" || currentPage === "") {
-            backUrl = "index.html";
-            showBackBtn = false;
-        }
+        if (window.self !== window.top) return;
 
         // 1. Inyectar estilos CSS para el margen superior del body y ajustes de sidebars
         var style = document.createElement("style");
@@ -260,7 +250,7 @@
         style.innerHTML = `
             /* Compensar la altura de la cabecera compacta */
             body {
-                padding-top: 50px !important;
+                padding-top: var(--nexus-header-height, 82px) !important;
             }
             @media print {
                 body {
@@ -270,22 +260,45 @@
                     display: none !important;
                 }
             }
-            /* Desplazar los sidebars fijos hacia abajo para que no queden tapados */
-            aside.fixed, 
-            div.fixed.left-0.top-0,
-            aside[class*="fixed left-0 top-0"],
-            div[class*="fixed left-0 top-0"] {
-                top: 50px !important;
-                height: calc(100vh - 50px) !important;
-                z-index: 40 !important;
+            #nexus-global-header {position:fixed; inset:0 0 auto; z-index:9999; background:white; border-bottom:1px solid #e2e8f0; padding:0; font-family:system-ui,sans-serif}
+            .nexus-bar {display:flex;align-items:center;gap:10px;padding:4px 10px}
+            .nexus-tools {display:flex;align-items:center;min-width:0;overflow-x:auto}
+            .nexus-actions {margin-left:auto;display:flex;align-items:center;flex:none}
+            @media(max-width:700px) {
+                .nexus-bar {display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 8px}
+                .nexus-actions {grid-column:1 / -1;justify-self:end;max-width:100%;overflow-x:auto}
             }
-            /* Ocultar cabecera cuando la ficha está abierta */
-            body.nexus-ficha-open {
-                padding-top: 0 !important;
-            }
-            body.nexus-ficha-open #nexus-global-header {
-                display: none !important;
-            }
+            .nexus-module-menu > summary {cursor:pointer;list-style:none;border-radius:7px;background:#5046cf;color:white;padding:7px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+            .nexus-tabs {position:absolute;left:8px;top:100%;width:230px;max-width:calc(100vw - 16px);max-height:calc(100dvh - var(--nexus-header-height) - 10px);overflow:auto;background:white;border:1px solid #dce2eb;border-radius:12px;box-shadow:0 8px 28px #18203426;padding:6px}
+            .nexus-menu-row {display:grid;grid-template-columns:1fr 32px;align-items:center;gap:3px}
+            .nexus-menu-row a,.nexus-menu-row button,.nexus-pins a {display:flex;align-items:center;gap:9px;border-radius:7px;padding:8px;color:#34445a;font:550 13px system-ui;text-decoration:none}
+            .nexus-menu-row svg {width:16px;height:16px;flex:none}
+            .nexus-menu-row button {background:transparent;border:0;color:#758398;cursor:pointer}
+            .nexus-menu-row :is(a,button):hover,.nexus-pins a:hover {background:#f1f4f8}
+            .nexus-menu-row [aria-current],.nexus-menu-row button[aria-pressed=true],.nexus-pins [aria-current] {background:#eeedff;color:#473abd}
+            .nexus-pins {min-width:0;display:flex;gap:3px;overflow-x:auto;white-space:nowrap}
+            .nexus-pins a {flex:none;gap:6px;border:1px solid #d9e2ea;background:#f7f9fb;color:#354659;padding:6px 10px;border-radius:8px;font:600 12px system-ui}
+            .nexus-pins a svg {width:15px;height:15px}
+            .nexus-pins a[aria-current] {border-color:#28634d;background:#285b46;color:white}
+            .nexus-pins a:focus-visible {outline:2px solid #5145cd;outline-offset:-2px}
+            .nexus-tone-indigo {--ink:#5145a2;--tint:#eeedfc}
+            .nexus-tone-green {--ink:#19624d;--tint:#e6f4ed}
+            .nexus-tone-blue {--ink:#255b92;--tint:#e8f1fc}
+            .nexus-tone-amber {--ink:#92550c;--tint:#fff2d9}
+            .nexus-tone-rose {--ink:#964361;--tint:#faebf1}
+            .nexus-tone-slate {--ink:#47576e;--tint:#eaf0f5}
+            .nexus-module-icon {display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none;border-radius:7px;background:var(--tint);color:var(--ink)}
+            .nexus-menu-row a {padding:4px 8px}
+            .nexus-pins a:not([aria-current]) svg {color:var(--ink)}
+            .nexus-budget-count {background:#e6edf9;color:#294e80;border-radius:12px;padding:1px 6px;font:700 11px system-ui;font-variant-numeric:tabular-nums}
+            .nexus-pins:empty {display:none}
+            @media(max-width:700px){.nexus-pins {grid-column:1/-1;grid-row:3}}
+            #nexus-settings-links {padding:2px 0 4px 22px}
+            #nexus-settings-links strong {display:block;margin:8px 6px 3px;font:700 10px system-ui;text-transform:uppercase;color:#576781}
+            #nexus-settings-links a {display:block;padding:6px 8px;font:500 12px system-ui;color:#334155;border-left:2px solid #dddaf9;text-decoration:none}
+            #nexus-settings-links a:hover {background:#eeedff}
+            [data-settings][aria-expanded=true] span:last-child {transform:rotate(90deg)}
+            @media screen {body.nexus-ficha-open > #root .fixed.inset-0 {top:var(--nexus-header-height, 82px)}}
             /* Efectos hover sutiles */
             .nexus-nav-btn {
                 transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -332,17 +345,6 @@
         header.id = "nexus-global-header";
         header.className = "bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-1.5 shadow-xs fixed top-0 left-0 right-0 z-[9999] no-print";
         
-        // Si el body ya tiene la clase nexus-ficha-open, ocultarla inmediatamente
-        if (document.body.classList.contains("nexus-ficha-open")) {
-            header.style.display = "none";
-        }
-
-        var backBtnHtml = showBackBtn ? `
-                    <a href="${backUrl}" class="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 border border-slate-200/60 bg-white shadow-xs flex items-center justify-center shrink-0" title="Volver">
-                        <i data-lucide="chevron-left" class="w-4 h-4"></i>
-                    </a>
-        ` : '';
-
         var userWidgetHtml = '';
         if (currentUser) {
             var userName = currentUser.name || "Usuario";
@@ -382,11 +384,43 @@
             `;
         }
 
+        const modules = [
+            ['Admin.html#inicio','Inicio','house','indigo'], ['Gestion-de-Grupos.html','Grupos','users','green'], ['Calendario.html','Calendario','calendar','blue'],
+            ['Peticiones.html','Peticiones','inbox','amber'], ['Presupuestos.html','Presupuestos','clipboard-list','blue'], ['Depositos.html','Depósitos','wallet','green'],
+            ['Proformas.html','Proformas','file-text','green'], ['AltaEmail.html','Alta por email','mail','amber'], ['Objetivos-Grupos.html','Objetivos','target','indigo'],
+            ['https://nataliogc.github.io/menus-eventos/admin.html','Menús Eventos','utensils','rose'],
+            ['https://nataliogc.github.io/Menus-Turisticos/','Menús Turísticos','map','rose'],
+            ['https://nataliogc.github.io/menus-cocteles/','Menús Cócteles','martini','rose'],
+            ['Configuracion.html','Configuración','settings','slate']
+        ];
+        const settingsSections = [
+            ['guadiana', 'Sercotel Guadiana'], ['cumbria', 'Cumbria Spa&Hotel'],
+            ['system', 'Sistema e IA'], ['users', 'Usuarios y Accesos'],
+            ['services', 'Catálogo de Servicios'], ['clauses', 'Textos Legales']
+        ];
+        const settingsLink = ([tab, label]) =>
+            `<a href="Configuracion.html?tab=${tab}">${label}</a>`
+        ;
+        const settingsLinks = '<strong>Hoteles</strong>' + settingsSections.slice(0, 2).map(settingsLink).join('') +
+            '<strong>General</strong>' + settingsSections.slice(2).map(settingsLink).join('');
+        const badgeMarkup = '<span class="nexus-budget-count" title="Presupuestos activos">…</span>';
+        const links = modules.map(([url, label, icon, tone]) => {
+            const active = url.split('#')[0] === currentPage ? ' aria-current="page"' : '';
+            const settings = url === 'Configuracion.html';
+            const attributes = settings ? ' data-settings aria-expanded="false" aria-controls="nexus-settings-links"' :
+                url.startsWith('https://') ? ' target="_blank" rel="noopener"' : '';
+            return `<div class="nexus-menu-row"><a class="nexus-tone-${tone}" href="${url}"${active}${attributes}><span class="nexus-module-icon"><i data-lucide="${icon}" aria-hidden="true"></i></span>${label}${url === "Presupuestos.html" ? badgeMarkup : ""}${settings ? ' <span aria-hidden="true">▸</span>' : ''}</a>
+                <button type="button" data-pin="${url}" aria-label="Anclar ${label} en la cabecera"><i data-lucide="pin" aria-hidden="true"></i></button></div>${settings ? `<div id="nexus-settings-links" hidden>${settingsLinks}</div>` : ''}`;
+        }).join('');
         header.innerHTML = `
-            <div class="w-full px-3 sm:px-6 flex items-center justify-between gap-2 lg:gap-4">
+            <div class="nexus-bar">
+                <details class="nexus-module-menu">
+                    <summary>☰ Menú</summary>
+                    <nav class="nexus-tabs" aria-label="Módulos de Grupos">${links}</nav>
+                </details>
+                <div class="nexus-tools">
                 <!-- Izquierda: Botón volver, Logo y Fechas de importación -->
                 <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                    ${backBtnHtml}
                     <div class="flex items-center gap-2">
                         <div class="bg-slate-50 rounded-lg p-1 shadow-inner border border-slate-100 flex items-center justify-center shrink-0">
                             <img src="Nexus%20Groups/Nexus_Groups_ICO-removebg-preview.png" class="h-6 w-auto object-contain" alt="Nexus Logo" />
@@ -396,8 +430,8 @@
                                 <h1 class="text-xs sm:text-sm font-black text-slate-800 leading-none font-outfit whitespace-nowrap">
                                     Nexus <span class="text-emerald-600">Groups</span>
                                 </h1>
-                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.79 (19/11/2026 19:51)">
-                                    V2.5.79
+                                <span class="px-1.5 py-0.5 bg-slate-900 text-white rounded text-[8.5px] font-black uppercase tracking-wider shadow-2xs select-none" title="Versión Nexus Groups: V2.5.99 (20/11/2026 09:15)">
+                                    V2.5.99
                                 </span>
                             </div>
                             <div id="nexus-header-import-badge" class="flex items-center gap-1.5 whitespace-nowrap mt-0.5"></div>
@@ -405,58 +439,10 @@
                     </div>
                 </div>
 
-                <!-- Centro: Módulos internos + menús externos y AI Hub (oculto en pantallas pequeñas) -->
-                <div class="hidden lg:flex items-center gap-1 shrink-0">
-                    <a href="Admin.html"
-                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Panel de Control">
-                        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="hidden xl:inline">Panel</span>
-                    </a>
-
-                    <a href="Gestion-de-Grupos.html"
-                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Directorio Grupos">
-                        <i data-lucide="users" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="hidden xl:inline">Grupos</span>
-                    </a>
-
-                    <a href="Depositos.html"
-                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Depósitos y Saldos de Agencias">
-                        <i data-lucide="wallet" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="hidden xl:inline">Depósitos</span>
-                    </a>
-
-                    <a href="Presupuestos.html"
-                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Seguimiento Presupuestos">
-                        <i data-lucide="clipboard-list" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="hidden xl:inline">Presupuestos</span>
-                    </a>
-
-                    <a href="Proformas.html"
-                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Facturas Proforma">
-                        <i data-lucide="file-text" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="hidden xl:inline">Proformas</span>
-                    </a>
-
-                    <a href="Objetivos-Grupos.html"
-                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Objetivos y Tarifas">
-                        <i data-lucide="target" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="hidden xl:inline">Objetivos</span>
-                    </a>
-
-                    <a href="Calendario.html"
-                       class="nexus-nav-btn flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider" title="Calendario Operativo (CapaSuite)">
-                        <i data-lucide="calendar" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="hidden xl:inline">Calendario</span>
-                    </a>
-
-                    <a href="Configuracion.html"
-                       class="nexus-nav-btn p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all" title="Configuración">
-                        <i data-lucide="settings-2" class="w-4 h-4"></i>
-                    </a>
-                </div>
-
+            </div>
                 <!-- Derecha: Estado BD + Acciones de Importación/Exportación + Perfil Usuario Registrado -->
-                <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <nav class="nexus-pins" aria-label="Pestañas ancladas"></nav>
+                <div class="nexus-actions gap-1.5 sm:gap-2">
                     <!-- Estado de la Base de Datos -->
                     <div id="nexus-db-status-badge" class="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-md text-[10px] font-bold tracking-wider select-none shadow-xs whitespace-nowrap" title="Base de Datos Firestore conectada en tiempo real">
                         <span class="relative flex h-2 w-2">
@@ -491,6 +477,130 @@
 
         // Insertar al inicio de body
         document.body.prepend(header);
+        function syncHeaderHeight() {
+            document.documentElement.style.setProperty("--nexus-header-height", header.offsetHeight + "px");
+        }
+        syncHeaderHeight();
+        new ResizeObserver(syncHeaderHeight).observe(header);
+        const menu = header.querySelector(".nexus-module-menu");
+        const settingsToggle = menu.querySelector("[data-settings]");
+        const settingsPanel = menu.querySelector("#nexus-settings-links");
+        function showSettings(open) {
+            settingsPanel.hidden = !open;
+            settingsToggle.setAttribute("aria-expanded", String(open));
+            if (open) settingsPanel.scrollIntoView({block:"nearest"});
+        }
+        settingsToggle.addEventListener("click", event => {
+            event.preventDefault();
+            showSettings(settingsPanel.hidden);
+        });
+        menu.addEventListener("toggle", () => { if (!menu.open) showSettings(false); });
+        const pinsKey = "nexus_pinned_modules_" + (currentUser?.id || currentUser?.name || "local");
+        const buttons = menu.querySelectorAll("[data-pin]");
+        const pins = header.querySelector(".nexus-pins");
+        let selected = new Set();
+        try {
+            const saved = JSON.parse(localStorage.getItem(pinsKey));
+            if (Array.isArray(saved)) selected = new Set(saved);
+        } catch (_) {}
+
+        const profileId = currentUser?.id || currentUser?.email || currentUser?.name;
+        let preferenceDoc;
+        function cacheSelection() {
+            try { localStorage.setItem(pinsKey, JSON.stringify([...selected])); } catch (_) {}
+        }
+        function renderPins() {
+            pins.replaceChildren();
+            buttons.forEach(button => {
+                const link = button.previousElementSibling;
+                const pinned = selected.has(button.dataset.pin);
+                button.setAttribute("aria-pressed", String(pinned));
+                button.title = (pinned ? "Desanclar " : "Anclar ") + link.textContent.trim();
+                if (pinned) {
+                    const shortcut = link.cloneNode(false);
+                    shortcut.textContent = modules.find(([url]) => url === button.dataset.pin)[1];
+                    const icon = link.querySelector("svg, i");
+                    if (icon) shortcut.prepend(icon.cloneNode(true));
+                    const badge = link.querySelector(".nexus-budget-count");
+                    if (badge) shortcut.appendChild(badge.cloneNode(true));
+                    if (link === settingsToggle) {
+                        shortcut.removeAttribute("data-settings");
+                        shortcut.removeAttribute("aria-expanded");
+                        shortcut.addEventListener("click", event => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            menu.open = true;
+                            showSettings(true);
+                            settingsPanel.querySelector("a").focus();
+                        });
+                    }
+                    pins.appendChild(shortcut);
+                    const placeholder = shortcut.querySelector("i[data-lucide]");
+                    if (placeholder && window.lucide) window.lucide.createIcons({root:shortcut});
+                }
+            });
+        }
+        const countKey = "nexus_active_budget_count";
+        function displayBudgetCount(value) {
+            if (value == null || !/^\d+$/.test(String(value))) return;
+            header.querySelectorAll(".nexus-budget-count").forEach(badge => {
+                badge.textContent = String(value);
+                badge.setAttribute("aria-label", value + " presupuestos activos");
+            });
+        }
+        try { displayBudgetCount(localStorage.getItem(countKey)); } catch (_) {}
+        window.addEventListener("storage", event => {
+            if (event.key === countKey) displayBudgetCount(event.newValue);
+        });
+        if (window.db && currentUser) {
+            (window.nexusListen || ((ref, next) => ref.onSnapshot(next)))(window.db.collection("groups"), snapshot => {
+                const today = new Date().toISOString().slice(0, 10);
+                let count = 0;
+                snapshot.forEach(doc => { if (window.NexusBudgetStatus.isActiveBudget(doc.data(), today)) count++; });
+                displayBudgetCount(count);
+                try { localStorage.setItem(countKey, String(count)); } catch (_) {}
+            });
+        }
+        renderPins();
+        if (profileId && window.db?.collection) {
+            const ref = window.db.collection("settings").doc("pinned_modules_" + encodeURIComponent(String(profileId).toLowerCase()));
+            if (typeof ref.onSnapshot === "function" && typeof ref.set === "function") {
+                preferenceDoc = ref;
+                ref.onSnapshot(snapshot => {
+                    if (!snapshot.exists) {
+                        if (!snapshot.metadata.fromCache && selected.size) {
+                            ref.set({pins:Object.fromEntries([...selected].map(url => [url, true]))}, {merge:true})
+                                .catch(error => console.warn("No se pudieron sincronizar las pestañas", error));
+                        }
+                        return;
+                    }
+                    const saved = snapshot.data().pins || {};
+                    selected = new Set(modules.map(([url]) => url).filter(url => saved[url] === true));
+                    cacheSelection();
+                    renderPins();
+                }, error => console.warn("Pestañas disponibles en este navegador", error));
+            }
+        }
+        buttons.forEach(button => button.addEventListener("click", () => {
+            const url = button.dataset.pin;
+            if (selected.has(url)) selected.delete(url);
+            else selected.add(url);
+            cacheSelection();
+            if (preferenceDoc) {
+                preferenceDoc.set({pins:{[url]:selected.has(url)}}, {merge:true})
+                    .catch(error => console.warn("No se pudo guardar la pestaña en el perfil", error));
+            }
+            renderPins();
+        }));
+        document.addEventListener("click", event => {
+            if (menu.open && !menu.contains(event.target)) menu.open = false;
+        });
+        menu.addEventListener("keydown", event => {
+            if (event.key === "Escape") {
+                menu.open = false;
+                menu.querySelector("summary").focus();
+            }
+        });
 
         // Ajustar margen derecho y arrastre si Window Controls Overlay está activo (evita que los botones ⋯ — ❐ ✕ tapen el usuario)
         function syncWindowControlsOverlay() {
@@ -521,22 +631,6 @@
         window.addEventListener("resize", syncWindowControlsOverlay);
         if (navigator.windowControlsOverlay && navigator.windowControlsOverlay.addEventListener) {
             navigator.windowControlsOverlay.addEventListener("geometrychange", syncWindowControlsOverlay);
-        }
-
-        // MutationObserver para reaccionar a cambios en body.nexus-ficha-open
-        if (window.MutationObserver) {
-            var observer = new MutationObserver(function (mutations) {
-                mutations.forEach(function (mutation) {
-                    if (mutation.attributeName === "class") {
-                        if (document.body.classList.contains("nexus-ficha-open")) {
-                            header.style.display = "none";
-                        } else {
-                            header.style.display = "";
-                        }
-                    }
-                });
-            });
-            observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
         }
 
         // 3. Cargar dinámicamente Lucide si no existe

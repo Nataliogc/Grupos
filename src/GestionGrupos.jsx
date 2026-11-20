@@ -2720,36 +2720,10 @@
           )}
 
           {/* CABECERA Y PANEL DE CONTROL */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-xl font-bold">
-                    🎯
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900 font-outfit tracking-tight">
-                      Objetivos de Grupos y Tarifas
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Monitorización y seguimiento de objetivos de grupos vinculados a CapaSuite · Fuente Oficial de Revenue Management
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* ACCIONES PRINCIPALES */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Badge de Vinculación Oficial con CapaSuite */}
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border bg-emerald-50 text-emerald-800 border-emerald-200">
-                  <span>🔗</span> Vinculado a CapaSuite
-                  {officialDoc?.officialSavedAt && (
-                    <span className="font-normal text-[10px] opacity-75">
-                      · {formatDateEs(officialDoc.officialSavedAt, true)}
-                    </span>
-                  )}
-                </span>
-
+          <section className="group-target-header">
+            <div className="target-heading">
+              <h2>Objetivos de grupos y tarifas</h2>
+              <div className="target-actions">
                 <button
                   onClick={handleSyncFromCapaSuite}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition flex items-center gap-2"
@@ -2793,7 +2767,7 @@
             </div>
 
             {/* SELECTORES Y ESTADO DE INTEGRACIÓN CON CAPASUITE */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
+            <div className="target-filters">
               {/* Hotel */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -2827,72 +2801,15 @@
                 </select>
               </div>
 
-              {/* Origen de los Objetivos */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Fuente de Datos
-                </label>
-                <div className="w-full bg-indigo-50/70 border border-indigo-100 rounded-xl px-3 py-2 text-xs font-bold text-indigo-900 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <span>🏢</span> CapaSuite Revenue
-                  </span>
-                  <span className="text-[10px] bg-indigo-200/60 text-indigo-800 px-2 py-0.5 rounded-full font-black">
-                    Oficial
-                  </span>
-                </div>
-              </div>
-
-              {/* Estado de Sincronización */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Estado de Conexión
-                </label>
-                <button
-                  type="button"
-                  onClick={handleSyncFromCapaSuite}
-                  className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl px-3 py-2 text-xs font-bold text-emerald-900 flex items-center justify-between transition cursor-pointer group"
-                  title="Haz clic para forzar la actualización desde CapaSuite"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span className="group-hover:rotate-180 transition-transform duration-500">🔄</span>
-                    {officialDoc ? "Sincronizado" : "Comprobar"}
-                  </span>
-                  <span className="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-black">
-                    {officialDoc ? "En Línea" : "Pendiente"}
-                  </span>
-                </button>
+              <div className="target-source">
+                <strong>CapaSuite Revenue</strong>
+                <span className={officialDoc ? "target-ready" : "target-pending"}>
+                  {officialDoc ? "Presupuesto cargado" : "Pendiente de sincronizar"}
+                </span>
+                {officialDoc?.officialSavedAt && <small>Última fijación · {formatDateEs(officialDoc.officialSavedAt, true)}</small>}
               </div>
             </div>
-
-            {/* BANNER INFORMATIVO DE VINCULACIÓN CON CAPASUITE */}
-            <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 border border-indigo-100/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                  🔗
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                    <span>Presupuesto Comercial Fijado en CapaSuite</span>
-                    {officialDoc?.officialSavedAt && (
-                      <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                        Última fijación: {formatDateEs(officialDoc.officialSavedAt, true)}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Los objetivos de ingresos, habitaciones-noche y ADR de grupos están determinados por el presupuesto de Revenue Management establecido en CapaSuite.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleSyncFromCapaSuite}
-                className="shrink-0 px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-              >
-                <span>🔄</span> Sincronizar Ahora
-              </button>
-            </div>
-          </div>
+          </section>
 
           {/* ALERTAS DE INTEGRIDAD */}
           {integrity.errors.length > 0 && (
@@ -16168,7 +16085,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
             {/* KPI SECTION: Unificada en una sola línea elegante */}
 
-            <div className="flex flex-row flex-nowrap gap-3 mb-4 overflow-x-auto pb-2 custom-scrollbar">
+            <div className="groups-kpis flex flex-row flex-nowrap gap-3 mb-4 overflow-x-auto pb-2 custom-scrollbar">
 
               {/* TOTAL REVENUE KPI (Removed per user request) */}
 
@@ -16380,7 +16297,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                           {count}
                         </span>
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
-                          Grupos
+                          {count === 1 ? "grupo" : "grupos"}
                         </span>
                       </div>
                     </div>
@@ -16391,7 +16308,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
             {/* --- UNIFIED HEADER & FILTERS --- */}
 
-            <div className="bg-white p-2 px-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col xl:flex-row items-center justify-between gap-3">
+            <div className="groups-filters bg-white p-2 px-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col xl:flex-row items-center justify-between gap-3">
 
               <div className="flex items-center gap-3 w-full xl:w-auto">
 
@@ -16409,11 +16326,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                   </h2>
 
-                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">
 
-                    Directorio unificado de reservas y análisis.
-
-                  </p>
 
                 </div>
 
@@ -16716,7 +16629,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
             {/* Navigation Tabs */}
 
-            <div className="flex gap-4 mb-3 border-b border-gray-300 overflow-x-auto items-center justify-between">
+            <div className="groups-views flex gap-4 mb-3 border-b border-gray-300 overflow-x-auto items-center justify-between">
 
               <div className="flex gap-4">
 
@@ -16762,36 +16675,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
 
                 </button>
 
-                <button
 
-                  onClick={() => window.location.href = 'Presupuestos.html'}
-
-                  className="pb-2 px-4 font-medium flex items-center gap-2 whitespace-nowrap text-gray-500 hover:text-indigo-600 transition"
-
-                >
-
-                  <IconFileInvoice size={18} /> Seg Presup{" "}
-
-                  <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 rounded-full font-bold">
-
-                    {data.filter(r => {
-                      const est = (r.Estado || "").toUpperCase();
-                      const intEst = (r.Com_Estado_Interno || "").toUpperCase();
-                      const isBudget = String(r.Reserva || "").startsWith("PRES-") || est.includes("PRESUPUESTO") || intEst.includes("PRESUPUESTO") || intEst.includes("ENVIADO") || intEst.includes("SEGUIMIENTO") || intEst.includes("PENDIENTE");
-                      if (!isBudget) return false;
-                      
-                      const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA"].some(status => intEst.includes(status) || est.includes(status));
-                      const isConfirmed = intEst.includes("CONFIRM") || est.includes("CONFIRM");
-                      const departureStr = r.Salida || r.Entrada || "";
-                      const todayStr = new Date().toISOString().split('T')[0];
-                      const isPast = departureStr && departureStr < todayStr;
-
-                      return !isCancelled && !isConfirmed && !isPast;
-                    }).length}
-
-                  </span>
-
-                </button>
 
                 <button
 
@@ -18471,7 +18355,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
             {activeTab === "groups" && (
               <div className="animate-fade-in space-y-4">
                 {/* SUB-VIEW SWITCHER & PRICING CONFIG TOOLBAR */}
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="groups-subviews flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -18485,7 +18369,7 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      Directorio de Grupos (Listado)
+                      Directorio de grupos
                       <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
                         groupsSubView === "groups" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
                       }`}>
@@ -18514,14 +18398,6 @@ const [customBudgetIdInput, setCustomBudgetIdInput] = useState("");
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <a
-                      href="Depositos.html"
-                      className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-emerald-200 shadow-2xs"
-                      title="Abrir Módulo de Depósitos y Saldos de Agencias"
-                    >
-                      <span className="text-sm">💰</span>
-                      <span>Depósitos de Agencias</span>
-                    </a>
                     {groupsSubView === "daily" && (
                       <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1">
                         <button

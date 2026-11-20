@@ -534,18 +534,10 @@ var addStayDays = function addStayDays(inVal, days) {
   var day = String(d.getDate()).padStart(2, "0");
   return "".concat(y, "-").concat(m, "-").concat(day);
 };
-var isLockedBudget = function isLockedBudget(g) {
-  if (!g) return false;
-  var intEst = String(g.Com_Estado_Interno || "").toUpperCase().trim();
-  var extEst = String(g.Estado || "").toUpperCase().trim();
-  var effective = intEst || extEst;
-  var isConfirmed = effective.includes("CONFIRM") || g.splitCompleted === true || effective === "DESGLOSADO";
-  var isTentativa = effective.includes("TENTA") || effective.includes("TANTEO") || effective.includes("BLOQ") || effective.includes("OPCI");
-  var res = String(g.Reserva || "").trim();
-  var hasPmsId = res !== "" && !res.toUpperCase().startsWith("PRES-") || Boolean(g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS) || Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && !res.toUpperCase().startsWith("PRES-") && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
-  var isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
-  return Boolean(isConfirmed || isTentativa || hasPmsId || isExplicitReadOnly);
-};
+var _window$NexusBudgetSt = window.NexusBudgetStatus,
+  isLockedBudget = _window$NexusBudgetSt.isLockedBudget,
+  isBudgetRecord = _window$NexusBudgetSt.isBudgetRecord,
+  isActiveBudget = _window$NexusBudgetSt.isActiveBudget;
 var getBudgetLockedDetails = function getBudgetLockedDetails(g) {
   if (!g) return {
     isLocked: false,
@@ -2324,16 +2316,7 @@ function App() {
         return _objectSpread({
           uid: doc.id
         }, doc.data());
-      }).filter(function (g) {
-        var est = (g.Estado || "").toUpperCase();
-        var intEst = (g.Com_Estado_Interno || "").toUpperCase();
-        var isBudget = String(g.Reserva || "").startsWith("PRES-") || Boolean(g.Presupuesto_Origen) || Boolean(g.sourceQuoteId) || est.includes("PRESUPUESTO") || intEst.includes("PRESUPUESTO") || intEst.includes("ENVIADO") || intEst.includes("SEGUIMIENTO") || intEst.includes("PENDIENTE");
-        if (!isBudget) return false;
-
-        // En el cargador general de Presupuestos, permitimos todos los estados
-        // (la lógica de visualización se encarga de filtrar por la pestaña seleccionada)
-        return true;
-      });
+      }).filter(isBudgetRecord);
       setGroups(docs);
       setLoading(false);
       setSelectedGroup(function (prev) {
@@ -2386,19 +2369,9 @@ function App() {
       var isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(function (status) {
         return effectiveStatus.includes(status);
       }) || g.excludeFromStatistics === true;
-      var isLocked = isLockedBudget(g);
-      var departureStr = g.Salida || g.Entrada || "";
-      var isPast = departureStr && departureStr < todayStr;
-
-      // Filtro por Pestaña
-      if (filterTab === 'confirmados' && !isLocked) return false;
+      if (filterTab === 'confirmados' && !isLockedBudget(g)) return false;
       if (filterTab === 'desestimados' && !isCancelled) return false;
-      if (filterTab === 'activos') {
-        var isActiveStatus = ["PRESUPUESTO", "PENDIENTE", "ENVIADO", "SEGUIMIENTO"].some(function (s) {
-          return effectiveStatus.includes(s);
-        });
-        if (isCancelled || isLocked || isPast && !isActiveStatus) return false;
-      }
+      if (filterTab === 'activos' && !isActiveBudget(g, todayStr)) return false;
 
       // Filtro de Fecha (Rango Manual)
       if (startDate || endDate) {
@@ -3401,12 +3374,12 @@ function App() {
         textToTranslate,
         _prompt,
         aiResult,
-        _args3 = arguments,
+        _args2 = arguments,
         _t3;
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
           case 0:
-            type = _args3.length > 1 && _args3[1] !== undefined ? _args3[1] : 'budget';
+            type = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : 'budget';
             clauses = type === 'budget' ? _toConsumableArray(tempClauses) : _toConsumableArray(tempClausesConf);
             textToTranslate = clauses[idx].body.split('[EN]')[0].trim();
             if (textToTranslate) {
@@ -3690,12 +3663,12 @@ function App() {
         duplicatedTotal,
         roomingList,
         duplicateData,
-        _args7 = arguments,
+        _args6 = arguments,
         _t7;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
-            changeHotel = _args7.length > 1 && _args7[1] !== undefined ? _args7[1] : false;
+            changeHotel = _args6.length > 1 && _args6[1] !== undefined ? _args6[1] : false;
             source = normalizeGroupData(budget);
             if (source) {
               _context7.n = 1;
@@ -3891,7 +3864,7 @@ function App() {
     }, /*#__PURE__*/React.createElement("div", {
       className: "grid grid-cols-1 md:grid-cols-4 gap-4 hidden"
     }), /*#__PURE__*/React.createElement("div", {
-      className: "bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
+      className: "quote-tracker bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
     }, /*#__PURE__*/React.createElement("div", {
       className: "p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 gap-4"
     }, /*#__PURE__*/React.createElement("div", {
@@ -3899,18 +3872,21 @@ function App() {
     }, /*#__PURE__*/React.createElement("h2", {
       className: "text-xl font-black text-slate-800"
     }, "Seguimiento de Cotizaciones"), /*#__PURE__*/React.createElement("div", {
-      className: "flex gap-4 mt-3"
+      className: "quote-tabs flex gap-4 mt-3"
     }, /*#__PURE__*/React.createElement("button", {
+      "aria-pressed": filterTab === 'activos',
       onClick: function onClick() {
         return setFilterTab('activos');
       },
       className: "text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ".concat(filterTab === 'activos' ? 'text-indigo-600 border-indigo-600' : 'text-slate-400 border-transparent hover:text-slate-600')
     }, "Activos"), /*#__PURE__*/React.createElement("button", {
+      "aria-pressed": filterTab === 'confirmados',
       onClick: function onClick() {
         return setFilterTab('confirmados');
       },
       className: "text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ".concat(filterTab === 'confirmados' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600')
     }, "Confirmados"), /*#__PURE__*/React.createElement("button", {
+      "aria-pressed": filterTab === 'desestimados',
       onClick: function onClick() {
         return setFilterTab('desestimados');
       },
@@ -3988,7 +3964,7 @@ function App() {
       className: "fas fa-times-circle"
     })))), /*#__PURE__*/React.createElement("p", {
       className: "px-6 pb-3 text-xs text-slate-500"
-    }, startDate || endDate ? 'Mostrando los grupos del periodo seleccionado.' : 'Se muestran los 10 últimos grupos. Usa el filtro de fechas para consultar los anteriores.'), /*#__PURE__*/React.createElement("div", {
+    }, startDate || endDate ? 'Mostrando los grupos del periodo seleccionado.' : 'Se muestran hasta 10 grupos. Usa el filtro de fechas para consultar los anteriores.'), /*#__PURE__*/React.createElement("div", {
       className: "overflow-x-auto"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse min-w-[1080px] table-fixed"
@@ -4139,9 +4115,9 @@ function App() {
           className: "inline-flex flex-col items-center px-2 py-1 rounded-lg ".concat(color)
         }, /*#__PURE__*/React.createElement("span", {
           className: "text-xs font-black"
-        }, daysLeft, "d"), /*#__PURE__*/React.createElement("span", {
+        }, Math.abs(daysLeft), " d"), /*#__PURE__*/React.createElement("span", {
           className: "text-[7px] font-bold uppercase tracking-tighter"
-        }, "Restantes"));
+        }, daysLeft < 0 ? "de retraso" : "restantes"));
       }()), /*#__PURE__*/React.createElement("td", {
         className: "px-4 py-4"
       }, /*#__PURE__*/React.createElement("div", {
@@ -6692,12 +6668,12 @@ function App() {
           clausesToSave,
           fieldKey,
           flagKey,
-          _args1 = arguments,
+          _args0 = arguments,
           _t0;
         return _regenerator().w(function (_context1) {
           while (1) switch (_context1.p = _context1.n) {
             case 0:
-              mode = _args1.length > 0 && _args1[0] !== undefined ? _args1[0] : 'presupuesto';
+              mode = _args0.length > 0 && _args0[0] !== undefined ? _args0[0] : 'presupuesto';
               isBudget = mode === 'presupuesto';
               targetDocId = g.uid || g.Reserva || g.id;
               clausesToSave = isBudget ? tempClauses : tempClausesConf;
@@ -7911,57 +7887,7 @@ function App() {
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col min-h-screen"
-  }, /*#__PURE__*/React.createElement("nav", {
-    className: "bg-white border-b border-slate-200 z-50 no-print"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-full px-6 h-18 flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4 cursor-pointer py-4",
-    onClick: function onClick() {
-      return setCurrentView('dashboard');
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-layer-group text-white text-sm"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
-    className: "text-base font-black tracking-tight leading-none mb-1"
-  }, "Nexus Presupuestos"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em]"
-  }, "Sales Hub"))), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-6"
-  }, /*#__PURE__*/React.createElement("a", {
-    href: "Proformas.html",
-    className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-file-invoice"
-  }), " Fac Proforma"), /*#__PURE__*/React.createElement("a", {
-    href: "https://nataliogc.github.io/menus-eventos/admin.html",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-utensils"
-  }), " Men\xFAs Eventos"), /*#__PURE__*/React.createElement("a", {
-    href: "https://nataliogc.github.io/Menus-Turisticos/",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-map"
-  }), " Men\xFAs Tur\xEDsticos"), /*#__PURE__*/React.createElement("a", {
-    href: "https://nataliogc.github.io/menus-cocteles/",
-    target: "_blank",
-    rel: "noopener noreferrer",
-    className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-glass-martini-alt"
-  }), " Men\xFAs C\xF3cteles"), /*#__PURE__*/React.createElement("a", {
-    href: "Gestion-de-Grupos.html",
-    className: "text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("i", {
-    className: "fas fa-arrow-left"
-  }), " Volver a Grupos")))), /*#__PURE__*/React.createElement("main", {
+  }, /*#__PURE__*/React.createElement("main", {
     className: "flex-grow p-4 md:p-8 w-full max-w-full"
   }, loading ? /*#__PURE__*/React.createElement("div", {
     className: "h-64 flex flex-col items-center justify-center space-y-4"
@@ -8164,7 +8090,7 @@ function App() {
       return setEmailContent(e.target.value);
     },
     disabled: isParsingEmail,
-    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa... 3 personas: Entrada 14 junio, Salida 19 junio.\nY del 21 de junio al...",
+    placeholder: "Querido Hotel, me gustar\xEDa reservar habitaciones para 9 personas de nuestra compa\xF1\xEDa...\r 3 personas: Entrada 14 junio, Salida 19 junio.\r\nY del 21 de junio al...",
     className: "w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all min-h-[250px] resize-none"
   }))), /*#__PURE__*/React.createElement("div", {
     className: "p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end gap-3"

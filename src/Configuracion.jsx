@@ -13,6 +13,7 @@
             const urlParams = new URLSearchParams(window.location.search);
             const initialTab = urlParams.get('tab') || 'guadiana';
             const [activeHotel, setActiveHotel] = useState(initialTab);
+            const hotelName = activeHotel === 'guadiana' ? 'Sercotel Guadiana' : activeHotel === 'cumbria' ? 'Cumbria Spa&Hotel' : '';
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState(null);
             const [editingCommercialIdx, setEditingCommercialIdx] = useState(null);
@@ -527,80 +528,22 @@
             };
 
             return (
-                <div className="flex min-h-screen">
-                    {/* Sidebar duplicado para consistencia */}
-                    <div className="w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-xl overflow-y-auto custom-scrollbar">
-                        <div className="flex flex-col items-center mb-10 px-2 space-y-6">
-                            <img src="Nexus Groups/Nexus_Groups-removebg-preview.png" className="h-16 w-auto object-contain" alt="Logo" />
-                            <div className="h-[1px] w-full bg-slate-100"></div>
-                        </div>
-
-                        <nav className="flex-1 space-y-2">
-                            <button onClick={() => window.location.href = 'Admin.html'} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="layout-dashboard" className="w-5 h-5" />
-                                Volver al Panel
-                            </button>
-                            <div className="pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4">Entidades</div>
-                            <button onClick={() => setActiveHotel('guadiana')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'guadiana' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <LucideIcon name="hotel" className="w-5 h-5" />
-                                Sercotel Guadiana
-                            </button>
-                            <button onClick={() => setActiveHotel('cumbria')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'cumbria' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <LucideIcon name="palmtree" className="w-5 h-5" />
-                                Cumbria Spa&Hotel
-                            </button>
-                            <button onClick={() => setActiveHotel('system')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'system' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <LucideIcon name="cpu" className="w-5 h-5" />
-                                Sistema e IA
-                            </button>
-                            <button onClick={() => setActiveHotel('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'users' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <LucideIcon name="shield-check" className="w-5 h-5" />
-                                Usuarios y Accesos
-                            </button>
-                            <div className="pt-4 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-4">Global</div>
-                            <button onClick={() => setActiveHotel('services')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'services' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <LucideIcon name="box" className="w-5 h-5" />
-                                Catálogo de Servicios
-                            </button>
-                            <button onClick={() => setActiveHotel('clauses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeHotel === 'clauses' ? 'sidebar-item-active' : 'text-slate-500 hover:bg-slate-50'}`}>
-                                <LucideIcon name="file-text" className="w-5 h-5" />
-                                Textos Legales
-                            </button>
-                            <button onClick={() => window.open('https://nataliogc.github.io/menus-eventos/admin.html', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="utensils" className="w-5 h-5" />
-                                Menús Eventos
-                            </button>
-                            <button onClick={() => window.open('https://nataliogc.github.io/Menus-Turisticos/', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="map" className="w-5 h-5" />
-                                Menús Turísticos
-                            </button>
-                            <button onClick={() => window.open('https://nataliogc.github.io/menus-cocteles/', '_blank')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="martini" className="w-5 h-5" />
-                                Menús Cócteles
-                            </button>
-                            <button onClick={() => window.location.href = 'Peticiones.html'} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50">
-                                <LucideIcon name="inbox" className="w-5 h-5" />
-                                Peticiones
-                            </button>
-                        </nav>
-
+                <div className="min-h-screen">
+                    {/* Contenido Principal */}
+                    <main className={hotelName ? "hotel-profile" : "p-6 lg:p-10 w-full max-w-full"}>
+                        <header className="mb-12 flex justify-between items-end">
+                            <div>
+                                <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Configuración <span className="text-[#2d5a43]">{hotelName || 'general'}</span></h1>
+                                <p className="text-slate-500 mt-2">{hotelName ? 'Datos del establecimiento para facturas y documentos oficiales.' : 'Mantenimiento de bases de datos maestras y parámetros globales.'}</p>
+                            </div>
                         <button
                             onClick={saveConfig}
                             disabled={loading}
-                            className="mt-auto w-full bg-[#2d5a43] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3a2c] transition-all flex items-center justify-center gap-2 "
+                            className="mt-2 px-4 bg-[#2d5a43] text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-[#1e3a2c] transition-all flex items-center justify-center gap-2 "
                         >
                             <LucideIcon name="save" className="w-4 h-4" />
                             {loading ? 'Guardando...' : 'Guardar Todo'}
                         </button>
-                    </div>
-
-                    {/* Contenido Principal */}
-                    <main className="ml-64 p-6 lg:p-10 w-full max-w-full">
-                        <header className="mb-12 flex justify-between items-end">
-                            <div>
-                                <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Centro de <span className="text-[#2d5a43]">Configuración</span></h1>
-                                <p className="text-slate-500 mt-2">Mantenimiento de bases de datos maestras y parámetros globales.</p>
-                            </div>
                             {message && (
                                 <div className={`px-6 py-3 rounded-2xl border text-xs font-bold animate-fade-in ${message.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}>
                                     {message.text}
@@ -609,7 +552,7 @@
                         </header>
 
                         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-                            <div className="bg-slate-50 p-8 border-b border-slate-100 flex items-center gap-4">
+                            {!hotelName && <div className="bg-slate-50 p-8 border-b border-slate-100 flex items-center gap-4">
                                 <div className="p-4 bg-white rounded-2xl shadow-sm">
                                     <LucideIcon name={activeHotel === 'users' ? 'shield-check' : activeHotel === 'system' ? 'settings-2' : activeHotel === 'commercials' ? 'users' : activeHotel === 'services' ? 'box' : 'building-2'} className="w-6 h-6 text-[#2d5a43]" />
                                 </div>
@@ -631,7 +574,7 @@
                                         <p className="text-xs text-slate-400">Edita los valores que aparecerán en las facturas y documentos oficiales.</p>
                                     </div>
                                 )}
-                            </div>
+                            </div>}
 
                             <div className="p-10">
                                 {activeHotel === 'users' ? (
@@ -1365,7 +1308,7 @@
                                 ) : (
                                     <>
                                         <div className="grid grid-cols-2 gap-8">
-                                            <div className="space-y-6">
+                                            <div className="space-y-6"><h2>Datos fiscales</h2>
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Razón Social</label>
                                                     <input type="text" value={config[activeHotel].company} onChange={(e) => handleChange(activeHotel, 'company', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />
@@ -1378,32 +1321,23 @@
                                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Inscripción Registro Mercantil</label>
                                                     <textarea rows="2" value={config[activeHotel].legal} onChange={(e) => handleChange(activeHotel, 'legal', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all resize-none" />
                                                 </div>
+                                                <h2>Datos bancarios</h2>
                                                 <div className="grid grid-cols-1 gap-4">
                                                     <div>
                                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Entidad Bancaria</label>
                                                         <input type="text" value={config[activeHotel].bank || ""} onChange={(e) => handleChange(activeHotel, 'bank', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" placeholder="Nombre del Banco" />
                                                     </div>
                                                     <div>
-                                                <div className="mt-8 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-3">
-                                                    <LucideIcon name="info" className="w-5 h-5 text-indigo-500 mt-0.5 shrink-0" />
-                                                    <div>
-                                                        <h5 className="text-sm font-bold text-indigo-900">¿Buscas las Cláusulas?</h5>
-                                                        <p className="text-xs text-indigo-700 mt-1">
-                                                            Los textos legales y condiciones de presupuestos/confirmaciones ahora son compartidos por todos los hoteles. 
-                                                            Puedes encontrarlos y editarlos en la nueva pestaña <button onClick={() => setActiveHotel('clauses')} className="font-bold underline cursor-pointer">Textos Legales</button> del menú principal.
-                                                        </p>
-                                                    </div>
-                                                </div>
                                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">IBAN de Cobro</label>
                                                         <input type="text" value={config[activeHotel].iban} onChange={(e) => handleChange(activeHotel, 'iban', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-emerald-700 font-bold focus:border-[#2d5a43] outline-none transition-all tracking-tighter text-sm" />
                                                     </div>
-                                                    <div className="col-span-2">
+                                                    <div className="min-w-0">
                                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Enlace Pasarela TPV (Banco)</label>
                                                         <input type="text" value={config[activeHotel].paymentGateway || ""} onChange={(e) => handleChange(activeHotel, 'paymentGateway', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all text-xs" placeholder="https://..." />
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="space-y-6">
+                                            <div className="space-y-6"><h2>Dirección y contacto</h2>
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Dirección Física</label>
                                                     <input type="text" value={config[activeHotel].address} onChange={(e) => handleChange(activeHotel, 'address', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 font-semibold focus:border-[#2d5a43] outline-none transition-all" />

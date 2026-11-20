@@ -208,135 +208,14 @@ var getGroupFinancialInfo = function getGroupFinancialInfo(g) {
     allMilestonesCobrado: allMilestonesCobrado
   };
 };
-var Sidebar = function Sidebar(_ref) {
-  var activeTab = _ref.activeTab,
-    setActiveTab = _ref.setActiveTab,
-    isHidden = _ref.isHidden,
-    onToggle = _ref.onToggle;
-  var items = [{
-    id: "dashboard",
-    icon: "layout-dashboard",
-    label: "Panel de Control"
-  }, {
-    id: "groups",
-    icon: "users",
-    label: "Directorio Grupos"
-  }, {
-    id: "deposits",
-    icon: "wallet",
-    label: "Depósitos Agencias"
-  }, {
-    id: "peticiones",
-    icon: "mail",
-    label: "Peticiones"
-  }, {
-    id: "budgets",
-    icon: "clipboard-list",
-    label: "Seguimiento Presupuestos"
-  }, {
-    id: "invoices",
-    icon: "file-text",
-    label: "Facturas Proforma"
-  }, {
-    id: "calendario",
-    icon: "calendar",
-    label: "Calendario Operativo"
-  }, {
-    id: "menus",
-    icon: "utensils",
-    label: "Menús Eventos"
-  }, {
-    id: "turisticos",
-    icon: "map",
-    label: "Menús Turísticos"
-  }, {
-    id: "cocteles",
-    icon: "martini",
-    label: "Menús Cócteles"
-  }, {
-    id: "settings",
-    icon: "settings",
-    label: "Configuración"
-  }];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "w-64 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 p-6 flex flex-col z-30 shadow-2xl shadow-slate-200/50 overflow-y-auto custom-scrollbar transition-transform duration-300 ease-in-out ".concat(isHidden ? "-translate-x-full" : "translate-x-0")
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col items-center mb-8 px-2 space-y-6 relative"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: onToggle,
-    title: "Ocultar men\xFA lateral",
-    "aria-label": "Ocultar men\xFA lateral",
-    className: "absolute -top-3 -right-2 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all border border-slate-200/60 hover:border-slate-300 cursor-pointer flex items-center justify-center z-20 group shadow-2xs"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "chevron-left",
-    className: "w-4 h-4 transition-transform group-hover:-translate-x-0.5"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "w-full flex justify-center p-4"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: "Nexus%20Groups/Nexus_Groups-removebg-preview.png",
-    className: "h-20 w-auto object-contain",
-    alt: "Nexus Groups Logo"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-4 w-full opacity-60 grayscale hover:grayscale-0 transition-all"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: "Logos/Sercotel Guadiana.jpg",
-    className: "h-8 w-auto object-contain",
-    alt: "Logo Guadiana"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center justify-center"
-  }, /*#__PURE__*/React.createElement("img", {
-    src: "Logos/Cumbria Spa&Hotel.jpg",
-    className: "h-8 w-auto object-contain",
-    alt: "Logo Cumbria"
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "h-[1px] w-full bg-slate-100"
-  })), /*#__PURE__*/React.createElement("nav", {
-    className: "flex-1 space-y-2"
-  }, items.map(function (item) {
-    return /*#__PURE__*/React.createElement("button", {
-      key: item.id,
-      onClick: function onClick() {
-        if (item.id === "groups") window.location.href = "Gestion-de-Grupos.html";else if (item.id === "deposits") window.location.href = "Depositos.html";else if (item.id === "peticiones") window.location.href = "Peticiones.html";else if (item.id === "budgets") window.location.href = "Presupuestos.html";else if (item.id === "alta-email") window.location.href = "AltaEmail.html";else if (item.id === "invoices") {
-          window.location.href = "Proformas.html";
-        } else if (item.id === "calendario") {
-          window.location.href = "Calendario.html";
-        } else if (item.id === "menus") window.open("https://nataliogc.github.io/menus-eventos/admin.html", "_blank");else if (item.id === "turisticos") window.open("https://nataliogc.github.io/Menus-Turisticos/", "_blank");else if (item.id === "cocteles") window.open("https://nataliogc.github.io/menus-cocteles/", "_blank");else if (item.id === "settings") window.location.href = "Configuracion.html";else {
-          setActiveTab(item.id);
-          if (typeof window !== "undefined" && window.innerWidth < 768 && typeof onToggle === "function") {
-            onToggle();
-          }
-        }
-      },
-      className: "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ".concat(activeTab === item.id ? "sidebar-item-active" : "text-slate-500 hover:bg-slate-50 hover:translate-x-1")
-    }, /*#__PURE__*/React.createElement(LucideIcon, {
-      name: item.icon,
-      className: "w-5 h-5"
-    }), item.label);
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "mt-auto space-y-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "p-4 bg-[#2d5a43]/5 rounded-2xl border border-[#2d5a43]/10"
-  }, /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] font-bold text-[#2d5a43] uppercase tracking-widest mb-1"
-  }, "Estado Global"), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs font-bold text-slate-700"
-  }, "Sistema Operativo")))));
-};
-var Dashboard = function Dashboard(_ref2) {
+var Dashboard = function Dashboard(_ref) {
   var _internalReportModal$, _internalReportModal$2, _internalReportModal$3, _internalReportModal$4, _internalReportModal$5;
-  var arrivals = _ref2.arrivals,
-    stats = _ref2.stats,
-    alerts = _ref2.alerts,
-    timeRange = _ref2.timeRange,
-    onRangeChange = _ref2.onRangeChange,
-    data = _ref2.data;
+  var arrivals = _ref.arrivals,
+    stats = _ref.stats,
+    alerts = _ref.alerts,
+    timeRange = _ref.timeRange,
+    onRangeChange = _ref.onRangeChange,
+    data = _ref.data;
   var _React$useState = React.useState("todos"),
     _React$useState2 = _slicedToArray(_React$useState, 2),
     selectedHotel = _React$useState2[0],
@@ -1669,7 +1548,7 @@ var Dashboard = function Dashboard(_ref2) {
     setInternalReportModal(null);
   };
   var recordInternalReportInFirestore = /*#__PURE__*/function () {
-    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(repData) {
+    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(repData) {
       var now, nowIso, recipient, updatedInternal, groupsToRecord, seen, _i, _groupsToRecord, item;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.n) {
@@ -1729,7 +1608,7 @@ var Dashboard = function Dashboard(_ref2) {
       }, _callee);
     }));
     return function recordInternalReportInFirestore(_x) {
-      return _ref3.apply(this, arguments);
+      return _ref2.apply(this, arguments);
     };
   }();
   var formatBodyToOutlookHtml = function formatBodyToOutlookHtml(bodyText) {
@@ -1868,7 +1747,7 @@ var Dashboard = function Dashboard(_ref2) {
     });
   };
   var recordNotificationInFirestore = /*#__PURE__*/function () {
-    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(data) {
+    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(data) {
       var channel,
         now,
         fmtDate,
@@ -2094,7 +1973,7 @@ var Dashboard = function Dashboard(_ref2) {
       }, _callee2, null, [[12, 14], [4, 6], [2, 9, 10, 11], [1, 19]]);
     }));
     return function recordNotificationInFirestore(_x2) {
-      return _ref4.apply(this, arguments);
+      return _ref3.apply(this, arguments);
     };
   }();
   var handleExecuteOpenEmail = function handleExecuteOpenEmail(data) {
@@ -2215,11 +2094,11 @@ var Dashboard = function Dashboard(_ref2) {
       setToastInfo("\uD83D\uDCB3 IBAN: ".concat(iban));
     });
   };
-  var AlertColumn = function AlertColumn(_ref5) {
-    var title = _ref5.title,
-      icon = _ref5.icon,
-      colorClass = _ref5.colorClass,
-      alerts = _ref5.alerts;
+  var AlertColumn = function AlertColumn(_ref4) {
+    var title = _ref4.title,
+      icon = _ref4.icon,
+      colorClass = _ref4.colorClass,
+      alerts = _ref4.alerts;
     var theme = {
       rose: {
         bg: "bg-rose-50/50",
@@ -3332,12 +3211,12 @@ var Dashboard = function Dashboard(_ref2) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.79 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.99 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
-var GroupsManager = function GroupsManager(_ref6) {
-  var data = _ref6.data,
-    onUpdateStatus = _ref6.onUpdateStatus,
-    onDeleteGroup = _ref6.onDeleteGroup;
+var GroupsManager = function GroupsManager(_ref5) {
+  var data = _ref5.data,
+    onUpdateStatus = _ref5.onUpdateStatus,
+    onDeleteGroup = _ref5.onDeleteGroup;
   var _React$useState17 = React.useState(""),
     _React$useState18 = _slicedToArray(_React$useState17, 2),
     searchTerm = _React$useState18[0],
@@ -3559,10 +3438,10 @@ var GroupsManager = function GroupsManager(_ref6) {
     className: "col-span-full text-center py-20 text-slate-400"
   }, "No se encontraron grupos coincidiendo con tu b\xFAsqueda.")));
 };
-var BudgetManager = function BudgetManager(_ref7) {
-  var data = _ref7.data,
-    onUpdateStatus = _ref7.onUpdateStatus,
-    onDeleteGroup = _ref7.onDeleteGroup;
+var BudgetManager = function BudgetManager(_ref6) {
+  var data = _ref6.data,
+    onUpdateStatus = _ref6.onUpdateStatus,
+    onDeleteGroup = _ref6.onDeleteGroup;
   var _React$useState19 = React.useState(""),
     _React$useState20 = _slicedToArray(_React$useState19, 2),
     searchTerm = _React$useState20[0],
@@ -3806,6 +3685,7 @@ var App = function App() {
   var VALID_TABS = ["dashboard", "groups", "budgets", "invoices", "settings"];
   var _useState = useState(function () {
       try {
+        if (window.location.hash === "#inicio") return "dashboard";
         var stored = sessionStorage.getItem("nexus_admin_active_tab");
         if (stored && VALID_TABS.includes(stored)) return stored;
         return "dashboard";
@@ -3850,27 +3730,8 @@ var App = function App() {
     _useState10 = _slicedToArray(_useState1, 2),
     successToast = _useState10[0],
     setSuccessToast = _useState10[1];
-  var _useState11 = useState(function () {
-      try {
-        return localStorage.getItem("nexus_admin_sidebar_hidden") === "true";
-      } catch (_) {
-        return false;
-      }
-    }),
-    _useState12 = _slicedToArray(_useState11, 2),
-    sidebarHidden = _useState12[0],
-    setSidebarHidden = _useState12[1];
-  var toggleSidebar = function toggleSidebar() {
-    setSidebarHidden(function (prev) {
-      var next = !prev;
-      try {
-        localStorage.setItem("nexus_admin_sidebar_hidden", String(next));
-      } catch (_) {}
-      return next;
-    });
-  };
   var handleUpdateStatus = /*#__PURE__*/function () {
-    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(groupId, newStatus) {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(groupId, newStatus) {
       var docId, _t5;
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
@@ -3901,11 +3762,11 @@ var App = function App() {
       }, _callee3, null, [[0, 2]]);
     }));
     return function handleUpdateStatus(_x3, _x4) {
-      return _ref8.apply(this, arguments);
+      return _ref7.apply(this, arguments);
     };
   }();
   var handleDeleteGroup = /*#__PURE__*/function () {
-    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(groupId) {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(groupId) {
       var docId, _t6;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
@@ -3940,7 +3801,7 @@ var App = function App() {
       }, _callee4, null, [[1, 3]]);
     }));
     return function handleDeleteGroup(_x5) {
-      return _ref9.apply(this, arguments);
+      return _ref8.apply(this, arguments);
     };
   }();
 
@@ -4383,39 +4244,9 @@ var App = function App() {
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "x",
     size: 16
-  }))), sidebarHidden && /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: toggleSidebar,
-    title: "Mostrar men\xFA lateral",
-    "aria-label": "Mostrar men\xFA lateral",
-    className: "fixed left-4 top-20 z-30 flex items-center gap-2 px-3.5 py-2 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md hover:shadow-lg hover:border-emerald-500/50 rounded-2xl text-slate-700 hover:text-emerald-700 text-xs font-bold transition-all cursor-pointer group hover:-translate-y-0.5 active:scale-95 animate-fade-in"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "menu",
-    className: "w-4 h-4 text-emerald-600 transition-transform group-hover:scale-110"
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "font-outfit font-extrabold tracking-wide"
-  }, "Men\xFA")), !sidebarHidden && /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 bg-slate-900/20 backdrop-blur-2xs z-20 md:hidden transition-opacity",
-    onClick: toggleSidebar
-  }), /*#__PURE__*/React.createElement(Sidebar, {
-    activeTab: activeTab,
-    setActiveTab: setActiveTab,
-    isHidden: sidebarHidden,
-    onToggle: toggleSidebar
-  }), /*#__PURE__*/React.createElement("main", {
-    className: "transition-all duration-300 ease-in-out p-8 md:p-12 ".concat(sidebarHidden ? "ml-0" : "ml-64", " ").concat(activeTab === "dashboard" ? "bg-gradient-to-b from-slate-50/50 to-transparent" : "")
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-4 flex items-center"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: toggleSidebar,
-    title: sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral",
-    "aria-label": sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral",
-    className: "inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 shadow-2xs transition-all cursor-pointer group active:scale-95"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: sidebarHidden ? "menu" : "chevron-left",
-    className: "w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-600 transition-transform"
-  }), /*#__PURE__*/React.createElement("span", null, sidebarHidden ? "Mostrar menú lateral" : "Ocultar menú lateral"))), (activeTab === "dashboard" || !VALID_TABS.includes(activeTab)) && /*#__PURE__*/React.createElement(Dashboard, {
+  }))), /*#__PURE__*/React.createElement("main", {
+    className: "p-8 md:p-12"
+  }, (activeTab === "dashboard" || !VALID_TABS.includes(activeTab)) && /*#__PURE__*/React.createElement(Dashboard, {
     arrivals: arrivals,
     stats: stats,
     alerts: alerts,

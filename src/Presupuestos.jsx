@@ -375,25 +375,7 @@
       return `${y}-${m}-${day}`;
     };
 
-    const isLockedBudget = (g) => {
-      if (!g) return false;
-      const intEst = String(g.Com_Estado_Interno || "").toUpperCase().trim();
-      const extEst = String(g.Estado || "").toUpperCase().trim();
-      const effective = intEst || extEst;
-
-      const isConfirmed = effective.includes("CONFIRM") || g.splitCompleted === true || effective === "DESGLOSADO";
-      const isTentativa = effective.includes("TENTA") || effective.includes("TANTEO") || effective.includes("BLOQ") || effective.includes("OPCI");
-
-      const res = String(g.Reserva || "").trim();
-      const hasPmsId = (res !== "" && !res.toUpperCase().startsWith("PRES-")) ||
-                       Boolean(g.convertedToReservation || g.targetReservationId || g.idPms || g.id_pms || g.Reserva_PMS) ||
-                       Boolean((g.Presupuesto_Origen || g.sourceQuoteId) && res !== "" && !res.toUpperCase().startsWith("PRES-") && res !== String(g.Presupuesto_Origen || g.sourceQuoteId));
-
-      const isExplicitReadOnly = Boolean(g.isHistoricalBudget || g.isReadOnly);
-
-      return Boolean(isConfirmed || isTentativa || hasPmsId || isExplicitReadOnly);
-    };
-
+    const {isLockedBudget,isBudgetRecord,isActiveBudget} = window.NexusBudgetStatus;
     const getBudgetLockedDetails = (g) => {
       if (!g) return { isLocked: false, isConfirmed: false, isTentativa: false, hasPmsId: false, label: '', pmsId: '' };
       const intEst = String(g.Com_Estado_Interno || "").toUpperCase().trim();
@@ -1994,26 +1976,7 @@
             const docs = snapshot.docs.map(doc => ({
               uid: doc.id,
               ...doc.data()
-            })).filter(g => {
-              const est = (g.Estado || "").toUpperCase();
-              const intEst = (g.Com_Estado_Interno || "").toUpperCase();
-
-              const isBudget =
-                String(g.Reserva || "").startsWith("PRES-") ||
-                Boolean(g.Presupuesto_Origen) ||
-                Boolean(g.sourceQuoteId) ||
-                est.includes("PRESUPUESTO") ||
-                intEst.includes("PRESUPUESTO") ||
-                intEst.includes("ENVIADO") ||
-                intEst.includes("SEGUIMIENTO") ||
-                intEst.includes("PENDIENTE");
-
-              if (!isBudget) return false;
-
-              // En el cargador general de Presupuestos, permitimos todos los estados
-              // (la lógica de visualización se encarga de filtrar por la pestaña seleccionada)
-              return true;
-            });
+            })).filter(isBudgetRecord);
             setGroups(docs);
             setLoading(false);
 
@@ -2073,18 +2036,9 @@
             const effectiveStatus = intEst || extEst;
 
             const isCancelled = ["CANCEL", "ANUL", "GASTOS", "DESESTIMADO", "BAJA", "CADUCADO", "DESGLOSADO"].some(status => effectiveStatus.includes(status)) || g.excludeFromStatistics === true;
-            const isLocked = isLockedBudget(g);
-            
-            const departureStr = g.Salida || g.Entrada || "";
-            const isPast = departureStr && departureStr < todayStr;
-
-            // Filtro por Pestaña
-            if (filterTab === 'confirmados' && !isLocked) return false;
+            if (filterTab === 'confirmados' && !isLockedBudget(g)) return false;
             if (filterTab === 'desestimados' && !isCancelled) return false;
-            if (filterTab === 'activos') {
-              const isActiveStatus = ["PRESUPUESTO", "PENDIENTE", "ENVIADO", "SEGUIMIENTO"].some(s => effectiveStatus.includes(s));
-              if (isCancelled || isLocked || (isPast && !isActiveStatus)) return false;
-            }
+            if (filterTab === 'activos' && !isActiveBudget(g, todayStr)) return false;
 
             // Filtro de Fecha (Rango Manual)
             if (startDate || endDate) {
@@ -3194,25 +3148,25 @@ ${emailContent}`;
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 hidden">
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="quote-tracker bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50/50 gap-4">
               <div className="flex flex-col">
                 <h2 className="text-xl font-black text-slate-800">Seguimiento de Cotizaciones</h2>
-                <div className="flex gap-4 mt-3">
+                <div className="quote-tabs flex gap-4 mt-3">
                   <button 
-                    onClick={() => setFilterTab('activos')}
+                    aria-pressed={filterTab === 'activos'} onClick={() => setFilterTab('activos')}
                     className={`text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${filterTab === 'activos' ? 'text-indigo-600 border-indigo-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
                   >
                     Activos
                   </button>
                   <button 
-                    onClick={() => setFilterTab('confirmados')}
+                    aria-pressed={filterTab === 'confirmados'} onClick={() => setFilterTab('confirmados')}
                     className={`text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${filterTab === 'confirmados' ? 'text-emerald-600 border-emerald-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
                   >
                     Confirmados
                   </button>
                   <button 
-                    onClick={() => setFilterTab('desestimados')}
+                    aria-pressed={filterTab === 'desestimados'} onClick={() => setFilterTab('desestimados')}
                     className={`text-[9px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${filterTab === 'desestimados' ? 'text-rose-600 border-rose-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
                   >
                     Desestimados
@@ -3285,7 +3239,7 @@ ${emailContent}`;
               </div>
             </div>
             <p className="px-6 pb-3 text-xs text-slate-500">
-              {startDate || endDate ? 'Mostrando los grupos del periodo seleccionado.' : 'Se muestran los 10 últimos grupos. Usa el filtro de fechas para consultar los anteriores.'}
+              {startDate || endDate ? 'Mostrando los grupos del periodo seleccionado.' : 'Se muestran hasta 10 grupos. Usa el filtro de fechas para consultar los anteriores.'}
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1080px] table-fixed">
@@ -3411,8 +3365,8 @@ ${emailContent}`;
                             
                             return (
                               <div title="Límite: 7 días desde la fecha de seguimiento" className={`inline-flex flex-col items-center px-2 py-1 rounded-lg ${color}`}>
-                                <span className="text-xs font-black">{daysLeft}d</span>
-                                <span className="text-[7px] font-bold uppercase tracking-tighter">Restantes</span>
+                                <span className="text-xs font-black">{Math.abs(daysLeft)} d</span>
+                                <span className="text-[7px] font-bold uppercase tracking-tighter">{daysLeft < 0 ? "de retraso" : "restantes"}</span>
                               </div>
                             );
                           })()}
@@ -6827,38 +6781,6 @@ ${emailContent}`;
 
       return (
         <div className="flex flex-col min-h-screen">
-          {/* NAV BAR */}
-          <nav className="bg-white border-b border-slate-200 z-50 no-print">
-            <div className="w-full px-6 h-18 flex items-center justify-between">
-              <div className="flex items-center gap-4 cursor-pointer py-4" onClick={() => setCurrentView('dashboard')}>
-                <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg">
-                  <i className="fas fa-layer-group text-white text-sm"></i>
-                </div>
-                <div>
-                  <h1 className="text-base font-black tracking-tight leading-none mb-1">Nexus Presupuestos</h1>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em]">Sales Hub</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <a href="Proformas.html" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4">
-                  <i className="fas fa-file-invoice"></i> Fac Proforma
-                </a>
-                <a href="https://nataliogc.github.io/menus-eventos/admin.html" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4">
-                  <i className="fas fa-utensils"></i> Menús Eventos
-                </a>
-                <a href="https://nataliogc.github.io/Menus-Turisticos/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4">
-                  <i className="fas fa-map"></i> Menús Turísticos
-                </a>
-                <a href="https://nataliogc.github.io/menus-cocteles/" target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2 mr-4">
-                  <i className="fas fa-glass-martini-alt"></i> Menús Cócteles
-                </a>
-                <a href="Gestion-de-Grupos.html" className="text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2">
-                  <i className="fas fa-arrow-left"></i> Volver a Grupos
-                </a>
-              </div>
-            </div>
-          </nav>
-
           <main className="flex-grow p-4 md:p-8 w-full max-w-full">
             {loading ? (
               <div className="h-64 flex flex-col items-center justify-center space-y-4">

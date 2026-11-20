@@ -1,25 +1,13 @@
 @echo off
+setlocal
 title Servidor Local Nexus Groups
-echo ========================================================
-echo   Iniciando servidor web local para Nexus Groups...
-echo ========================================================
-echo.
-
-:: Verificar npx (Node.js)
-call npx --version >nul 2>&1
-IF %ERRORLEVEL% EQU 0 (
-    echo [INFO] Node.js detectado. Instalando dependencias e iniciando en el puerto 3000...
-    echo [INFO] Tu navegador se abrira en unos segundos.
-    timeout /t 3 /nobreak >nul
-    start "" "http://localhost:3000/index.html"
-    call npx -y serve .
-    goto :End
+cd /d "%~dp0" || exit /b 1
+where npx >nul 2>&1 || (
+    echo No se encuentra npx. Instala Node.js para iniciar Grupos.
+    pause
+    exit /b 1
 )
-
-:: Si no encuentra nada
-echo [ERROR] No se ha detectado Python ni Node.js instalados en tu sistema.
-echo Para abrir el servidor necesitas una de esas herramientas,
-echo o usar la extension "Live Server" desde Visual Studio Code.
-pause
-
-:End
+echo Abre la direccion Local que indique el servidor a continuacion.
+echo Si el puerto 3000 esta ocupado, utiliza el puerto que aparezca en esta ventana.
+call npx -y serve . --listen tcp://127.0.0.1:3000
+if errorlevel 1 pause
