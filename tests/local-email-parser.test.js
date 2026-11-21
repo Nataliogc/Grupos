@@ -43,6 +43,7 @@ galegriaviajes.com
     assert.equal(groups[0]['Com_Nombre_Contacto'], 'DEPARTAMENTO DE GRUPOS');
     assert.equal(groups[0]['Com_Email_Contacto'], 'grupos@galegriaviajes.com');
     assert.equal(groups[0]['Com_Telefono_Contacto'], '633075935');
+    assert.deepEqual(groups[0].regimenesSolicitados, ['MP', 'PC']);
     assert.equal(groups[0]['Nombre del Grupo'], 'GRUPO GALEGRÍA VIAJES (19/03 - 21/03)');
     assert.equal(groups[0].roomCounts['DOBLE'], 23);
     assert.equal(groups[0].roomCounts['DOBLE DE USO INDIVIDUAL'], 6);

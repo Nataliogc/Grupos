@@ -545,6 +545,8 @@
       hasCustomClausesConf: false,
       isRatesOnly: false,
       ratesOnlyGrid: {},
+      includeBothHotels: false,
+      secondaryRatesOnlyGrid: {},
       hiddenGridRows: [],
       hiddenGridCols: ["DOBLE + SUPLETORIA NIÑO", "SUITE", "SUITE SUPERIOR"],
       segments: [],           // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
@@ -1198,6 +1200,9 @@
       const newData = { ...groupData };
       newData.isRatesOnly = !!groupData.isRatesOnly;
       newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
+      newData.includeBothHotels = !!groupData.includeBothHotels;
+      newData.secondaryRatesOnlyGrid = groupData.secondaryRatesOnlyGrid || {};
+      newData.hiddenGridRows = Array.isArray(groupData.hiddenGridRows) ? [...groupData.hiddenGridRows] : [];
       newData.hiddenGridCols = Array.isArray(groupData.hiddenGridCols) ? [...groupData.hiddenGridCols] : [...DEFAULT_FORM_DATA.hiddenGridCols];
       newData.capaSuiteDiscountPercent = groupData.capaSuiteDiscountPercent !== undefined ? groupData.capaSuiteDiscountPercent : 15;
       newData.customDailyPvp = groupData.customDailyPvp || {};
@@ -1897,6 +1902,39 @@
         formData.isRatesOnly,
         formData.isMultiSegment,
         formData.segments,
+        tariffCatalogRevision
+      ]);
+
+      // Precargar tarifas oficiales en Modo Solo Tarifas (Hotel principal y secundario si "Ambos Hoteles" está activo)
+      useEffect(() => {
+        if (!formData.isRatesOnly) return;
+        const parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+        const targetY = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100) ? parsedY : 2027;
+        const primaryHotel = formData.Hotel_Asignado || "Sercotel Guadiana";
+        const secondaryHotel = getAlternateHotel(primaryHotel);
+
+        const hasPrimary = Object.values(formData.ratesOnlyGrid || {}).some(b =>
+          Object.values(b || {}).some(p => p !== '' && p !== 0 && p !== null && p !== undefined)
+        );
+        const hasSecondary = Object.values(formData.secondaryRatesOnlyGrid || {}).some(b =>
+          Object.values(b || {}).some(p => p !== '' && p !== 0 && p !== null && p !== undefined)
+        );
+
+        const patch = {};
+        if (!hasPrimary) {
+          patch.ratesOnlyGrid = getOfficialTariffsGrid(primaryHotel, targetY);
+        }
+        if (formData.includeBothHotels && !hasSecondary) {
+          patch.secondaryRatesOnlyGrid = getOfficialTariffsGrid(secondaryHotel, targetY);
+        }
+        if (Object.keys(patch).length > 0) {
+          setFormData(prev => ({ ...prev, ...patch }));
+        }
+      }, [
+        formData.isRatesOnly,
+        formData.includeBothHotels,
+        formData.Hotel_Asignado,
+        formData.Entrada,
         tariffCatalogRevision
       ]);
 
@@ -4778,6 +4816,33 @@ ${emailContent}`;
                         >Tarifa Media Estancia ({stayDates.length} noches)</button>
                       </div>
 
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !formData.includeBothHotels;
+                          const secHotel = getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana");
+                          const parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+                          const targetY = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100) ? parsedY : 2027;
+                          const hasSec = Object.values(formData.secondaryRatesOnlyGrid || {}).some(b =>
+                            Object.values(b || {}).some(p => p !== '' && p !== 0 && p !== null && p !== undefined)
+                          );
+                          setFormData({
+                            ...formData,
+                            includeBothHotels: nextVal,
+                            secondaryRatesOnlyGrid: (nextVal && !hasSec) ? getOfficialTariffsGrid(secHotel, targetY) : (formData.secondaryRatesOnlyGrid || {})
+                          });
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 border ${
+                          formData.includeBothHotels
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                            : "bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                        }`}
+                        title="Incluir también las tarifas del segundo hotel en el mismo presupuesto y PDF"
+                      >
+                        <i className={`fas ${formData.includeBothHotels ? "fa-check-circle" : "fa-hotel"} text-[11px]`}></i>
+                        {formData.includeBothHotels ? "Ambos Hoteles Activos" : `+ Incluir ${getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana")}`}
+                      </button>
+
                       {((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && (
                         <button
                           onClick={() => setFormData({ ...formData, hiddenGridRows: [], hiddenGridCols: [] })}
@@ -4789,6 +4854,14 @@ ${emailContent}`;
                       )}
                     </div>
                   </div>
+
+                  {formData.includeBothHotels && (
+                    <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-amber-50/70 border border-amber-200/70">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-amber-900">
+                        Hotel 1: {formData.Hotel_Asignado || "Sercotel Guadiana"}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="overflow-x-auto rounded-2xl border border-slate-100">
                     <table className="w-full text-left border-collapse text-xs">
@@ -4915,6 +4988,83 @@ ${emailContent}`;
                       </tbody>
                     </table>
                   </div>
+
+                  {formData.includeBothHotels && (() => {
+                    const secHotel = getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana");
+                    const secRooms = (ROOM_TYPES[secHotel] || ROOM_TYPES["Cumbria Spa&Hotel"] || [])
+                      .filter(r => !(formData.hiddenGridCols || []).includes(r));
+                    const parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+                    const targetY = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100) ? parsedY : 2027;
+                    const secOffGrid = getOfficialTariffsGrid(secHotel, targetY);
+                    return (
+                      <div className="space-y-3 pt-4 border-t border-slate-100">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 rounded-xl bg-blue-50/80 border border-blue-200/70">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-blue-900">
+                            Hotel 2: {secHotel}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, secondaryRatesOnlyGrid: getOfficialTariffsGrid(secHotel, targetY) })}
+                            className="px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+                          >
+                            Cargar Tarifa Oficial ({targetY})
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto rounded-2xl border border-blue-100">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-blue-50/50 text-blue-900 font-black text-[10px] uppercase tracking-widest border-b border-blue-100">
+                                <th className="p-4 pl-8">Régimen</th>
+                                {secRooms.map(room => (
+                                  <th key={room} className="p-4 text-center">{room}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {BOARD_TYPES.filter(b => !(formData.hiddenGridRows || []).includes(b.split(' ')[0])).map(board => {
+                                const boardKey = board.split(' ')[0];
+                                return (
+                                  <tr key={board}>
+                                    <td className="p-4 pl-8 font-bold text-slate-700">{board}</td>
+                                    {secRooms.map(room => {
+                                      const secVal = formData.secondaryRatesOnlyGrid?.[boardKey]?.[room] || '';
+                                      const secOffBoard = secOffGrid[boardKey] || {};
+                                      const secOffPrice = secOffBoard[room] !== undefined && secOffBoard[room] !== null ? Number(secOffBoard[room]) : null;
+                                      return (
+                                        <td key={room} className="p-4">
+                                          <div className="relative max-w-[150px] mx-auto">
+                                            <div className="relative">
+                                              <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={secVal}
+                                                onChange={e => {
+                                                  const grid = { ...(formData.secondaryRatesOnlyGrid || {}) };
+                                                  grid[boardKey] = { ...(grid[boardKey] || {}), [room]: e.target.value };
+                                                  setFormData({ ...formData, secondaryRatesOnlyGrid: grid });
+                                                }}
+                                                placeholder="0.00"
+                                                className="w-full pl-2 pr-6 py-2 rounded-xl text-xs font-black text-center outline-none transition-all bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-slate-700"
+                                              />
+                                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
+                                            </div>
+                                            <div className="mt-1 text-[10px] px-0.5 font-bold text-slate-500 text-center">
+                                              T/grupo: {secOffPrice !== null ? `${Number(secOffPrice).toLocaleString('es-ES', { maximumFractionDigits: 2 })}€` : '—'}
+                                            </div>
+                                          </div>
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -6104,16 +6254,39 @@ ${emailContent}`;
               <div className="lg:col-span-8 print:col-span-12">
                 <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden text-slate-800 print:shadow-none print:border-none print:overflow-visible">
                   <div className="p-8 md:p-10 print:p-8" id="quote-document">
-                    <div className={`flex items-center justify-between gap-6 border-b-2 pb-4 mb-8 print:mb-4 print:pb-3 ${isCumbria ? 'border-blue-900' : 'border-orange-600'}`}>
-                      <img
-                        src={isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg"}
-                        alt={hotelName}
-                        className="max-h-20 print:max-h-14 w-auto object-contain flex-shrink-0"
-                      />
+                    <div className={`flex items-center justify-between gap-6 border-b-2 pb-4 mb-8 print:mb-4 print:pb-3 ${g.includeBothHotels ? 'border-slate-800' : (isCumbria ? 'border-blue-900' : 'border-orange-600')}`}>
+                      {g.includeBothHotels ? (
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          <img
+                            src="Logos/Sercotel Guadiana.jpg"
+                            alt="Sercotel Guadiana"
+                            className="max-h-16 print:max-h-12 w-auto object-contain"
+                          />
+                          <div className="h-10 w-px bg-slate-200"></div>
+                          <img
+                            src="Logos/Cumbria Spa&Hotel.jpg"
+                            alt="Cumbria Spa & Hotel"
+                            className="max-h-16 print:max-h-12 w-auto object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <img
+                          src={isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg"}
+                          alt={hotelName}
+                          className="max-h-20 print:max-h-14 w-auto object-contain flex-shrink-0"
+                        />
+                      )}
                       <div className="text-right">
-                        <h1 className={`text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ${isCumbria ? 'text-blue-900' : 'text-orange-800'}`}>
-                          {docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'}
+                        <h1 className={`text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ${g.includeBothHotels ? 'text-slate-900' : (isCumbria ? 'text-blue-900' : 'text-orange-800')}`}>
+                          {docMode === 'confirmacion'
+                            ? 'Confirmación de Grupo'
+                            : (g.includeBothHotels ? 'Propuesta Conjunta de Alojamiento' : 'Propuesta de Alojamiento')}
                         </h1>
+                        {g.includeBothHotels && (
+                          <p className="text-[10px] print:text-[8px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
+                            Sercotel Guadiana &amp; Cumbria Spa &amp; Hotel
+                          </p>
+                        )}
                         <p className="text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
                           Ref: {g.Reserva}
                           {(g.Presupuesto_Origen || g.sourceQuoteId) && String(g.Presupuesto_Origen || g.sourceQuoteId).trim() !== String(g.Reserva).trim() && (
@@ -6284,47 +6457,81 @@ ${emailContent}`;
                       )}
                       {dates.length > 0 || g.isRatesOnly ? (
                         g.isRatesOnly ? (
-                          <div className={`overflow-hidden print:overflow-visible rounded-2xl border ${isCumbria ? 'border-blue-900/20' : 'border-orange-600/20'} text-xs print:text-[10px] bg-white shadow-sm`}>
-                            <table className="w-full text-left border-collapse">
-                              <thead>
-                                <tr className={`${isCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50'} font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ${isCumbria ? 'border-blue-950' : 'border-orange-950'}`} style={{backgroundColor: isCumbria ? '#0f172a' : '#451a03', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
-                                  <th className="p-4 print:py-2 print:px-3 font-extrabold">Régimen</th>
-                                  {currentRooms.filter(r => !(g.hiddenGridCols || []).includes(r)).map(room => (
-                                    <th key={room} className="p-4 print:py-2 print:px-3 text-center font-extrabold">{getRoomDisplayName(room)}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                {BOARD_TYPES.filter(b => !(g.hiddenGridRows || []).includes(b.split(' ')[0])).map((board, idx) => {
-                                  const boardKey = board.split(' ')[0];
-                                  const visibleRooms = currentRooms.filter(r => !(g.hiddenGridCols || []).includes(r));
-                                  const hasPrices = visibleRooms.some(room => g.ratesOnlyGrid?.[boardKey]?.[room]);
-                                  if (!hasPrices) return null;
-                                  return (
-                                    <tr key={board} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-slate-50/50 transition-colors`}>
-                                      <td className="p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight">{getBoardDisplayName(board)}</td>
-                                      {visibleRooms.map(room => {
-                                        const price = g.ratesOnlyGrid?.[boardKey]?.[room];
-                                        return (
-                                          <td key={room} className="p-4 print:py-2.5 print:px-3 text-center align-middle">
-                                            {price ? (
-                                              <span className={`inline-block px-3 py-1 rounded-lg ${isCumbria ? 'bg-blue-50 text-blue-900 border border-blue-100/50' : 'bg-orange-50 text-orange-900 border border-orange-100/50'} text-xs print:text-[10px] font-extrabold tabular-nums`} style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
-                                                {formatNum(price)} €
-                                              </span>
-                                            ) : (
-                                              <span className="text-slate-300 font-medium">-</span>
-                                            )}
-                                          </td>
-                                        );
-                                      })}
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                            <div className={`${isCumbria ? 'bg-slate-50 text-slate-500 border-t border-slate-100' : 'bg-orange-50/30 text-orange-800/80 border-t border-orange-100/50'} px-6 py-3.5 print:py-2 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black`} style={{backgroundColor: isCumbria ? '#f8fafc' : '#fffbeb', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
-                              Tarifas informativas por habitación y noche (IVA incluido)
-                            </div>
+                          <div className="space-y-6 print:space-y-4">
+                            {(() => {
+                              const parsedY = g.Entrada ? new Date(toInputDate(g.Entrada)).getFullYear() : 2027;
+                              const targetY = (!isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100) ? parsedY : 2027;
+                              const primaryGrid = (g.ratesOnlyGrid && Object.keys(g.ratesOnlyGrid).length > 0)
+                                ? g.ratesOnlyGrid
+                                : getOfficialTariffsGrid(hotelName, targetY);
+                              const secHotel = getAlternateHotel(hotelName);
+                              const secIsCumbria = secHotel.toLowerCase().includes("cumbria");
+                              const secRoomsList = (ROOM_TYPES[secHotel] || ROOM_TYPES["Cumbria Spa&Hotel"] || []);
+                              const secondaryGrid = (g.secondaryRatesOnlyGrid && Object.keys(g.secondaryRatesOnlyGrid).length > 0)
+                                ? g.secondaryRatesOnlyGrid
+                                : getOfficialTariffsGrid(secHotel, targetY);
+
+                              const renderRatesTable = (hName, hIsCumbria, hRooms, hGrid) => {
+                                const visibleRooms = hRooms.filter(r => !(g.hiddenGridCols || []).includes(r));
+                                return (
+                                  <div key={hName} className={`overflow-hidden print:overflow-visible rounded-2xl border ${hIsCumbria ? 'border-blue-900/20' : 'border-orange-600/20'} text-xs print:text-[10px] bg-white shadow-sm break-inside-avoid`}>
+                                    {g.includeBothHotels && (
+                                      <div className={`px-4 py-2.5 print:py-1.5 flex items-center justify-between border-b ${hIsCumbria ? 'bg-blue-50/70 border-blue-100 text-blue-950' : 'bg-amber-50/80 border-orange-100 text-amber-950'}`} style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                        <span className="text-[11px] print:text-[9px] font-black uppercase tracking-widest">
+                                          {hIsCumbria ? 'Cumbria Spa & Hotel' : 'Sercotel Guadiana'}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <table className="w-full text-left border-collapse">
+                                      <thead>
+                                        <tr className={`${hIsCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50'} font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ${hIsCumbria ? 'border-blue-950' : 'border-orange-950'}`} style={{backgroundColor: hIsCumbria ? '#0f172a' : '#451a03', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                          <th className="p-4 print:py-2 print:px-3 font-extrabold">Régimen</th>
+                                          {visibleRooms.map(room => (
+                                            <th key={room} className="p-4 print:py-2 print:px-3 text-center font-extrabold">{getRoomDisplayName(room)}</th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {BOARD_TYPES.filter(b => !(g.hiddenGridRows || []).includes(b.split(' ')[0])).map((board, idx) => {
+                                          const boardKey = board.split(' ')[0];
+                                          const hasPrices = visibleRooms.some(room => hGrid?.[boardKey]?.[room]);
+                                          if (!hasPrices) return null;
+                                          return (
+                                            <tr key={board} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} hover:bg-slate-50/50 transition-colors`}>
+                                              <td className="p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight">{getBoardDisplayName(board)}</td>
+                                              {visibleRooms.map(room => {
+                                                const price = hGrid?.[boardKey]?.[room];
+                                                return (
+                                                  <td key={room} className="p-4 print:py-2.5 print:px-3 text-center align-middle">
+                                                    {price ? (
+                                                      <span className={`inline-block px-3 py-1 rounded-lg ${hIsCumbria ? 'bg-blue-50 text-blue-900 border border-blue-100/50' : 'bg-orange-50 text-orange-900 border border-orange-100/50'} text-xs print:text-[10px] font-extrabold tabular-nums`} style={{WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                                        {formatNum(price)} €
+                                                      </span>
+                                                    ) : (
+                                                      <span className="text-slate-300 font-medium">-</span>
+                                                    )}
+                                                  </td>
+                                                );
+                                              })}
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                    <div className={`${hIsCumbria ? 'bg-slate-50 text-slate-500 border-t border-slate-100' : 'bg-orange-50/30 text-orange-800/80 border-t border-orange-100/50'} px-6 py-3.5 print:py-2 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black`} style={{backgroundColor: hIsCumbria ? '#f8fafc' : '#fffbeb', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                      Tarifas informativas por habitación y noche (IVA incluido)
+                                    </div>
+                                  </div>
+                                );
+                              };
+
+                              return (
+                                <>
+                                  {renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid)}
+                                  {g.includeBothHotels && renderRatesTable(secHotel, secIsCumbria, secRoomsList, secondaryGrid)}
+                                </>
+                              );
+                            })()}
                           </div>
                         ) : (
                           <div className="overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]">

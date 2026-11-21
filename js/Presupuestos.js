@@ -710,6 +710,8 @@ var DEFAULT_FORM_DATA = {
   hasCustomClausesConf: false,
   isRatesOnly: false,
   ratesOnlyGrid: {},
+  includeBothHotels: false,
+  secondaryRatesOnlyGrid: {},
   hiddenGridRows: [],
   hiddenGridCols: ["DOBLE + SUPLETORIA NIÑO", "SUITE", "SUITE SUPERIOR"],
   segments: [],
@@ -1381,6 +1383,9 @@ var normalizeGroupData = function normalizeGroupData(groupData) {
   var newData = _objectSpread({}, groupData);
   newData.isRatesOnly = !!groupData.isRatesOnly;
   newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
+  newData.includeBothHotels = !!groupData.includeBothHotels;
+  newData.secondaryRatesOnlyGrid = groupData.secondaryRatesOnlyGrid || {};
+  newData.hiddenGridRows = Array.isArray(groupData.hiddenGridRows) ? _toConsumableArray(groupData.hiddenGridRows) : [];
   newData.hiddenGridCols = Array.isArray(groupData.hiddenGridCols) ? _toConsumableArray(groupData.hiddenGridCols) : _toConsumableArray(DEFAULT_FORM_DATA.hiddenGridCols);
   newData.capaSuiteDiscountPercent = groupData.capaSuiteDiscountPercent !== undefined ? groupData.capaSuiteDiscountPercent : 15;
   newData.customDailyPvp = groupData.customDailyPvp || {};
@@ -2233,6 +2238,37 @@ function App() {
       }
     }
   }, [formData.Entrada, formData.Salida, formData.Hotel_Asignado, formData.ratesOnlyGrid, formData.isRatesOnly, formData.isMultiSegment, formData.segments, tariffCatalogRevision]);
+
+  // Precargar tarifas oficiales en Modo Solo Tarifas (Hotel principal y secundario si "Ambos Hoteles" está activo)
+  useEffect(function () {
+    if (!formData.isRatesOnly) return;
+    var parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+    var targetY = !isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100 ? parsedY : 2027;
+    var primaryHotel = formData.Hotel_Asignado || "Sercotel Guadiana";
+    var secondaryHotel = getAlternateHotel(primaryHotel);
+    var hasPrimary = Object.values(formData.ratesOnlyGrid || {}).some(function (b) {
+      return Object.values(b || {}).some(function (p) {
+        return p !== '' && p !== 0 && p !== null && p !== undefined;
+      });
+    });
+    var hasSecondary = Object.values(formData.secondaryRatesOnlyGrid || {}).some(function (b) {
+      return Object.values(b || {}).some(function (p) {
+        return p !== '' && p !== 0 && p !== null && p !== undefined;
+      });
+    });
+    var patch = {};
+    if (!hasPrimary) {
+      patch.ratesOnlyGrid = getOfficialTariffsGrid(primaryHotel, targetY);
+    }
+    if (formData.includeBothHotels && !hasSecondary) {
+      patch.secondaryRatesOnlyGrid = getOfficialTariffsGrid(secondaryHotel, targetY);
+    }
+    if (Object.keys(patch).length > 0) {
+      setFormData(function (prev) {
+        return _objectSpread(_objectSpread({}, prev), patch);
+      });
+    }
+  }, [formData.isRatesOnly, formData.includeBothHotels, formData.Hotel_Asignado, formData.Entrada, tariffCatalogRevision]);
 
   // Sincronizar catálogo de tarifas oficiales desde Firestore (settings/groupTariffs)
   useEffect(function () {
@@ -5684,7 +5720,28 @@ function App() {
       },
       className: "ml-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-xs font-black disabled:opacity-50",
       title: "Calcula cada tipolog\xEDa y r\xE9gimen con todas las noches de la estancia"
-    }, "Tarifa Media Estancia (", stayDates.length, " noches)")), ((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && /*#__PURE__*/React.createElement("button", {
+    }, "Tarifa Media Estancia (", stayDates.length, " noches)")), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        var nextVal = !formData.includeBothHotels;
+        var secHotel = getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana");
+        var parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+        var targetY = !isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100 ? parsedY : 2027;
+        var hasSec = Object.values(formData.secondaryRatesOnlyGrid || {}).some(function (b) {
+          return Object.values(b || {}).some(function (p) {
+            return p !== '' && p !== 0 && p !== null && p !== undefined;
+          });
+        });
+        setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+          includeBothHotels: nextVal,
+          secondaryRatesOnlyGrid: nextVal && !hasSec ? getOfficialTariffsGrid(secHotel, targetY) : formData.secondaryRatesOnlyGrid || {}
+        }));
+      },
+      className: "px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 border ".concat(formData.includeBothHotels ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50"),
+      title: "Incluir tambi\xE9n las tarifas del segundo hotel en el mismo presupuesto y PDF"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas ".concat(formData.includeBothHotels ? "fa-check-circle" : "fa-hotel", " text-[11px]")
+    }), formData.includeBothHotels ? "Ambos Hoteles Activos" : "+ Incluir ".concat(getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana"))), ((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
           hiddenGridRows: [],
@@ -5694,7 +5751,11 @@ function App() {
       className: "px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
     }, /*#__PURE__*/React.createElement("i", {
       className: "fas fa-eye text-[10px]"
-    }), "Mostrar Ocultos (", (formData.hiddenGridRows || []).length + (formData.hiddenGridCols || []).length, ")"))), /*#__PURE__*/React.createElement("div", {
+    }), "Mostrar Ocultos (", (formData.hiddenGridRows || []).length + (formData.hiddenGridCols || []).length, ")"))), formData.includeBothHotels && /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-between px-4 py-2 rounded-xl bg-amber-50/70 border border-amber-200/70"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "text-[11px] font-black uppercase tracking-wider text-amber-900"
+    }, "Hotel 1: ", formData.Hotel_Asignado || "Sercotel Guadiana")), /*#__PURE__*/React.createElement("div", {
       className: "overflow-x-auto rounded-2xl border border-slate-100"
     }, /*#__PURE__*/React.createElement("table", {
       className: "w-full text-left border-collapse text-xs"
@@ -5835,7 +5896,87 @@ function App() {
           }, /*#__PURE__*/React.createElement("div", null, priceInfo !== null && priceInfo !== void 0 && priceInfo.isEstimated ? 'PVP estimado' : (priceInfo === null || priceInfo === void 0 ? void 0 : priceInfo.source) || 'Referencia del día'), recommended != null && /*#__PURE__*/React.createElement("div", null, "Sugerida ", boardKey, ": ", formatMoney(recommended), "\u20AC \xB7 dto. ", discount, "% solo sobre habitaci\xF3n; suplementos completos")));
         }());
       }));
-    }))))), /*#__PURE__*/React.createElement("div", {
+    })))), formData.includeBothHotels && function () {
+      var secHotel = getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana");
+      var secRooms = (ROOM_TYPES[secHotel] || ROOM_TYPES["Cumbria Spa&Hotel"] || []).filter(function (r) {
+        return !(formData.hiddenGridCols || []).includes(r);
+      });
+      var parsedY = formData.Entrada ? new Date(toInputDate(formData.Entrada)).getFullYear() : 2027;
+      var targetY = !isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100 ? parsedY : 2027;
+      var secOffGrid = getOfficialTariffsGrid(secHotel, targetY);
+      return /*#__PURE__*/React.createElement("div", {
+        className: "space-y-3 pt-4 border-t border-slate-100"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "flex flex-wrap items-center justify-between gap-2 px-4 py-2 rounded-xl bg-blue-50/80 border border-blue-200/70"
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "text-[11px] font-black uppercase tracking-wider text-blue-900"
+      }, "Hotel 2: ", secHotel), /*#__PURE__*/React.createElement("button", {
+        type: "button",
+        onClick: function onClick() {
+          return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+            secondaryRatesOnlyGrid: getOfficialTariffsGrid(secHotel, targetY)
+          }));
+        },
+        className: "px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+      }, "Cargar Tarifa Oficial (", targetY, ")")), /*#__PURE__*/React.createElement("div", {
+        className: "overflow-x-auto rounded-2xl border border-blue-100"
+      }, /*#__PURE__*/React.createElement("table", {
+        className: "w-full text-left border-collapse text-xs"
+      }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+        className: "bg-blue-50/50 text-blue-900 font-black text-[10px] uppercase tracking-widest border-b border-blue-100"
+      }, /*#__PURE__*/React.createElement("th", {
+        className: "p-4 pl-8"
+      }, "R\xE9gimen"), secRooms.map(function (room) {
+        return /*#__PURE__*/React.createElement("th", {
+          key: room,
+          className: "p-4 text-center"
+        }, room);
+      }))), /*#__PURE__*/React.createElement("tbody", {
+        className: "divide-y divide-slate-100"
+      }, BOARD_TYPES.filter(function (b) {
+        return !(formData.hiddenGridRows || []).includes(b.split(' ')[0]);
+      }).map(function (board) {
+        var boardKey = board.split(' ')[0];
+        return /*#__PURE__*/React.createElement("tr", {
+          key: board
+        }, /*#__PURE__*/React.createElement("td", {
+          className: "p-4 pl-8 font-bold text-slate-700"
+        }, board), secRooms.map(function (room) {
+          var _formData$secondaryRa;
+          var secVal = ((_formData$secondaryRa = formData.secondaryRatesOnlyGrid) === null || _formData$secondaryRa === void 0 || (_formData$secondaryRa = _formData$secondaryRa[boardKey]) === null || _formData$secondaryRa === void 0 ? void 0 : _formData$secondaryRa[room]) || '';
+          var secOffBoard = secOffGrid[boardKey] || {};
+          var secOffPrice = secOffBoard[room] !== undefined && secOffBoard[room] !== null ? Number(secOffBoard[room]) : null;
+          return /*#__PURE__*/React.createElement("td", {
+            key: room,
+            className: "p-4"
+          }, /*#__PURE__*/React.createElement("div", {
+            className: "relative max-w-[150px] mx-auto"
+          }, /*#__PURE__*/React.createElement("div", {
+            className: "relative"
+          }, /*#__PURE__*/React.createElement("input", {
+            type: "number",
+            step: "0.01",
+            min: "0",
+            value: secVal,
+            onChange: function onChange(e) {
+              var grid = _objectSpread({}, formData.secondaryRatesOnlyGrid || {});
+              grid[boardKey] = _objectSpread(_objectSpread({}, grid[boardKey] || {}), {}, _defineProperty({}, room, e.target.value));
+              setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+                secondaryRatesOnlyGrid: grid
+              }));
+            },
+            placeholder: "0.00",
+            className: "w-full pl-2 pr-6 py-2 rounded-xl text-xs font-black text-center outline-none transition-all bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-slate-700"
+          }), /*#__PURE__*/React.createElement("span", {
+            className: "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold"
+          }, "\u20AC")), /*#__PURE__*/React.createElement("div", {
+            className: "mt-1 text-[10px] px-0.5 font-bold text-slate-500 text-center"
+          }, "T/grupo: ", secOffPrice !== null ? "".concat(Number(secOffPrice).toLocaleString('es-ES', {
+            maximumFractionDigits: 2
+          }), "\u20AC") : '—')));
+        }));
+      })))));
+    }()), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))',
@@ -7090,16 +7231,30 @@ function App() {
       className: "p-8 md:p-10 print:p-8",
       id: "quote-document"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "flex items-center justify-between gap-6 border-b-2 pb-4 mb-8 print:mb-4 print:pb-3 ".concat(isCumbria ? 'border-blue-900' : 'border-orange-600')
+      className: "flex items-center justify-between gap-6 border-b-2 pb-4 mb-8 print:mb-4 print:pb-3 ".concat(g.includeBothHotels ? 'border-slate-800' : isCumbria ? 'border-blue-900' : 'border-orange-600')
+    }, g.includeBothHotels ? /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-4 flex-shrink-0"
     }, /*#__PURE__*/React.createElement("img", {
+      src: "Logos/Sercotel Guadiana.jpg",
+      alt: "Sercotel Guadiana",
+      className: "max-h-16 print:max-h-12 w-auto object-contain"
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "h-10 w-px bg-slate-200"
+    }), /*#__PURE__*/React.createElement("img", {
+      src: "Logos/Cumbria Spa&Hotel.jpg",
+      alt: "Cumbria Spa & Hotel",
+      className: "max-h-16 print:max-h-12 w-auto object-contain"
+    })) : /*#__PURE__*/React.createElement("img", {
       src: isCumbria ? "Logos/Cumbria Spa&Hotel.jpg" : "Logos/Sercotel Guadiana.jpg",
       alt: hotelName,
       className: "max-h-20 print:max-h-14 w-auto object-contain flex-shrink-0"
     }), /*#__PURE__*/React.createElement("div", {
       className: "text-right"
     }, /*#__PURE__*/React.createElement("h1", {
-      className: "text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ".concat(isCumbria ? 'text-blue-900' : 'text-orange-800')
-    }, docMode === 'confirmacion' ? 'Confirmación de Grupo' : 'Propuesta de Alojamiento'), /*#__PURE__*/React.createElement("p", {
+      className: "text-xl md:text-2xl print:text-lg font-black uppercase tracking-tighter ".concat(g.includeBothHotels ? 'text-slate-900' : isCumbria ? 'text-blue-900' : 'text-orange-800')
+    }, docMode === 'confirmacion' ? 'Confirmación de Grupo' : g.includeBothHotels ? 'Propuesta Conjunta de Alojamiento' : 'Propuesta de Alojamiento'), g.includeBothHotels && /*#__PURE__*/React.createElement("p", {
+      className: "text-[10px] print:text-[8px] font-bold text-slate-500 uppercase tracking-wider mt-0.5"
+    }, "Sercotel Guadiana & Cumbria Spa & Hotel"), /*#__PURE__*/React.createElement("p", {
       className: "text-[10px] print:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1"
     }, "Ref: ", g.Reserva, (g.Presupuesto_Origen || g.sourceQuoteId) && String(g.Presupuesto_Origen || g.sourceQuoteId).trim() !== String(g.Reserva).trim() && /*#__PURE__*/React.createElement("span", {
       className: "ml-2 text-indigo-600 font-bold"
@@ -7276,69 +7431,90 @@ function App() {
     }, "Itinerario y Condiciones Econ\xF3micas"), g.averageStayCondition && /*#__PURE__*/React.createElement("div", {
       className: "quote-stay-condition rounded-xl border border-amber-200 bg-amber-50 p-4 print:p-2 text-xs print:text-[9px] text-slate-800 break-inside-avoid"
     }, /*#__PURE__*/React.createElement("strong", null, "Oferta v\xE1lida para una estancia m\xEDnima de ", g.averageStayCondition.nights, " noches."), " Tarifa media calculada para la estancia completa en las fechas ", g.averageStayCondition.dates.map(formatDate).join(', '), ". Cualquier reducci\xF3n o cambio de fechas requiere recalcular la tarifa; este precio medio no se mantiene para una estancia diferente."), dates.length > 0 || g.isRatesOnly ? g.isRatesOnly ? /*#__PURE__*/React.createElement("div", {
-      className: "overflow-hidden print:overflow-visible rounded-2xl border ".concat(isCumbria ? 'border-blue-900/20' : 'border-orange-600/20', " text-xs print:text-[10px] bg-white shadow-sm")
-    }, /*#__PURE__*/React.createElement("table", {
-      className: "w-full text-left border-collapse"
-    }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
-      className: "".concat(isCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50', " font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ").concat(isCumbria ? 'border-blue-950' : 'border-orange-950'),
-      style: {
-        backgroundColor: isCumbria ? '#0f172a' : '#451a03',
-        color: 'white',
-        WebkitPrintColorAdjust: 'exact',
-        printColorAdjust: 'exact'
-      }
-    }, /*#__PURE__*/React.createElement("th", {
-      className: "p-4 print:py-2 print:px-3 font-extrabold"
-    }, "R\xE9gimen"), currentRooms.filter(function (r) {
-      return !(g.hiddenGridCols || []).includes(r);
-    }).map(function (room) {
-      return /*#__PURE__*/React.createElement("th", {
-        key: room,
-        className: "p-4 print:py-2 print:px-3 text-center font-extrabold"
-      }, getRoomDisplayName(room));
-    }))), /*#__PURE__*/React.createElement("tbody", {
-      className: "divide-y divide-slate-100"
-    }, BOARD_TYPES.filter(function (b) {
-      return !(g.hiddenGridRows || []).includes(b.split(' ')[0]);
-    }).map(function (board, idx) {
-      var boardKey = board.split(' ')[0];
-      var visibleRooms = currentRooms.filter(function (r) {
-        return !(g.hiddenGridCols || []).includes(r);
-      });
-      var hasPrices = visibleRooms.some(function (room) {
-        var _g$ratesOnlyGrid;
-        return (_g$ratesOnlyGrid = g.ratesOnlyGrid) === null || _g$ratesOnlyGrid === void 0 || (_g$ratesOnlyGrid = _g$ratesOnlyGrid[boardKey]) === null || _g$ratesOnlyGrid === void 0 ? void 0 : _g$ratesOnlyGrid[room];
-      });
-      if (!hasPrices) return null;
-      return /*#__PURE__*/React.createElement("tr", {
-        key: board,
-        className: "".concat(idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30', " hover:bg-slate-50/50 transition-colors")
-      }, /*#__PURE__*/React.createElement("td", {
-        className: "p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight"
-      }, getBoardDisplayName(board)), visibleRooms.map(function (room) {
-        var _g$ratesOnlyGrid2;
-        var price = (_g$ratesOnlyGrid2 = g.ratesOnlyGrid) === null || _g$ratesOnlyGrid2 === void 0 || (_g$ratesOnlyGrid2 = _g$ratesOnlyGrid2[boardKey]) === null || _g$ratesOnlyGrid2 === void 0 ? void 0 : _g$ratesOnlyGrid2[room];
-        return /*#__PURE__*/React.createElement("td", {
-          key: room,
-          className: "p-4 print:py-2.5 print:px-3 text-center align-middle"
-        }, price ? /*#__PURE__*/React.createElement("span", {
-          className: "inline-block px-3 py-1 rounded-lg ".concat(isCumbria ? 'bg-blue-50 text-blue-900 border border-blue-100/50' : 'bg-orange-50 text-orange-900 border border-orange-100/50', " text-xs print:text-[10px] font-extrabold tabular-nums"),
+      className: "space-y-6 print:space-y-4"
+    }, function () {
+      var parsedY = g.Entrada ? new Date(toInputDate(g.Entrada)).getFullYear() : 2027;
+      var targetY = !isNaN(parsedY) && parsedY >= 2020 && parsedY <= 2100 ? parsedY : 2027;
+      var primaryGrid = g.ratesOnlyGrid && Object.keys(g.ratesOnlyGrid).length > 0 ? g.ratesOnlyGrid : getOfficialTariffsGrid(hotelName, targetY);
+      var secHotel = getAlternateHotel(hotelName);
+      var secIsCumbria = secHotel.toLowerCase().includes("cumbria");
+      var secRoomsList = ROOM_TYPES[secHotel] || ROOM_TYPES["Cumbria Spa&Hotel"] || [];
+      var secondaryGrid = g.secondaryRatesOnlyGrid && Object.keys(g.secondaryRatesOnlyGrid).length > 0 ? g.secondaryRatesOnlyGrid : getOfficialTariffsGrid(secHotel, targetY);
+      var renderRatesTable = function renderRatesTable(hName, hIsCumbria, hRooms, hGrid) {
+        var visibleRooms = hRooms.filter(function (r) {
+          return !(g.hiddenGridCols || []).includes(r);
+        });
+        return /*#__PURE__*/React.createElement("div", {
+          key: hName,
+          className: "overflow-hidden print:overflow-visible rounded-2xl border ".concat(hIsCumbria ? 'border-blue-900/20' : 'border-orange-600/20', " text-xs print:text-[10px] bg-white shadow-sm break-inside-avoid")
+        }, g.includeBothHotels && /*#__PURE__*/React.createElement("div", {
+          className: "px-4 py-2.5 print:py-1.5 flex items-center justify-between border-b ".concat(hIsCumbria ? 'bg-blue-50/70 border-blue-100 text-blue-950' : 'bg-amber-50/80 border-orange-100 text-amber-950'),
           style: {
             WebkitPrintColorAdjust: 'exact',
             printColorAdjust: 'exact'
           }
-        }, formatNum(price), " \u20AC") : /*#__PURE__*/React.createElement("span", {
-          className: "text-slate-300 font-medium"
-        }, "-"));
-      }));
-    }))), /*#__PURE__*/React.createElement("div", {
-      className: "".concat(isCumbria ? 'bg-slate-50 text-slate-500 border-t border-slate-100' : 'bg-orange-50/30 text-orange-800/80 border-t border-orange-100/50', " px-6 py-3.5 print:py-2 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black"),
-      style: {
-        backgroundColor: isCumbria ? '#f8fafc' : '#fffbeb',
-        WebkitPrintColorAdjust: 'exact',
-        printColorAdjust: 'exact'
-      }
-    }, "Tarifas informativas por habitaci\xF3n y noche (IVA incluido)")) : /*#__PURE__*/React.createElement("div", {
+        }, /*#__PURE__*/React.createElement("span", {
+          className: "text-[11px] print:text-[9px] font-black uppercase tracking-widest"
+        }, hIsCumbria ? 'Cumbria Spa & Hotel' : 'Sercotel Guadiana')), /*#__PURE__*/React.createElement("table", {
+          className: "w-full text-left border-collapse"
+        }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+          className: "".concat(hIsCumbria ? 'bg-slate-900 text-white' : 'bg-amber-950 text-amber-50', " font-black text-[10px] print:text-[8px] uppercase tracking-widest border-b ").concat(hIsCumbria ? 'border-blue-950' : 'border-orange-950'),
+          style: {
+            backgroundColor: hIsCumbria ? '#0f172a' : '#451a03',
+            color: 'white',
+            WebkitPrintColorAdjust: 'exact',
+            printColorAdjust: 'exact'
+          }
+        }, /*#__PURE__*/React.createElement("th", {
+          className: "p-4 print:py-2 print:px-3 font-extrabold"
+        }, "R\xE9gimen"), visibleRooms.map(function (room) {
+          return /*#__PURE__*/React.createElement("th", {
+            key: room,
+            className: "p-4 print:py-2 print:px-3 text-center font-extrabold"
+          }, getRoomDisplayName(room));
+        }))), /*#__PURE__*/React.createElement("tbody", {
+          className: "divide-y divide-slate-100"
+        }, BOARD_TYPES.filter(function (b) {
+          return !(g.hiddenGridRows || []).includes(b.split(' ')[0]);
+        }).map(function (board, idx) {
+          var boardKey = board.split(' ')[0];
+          var hasPrices = visibleRooms.some(function (room) {
+            var _hGrid$boardKey;
+            return hGrid === null || hGrid === void 0 || (_hGrid$boardKey = hGrid[boardKey]) === null || _hGrid$boardKey === void 0 ? void 0 : _hGrid$boardKey[room];
+          });
+          if (!hasPrices) return null;
+          return /*#__PURE__*/React.createElement("tr", {
+            key: board,
+            className: "".concat(idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30', " hover:bg-slate-50/50 transition-colors")
+          }, /*#__PURE__*/React.createElement("td", {
+            className: "p-4 print:py-2.5 print:px-3 align-middle font-bold text-slate-800 uppercase tracking-tight"
+          }, getBoardDisplayName(board)), visibleRooms.map(function (room) {
+            var _hGrid$boardKey2;
+            var price = hGrid === null || hGrid === void 0 || (_hGrid$boardKey2 = hGrid[boardKey]) === null || _hGrid$boardKey2 === void 0 ? void 0 : _hGrid$boardKey2[room];
+            return /*#__PURE__*/React.createElement("td", {
+              key: room,
+              className: "p-4 print:py-2.5 print:px-3 text-center align-middle"
+            }, price ? /*#__PURE__*/React.createElement("span", {
+              className: "inline-block px-3 py-1 rounded-lg ".concat(hIsCumbria ? 'bg-blue-50 text-blue-900 border border-blue-100/50' : 'bg-orange-50 text-orange-900 border border-orange-100/50', " text-xs print:text-[10px] font-extrabold tabular-nums"),
+              style: {
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact'
+              }
+            }, formatNum(price), " \u20AC") : /*#__PURE__*/React.createElement("span", {
+              className: "text-slate-300 font-medium"
+            }, "-"));
+          }));
+        }))), /*#__PURE__*/React.createElement("div", {
+          className: "".concat(hIsCumbria ? 'bg-slate-50 text-slate-500 border-t border-slate-100' : 'bg-orange-50/30 text-orange-800/80 border-t border-orange-100/50', " px-6 py-3.5 print:py-2 text-center uppercase tracking-widest text-[9px] print:text-[7.5px] font-black"),
+          style: {
+            backgroundColor: hIsCumbria ? '#f8fafc' : '#fffbeb',
+            WebkitPrintColorAdjust: 'exact',
+            printColorAdjust: 'exact'
+          }
+        }, "Tarifas informativas por habitaci\xF3n y noche (IVA incluido)"));
+      };
+      return /*#__PURE__*/React.createElement(React.Fragment, null, renderRatesTable(hotelName, isCumbria, currentRooms, primaryGrid), g.includeBothHotels && renderRatesTable(secHotel, secIsCumbria, secRoomsList, secondaryGrid));
+    }()) : /*#__PURE__*/React.createElement("div", {
       className: "overflow-hidden print:overflow-visible rounded-2xl border border-slate-100 text-xs print:text-[10px]"
     }, /*#__PURE__*/React.createElement("table", {
       className: "quote-service-table w-full text-left border-collapse"

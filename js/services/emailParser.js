@@ -426,17 +426,24 @@
             pax = parseInt(paxSuffixMatch[1], 10);
         }
 
-        // 4. Régimen
-        var regimen = "HD";
-        if (/\b(pc|pensi[oó]n\s+completa)\b/i.test(clean)) {
-            regimen = "PC";
-        } else if (/\b(mp|media\s+pensi[oó]n)\b/i.test(clean)) {
-            regimen = "MP";
-        } else if (/\b(ha|sa|solo\s+alojamiento|alojamiento\s+solo)\b/i.test(clean)) {
-            regimen = "HA";
-        } else if (/\b(hd|ad|desayuno|alojamiento\s+y\s+desayuno)\b/i.test(clean)) {
-            regimen = "HD";
+        // 4. Régimen (detectar todos los solicitados, ej. "MP o PC" -> ["MP", "PC"])
+        var regimenesSolicitados = [];
+        if (/\b(ha|sa|solo\s+alojamiento|alojamiento\s+solo)\b/i.test(clean)) {
+            regimenesSolicitados.push("HA");
         }
+        if (/\b(hd|ad|alojamiento\s+y\s+desayuno|con\s+desayuno)\b/i.test(clean)) {
+            regimenesSolicitados.push("HD");
+        }
+        if (/\b(mp|media\s+pensi[oó]n)\b/i.test(clean)) {
+            regimenesSolicitados.push("MP");
+        }
+        if (/\b(pc|pensi[oó]n\s+completa)\b/i.test(clean)) {
+            regimenesSolicitados.push("PC");
+        }
+        if (regimenesSolicitados.length === 0) {
+            regimenesSolicitados = ["HD"];
+        }
+        var regimen = regimenesSolicitados[0];
 
         // 5. Contacto y Agencia
         var emailMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -497,6 +504,7 @@
                 "Pax.": pax || 0,
                 "Empresa/Agencia": agencia,
                 "Régimen": regimen,
+                "regimenesSolicitados": regimenesSolicitados.slice(),
                 "Habitaciones": habitacionesResumen,
                 "roomCounts": Object.assign({}, roomCounts),
                 "dailyConfig": buildDailyConfigWithGratuities(range.entrada, range.salida, regimen, roomsInfo.duiGratuities),

@@ -190,27 +190,63 @@ var App = function App() {
     _useState0 = _slicedToArray(_useState9, 2),
     savedBudgets = _useState0[0],
     setSavedBudgets = _useState0[1];
-  var _useState1 = useState(null),
+  var _useState1 = useState("unified"),
     _useState10 = _slicedToArray(_useState1, 2),
-    saveStatus = _useState10[0],
-    setSaveStatus = _useState10[1];
-  var _useState11 = useState({}),
+    saveMode = _useState10[0],
+    setSaveMode = _useState10[1];
+  var _useState11 = useState(false),
     _useState12 = _slicedToArray(_useState11, 2),
-    validation = _useState12[0],
-    setValidation = _useState12[1];
-  var _useState13 = useState(false),
+    includeBothHotels = _useState12[0],
+    setIncludeBothHotels = _useState12[1];
+  var _useState13 = useState(["HD"]),
     _useState14 = _slicedToArray(_useState13, 2),
-    isEditMode = _useState14[0],
-    setIsEditMode = _useState14[1];
+    selectedBoards = _useState14[0],
+    setSelectedBoards = _useState14[1];
   var _useState15 = useState(null),
     _useState16 = _slicedToArray(_useState15, 2),
-    extractionMode = _useState16[0],
-    setExtractionMode = _useState16[1];
-  var _useState17 = useState(null),
+    saveStatus = _useState16[0],
+    setSaveStatus = _useState16[1];
+  var _useState17 = useState({}),
     _useState18 = _slicedToArray(_useState17, 2),
-    extractionNotice = _useState18[0],
-    setExtractionNotice = _useState18[1];
+    validation = _useState18[0],
+    setValidation = _useState18[1];
+  var _useState19 = useState(false),
+    _useState20 = _slicedToArray(_useState19, 2),
+    isEditMode = _useState20[0],
+    setIsEditMode = _useState20[1];
+  var _useState21 = useState(null),
+    _useState22 = _slicedToArray(_useState21, 2),
+    extractionMode = _useState22[0],
+    setExtractionMode = _useState22[1];
+  var _useState23 = useState(null),
+    _useState24 = _slicedToArray(_useState23, 2),
+    extractionNotice = _useState24[0],
+    setExtractionNotice = _useState24[1];
   var extractedData = extractedGroups[activeGroupIndex] || null;
+  var toggleBoard = function toggleBoard(code) {
+    setSelectedBoards(function (prev) {
+      var exists = prev.includes(code);
+      if (exists && prev.length === 1) return prev; // Al menos 1 régimen activo
+      var next = exists ? prev.filter(function (b) {
+        return b !== code;
+      }) : [].concat(_toConsumableArray(prev), [code]);
+      var order = ["HA", "HD", "MP", "PC"];
+      next.sort(function (a, b) {
+        return order.indexOf(a) - order.indexOf(b);
+      });
+      // Sincronizar Régimen principal en la ficha activa
+      if (extractedGroups.length > 0) {
+        setExtractedGroups(function (groups) {
+          return groups.map(function (g) {
+            return _objectSpread(_objectSpread({}, g), {}, {
+              "Régimen": next[0]
+            });
+          });
+        });
+      }
+      return next;
+    });
+  };
   var getGroupErrors = function getGroupErrors(data) {
     var errors = {};
     if (!data) return errors;
@@ -239,9 +275,13 @@ var App = function App() {
     setActiveGroupIndex(0);
     setSavedBudgets([]);
     setSaveStatus(null);
+    setSaveMode("unified");
     if (list.length > 0) {
+      var detectedBoards = Array.isArray(list[0].regimenesSolicitados) && list[0].regimenesSolicitados.length > 0 ? list[0].regimenesSolicitados : [list[0]["Régimen"] || "HD"];
+      setSelectedBoards(detectedBoards);
       setValidation(getGroupErrors(list[0]));
     } else {
+      setSelectedBoards(["HD"]);
       setValidation({});
     }
   };
@@ -419,7 +459,7 @@ var App = function App() {
     return total > 0 ? total : 0;
   };
 
-  // callGemini cargado desde js/gemini.js (window.callGemini)
+  // Analizador local cargado desde js/services/emailParser.js (window.NexusEmailParser)
 
   var parseEmailTextLocally = function parseEmailTextLocally(text) {
     if (window.NexusEmailParser && typeof window.NexusEmailParser.parseEmailTextLocallyMulti === 'function') {
@@ -461,133 +501,140 @@ var App = function App() {
       setIsAnalyzing(false);
     }
   };
-  var handleAnalyze = /*#__PURE__*/function () {
-    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-      var todayIso, prompt, aiFailed, aiErrorMessage, aiResult, cleanJson, parsed, normalizedList, localParsedList, _t;
+  var handleAnalyze = function handleAnalyze() {
+    if (!emailText.trim()) return;
+    setIsAnalyzing(true);
+    setExtractionNotice(null);
+    try {
+      var parsedList = parseEmailTextLocally(emailText);
+      applyExtractedGroups(parsedList);
+      setExtractionMode('local');
+    } catch (err) {
+      alert("Error en el análisis del correo: " + err.message);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+  var buildRoomAllocationsForGroup = function buildRoomAllocationsForGroup(grp) {
+    var counts = grp.roomCounts || {};
+    var allocs = [];
+    Object.entries(counts).forEach(function (_ref7) {
+      var _ref8 = _slicedToArray(_ref7, 2),
+        roomType = _ref8[0],
+        rawRooms = _ref8[1];
+      var rooms = Number(rawRooms || 0);
+      if (rooms <= 0) return;
+      var rtLower = roomType.toLowerCase();
+      var paxPerRoom = rtLower.includes("individual") || rtLower.includes("dui") ? 1 : rtLower.includes("cuádruple") || rtLower.includes("cuadruple") ? 4 : rtLower.includes("supletoria") || rtLower.includes("triple") ? 3 : 2;
+      allocs.push({
+        roomType: roomType.toUpperCase(),
+        rooms: rooms,
+        pax: rooms * paxPerRoom
+      });
+    });
+    if (allocs.length === 0) {
+      var fallbackPax = Number(grp["Pax."] || 0);
+      allocs.push({
+        roomType: "DOBLE",
+        rooms: Math.max(1, Math.ceil(fallbackPax / 2)),
+        pax: fallbackPax || 2
+      });
+    }
+    return allocs;
+  };
+  var buildRatesOnlyFlags = function buildRatesOnlyFlags(hotelName, roomCountsObj) {
+    var useRatesOnly = selectedBoards.length > 1 || includeBothHotels;
+    var allBoards = ["HA", "HD", "MP", "PC"];
+    var hiddenGridRows = allBoards.filter(function (b) {
+      return !selectedBoards.includes(b);
+    });
+    var hotelRooms = ROOM_TYPES[hotelName] || ROOM_TYPES["Sercotel Guadiana"];
+    var usedRoomTypes = Object.entries(roomCountsObj || {}).filter(function (_ref9) {
+      var _ref0 = _slicedToArray(_ref9, 2),
+        _ = _ref0[0],
+        c = _ref0[1];
+      return Number(c) > 0;
+    }).map(function (_ref1) {
+      var _ref10 = _slicedToArray(_ref1, 1),
+        t = _ref10[0];
+      return t.toUpperCase();
+    });
+    var hiddenGridCols = usedRoomTypes.length > 0 ? hotelRooms.filter(function (r) {
+      return !usedRoomTypes.includes(r.toUpperCase());
+    }) : ["DOBLE + SUPLETORIA NIÑO", "SUITE", "SUITE SUPERIOR"];
+    return {
+      isRatesOnly: useRatesOnly,
+      hiddenGridRows: hiddenGridRows,
+      hiddenGridCols: hiddenGridCols,
+      requestedBoards: _toConsumableArray(selectedBoards),
+      includeBothHotels: !!includeBothHotels
+    };
+  };
+  var handleSave = /*#__PURE__*/function () {
+    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+      var i, errs, hotelCheck, now, formattedDate, usedIds, createdList, shouldUnify, first, hotelAsignado, rawReservaId, reservaId, isMultiDates, allIn, allOut, entrada, salida, releaseDate, d, cleanBaseName, segments, mergedDailyConfig, rateFlags, totalPaxStr, groupToSave, idx, item, _hotelAsignado, _rawReservaId, _reservaId, _entrada, _releaseDate, _d, _rateFlags, _groupToSave, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
-            if (emailText.trim()) {
+            if (extractedGroups.length) {
               _context.n = 1;
               break;
             }
             return _context.a(2);
           case 1:
-            setIsAnalyzing(true);
-            setExtractionNotice(null);
-            todayIso = new Date().toISOString().split("T")[0];
-            prompt = "Analiza el siguiente texto de un correo electr\xF3nico de reserva de grupo y extrae la informaci\xF3n en formato JSON estrictamente.\n                Fecha actual de referencia: ".concat(todayIso, ". Si una fecha no indica a\xF1o y ya ha pasado en el a\xF1o actual, usa el a\xF1o siguiente.\n                IMPORTANTE: Si el correo solicita cotizaci\xF3n para VARIAS FECHAS DISTINTAS o VARIOS GRUPOS (por ejemplo \"Del 19 al 21 de marzo\" y \"Del 15 al 17 de mayo\"), devuelve un objeto JSON con la clave \"grupos\" que contenga un array con UN objeto por cada fecha/grupo distinto: {\"grupos\": [{...}, {...}]}. Si solo hay una fecha/grupo, puedes devolver un objeto \xFAnico o {\"grupos\": [{...}]}.\n\n                Campos requeridos en cada grupo (usa estos nombres exactos, si no encuentras el dato devuelve un string vac\xEDo \"\"):\n                - \"Nombre del Grupo\": nombre identificativo corto (ej. GALEGR\xCDA VIAJES (19/03 - 21/03)).\n                - \"Entrada\": fecha en formato YYYY-MM-DD.\n                - \"Salida\": fecha en formato YYYY-MM-DD.\n                - \"Pax.\": n\xFAmero total de personas/pasajeros (entero).\n                - \"Empresa/Agencia\": nombre de la empresa o agencia.\n                - \"R\xE9gimen\": (HA, HD, MP, PC).\n                - \"Habitaciones\": resumen en texto de la distribuci\xF3n solicitada (ej. 23 dobles, 6 individuales).\n                - \"roomCounts\": objeto JSON con el desglose num\xE9rico por tipo de habitaci\xF3n. USA ESTOS TIPOS SEG\xDAN EL HOTEL SI SE IDENTIFICA (si no, usa los de Sercotel Guadiana):\n                  * Sercotel Guadiana: {\"DOBLE DE USO INDIVIDUAL\": 0, \"DOBLE\": 0, \"DOBLE + SUPLETORIA\": 0, \"DOBLE + SUPLETORIA NI\xD1O\": 0, \"CU\xC1DRUPLE\": 0, \"SUITE\": 0, \"SUITE SUPERIOR\": 0}\n                  * Cumbria Spa & Hotel: {\"DOBLE DE USO INDIVIDUAL\": 0, \"DOBLE\": 0, \"DOBLE + SUPLETORIA\": 0, \"DOBLE + SUPLETORIA NI\xD1O\": 0, \"SUITE\": 0}\n                  Extrae SOLO los n\xFAmeros que encuentres. Si mencionan ni\xF1os en supletorias o triples con ni\xF1os, usa \"DOBLE + SUPLETORIA NI\xD1O\". Si mencionan ch\xF3fer y/o gu\xEDa en single/individual, incl\xFAyelos en \"DOBLE DE USO INDIVIDUAL\".\n                - \"Importe(*)\": precio unitario o total si se menciona, si no 0.\n                - \"Hotel\": \"Sercotel Guadiana\" o \"Cumbria Spa & Hotel\" si se menciona o deduce.\n                - \"Observaciones\": copia TODO el texto relevante del correo original que explique peticiones.\n                - \"Com_Nombre_Contacto\": nombre del remitente o departamento.\n                - \"Com_Email_Contacto\": email del remitente.\n                - \"Com_Telefono_Contacto\": tel\xE9fono.\n                - \"Fiscal_RazonSocial\": datos fiscales si aparecen.\n                - \"Fiscal_CIF\": CIF/NIF.\n                - \"Fiscal_Direccion\": direcci\xF3n.\n                - \"Fiscal_CP\": CP.\n                - \"Fiscal_Poblacion\": poblaci\xF3n.\n\n                Responde \xFAnicamente con el bloque JSON.\n                TEXTO DEL EMAIL:\n                ").concat(emailText);
-            aiFailed = false;
-            aiErrorMessage = "";
-            _context.p = 2;
-            _context.n = 3;
-            return callGemini(prompt);
-          case 3:
-            aiResult = _context.v;
-            if (aiResult && aiResult.ok && aiResult.text) {
-              cleanJson = aiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
-              parsed = JSON.parse(cleanJson);
-              normalizedList = window.NexusEmailParser && typeof window.NexusEmailParser.normalizeAiExtractionResponse === 'function' ? window.NexusEmailParser.normalizeAiExtractionResponse(parsed, emailText) : Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.grupos) ? parsed.grupos : [parsed];
-              applyExtractedGroups(normalizedList);
-              setExtractionMode('ai');
-              setExtractionNotice(null);
-            } else {
-              aiFailed = true;
-              aiErrorMessage = aiResult && aiResult.error || "Error al conectar con la IA de Google.";
-            }
-            _context.n = 5;
-            break;
-          case 4:
-            _context.p = 4;
-            _t = _context.v;
-            aiFailed = true;
-            aiErrorMessage = _t.message || "Error al conectar con la IA.";
-          case 5:
-            if (aiFailed) {
-              console.warn("[AltaEmail] Fallo en Gemini (" + aiErrorMessage + "). Activando extractor inteligente local...");
-              try {
-                localParsedList = parseEmailTextLocally(emailText);
-                applyExtractedGroups(localParsedList);
-                setExtractionMode('local');
-                setExtractionNotice("La IA de Google no respondió (" + aiErrorMessage + "). Se han extraído los datos automáticamente con el analizador local de respaldo.");
-              } catch (fallbackErr) {
-                alert("Error en el análisis local de respaldo: " + fallbackErr.message);
-              }
-            }
-            setIsAnalyzing(false);
-          case 6:
-            return _context.a(2);
-        }
-      }, _callee, null, [[2, 4]]);
-    }));
-    return function handleAnalyze() {
-      return _ref7.apply(this, arguments);
-    };
-  }();
-  var handleSave = /*#__PURE__*/function () {
-    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-      var i, errs, hotelCheck, now, formattedDate, usedIds, createdList, idx, item, hotelAsignado, rawReservaId, reservaId, entrada, releaseDate, d, groupToSave, _t2;
-      return _regenerator().w(function (_context2) {
-        while (1) switch (_context2.p = _context2.n) {
-          case 0:
-            if (extractedGroups.length) {
-              _context2.n = 1;
-              break;
-            }
-            return _context2.a(2);
-          case 1:
             i = 0;
           case 2:
             if (!(i < extractedGroups.length)) {
-              _context2.n = 5;
+              _context.n = 5;
               break;
             }
             errs = getGroupErrors(extractedGroups[i]);
             if (!(Object.keys(errs).length > 0)) {
-              _context2.n = 3;
+              _context.n = 3;
               break;
             }
             setActiveGroupIndex(i);
             setValidation(errs);
-            return _context2.a(2);
+            return _context.a(2);
           case 3:
             hotelCheck = String(extractedGroups[i].Hotel || "Sercotel Guadiana");
             if (!(!hotelCheck || hotelCheck.toLowerCase().includes("pend") || hotelCheck.trim() === "")) {
-              _context2.n = 4;
+              _context.n = 4;
               break;
             }
             setActiveGroupIndex(i);
             alert("⚠️ Error de Integridad: Debe asignar un hotel válido en el Grupo " + (i + 1) + ". No se permiten registros 'Pendientes'.");
-            return _context2.a(2);
+            return _context.a(2);
           case 4:
             i++;
-            _context2.n = 2;
+            _context.n = 2;
             break;
           case 5:
             setSaveStatus('saving');
-            _context2.p = 6;
+            _context.p = 6;
             now = new Date();
             formattedDate = "".concat(now.getFullYear(), "-").concat(String(now.getMonth() + 1).padStart(2, '0'), "-").concat(String(now.getDate()).padStart(2, '0'), " ").concat(String(now.getHours()).padStart(2, '0'), ":").concat(String(now.getMinutes()).padStart(2, '0'));
             usedIds = new Set();
             createdList = [];
-            idx = 0;
-          case 7:
-            if (!(idx < extractedGroups.length)) {
-              _context2.n = 10;
+            shouldUnify = saveMode === "unified" || extractedGroups.length === 1;
+            if (!shouldUnify) {
+              _context.n = 8;
               break;
             }
-            item = extractedGroups[idx];
-            hotelAsignado = String(item.Hotel || "Sercotel Guadiana");
-            rawReservaId = item.Reserva;
-            if (!rawReservaId) {
-              do {
-                rawReservaId = "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
-              } while (usedIds.has(rawReservaId));
-            }
+            first = extractedGroups[0];
+            hotelAsignado = String(first.Hotel || "Sercotel Guadiana");
+            rawReservaId = first.Reserva || "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
             reservaId = String(rawReservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
-            usedIds.add(reservaId);
-            entrada = String(item["Entrada"] || "");
-            releaseDate = item.Com_Vencimiento_Rel || "";
+            isMultiDates = extractedGroups.length > 1;
+            allIn = extractedGroups.map(function (g) {
+              return String(g["Entrada"] || "");
+            }).filter(Boolean).sort();
+            allOut = extractedGroups.map(function (g) {
+              return String(g["Salida"] || "");
+            }).filter(Boolean).sort();
+            entrada = allIn[0] || String(first["Entrada"] || "");
+            salida = allOut[allOut.length - 1] || String(first["Salida"] || "");
+            releaseDate = first.Com_Vencimiento_Rel || "";
             if (!releaseDate && entrada) {
               d = new Date(entrada);
               if (!isNaN(d.getTime())) {
@@ -595,23 +642,145 @@ var App = function App() {
                 releaseDate = d.toISOString().split("T")[0];
               }
             }
+            cleanBaseName = isMultiDates ? String(first["Nombre del Grupo"] || "Sin Nombre").replace(/\s*\(\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}\)\s*$/, "").trim().toUpperCase() : String(first["Nombre del Grupo"] || "Sin Nombre").toUpperCase();
+            segments = isMultiDates ? extractedGroups.map(function (grp, idx) {
+              var _allocs$;
+              var allocs = buildRoomAllocationsForGroup(grp);
+              var totalRooms = allocs.reduce(function (s, a) {
+                return s + Number(a.rooms || 0);
+              }, 0);
+              return {
+                id: idx + 1,
+                pax: Number(grp["Pax."] || 0),
+                rooms: totalRooms,
+                roomType: ((_allocs$ = allocs[0]) === null || _allocs$ === void 0 ? void 0 : _allocs$.roomType) || "DOBLE",
+                roomAllocations: allocs,
+                in: String(grp["Entrada"] || ""),
+                out: String(grp["Salida"] || ""),
+                notes: "Opci\xF3n / Grupo ".concat(idx + 1)
+              };
+            }) : [];
+            mergedDailyConfig = {};
+            extractedGroups.forEach(function (grp) {
+              Object.entries(grp.dailyConfig || {}).forEach(function (_ref12) {
+                var _ref13 = _slicedToArray(_ref12, 2),
+                  d = _ref13[0],
+                  cfg = _ref13[1];
+                mergedDailyConfig[d] = cfg;
+              });
+            });
+            rateFlags = buildRatesOnlyFlags(hotelAsignado, first.roomCounts || {});
+            totalPaxStr = isMultiDates ? String(segments.reduce(function (sum, s) {
+              return sum + Number(s.pax || 0);
+            }, 0)) : String(first["Pax."] || "0");
             groupToSave = {
-              "Nombre del Grupo": String(item["Nombre del Grupo"] || "Sin Nombre").toUpperCase(),
+              "Nombre del Grupo": cleanBaseName,
               "Entrada": entrada,
+              "Salida": salida,
+              "Pax.": totalPaxStr,
+              "declaredPax": totalPaxStr,
+              "Habitaciones": String(first["Habitaciones"] || ""),
+              "roomCounts": first.roomCounts || {},
+              "Empresa/Agencia": String(first["Empresa/Agencia"] || ""),
+              "Régimen": selectedBoards[0] || String(first["Régimen"] || "HD"),
+              "Importe(*)": String(calculateTotal(first) || "0"),
+              "Reserva": reservaId,
+              "Estado": "Presupuesto",
+              "Com_Estado_Interno": first.Com_Estado_Interno || "PRESUPUESTO",
+              "Segment.": first["Segment."] || "GRUPOS",
+              "Hotel_Asignado": hotelAsignado,
+              "Com_Notas": String(first.Observaciones || ""),
+              "Com_Vencimiento_Rel": releaseDate,
+              "Com_Nombre_Contacto": String(first.Com_Nombre_Contacto || ""),
+              "Com_Email_Contacto": String(first.Com_Email_Contacto || ""),
+              "Com_Telefono_Contacto": String(first.Com_Telefono_Contacto || ""),
+              "Fiscal_RazonSocial": String(first.Fiscal_RazonSocial || ""),
+              "Fiscal_CIF": String(first.Fiscal_CIF || ""),
+              "Fiscal_Direccion": String(first.Fiscal_Direccion || ""),
+              "Fiscal_CP": String(first.Fiscal_CP || ""),
+              "Fiscal_Poblacion": String(first.Fiscal_Poblacion || ""),
+              "Com_Comercial": first.Com_Comercial || "",
+              "isMultiSegment": isMultiDates,
+              "segments": segments,
+              "isRatesOnly": rateFlags.isRatesOnly,
+              "hiddenGridRows": rateFlags.hiddenGridRows,
+              "hiddenGridCols": rateFlags.hiddenGridCols,
+              "requestedBoards": rateFlags.requestedBoards,
+              "includeBothHotels": rateFlags.includeBothHotels,
+              "tracking": first.tracking || [{
+                id: Date.now(),
+                date: formattedDate,
+                text: "Alta Inteligente por Email."
+              }],
+              "dailyConfig": mergedDailyConfig,
+              "RoomingList_JSON": JSON.stringify(buildRoomingList(_objectSpread(_objectSpread({}, first), {}, {
+                Entrada: entrada,
+                Salida: salida,
+                dailyConfig: mergedDailyConfig,
+                Hotel_Asignado: hotelAsignado
+              }), "")),
+              "createdAt": first.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+              "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+            };
+            _context.n = 7;
+            return db.collection("groups").doc(reservaId).set(groupToSave, {
+              merge: true
+            });
+          case 7:
+            createdList.push({
+              reservaId: reservaId,
+              nombre: groupToSave["Nombre del Grupo"],
+              entrada: groupToSave["Entrada"],
+              salida: groupToSave["Salida"],
+              pax: groupToSave["Pax."],
+              hotel: hotelAsignado
+            });
+            _context.n = 12;
+            break;
+          case 8:
+            idx = 0;
+          case 9:
+            if (!(idx < extractedGroups.length)) {
+              _context.n = 12;
+              break;
+            }
+            item = extractedGroups[idx];
+            _hotelAsignado = String(item.Hotel || "Sercotel Guadiana");
+            _rawReservaId = item.Reserva;
+            if (!_rawReservaId) {
+              do {
+                _rawReservaId = "PRES-".concat(Math.floor(100000 + Math.random() * 900000));
+              } while (usedIds.has(_rawReservaId));
+            }
+            _reservaId = String(_rawReservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+            usedIds.add(_reservaId);
+            _entrada = String(item["Entrada"] || "");
+            _releaseDate = item.Com_Vencimiento_Rel || "";
+            if (!_releaseDate && _entrada) {
+              _d = new Date(_entrada);
+              if (!isNaN(_d.getTime())) {
+                _d.setDate(_d.getDate() - 15);
+                _releaseDate = _d.toISOString().split("T")[0];
+              }
+            }
+            _rateFlags = buildRatesOnlyFlags(_hotelAsignado, item.roomCounts || {});
+            _groupToSave = {
+              "Nombre del Grupo": String(item["Nombre del Grupo"] || "Sin Nombre").toUpperCase(),
+              "Entrada": _entrada,
               "Salida": String(item["Salida"] || ""),
               "Pax.": String(item["Pax."] || "0"),
               "Habitaciones": String(item["Habitaciones"] || ""),
               "roomCounts": item.roomCounts || {},
               "Empresa/Agencia": String(item["Empresa/Agencia"] || ""),
-              "Régimen": String(item["Régimen"] || "HD"),
+              "Régimen": selectedBoards[0] || String(item["Régimen"] || "HD"),
               "Importe(*)": String(calculateTotal(item) || "0"),
-              "Reserva": reservaId,
+              "Reserva": _reservaId,
               "Estado": "Presupuesto",
               "Com_Estado_Interno": item.Com_Estado_Interno || "PRESUPUESTO",
               "Segment.": item["Segment."] || "GRUPOS",
-              "Hotel_Asignado": hotelAsignado,
+              "Hotel_Asignado": _hotelAsignado,
               "Com_Notas": String(item.Observaciones || ""),
-              "Com_Vencimiento_Rel": releaseDate,
+              "Com_Vencimiento_Rel": _releaseDate,
               "Com_Nombre_Contacto": String(item.Com_Nombre_Contacto || ""),
               "Com_Email_Contacto": String(item.Com_Email_Contacto || ""),
               "Com_Telefono_Contacto": String(item.Com_Telefono_Contacto || ""),
@@ -621,58 +790,63 @@ var App = function App() {
               "Fiscal_CP": String(item.Fiscal_CP || ""),
               "Fiscal_Poblacion": String(item.Fiscal_Poblacion || ""),
               "Com_Comercial": item.Com_Comercial || "",
+              "isRatesOnly": _rateFlags.isRatesOnly,
+              "hiddenGridRows": _rateFlags.hiddenGridRows,
+              "hiddenGridCols": _rateFlags.hiddenGridCols,
+              "requestedBoards": _rateFlags.requestedBoards,
+              "includeBothHotels": _rateFlags.includeBothHotels,
               "tracking": item.tracking || [{
                 id: Date.now() + idx,
                 date: formattedDate,
-                text: "Alta Inteligente por Email (Escáner IA)."
+                text: "Alta Inteligente por Email."
               }],
               "dailyConfig": item.dailyConfig || {},
               "RoomingList_JSON": JSON.stringify(buildRoomingList(_objectSpread(_objectSpread({}, item), {}, {
-                Hotel_Asignado: hotelAsignado
+                Hotel_Asignado: _hotelAsignado
               }), "")),
               "createdAt": item.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
               "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
             };
-            _context2.n = 8;
-            return db.collection("groups").doc(reservaId).set(groupToSave, {
+            _context.n = 10;
+            return db.collection("groups").doc(_reservaId).set(_groupToSave, {
               merge: true
             });
-          case 8:
-            createdList.push({
-              reservaId: reservaId,
-              nombre: groupToSave["Nombre del Grupo"],
-              entrada: groupToSave["Entrada"],
-              salida: groupToSave["Salida"],
-              pax: groupToSave["Pax."],
-              hotel: hotelAsignado
-            });
-          case 9:
-            idx++;
-            _context2.n = 7;
-            break;
           case 10:
+            createdList.push({
+              reservaId: _reservaId,
+              nombre: _groupToSave["Nombre del Grupo"],
+              entrada: _groupToSave["Entrada"],
+              salida: _groupToSave["Salida"],
+              pax: _groupToSave["Pax."],
+              hotel: _hotelAsignado
+            });
+          case 11:
+            idx++;
+            _context.n = 9;
+            break;
+          case 12:
             setSavedBudgets(createdList);
             setSaveStatus('success');
             if (createdList.length === 1) {
               setTimeout(function () {
                 return window.location.href = 'Presupuestos.html?id=' + createdList[0].reservaId + '&edit=1';
-              }, 1200);
+              }, 1000);
             }
-            _context2.n = 12;
+            _context.n = 14;
             break;
-          case 11:
-            _context2.p = 11;
-            _t2 = _context2.v;
-            console.error(_t2);
-            alert("Error al guardar: " + _t2.message);
+          case 13:
+            _context.p = 13;
+            _t = _context.v;
+            console.error(_t);
+            alert("Error al guardar: " + _t.message);
             setSaveStatus(null);
-          case 12:
-            return _context2.a(2);
+          case 14:
+            return _context.a(2);
         }
-      }, _callee2, null, [[6, 11]]);
+      }, _callee, null, [[6, 13]]);
     }));
     return function handleSave() {
-      return _ref8.apply(this, arguments);
+      return _ref11.apply(this, arguments);
     };
   }();
   var updateField = function updateField(key, value) {
@@ -691,15 +865,15 @@ var App = function App() {
     var newCounts = _objectSpread(_objectSpread({}, extractedData.roomCounts || {}), {}, _defineProperty({}, type, count));
 
     // Generar el string de resumen automáticamente
-    var summary = Object.entries(newCounts).filter(function (_ref9) {
-      var _ref0 = _slicedToArray(_ref9, 2),
-        _ = _ref0[0],
-        c = _ref0[1];
+    var summary = Object.entries(newCounts).filter(function (_ref14) {
+      var _ref15 = _slicedToArray(_ref14, 2),
+        _ = _ref15[0],
+        c = _ref15[1];
       return c > 0;
-    }).map(function (_ref1) {
-      var _ref10 = _slicedToArray(_ref1, 2),
-        t = _ref10[0],
-        c = _ref10[1];
+    }).map(function (_ref16) {
+      var _ref17 = _slicedToArray(_ref16, 2),
+        t = _ref17[0],
+        c = _ref17[1];
       return "".concat(c, " ").concat(t);
     }).join(", ");
     setExtractedData(_objectSpread(_objectSpread({}, extractedData), {}, {
@@ -757,7 +931,7 @@ var App = function App() {
     className: "bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 backdrop-blur-md"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-[10px] font-black uppercase tracking-tighter text-emerald-400"
-  }, "Esc\xE1ner IA 2.0"))))), /*#__PURE__*/React.createElement("div", {
+  }, "Analizador Local 2.0"))))), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 p-4 md:p-6 lg:p-8"
   }, /*#__PURE__*/React.createElement("div", {
     className: "container mx-auto flex flex-col lg:flex-row gap-6 items-stretch"
@@ -809,21 +983,11 @@ var App = function App() {
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-sm"
   }, "Analizando...")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "sparkles",
+    name: "cpu",
     className: "w-5 h-5"
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-sm uppercase tracking-widest"
-  }, "Analizar correo"))), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: handleLocalExtract,
-    disabled: isAnalyzing || !emailText.trim(),
-    className: "w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95 disabled:opacity-50",
-    title: "Extrae los datos inmediatamente usando el analizador local de tu navegador, sin usar API Key"
-  }, /*#__PURE__*/React.createElement(LucideIcon, {
-    name: "cpu",
-    size: 15,
-    className: "text-emerald-600"
-  }), /*#__PURE__*/React.createElement("span", null, "Extraer sin IA"))))), /*#__PURE__*/React.createElement("div", {
+  }, "Analizar correo")))))), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-w-0"
   }, /*#__PURE__*/React.createElement("div", {
     className: "glass rounded-3xl flex flex-col min-h-[520px] h-full shadow-sm border-slate-200 bg-white/50 backdrop-blur-xl"
@@ -840,10 +1004,10 @@ var App = function App() {
     className: "max-w-md text-sm text-slate-500 mt-3 leading-relaxed"
   }, "Pega el correo y pulsa \xABAnalizar correo\xBB. Aqu\xED aparecer\xE1n los datos para corregirlos y completar lo que falte."), /*#__PURE__*/React.createElement("div", {
     className: "grid sm:grid-cols-3 gap-3 w-full max-w-xl mt-6 text-left"
-  }, [["Contacto", "Cliente, agencia y email"], ["Estancia", "Hotel, entrada y salida"], ["Solicitud", "Personas, habitaciones y régimen"]].map(function (_ref11) {
-    var _ref12 = _slicedToArray(_ref11, 2),
-      title = _ref12[0],
-      description = _ref12[1];
+  }, [["Contacto", "Cliente, agencia y email"], ["Estancia", "Hotel, entrada y salida"], ["Solicitud", "Personas, habitaciones y régimen"]].map(function (_ref18) {
+    var _ref19 = _slicedToArray(_ref18, 2),
+      title = _ref19[0],
+      description = _ref19[1];
     return /*#__PURE__*/React.createElement("div", {
       key: title,
       className: "rounded-xl border border-slate-200 bg-white p-4"
@@ -960,14 +1124,30 @@ var App = function App() {
     className: "text-xs font-black text-indigo-950 uppercase tracking-wider"
   }, extractedGroups.length, " fechas / grupos detectados en el correo"), /*#__PURE__*/React.createElement("p", {
     className: "text-[11px] font-medium text-indigo-700"
-  }, "Revisa cada pesta\xF1a antes de guardar. Se generar\xE1 un presupuesto independiente por cada fecha."))), !isEditMode && /*#__PURE__*/React.createElement("button", {
+  }, saveMode === "unified" ? "Se creará 1 único presupuesto (serie) con todas las fechas, regímenes y hoteles elegidos." : "Se creará un presupuesto independiente por cada fecha."))), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "inline-flex bg-white p-1 rounded-xl border border-indigo-200 shadow-sm"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setSaveMode("unified");
+    },
+    className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ".concat(saveMode === "unified" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-indigo-700")
+  }, "1 Presupuesto (Serie)"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setSaveMode("separate");
+    },
+    className: "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ".concat(saveMode === "separate" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-indigo-700")
+  }, extractedGroups.length, " Separados")), !isEditMode && /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: handleAddAnotherDate,
     className: "px-3 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all"
   }, /*#__PURE__*/React.createElement(LucideIcon, {
     name: "plus",
     size: 12
-  }), "A\xF1adir otra fecha")), /*#__PURE__*/React.createElement("div", {
+  }), "A\xF1adir fecha"))), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap gap-2"
   }, extractedGroups.map(function (grp, idx) {
     var errsCount = Object.keys(getGroupErrors(grp)).length;
@@ -1126,7 +1306,7 @@ var App = function App() {
     },
     placeholder: "Grupo..."
   })), /*#__PURE__*/React.createElement("div", {
-    className: "w-full md:w-64"
+    className: "w-full md:w-72"
   }, /*#__PURE__*/React.createElement("label", {
     className: "text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block"
   }, "Hotel"), /*#__PURE__*/React.createElement("select", {
@@ -1135,7 +1315,18 @@ var App = function App() {
     onChange: function onChange(e) {
       return updateField("Hotel", e.target.value);
     }
-  }, /*#__PURE__*/React.createElement("option", null, "Sercotel Guadiana"), /*#__PURE__*/React.createElement("option", null, "Cumbria Spa & Hotel")))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, /*#__PURE__*/React.createElement("option", null, "Sercotel Guadiana"), /*#__PURE__*/React.createElement("option", null, "Cumbria Spa & Hotel")), !isEditMode && /*#__PURE__*/React.createElement("label", {
+    className: "mt-2 flex items-center gap-2 cursor-pointer select-none px-2.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/60 hover:bg-indigo-50 transition-colors"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: includeBothHotels,
+    onChange: function onChange(e) {
+      return setIncludeBothHotels(e.target.checked);
+    },
+    className: "rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] font-black text-indigo-800 uppercase tracking-wider"
+  }, "Incluir ambos hoteles (Guadiana + Cumbria)")))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     className: "text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block"
   }, "Empresa / Agencia"), /*#__PURE__*/React.createElement("input", {
     className: "w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-200 transition-all shadow-sm",
@@ -1187,24 +1378,37 @@ var App = function App() {
       return updateField("Pax.", e.target.value);
     }
   })), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 min-w-[150px]"
+    className: "flex-1 min-w-[200px]"
   }, /*#__PURE__*/React.createElement("label", {
-    className: "text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block"
-  }, "R\xE9gimen"), /*#__PURE__*/React.createElement("select", {
-    className: "w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none shadow-sm",
-    value: extractedData["Régimen"],
-    onChange: function onChange(e) {
-      return updateField("Régimen", e.target.value);
-    }
-  }, /*#__PURE__*/React.createElement("option", {
-    value: "HA"
-  }, "HA (Solo Aloj.)"), /*#__PURE__*/React.createElement("option", {
-    value: "HD"
-  }, "HD (Aloj. y Des.)"), /*#__PURE__*/React.createElement("option", {
-    value: "MP"
-  }, "MP (Media Pensi\xF3n)"), /*#__PURE__*/React.createElement("option", {
-    value: "PC"
-  }, "PC (Pensi\xF3n Completa)")))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", null, "R\xE9gimen", selectedBoards.length > 1 ? "es a cotizar" : ""), selectedBoards.length > 1 && /*#__PURE__*/React.createElement("span", {
+    className: "text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded"
+  }, selectedBoards.join(" + "))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-4 gap-1.5"
+  }, [{
+    code: "HA",
+    title: "Solo Alojamiento"
+  }, {
+    code: "HD",
+    title: "Alojamiento y Desayuno"
+  }, {
+    code: "MP",
+    title: "Media Pensión"
+  }, {
+    code: "PC",
+    title: "Pensión Completa"
+  }].map(function (b) {
+    var active = selectedBoards.includes(b.code);
+    return /*#__PURE__*/React.createElement("button", {
+      key: b.code,
+      type: "button",
+      title: b.title,
+      onClick: function onClick() {
+        return toggleBoard(b.code);
+      },
+      className: "py-2 rounded-lg text-xs font-black border transition-all ".concat(active ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-700")
+    }, b.code);
+  })))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 mb-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center border border-emerald-100"
@@ -1480,6 +1684,6 @@ var App = function App() {
     className: "flex items-center gap-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"
-  }), /*#__PURE__*/React.createElement("span", null, "PROCESANDO...")) : /*#__PURE__*/React.createElement("span", null, extractedGroups.length > 1 ? "CONFIRMAR Y GUARDAR LAS ".concat(extractedGroups.length, " COTIZACIONES") : "CONFIRMAR Y GUARDAR COTIZACIÓN")))))))));
+  }), /*#__PURE__*/React.createElement("span", null, "PROCESANDO...")) : /*#__PURE__*/React.createElement("span", null, extractedGroups.length > 1 && saveMode === "separate" ? "CONFIRMAR Y GUARDAR LAS ".concat(extractedGroups.length, " COTIZACIONES") : extractedGroups.length > 1 || selectedBoards.length > 1 || includeBothHotels ? "CONFIRMAR Y CREAR PRESUPUESTO COMBINADO" : "CONFIRMAR Y GUARDAR COTIZACIÓN")))))))));
 };
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));

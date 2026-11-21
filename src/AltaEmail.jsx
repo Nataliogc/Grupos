@@ -162,6 +162,9 @@
             const [extractedGroups, setExtractedGroups] = useState([]);
             const [activeGroupIndex, setActiveGroupIndex] = useState(0);
             const [savedBudgets, setSavedBudgets] = useState([]);
+            const [saveMode, setSaveMode] = useState("unified");
+            const [includeBothHotels, setIncludeBothHotels] = useState(false);
+            const [selectedBoards, setSelectedBoards] = useState(["HD"]);
             const [saveStatus, setSaveStatus] = useState(null);
             const [validation, setValidation] = useState({});
             const [isEditMode, setIsEditMode] = useState(false);
@@ -169,6 +172,21 @@
             const [extractionNotice, setExtractionNotice] = useState(null);
 
             const extractedData = extractedGroups[activeGroupIndex] || null;
+
+            const toggleBoard = (code) => {
+                setSelectedBoards(prev => {
+                    const exists = prev.includes(code);
+                    if (exists && prev.length === 1) return prev; // Al menos 1 régimen activo
+                    const next = exists ? prev.filter(b => b !== code) : [...prev, code];
+                    const order = ["HA", "HD", "MP", "PC"];
+                    next.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+                    // Sincronizar Régimen principal en la ficha activa
+                    if (extractedGroups.length > 0) {
+                        setExtractedGroups(groups => groups.map(g => ({ ...g, "Régimen": next[0] })));
+                    }
+                    return next;
+                });
+            };
 
             const getGroupErrors = (data) => {
                 const errors = {};
@@ -200,9 +218,15 @@
                 setActiveGroupIndex(0);
                 setSavedBudgets([]);
                 setSaveStatus(null);
+                setSaveMode("unified");
                 if (list.length > 0) {
+                    const detectedBoards = Array.isArray(list[0].regimenesSolicitados) && list[0].regimenesSolicitados.length > 0
+                        ? list[0].regimenesSolicitados
+                        : [list[0]["Régimen"] || "HD"];
+                    setSelectedBoards(detectedBoards);
                     setValidation(getGroupErrors(list[0]));
                 } else {
+                    setSelectedBoards(["HD"]);
                     setValidation({});
                 }
             };
@@ -385,7 +409,7 @@
                 return total > 0 ? total : 0;
             };
 
-            // callGemini cargado desde js/gemini.js (window.callGemini)
+            // Analizador local cargado desde js/services/emailParser.js (window.NexusEmailParser)
 
             const parseEmailTextLocally = (text) => {
                 if (window.NexusEmailParser && typeof window.NexusEmailParser.parseEmailTextLocallyMulti === 'function') {
@@ -429,80 +453,66 @@
                 }
             };
 
-            const handleAnalyze = async () => {
+            const handleAnalyze = () => {
                 if (!emailText.trim()) return;
                 setIsAnalyzing(true);
                 setExtractionNotice(null);
-
-                const todayIso = new Date().toISOString().split("T")[0];
-                const prompt = `Analiza el siguiente texto de un correo electrónico de reserva de grupo y extrae la información en formato JSON estrictamente.
-                Fecha actual de referencia: ${todayIso}. Si una fecha no indica año y ya ha pasado en el año actual, usa el año siguiente.
-                IMPORTANTE: Si el correo solicita cotización para VARIAS FECHAS DISTINTAS o VARIOS GRUPOS (por ejemplo "Del 19 al 21 de marzo" y "Del 15 al 17 de mayo"), devuelve un objeto JSON con la clave "grupos" que contenga un array con UN objeto por cada fecha/grupo distinto: {"grupos": [{...}, {...}]}. Si solo hay una fecha/grupo, puedes devolver un objeto único o {"grupos": [{...}]}.
-
-                Campos requeridos en cada grupo (usa estos nombres exactos, si no encuentras el dato devuelve un string vacío ""):
-                - "Nombre del Grupo": nombre identificativo corto (ej. GALEGRÍA VIAJES (19/03 - 21/03)).
-                - "Entrada": fecha en formato YYYY-MM-DD.
-                - "Salida": fecha en formato YYYY-MM-DD.
-                - "Pax.": número total de personas/pasajeros (entero).
-                - "Empresa/Agencia": nombre de la empresa o agencia.
-                - "Régimen": (HA, HD, MP, PC).
-                - "Habitaciones": resumen en texto de la distribución solicitada (ej. 23 dobles, 6 individuales).
-                - "roomCounts": objeto JSON con el desglose numérico por tipo de habitación. USA ESTOS TIPOS SEGÚN EL HOTEL SI SE IDENTIFICA (si no, usa los de Sercotel Guadiana):
-                  * Sercotel Guadiana: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "DOBLE + SUPLETORIA NIÑO": 0, "CUÁDRUPLE": 0, "SUITE": 0, "SUITE SUPERIOR": 0}
-                  * Cumbria Spa & Hotel: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "DOBLE + SUPLETORIA NIÑO": 0, "SUITE": 0}
-                  Extrae SOLO los números que encuentres. Si mencionan niños en supletorias o triples con niños, usa "DOBLE + SUPLETORIA NIÑO". Si mencionan chófer y/o guía en single/individual, inclúyelos en "DOBLE DE USO INDIVIDUAL".
-                - "Importe(*)": precio unitario o total si se menciona, si no 0.
-                - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
-                - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones.
-                - "Com_Nombre_Contacto": nombre del remitente o departamento.
-                - "Com_Email_Contacto": email del remitente.
-                - "Com_Telefono_Contacto": teléfono.
-                - "Fiscal_RazonSocial": datos fiscales si aparecen.
-                - "Fiscal_CIF": CIF/NIF.
-                - "Fiscal_Direccion": dirección.
-                - "Fiscal_CP": CP.
-                - "Fiscal_Poblacion": población.
-
-                Responde únicamente con el bloque JSON.
-                TEXTO DEL EMAIL:
-                ${emailText}`;
-
-                let aiFailed = false;
-                let aiErrorMessage = "";
-
                 try {
-                    const aiResult = await callGemini(prompt);
-                    if (aiResult && aiResult.ok && aiResult.text) {
-                        const cleanJson = aiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
-                        const parsed = JSON.parse(cleanJson);
-                        const normalizedList = (window.NexusEmailParser && typeof window.NexusEmailParser.normalizeAiExtractionResponse === 'function')
-                            ? window.NexusEmailParser.normalizeAiExtractionResponse(parsed, emailText)
-                            : (Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.grupos) ? parsed.grupos : [parsed]));
-                        applyExtractedGroups(normalizedList);
-                        setExtractionMode('ai');
-                        setExtractionNotice(null);
-                    } else {
-                        aiFailed = true;
-                        aiErrorMessage = (aiResult && aiResult.error) || "Error al conectar con la IA de Google.";
-                    }
-                } catch (e) {
-                    aiFailed = true;
-                    aiErrorMessage = e.message || "Error al conectar con la IA.";
+                    const parsedList = parseEmailTextLocally(emailText);
+                    applyExtractedGroups(parsedList);
+                    setExtractionMode('local');
+                } catch (err) {
+                    alert("Error en el análisis del correo: " + err.message);
+                } finally {
+                    setIsAnalyzing(false);
                 }
+            };
 
-                if (aiFailed) {
-                    console.warn("[AltaEmail] Fallo en Gemini (" + aiErrorMessage + "). Activando extractor inteligente local...");
-                    try {
-                        const localParsedList = parseEmailTextLocally(emailText);
-                        applyExtractedGroups(localParsedList);
-                        setExtractionMode('local');
-                        setExtractionNotice("La IA de Google no respondió (" + aiErrorMessage + "). Se han extraído los datos automáticamente con el analizador local de respaldo.");
-                    } catch (fallbackErr) {
-                        alert("Error en el análisis local de respaldo: " + fallbackErr.message);
-                    }
+            const buildRoomAllocationsForGroup = (grp) => {
+                const counts = grp.roomCounts || {};
+                const allocs = [];
+                Object.entries(counts).forEach(([roomType, rawRooms]) => {
+                    const rooms = Number(rawRooms || 0);
+                    if (rooms <= 0) return;
+                    const rtLower = roomType.toLowerCase();
+                    const paxPerRoom = rtLower.includes("individual") || rtLower.includes("dui")
+                        ? 1
+                        : (rtLower.includes("cuádruple") || rtLower.includes("cuadruple") ? 4 : (rtLower.includes("supletoria") || rtLower.includes("triple") ? 3 : 2));
+                    allocs.push({
+                        roomType: roomType.toUpperCase(),
+                        rooms: rooms,
+                        pax: rooms * paxPerRoom
+                    });
+                });
+                if (allocs.length === 0) {
+                    const fallbackPax = Number(grp["Pax."] || 0);
+                    allocs.push({
+                        roomType: "DOBLE",
+                        rooms: Math.max(1, Math.ceil(fallbackPax / 2)),
+                        pax: fallbackPax || 2
+                    });
                 }
+                return allocs;
+            };
 
-                setIsAnalyzing(false);
+            const buildRatesOnlyFlags = (hotelName, roomCountsObj) => {
+                const useRatesOnly = selectedBoards.length > 1 || includeBothHotels;
+                const allBoards = ["HA", "HD", "MP", "PC"];
+                const hiddenGridRows = allBoards.filter(b => !selectedBoards.includes(b));
+                const hotelRooms = ROOM_TYPES[hotelName] || ROOM_TYPES["Sercotel Guadiana"];
+                const usedRoomTypes = Object.entries(roomCountsObj || {})
+                    .filter(([_, c]) => Number(c) > 0)
+                    .map(([t]) => t.toUpperCase());
+                const hiddenGridCols = usedRoomTypes.length > 0
+                    ? hotelRooms.filter(r => !usedRoomTypes.includes(r.toUpperCase()))
+                    : ["DOBLE + SUPLETORIA NIÑO", "SUITE", "SUITE SUPERIOR"];
+                return {
+                    isRatesOnly: useRatesOnly,
+                    hiddenGridRows: hiddenGridRows,
+                    hiddenGridCols: hiddenGridCols,
+                    requestedBoards: [...selectedBoards],
+                    includeBothHotels: !!includeBothHotels
+                };
             };
 
             const handleSave = async () => {
@@ -531,20 +541,21 @@
                     const usedIds = new Set();
                     const createdList = [];
 
-                    for (let idx = 0; idx < extractedGroups.length; idx++) {
-                        const item = extractedGroups[idx];
-                        const hotelAsignado = String(item.Hotel || "Sercotel Guadiana");
-                        let rawReservaId = item.Reserva;
-                        if (!rawReservaId) {
-                            do {
-                                rawReservaId = `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
-                            } while (usedIds.has(rawReservaId));
-                        }
-                        const reservaId = String(rawReservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
-                        usedIds.add(reservaId);
+                    const shouldUnify = saveMode === "unified" || extractedGroups.length === 1;
 
-                        const entrada = String(item["Entrada"] || "");
-                        let releaseDate = item.Com_Vencimiento_Rel || "";
+                    if (shouldUnify) {
+                        const first = extractedGroups[0];
+                        const hotelAsignado = String(first.Hotel || "Sercotel Guadiana");
+                        const rawReservaId = first.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
+                        const reservaId = String(rawReservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+
+                        const isMultiDates = extractedGroups.length > 1;
+                        const allIn = extractedGroups.map(g => String(g["Entrada"] || "")).filter(Boolean).sort();
+                        const allOut = extractedGroups.map(g => String(g["Salida"] || "")).filter(Boolean).sort();
+                        const entrada = allIn[0] || String(first["Entrada"] || "");
+                        const salida = allOut[allOut.length - 1] || String(first["Salida"] || "");
+
+                        let releaseDate = first.Com_Vencimiento_Rel || "";
                         if (!releaseDate && entrada) {
                             const d = new Date(entrada);
                             if (!isNaN(d.getTime())) {
@@ -553,36 +564,75 @@
                             }
                         }
 
+                        const cleanBaseName = isMultiDates
+                            ? String(first["Nombre del Grupo"] || "Sin Nombre").replace(/\s*\(\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}\)\s*$/, "").trim().toUpperCase()
+                            : String(first["Nombre del Grupo"] || "Sin Nombre").toUpperCase();
+
+                        const segments = isMultiDates ? extractedGroups.map((grp, idx) => {
+                            const allocs = buildRoomAllocationsForGroup(grp);
+                            const totalRooms = allocs.reduce((s, a) => s + Number(a.rooms || 0), 0);
+                            return {
+                                id: idx + 1,
+                                pax: Number(grp["Pax."] || 0),
+                                rooms: totalRooms,
+                                roomType: allocs[0]?.roomType || "DOBLE",
+                                roomAllocations: allocs,
+                                in: String(grp["Entrada"] || ""),
+                                out: String(grp["Salida"] || ""),
+                                notes: `Opción / Grupo ${idx + 1}`
+                            };
+                        }) : [];
+
+                        const mergedDailyConfig = {};
+                        extractedGroups.forEach(grp => {
+                            Object.entries(grp.dailyConfig || {}).forEach(([d, cfg]) => {
+                                mergedDailyConfig[d] = cfg;
+                            });
+                        });
+
+                        const rateFlags = buildRatesOnlyFlags(hotelAsignado, first.roomCounts || {});
+                        const totalPaxStr = isMultiDates
+                            ? String(segments.reduce((sum, s) => sum + Number(s.pax || 0), 0))
+                            : String(first["Pax."] || "0");
+
                         const groupToSave = {
-                            "Nombre del Grupo": String(item["Nombre del Grupo"] || "Sin Nombre").toUpperCase(),
+                            "Nombre del Grupo": cleanBaseName,
                             "Entrada": entrada,
-                            "Salida": String(item["Salida"] || ""),
-                            "Pax.": String(item["Pax."] || "0"),
-                            "Habitaciones": String(item["Habitaciones"] || ""),
-                            "roomCounts": item.roomCounts || {},
-                            "Empresa/Agencia": String(item["Empresa/Agencia"] || ""),
-                            "Régimen": String(item["Régimen"] || "HD"),
-                            "Importe(*)": String(calculateTotal(item) || "0"),
+                            "Salida": salida,
+                            "Pax.": totalPaxStr,
+                            "declaredPax": totalPaxStr,
+                            "Habitaciones": String(first["Habitaciones"] || ""),
+                            "roomCounts": first.roomCounts || {},
+                            "Empresa/Agencia": String(first["Empresa/Agencia"] || ""),
+                            "Régimen": selectedBoards[0] || String(first["Régimen"] || "HD"),
+                            "Importe(*)": String(calculateTotal(first) || "0"),
                             "Reserva": reservaId,
                             "Estado": "Presupuesto",
-                            "Com_Estado_Interno": item.Com_Estado_Interno || "PRESUPUESTO",
-                            "Segment.": item["Segment."] || "GRUPOS",
+                            "Com_Estado_Interno": first.Com_Estado_Interno || "PRESUPUESTO",
+                            "Segment.": first["Segment."] || "GRUPOS",
                             "Hotel_Asignado": hotelAsignado,
-                            "Com_Notas": String(item.Observaciones || ""),
+                            "Com_Notas": String(first.Observaciones || ""),
                             "Com_Vencimiento_Rel": releaseDate,
-                            "Com_Nombre_Contacto": String(item.Com_Nombre_Contacto || ""),
-                            "Com_Email_Contacto": String(item.Com_Email_Contacto || ""),
-                            "Com_Telefono_Contacto": String(item.Com_Telefono_Contacto || ""),
-                            "Fiscal_RazonSocial": String(item.Fiscal_RazonSocial || ""),
-                            "Fiscal_CIF": String(item.Fiscal_CIF || ""),
-                            "Fiscal_Direccion": String(item.Fiscal_Direccion || ""),
-                            "Fiscal_CP": String(item.Fiscal_CP || ""),
-                            "Fiscal_Poblacion": String(item.Fiscal_Poblacion || ""),
-                            "Com_Comercial": item.Com_Comercial || "",
-                            "tracking": item.tracking || [{ id: Date.now() + idx, date: formattedDate, text: "Alta Inteligente por Email (Escáner IA)." }],
-                            "dailyConfig": item.dailyConfig || {},
-                            "RoomingList_JSON": JSON.stringify(buildRoomingList({ ...item, Hotel_Asignado: hotelAsignado }, "")),
-                            "createdAt": item.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+                            "Com_Nombre_Contacto": String(first.Com_Nombre_Contacto || ""),
+                            "Com_Email_Contacto": String(first.Com_Email_Contacto || ""),
+                            "Com_Telefono_Contacto": String(first.Com_Telefono_Contacto || ""),
+                            "Fiscal_RazonSocial": String(first.Fiscal_RazonSocial || ""),
+                            "Fiscal_CIF": String(first.Fiscal_CIF || ""),
+                            "Fiscal_Direccion": String(first.Fiscal_Direccion || ""),
+                            "Fiscal_CP": String(first.Fiscal_CP || ""),
+                            "Fiscal_Poblacion": String(first.Fiscal_Poblacion || ""),
+                            "Com_Comercial": first.Com_Comercial || "",
+                            "isMultiSegment": isMultiDates,
+                            "segments": segments,
+                            "isRatesOnly": rateFlags.isRatesOnly,
+                            "hiddenGridRows": rateFlags.hiddenGridRows,
+                            "hiddenGridCols": rateFlags.hiddenGridCols,
+                            "requestedBoards": rateFlags.requestedBoards,
+                            "includeBothHotels": rateFlags.includeBothHotels,
+                            "tracking": first.tracking || [{ id: Date.now(), date: formattedDate, text: "Alta Inteligente por Email." }],
+                            "dailyConfig": mergedDailyConfig,
+                            "RoomingList_JSON": JSON.stringify(buildRoomingList({ ...first, Entrada: entrada, Salida: salida, dailyConfig: mergedDailyConfig, Hotel_Asignado: hotelAsignado }, "")),
+                            "createdAt": first.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
                             "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
                         };
 
@@ -595,13 +645,85 @@
                             pax: groupToSave["Pax."],
                             hotel: hotelAsignado
                         });
+                    } else {
+                        for (let idx = 0; idx < extractedGroups.length; idx++) {
+                            const item = extractedGroups[idx];
+                            const hotelAsignado = String(item.Hotel || "Sercotel Guadiana");
+                            let rawReservaId = item.Reserva;
+                            if (!rawReservaId) {
+                                do {
+                                    rawReservaId = `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
+                                } while (usedIds.has(rawReservaId));
+                            }
+                            const reservaId = String(rawReservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+                            usedIds.add(reservaId);
+
+                            const entrada = String(item["Entrada"] || "");
+                            let releaseDate = item.Com_Vencimiento_Rel || "";
+                            if (!releaseDate && entrada) {
+                                const d = new Date(entrada);
+                                if (!isNaN(d.getTime())) {
+                                    d.setDate(d.getDate() - 15);
+                                    releaseDate = d.toISOString().split("T")[0];
+                                }
+                            }
+
+                            const rateFlags = buildRatesOnlyFlags(hotelAsignado, item.roomCounts || {});
+                            const groupToSave = {
+                                "Nombre del Grupo": String(item["Nombre del Grupo"] || "Sin Nombre").toUpperCase(),
+                                "Entrada": entrada,
+                                "Salida": String(item["Salida"] || ""),
+                                "Pax.": String(item["Pax."] || "0"),
+                                "Habitaciones": String(item["Habitaciones"] || ""),
+                                "roomCounts": item.roomCounts || {},
+                                "Empresa/Agencia": String(item["Empresa/Agencia"] || ""),
+                                "Régimen": selectedBoards[0] || String(item["Régimen"] || "HD"),
+                                "Importe(*)": String(calculateTotal(item) || "0"),
+                                "Reserva": reservaId,
+                                "Estado": "Presupuesto",
+                                "Com_Estado_Interno": item.Com_Estado_Interno || "PRESUPUESTO",
+                                "Segment.": item["Segment."] || "GRUPOS",
+                                "Hotel_Asignado": hotelAsignado,
+                                "Com_Notas": String(item.Observaciones || ""),
+                                "Com_Vencimiento_Rel": releaseDate,
+                                "Com_Nombre_Contacto": String(item.Com_Nombre_Contacto || ""),
+                                "Com_Email_Contacto": String(item.Com_Email_Contacto || ""),
+                                "Com_Telefono_Contacto": String(item.Com_Telefono_Contacto || ""),
+                                "Fiscal_RazonSocial": String(item.Fiscal_RazonSocial || ""),
+                                "Fiscal_CIF": String(item.Fiscal_CIF || ""),
+                                "Fiscal_Direccion": String(item.Fiscal_Direccion || ""),
+                                "Fiscal_CP": String(item.Fiscal_CP || ""),
+                                "Fiscal_Poblacion": String(item.Fiscal_Poblacion || ""),
+                                "Com_Comercial": item.Com_Comercial || "",
+                                "isRatesOnly": rateFlags.isRatesOnly,
+                                "hiddenGridRows": rateFlags.hiddenGridRows,
+                                "hiddenGridCols": rateFlags.hiddenGridCols,
+                                "requestedBoards": rateFlags.requestedBoards,
+                                "includeBothHotels": rateFlags.includeBothHotels,
+                                "tracking": item.tracking || [{ id: Date.now() + idx, date: formattedDate, text: "Alta Inteligente por Email." }],
+                                "dailyConfig": item.dailyConfig || {},
+                                "RoomingList_JSON": JSON.stringify(buildRoomingList({ ...item, Hotel_Asignado: hotelAsignado }, "")),
+                                "createdAt": item.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+                                "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+                            };
+
+                            await db.collection("groups").doc(reservaId).set(groupToSave, { merge: true });
+                            createdList.push({
+                                reservaId,
+                                nombre: groupToSave["Nombre del Grupo"],
+                                entrada: groupToSave["Entrada"],
+                                salida: groupToSave["Salida"],
+                                pax: groupToSave["Pax."],
+                                hotel: hotelAsignado
+                            });
+                        }
                     }
 
                     setSavedBudgets(createdList);
                     setSaveStatus('success');
 
                     if (createdList.length === 1) {
-                        setTimeout(() => window.location.href = 'Presupuestos.html?id=' + createdList[0].reservaId + '&edit=1', 1200);
+                        setTimeout(() => window.location.href = 'Presupuestos.html?id=' + createdList[0].reservaId + '&edit=1', 1000);
                     }
                 } catch (e) {
                     console.error(e);
@@ -683,7 +805,7 @@
                                     </div>
                                 )}
                                 <div className="bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 backdrop-blur-md">
-                                    <span className="text-[10px] font-black uppercase tracking-tighter text-emerald-400">Escáner IA 2.0</span>
+                                    <span className="text-[10px] font-black uppercase tracking-tighter text-emerald-400">Analizador Local 2.0</span>
                                 </div>
                             </div>
                         </div>
@@ -726,20 +848,10 @@
                                                 </>
                                             ) : (
                                                 <>
-                                                    <LucideIcon name="sparkles" className="w-5 h-5" />
+                                                    <LucideIcon name="cpu" className="w-5 h-5" />
                                                     <span className="text-sm uppercase tracking-widest">Analizar correo</span>
                                                 </>
                                             )}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleLocalExtract}
-                                            disabled={isAnalyzing || !emailText.trim()}
-                                            className="w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95 disabled:opacity-50"
-                                            title="Extrae los datos inmediatamente usando el analizador local de tu navegador, sin usar API Key"
-                                        >
-                                            <LucideIcon name="cpu" size={15} className="text-emerald-600" />
-                                            <span>Extraer sin IA</span>
                                         </button>
                                     </div>
                                 </div>
@@ -853,20 +965,40 @@
                                                                     {extractedGroups.length} fechas / grupos detectados en el correo
                                                                 </p>
                                                                 <p className="text-[11px] font-medium text-indigo-700">
-                                                                    Revisa cada pestaña antes de guardar. Se generará un presupuesto independiente por cada fecha.
+                                                                    {saveMode === "unified"
+                                                                        ? "Se creará 1 único presupuesto (serie) con todas las fechas, regímenes y hoteles elegidos."
+                                                                        : "Se creará un presupuesto independiente por cada fecha."}
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        {!isEditMode && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleAddAnotherDate}
-                                                                className="px-3 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all"
-                                                            >
-                                                                <LucideIcon name="plus" size={12} />
-                                                                Añadir otra fecha
-                                                            </button>
-                                                        )}
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <div className="inline-flex bg-white p-1 rounded-xl border border-indigo-200 shadow-sm">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSaveMode("unified")}
+                                                                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${saveMode === "unified" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-indigo-700"}`}
+                                                                >
+                                                                    1 Presupuesto (Serie)
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSaveMode("separate")}
+                                                                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${saveMode === "separate" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-indigo-700"}`}
+                                                                >
+                                                                    {extractedGroups.length} Separados
+                                                                </button>
+                                                            </div>
+                                                            {!isEditMode && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleAddAnotherDate}
+                                                                    className="px-3 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all"
+                                                                >
+                                                                    <LucideIcon name="plus" size={12} />
+                                                                    Añadir fecha
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
                                                         {extractedGroups.map((grp, idx) => {
@@ -1035,7 +1167,7 @@
                                                                 placeholder="Grupo..."
                                                             />
                                                         </div>
-                                                        <div className="w-full md:w-64">
+                                                        <div className="w-full md:w-72">
                                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Hotel</label>
                                                             <select
                                                                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200 shadow-sm"
@@ -1045,6 +1177,19 @@
                                                                 <option>Sercotel Guadiana</option>
                                                                 <option>Cumbria Spa &amp; Hotel</option>
                                                             </select>
+                                                            {!isEditMode && (
+                                                                <label className="mt-2 flex items-center gap-2 cursor-pointer select-none px-2.5 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/60 hover:bg-indigo-50 transition-colors">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={includeBothHotels}
+                                                                        onChange={(e) => setIncludeBothHotels(e.target.checked)}
+                                                                        className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    <span className="text-[10px] font-black text-indigo-800 uppercase tracking-wider">
+                                                                        Incluir ambos hoteles (Guadiana + Cumbria)
+                                                                    </span>
+                                                                </label>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -1091,18 +1236,40 @@
                                                                 onChange={(e) => updateField("Pax.", e.target.value)}
                                                             />
                                                         </div>
-                                                        <div className="flex-1 min-w-[150px]">
-                                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Régimen</label>
-                                                            <select
-                                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none shadow-sm"
-                                                                value={extractedData["Régimen"]}
-                                                                onChange={(e) => updateField("Régimen", e.target.value)}
-                                                            >
-                                                                <option value="HA">HA (Solo Aloj.)</option>
-                                                                <option value="HD">HD (Aloj. y Des.)</option>
-                                                                <option value="MP">MP (Media Pensión)</option>
-                                                                <option value="PC">PC (Pensión Completa)</option>
-                                                            </select>
+                                                        <div className="flex-1 min-w-[200px]">
+                                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 flex items-center justify-between">
+                                                                <span>Régimen{selectedBoards.length > 1 ? "es a cotizar" : ""}</span>
+                                                                {selectedBoards.length > 1 && (
+                                                                    <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                                                        {selectedBoards.join(" + ")}
+                                                                    </span>
+                                                                )}
+                                                            </label>
+                                                            <div className="grid grid-cols-4 gap-1.5">
+                                                                {[
+                                                                    { code: "HA", title: "Solo Alojamiento" },
+                                                                    { code: "HD", title: "Alojamiento y Desayuno" },
+                                                                    { code: "MP", title: "Media Pensión" },
+                                                                    { code: "PC", title: "Pensión Completa" }
+                                                                ].map(b => {
+                                                                    const active = selectedBoards.includes(b.code);
+                                                                    return (
+                                                                        <button
+                                                                            key={b.code}
+                                                                            type="button"
+                                                                            title={b.title}
+                                                                            onClick={() => toggleBoard(b.code)}
+                                                                            className={`py-2 rounded-lg text-xs font-black border transition-all ${
+                                                                                active
+                                                                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                                                                    : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-700"
+                                                                            }`}
+                                                                        >
+                                                                            {b.code}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -1344,9 +1511,11 @@
                                                         </div>
                                                     ) : (
                                                         <span>
-                                                            {extractedGroups.length > 1
+                                                            {extractedGroups.length > 1 && saveMode === "separate"
                                                                 ? `CONFIRMAR Y GUARDAR LAS ${extractedGroups.length} COTIZACIONES`
-                                                                : "CONFIRMAR Y GUARDAR COTIZACIÓN"}
+                                                                : (extractedGroups.length > 1 || selectedBoards.length > 1 || includeBothHotels)
+                                                                    ? "CONFIRMAR Y CREAR PRESUPUESTO COMBINADO"
+                                                                    : "CONFIRMAR Y GUARDAR COTIZACIÓN"}
                                                         </span>
                                                     )}
                                                 </button>
