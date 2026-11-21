@@ -547,6 +547,8 @@
       ratesOnlyGrid: {},
       includeBothHotels: false,
       secondaryRatesOnlyGrid: {},
+      splitRatesBySegment: false,
+      segmentRatesOnlyGrids: {},
       hiddenGridRows: [],
       hiddenGridCols: ["DOBLE + SUPLETORIA NIÑO", "SUITE", "SUITE SUPERIOR"],
       segments: [],           // NUEVO: array de sub-grupos [{id,pax,rooms,roomType,in,out,notes}]
@@ -1202,6 +1204,8 @@
       newData.ratesOnlyGrid = groupData.ratesOnlyGrid || {};
       newData.includeBothHotels = !!groupData.includeBothHotels;
       newData.secondaryRatesOnlyGrid = groupData.secondaryRatesOnlyGrid || {};
+      newData.splitRatesBySegment = !!groupData.splitRatesBySegment;
+      newData.segmentRatesOnlyGrids = groupData.segmentRatesOnlyGrids || {};
       newData.hiddenGridRows = Array.isArray(groupData.hiddenGridRows) ? [...groupData.hiddenGridRows] : [];
       newData.hiddenGridCols = Array.isArray(groupData.hiddenGridCols) ? [...groupData.hiddenGridCols] : [...DEFAULT_FORM_DATA.hiddenGridCols];
       newData.capaSuiteDiscountPercent = groupData.capaSuiteDiscountPercent !== undefined ? groupData.capaSuiteDiscountPercent : 15;
@@ -4843,6 +4847,48 @@ ${emailContent}`;
                         {formData.includeBothHotels ? "Ambos Hoteles Activos" : `+ Incluir ${getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana")}`}
                       </button>
 
+                      {formData.isMultiSegment && Array.isArray(formData.segments) && formData.segments.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextSplit = !formData.splitRatesBySegment;
+                            const nextSegGrids = { ...(formData.segmentRatesOnlyGrids || {}) };
+                            if (nextSplit) {
+                              const primaryBase = JSON.parse(JSON.stringify(formData.ratesOnlyGrid || {}));
+                              const secondaryBase = JSON.parse(JSON.stringify(formData.secondaryRatesOnlyGrid || {}));
+                              const secHotel = getAlternateHotel(formData.Hotel_Asignado || "Sercotel Guadiana");
+                              (formData.segments || []).forEach((seg, idx) => {
+                                const segKey = String(seg.id || idx + 1);
+                                if (!nextSegGrids[segKey]) {
+                                  const segY = seg.in ? new Date(toInputDate(seg.in)).getFullYear() : 2027;
+                                  const yValid = (!isNaN(segY) && segY >= 2020 && segY <= 2100) ? segY : 2027;
+                                  const hasPrim = Object.values(primaryBase).some(b => Object.values(b || {}).some(p => p !== '' && p !== 0 && p !== null));
+                                  const hasSec = Object.values(secondaryBase).some(b => Object.values(b || {}).some(p => p !== '' && p !== 0 && p !== null));
+                                  nextSegGrids[segKey] = {
+                                    primary: hasPrim ? JSON.parse(JSON.stringify(primaryBase)) : getOfficialTariffsGrid(formData.Hotel_Asignado || "Sercotel Guadiana", yValid),
+                                    secondary: hasSec ? JSON.parse(JSON.stringify(secondaryBase)) : getOfficialTariffsGrid(secHotel, yValid)
+                                  };
+                                }
+                              });
+                            }
+                            setFormData({
+                              ...formData,
+                              splitRatesBySegment: nextSplit,
+                              segmentRatesOnlyGrids: nextSegGrids
+                            });
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 border ${
+                            formData.splitRatesBySegment
+                              ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                              : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                          }`}
+                          title="Permite indicar tarifas distintas para cada fecha/estancia de la serie en el mismo presupuesto"
+                        >
+                          <i className={`fas ${formData.splitRatesBySegment ? "fa-calendar-check" : "fa-calendar-alt"} text-[11px]`}></i>
+                          {formData.splitRatesBySegment ? "Tarifas Diferenciadas por Fecha" : "Diferenciar tarifas por fecha"}
+                        </button>
+                      )}
+
                       {((formData.hiddenGridRows || []).length > 0 || (formData.hiddenGridCols || []).length > 0) && (
                         <button
                           onClick={() => setFormData({ ...formData, hiddenGridRows: [], hiddenGridCols: [] })}
@@ -4855,6 +4901,155 @@ ${emailContent}`;
                     </div>
                   </div>
 
+                  {formData.splitRatesBySegment && formData.isMultiSegment && Array.isArray(formData.segments) && formData.segments.length > 1 ? (
+                    <div className="space-y-6">
+                      {(formData.segments || []).map((seg, segIdx) => {
+                        const segKey = String(seg.id || segIdx + 1);
+                        const segNights = seg.in && seg.out ? generateDates(seg.in, seg.out) : [];
+                        const segY = seg.in ? new Date(toInputDate(seg.in)).getFullYear() : 2027;
+                        const targetY = (!isNaN(segY) && segY >= 2020 && segY <= 2100) ? segY : 2027;
+                        const primaryHotel = formData.Hotel_Asignado || "Sercotel Guadiana";
+                        const secHotel = getAlternateHotel(primaryHotel);
+                        const segEntry = (formData.segmentRatesOnlyGrids || {})[segKey] || {};
+                        const primGrid = segEntry.primary || formData.ratesOnlyGrid || {};
+                        const secGrid = segEntry.secondary || formData.secondaryRatesOnlyGrid || {};
+                        const visibleBoards = BOARD_TYPES.filter(b => !(formData.hiddenGridRows || []).includes(b.split(' ')[0]));
+                        const primRooms = currentRooms.filter(r => !(formData.hiddenGridCols || []).includes(r));
+                        const secRooms = (ROOM_TYPES[secHotel] || ROOM_TYPES["Cumbria Spa&Hotel"] || []).filter(r => !(formData.hiddenGridCols || []).includes(r));
+
+                        const updateSegCell = (slot, boardKey, room, value) => {
+                          const allSegs = { ...(formData.segmentRatesOnlyGrids || {}) };
+                          const currSeg = { ...(allSegs[segKey] || { primary: { ...(formData.ratesOnlyGrid || {}) }, secondary: { ...(formData.secondaryRatesOnlyGrid || {}) } }) };
+                          const currGrid = { ...(currSeg[slot] || {}) };
+                          currGrid[boardKey] = { ...(currGrid[boardKey] || {}), [room]: value };
+                          currSeg[slot] = currGrid;
+                          allSegs[segKey] = currSeg;
+                          setFormData({ ...formData, segmentRatesOnlyGrids: allSegs });
+                        };
+
+                        const applyCapaSuiteForSegment = () => {
+                          if (!segNights.length) return;
+                          const discount = formData.capaSuiteDiscountPercent !== undefined ? formData.capaSuiteDiscountPercent : 10;
+                          const computeHotelGrid = (hName, hRooms) => {
+                            const out = {};
+                            visibleBoards.forEach(board => {
+                              const bKey = board.split(' ')[0];
+                              out[bKey] = {};
+                              const comps = segNights.map(d => getCapaSuiteTariffComparison(hName, d, bKey, discount));
+                              hRooms.forEach(room => {
+                                const vals = comps.map(c => c?.recommendedPricesByRoom?.[room]).filter(v => v != null && !isNaN(Number(v)));
+                                if (vals.length > 0) {
+                                  out[bKey][room] = roundRate(vals.reduce((s, v) => s + Number(v), 0) / vals.length);
+                                }
+                              });
+                            });
+                            return out;
+                          };
+                          const allSegs = { ...(formData.segmentRatesOnlyGrids || {}) };
+                          const currSeg = { ...(allSegs[segKey] || {}) };
+                          currSeg.primary = { ...(currSeg.primary || {}), ...computeHotelGrid(primaryHotel, primRooms) };
+                          if (formData.includeBothHotels) {
+                            currSeg.secondary = { ...(currSeg.secondary || {}), ...computeHotelGrid(secHotel, secRooms) };
+                          }
+                          allSegs[segKey] = currSeg;
+                          setFormData({ ...formData, segmentRatesOnlyGrids: allSegs });
+                        };
+
+                        const renderSegHotelEditor = (slot, hName, hRooms, hGrid, accent) => {
+                          const offGrid = getOfficialTariffsGrid(hName, targetY);
+                          return (
+                            <div key={slot} className="space-y-2">
+                              {formData.includeBothHotels && (
+                                <div className={`px-3 py-1.5 rounded-lg border text-[11px] font-black uppercase tracking-wider ${accent === 'blue' ? 'bg-blue-50/80 border-blue-200/70 text-blue-900' : 'bg-amber-50/80 border-amber-200/70 text-amber-900'}`}>
+                                  {hName}
+                                </div>
+                              )}
+                              <div className={`overflow-x-auto rounded-xl border ${accent === 'blue' ? 'border-blue-100' : 'border-slate-100'}`}>
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead>
+                                    <tr className={`${accent === 'blue' ? 'bg-blue-50/50 text-blue-900' : 'bg-slate-50 text-slate-500'} font-black text-[10px] uppercase tracking-widest border-b border-slate-100`}>
+                                      <th className="p-3 pl-5">Régimen</th>
+                                      {hRooms.map(room => (
+                                        <th key={room} className="p-3 text-center">{room}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {visibleBoards.map(board => {
+                                      const bKey = board.split(' ')[0];
+                                      return (
+                                        <tr key={board}>
+                                          <td className="p-3 pl-5 font-bold text-slate-700">{board}</td>
+                                          {hRooms.map(room => {
+                                            const val = hGrid?.[bKey]?.[room] ?? '';
+                                            const offVal = offGrid?.[bKey]?.[room];
+                                            return (
+                                              <td key={room} className="p-3">
+                                                <div className="relative max-w-[140px] mx-auto">
+                                                  <div className="relative">
+                                                    <input
+                                                      type="number"
+                                                      step="0.01"
+                                                      min="0"
+                                                      value={val}
+                                                      onChange={e => updateSegCell(slot, bKey, room, e.target.value)}
+                                                      placeholder="0.00"
+                                                      className="w-full pl-2 pr-6 py-1.5 rounded-lg text-xs font-black text-center outline-none bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800"
+                                                    />
+                                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">€</span>
+                                                  </div>
+                                                  {offVal != null && (
+                                                    <div className="mt-1 text-[10px] font-bold text-slate-400 text-center">
+                                                      T/grupo: {Number(offVal).toLocaleString('es-ES', { maximumFractionDigits: 2 })}€
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            );
+                                          })}
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        };
+
+                        return (
+                          <div key={segKey} className="rounded-2xl border-2 border-emerald-200/70 bg-white p-4 space-y-4 shadow-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                              <div className="flex items-center gap-2.5">
+                                <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                                  Estancia {segIdx + 1}
+                                </span>
+                                <span className="text-sm font-black text-slate-800">
+                                  {formatDate(seg.in)} → {formatDate(seg.out)}
+                                </span>
+                                <span className="text-xs font-bold text-slate-400">
+                                  ({segNights.length} {segNights.length === 1 ? 'noche' : 'noches'} · {seg.pax || 0} pax)
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={!segNights.length}
+                                onClick={applyCapaSuiteForSegment}
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs disabled:opacity-40 transition-all"
+                                title="Calcula la tarifa media recomendada de CapaSuite usando exclusivamente las noches de esta fecha"
+                              >
+                                <i className="fas fa-bolt text-amber-300"></i>
+                                Sugerida CapaSuite ({segNights.length} noches)
+                              </button>
+                            </div>
+                            {renderSegHotelEditor('primary', primaryHotel, primRooms, primGrid, 'amber')}
+                            {formData.includeBothHotels && renderSegHotelEditor('secondary', secHotel, secRooms, secGrid, 'blue')}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <>
                   {formData.includeBothHotels && (
                     <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-amber-50/70 border border-amber-200/70">
                       <span className="text-[11px] font-black uppercase tracking-wider text-amber-900">
@@ -5065,6 +5260,8 @@ ${emailContent}`;
                       </div>
                     );
                   })()}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -6524,6 +6721,34 @@ ${emailContent}`;
                                   </div>
                                 );
                               };
+
+                              if (g.splitRatesBySegment && g.isMultiSegment && Array.isArray(g.segments) && g.segments.length > 1) {
+                                return (
+                                  <div className="space-y-6 print:space-y-4">
+                                    {g.segments.map((seg, segIdx) => {
+                                      const segKey = String(seg.id || segIdx + 1);
+                                      const segEntry = (g.segmentRatesOnlyGrids || {})[segKey] || {};
+                                      const segPrimary = (segEntry.primary && Object.keys(segEntry.primary).length > 0) ? segEntry.primary : primaryGrid;
+                                      const segSecondary = (segEntry.secondary && Object.keys(segEntry.secondary).length > 0) ? segEntry.secondary : secondaryGrid;
+                                      const segNightsCount = seg.in && seg.out ? generateDates(seg.in, seg.out).length : 0;
+                                      return (
+                                        <div key={segKey} className="space-y-3 print:space-y-2 break-inside-avoid">
+                                          <div className="flex items-center justify-between px-4 py-2 print:py-1.5 rounded-xl bg-slate-800 text-white" style={{backgroundColor: '#1e293b', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'}}>
+                                            <span className="text-[11px] print:text-[9px] font-black uppercase tracking-widest">
+                                              Estancia {segIdx + 1}: {formatDate(seg.in)} - {formatDate(seg.out)}
+                                            </span>
+                                            <span className="text-[10px] print:text-[8px] font-bold text-slate-300 uppercase tracking-wider">
+                                              {segNightsCount} {segNightsCount === 1 ? 'noche' : 'noches'} · {seg.pax || 0} pax
+                                            </span>
+                                          </div>
+                                          {renderRatesTable(hotelName + '-' + segKey, isCumbria, currentRooms, segPrimary)}
+                                          {g.includeBothHotels && renderRatesTable(secHotel + '-' + segKey, secIsCumbria, secRoomsList, segSecondary)}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              }
 
                               return (
                                 <>
