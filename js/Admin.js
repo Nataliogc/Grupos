@@ -3211,7 +3211,7 @@ var Dashboard = function Dashboard(_ref) {
     className: "text-center py-12"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]"
-  }, "Nexus Gold Edition V2.5.99 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
+  }, "Nexus Gold Edition V2.5.100 \u2022 System Normal \u2022 Refreshed at", " ", new Date().toLocaleTimeString())));
 };
 var GroupsManager = function GroupsManager(_ref5) {
   var data = _ref5.data,

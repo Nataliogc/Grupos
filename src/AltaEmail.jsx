@@ -159,12 +159,88 @@
         const App = () => {
             const [emailText, setEmailText] = useState("");
             const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [extractedData, setExtractedData] = useState(null);
+            const [extractedGroups, setExtractedGroups] = useState([]);
+            const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+            const [savedBudgets, setSavedBudgets] = useState([]);
             const [saveStatus, setSaveStatus] = useState(null);
             const [validation, setValidation] = useState({});
             const [isEditMode, setIsEditMode] = useState(false);
             const [extractionMode, setExtractionMode] = useState(null);
             const [extractionNotice, setExtractionNotice] = useState(null);
+
+            const extractedData = extractedGroups[activeGroupIndex] || null;
+
+            const getGroupErrors = (data) => {
+                const errors = {};
+                if (!data) return errors;
+                if (!data["Nombre del Grupo"]) errors["Nombre del Grupo"] = true;
+                if (!data["Entrada"]) errors["Entrada"] = true;
+                if (!data["Salida"]) errors["Salida"] = true;
+                if (!data["Pax."] || Number(data["Pax."]) <= 0) errors["Pax."] = true;
+                return errors;
+            };
+
+            const setExtractedData = (newData) => {
+                if (!newData) {
+                    setExtractedGroups([]);
+                    setActiveGroupIndex(0);
+                    return;
+                }
+                setExtractedGroups(prev => {
+                    if (!prev.length) return [newData];
+                    const next = [...prev];
+                    next[activeGroupIndex] = newData;
+                    return next;
+                });
+            };
+
+            const applyExtractedGroups = (groupsList) => {
+                const list = Array.isArray(groupsList) ? groupsList.filter(Boolean) : (groupsList ? [groupsList] : []);
+                setExtractedGroups(list);
+                setActiveGroupIndex(0);
+                setSavedBudgets([]);
+                setSaveStatus(null);
+                if (list.length > 0) {
+                    setValidation(getGroupErrors(list[0]));
+                } else {
+                    setValidation({});
+                }
+            };
+
+            const selectGroupTab = (idx) => {
+                if (idx < 0 || idx >= extractedGroups.length) return;
+                setActiveGroupIndex(idx);
+                setValidation(getGroupErrors(extractedGroups[idx]));
+            };
+
+            const handleAddAnotherDate = () => {
+                if (!extractedData) return;
+                const cleanBaseName = String(extractedData["Nombre del Grupo"] || "GRUPO NUEVO")
+                    .replace(/\s*\(\d{2}\/\d{2}\s*-\s*\d{2}\/\d{2}\)\s*$/, "")
+                    .trim();
+                const clone = {
+                    ...extractedData,
+                    "Reserva": "",
+                    "Nombre del Grupo": cleanBaseName,
+                    "Entrada": "",
+                    "Salida": "",
+                    "roomCounts": { ...(extractedData.roomCounts || {}) },
+                    "dailyConfig": {}
+                };
+                const nextList = [...extractedGroups, clone];
+                setExtractedGroups(nextList);
+                setActiveGroupIndex(nextList.length - 1);
+                setValidation(getGroupErrors(clone));
+            };
+
+            const handleRemoveGroup = (idx) => {
+                if (extractedGroups.length <= 1) return;
+                const nextList = extractedGroups.filter((_, i) => i !== idx);
+                const nextIdx = Math.min(activeGroupIndex, nextList.length - 1);
+                setExtractedGroups(nextList);
+                setActiveGroupIndex(nextIdx);
+                setValidation(getGroupErrors(nextList[nextIdx]));
+            };
 
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
@@ -252,11 +328,7 @@
             };
 
             const validateData = (data) => {
-                const errors = {};
-                if (!data["Nombre del Grupo"]) errors["Nombre del Grupo"] = true;
-                if (!data["Entrada"]) errors["Entrada"] = true;
-                if (!data["Salida"]) errors["Salida"] = true;
-                if (!data["Pax."] || data["Pax."] == 0) errors["Pax."] = true;
+                const errors = getGroupErrors(data);
                 setValidation(errors);
                 return Object.keys(errors).length === 0;
             };
@@ -316,207 +388,30 @@
             // callGemini cargado desde js/gemini.js (window.callGemini)
 
             const parseEmailTextLocally = (text) => {
-                if (!text || typeof text !== 'string') text = '';
-                const clean = text.trim();
-
-                // 1. Hotel
-                let hotel = 'Sercotel Guadiana';
-                if (/cumbria/i.test(clean)) {
-                    hotel = 'Cumbria Spa & Hotel';
+                if (window.NexusEmailParser && typeof window.NexusEmailParser.parseEmailTextLocallyMulti === 'function') {
+                    return window.NexusEmailParser.parseEmailTextLocallyMulti(text);
                 }
-
-                // 2. Fechas
-                let entrada = '';
-                let salida = '';
-
-                const monthsMap = {
-                    'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04',
-                    'mayo': '05', 'junio': '06', 'julio': '07', 'agosto': '08',
-                    'septiembre': '09', 'setiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
-                };
-
-                const rangeTextMatch = clean.match(/del\s+(\d{1,2})(?:\s+de\s+([a-záéíóú]+))?\s+al\s+(\d{1,2})\s+de\s+([a-záéíóú]+)(?:\s+de\s+(\d{4}))?/i);
-                if (rangeTextMatch) {
-                    const currentYear = new Date().getFullYear();
-                    const year = rangeTextMatch[5] || String(currentYear);
-                    const mOutName = (rangeTextMatch[4] || '').toLowerCase();
-                    const mInName = (rangeTextMatch[2] || rangeTextMatch[4] || '').toLowerCase();
-                    const mOut = monthsMap[mOutName] || '01';
-                    const mIn = monthsMap[mInName] || mOut;
-                    const dIn = String(rangeTextMatch[1]).padStart(2, '0');
-                    const dOut = String(rangeTextMatch[3]).padStart(2, '0');
-                    entrada = `${year}-${mIn}-${dIn}`;
-                    salida = `${year}-${mOut}-${dOut}`;
-                }
-
-                if (!entrada) {
-                    const inMatch = clean.match(/(?:entrada|check[\s-]?in|llegada|desde|del)\s*[:=]?\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i) ||
-                                    clean.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/i);
-                    if (inMatch) {
-                        let y = inMatch[3];
-                        if (y.length === 2) y = '20' + y;
-                        const m = String(inMatch[2]).padStart(2, '0');
-                        const d = String(inMatch[1]).padStart(2, '0');
-                        entrada = `${y}-${m}-${d}`;
-                    }
-                }
-
-                if (!salida) {
-                    const outMatch = clean.match(/(?:salida|check[\s-]?out|partida|hasta|al)\s*[:=]?\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/i);
-                    if (outMatch) {
-                        let y = outMatch[3];
-                        if (y.length === 2) y = '20' + y;
-                        const m = String(outMatch[2]).padStart(2, '0');
-                        const d = String(outMatch[1]).padStart(2, '0');
-                        salida = `${y}-${m}-${d}`;
-                    } else if (entrada) {
-                        const allDates = [...clean.matchAll(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/g)];
-                        if (allDates.length >= 2) {
-                            const second = allDates[1];
-                            let y = second[3];
-                            const m = String(second[2]).padStart(2, '0');
-                            const d = String(second[1]).padStart(2, '0');
-                            salida = `${y}-${m}-${d}`;
-                        }
-                    }
-                }
-
-                // 3. Pax
-                let pax = 0;
-                const paxPrefixMatch = clean.match(/(?:pax|personas|viajeros|hu[eé]spedes|asistentes|adultos|total\s+personas)\s*[:=]\s*(\d+)/i);
-                const paxSuffixMatch = clean.match(/\b(\d{1,4})\s*(?:pax|personas|viajeros|hu[eé]spedes|asistentes|adultos)\b/i);
-                if (paxPrefixMatch) {
-                    pax = parseInt(paxPrefixMatch[1], 10);
-                } else if (paxSuffixMatch) {
-                    pax = parseInt(paxSuffixMatch[1], 10);
-                }
-
-                // 4. Régimen
-                let regimen = 'HD';
-                if (/\b(pc|pensi[oó]n\s+completa)\b/i.test(clean)) {
-                    regimen = 'PC';
-                } else if (/\b(mp|media\s+pensi[oó]n)\b/i.test(clean)) {
-                    regimen = 'MP';
-                } else if (/\b(ha|sa|solo\s+alojamiento|alojamiento\s+solo)\b/i.test(clean)) {
-                    regimen = 'HA';
-                } else if (/\b(hd|ad|desayuno|alojamiento\s+y\s+desayuno)\b/i.test(clean)) {
-                    regimen = 'HD';
-                }
-
-                // 5. Contacto
-                const emailMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-                const comEmail = emailMatch ? emailMatch[0] : '';
-
-                const phoneMatch = clean.match(/(?:tel[eé]fono|tel|m[oó]vil|tfno)?\s*[:=]?\s*(?:\+?34\s*)?([6789]\d{2}[\s.-]?\d{3}[\s.-]?\d{3}|[6789]\d{8})/i);
-                const comTel = phoneMatch ? phoneMatch[1].replace(/[\s.-]/g, '') : '';
-
-                const cifMatch = clean.match(/\b([A-HJ-NP-SUVW]\d{7}[0-9A-J]|\d{8}[A-Z])\b/i);
-                const fiscalCif = cifMatch ? cifMatch[1].toUpperCase() : '';
-
-                let comNombre = '';
-                const nombreMatch = clean.match(/(?:contacto|atentamente|un\s+saludo|saludos|remite|de)\s*[:=]\s*([^\n\r,]+)/i);
-                if (nombreMatch && !/sercotel|cumbria|hola|estimad/i.test(nombreMatch[1])) {
-                    comNombre = nombreMatch[1].trim();
-                }
-
-                let agencia = '';
-                const agenciaMatch = clean.match(/(?:agencia|empresa|de parte de)\s*[:=]\s*([^\n\r,]+)/i);
-                if (agenciaMatch) {
-                    agencia = agenciaMatch[1].trim();
-                } else if (comEmail) {
-                    const domain = comEmail.split('@')[1];
-                    if (domain && !/gmail|hotmail|yahoo|outlook/i.test(domain)) {
-                        agencia = domain.split('.')[0].toUpperCase();
-                    }
-                }
-
-                let grupoNombre = '';
-                const grupoMatch = clean.match(/nombre\s*(?:del)?\s*grupo\s*[:=]\s*([^\n\r]+)/i) ||
-                                   clean.match(/(?:grupo|asunto|subject)\s*[:=]\s*([^\n\r]+)/i);
-                if (grupoMatch) {
-                    grupoNombre = grupoMatch[1].trim().replace(/^grupo\s+/i, '').toUpperCase();
-                }
-                if (!grupoNombre) {
-                    grupoNombre = agencia ? `GRUPO ${agencia.toUpperCase()}` : 'GRUPO NUEVO';
-                }
-
-                // 6. Habitaciones
-                const roomCounts = {
-                    'DOBLE DE USO INDIVIDUAL': 0,
-                    'DOBLE': 0,
-                    'DOBLE + SUPLETORIA': 0,
-                    'DOBLE + SUPLETORIA NIÑO': 0,
-                    'CUÁDRUPLE': 0,
-                    'SUITE': 0,
-                    'SUITE SUPERIOR': 0
-                };
-
-                const duiMatch = clean.match(/(\d+)\s*(?:hab(?:itaci[oó]n|es)?\s*)?(?:dobles?\s*de\s*uso\s*individual|dui|individual(?:es)?)/i);
-                if (duiMatch) roomCounts['DOBLE DE USO INDIVIDUAL'] = parseInt(duiMatch[1], 10);
-
-                const dblMatch = clean.match(/(\d+)\s*(?:hab(?:itaci[oó]n|es)?\s*)?(?:dobles?|twin|matrimonio)/i);
-                if (dblMatch) roomCounts['DOBLE'] = parseInt(dblMatch[1], 10);
-
-                const trpNiñoMatch = clean.match(/(\d+)\s*(?:hab(?:itaci[oó]n|es)?\s*)?(?:triples?\s*con\s*ni[ñn]o|supletoria\s*ni[ñn]o)/i);
-                if (trpNiñoMatch) {
-                    roomCounts['DOBLE + SUPLETORIA NIÑO'] = parseInt(trpNiñoMatch[1], 10);
-                } else {
-                    const trpMatch = clean.match(/(\d+)\s*(?:hab(?:itaci[oó]n|es)?\s*)?(?:triples?|supletorias?|doble\s*\+\s*supletoria)/i);
-                    if (trpMatch) roomCounts['DOBLE + SUPLETORIA'] = parseInt(trpMatch[1], 10);
-                }
-
-                const cuadMatch = clean.match(/(\d+)\s*(?:hab(?:itaci[oó]n|es)?\s*)?(?:cu[aá]druples?)/i);
-                if (cuadMatch) roomCounts['CUÁDRUPLE'] = parseInt(cuadMatch[1], 10);
-
-                const suiteMatch = clean.match(/(\d+)\s*(?:hab(?:itaci[oó]n|es)?\s*)?(?:suites?)/i);
-                if (suiteMatch) roomCounts['SUITE'] = parseInt(suiteMatch[1], 10);
-
-                const habParts = [];
-                if (roomCounts['DOBLE'] > 0) habParts.push(`${roomCounts['DOBLE']} dobles`);
-                if (roomCounts['DOBLE DE USO INDIVIDUAL'] > 0) habParts.push(`${roomCounts['DOBLE DE USO INDIVIDUAL']} individuales`);
-                if (roomCounts['DOBLE + SUPLETORIA'] > 0) habParts.push(`${roomCounts['DOBLE + SUPLETORIA']} triples`);
-                if (roomCounts['DOBLE + SUPLETORIA NIÑO'] > 0) habParts.push(`${roomCounts['DOBLE + SUPLETORIA NIÑO']} triples niño`);
-                if (roomCounts['CUÁDRUPLE'] > 0) habParts.push(`${roomCounts['CUÁDRUPLE']} cuádruples`);
-                if (roomCounts['SUITE'] > 0) habParts.push(`${roomCounts['SUITE']} suites`);
-                const habitacionesResumen = habParts.join(', ') || (pax ? `${Math.ceil(pax / 2)} dobles aprox.` : '');
-
-                if (!pax) {
-                    const calcPax = (roomCounts['DOBLE'] * 2) +
-                                    (roomCounts['DOBLE DE USO INDIVIDUAL'] * 1) +
-                                    (roomCounts['DOBLE + SUPLETORIA'] * 3) +
-                                    (roomCounts['DOBLE + SUPLETORIA NIÑO'] * 3) +
-                                    (roomCounts['CUÁDRUPLE'] * 4) +
-                                    (roomCounts['SUITE'] * 2);
-                    if (calcPax > 0) pax = calcPax;
-                }
-
-                let importe = 0;
-                const precioMatch = clean.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:€|euros?)/i);
-                if (precioMatch) {
-                    importe = parseFloat(precioMatch[1].replace(',', '.'));
-                }
-
-                return {
-                    'Nombre del Grupo': grupoNombre,
-                    'Entrada': entrada,
-                    'Salida': salida,
-                    'Pax.': pax || 0,
-                    'Empresa/Agencia': agencia,
-                    'Régimen': regimen,
-                    'Habitaciones': habitacionesResumen,
-                    'roomCounts': roomCounts,
-                    'Hotel': hotel,
-                    'Observaciones': clean,
-                    'Com_Nombre_Contacto': comNombre,
-                    'Com_Email_Contacto': comEmail,
-                    'Com_Telefono_Contacto': comTel,
-                    'Fiscal_RazonSocial': agencia,
-                    'Fiscal_CIF': fiscalCif,
+                return [{
+                    'Nombre del Grupo': 'GRUPO NUEVO',
+                    'Entrada': '',
+                    'Salida': '',
+                    'Pax.': 0,
+                    'Empresa/Agencia': '',
+                    'Régimen': 'HD',
+                    'Habitaciones': '',
+                    'roomCounts': {},
+                    'Hotel': 'Sercotel Guadiana',
+                    'Observaciones': String(text || '').trim(),
+                    'Com_Nombre_Contacto': '',
+                    'Com_Email_Contacto': '',
+                    'Com_Telefono_Contacto': '',
+                    'Fiscal_RazonSocial': '',
+                    'Fiscal_CIF': '',
                     'Fiscal_Direccion': '',
                     'Fiscal_CP': '',
                     'Fiscal_Poblacion': '',
-                    'Importe(*)': importe
-                };
+                    'Importe(*)': 0
+                }];
             };
 
             const handleLocalExtract = () => {
@@ -524,9 +419,8 @@
                 setIsAnalyzing(true);
                 setExtractionNotice(null);
                 try {
-                    const parsed = parseEmailTextLocally(emailText);
-                    setExtractedData(parsed);
-                    validateData(parsed);
+                    const parsedList = parseEmailTextLocally(emailText);
+                    applyExtractedGroups(parsedList);
                     setExtractionMode('local');
                 } catch (err) {
                     alert("Error en la extracción local: " + err.message);
@@ -540,23 +434,27 @@
                 setIsAnalyzing(true);
                 setExtractionNotice(null);
 
+                const todayIso = new Date().toISOString().split("T")[0];
                 const prompt = `Analiza el siguiente texto de un correo electrónico de reserva de grupo y extrae la información en formato JSON estrictamente.
-                Campos requeridos (usa estos nombres exactos, si no encuentras el dato devuelve un string vacío ""):
-                - "Nombre del Grupo": nombre identificativo corto (ej. ADULTOS, JUBILADOS).
+                Fecha actual de referencia: ${todayIso}. Si una fecha no indica año y ya ha pasado en el año actual, usa el año siguiente.
+                IMPORTANTE: Si el correo solicita cotización para VARIAS FECHAS DISTINTAS o VARIOS GRUPOS (por ejemplo "Del 19 al 21 de marzo" y "Del 15 al 17 de mayo"), devuelve un objeto JSON con la clave "grupos" que contenga un array con UN objeto por cada fecha/grupo distinto: {"grupos": [{...}, {...}]}. Si solo hay una fecha/grupo, puedes devolver un objeto único o {"grupos": [{...}]}.
+
+                Campos requeridos en cada grupo (usa estos nombres exactos, si no encuentras el dato devuelve un string vacío ""):
+                - "Nombre del Grupo": nombre identificativo corto (ej. GALEGRÍA VIAJES (19/03 - 21/03)).
                 - "Entrada": fecha en formato YYYY-MM-DD.
                 - "Salida": fecha en formato YYYY-MM-DD.
-                - "Pax.": número total de personas (entero).
+                - "Pax.": número total de personas/pasajeros (entero).
                 - "Empresa/Agencia": nombre de la empresa o agencia.
                 - "Régimen": (HA, HD, MP, PC).
-                - "Habitaciones": resumen en texto de la distribución solicitada (ej. 10 dobles, 5 triples).
+                - "Habitaciones": resumen en texto de la distribución solicitada (ej. 23 dobles, 6 individuales).
                 - "roomCounts": objeto JSON con el desglose numérico por tipo de habitación. USA ESTOS TIPOS SEGÚN EL HOTEL SI SE IDENTIFICA (si no, usa los de Sercotel Guadiana):
                   * Sercotel Guadiana: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "DOBLE + SUPLETORIA NIÑO": 0, "CUÁDRUPLE": 0, "SUITE": 0, "SUITE SUPERIOR": 0}
                   * Cumbria Spa & Hotel: {"DOBLE DE USO INDIVIDUAL": 0, "DOBLE": 0, "DOBLE + SUPLETORIA": 0, "DOBLE + SUPLETORIA NIÑO": 0, "SUITE": 0}
-                  Extrae SOLO los números que encuentres. Si mencionan niños en supletorias o triples con niños, usa "DOBLE + SUPLETORIA NIÑO".
+                  Extrae SOLO los números que encuentres. Si mencionan niños en supletorias o triples con niños, usa "DOBLE + SUPLETORIA NIÑO". Si mencionan chófer y/o guía en single/individual, inclúyelos en "DOBLE DE USO INDIVIDUAL".
                 - "Importe(*)": precio unitario o total si se menciona, si no 0.
                 - "Hotel": "Sercotel Guadiana" o "Cumbria Spa & Hotel" si se menciona o deduce.
                 - "Observaciones": copia TODO el texto relevante del correo original que explique peticiones.
-                - "Com_Nombre_Contacto": nombre del remitente.
+                - "Com_Nombre_Contacto": nombre del remitente o departamento.
                 - "Com_Email_Contacto": email del remitente.
                 - "Com_Telefono_Contacto": teléfono.
                 - "Fiscal_RazonSocial": datos fiscales si aparecen.
@@ -577,8 +475,10 @@
                     if (aiResult && aiResult.ok && aiResult.text) {
                         const cleanJson = aiResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
                         const parsed = JSON.parse(cleanJson);
-                        setExtractedData(parsed);
-                        validateData(parsed);
+                        const normalizedList = (window.NexusEmailParser && typeof window.NexusEmailParser.normalizeAiExtractionResponse === 'function')
+                            ? window.NexusEmailParser.normalizeAiExtractionResponse(parsed, emailText)
+                            : (Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.grupos) ? parsed.grupos : [parsed]));
+                        applyExtractedGroups(normalizedList);
                         setExtractionMode('ai');
                         setExtractionNotice(null);
                     } else {
@@ -593,9 +493,8 @@
                 if (aiFailed) {
                     console.warn("[AltaEmail] Fallo en Gemini (" + aiErrorMessage + "). Activando extractor inteligente local...");
                     try {
-                        const localParsed = parseEmailTextLocally(emailText);
-                        setExtractedData(localParsed);
-                        validateData(localParsed);
+                        const localParsedList = parseEmailTextLocally(emailText);
+                        applyExtractedGroups(localParsedList);
                         setExtractionMode('local');
                         setExtractionNotice("La IA de Google no respondió (" + aiErrorMessage + "). Se han extraído los datos automáticamente con el analizador local de respaldo.");
                     } catch (fallbackErr) {
@@ -607,76 +506,103 @@
             };
 
             const handleSave = async () => {
-                if (!extractedData) return;
+                if (!extractedGroups.length) return;
 
-                // Validate before save
-                const isValid = validateData(extractedData);
-                if (!isValid) {
-                    return;
-                }
-
-                // Validation: Mandatory Hotel
-                const hotelAsignado = String(extractedData.Hotel || "Sercotel Guadiana");
-                if (!hotelAsignado || hotelAsignado.toLowerCase().includes("pend") || hotelAsignado.trim() === "") {
-                    alert("⚠️ Error de Integridad: Debe asignar un hotel válido. No se permiten registros 'Pendientes'.");
-                    return;
+                // Validate all groups before save
+                for (let i = 0; i < extractedGroups.length; i++) {
+                    const errs = getGroupErrors(extractedGroups[i]);
+                    if (Object.keys(errs).length > 0) {
+                        setActiveGroupIndex(i);
+                        setValidation(errs);
+                        return;
+                    }
+                    const hotelCheck = String(extractedGroups[i].Hotel || "Sercotel Guadiana");
+                    if (!hotelCheck || hotelCheck.toLowerCase().includes("pend") || hotelCheck.trim() === "") {
+                        setActiveGroupIndex(i);
+                        alert("⚠️ Error de Integridad: Debe asignar un hotel válido en el Grupo " + (i + 1) + ". No se permiten registros 'Pendientes'.");
+                        return;
+                    }
                 }
 
                 setSaveStatus('saving');
                 try {
-                    const rawReservaId = extractedData.Reserva || `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
-                    const reservaId = String(rawReservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
-
-                    const entrada = String(extractedData["Entrada"] || "");
-                    let releaseDate = extractedData.Com_Vencimiento_Rel || "";
-                    if (!releaseDate && entrada) {
-                        const d = new Date(entrada);
-                        if (!isNaN(d.getTime())) {
-                            d.setDate(d.getDate() - 15);
-                            releaseDate = d.toISOString().split("T")[0];
-                        }
-                    }
-
                     const now = new Date();
                     const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    const usedIds = new Set();
+                    const createdList = [];
 
-                    const groupToSave = {
-                        "Nombre del Grupo": String(extractedData["Nombre del Grupo"] || "Sin Nombre").toUpperCase(),
-                        "Entrada": entrada,
-                        "Salida": String(extractedData["Salida"] || ""),
-                        "Pax.": String(extractedData["Pax."] || "0"),
-                        "Habitaciones": String(extractedData["Habitaciones"] || ""),
-                        "roomCounts": extractedData.roomCounts || {},
-                        "Empresa/Agencia": String(extractedData["Empresa/Agencia"] || ""),
-                        "Régimen": String(extractedData["Régimen"] || "HD"),
-                        "Importe(*)": String(calculateTotal(extractedData) || "0"),
-                        "Reserva": reservaId,
-                        "Estado": "Presupuesto",
-                        "Com_Estado_Interno": extractedData.Com_Estado_Interno || "PRESUPUESTO",
-                        "Segment.": extractedData["Segment."] || "GRUPOS",
-                        "Hotel_Asignado": hotelAsignado,
-                        "Com_Notas": String(extractedData.Observaciones || ""),
-                        "Com_Vencimiento_Rel": releaseDate,
-                        "Com_Nombre_Contacto": String(extractedData.Com_Nombre_Contacto || ""),
-                        "Com_Email_Contacto": String(extractedData.Com_Email_Contacto || ""),
-                        "Com_Telefono_Contacto": String(extractedData.Com_Telefono_Contacto || ""),
-                        "Fiscal_RazonSocial": String(extractedData.Fiscal_RazonSocial || ""),
-                        "Fiscal_CIF": String(extractedData.Fiscal_CIF || ""),
-                        "Fiscal_Direccion": String(extractedData.Fiscal_Direccion || ""),
-                        "Fiscal_CP": String(extractedData.Fiscal_CP || ""),
-                        "Fiscal_Poblacion": String(extractedData.Fiscal_Poblacion || ""),
-                        "Com_Comercial": extractedData.Com_Comercial || "",
-                        "tracking": extractedData.tracking || [{ id: Date.now(), date: formattedDate, text: "Alta Inteligente por Email (Escáner IA)." }],
-                        "dailyConfig": extractedData.dailyConfig || {},
-                        "RoomingList_JSON": JSON.stringify(buildRoomingList({ ...extractedData, Hotel_Asignado: hotelAsignado }, "")),
-                        "createdAt": extractedData.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
-                        "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
-                    };
+                    for (let idx = 0; idx < extractedGroups.length; idx++) {
+                        const item = extractedGroups[idx];
+                        const hotelAsignado = String(item.Hotel || "Sercotel Guadiana");
+                        let rawReservaId = item.Reserva;
+                        if (!rawReservaId) {
+                            do {
+                                rawReservaId = `PRES-${Math.floor(100000 + Math.random() * 900000)}`;
+                            } while (usedIds.has(rawReservaId));
+                        }
+                        const reservaId = String(rawReservaId).trim().replace(/\.0$/, "").replace(/[\/\\]/g, "-");
+                        usedIds.add(reservaId);
 
-                    await db.collection("groups").doc(reservaId).set(groupToSave, { merge: true });
+                        const entrada = String(item["Entrada"] || "");
+                        let releaseDate = item.Com_Vencimiento_Rel || "";
+                        if (!releaseDate && entrada) {
+                            const d = new Date(entrada);
+                            if (!isNaN(d.getTime())) {
+                                d.setDate(d.getDate() - 15);
+                                releaseDate = d.toISOString().split("T")[0];
+                            }
+                        }
+
+                        const groupToSave = {
+                            "Nombre del Grupo": String(item["Nombre del Grupo"] || "Sin Nombre").toUpperCase(),
+                            "Entrada": entrada,
+                            "Salida": String(item["Salida"] || ""),
+                            "Pax.": String(item["Pax."] || "0"),
+                            "Habitaciones": String(item["Habitaciones"] || ""),
+                            "roomCounts": item.roomCounts || {},
+                            "Empresa/Agencia": String(item["Empresa/Agencia"] || ""),
+                            "Régimen": String(item["Régimen"] || "HD"),
+                            "Importe(*)": String(calculateTotal(item) || "0"),
+                            "Reserva": reservaId,
+                            "Estado": "Presupuesto",
+                            "Com_Estado_Interno": item.Com_Estado_Interno || "PRESUPUESTO",
+                            "Segment.": item["Segment."] || "GRUPOS",
+                            "Hotel_Asignado": hotelAsignado,
+                            "Com_Notas": String(item.Observaciones || ""),
+                            "Com_Vencimiento_Rel": releaseDate,
+                            "Com_Nombre_Contacto": String(item.Com_Nombre_Contacto || ""),
+                            "Com_Email_Contacto": String(item.Com_Email_Contacto || ""),
+                            "Com_Telefono_Contacto": String(item.Com_Telefono_Contacto || ""),
+                            "Fiscal_RazonSocial": String(item.Fiscal_RazonSocial || ""),
+                            "Fiscal_CIF": String(item.Fiscal_CIF || ""),
+                            "Fiscal_Direccion": String(item.Fiscal_Direccion || ""),
+                            "Fiscal_CP": String(item.Fiscal_CP || ""),
+                            "Fiscal_Poblacion": String(item.Fiscal_Poblacion || ""),
+                            "Com_Comercial": item.Com_Comercial || "",
+                            "tracking": item.tracking || [{ id: Date.now() + idx, date: formattedDate, text: "Alta Inteligente por Email (Escáner IA)." }],
+                            "dailyConfig": item.dailyConfig || {},
+                            "RoomingList_JSON": JSON.stringify(buildRoomingList({ ...item, Hotel_Asignado: hotelAsignado }, "")),
+                            "createdAt": item.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+                            "updatedAt": firebase.firestore.FieldValue.serverTimestamp()
+                        };
+
+                        await db.collection("groups").doc(reservaId).set(groupToSave, { merge: true });
+                        createdList.push({
+                            reservaId,
+                            nombre: groupToSave["Nombre del Grupo"],
+                            entrada: groupToSave["Entrada"],
+                            salida: groupToSave["Salida"],
+                            pax: groupToSave["Pax."],
+                            hotel: hotelAsignado
+                        });
+                    }
+
+                    setSavedBudgets(createdList);
                     setSaveStatus('success');
 
-                    setTimeout(() => window.location.href = 'Presupuestos.html?id=' + reservaId + '&edit=1', 1200);
+                    if (createdList.length === 1) {
+                        setTimeout(() => window.location.href = 'Presupuestos.html?id=' + createdList[0].reservaId + '&edit=1', 1200);
+                    }
                 } catch (e) {
                     console.error(e);
                     alert("Error al guardar: " + e.message);
@@ -847,8 +773,7 @@
                                                 <button
                                                     onClick={() => {
                                                         const dummy = { "Nombre del Grupo": "", "Entrada": "", "Salida": "", "Pax.": "", "Habitaciones": "", "Régimen": "HD", "Hotel": "Sercotel Guadiana", "Empresa/Agencia": "", "Observaciones": "" };
-                                                        setExtractedData(dummy);
-                                                        validateData(dummy);
+                                                        applyExtractedGroups([dummy]);
                                                     }}
                                                     className="px-8 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase hover:bg-slate-50 transition-all shadow-sm"
                                                 >
@@ -915,6 +840,104 @@
                                                 </div>
                                             </div>
 
+                                            {/* Multi-Date / Multi-Group Selector Bar */}
+                                            {extractedGroups.length > 1 && (
+                                                <div className="bg-indigo-50/90 border-b border-indigo-200 px-6 py-4 shrink-0">
+                                                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                                                                <LucideIcon name="calendar" size={16} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                                                                    {extractedGroups.length} fechas / grupos detectados en el correo
+                                                                </p>
+                                                                <p className="text-[11px] font-medium text-indigo-700">
+                                                                    Revisa cada pestaña antes de guardar. Se generará un presupuesto independiente por cada fecha.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        {!isEditMode && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleAddAnotherDate}
+                                                                className="px-3 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all"
+                                                            >
+                                                                <LucideIcon name="plus" size={12} />
+                                                                Añadir otra fecha
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {extractedGroups.map((grp, idx) => {
+                                                            const errsCount = Object.keys(getGroupErrors(grp)).length;
+                                                            const isActive = idx === activeGroupIndex;
+                                                            const dateLabel = grp.Entrada && grp.Salida
+                                                                ? `${formatDate(grp.Entrada)} → ${formatDate(grp.Salida)}`
+                                                                : (grp.Entrada ? formatDate(grp.Entrada) : 'Sin fechas');
+                                                            return (
+                                                                <div
+                                                                    key={idx}
+                                                                    onClick={() => selectGroupTab(idx)}
+                                                                    className={`cursor-pointer px-3.5 py-2 rounded-xl border-2 transition-all flex items-center gap-2.5 ${
+                                                                        isActive
+                                                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                                                            : 'bg-white border-indigo-200 text-slate-700 hover:border-indigo-400'
+                                                                    }`}
+                                                                >
+                                                                    <span className={`w-2 h-2 rounded-full shrink-0 ${errsCount === 0 ? (isActive ? 'bg-emerald-300' : 'bg-emerald-500') : 'bg-amber-400 animate-pulse'}`}></span>
+                                                                    <div className="text-left">
+                                                                        <p className={`text-[10px] font-black uppercase tracking-wider leading-tight ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                                                            Grupo {idx + 1} · {grp["Pax."] || 0} Pax
+                                                                        </p>
+                                                                        <p className={`text-xs font-black leading-tight mt-0.5 ${isActive ? 'text-white' : 'text-slate-800'}`}>
+                                                                            {dateLabel}
+                                                                        </p>
+                                                                    </div>
+                                                                    {extractedGroups.length > 1 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => { e.stopPropagation(); handleRemoveGroup(idx); }}
+                                                                            title="Eliminar esta fecha"
+                                                                            className={`ml-1 p-1 rounded-lg transition-colors ${
+                                                                                isActive ? 'hover:bg-white/20 text-indigo-100' : 'hover:bg-red-50 text-slate-400 hover:text-red-500'
+                                                                            }`}
+                                                                        >
+                                                                            <LucideIcon name="x" size={12} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Multi-Budget Saved Success Banner */}
+                                            {saveStatus === "success" && savedBudgets.length > 1 && (
+                                                <div className="bg-emerald-50 border-b border-emerald-200 px-6 py-4 shrink-0">
+                                                    <div className="flex items-center gap-2.5 mb-3">
+                                                        <LucideIcon name="check-circle" size={18} className="text-emerald-600" />
+                                                        <p className="text-xs font-black text-emerald-900 uppercase tracking-wider">
+                                                            ¡Se han creado {savedBudgets.length} presupuestos independientes!
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {savedBudgets.map(b => (
+                                                            <a
+                                                                key={b.reservaId}
+                                                                href={`Presupuestos.html?id=${encodeURIComponent(b.reservaId)}&edit=1`}
+                                                                className="px-3.5 py-2 bg-white border border-emerald-300 hover:bg-emerald-600 hover:text-white text-emerald-900 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+                                                            >
+                                                                <span className="font-black">{b.reservaId}</span>
+                                                                <span className="opacity-75">({formatDate(b.entrada)} → {formatDate(b.salida)})</span>
+                                                                <LucideIcon name="external-link" size={12} />
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {/* Scrollable Form Area */}
                                             <div className="flex-1 overflow-y-auto py-8 px-6 md:px-10 lg:px-14">
                                                 <div className="w-full max-w-4xl mx-auto space-y-10">
@@ -954,12 +977,25 @@
                                                             </div>
                                                             <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold font-outfit">Confirma los datos para generar el presupuesto</p>
                                                         </div>
-                                                        {Object.keys(validation).length > 0 && (
-                                                            <div className="px-4 py-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center gap-3 animate-pulse">
-                                                                <LucideIcon name="alert-triangle" size={16} className="text-amber-500" />
-                                                                <span className="text-[10px] font-black uppercase text-amber-700 tracking-wider font-outfit">{Object.keys(validation).length} pendientes</span>
-                                                            </div>
-                                                        )}
+                                                        <div className="flex items-center gap-2">
+                                                            {!isEditMode && extractedGroups.length === 1 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleAddAnotherDate}
+                                                                    className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                                                                    title="Añadir otra fecha para crear un presupuesto adicional con los mismos datos base"
+                                                                >
+                                                                    <LucideIcon name="plus" size={12} />
+                                                                    Añadir otra fecha
+                                                                </button>
+                                                            )}
+                                                            {Object.keys(validation).length > 0 && (
+                                                                <div className="px-4 py-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center gap-3 animate-pulse">
+                                                                    <LucideIcon name="alert-triangle" size={16} className="text-amber-500" />
+                                                                    <span className="text-[10px] font-black uppercase text-amber-700 tracking-wider font-outfit">{Object.keys(validation).length} pendientes</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
 
                                                     {/* Row: Status Selector (NEW) */}
@@ -1285,13 +1321,13 @@
                                                     onClick={handleSave}
                                                     disabled={
                                                         saveStatus === "saving" ||
-                                                        Object.keys(validation).length > 0
+                                                        extractedGroups.some(g => Object.keys(getGroupErrors(g)).length > 0)
                                                     }
                                                     className={`px-12 py-5 rounded-[2rem] font-black text-[11px] tracking-[0.1em] shadow-2xl transition-all duration-300 transform active:scale-95 ${saveStatus === "success"
                                                         ? "bg-emerald-500 text-white"
                                                         : saveStatus === "saving"
                                                             ? "bg-[#0f172a] text-white/50 cursor-wait opacity-80"
-                                                            : Object.keys(validation).length > 0
+                                                            : extractedGroups.some(g => Object.keys(getGroupErrors(g)).length > 0)
                                                                 ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none"
                                                                 : "bg-[#0f172a] text-white hover:bg-[#1e293b] hover:translate-y-[-2px] hover:shadow-indigo-500/20"
                                                         }`}
@@ -1299,7 +1335,7 @@
                                                     {saveStatus === "success" ? (
                                                         <div className="flex items-center gap-3">
                                                             <LucideIcon name="check-circle" size={16} />
-                                                            <span>¡COTIZACIÓN GUARDADA!</span>
+                                                            <span>{savedBudgets.length > 1 ? `¡${savedBudgets.length} COTIZACIONES GUARDADAS!` : "¡COTIZACIÓN GUARDADA!"}</span>
                                                         </div>
                                                     ) : saveStatus === "saving" ? (
                                                         <div className="flex items-center gap-3">
@@ -1307,7 +1343,11 @@
                                                             <span>PROCESANDO...</span>
                                                         </div>
                                                     ) : (
-                                                        <span>CONFIRMAR Y GUARDAR COTIZACIÓN</span>
+                                                        <span>
+                                                            {extractedGroups.length > 1
+                                                                ? `CONFIRMAR Y GUARDAR LAS ${extractedGroups.length} COTIZACIONES`
+                                                                : "CONFIRMAR Y GUARDAR COTIZACIÓN"}
+                                                        </span>
                                                     )}
                                                 </button>
                                             </div>
